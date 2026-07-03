@@ -28,12 +28,37 @@ class WorkLocationForm
                     ->required(),
                 Select::make('type')
                     ->options([
-            'office' => 'Office',
-            'client' => 'Client',
-            'project' => 'Project',
-            'warehouse' => 'Warehouse',
-            'other' => 'Other',
-        ])
+                        'office' => 'Office',
+                        'client' => 'Client',
+                        'project' => 'Project',
+                        'warehouse' => 'Warehouse',
+                        'other' => 'Other',
+                    ])
+                    ->required(),
+                TextInput::make('region')
+                    ->maxLength(255),
+                TextInput::make('area')
+                    ->maxLength(255),
+                TextInput::make('sub_area')
+                    ->maxLength(255),
+                TextInput::make('channel')
+                    ->maxLength(255),
+                TextInput::make('account')
+                    ->maxLength(255),
+                Select::make('timezone')
+                    ->options([
+                        'Asia/Jakarta' => 'WIB (Asia/Jakarta)',
+                        'Asia/Makassar' => 'WITA (Asia/Makassar)',
+                        'Asia/Jayapura' => 'WIT (Asia/Jayapura)',
+                    ])
+                    ->default('Asia/Jakarta'),
+                Select::make('status')
+                    ->options([
+                        'pending' => 'Pending Approval',
+                        'active' => 'Active',
+                        'inactive' => 'Inactive',
+                    ])
+                    ->default('active')
                     ->required(),
                 Textarea::make('address')
                     ->columnSpanFull(),

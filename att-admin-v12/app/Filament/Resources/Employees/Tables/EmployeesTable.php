@@ -95,6 +95,22 @@ class EmployeesTable
             ])
             ->recordActions([
                 EditAction::make(),
+                \Filament\Tables\Actions\Action::make('reset_device')
+                    ->label('Reset Device')
+                    ->icon('heroicon-o-device-phone-mobile')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->action(function (\App\Models\Employee $record) {
+                        $record->update([
+                            'device_id' => null,
+                            'device_name' => null,
+                        ]);
+                        \Filament\Notifications\Notification::make()
+                            ->title('Device Reset Successfully')
+                            ->success()
+                            ->send();
+                    })
+                    ->visible(fn (\App\Models\Employee $record) => !empty($record->device_id)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

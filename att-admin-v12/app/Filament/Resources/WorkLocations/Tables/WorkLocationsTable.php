@@ -25,6 +25,22 @@ class WorkLocationsTable
                     ->searchable(),
                 TextColumn::make('type')
                     ->badge(),
+                TextColumn::make('region')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('area')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('channel')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'pending' => 'warning',
+                        'active' => 'success',
+                        'inactive' => 'danger',
+                    }),
                 TextColumn::make('latitude')
                     ->numeric()
                     ->sortable(),
