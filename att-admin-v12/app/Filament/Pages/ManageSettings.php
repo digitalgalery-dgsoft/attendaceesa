@@ -53,7 +53,33 @@ class ManageSettings extends Page implements HasForms
                             ->label('Application Logo')
                             ->image()
                             ->directory('logos'),
-                    ])->columns(1)
+                    ])->columns(1),
+                Section::make('Pengaturan Foto Wajib')
+                    ->components([
+                        \Filament\Forms\Components\Toggle::make('require_checkin_photo')
+                            ->label('Check-In Photo (Mandatory)')
+                            ->default(true),
+                        \Filament\Forms\Components\Toggle::make('require_checkout_photo')
+                            ->label('Check-Out Photo (Mandatory)')
+                            ->default(true),
+                        \Filament\Forms\Components\Toggle::make('require_visit_photo')
+                            ->label('Visit Photo (Mandatory)')
+                            ->default(true),
+                    ])->columns(3),
+                Section::make('Konfigurasi Principle & Jarak')
+                    ->components([
+                        \Filament\Forms\Components\Toggle::make('use_roster_principle')
+                            ->label('Gunakan Roster Principle')
+                            ->default(false),
+                        \Filament\Forms\Components\Toggle::make('lock_roster')
+                            ->label('Lock Roster (Wajib Punya Plan Check-In)')
+                            ->default(true),
+                        TextInput::make('global_distance_lock')
+                            ->label('Distance Lock Global (Radius Meter)')
+                            ->numeric()
+                            ->default(50)
+                            ->required(),
+                    ])->columns(3),
             ])
             ->statePath('data');
     }

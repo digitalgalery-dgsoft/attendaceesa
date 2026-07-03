@@ -68,6 +68,8 @@ class AttendancesTable
                 EditAction::make(),
             ])
             ->toolbarActions([
+                \Filament\Actions\ExportAction::make()
+                    ->exporter(\App\Filament\Exports\AttendanceExporter::class),
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

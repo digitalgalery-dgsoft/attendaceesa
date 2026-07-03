@@ -41,6 +41,8 @@ class ItinerariesTable
                 EditAction::make(),
             ])
             ->toolbarActions([
+                \Filament\Actions\ExportAction::make()
+                    ->exporter(\App\Filament\Exports\ItineraryExporter::class),
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
