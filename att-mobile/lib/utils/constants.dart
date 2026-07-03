@@ -1,0 +1,4 @@
+class Constants {
+  // Use 10.0.2.2 for Android Emulator, 127.0.0.1 for iOS Simulator/Desktop, or your machine's IP for physical devices.
+  static const String baseUrl = 'http://127.0.0.1:8000/api';
+}

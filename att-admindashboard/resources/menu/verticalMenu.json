@@ -1,0 +1,25 @@
+{
+    "menu": [
+        {
+            "name": "Dashboards",
+            "icon": "menu-icon tf-icons ti ti-smart-home",
+            "slug": "dashboard",
+            "url": "\/"
+        },
+        {
+            "menuHeader": "Master Data"
+        },
+        {
+            "url": "\/branches",
+            "name": "Branches",
+            "icon": "menu-icon tf-icons ti ti-map-pin",
+            "slug": "branches-index"
+        },
+        {
+            "url": "\/employees",
+            "name": "Employees",
+            "icon": "menu-icon tf-icons ti ti-users",
+            "slug": "employees-index"
+        }
+    ]
+}
