@@ -26,89 +26,16 @@ class BranchForm
                     ->dehydrated()
                     ->required()
                     ->unique(ignoreRecord: true),
-                Textarea::make('address')
-                    ->columnSpanFull(),
-                Select::make('search_address')
-                    ->label('Search Location')
-                    ->columnSpanFull()
-                    ->searchable()
-                    ->getSearchResultsUsing(function (string $search): array {
-                        if (blank($search)) {
-                            return [];
-                        }
-                        
-                        $response = Http::withHeaders([
-                            'User-Agent' => 'AttendanceApp/1.0'
-                        ])->get('https://nominatim.openstreetmap.org/search', [
-                            'format' => 'json',
-                            'q' => $search,
-                            'limit' => 5,
-                        ]);
-                        
-                        if ($response->successful()) {
-                            return collect($response->json())
-                                ->mapWithKeys(function ($item) {
-                                    return [$item['lat'] . ',' . $item['lon'] => $item['display_name']];
-                                })
-                                ->toArray();
-                        }
-                        
-                        return [];
-                    })
-                    ->getOptionLabelUsing(fn ($value): ?string => $value)
-                    ->live()
-                    ->afterStateUpdated(function ($state, $set, \Livewire\Component $livewire) {
-                        if (blank($state)) return;
-                        
-                        $coords = explode(',', $state);
-                        if (count($coords) === 2) {
-                            $lat = (float) $coords[0];
-                            $lng = (float) $coords[1];
-                            $set('latitude', $lat);
-                            $set('longitude', $lng);
-                            $set('location', ['lat' => $lat, 'lng' => $lng]);
-                            
-                            $livewire->dispatch('refreshMap');
-                        }
-                    })
-                    ->dehydrated(false),
-                TextInput::make('latitude')
-                    ->required()
-                    ->numeric()
-                    ->readOnly(),
-                TextInput::make('longitude')
-                    ->required()
-                    ->numeric()
-                    ->readOnly(),
-                Map::make('location')
-                    ->label('Location Map')
-                    ->columnSpanFull()
-                    ->afterStateUpdated(function ($set, ?array $state): void {
-                        if (isset($state['lat']) && isset($state['lng'])) {
-                            $set('latitude', $state['lat']);
-                            $set('longitude', $state['lng']);
-                        }
-                    })
-                    ->afterStateHydrated(function ($state, $record, $set): void {
-                        if ($record && $record->latitude && $record->longitude) {
-                            $set('location', ['lat' => $record->latitude, 'lng' => $record->longitude]);
-                        }
-                    })
-                    ->live(onBlur: true)
-                    ->showMarker()
-                    ->markerColor("#22c55e")
-                    ->showFullscreenControl()
-                    ->showZoomControl()
-                    ->draggable()
-                    ->clickable(true)
-                    ->defaultLocation(-7.2504, 112.7688)
-                    ->tilesUrl("https://tile.openstreetmap.de/{z}/{x}/{y}.png")
-                    ->zoom(15)
-                    ->showMyLocationButton(),
-                TextInput::make('radius_meter')
-                    ->required()
-                    ->numeric()
-                    ->default(100),
+                Select::make('region')
+                    ->options([
+                        'Region 1' => 'Region 1',
+                        'Region 2' => 'Region 2',
+                        'Region 3' => 'Region 3',
+                        'Region 4' => 'Region 4',
+                        'Region 5' => 'Region 5',
+                        'Region 6' => 'Region 6',
+                        'Region 7' => 'Region 7',
+                    ]),
                 Toggle::make('is_active')
                     ->required(),
             ]);

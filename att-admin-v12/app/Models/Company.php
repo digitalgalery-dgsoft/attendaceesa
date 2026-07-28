@@ -14,4 +14,14 @@ class Company extends Model
     protected $casts = [
         'settings' => 'array',
     ];
+
+    public function departments()
+    {
+        return $this->belongsToMany(Department::class, 'company_department');
+    }
+
+    public function principals()
+    {
+        return $this->hasMany(Principal::class);
+    }
 }

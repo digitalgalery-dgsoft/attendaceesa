@@ -14,8 +14,9 @@ class DepartmentForm
     {
         return $schema
             ->components([
-                Select::make('company_id')
-                    ->relationship('company', 'name')
+                Select::make('companies')
+                    ->relationship('companies', 'name')
+                    ->multiple()
                     ->required(),
                 TextInput::make('name')
                     ->required(),
@@ -30,6 +31,9 @@ class DepartmentForm
                     ->label('Parent Department'),
                 Toggle::make('is_active')
                     ->default(true),
+                Toggle::make('has_sales_reporting')
+                    ->label('Enable Sales Reporting Module')
+                    ->default(false),
                 CheckboxList::make('working_days')
                     ->options([
                         '1' => 'Monday',

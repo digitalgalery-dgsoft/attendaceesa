@@ -16,16 +16,23 @@ class Department extends Model
         'parent_id',
         'is_active',
         'working_days',
+        'has_sales_reporting',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'working_days' => 'array',
+        'has_sales_reporting' => 'boolean',
     ];
 
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function companies()
+    {
+        return $this->belongsToMany(Company::class, 'company_department');
     }
 
     public function parent()

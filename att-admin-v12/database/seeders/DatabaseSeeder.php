@@ -20,16 +20,22 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // 0. Seed Permissions
+        $this->call(PermissionsSeeder::class);
+
         // 1. Create Admin User for Filament
-        User::updateOrCreate(
+        $adminUser = User::updateOrCreate(
             ['email' => 'admin@admin.com'],
             [
                 'name' => 'Super Admin',
-                'password' => Hash::make('password'), // password
+                'password' => Hash::make('password'),
             ]
         );
 
-        // 2. Create Company & Branch
+        $superAdminRole = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'web']);
+        $adminUser->assignRole($superAdminRole);
+
+        // 2. Master Data Dasar (Company, Branch, Area, Principal)
         $company = Company::updateOrCreate(
             ['code' => 'COMP01'],
             ['name' => 'PT. Demo Attendance', 'address' => 'Jl. Demo No. 123']
@@ -37,10 +43,25 @@ class DatabaseSeeder extends Seeder
 
         $branch = Branch::updateOrCreate(
             ['code' => 'BR01'],
-            ['company_id' => $company->id, 'name' => 'Kantor Pusat', 'address' => 'Jakarta']
+            ['name' => 'Kantor Pusat', 'address' => 'Jakarta']
         );
 
-        // 3. Create Department & Position
+        $parentArea = \App\Models\Area::updateOrCreate(
+            ['code' => 'AREA-JKT'],
+            ['name' => 'Jakarta Raya', 'description' => 'Area Utama Jakarta']
+        );
+
+        $subArea = \App\Models\Area::updateOrCreate(
+            ['code' => 'AREA-JKT-SEL'],
+            ['name' => 'Jakarta Selatan', 'parent_id' => $parentArea->id, 'description' => 'Sub Area Jakarta Selatan']
+        );
+
+        $principal = \App\Models\Principal::updateOrCreate(
+            ['code' => 'PRNC-01'],
+            ['name' => 'Principal Alpha', 'description' => 'Dummy Principal Alpha']
+        );
+
+        // 3. Department & Position
         $dept = Department::updateOrCreate(
             ['code' => 'IT'],
             ['company_id' => $company->id, 'name' => 'Information Technology']
@@ -52,7 +73,7 @@ class DatabaseSeeder extends Seeder
         );
 
         // 4. Create Shift
-        $shift = Shift::updateOrCreate(
+        $shiftPagi = Shift::updateOrCreate(
             ['code' => 'SH01'],
             [
                 'company_id' => $company->id,
@@ -67,7 +88,7 @@ class DatabaseSeeder extends Seeder
             ['employee_no' => 'EMP001'],
             [
                 'company_id' => $company->id,
-                'user_id' => User::first()->id, // Associate with admin for demo login
+                'user_id' => $adminUser->id, // Associate with admin for demo login
                 'branch_id' => $branch->id,
                 'department_id' => $dept->id,
                 'position_id' => $pos->id,
@@ -81,7 +102,7 @@ class DatabaseSeeder extends Seeder
         );
 
         // 6. Create Work Location / Store
-        WorkLocation::updateOrCreate(
+        $storeA = WorkLocation::updateOrCreate(
             ['name' => 'Toko A (Dummy)'],
             [
                 'company_id' => $company->id,
@@ -94,6 +115,41 @@ class DatabaseSeeder extends Seeder
                 'is_active' => true
             ]
         );
+
+        // 7. Create Working Group & Rules
+        $workingGroup = \App\Models\WorkingGroup::updateOrCreate(
+            ['name' => 'Tim Sales Jakarta Selatan'],
+            [
+                'region' => 'DKI Jakarta',
+                'area' => 'Jakarta Selatan',
+                'sub_area' => 'Kemang',
+                'data_applied_date' => now()->toDateString()
+            ]
+        );
+
+        // Add Member to Working Group
+        \App\Models\WorkingGroupMember::updateOrCreate(
+            ['working_group_id' => $workingGroup->id, 'employee_id' => $employee->id],
+            [
+                'master_shift_id' => $shiftPagi->id,
+                'late_tolerance' => 15,
+                'first_visit_store_id' => $storeA->id
+            ]
+        );
+
+        // Add Rule to Working Group (Monday to Friday)
+        $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        foreach ($days as $day) {
+            \App\Models\WorkingGroupRule::updateOrCreate(
+                ['working_group_id' => $workingGroup->id, 'day_of_week' => $day],
+                [
+                    'shift_id' => $shiftPagi->id,
+                    'late_tolerance' => 15,
+                    'store_assignment_id' => $storeA->id,
+                    'routing_active' => true
+                ]
+            );
+        }
 
         echo "Dummy Data Seeded Successfully!\n";
     }

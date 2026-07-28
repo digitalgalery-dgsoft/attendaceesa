@@ -20,7 +20,9 @@ class EmployeesTable
         return $table
             ->columns([
                 ImageColumn::make('photo')
-                    ->circular(),
+                    ->disk('public')
+                    ->circular()
+                    ->defaultImageUrl(url('/images/default-avatar.png')),
                 TextColumn::make('employee_no')
                     ->searchable(),
                 TextColumn::make('full_name')
@@ -95,7 +97,7 @@ class EmployeesTable
             ])
             ->recordActions([
                 EditAction::make(),
-                \Filament\Tables\Actions\Action::make('reset_device')
+                \Filament\Actions\Action::make('reset_device')
                     ->label('Reset Device')
                     ->icon('heroicon-o-device-phone-mobile')
                     ->color('warning')
@@ -110,7 +112,45 @@ class EmployeesTable
                             ->success()
                             ->send();
                     })
-                    ->visible(fn (\App\Models\Employee $record) => !empty($record->device_id)),
+                    ->disabled(fn (\App\Models\Employee $record) => empty($record->device_id)),
+                \Filament\Actions\Action::make('reset_password')
+                    ->label('Reset Password')
+                    ->icon('heroicon-o-key')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Reset Password Mobile')
+                    ->modalDescription('Ini akan membuat password baru secara acak untuk akses aplikasi mobile karyawan ini.')
+                    ->action(function (\App\Models\Employee $record) {
+                        if (!$record->email) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Gagal: Email Kosong')
+                                ->body('Karyawan ini tidak memiliki email. Harap isi email karyawan terlebih dahulu.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        $newPassword = \Illuminate\Support\Str::random(8);
+                        $record->update([
+                            'password' => \Illuminate\Support\Facades\Hash::make($newPassword)
+                        ]);
+
+                        try {
+                            \Illuminate\Support\Facades\Mail::to($record->email)
+                                ->send(new \App\Mail\ResetPasswordMail($record, $newPassword));
+                            \Filament\Notifications\Notification::make()
+                                ->title('Password Berhasil Direset')
+                                ->body("Password baru telah dikirim ke {$record->email}.")
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Password Direset, tapi Email Gagal Terkirim')
+                                ->body('Password baru: ' . $newPassword . ' | Error: ' . $e->getMessage())
+                                ->warning()
+                                ->send();
+                        }
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

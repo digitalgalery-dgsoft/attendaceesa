@@ -41,7 +41,7 @@ class EmployeeForm
                     ->relationship('branch', 'name')
                     ->label('Area'),
                 Select::make('department_id')
-                    ->relationship('department', 'name', fn (Builder $query, $get) => $query->where('company_id', $get('company_id')))
+                    ->relationship('department', 'name', fn (Builder $query, $get) => $query->whereHas('companies', fn($q) => $q->where('companies.id', $get('company_id'))))
                     ->label('Department'),
                 Select::make('position_id')
                     ->relationship('position', 'name')
@@ -76,6 +76,7 @@ class EmployeeForm
                     ->columnSpanFull(),
                 FileUpload::make('photo')
                     ->image()
+                    ->disk('public')
                     ->directory('employees'),
                 Toggle::make('is_active')
                     ->required(),

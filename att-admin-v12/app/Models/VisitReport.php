@@ -35,4 +35,9 @@ class VisitReport extends Model
     {
         return $this->belongsTo(Employee::class);
     }
+
+    public function principal(): BelongsTo
+    {
+        return $this->belongsTo(Principal::class);
+    }
 }

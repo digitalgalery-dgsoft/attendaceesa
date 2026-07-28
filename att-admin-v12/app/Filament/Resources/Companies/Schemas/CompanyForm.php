@@ -21,20 +21,8 @@ class CompanyForm
                     ->dehydrated()
                     ->required()
                     ->unique(ignoreRecord: true),
-                TextInput::make('timezone')
-                    ->required()
-                    ->default('Asia/Jakarta'),
-                TextInput::make('logo'),
-                Textarea::make('address')
-                    ->columnSpanFull(),
-                TextInput::make('phone')
-                    ->tel(),
-                TextInput::make('email')
-                    ->label('Email address')
-                    ->email(),
                 Toggle::make('is_active')
                     ->required(),
-                TextInput::make('settings'),
             ]);
     }
 }

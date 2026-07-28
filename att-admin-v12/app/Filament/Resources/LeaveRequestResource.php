@@ -8,15 +8,20 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ImageEntry;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\FileUpload;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class LeaveRequestResource extends Resource
 {
@@ -33,19 +38,28 @@ class LeaveRequestResource extends Resource
     {
         return $schema->components([
             Select::make('employee_id')
-                ->relationship('employee', 'first_name')
+                ->relationship('employee', 'full_name')
                 ->searchable()
                 ->required(),
             Select::make('type')
                 ->options([
-                    'annual_leave'  => 'Annual Leave',
-                    'medical_leave' => 'Medical Leave',
-                    'permission'    => 'Permission',
-                    'shift_swap'    => 'Shift Swap',
-                    'extra_off'     => 'Extra Off',
-                    'store_closed'  => 'Store Closed',
+                    'sakit' => 'Sakit',
+                    'izin' => 'Izin',
+                    'cuti' => 'Cuti',
+                    'off' => 'Off',
+                    'store_closed' => 'Store Closed',
+                    'izin_khusus' => 'Izin Khusus',
                 ])
+                ->reactive()
                 ->required(),
+            Select::make('sub_type')
+                ->label('Jenis Cuti')
+                ->options([
+                    'cuti_tahunan' => 'Cuti Tahunan',
+                    'cuti_peraturan' => 'Cuti Peraturan',
+                ])
+                ->visible(fn (Get $get) => $get('type') === 'cuti')
+                ->required(fn (Get $get) => $get('type') === 'cuti'),
             DatePicker::make('start_date')
                 ->required(),
             DatePicker::make('end_date')
@@ -55,6 +69,7 @@ class LeaveRequestResource extends Resource
                 ->columnSpanFull(),
             FileUpload::make('attachment_path')
                 ->label('Attachment')
+                ->disk('public')
                 ->directory('leave-attachments')
                 ->columnSpanFull(),
             Select::make('status')
@@ -72,13 +87,18 @@ class LeaveRequestResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('employee.first_name')
+                TextColumn::make('employee.full_name')
                     ->label('Employee')
+                    ->description(fn (LeaveRequest $record): string => $record->employee?->position?->name ?? '-')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('type')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => str_replace('_', ' ', ucfirst($state)))
+                    ->formatStateUsing(fn (string $state): string => ucwords(str_replace('_', ' ', $state)))
+                    ->searchable(),
+                TextColumn::make('sub_type')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => $state ? ucwords(str_replace('_', ' ', $state)) : '-')
                     ->searchable(),
                 TextColumn::make('start_date')
                     ->date()
@@ -86,7 +106,26 @@ class LeaveRequestResource extends Resource
                 TextColumn::make('end_date')
                     ->date()
                     ->sortable(),
+                TextColumn::make('head_approval_status')
+                    ->label('Head Approval')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'pending'  => 'warning',
+                        'approved' => 'success',
+                        'rejected' => 'danger',
+                        default    => 'gray',
+                    }),
+                TextColumn::make('hrd_approval_status')
+                    ->label('HRD Approval')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'pending'  => 'warning',
+                        'approved' => 'success',
+                        'rejected' => 'danger',
+                        default    => 'gray',
+                    }),
                 TextColumn::make('status')
+                    ->label('Final Status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'pending'  => 'warning',
@@ -101,25 +140,21 @@ class LeaveRequestResource extends Resource
             ])
             ->filters([])
             ->recordActions([
-                EditAction::make(),
-                Action::make('Approve')
-                    ->icon('heroicon-o-check')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->visible(fn (LeaveRequest $record) => $record->status === 'pending')
-                    ->action(fn (LeaveRequest $record) => $record->update([
-                        'status'      => 'approved',
-                        'approved_by' => auth()->id(),
-                    ])),
-                Action::make('Reject')
-                    ->icon('heroicon-o-x-mark')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->visible(fn (LeaveRequest $record) => $record->status === 'pending')
-                    ->action(fn (LeaveRequest $record) => $record->update([
-                        'status'      => 'rejected',
-                        'approved_by' => auth()->id(),
-                    ])),
+                ViewAction::make(),
+                Action::make('Cetak Surat Cuti')
+                    ->icon('heroicon-o-printer')
+                    ->color('info')
+                    ->visible(function (LeaveRequest $record) {
+                        return $record->status === 'approved' && $record->type === 'cuti';
+                    })
+                    ->action(function (LeaveRequest $record) {
+                        $pdf = Pdf::loadView('pdf.surat-cuti', ['record' => $record]);
+                        $filename = 'Surat-Cuti-' . str_replace(' ', '-', $record->employee->full_name) . '-' . date('Ymd', strtotime($record->start_date)) . '.pdf';
+                        
+                        return response()->streamDownload(function () use ($pdf) {
+                            echo $pdf->output();
+                        }, $filename);
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -133,11 +168,81 @@ class LeaveRequestResource extends Resource
         return [];
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Section::make('Permit Details')
+                    ->columns(2)
+                    ->schema([
+                        TextEntry::make('employee.full_name')
+                            ->label('Employee Name'),
+                        TextEntry::make('type')
+                            ->label('Type')
+                            ->badge()
+                            ->formatStateUsing(fn (string $state): string => ucwords(str_replace('_', ' ', $state))),
+                        TextEntry::make('sub_type')
+                            ->label('Sub Type')
+                            ->badge()
+                            ->formatStateUsing(fn (?string $state): string => $state ? ucwords(str_replace('_', ' ', $state)) : '-'),
+                        TextEntry::make('status')
+                            ->label('Final Status')
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'pending'  => 'warning',
+                                'approved' => 'success',
+                                'rejected' => 'danger',
+                                default    => 'gray',
+                            }),
+                        TextEntry::make('start_date')
+                            ->date(),
+                        TextEntry::make('end_date')
+                            ->date(),
+                        TextEntry::make('head_approval_status')
+                            ->label('Head Approval')
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'pending'  => 'warning',
+                                'approved' => 'success',
+                                'rejected' => 'danger',
+                                default    => 'gray',
+                            }),
+                        TextEntry::make('head_approval_notes')
+                            ->label('Catatan Head')
+                            ->visible(fn (?string $state): bool => filled($state)),
+                        TextEntry::make('hrd_approval_status')
+                            ->label('HRD Approval')
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'pending'  => 'warning',
+                                'approved' => 'success',
+                                'rejected' => 'danger',
+                                default    => 'gray',
+                            }),
+                        TextEntry::make('hrd_approval_notes')
+                            ->label('Catatan HRD')
+                            ->visible(fn (?string $state): bool => filled($state)),
+                        TextEntry::make('notes')
+                            ->columnSpanFull(),
+                    ]),
+                Section::make('Attachment')
+                    ->schema([
+                        ImageEntry::make('attachment_path')
+                            ->hiddenLabel()
+                            ->disk('public')
+                            ->width('100%')
+                            ->height('auto'),
+                    ])
+                    ->visible(fn ($record) => $record->attachment_path !== null),
+            ]);
+    }
+
     public static function getPages(): array
     {
         return [
             'index'  => Pages\ListLeaveRequests::route('/'),
             'create' => Pages\CreateLeaveRequest::route('/create'),
+            'view'   => Pages\ViewLeaveRequest::route('/{record}'),
             'edit'   => Pages\EditLeaveRequest::route('/{record}/edit'),
         ];
     }

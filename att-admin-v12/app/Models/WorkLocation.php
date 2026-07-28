@@ -22,4 +22,9 @@ class WorkLocation extends Model
     {
         return $this->belongsTo(Branch::class);
     }
+
+    public function principal()
+    {
+        return $this->belongsTo(Principal::class);
+    }
 }

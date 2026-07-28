@@ -27,7 +27,7 @@ class WorkingGroupResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Roster Management';
+        return 'Attendance';
     }
 
     public static function form(Schema $schema): Schema
@@ -46,7 +46,7 @@ class WorkingGroupResource extends Resource
                         ->maxLength(255),
                     DatePicker::make('data_applied_date')
                         ->label('Data Applied (Tanggal Berlaku)'),
-                ])->columns(2),
+                ])->columns(2)->columnSpanFull(),
 
             Section::make('Days Applied (Detail Harian)')
                 ->components([
@@ -63,26 +63,31 @@ class WorkingGroupResource extends Resource
                                     'Saturday'  => 'Sabtu',
                                     'Sunday'    => 'Minggu',
                                 ])
-                                ->required(),
+                                ->required()
+                                ->columnSpan(2),
                             Select::make('shift_id')
                                 ->relationship('shift', 'name')
-                                ->required(),
+                                ->required()
+                                ->columnSpan(3),
                             TextInput::make('late_tolerance')
-                                ->label('Late Tolerance (Minutes)')
+                                ->label('Late Tol. (Mins)')
                                 ->numeric()
                                 ->default(15)
-                                ->required(),
+                                ->required()
+                                ->columnSpan(2),
                             Select::make('store_assignment_id')
                                 ->relationship('storeAssignment', 'name')
-                                ->label('Store / Location Assignment'),
+                                ->label('Location Assignment')
+                                ->columnSpan(3),
                             Toggle::make('routing_active')
                                 ->label('Routing Active')
-                                ->default(false),
+                                ->default(false)
+                                ->columnSpan(2),
                         ])
-                        ->columns(5)
+                        ->columns(12)
                         ->defaultItems(7)
                         ->disableItemMovement(),
-                ]),
+                ])->columnSpanFull(),
 
             Section::make('List Nama (Anggota Grup)')
                 ->components([
@@ -92,22 +97,26 @@ class WorkingGroupResource extends Resource
                             Select::make('employee_id')
                                 ->relationship('employee', 'first_name')
                                 ->searchable()
-                                ->required(),
+                                ->required()
+                                ->columnSpan(3),
                             Select::make('master_shift_id')
                                 ->relationship('shift', 'name')
-                                ->label('Master Working Hour (Shift)')
-                                ->required(),
+                                ->label('Master Shift')
+                                ->required()
+                                ->columnSpan(3),
                             TextInput::make('late_tolerance')
-                                ->label('Late Tolerance (Minutes)')
+                                ->label('Late Tol. (Mins)')
                                 ->numeric()
                                 ->default(15)
-                                ->required(),
+                                ->required()
+                                ->columnSpan(2),
                             Select::make('first_visit_store_id')
                                 ->relationship('firstVisitStore', 'name')
-                                ->label('First Visit Store (Optional)'),
+                                ->label('First Visit Store')
+                                ->columnSpan(4),
                         ])
-                        ->columns(4),
-                ]),
+                        ->columns(12),
+                ])->columnSpanFull(),
         ]);
     }
 

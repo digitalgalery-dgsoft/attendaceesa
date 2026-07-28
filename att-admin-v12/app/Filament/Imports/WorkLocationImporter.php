@@ -28,6 +28,18 @@ class WorkLocationImporter extends Importer
             ImportColumn::make('type')
                 ->requiredMapping()
                 ->rules(['required']),
+            ImportColumn::make('region')
+                ->rules(['max:255']),
+            ImportColumn::make('area')
+                ->rules(['max:255']),
+            ImportColumn::make('sub_area')
+                ->rules(['max:255']),
+            ImportColumn::make('channel')
+                ->rules(['max:255']),
+            ImportColumn::make('account')
+                ->rules(['max:255']),
+            ImportColumn::make('timezone')
+                ->rules(['max:255']),
             ImportColumn::make('address'),
             ImportColumn::make('latitude')
                 ->requiredMapping()
@@ -45,12 +57,18 @@ class WorkLocationImporter extends Importer
                 ->requiredMapping()
                 ->boolean()
                 ->rules(['required', 'boolean']),
+            ImportColumn::make('status')
+                ->requiredMapping()
+                ->rules(['required']),
         ];
     }
 
     public function resolveRecord(): WorkLocation
     {
-        return new WorkLocation();
+        return WorkLocation::firstOrNew([
+            'name' => $this->data['name'],
+            'company_id' => $this->data['company_id'],
+        ]);
     }
 
     public static function getCompletedNotificationBody(Import $import): string

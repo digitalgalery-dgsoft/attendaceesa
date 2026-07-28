@@ -29,4 +29,12 @@ class Attendance extends Model
     public function employee() {
         return $this->belongsTo(Employee::class);
     }
+
+    public function principal() {
+        return $this->belongsTo(Principal::class);
+    }
+
+    public function employeeSchedule() {
+        return $this->belongsTo(EmployeeSchedule::class);
+    }
 }

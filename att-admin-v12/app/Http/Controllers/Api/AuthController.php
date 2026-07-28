@@ -2,59 +2,71 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Employee;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required|string',
+            'email'    => 'required|string',
             'password' => 'required|string',
+            'device_id' => 'nullable|string',
+            'device_name' => 'nullable|string',
         ]);
 
-        if (!Auth::attempt($request->only('email', 'password'))) {
+        $employee = Employee::where('email', $request->email)
+            ->where('is_active', true)
+            ->with(['company', 'branch', 'department', 'position'])
+            ->first();
+
+        if (!$employee || !Hash::check($request->password, $employee->password)) {
             return response()->json([
-                'status' => 'error',
-                'message' => 'Kredensial tidak valid'
+                'status'  => 'error',
+                'message' => 'Email atau password salah'
             ], 401);
         }
 
-        $user = User::where('email', $request->email)->firstOrFail();
-        
-        // Cek apakah user adalah karyawan
-        $employee = \App\Models\Employee::where('user_id', $user->id)
-            ->with(['company', 'branch'])
-            ->first();
-            
-        $token = $user->createToken('auth_token')->plainTextToken;
+        if ($request->filled('device_id')) {
+            if (empty($employee->device_id)) {
+                $employee->device_id = $request->device_id;
+                $employee->device_name = $request->device_name;
+                $employee->save();
+            } else if ($employee->device_id !== $request->device_id) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Akun ini sudah ditautkan dengan perangkat lain. Silakan hubungi admin untuk melakukan Reset Device.'
+                ], 401);
+            }
+        }
+
+        // Hapus token lama jika ada (opsional)
+        $employee->tokens()->delete();
+
+        $token = $employee->createToken('mobile_token')->plainTextToken;
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'Login berhasil',
-            'data' => [
-                'access_token' => $token,
-                'token_type' => 'Bearer',
-                'user' => $user,
-                'employee_data' => $employee
+            'data'    => [
+                'access_token'  => $token,
+                'token_type'    => 'Bearer',
+                'employee_data' => $employee,
             ]
         ]);
     }
 
     public function me(Request $request)
     {
-        $user = $request->user();
-        $employee = \App\Models\Employee::where('user_id', $user->id)
-            ->with(['company', 'branch'])
-            ->first();
-            
+        $employee = $request->user();
+        $employee->load(['company', 'branch', 'department', 'position']);
+
         return response()->json([
             'status' => 'success',
-            'data' => [
-                'user' => $user,
-                'employee_data' => $employee
+            'data'   => [
+                'employee_data' => $employee,
             ]
         ]);
     }
@@ -64,8 +76,60 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'Logout berhasil'
+        ]);
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $employee = $request->user();
+
+        $request->validate([
+            'language' => 'nullable|string',
+            'timezone' => 'nullable|string',
+            'current_password' => 'nullable|string',
+            'password' => 'nullable|string|min:6|confirmed',
+            'photo' => 'nullable|image|max:2048',
+        ]);
+
+        // Update password if provided
+        if ($request->filled('current_password') && $request->filled('password')) {
+            if (!Hash::check($request->current_password, $employee->password)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Password saat ini tidak sesuai.'
+                ], 400);
+            }
+            $employee->password = Hash::make($request->password);
+        }
+
+        if ($request->has('language')) {
+            $employee->language = $request->language;
+        }
+
+        if ($request->has('timezone')) {
+            $employee->timezone = $request->timezone;
+        }
+
+        if ($request->hasFile('photo')) {
+            // Delete old photo if it exists and not default
+            if ($employee->photo && \Illuminate\Support\Facades\Storage::disk('public')->exists($employee->photo)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($employee->photo);
+            }
+            $path = $request->file('photo')->store('employees', 'public');
+            $employee->photo = $path;
+        }
+
+        $employee->save();
+        $employee->load(['company', 'branch', 'department', 'position']);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Profil berhasil diperbarui.',
+            'data' => [
+                'employee_data' => $employee,
+            ]
         ]);
     }
 }

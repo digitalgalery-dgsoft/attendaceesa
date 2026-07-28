@@ -9,19 +9,60 @@ Route::get('/user', function (Request $request) {
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\EmployeeController;
+use App\Http\Controllers\Api\ItineraryController;
+use App\Http\Controllers\Api\BlastInfoController;
+use App\Http\Controllers\Api\PermitController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\SalesReportController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
+Route::get('/settings', function () {
+    return response()->json([
+        'status' => 'success',
+        'data' => \App\Models\Setting::first()
+    ]);
+});
+
+Route::get('/permit/print/{id}', [PermitController::class, 'downloadPdf'])->name('api.permit.download')->middleware('signed');
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
-    
+    Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/update-profile', [AuthController::class, 'updateProfile']);
+
+    // Schedule & Itinerary hari ini
+    Route::get('/today-schedule', [AttendanceController::class, 'todaySchedule']);
+
     // Attendance routes
     Route::get('/work-locations', [AttendanceController::class, 'workLocations']);
-    Route::post('/check-in', [AttendanceController::class, 'checkIn']);
-    Route::post('/check-out', [AttendanceController::class, 'checkOut']);
+    Route::post('/attendance', [AttendanceController::class, 'store']);
+    Route::get('/attendance/history', [AttendanceController::class, 'history']);
+
+    // Itinerary routes
+    Route::get('/itineraries/work-locations', [ItineraryController::class, 'availableWorkLocations']);
+    Route::get('/itineraries', [ItineraryController::class, 'index']);
+    Route::post('/itineraries', [ItineraryController::class, 'store']);
     
-    Route::post('/visit-in', [AttendanceController::class, 'visitIn']);
-    Route::post('/visit-out', [AttendanceController::class, 'visitOut']);
-    
-    Route::get('/history', [AttendanceController::class, 'history']);
+    // Blast Infos
+    Route::get('/blast-infos', [BlastInfoController::class, 'index']);
+
+    // Permit routes
+    Route::get('/permits', [PermitController::class, 'index']);
+    Route::post('/permits', [PermitController::class, 'store']);
+
+    // Sales Report routes
+    Route::get('/sales-reports', [SalesReportController::class, 'index']);
+    Route::post('/sales-reports', [SalesReportController::class, 'store']);
+    Route::put('/sales-reports/{id}', [SalesReportController::class, 'update']);
+    Route::post('/sales-reports/{id}/analyze', [SalesReportController::class, 'analyze']);
+
+    // Sales Pipeline routes
+    Route::get('/sales-pipelines', [\App\Http\Controllers\Api\SalesPipelineController::class, 'index']);
+    Route::put('/sales-pipelines/{id}', [\App\Http\Controllers\Api\SalesPipelineController::class, 'update']);
+
+    // Notification routes
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/read', [NotificationController::class, 'markAsRead']);
 });

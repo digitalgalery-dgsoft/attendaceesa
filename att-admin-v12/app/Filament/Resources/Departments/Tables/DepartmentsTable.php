@@ -15,17 +15,20 @@ class DepartmentsTable
     {
         return $table
             ->columns([
-                TextColumn::make('company_id')
-                    ->numeric()
-                    ->sortable(),
+                TextColumn::make('companies.name')
+                    ->label('Companies')
+                    ->badge(),
                 TextColumn::make('name')
                     ->searchable(),
                 TextColumn::make('code')
                     ->searchable(),
-                TextColumn::make('parent_id')
-                    ->numeric()
+                TextColumn::make('parent.name')
+                    ->label('Parent Department')
                     ->sortable(),
                 IconColumn::make('is_active')
+                    ->boolean(),
+                IconColumn::make('has_sales_reporting')
+                    ->label('Sales Reporting')
                     ->boolean(),
                 TextColumn::make('created_at')
                     ->dateTime()

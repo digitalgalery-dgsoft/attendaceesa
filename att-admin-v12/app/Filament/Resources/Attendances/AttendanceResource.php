@@ -40,9 +40,9 @@ class AttendanceResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListAttendances::route('/'),
-            'create' => CreateAttendance::route('/create'),
-            'edit' => EditAttendance::route('/{record}/edit'),
+            'index' => \App\Filament\Resources\Attendances\Pages\AttendanceRoster::route('/'),
+            'create' => \App\Filament\Resources\Attendances\Pages\CreateAttendance::route('/create'),
+            'edit' => \App\Filament\Resources\Attendances\Pages\EditAttendance::route('/{record}/edit'),
         ];
     }
 
@@ -56,4 +56,3 @@ class AttendanceResource extends Resource
         return auth()->user()->hasRole('Super Admin') || auth()->user()->can('view_attendance');
     }
 }
-

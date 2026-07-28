@@ -18,10 +18,19 @@ class AttendanceChartWidget extends ChartWidget
         $data = [];
         $labels = [];
         
+        $startDate = Carbon::today()->subDays(6);
+        $endDate = Carbon::today()->endOfDay();
+
+        $attendances = Attendance::select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as aggregate'))
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->groupBy('date')
+            ->pluck('aggregate', 'date');
+            
         for ($i = 6; $i >= 0; $i--) {
             $date = Carbon::today()->subDays($i);
             $labels[] = $date->format('D'); // Mon, Tue, etc
-            $data[] = Attendance::whereDate('created_at', $date)->count();
+            $dateString = $date->toDateString();
+            $data[] = $attendances->has($dateString) ? $attendances[$dateString] : 0;
         }
 
         return [

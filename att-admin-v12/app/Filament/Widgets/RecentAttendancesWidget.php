@@ -21,17 +21,18 @@ class RecentAttendancesWidget extends TableWidget
         return $table
             ->heading('Recent Attendances')
             ->query(
-                Attendance::query()->latest()->limit(5)
+                Attendance::with(['employee', 'employeeSchedule.shift'])->latest()->limit(5)
             )
             ->columns([
-                TextColumn::make('employee.name')
+                TextColumn::make('employee.full_name')
                     ->label('Employee')
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
-                TextColumn::make('shift.name')
+                TextColumn::make('employeeSchedule.shift.name')
                     ->label('Shift')
                     ->badge()
+                    ->default('-')
                     ->color('info'),
                 TextColumn::make('status')
                     ->badge()

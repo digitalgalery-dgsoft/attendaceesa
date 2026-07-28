@@ -34,4 +34,9 @@ class AttendanceLog extends Model
         'user_agent',
         'metadata'
     ];
+
+    public function principal()
+    {
+        return $this->belongsTo(Principal::class);
+    }
 }

@@ -12,13 +12,22 @@ class LeaveRequest extends Model
 
     protected $fillable = [
         'employee_id',
+        'type',
+        'sub_type',
         'start_date',
         'end_date',
-        'type',
         'notes',
         'attachment_path',
         'status',
         'approved_by',
+        'head_approval_status',
+        'head_approved_by',
+        'head_approved_at',
+        'head_approval_notes',
+        'hrd_approval_status',
+        'hrd_approved_by',
+        'hrd_approved_at',
+        'hrd_approval_notes',
     ];
 
     protected $casts = [

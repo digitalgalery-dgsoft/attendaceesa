@@ -20,10 +20,33 @@ class WorkLocationForm
             ->components([
                 Select::make('company_id')
                     ->relationship('company', 'name')
+                    ->label('Company')
+                    ->live()
+                    ->searchable()
                     ->required(),
+                Select::make('principal_id')
+                    ->options(function ($get) {
+                        $companyId = $get('company_id');
+                        if (!$companyId) {
+                            return \App\Models\Principal::pluck('name', 'id');
+                        }
+                        return \App\Models\Principal::where('company_id', $companyId)->pluck('name', 'id');
+                    })
+                    ->searchable()
+                    ->label('Prinsiple'),
                 Select::make('branch_id')
                     ->relationship('branch', 'name')
-                    ->label('Branch'),
+                    ->label('Area')
+                    ->searchable()
+                    ->live()
+                    ->afterStateUpdated(function ($set, ?string $state) {
+                        if ($state) {
+                            $branch = \App\Models\Branch::find($state);
+                            if ($branch && $branch->region) {
+                                $set('region', $branch->region);
+                            }
+                        }
+                    }),
                 TextInput::make('name')
                     ->required(),
                 Select::make('type')
@@ -34,13 +57,44 @@ class WorkLocationForm
                         'warehouse' => 'Warehouse',
                         'other' => 'Other',
                     ])
+                    ->searchable()
                     ->required(),
-                TextInput::make('region')
-                    ->maxLength(255),
-                TextInput::make('area')
-                    ->maxLength(255),
-                TextInput::make('sub_area')
-                    ->maxLength(255),
+
+                Select::make('region')
+                    ->options([
+                        'Region 1' => 'Region 1',
+                        'Region 2' => 'Region 2',
+                        'Region 3' => 'Region 3',
+                        'Region 4' => 'Region 4',
+                        'Region 5' => 'Region 5',
+                        'Region 6' => 'Region 6',
+                        'Region 7' => 'Region 7',
+                    ])
+                    ->searchable()
+                    ->live(),
+                Select::make('sub_area')
+                    ->options(function ($get) {
+                        $region = $get('region');
+                        if (!$region) return [];
+                        
+                        $file = 'G:\My File\Project APlikasi Absensi\New\tb_kota.csv';
+                        if (!file_exists($file)) return [];
+                        
+                        $handle = fopen($file, "r");
+                        fgetcsv($handle); // skip header
+                        
+                        $options = [];
+                        while (($data = fgetcsv($handle)) !== FALSE) {
+                            if (count($data) >= 4 && $data[3] === $region) {
+                                $options[$data[1]] = $data[1];
+                            }
+                        }
+                        fclose($handle);
+                        
+                        asort($options);
+                        return $options;
+                    })
+                    ->searchable(),
                 TextInput::make('channel')
                     ->maxLength(255),
                 TextInput::make('account')
@@ -51,6 +105,7 @@ class WorkLocationForm
                         'Asia/Makassar' => 'WITA (Asia/Makassar)',
                         'Asia/Jayapura' => 'WIT (Asia/Jayapura)',
                     ])
+                    ->searchable()
                     ->default('Asia/Jakarta'),
                 Select::make('status')
                     ->options([
@@ -58,6 +113,7 @@ class WorkLocationForm
                         'active' => 'Active',
                         'inactive' => 'Inactive',
                     ])
+                    ->searchable()
                     ->default('active')
                     ->required(),
                 Textarea::make('address')

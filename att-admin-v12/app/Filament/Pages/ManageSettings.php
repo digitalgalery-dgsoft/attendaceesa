@@ -46,6 +46,10 @@ class ManageSettings extends Page implements HasForms
                             ->label('Application Name')
                             ->required()
                             ->maxLength(255),
+                        TextInput::make('mobile_app_url')
+                            ->label('Mobile App URL')
+                            ->url()
+                            ->maxLength(255),
                         ColorPicker::make('theme_color')
                             ->label('Primary Theme Color')
                             ->required(),
@@ -80,6 +84,22 @@ class ManageSettings extends Page implements HasForms
                             ->default(50)
                             ->required(),
                     ])->columns(3),
+                Section::make('SMTP / Email Settings')
+                    ->components([
+                        TextInput::make('smtp_host')->label('SMTP Host')->placeholder('smtp.mailtrap.io'),
+                        TextInput::make('smtp_port')->label('SMTP Port')->placeholder('2525')->numeric(),
+                        TextInput::make('smtp_username')->label('SMTP Username'),
+                        TextInput::make('smtp_password')->label('SMTP Password')->password(),
+                        \Filament\Forms\Components\Select::make('smtp_encryption')
+                            ->label('Encryption')
+                            ->options([
+                                'tls' => 'TLS',
+                                'ssl' => 'SSL',
+                                '' => 'None',
+                            ]),
+                        TextInput::make('mail_from_address')->label('From Address')->email()->placeholder('noreply@example.com'),
+                        TextInput::make('mail_from_name')->label('From Name')->placeholder('My App'),
+                    ])->columns(2),
             ])
             ->statePath('data');
     }

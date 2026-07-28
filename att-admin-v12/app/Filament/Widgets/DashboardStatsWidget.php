@@ -21,7 +21,7 @@ class DashboardStatsWidget extends BaseWidget
                 ->description('Jumlah karyawan terdaftar')
                 ->descriptionIcon('heroicon-m-users')
                 ->color('success'),
-            Stat::make('Present Today', Attendance::whereDate('created_at', Carbon::today())->count())
+            Stat::make('Present Today', Attendance::where('created_at', '>=', Carbon::today())->count())
                 ->description('Total check-in hari ini')
                 ->descriptionIcon('heroicon-m-check-badge')
                 ->color('primary'),
