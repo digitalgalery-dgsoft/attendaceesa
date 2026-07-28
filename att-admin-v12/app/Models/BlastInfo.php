@@ -16,6 +16,7 @@ class BlastInfo extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'is_active' => 'boolean',
+        'department_id' => 'integer',
     ];
 
     public function department(): BelongsTo

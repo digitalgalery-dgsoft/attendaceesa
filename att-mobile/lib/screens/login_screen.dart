@@ -46,6 +46,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
+
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
@@ -56,16 +58,16 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(
+                Icon(
                   Icons.fingerprint,
                   size: 80,
-                  color: Color(0xFF7367F0),
+                  color: auth.appColor ?? const Color(0xFF7367F0),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Welcome to Attendance',
+                Text(
+                  'Welcome to ${auth.appName}',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF5E5873),
@@ -105,6 +107,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     return ElevatedButton(
                       onPressed: auth.isLoading ? null : _login,
                       style: ElevatedButton.styleFrom(
+                        backgroundColor: auth.appColor ?? const Color(0xFF7367F0),
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: auth.isLoading

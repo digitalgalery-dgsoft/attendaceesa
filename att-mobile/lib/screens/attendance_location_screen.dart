@@ -39,6 +39,10 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _getCurrentLocation();
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AttendanceProvider>(context, listen: false).fetchWorkLocations();
+    });
   }
 
   Future<void> _getCurrentLocation() async {
@@ -204,20 +208,17 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
     final attProvider = Provider.of<AttendanceProvider>(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.blue,
           unselectedLabelColor: Colors.grey,
           indicatorColor: Colors.blue,
-          tabs: const [
-            Tab(text: 'ITINERARY (0)'),
-            Tab(text: 'LOKASI SEKITAR (9)'),
+          tabs: [
+            const Tab(text: 'ITINERARY (0)'),
+            Tab(text: 'LOKASI SEKITAR (${attProvider.workLocations.length})'),
           ],
         ),
       ),
@@ -247,6 +248,16 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                             height: 80,
                             child: const Icon(Icons.location_on, color: Colors.red, size: 40),
                           ),
+                          ...attProvider.workLocations.map((loc) {
+                            final lat = double.tryParse(loc['latitude'].toString()) ?? 0;
+                            final lng = double.tryParse(loc['longitude'].toString()) ?? 0;
+                            return Marker(
+                              point: LatLng(lat, lng),
+                              width: 40,
+                              height: 40,
+                              child: const Icon(Icons.store, color: Colors.blue, size: 30),
+                            );
+                          }),
                         ],
                       ),
                   ],
@@ -289,7 +300,6 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                   child: FloatingActionButton(
                     heroTag: 'recenter',
                     mini: true,
-                    backgroundColor: Colors.white,
                     child: const Icon(Icons.my_location, color: Colors.black54),
                     onPressed: () {
                       if (_currentPosition != null) {
@@ -306,16 +316,27 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Itinerary anda (0)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Reload Data'),
-                ),
-              ],
+            AnimatedBuilder(
+              animation: _tabController,
+              builder: (context, child) {
+                final isItinerary = _tabController.index == 0;
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      isItinerary ? 'Itinerary anda (0)' : 'Lokasi Sekitar (${attProvider.workLocations.length})', 
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        attProvider.fetchWorkLocations();
+                      },
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Reload Data'),
+                    ),
+                  ],
+                );
+              },
             ),
             Container(
               padding: const EdgeInsets.all(8),
