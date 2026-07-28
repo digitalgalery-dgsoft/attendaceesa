@@ -16,21 +16,19 @@ class BlastInfoController extends Controller
         }
 
         $employee = $user->employee;
-        if (!$employee) {
-            return response()->json(['data' => []]); // No employee data, no specific blast infos
-        }
-
         $today = now()->toDateString();
 
         $blastInfos = BlastInfo::where('is_active', true)
-            ->where('start_date', '<=', $today)
-            ->where('end_date', '>=', $today)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
             ->where(function ($query) use ($employee) {
-                $query->where('target_type', 'all')
-                      ->orWhere(function ($q) use ($employee) {
-                          $q->where('target_type', 'department')
-                            ->where('department_id', $employee->department_id);
-                      });
+                $query->where('target_type', 'all');
+                if ($employee) {
+                    $query->orWhere(function ($q) use ($employee) {
+                        $q->where('target_type', 'department')
+                          ->where('department_id', $employee->department_id);
+                    });
+                }
             })
             ->latest()
             ->get();
