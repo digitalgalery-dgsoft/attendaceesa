@@ -15,10 +15,10 @@ class ShiftImporter extends Importer
     public static function getColumns(): array
     {
         return [
-            ImportColumn::make('company_id')
+            ImportColumn::make('company')
+                ->relationship(resolveUsing: 'name')
                 ->requiredMapping()
-                ->numeric()
-                ->rules(['required', 'integer']),
+                ->rules(['required']),
             ImportColumn::make('name')
                 ->requiredMapping()
                 ->rules(['required', 'max:100']),

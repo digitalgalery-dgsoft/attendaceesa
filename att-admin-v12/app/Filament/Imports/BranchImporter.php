@@ -15,10 +15,10 @@ class BranchImporter extends Importer
     public static function getColumns(): array
     {
         return [
-            ImportColumn::make('company_id')
+            ImportColumn::make('company')
+                ->relationship(resolveUsing: 'name')
                 ->requiredMapping()
-                ->numeric()
-                ->rules(['required', 'integer']),
+                ->rules(['required']),
             ImportColumn::make('name')
                 ->requiredMapping()
                 ->rules(['required', 'max:150']),
@@ -28,10 +28,10 @@ class BranchImporter extends Importer
             ImportColumn::make('address'),
             ImportColumn::make('latitude')
                 ->numeric()
-                ->rules(['integer']),
+                ->rules(['numeric']),
             ImportColumn::make('longitude')
                 ->numeric()
-                ->rules(['integer']),
+                ->rules(['numeric']),
             ImportColumn::make('radius_meter')
                 ->requiredMapping()
                 ->numeric()

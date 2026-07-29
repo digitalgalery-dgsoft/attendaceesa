@@ -13,6 +13,8 @@ class ListPrincipals extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            \Filament\Actions\ImportAction::make()
+                ->importer(\App\Filament\Imports\PrincipalImporter::class),
             CreateAction::make(),
         ];
     }

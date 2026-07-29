@@ -15,25 +15,20 @@ class EmployeeImporter extends Importer
     public static function getColumns(): array
     {
         return [
-            ImportColumn::make('user_id')
-                ->numeric()
-                ->rules(['integer']),
-            ImportColumn::make('company_id')
+            ImportColumn::make('user')
+                ->relationship(resolveUsing: 'email'),
+            ImportColumn::make('company')
+                ->relationship(resolveUsing: 'name')
                 ->requiredMapping()
-                ->numeric()
-                ->rules(['required', 'integer']),
-            ImportColumn::make('branch_id')
-                ->numeric()
-                ->rules(['integer']),
-            ImportColumn::make('department_id')
-                ->numeric()
-                ->rules(['integer']),
-            ImportColumn::make('position_id')
-                ->numeric()
-                ->rules(['integer']),
-            ImportColumn::make('supervisor_id')
-                ->numeric()
-                ->rules(['integer']),
+                ->rules(['required']),
+            ImportColumn::make('branch')
+                ->relationship(resolveUsing: 'name'),
+            ImportColumn::make('department')
+                ->relationship(resolveUsing: 'name'),
+            ImportColumn::make('position')
+                ->relationship(resolveUsing: 'name'),
+            ImportColumn::make('supervisor')
+                ->relationship(resolveUsing: 'full_name'),
             ImportColumn::make('employee_no')
                 ->requiredMapping()
                 ->rules(['required', 'max:80']),

@@ -15,18 +15,17 @@ class DepartmentImporter extends Importer
     public static function getColumns(): array
     {
         return [
-            ImportColumn::make('company_id')
+            ImportColumn::make('company')
+                ->relationship(resolveUsing: 'name')
                 ->requiredMapping()
-                ->numeric()
-                ->rules(['required', 'integer']),
+                ->rules(['required']),
             ImportColumn::make('name')
                 ->requiredMapping()
                 ->rules(['required', 'max:150']),
             ImportColumn::make('code')
                 ->rules(['max:50']),
-            ImportColumn::make('parent_id')
-                ->numeric()
-                ->rules(['integer']),
+            ImportColumn::make('parent')
+                ->relationship(resolveUsing: 'name'),
             ImportColumn::make('is_active')
                 ->requiredMapping()
                 ->boolean()

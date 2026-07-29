@@ -15,16 +15,14 @@ class EmployeeScheduleImporter extends Importer
     public static function getColumns(): array
     {
         return [
-            ImportColumn::make('employee_id')
+            ImportColumn::make('employee')
+                ->relationship(resolveUsing: 'full_name')
                 ->requiredMapping()
-                ->numeric()
-                ->rules(['required', 'integer']),
-            ImportColumn::make('shift_id')
-                ->numeric()
-                ->rules(['integer']),
-            ImportColumn::make('work_location_id')
-                ->numeric()
-                ->rules(['integer']),
+                ->rules(['required']),
+            ImportColumn::make('shift')
+                ->relationship(resolveUsing: 'name'),
+            ImportColumn::make('workLocation')
+                ->relationship(resolveUsing: 'name'),
             ImportColumn::make('schedule_date')
                 ->requiredMapping()
                 ->rules(['required', 'date']),
@@ -44,10 +42,7 @@ class EmployeeScheduleImporter extends Importer
 
     public function resolveRecord(): EmployeeSchedule
     {
-        return EmployeeSchedule::firstOrNew([
-            'employee_id' => $this->data['employee_id'],
-            'schedule_date' => $this->data['schedule_date'],
-        ]);
+        return new EmployeeSchedule();
     }
 
     public static function getCompletedNotificationBody(Import $import): string

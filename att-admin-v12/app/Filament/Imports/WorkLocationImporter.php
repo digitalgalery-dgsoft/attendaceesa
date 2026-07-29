@@ -15,13 +15,12 @@ class WorkLocationImporter extends Importer
     public static function getColumns(): array
     {
         return [
-            ImportColumn::make('company_id')
+            ImportColumn::make('company')
+                ->relationship(resolveUsing: 'name')
                 ->requiredMapping()
-                ->numeric()
-                ->rules(['required', 'integer']),
-            ImportColumn::make('branch_id')
-                ->numeric()
-                ->rules(['integer']),
+                ->rules(['required']),
+            ImportColumn::make('branch')
+                ->relationship(resolveUsing: 'name'),
             ImportColumn::make('name')
                 ->requiredMapping()
                 ->rules(['required', 'max:150']),
@@ -44,11 +43,11 @@ class WorkLocationImporter extends Importer
             ImportColumn::make('latitude')
                 ->requiredMapping()
                 ->numeric()
-                ->rules(['required', 'integer']),
+                ->rules(['required', 'numeric']),
             ImportColumn::make('longitude')
                 ->requiredMapping()
                 ->numeric()
-                ->rules(['required', 'integer']),
+                ->rules(['required', 'numeric']),
             ImportColumn::make('radius_meter')
                 ->requiredMapping()
                 ->numeric()
@@ -65,10 +64,7 @@ class WorkLocationImporter extends Importer
 
     public function resolveRecord(): WorkLocation
     {
-        return WorkLocation::firstOrNew([
-            'name' => $this->data['name'],
-            'company_id' => $this->data['company_id'],
-        ]);
+        return new WorkLocation();
     }
 
     public static function getCompletedNotificationBody(Import $import): string

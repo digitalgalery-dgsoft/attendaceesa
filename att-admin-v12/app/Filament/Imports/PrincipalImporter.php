@@ -2,15 +2,15 @@
 
 namespace App\Filament\Imports;
 
-use App\Models\Position;
+use App\Models\Principal;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
 use Illuminate\Support\Number;
 
-class PositionImporter extends Importer
+class PrincipalImporter extends Importer
 {
-    protected static ?string $model = Position::class;
+    protected static ?string $model = Principal::class;
 
     public static function getColumns(): array
     {
@@ -19,29 +19,24 @@ class PositionImporter extends Importer
                 ->relationship(resolveUsing: 'name')
                 ->requiredMapping()
                 ->rules(['required']),
+            ImportColumn::make('code')
+                ->requiredMapping()
+                ->rules(['required', 'max:50']),
             ImportColumn::make('name')
                 ->requiredMapping()
                 ->rules(['required', 'max:150']),
-            ImportColumn::make('code')
-                ->rules(['max:50']),
-            ImportColumn::make('level')
-                ->numeric()
-                ->rules(['integer']),
-            ImportColumn::make('is_active')
-                ->requiredMapping()
-                ->boolean()
-                ->rules(['required', 'boolean']),
+            ImportColumn::make('description'),
         ];
     }
 
-    public function resolveRecord(): Position
+    public function resolveRecord(): Principal
     {
-        return new Position();
+        return new Principal();
     }
 
     public static function getCompletedNotificationBody(Import $import): string
     {
-        $body = 'Your position import has completed and ' . Number::format($import->successful_rows) . ' ' . str('row')->plural($import->successful_rows) . ' imported.';
+        $body = 'Your principal import has completed and ' . Number::format($import->successful_rows) . ' ' . str('row')->plural($import->successful_rows) . ' imported.';
 
         if ($failedRowsCount = $import->getFailedRowsCount()) {
             $body .= ' ' . Number::format($failedRowsCount) . ' ' . str('row')->plural($failedRowsCount) . ' failed to import.';
