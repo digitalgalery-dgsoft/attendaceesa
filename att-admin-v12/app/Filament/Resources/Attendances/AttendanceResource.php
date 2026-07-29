@@ -43,6 +43,7 @@ class AttendanceResource extends Resource
             'index' => \App\Filament\Resources\Attendances\Pages\AttendanceRoster::route('/'),
             'create' => \App\Filament\Resources\Attendances\Pages\CreateAttendance::route('/create'),
             'edit' => \App\Filament\Resources\Attendances\Pages\EditAttendance::route('/{record}/edit'),
+            'view-route' => \App\Filament\Resources\Attendances\Pages\ViewTrackingHistory::route('/{record}/view-route'),
         ];
     }
 

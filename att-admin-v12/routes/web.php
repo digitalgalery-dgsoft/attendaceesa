@@ -1,9 +1,19 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Models\Setting;
+use App\Models\Area;
+use App\Models\Principal;
+use App\Models\Employee;
 
 Route::get('/', function () {
-    return redirect('/admin');
+    $setting = Setting::first();
+    $stats = [
+        'areas' => Area::count(),
+        'principals' => Principal::count(),
+        'employees' => Employee::count(),
+    ];
+    return view('landing', compact('setting', 'stats'));
 });
 
 Route::middleware(\App\Http\Middleware\RedirectIfInstalled::class)->group(function () {

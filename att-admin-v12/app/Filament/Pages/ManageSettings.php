@@ -64,6 +64,11 @@ class ManageSettings extends Page implements HasForms
                             ->label('Application Logo')
                             ->image()
                             ->directory('logos'),
+                        TextInput::make('tracking_interval_minutes')
+                            ->label('Tracking Interval (Menit)')
+                            ->numeric()
+                            ->default(5)
+                            ->required(),
                     ])->columns(1),
                 Section::make('Pengaturan Foto Wajib')
                     ->components([

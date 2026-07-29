@@ -103,6 +103,11 @@ class AttendancesTable
                     ])
             ])
             ->recordActions([
+                Action::make('view_route')
+                    ->label('Lihat Rute')
+                    ->icon('heroicon-o-map')
+                    ->color('info')
+                    ->url(fn (\App\Models\Attendance $record): string => \App\Filament\Resources\Attendances\AttendanceResource::getUrl('view-route', ['record' => $record])),
                 EditAction::make(),
             ])
             ->headerActions([

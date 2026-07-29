@@ -39,6 +39,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/work-locations', [AttendanceController::class, 'workLocations']);
     Route::post('/attendance', [AttendanceController::class, 'store']);
     Route::get('/attendance/history', [AttendanceController::class, 'history']);
+    
+    // Tracking routes
+    Route::post('/tracking', [\App\Http\Controllers\Api\TrackingController::class, 'store']);
 
     // Itinerary routes
     Route::get('/itineraries/work-locations', [ItineraryController::class, 'availableWorkLocations']);
