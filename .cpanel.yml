@@ -2,6 +2,4 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/wabotbiz/dgsoft.web.id
-    - /bin/cp -R att-admin-v12/* $DEPLOYPATH/
-    - /bin/cp att-admin-v12/.env $DEPLOYPATH/
-    - /bin/cp att-admin-v12/public/.htaccess $DEPLOYPATH/public/
+    - /bin/cp -a att-admin-v12/. $DEPLOYPATH/
