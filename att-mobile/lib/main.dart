@@ -12,6 +12,7 @@ import 'package:att_mobile/screens/login_screen.dart';
 import 'package:att_mobile/screens/main_screen.dart';
 import 'package:att_mobile/screens/server_config_screen.dart';
 import 'package:att_mobile/utils/constants.dart';
+import 'package:att_mobile/utils/update_manager.dart' as att_mobile_update_manager;
 import 'package:toastification/toastification.dart';
 
 void main() async {
@@ -154,9 +155,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
     super.initState();
     if (Constants.baseUrl.isNotEmpty) {
       _autoLoginFuture = Provider.of<AuthProvider>(context, listen: false).tryAutoLogin();
+      
+      // Check for updates
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        importUpdateManagerAndCheck(context);
+      });
     } else {
       _autoLoginFuture = Future.value(false);
     }
+  }
+
+  void importUpdateManagerAndCheck(BuildContext context) {
+     att_mobile_update_manager.UpdateManager.checkForUpdate(context);
   }
 
   @override

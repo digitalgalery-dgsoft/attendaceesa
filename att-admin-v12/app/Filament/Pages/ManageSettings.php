@@ -50,6 +50,13 @@ class ManageSettings extends Page implements HasForms
                             ->label('Mobile App URL')
                             ->url()
                             ->maxLength(255),
+                        TextInput::make('mobile_app_version')
+                            ->label('Mobile App Version')
+                            ->placeholder('e.g. 1.0.0')
+                            ->maxLength(20),
+                        \Filament\Forms\Components\Toggle::make('is_force_update')
+                            ->label('Force Update?')
+                            ->default(false),
                         ColorPicker::make('theme_color')
                             ->label('Primary Theme Color')
                             ->required(),

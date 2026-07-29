@@ -194,12 +194,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             children: [
                               Text(
                                 DateFormat('HH:mm:ss').format(_currentTime),
-                                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 DateFormat('dd MMM yyyy').format(_currentTime),
-                                style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                style: const TextStyle(color: Colors.white70, fontSize: 12),
                               ),
                             ],
                           ),
