@@ -23,6 +23,19 @@
         </div>
     </div>
 
+    @if($attendance)
+        <div class="mt-2">
+            <x-filament::button
+                tag="a"
+                href="{{ \App\Filament\Resources\Attendances\AttendanceResource::getUrl('view-route', ['record' => $attendance->id]) }}"
+                color="info"
+                icon="heroicon-o-map"
+            >
+                Lihat Rute Live Tracking
+            </x-filament::button>
+        </div>
+    @endif
+
     <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
         <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Activity Logs</h3>
         
