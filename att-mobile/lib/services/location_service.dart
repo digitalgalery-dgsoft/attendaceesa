@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'package:geolocator/geolocator.dart';
@@ -13,6 +14,7 @@ import '../utils/constants.dart';
 
 class LocationService {
   static Future<void> initializeService() async {
+    if (kIsWeb) return;
     final service = FlutterBackgroundService();
 
     await service.configure(
@@ -35,6 +37,8 @@ class LocationService {
   }
 
   static Future<void> startService() async {
+    if (kIsWeb) return;
+
     // Request notification permission for Android 13+
     var status = await Permission.notification.status;
     if (status.isDenied) {
@@ -49,6 +53,7 @@ class LocationService {
   }
 
   static Future<void> stopService() async {
+    if (kIsWeb) return;
     final service = FlutterBackgroundService();
     var isRunning = await service.isRunning();
     if (isRunning) {
