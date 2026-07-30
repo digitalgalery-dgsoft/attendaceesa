@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->string('phone', 50)->nullable();
             $table->string('email', 150)->nullable();
             $table->boolean('is_active')->default(true);
-            $table->json('settings')->nullable();
+            $table->jsonb('settings')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

@@ -28,7 +28,7 @@ return new class extends Migration {
             $table->unsignedBigInteger('device_id')->nullable();
             $table->string('ip_address', 80)->nullable();
             $table->text('user_agent')->nullable();
-            $table->json('metadata')->nullable();
+            $table->jsonb('metadata')->nullable();
             $table->timestamps();
             
             $table->index(['employee_id', 'logged_at']);

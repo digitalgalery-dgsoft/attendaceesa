@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('departments', function (Blueprint $table) {
-            $table->json('working_days')->nullable()->after('is_active');
+            $table->jsonb('working_days')->nullable()->after('is_active');
         });
     }
 
