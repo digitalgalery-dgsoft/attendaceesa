@@ -174,6 +174,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
       visitLocationId: _selectedWorkLocationId,
     );
 
+    if (!mounted) return;
     Navigator.pop(context); // Close loading
 
     if (result['success']) {
