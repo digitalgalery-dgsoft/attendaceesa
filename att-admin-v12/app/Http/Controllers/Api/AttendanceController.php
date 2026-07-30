@@ -147,6 +147,10 @@ class AttendanceController extends Controller
 
             // ─── TIPE ABSENSI ─────────────────────────────────────────────────
             if ($request->type === 'checkin') {
+                if ($refLocation && $refLocation->latitude && $refLocation->longitude && !$isInsideGeofence) {
+                    return response()->json(['message' => 'Check-in ditolak: Anda berada di luar radius lokasi kantor (' . round($distance) . 'm). Radius maksimal: ' . ($refLocation->radius_meter ?? 100) . 'm'], 400);
+                }
+
                 if ($attendance) {
                     return response()->json(['message' => 'Already checked in for today'], 400);
                 }
@@ -167,6 +171,10 @@ class AttendanceController extends Controller
                 if (!$attendance)             return response()->json(['message' => 'Must check in first'], 400);
                 if ($attendance->checkout_at) return response()->json(['message' => 'Already checked out for today'], 400);
 
+                if ($refLocation && $refLocation->latitude && $refLocation->longitude && !$isInsideGeofence) {
+                    return response()->json(['message' => 'Check-out ditolak: Anda berada di luar radius lokasi kantor (' . round($distance) . 'm). Radius maksimal: ' . ($refLocation->radius_meter ?? 100) . 'm'], 400);
+                }
+
                 $workDuration = $now->diffInMinutes(Carbon::parse($attendance->checkin_at));
                 $attendance->update([
                     'checkout_at'           => $now,
@@ -183,6 +191,19 @@ class AttendanceController extends Controller
                 $itinerary = Itinerary::where('employee_id', $employeeId)->where('date', $today)->first();
                 if (!$itinerary) {
                     return response()->json(['message' => 'Visit ditolak: Anda tidak memiliki itinerary (jadwal kunjungan) hari ini.'], 403);
+                }
+
+                if ($request->visit_location_id) {
+                    $loc = WorkLocation::find($request->visit_location_id);
+                    if ($loc && $loc->latitude && $loc->longitude) {
+                        $dist = $this->calculateDistance(
+                            $request->latitude, $request->longitude,
+                            $loc->latitude, $loc->longitude
+                        );
+                        if ($dist > ($loc->radius_meter ?? 100)) {
+                            return response()->json(['message' => 'Di luar jangkauan lokasi Visit In! (' . round($dist) . 'm)'], 400);
+                        }
+                    }
                 }
 
                 $log->update([
