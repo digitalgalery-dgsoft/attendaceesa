@@ -18,21 +18,16 @@ class BranchesTable
     {
         return $table
             ->columns([
-                TextColumn::make('name')
-                    ->searchable(),
                 TextColumn::make('code')
+                    ->label('Code')
                     ->searchable(),
-                TextColumn::make('latitude')
-                    ->numeric()
+                TextColumn::make('name')
+                    ->label('Area')
+                    ->searchable(),
+                TextColumn::make('region')
+                    ->label('Region')
+                    ->searchable()
                     ->sortable(),
-                TextColumn::make('longitude')
-                    ->numeric()
-                    ->sortable(),
-                TextColumn::make('radius_meter')
-                    ->numeric()
-                    ->sortable(),
-                IconColumn::make('is_active')
-                    ->boolean(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
