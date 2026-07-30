@@ -143,6 +143,7 @@ class AttendanceController extends Controller
                 'is_inside_geofence'           => $isInsideGeofence,
                 'distance_from_location_meter' => $distance,
                 'source'                       => 'android',
+                'validation_status'            => 'valid',
             ]);
 
             // ─── TIPE ABSENSI ─────────────────────────────────────────────────
@@ -208,7 +209,7 @@ class AttendanceController extends Controller
 
                 $log->update([
                     'attendance_id' => $attendance->id,
-                    'metadata'      => json_encode(['visit_location_id' => $request->visit_location_id]),
+                    'metadata'      => ['visit_location_id' => $request->visit_location_id],
                 ]);
 
                 return response()->json(['message' => 'Visit In successful']);
@@ -231,7 +232,7 @@ class AttendanceController extends Controller
                     ->first();
 
                 if ($lastVisitIn && $lastVisitIn->metadata) {
-                    $meta = json_decode($lastVisitIn->metadata, true);
+                    $meta = $lastVisitIn->metadata;
                     if (isset($meta['visit_location_id'])) {
                         $loc = WorkLocation::find($meta['visit_location_id']);
                         if ($loc) {
@@ -249,7 +250,7 @@ class AttendanceController extends Controller
                 $log->update([
                     'attendance_id' => $attendance->id,
                     'note'          => $request->note,
-                    'metadata'      => json_encode(['visit_type' => $request->visit_type]),
+                    'metadata'      => ['visit_type' => $request->visit_type],
                 ]);
 
                 return response()->json(['message' => 'Visit Out successful']);
@@ -333,7 +334,7 @@ class AttendanceController extends Controller
         foreach ($logs as $log) {
             // Group by local date (Asia/Jakarta)
             $date = Carbon::parse($log->logged_at)->timezone('Asia/Jakarta')->toDateString();
-            $meta = $log->metadata ? json_decode($log->metadata, true) : [];
+            $meta = $log->metadata ?: [];
             $location = null;
 
             if (isset($meta['visit_location_id'])) {

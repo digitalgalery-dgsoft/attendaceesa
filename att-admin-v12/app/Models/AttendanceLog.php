@@ -9,6 +9,10 @@ class AttendanceLog extends Model
 {
     use HasFactory;
 
+    protected $casts = [
+        'metadata' => 'array',
+    ];
+
     protected $fillable = [
         'attendance_id',
         'employee_id',
