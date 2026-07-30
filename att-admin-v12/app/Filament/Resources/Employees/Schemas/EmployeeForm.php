@@ -31,7 +31,8 @@ class EmployeeForm
                         TextInput::make('password')
                             ->password()
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->dehydrateStateUsing(fn ($state) => \Illuminate\Support\Facades\Hash::make($state)),
                     ]),
                 Select::make('company_id')
                     ->relationship('company', 'name')

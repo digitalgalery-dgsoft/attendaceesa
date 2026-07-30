@@ -22,6 +22,7 @@ class UserForm
                 TextInput::make('password')
                     ->password()
                     ->required(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\CreateRecord)
+                    ->dehydrateStateUsing(fn ($state) => \Illuminate\Support\Facades\Hash::make($state))
                     ->dehydrated(fn ($state) => filled($state)),
                 \Filament\Forms\Components\Select::make('roles')
                     ->multiple()
