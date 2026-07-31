@@ -18,14 +18,14 @@ class TrackingController extends Controller
         ]);
 
         $user = $request->user();
-        if (!$user || !$user->employee) {
+        if (!$user) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Employee not found'
             ], 404);
         }
 
-        $employeeId = $user->employee->id;
+        $employeeId = $user->id;
         $today = Carbon::today()->format('Y-m-d');
         
         // Cari absensi hari ini yang belum checkout (opsional, tapi berguna untuk grouping history per hari)

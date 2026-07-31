@@ -132,21 +132,9 @@ class AttendanceController extends Controller
                 $isInsideGeofence = ($distance <= ($refLocation->radius_meter ?? 100));
             }
 
-            // ─── LOG ──────────────────────────────────────────────────────────
-            $log = AttendanceLog::create([
-                'employee_id'                  => $employeeId,
-                'log_type'                     => $request->type,
-                'logged_at'                    => $now,
-                'latitude'                     => $request->latitude,
-                'longitude'                    => $request->longitude,
-                'photo_path'                   => $path,
-                'is_inside_geofence'           => $isInsideGeofence,
-                'distance_from_location_meter' => $distance,
-                'source'                       => 'android',
-                'validation_status'            => 'valid',
-            ]);
+            // ─── VALIDASI BISNIS DULU, BARU BUAT LOG ──────────────────────────
+            // Log hanya dibuat SETELAH semua validasi lolos, mencegah log zombie.
 
-            // ─── TIPE ABSENSI ─────────────────────────────────────────────────
             if ($request->type === 'checkin') {
                 if ($refLocation && $refLocation->latitude && $refLocation->longitude && !$isInsideGeofence) {
                     return response()->json(['message' => 'Check-in ditolak: Anda berada di luar radius lokasi kantor (' . round($distance) . 'm). Radius maksimal: ' . ($refLocation->radius_meter ?? 100) . 'm'], 400);
@@ -155,6 +143,19 @@ class AttendanceController extends Controller
                 if ($attendance) {
                     return response()->json(['message' => 'Already checked in for today'], 400);
                 }
+
+                $log = AttendanceLog::create([
+                    'employee_id'                  => $employeeId,
+                    'log_type'                     => $request->type,
+                    'logged_at'                    => $now,
+                    'latitude'                     => $request->latitude,
+                    'longitude'                    => $request->longitude,
+                    'photo_path'                   => $path,
+                    'is_inside_geofence'           => $isInsideGeofence,
+                    'distance_from_location_meter' => $distance,
+                    'source'                       => 'android',
+                    'validation_status'            => 'valid',
+                ]);
 
                 $attendance = Attendance::create([
                     'employee_id'     => $employeeId,
@@ -175,6 +176,19 @@ class AttendanceController extends Controller
                 if ($refLocation && $refLocation->latitude && $refLocation->longitude && !$isInsideGeofence) {
                     return response()->json(['message' => 'Check-out ditolak: Anda berada di luar radius lokasi kantor (' . round($distance) . 'm). Radius maksimal: ' . ($refLocation->radius_meter ?? 100) . 'm'], 400);
                 }
+
+                $log = AttendanceLog::create([
+                    'employee_id'                  => $employeeId,
+                    'log_type'                     => $request->type,
+                    'logged_at'                    => $now,
+                    'latitude'                     => $request->latitude,
+                    'longitude'                    => $request->longitude,
+                    'photo_path'                   => $path,
+                    'is_inside_geofence'           => $isInsideGeofence,
+                    'distance_from_location_meter' => $distance,
+                    'source'                       => 'android',
+                    'validation_status'            => 'valid',
+                ]);
 
                 $workDuration = $now->diffInMinutes(Carbon::parse($attendance->checkin_at));
                 $attendance->update([
@@ -206,6 +220,19 @@ class AttendanceController extends Controller
                         }
                     }
                 }
+
+                $log = AttendanceLog::create([
+                    'employee_id'                  => $employeeId,
+                    'log_type'                     => $request->type,
+                    'logged_at'                    => $now,
+                    'latitude'                     => $request->latitude,
+                    'longitude'                    => $request->longitude,
+                    'photo_path'                   => $path,
+                    'is_inside_geofence'           => $isInsideGeofence,
+                    'distance_from_location_meter' => $distance,
+                    'source'                       => 'android',
+                    'validation_status'            => 'valid',
+                ]);
 
                 $log->update([
                     'attendance_id' => $attendance->id,
@@ -246,6 +273,19 @@ class AttendanceController extends Controller
                         }
                     }
                 }
+
+                $log = AttendanceLog::create([
+                    'employee_id'                  => $employeeId,
+                    'log_type'                     => $request->type,
+                    'logged_at'                    => $now,
+                    'latitude'                     => $request->latitude,
+                    'longitude'                    => $request->longitude,
+                    'photo_path'                   => $path,
+                    'is_inside_geofence'           => $isInsideGeofence,
+                    'distance_from_location_meter' => $distance,
+                    'source'                       => 'android',
+                    'validation_status'            => 'valid',
+                ]);
 
                 $log->update([
                     'attendance_id' => $attendance->id,

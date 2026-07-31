@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../utils/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/location_service.dart';
 
 class AttendanceProvider with ChangeNotifier {
   bool _isLoading = false;
@@ -142,6 +143,10 @@ class AttendanceProvider with ChangeNotifier {
         } else {
           _isVisiting = false;
         }
+
+        // We CANNOT auto-start LocationService here because starting a Foreground Service 
+        // during app initialization (before Activity is fully resumed) causes 
+        // ForegroundServiceStartNotAllowedException on Android 12+.
       }
     } catch (e) {
       debugPrint('Error checking status: $e');
@@ -248,6 +253,20 @@ class AttendanceProvider with ChangeNotifier {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         await checkAttendanceStatus();
+        
+        // Handle Location Service safely to prevent crash
+        // Must be in try-catch because Android 14+ throws
+        // ForegroundServiceStartNotAllowedException if app is not fully in foreground
+        try {
+          if (type == 'checkin') {
+            await LocationService.startService();
+          } else if (type == 'checkout') {
+            await LocationService.stopService();
+          }
+        } catch (e) {
+          debugPrint('LocationService error (non-fatal): $e');
+        }
+
         _isLoading = false;
         notifyListeners();
         return {'success': true, 'message': decodedData['message'] ?? 'Berhasil'};

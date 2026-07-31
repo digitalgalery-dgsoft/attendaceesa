@@ -22,11 +22,13 @@ class LocationService {
         // this will be executed when app is in foreground or background in separated isolate
         onStart: onStart,
         autoStart: false,
+        autoStartOnBoot: false,
         isForegroundMode: true,
         notificationChannelId: 'location_tracking',
         initialNotificationTitle: 'Live Tracking Active',
         initialNotificationContent: 'Merekam lokasi di latar belakang...',
         foregroundServiceNotificationId: 888,
+        foregroundServiceTypes: [AndroidForegroundType.location],
       ),
       iosConfiguration: IosConfiguration(
         autoStart: false,
@@ -40,15 +42,27 @@ class LocationService {
     if (kIsWeb) return;
 
     // Request notification permission for Android 13+
-    var status = await Permission.notification.status;
-    if (status.isDenied) {
+    var notifStatus = await Permission.notification.status;
+    if (notifStatus.isDenied) {
       await Permission.notification.request();
     }
     
-    final service = FlutterBackgroundService();
-    var isRunning = await service.isRunning();
-    if (!isRunning) {
-      await service.startService();
+    // Request location permission (Required for Android 14 FGS)
+    var locStatus = await Permission.location.status;
+    if (locStatus.isDenied) {
+      await Permission.location.request();
+    }
+
+    // Verify location permission is granted before starting to avoid OS crash
+    if (await Permission.location.isGranted || await Permission.locationAlways.isGranted) {
+      final service = FlutterBackgroundService();
+      var isRunning = await service.isRunning();
+      if (!isRunning) {
+        // Add a small delay to ensure permission dialog is fully closed
+        // and app is in foreground state to prevent ForegroundServiceStartNotAllowedException
+        await Future.delayed(const Duration(milliseconds: 500));
+        await service.startService();
+      }
     }
   }
 
@@ -118,7 +132,7 @@ void onStart(ServiceInstance service) async {
     // Change timer interval if it was updated in settings (this requires restarting timer, but we keep it simple for now)
     
     try {
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      Position position = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
       
       // Kirim data ke API
       final response = await http.post(
