@@ -132,7 +132,7 @@ void onStart(ServiceInstance service) async {
     // Change timer interval if it was updated in settings (this requires restarting timer, but we keep it simple for now)
     
     try {
-      Position position = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
       
       // Kirim data ke API
       final response = await http.post(

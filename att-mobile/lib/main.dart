@@ -13,11 +13,13 @@ import 'package:att_mobile/screens/main_screen.dart';
 import 'package:att_mobile/screens/server_config_screen.dart';
 import 'package:att_mobile/utils/constants.dart';
 import 'package:att_mobile/utils/update_manager.dart' as att_mobile_update_manager;
+import 'package:att_mobile/services/location_service.dart';
 import 'package:toastification/toastification.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Constants.loadBaseUrl();
+  await LocationService.initializeService();
   
   runApp(
     MultiProvider(

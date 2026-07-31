@@ -15,6 +15,7 @@ import 'package:att_mobile/screens/notification_screen.dart';
 import 'package:att_mobile/providers/notification_provider.dart';
 import 'package:att_mobile/screens/blast_info_screen.dart';
 import 'package:att_mobile/screens/sales_pipeline_screen.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Function(int)? switchTab;
@@ -28,6 +29,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   late Timer _timer;
   DateTime _currentTime = DateTime.now();
+  String _appVersion = '';
 
   @override
   void initState() {
@@ -41,6 +43,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         setState(() {
           _currentTime = DateTime.now();
+        });
+      }
+    });
+    
+    PackageInfo.fromPlatform().then((PackageInfo packageInfo) {
+      if (mounted) {
+        setState(() {
+          _appVersion = packageInfo.version;
         });
       }
     });
@@ -527,6 +537,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+            if (_appVersion.isNotEmpty)
+              Text(
+                'Version $_appVersion',
+                style: TextStyle(color: subtitleColor, fontSize: 12),
+              ),
             const SizedBox(height: 40),
           ],
         ),

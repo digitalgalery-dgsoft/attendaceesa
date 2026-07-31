@@ -36,6 +36,10 @@ class AuthProvider with ChangeNotifier {
             if (hexStr.length == 6) hexStr = 'FF' + hexStr;
             _appColor = Color(int.parse(hexStr, radix: 16));
           }
+          if (data['data']['tracking_interval_minutes'] != null) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setInt('tracking_interval_minutes', int.parse(data['data']['tracking_interval_minutes'].toString()));
+          }
           notifyListeners();
         }
       }

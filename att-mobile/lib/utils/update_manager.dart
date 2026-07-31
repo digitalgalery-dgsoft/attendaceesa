@@ -87,6 +87,7 @@ class UpdateManager {
 
   static Future<void> _downloadAndInstall(BuildContext context, String url) async {
     String message = 'Memulai proses update...';
+    bool hasError = false;
     
     showDialog(
       context: context,
@@ -96,7 +97,7 @@ class UpdateManager {
         
         return StatefulBuilder(builder: (context, setState) {
           // Hanya jalankan download sekali
-          if (progress == 0.0 && message == 'Memulai proses update...') {
+          if (progress == 0.0 && message == 'Memulai proses update...' && !hasError) {
             _performDownload(url, (received, total) {
               if (total != -1) {
                 setState(() {
@@ -105,24 +106,52 @@ class UpdateManager {
                 });
               }
             }).then((filePath) {
-              if (dialogContext.mounted) {
-                Navigator.pop(dialogContext); // Close progress dialog
-              }
               if (filePath != null) {
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext); // Close progress dialog
+                }
                 _installApk(filePath);
+              } else {
+                if (dialogContext.mounted) {
+                  setState(() {
+                    hasError = true;
+                    message = 'Koneksi terputus saat aplikasi diminimize atau jaringan tidak stabil.';
+                  });
+                }
               }
             });
           }
 
-          return AlertDialog(
-            title: const Text('Mengunduh Update'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                LinearProgressIndicator(value: progress),
-                const SizedBox(height: 16),
-                Text(message),
-              ],
+          return PopScope(
+            canPop: hasError,
+            child: AlertDialog(
+              title: const Text('Mengunduh Update'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!hasError) LinearProgressIndicator(value: progress),
+                  const SizedBox(height: 16),
+                  Text(message, textAlign: TextAlign.center),
+                ],
+              ),
+              actions: hasError
+                  ? [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: const Text('Tutup'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            hasError = false;
+                            message = 'Memulai proses update...';
+                            progress = 0.0;
+                          });
+                        },
+                        child: const Text('Coba Lagi'),
+                      ),
+                    ]
+                  : null,
             ),
           );
         });
