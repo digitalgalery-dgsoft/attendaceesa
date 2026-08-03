@@ -8,6 +8,7 @@ use App\Models\AttendanceLog;
 use App\Models\Employee;
 use App\Models\EmployeeSchedule;
 use App\Models\Itinerary;
+use App\Models\TrackingHistory;
 use App\Models\WorkLocation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -166,6 +167,18 @@ class AttendanceController extends Controller
                 ]);
 
                 $log->update(['attendance_id' => $attendance->id]);
+
+                // Auto-save check-in location as first tracking point so map is never empty
+                try {
+                    TrackingHistory::create([
+                        'employee_id'   => $employeeId,
+                        'attendance_id' => $attendance->id,
+                        'latitude'      => $request->latitude,
+                        'longitude'     => $request->longitude,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::warning('Failed to save initial tracking point: ' . $e->getMessage());
+                }
 
                 return response()->json(['message' => 'Check in successful', 'attendance' => $attendance]);
 

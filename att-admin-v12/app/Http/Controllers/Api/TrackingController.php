@@ -48,4 +48,32 @@ class TrackingController extends Controller
             'message' => 'Location recorded'
         ]);
     }
+
+    public function history(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+        }
+
+        $date = $request->query('date', Carbon::today()->format('Y-m-d'));
+
+        $histories = TrackingHistory::where('employee_id', $user->id)
+            ->whereDate('created_at', $date)
+            ->orderBy('created_at', 'asc')
+            ->get(['latitude', 'longitude', 'created_at'])
+            ->map(function ($item) {
+                return [
+                    'latitude'   => (float) $item->latitude,
+                    'longitude'  => (float) $item->longitude,
+                    'created_at' => $item->created_at->format('H:i:s'),
+                ];
+            });
+
+        return response()->json([
+            'status' => 'success',
+            'date'   => $date,
+            'data'   => $histories,
+        ]);
+    }
 }
