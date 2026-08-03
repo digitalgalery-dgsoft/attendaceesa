@@ -92,20 +92,35 @@ class AttendanceController extends Controller
             } else if ($request->type === 'checkout') {
                 if (!$attendance) return response()->json(['message' => 'Must check in first'], 400);
                 if ($attendance->checkout_at) return response()->json(['message' => 'Already checked out for today'], 400);
+                
+                // TODO: Geofence logic against Itinerary (for now, simply use Branch logic)
 
-                $workDuration = $now->diffInMinutes(Carbon::parse($attendance->checkin_at));
-                $attendance->update([
-                    'checkout_at' => $now,
-                    'checkout_log_id' => $log->id,
-                    'work_duration_minutes' => $workDuration,
-                ]);
+                try {
+                    $workDuration = $now->diffInMinutes(Carbon::parse($attendance->checkin_at));
+                } catch (\Exception $e) {
+                    return response()->json(['message' => 'Error parse date: ' . $e->getMessage()], 500);
+                }
 
-                $log->update(['attendance_id' => $attendance->id]);
+                try {
+                    \Illuminate\Support\Facades\DB::table('attendances')
+                        ->where('id', (int) $attendance->id)
+                        ->update([
+                            'checkout_at'           => $now,
+                            'checkout_log_id'       => $log->id ? (int) $log->id : null,
+                            'work_duration_minutes' => (int) $workDuration,
+                            'updated_at'            => $now,
+                        ]);
+                } catch (\Exception $e) {
+                    return response()->json(['message' => 'Error update att: ' . $e->getMessage()], 500);
+                }
 
-                return response()->json([
-                    'message' => 'Check out successful',
-                    'attendance' => $attendance
-                ]);
+                try {
+                    $log->update(['attendance_id' => (int) $attendance->id]);
+                } catch (\Exception $e) {
+                    return response()->json(['message' => 'Error update log: ' . $e->getMessage()], 500);
+                }
+
+                return response()->json(['message' => 'Check-out successful']);
             } else if ($request->type === 'visit_in') {
                 if (!$attendance) return response()->json(['message' => 'Must check in first'], 400);
                 
