@@ -36,6 +36,32 @@ class ManageSettings extends Page implements HasForms
         }
     }
 
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('clear_today_checkins')
+                ->label('Clear Today Check-ins')
+                ->color('danger')
+                ->icon('heroicon-o-trash')
+                ->requiresConfirmation()
+                ->modalHeading('Clear Today Check-ins')
+                ->modalDescription('Apakah Anda yakin ingin menghapus SELURUH data absensi (check-in/out) hari ini? Tindakan ini tidak dapat dibatalkan.')
+                ->modalSubmitActionLabel('Ya, Hapus Data')
+                ->action(function () {
+                    $today = \Carbon\Carbon::today()->toDateString();
+                    
+                    \App\Models\Attendance::where('attendance_date', $today)->delete();
+                    \App\Models\AttendanceLog::whereDate('logged_at', $today)->delete();
+                    
+                    \Filament\Notifications\Notification::make()
+                        ->title('Data Terhapus')
+                        ->body('Semua data absensi dan log hari ini berhasil dibersihkan.')
+                        ->success()
+                        ->send();
+                }),
+        ];
+    }
+
     public function form(Schema $form): Schema
     {
         return $form
