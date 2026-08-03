@@ -198,11 +198,11 @@ class AttendanceController extends Controller
 
                 try {
                     \Illuminate\Support\Facades\DB::table('attendances')
-                        ->where('id', $attendance->id)
+                        ->where('id', (int) $attendance->id)
                         ->update([
                             'checkout_at'           => $now,
-                            'checkout_log_id'       => $log->id,
-                            'work_duration_minutes' => $workDuration,
+                            'checkout_log_id'       => $log->id ? (int) $log->id : null,
+                            'work_duration_minutes' => (int) $workDuration,
                             'updated_at'            => $now,
                         ]);
                 } catch (\Exception $e) {
