@@ -197,11 +197,14 @@ class AttendanceController extends Controller
                 }
 
                 try {
-                    $attendance->update([
-                        'checkout_at'           => $now,
-                        'checkout_log_id'       => $log->id,
-                        'work_duration_minutes' => $workDuration,
-                    ]);
+                    \Illuminate\Support\Facades\DB::table('attendances')
+                        ->where('id', $attendance->id)
+                        ->update([
+                            'checkout_at'           => $now,
+                            'checkout_log_id'       => $log->id,
+                            'work_duration_minutes' => $workDuration,
+                            'updated_at'            => $now,
+                        ]);
                 } catch (\Exception $e) {
                     return response()->json(['message' => 'Error update att: ' . $e->getMessage()], 500);
                 }
