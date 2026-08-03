@@ -10,7 +10,10 @@ if (!isset($_GET['token']) || $_GET['token'] !== $secretToken) {
 
 // Daftar perintah yang akan dijalankan persis seperti script manual Anda
 $commands = [
-    'cd /home/wabotbiz/dgsoft.web.id && git pull https://github.com/digitalgalery-dgsoft/attendaceesa.git main',
+    'cd /home/wabotbiz/dgsoft.web.id && git fetch origin main',
+    'cd /home/wabotbiz/dgsoft.web.id && git reset --hard origin/main',
+    'cd /home/wabotbiz/dgsoft.web.id && git clean -fd',
+    'cd /home/wabotbiz/dgsoft.web.id && git pull origin main',
     'cp -a /home/wabotbiz/dgsoft.web.id/att-admin-v12/. /home/wabotbiz/dgsoft.web.id/',
     '/opt/cpanel/ea-php83/root/usr/bin/php /home/wabotbiz/dgsoft.web.id/artisan migrate --force',
     '/opt/cpanel/ea-php83/root/usr/bin/php /home/wabotbiz/dgsoft.web.id/artisan optimize:clear',
