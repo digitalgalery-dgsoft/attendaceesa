@@ -188,21 +188,6 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
         autoCloseDuration: const Duration(seconds: 4),
       );
       Navigator.pop(context); // Go back to dashboard after submit
-
-      // Start/stop LocationService AFTER navigation so Activity is fully resumed
-      // This avoids ForegroundServiceStartNotAllowedException on Android 12+
-      final attendanceType = result['type'] as String? ?? widget.type;
-      Future.delayed(const Duration(milliseconds: 800), () async {
-        try {
-          if (attendanceType == 'checkin') {
-            await LocationService.startService();
-          } else if (attendanceType == 'checkout') {
-            await LocationService.stopService();
-          }
-        } catch (e) {
-          debugPrint('LocationService (non-fatal): $e');
-        }
-      });
     } else {
       toastification.show(
         context: context,

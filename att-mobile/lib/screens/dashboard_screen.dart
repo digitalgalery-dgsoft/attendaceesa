@@ -15,6 +15,7 @@ import 'package:att_mobile/screens/notification_screen.dart';
 import 'package:att_mobile/providers/notification_provider.dart';
 import 'package:att_mobile/screens/blast_info_screen.dart';
 import 'package:att_mobile/screens/sales_pipeline_screen.dart';
+import 'package:att_mobile/services/location_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -26,7 +27,7 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   late Timer _timer;
   DateTime _currentTime = DateTime.now();
   String _appVersion = '';
@@ -34,10 +35,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AttendanceProvider>(context, listen: false).loadDashboardData();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+      await attProvider.loadDashboardData();
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       Provider.of<NotificationProvider>(context, listen: false).fetchNotifications(authProvider);
+      // Sync location service AFTER dashboard data loaded (activity is fully resumed here)
+      _syncLocationService(attProvider);
     });
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
@@ -56,8 +61,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  /// Sync LocationService based on check-in status.
+  /// Only called when Activity is fully in foreground to avoid OS crash.
+  Future<void> _syncLocationService(AttendanceProvider attProvider) async {
+    try {
+      if (attProvider.isCheckedIn) {
+        await LocationService.startService();
+      } else {
+        await LocationService.stopService();
+      }
+    } catch (e) {
+      debugPrint('LocationService sync (non-fatal): $e');
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When app comes back to foreground (resumed), re-sync the service
+    if (state == AppLifecycleState.resumed && mounted) {
+      final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+      _syncLocationService(attProvider);
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer.cancel();
     super.dispose();
   }
