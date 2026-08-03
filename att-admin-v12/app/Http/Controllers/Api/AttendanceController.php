@@ -190,15 +190,29 @@ class AttendanceController extends Controller
                     'validation_status'            => 'valid',
                 ]);
 
-                $workDuration = $now->diffInMinutes(Carbon::parse($attendance->checkin_at));
-                $attendance->update([
-                    'checkout_at'           => $now,
-                    'checkout_log_id'       => $log->id,
-                    'work_duration_minutes' => $workDuration,
-                ]);
-                $log->update(['attendance_id' => $attendance->id]);
+                try {
+                    $workDuration = $now->diffInMinutes(Carbon::parse($attendance->checkin_at));
+                } catch (\Exception $e) {
+                    return response()->json(['message' => 'Error parse date: ' . $e->getMessage()], 500);
+                }
 
-                return response()->json(['message' => 'Check out successful', 'attendance' => $attendance]);
+                try {
+                    $attendance->update([
+                        'checkout_at'           => $now,
+                        'checkout_log_id'       => $log->id,
+                        'work_duration_minutes' => $workDuration,
+                    ]);
+                } catch (\Exception $e) {
+                    return response()->json(['message' => 'Error update att: ' . $e->getMessage()], 500);
+                }
+
+                try {
+                    $log->update(['attendance_id' => $attendance->id]);
+                } catch (\Exception $e) {
+                    return response()->json(['message' => 'Error update log: ' . $e->getMessage()], 500);
+                }
+
+                return response()->json(['message' => 'Check-out successful', 'attendance' => $attendance]);
 
             } elseif ($request->type === 'visit_in') {
                 if (!$attendance) return response()->json(['message' => 'Must check in first'], 400);

@@ -53,15 +53,20 @@ class LocationService {
       await Permission.location.request();
     }
 
-    // Verify location permission is granted before starting to avoid OS crash
-    if (await Permission.location.isGranted || await Permission.locationAlways.isGranted) {
+    // Verify location and notification permissions are granted before starting to avoid OS crash
+    var notifGranted = await Permission.notification.isGranted;
+    if (notifGranted && (await Permission.location.isGranted || await Permission.locationAlways.isGranted)) {
       final service = FlutterBackgroundService();
       var isRunning = await service.isRunning();
       if (!isRunning) {
         // Add a small delay to ensure permission dialog is fully closed
         // and app is in foreground state to prevent ForegroundServiceStartNotAllowedException
         await Future.delayed(const Duration(milliseconds: 500));
-        await service.startService();
+        try {
+          await service.startService();
+        } catch (e) {
+          debugPrint('Failed to start service: $e');
+        }
       }
     }
   }
