@@ -253,23 +253,11 @@ class AttendanceProvider with ChangeNotifier {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         await checkAttendanceStatus();
-        
-        // Handle Location Service safely to prevent crash
-        // Must be in try-catch because Android 14+ throws
-        // ForegroundServiceStartNotAllowedException if app is not fully in foreground
-        try {
-          if (type == 'checkin') {
-            await LocationService.startService();
-          } else if (type == 'checkout') {
-            await LocationService.stopService();
-          }
-        } catch (e) {
-          debugPrint('LocationService error (non-fatal): $e');
-        }
 
         _isLoading = false;
         notifyListeners();
-        return {'success': true, 'message': decodedData['message'] ?? 'Berhasil'};
+        // Return type so the UI layer can start/stop LocationService AFTER navigation
+        return {'success': true, 'message': decodedData['message'] ?? 'Berhasil', 'type': type};
       } else {
         _isLoading = false;
         notifyListeners();
