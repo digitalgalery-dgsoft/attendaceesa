@@ -19,16 +19,14 @@ class LocationService {
 
     await service.configure(
       androidConfiguration: AndroidConfiguration(
-        // this will be executed when app is in foreground or background in separated isolate
         onStart: onStart,
         autoStart: false,
         autoStartOnBoot: false,
-        isForegroundMode: true,
+        isForegroundMode: false,  // Changed: avoid foreground service type restriction on Android 14
         notificationChannelId: 'location_tracking',
         initialNotificationTitle: 'Live Tracking Active',
         initialNotificationContent: 'Merekam lokasi di latar belakang...',
         foregroundServiceNotificationId: 888,
-        foregroundServiceTypes: [AndroidForegroundType.location],
       ),
       iosConfiguration: IosConfiguration(
         autoStart: false,
@@ -107,43 +105,60 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
   });
 
-  // Ambil interval dari SharedPreferences
-  final prefs = await SharedPreferences.getInstance();
-  int intervalMinutes = prefs.getInt('tracking_interval_minutes') ?? 5;
-  String? token = prefs.getString('auth_token');
+  // Ambil interval dari SharedPreferences dengan safe fallback
+  int intervalMinutes = 5;
+  String? token;
+  
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    intervalMinutes = prefs.getInt('tracking_interval_minutes') ?? 5;
+    token = prefs.getString('auth_token');
+  } catch (e) {
+    debugPrint('Error reading prefs in background service: $e');
+  }
+
+  // If no token, stop immediately to avoid unnecessary crash
+  if (token == null || token.isEmpty) {
+    service.stopSelf();
+    return;
+  }
 
   Timer.periodic(Duration(minutes: intervalMinutes), (timer) async {
-    if (service is AndroidServiceInstance) {
-      if (await service.isForegroundService()) {
-        service.setForegroundNotificationInfo(
-          title: "Live Tracking Active",
-          content: "Updated at ${DateTime.now().toString().substring(11, 16)}",
-        );
-      }
+    // Refresh token
+    String? currentToken;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      currentToken = prefs.getString('auth_token');
+    } catch (e) {
+      debugPrint('Error reloading prefs: $e');
+      return;
     }
 
-    // Refresh token and interval if changed
-    await prefs.reload();
-    token = prefs.getString('auth_token');
-    int currentInterval = prefs.getInt('tracking_interval_minutes') ?? 5;
-    
-    // Check if token exists
-    if (token == null || token!.isEmpty) {
-      // If user is logged out, stop service
+    // If token gone, stop service
+    if (currentToken == null || currentToken.isEmpty) {
       service.stopSelf();
       return;
     }
-    
-    // Change timer interval if it was updated in settings (this requires restarting timer, but we keep it simple for now)
-    
+
     try {
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      // Check location permission before requesting position
+      final locEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!locEnabled) return;
+      
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return;
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
+      );
       
       // Kirim data ke API
       final response = await http.post(
         Uri.parse('${Constants.baseUrl}/tracking'),
         headers: {
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer $currentToken',
           'Accept': 'application/json',
         },
         body: {
@@ -157,7 +172,8 @@ void onStart(ServiceInstance service) async {
         service.stopSelf();
       }
     } catch (e) {
-      print("Error getting or sending location: $e");
+      debugPrint('Error in tracking timer: $e');
+      // Don't rethrow - let timer continue on next interval
     }
   });
 }
