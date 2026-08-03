@@ -3,3 +3,6 @@ deployment:
   tasks:
     - export DEPLOYPATH=/home/wabotbiz/dgsoft.web.id
     - /bin/cp -a att-admin-v12/. $DEPLOYPATH/
+    - /opt/cpanel/ea-php83/root/usr/bin/php $DEPLOYPATH/artisan migrate --force
+    - /opt/cpanel/ea-php83/root/usr/bin/php $DEPLOYPATH/artisan optimize:clear
+
