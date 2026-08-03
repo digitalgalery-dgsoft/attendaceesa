@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/utils/constants.dart';
+import 'package:att_mobile/screens/tracking_history_screen.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -77,6 +78,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.route, color: Colors.white),
+            tooltip: 'Tracking History',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TrackingHistoryScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: attProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
