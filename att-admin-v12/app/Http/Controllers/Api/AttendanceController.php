@@ -196,17 +196,18 @@ class AttendanceController extends Controller
                     return response()->json(['message' => 'Error parse date: ' . $e->getMessage()], 500);
                 }
 
+                $upd = [
+                    'checkout_at'           => $now->toDateTimeString(),
+                    'checkout_log_id'       => $log->id ? (int) $log->id : null,
+                    'work_duration_minutes' => (int) $workDuration,
+                    'updated_at'            => $now->toDateTimeString(),
+                ];
                 try {
                     \Illuminate\Support\Facades\DB::table('attendances')
                         ->where('id', (int) $attendance->id)
-                        ->update([
-                            'checkout_at'           => $now,
-                            'checkout_log_id'       => $log->id ? (int) $log->id : null,
-                            'work_duration_minutes' => (int) $workDuration,
-                            'updated_at'            => $now,
-                        ]);
+                        ->update($upd);
                 } catch (\Exception $e) {
-                    return response()->json(['message' => 'Error update att: ' . $e->getMessage()], 500);
+                    return response()->json(['message' => 'DBData['.json_encode($upd).'] ID['.$attendance->id.'] ERR:' . $e->getMessage()], 500);
                 }
 
                 try {
