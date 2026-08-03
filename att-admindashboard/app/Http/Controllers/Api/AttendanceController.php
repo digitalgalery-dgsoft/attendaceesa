@@ -155,7 +155,7 @@ class AttendanceController extends Controller
             }
         } catch (\Exception $e) {
             Log::error('Attendance Error: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to record attendance', 'error' => $e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to record attendance: ' . $e->getMessage() . ' Line: ' . $e->getLine(), 'error' => $e->getMessage()], 500);
         }
     }
 
