@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../config/api_config.dart';
+import '../utils/constants.dart';
 
 class DashboardProvider with ChangeNotifier {
   bool _isLoading = false;
@@ -57,7 +57,7 @@ class DashboardProvider with ChangeNotifier {
       }
 
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/dashboard/stats'),
+        Uri.parse('${Constants.baseUrl}/api/dashboard/stats'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -90,7 +90,7 @@ class DashboardProvider with ChangeNotifier {
       if (token == null) return;
 
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/dashboard/team-stats'),
+        Uri.parse('${Constants.baseUrl}/api/dashboard/team-stats'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
