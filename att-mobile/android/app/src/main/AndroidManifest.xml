@@ -45,8 +45,12 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- FIX: foregroundServiceType="location" wajib di Android 14+
+             Tanpa ini, OS melempar SecurityException dan service gagal start saat
+             isForegroundMode: true digunakan dengan akses lokasi -->
         <service
-            android:name="id.flutter.flutter_background_service.BackgroundService" />
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="location" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

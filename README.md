@@ -27,3 +27,15 @@ Ini adalah catatan untuk memastikan AI Assistant atau tim developer selalu memil
 
 ### 4. Sanctum & Auth Guard
 - `$request->user()` pada API routes mengembalikan **Employee** langsung (bukan User). Guard sanctum menggunakan `employees` provider. Jangan pernah akses `$request->user()->employee->id` — langsung pakai `$request->user()->id`.
+
+---
+
+## Riwayat Update (Changelog)
+
+### v1.0.10 (31 Juli 2026)
+**Perbaikan Kritis (Bug Fixes):**
+1. **Force Close setelah Check-In**: Membungkus pemanggilan `LocationService.startService()` dengan `try-catch` dan `await` di aplikasi Flutter untuk menangani `ForegroundServiceStartNotAllowedException` di Android 14.
+2. **Check-Out Error ("Failed to record attendance")**: Menata ulang alur di `AttendanceController@store`. `AttendanceLog` kini hanya dibuat SETELAH semua validasi bisnis (termasuk pengecekan geofence) berhasil dilewati. Ini mencegah munculnya "log zombie" di database dan memungkinkan pesan error yang spesifik (seperti "Di luar radius") dikirim ke pengguna.
+3. **Live Tracking Tidak Berjalan**: Memperbaiki penggunaan API `Geolocator` yang sempat salah penamaan parameter pada versi 11.1.0 (`desiredAccuracy` digunakan kembali menggantikan `locationSettings` untuk method `getCurrentPosition`).
+4. **Crash pada Tracking API**: Memperbaiki cara pemanggilan model User di `TrackingController`. Mengganti `$request->user()->employee->id` menjadi `$request->user()->id` karena guard Sanctum sudah menggunakan model Employee.
+5. **Visit Out Disabled**: Mengatasi masalah validasi Visit Out yang bergantung pada urutan log dan ketersediaan itinerary, memastikan koordinat Visit Out dibandingkan dengan tepat berdasarkan lokasi Visit In sebelumnya.

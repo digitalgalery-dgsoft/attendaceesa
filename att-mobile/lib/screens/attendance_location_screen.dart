@@ -6,10 +6,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/attendance_provider.dart';
-import 'package:att_mobile/services/location_service.dart';
 import 'package:toastification/toastification.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 class AttendanceLocationScreen extends StatefulWidget {
   final String type; // 'checkin', 'checkout', 'visit_in', 'visit_out'
@@ -24,7 +23,6 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   Position? _currentPosition;
   bool _isLoading = true;
   XFile? _selfieFile;
-  String _mapError = '';
 
   // Visit In specific
   int? _selectedWorkLocationId;
@@ -35,6 +33,16 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
 
   final MapController _mapController = MapController();
 
+  final FaceDetector _faceDetector = FaceDetector(
+    options: FaceDetectorOptions(
+      enableContours: false,
+      enableLandmarks: false,
+      enableClassification: false,
+      enableTracking: false,
+      performanceMode: FaceDetectorMode.fast,
+    ),
+  );
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +52,14 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AttendanceProvider>(context, listen: false).fetchWorkLocations();
     });
+  }
+
+  @override
+  void dispose() {
+    _faceDetector.close();
+    _tabController.dispose();
+    _noteController.dispose();
+    super.dispose();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -101,9 +117,49 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
     );
 
     if (photo != null) {
-      setState(() {
-        _selfieFile = photo;
-      });
+      if (!mounted) return;
+      
+      // Tampilkan indikator loading saat memproses wajah
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      try {
+        final inputImage = InputImage.fromFilePath(photo.path);
+        final faces = await _faceDetector.processImage(inputImage);
+        
+        if (!mounted) return;
+        Navigator.pop(context); // Tutup loading
+
+        if (faces.isEmpty) {
+          toastification.show(
+            context: context,
+            title: const Text('Wajah tidak terdeteksi, silakan foto ulang'),
+            type: ToastificationType.error,
+            style: ToastificationStyle.flat,
+            alignment: Alignment.topRight,
+            autoCloseDuration: const Duration(seconds: 4),
+          );
+          return;
+        }
+
+        setState(() {
+          _selfieFile = photo;
+        });
+      } catch (e) {
+        if (!mounted) return;
+        Navigator.pop(context);
+        toastification.show(
+          context: context,
+          title: Text('Gagal memproses foto: $e'),
+          type: ToastificationType.error,
+          style: ToastificationStyle.flat,
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
     }
   }
 
@@ -361,6 +417,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
+                  initialValue: _selectedWorkLocationId,
                   value: _selectedWorkLocationId,
                   items: attProvider.workLocations.map((loc) {
                     return DropdownMenuItem<int>(
@@ -386,6 +443,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
+                      initialValue: _visitType,
                       value: _visitType,
                       items: const [
                         DropdownMenuItem(value: 'store', child: Text('Store')),
