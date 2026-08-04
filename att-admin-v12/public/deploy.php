@@ -24,6 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Kirim padding untuk memaksa browser/server me-render buffer pertama
     echo str_repeat(' ', 1024) . "\n";
     $commands = [
+        'cd /home/wabotbiz/dgsoft.web.id && git sparse-checkout init --cone',
+        'cd /home/wabotbiz/dgsoft.web.id && git sparse-checkout set att-admin-v12',
         'cd /home/wabotbiz/dgsoft.web.id && git fetch origin main',
         'cd /home/wabotbiz/dgsoft.web.id && git reset --hard origin/main',
         'cd /home/wabotbiz/dgsoft.web.id && git clean -fd',
