@@ -15,6 +15,8 @@ import 'package:att_mobile/utils/constants.dart';
 import 'package:att_mobile/utils/update_manager.dart' as att_mobile_update_manager;
 import 'package:att_mobile/services/location_service.dart';
 import 'package:toastification/toastification.dart';
+import 'package:safe_device/safe_device.dart';
+import 'package:att_mobile/screens/security_warning_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -150,21 +152,48 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  late Future<bool> _autoLoginFuture;
+  late Future<bool> _initFuture;
+  bool _isSecure = true;
+  String _securityMessage = '';
 
   @override
   void initState() {
     super.initState();
+    _initFuture = _initialize();
+  }
+
+  Future<bool> _initialize() async {
+    // 1. Security Checks
+    try {
+      bool isDevMode = await SafeDevice.isDevelopmentModeEnable;
+      if (isDevMode) {
+        _isSecure = false;
+        _securityMessage = 'Mode Pengembang (Developer Options) atau USB Debugging terdeteksi aktif. Harap matikan Mode Pengembang di Pengaturan HP Anda untuk menggunakan aplikasi ini.';
+        return false;
+      }
+      
+      bool isMockLocation = await SafeDevice.isMockLocation;
+      if (isMockLocation) {
+        _isSecure = false;
+        _securityMessage = 'Aplikasi Lokasi Palsu (Fake GPS) / Mock Location terdeteksi. Harap matikan pengaturan Lokasi Palsu untuk menggunakan aplikasi ini.';
+        return false;
+      }
+    } catch (_) {
+      // Continue if check is not supported
+    }
+
+    // 2. Auto Login
     if (Constants.baseUrl.isNotEmpty) {
-      _autoLoginFuture = Provider.of<AuthProvider>(context, listen: false).tryAutoLogin();
+      bool isLoggedIn = await Provider.of<AuthProvider>(context, listen: false).tryAutoLogin();
       
       // Check for updates
       WidgetsBinding.instance.addPostFrameCallback((_) {
         importUpdateManagerAndCheck(context);
       });
-    } else {
-      _autoLoginFuture = Future.value(false);
+      return isLoggedIn;
     }
+    
+    return false;
   }
 
   void importUpdateManagerAndCheck(BuildContext context) {
@@ -173,12 +202,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    if (Constants.baseUrl.isEmpty) {
-      return const ServerConfigScreen();
-    }
-
-    return FutureBuilder(
-      future: _autoLoginFuture,
+    return FutureBuilder<bool>(
+      future: _initFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -186,6 +211,23 @@ class _AuthWrapperState extends State<AuthWrapper> {
               child: CircularProgressIndicator(),
             ),
           );
+        }
+
+        if (!_isSecure) {
+          return SecurityWarningScreen(
+            title: 'Keamanan Terancam',
+            message: _securityMessage,
+            onRetry: () {
+              setState(() {
+                _isSecure = true;
+                _initFuture = _initialize();
+              });
+            },
+          );
+        }
+        
+        if (Constants.baseUrl.isEmpty) {
+          return const ServerConfigScreen();
         }
         
         return Consumer<AuthProvider>(
