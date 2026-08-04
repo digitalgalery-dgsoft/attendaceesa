@@ -13,6 +13,9 @@ import 'package:att_mobile/screens/itinerary_screen.dart';
 import 'package:att_mobile/screens/coming_soon_screen.dart';
 import 'package:att_mobile/screens/notification_screen.dart';
 import 'package:att_mobile/providers/notification_provider.dart';
+import 'package:att_mobile/providers/dashboard_provider.dart';
+import 'package:att_mobile/widgets/dashboard_stats_widget.dart';
+import 'package:att_mobile/widgets/team_stats_widget.dart';
 import 'package:att_mobile/screens/blast_info_screen.dart';
 import 'package:att_mobile/screens/sales_pipeline_screen.dart';
 import 'package:att_mobile/services/location_service.dart';
@@ -41,6 +44,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       await attProvider.loadDashboardData();
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       Provider.of<NotificationProvider>(context, listen: false).fetchNotifications(authProvider);
+      
+      final dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
+      await dashboardProvider.fetchDashboardStats();
+      final positionName = authProvider.employeeData?['position']?['name']?.toString().toUpperCase() ?? '';
+      if (positionName == 'TL') {
+        dashboardProvider.fetchTeamStats();
+      }
       // Sync location service AFTER dashboard data loaded (activity is fully resumed here)
       _syncLocationService(attProvider);
     });
@@ -96,6 +106,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final authProvider = Provider.of<AuthProvider>(context);
     final attProvider = Provider.of<AttendanceProvider>(context);
     final notificationProvider = Provider.of<NotificationProvider>(context);
+    final dashboardProvider = Provider.of<DashboardProvider>(context);
 
     if (authProvider.employeeData == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -453,9 +464,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
             ),
 
-            const SizedBox(height: 20),
+            // Target & Performa (Only for MD, SPG, TL)
+            if (['MD', 'SPG', 'TL'].contains(positionName.toUpperCase())) ...[
+              const DashboardStatsWidget(),
+              const SizedBox(height: 20),
+            ],
 
-
+            // Team Stats (Only for TL)
+            if (positionName.toUpperCase() == 'TL') ...[
+              const TeamStatsWidget(),
+              const SizedBox(height: 20),
+            ],
 
             // Aktivitas
             Padding(

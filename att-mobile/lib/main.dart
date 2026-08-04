@@ -8,6 +8,7 @@ import 'package:att_mobile/providers/sales_provider.dart';
 import 'package:att_mobile/providers/itinerary_provider.dart';
 import 'package:att_mobile/providers/theme_provider.dart';
 import 'package:att_mobile/providers/blast_info_provider.dart';
+import 'package:att_mobile/providers/dashboard_provider.dart';
 import 'package:att_mobile/screens/login_screen.dart';
 import 'package:att_mobile/screens/main_screen.dart';
 import 'package:att_mobile/screens/server_config_screen.dart';
@@ -34,6 +35,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ItineraryProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => BlastInfoProvider()),
+        ChangeNotifierProvider(create: (_) => DashboardProvider()),
       ],
       child: const AttendanceApp(),
     ),
