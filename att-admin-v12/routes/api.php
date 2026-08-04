@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\BlastInfoController;
 use App\Http\Controllers\Api\PermitController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\SalesReportController;
+use App\Http\Controllers\Api\DashboardApiController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -34,6 +35,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Schedule & Itinerary hari ini
     Route::get('/today-schedule', [AttendanceController::class, 'todaySchedule']);
+
+    // Dashboard stats
+    Route::get('/dashboard/stats', [DashboardApiController::class, 'stats']);
+    Route::get('/dashboard/team-stats', [DashboardApiController::class, 'teamStats']);
 
     // Attendance routes
     Route::get('/work-locations', [AttendanceController::class, 'workLocations']);
