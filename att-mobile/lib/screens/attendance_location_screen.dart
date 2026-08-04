@@ -9,6 +9,8 @@ import 'package:provider/provider.dart';
 import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:toastification/toastification.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:intl/intl.dart';
+import 'package:att_mobile/utils/image_utils.dart';
 
 class AttendanceLocationScreen extends StatefulWidget {
   final String type; // 'checkin', 'checkout', 'visit_in', 'visit_out'
@@ -220,11 +222,37 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
+    // Get location name for watermark
+    String locationName = 'Lokasi: Tidak Diketahui';
+    if (widget.type.contains('visit') && _selectedWorkLocationId != null) {
+      final loc = attProvider.workLocations.cast<Map<String,dynamic>>().firstWhere(
+        (e) => e['id'] == _selectedWorkLocationId, 
+        orElse: () => {'name': 'Lokasi Visit'},
+      );
+      locationName = 'Lokasi: ${loc['name']}';
+    } else {
+      final schedule = attProvider.todaySchedule;
+      if (schedule != null && schedule['work_location'] != null) {
+        locationName = 'Lokasi: ${schedule['work_location']['name']}';
+      }
+    }
+
+    final String datetime = 'Waktu: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.now())}';
+    final String coordinates = 'Lat: ${_currentPosition!.latitude.toStringAsFixed(6)}, Lng: ${_currentPosition!.longitude.toStringAsFixed(6)}';
+
+    // Compress and add watermark
+    final String finalImagePath = await ImageUtils.addWatermarkAndCompress(
+      imagePath: _selfieFile!.path,
+      locationName: locationName,
+      datetime: datetime,
+      coordinates: coordinates,
+    );
+
     final result = await attProvider.submitAttendance(
       type: widget.type,
       latitude: _currentPosition!.latitude,
       longitude: _currentPosition!.longitude,
-      imagePath: _selfieFile!.path,
+      imagePath: finalImagePath,
       isWeb: kIsWeb,
       visitType: _visitType,
       note: _noteController.text.isNotEmpty ? _noteController.text : null,
