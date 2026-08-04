@@ -40,15 +40,15 @@ class DashboardDemoSeeder extends Seeder
         ]);
         
         $empTL = Employee::firstOrCreate(['user_id' => $userTL->id], [
-            'employee_id' => 'EMP-TL-001',
-            'first_name' => 'Team Leader',
-            'last_name' => 'Demo',
+            'employee_no' => 'EMP-TL-001',
+            'full_name' => 'Team Leader Demo',
             'email' => 'tl@esagroup.com',
             'phone' => '08111111111',
             'company_id' => $company->id,
             'branch_id' => $branch->id,
             'department_id' => $department->id,
             'position_id' => $posTL->id,
+            'employment_status' => 'permanent',
             'password' => Hash::make('123456'), // Based on requirement
         ]);
 
@@ -59,9 +59,8 @@ class DashboardDemoSeeder extends Seeder
         ]);
         
         $empMD = Employee::firstOrCreate(['user_id' => $userMD->id], [
-            'employee_id' => 'EMP-MD-001',
-            'first_name' => 'MD',
-            'last_name' => 'Demo',
+            'employee_no' => 'EMP-MD-001',
+            'full_name' => 'MD Demo',
             'email' => 'md@esagroup.com',
             'phone' => '08222222222',
             'company_id' => $company->id,
@@ -69,6 +68,7 @@ class DashboardDemoSeeder extends Seeder
             'department_id' => $department->id,
             'position_id' => $posMD->id,
             'supervisor_id' => $empTL->id,
+            'employment_status' => 'permanent',
             'password' => Hash::make('123456'),
         ]);
 
@@ -79,9 +79,8 @@ class DashboardDemoSeeder extends Seeder
         ]);
         
         $empSPG = Employee::firstOrCreate(['user_id' => $userSPG->id], [
-            'employee_id' => 'EMP-SPG-001',
-            'first_name' => 'SPG',
-            'last_name' => 'Demo',
+            'employee_no' => 'EMP-SPG-001',
+            'full_name' => 'SPG Demo',
             'email' => 'spg@esagroup.com',
             'phone' => '08333333333',
             'company_id' => $company->id,
@@ -89,6 +88,7 @@ class DashboardDemoSeeder extends Seeder
             'department_id' => $department->id,
             'position_id' => $posSPG->id,
             'supervisor_id' => $empTL->id,
+            'employment_status' => 'permanent',
             'password' => Hash::make('123456'),
         ]);
 
