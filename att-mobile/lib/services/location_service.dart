@@ -222,29 +222,27 @@ void onStart(ServiceInstance service) async {
 
   // Jalankan timer periodik sesuai interval
   Timer.periodic(Duration(minutes: intervalMinutes), (timer) async {
-    // Refresh token setiap tick
-    String? currentToken;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.reload();
-      currentToken = prefs.getString('auth_token');
-    } catch (e) {
-      debugPrint('[Tracking] Error reloading prefs: $e');
-      return;
-    }
-
-    // If token gone, stop service
-    if (currentToken == null || currentToken.isEmpty) {
-      debugPrint('[Tracking] Token removed — stopping service');
+    // Gunakan token yang sudah didapat saat onStart.
+    // Jika user logout (token hilang), UI akan memanggil stopService.
+    if (token == null || token.isEmpty) {
+      debugPrint('[Tracking] Token is null — stopping service');
       timer.cancel();
       service.stopSelf();
       return;
     }
 
     try {
-      final position = await _getCurrentPosition();
+      // Perbesar timeout menjadi 30 detik untuk background
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 30),
+      ).catchError((e) {
+        debugPrint('[Tracking] Error getting position in timer: $e');
+        return null;
+      });
+
       if (position != null) {
-        await _sendLocation(currentToken, position.latitude, position.longitude);
+        await _sendLocation(token!, position.latitude, position.longitude);
         
         // Update notification dengan koordinat terbaru
         if (service is AndroidServiceInstance) {
