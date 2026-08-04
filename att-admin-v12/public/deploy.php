@@ -15,11 +15,14 @@ if (!isset($_GET['token']) || $_GET['token'] !== $secretToken) {
 
 // Jika request adalah POST, jalankan proses deploy (streaming output)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Disable output buffering
     if (ob_get_level()) ob_end_clean();
     header('Content-Type: application/octet-stream');
     header('Cache-Control: no-cache');
+    header('X-Accel-Buffering: no'); // Nginx
+    header('X-LiteSpeed-Buffer: no'); // LiteSpeed
     
+    // Kirim padding untuk memaksa browser/server me-render buffer pertama
+    echo str_repeat(' ', 1024) . "\n";
     $commands = [
         'cd /home/wabotbiz/dgsoft.web.id && git fetch origin main',
         'cd /home/wabotbiz/dgsoft.web.id && git reset --hard origin/main',
@@ -47,19 +50,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             stream_set_blocking($pipes[1], 0);
             stream_set_blocking($pipes[2], 0);
             
-            while (!feof($pipes[1]) || !feof($pipes[2])) {
-                $out = fgets($pipes[1]);
-                $err = fgets($pipes[2]);
+            $isRunning = true;
+            while ($isRunning) {
+                $status = proc_get_status($process);
+                $isRunning = $status['running'];
                 
-                if ($out !== false) {
+                $out = stream_get_contents($pipes[1]);
+                $err = stream_get_contents($pipes[2]);
+                
+                if (!empty($out)) {
                     echo htmlentities($out);
-                    @flush();
+                    @ob_flush(); @flush();
                 }
-                if ($err !== false) {
+                if (!empty($err)) {
                     echo "<span style=\"color: #ff5555;\">" . htmlentities($err) . "</span>";
-                    @flush();
+                    @ob_flush(); @flush();
                 }
-                usleep(10000); // 10ms sleep to prevent high CPU usage
+                usleep(100000); // 100ms sleep
+            }
+            
+            // Baca sisa output setelah proses selesai
+            $out = stream_get_contents($pipes[1]);
+            $err = stream_get_contents($pipes[2]);
+            if (!empty($out)) {
+                echo htmlentities($out);
+                @ob_flush(); @flush();
+            }
+            if (!empty($err)) {
+                echo "<span style=\"color: #ff5555;\">" . htmlentities($err) . "</span>";
+                @ob_flush(); @flush();
             }
             
             fclose($pipes[0]);
@@ -71,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Fallback jika proc_open disabled
             $output = @shell_exec($cmd . " 2>&1");
             echo htmlentities(trim($output)) . "\n";
-            @flush();
+            @ob_flush(); @flush();
         }
     }
     echo "\n<span style=\"color: #6BE236;\">=== DEPLOYMENT SELESAI ===</span>\n";
