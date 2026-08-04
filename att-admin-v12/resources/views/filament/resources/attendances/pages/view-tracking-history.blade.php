@@ -88,17 +88,11 @@
                     let marker;
 
                     if (index === 0) {
-                        // Start marker — green
-                        marker = L.circleMarker([lat, lng], {
-                            radius: 10, color: '#16a34a', fillColor: '#22c55e',
-                            fillOpacity: 1, weight: 2
-                        }).addTo(map).bindPopup(`<b>Mulai</b><br>${point.created_at}`);
+                        // Start marker
+                        marker = L.marker([lat, lng]).addTo(map).bindPopup(`<b>Mulai</b><br>${point.created_at}`);
                     } else if (index === latlngs.length - 1) {
-                        // End marker — red
-                        marker = L.circleMarker([lat, lng], {
-                            radius: 10, color: '#dc2626', fillColor: '#ef4444',
-                            fillOpacity: 1, weight: 2
-                        }).addTo(map).bindPopup(`<b>Terakhir</b><br>${point.created_at}`);
+                        // End marker
+                        marker = L.marker([lat, lng]).addTo(map).bindPopup(`<b>Terakhir</b><br>${point.created_at}`);
                     } else {
                         // Intermediate — blue dot
                         marker = L.circleMarker([lat, lng], {
