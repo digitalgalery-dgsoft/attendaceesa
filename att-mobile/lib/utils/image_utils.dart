@@ -6,6 +6,25 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 
 class ImageUtils {
+  static Future<File?> compressAndGetWebP(File file) async {
+    final Directory tempDir = await getTemporaryDirectory();
+    final String targetPath = '${tempDir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.webp';
+
+    final XFile? result = await FlutterImageCompress.compressAndGetFile(
+      file.absolute.path,
+      targetPath,
+      quality: 75,
+      minWidth: 1080,
+      minHeight: 1080,
+      format: CompressFormat.webp,
+    );
+
+    if (result != null) {
+      return File(result.path);
+    }
+    return null;
+  }
+
   static Future<String> addWatermarkAndCompress({
     required String imagePath,
     required String locationName,

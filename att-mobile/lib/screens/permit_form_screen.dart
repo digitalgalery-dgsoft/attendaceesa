@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:toastification/toastification.dart';
 import '../providers/permit_provider.dart';
 import '../providers/auth_provider.dart';
+import '../utils/image_utils.dart';
 
 class PermitFormScreen extends StatefulWidget {
   const PermitFormScreen({super.key});
@@ -78,11 +79,21 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(
       source: ImageSource.camera,
-      imageQuality: 70,
+      imageQuality: 100,
     );
     if (image != null) {
+      if (kIsWeb) {
+        setState(() {
+          _imageFile = image;
+        });
+        return;
+      }
+      
+      // Compress and convert to WebP
+      final compressedFile = await ImageUtils.compressAndGetWebP(File(image.path));
+      
       setState(() {
-        _imageFile = image;
+        _imageFile = compressedFile != null ? XFile(compressedFile.path) : image;
       });
     }
   }
