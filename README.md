@@ -1,6 +1,6 @@
 # Proyek Aplikasi Absensi (att-mobile & att-admin)
 
-## Catatan Penting Pengembangan (Update Terakhir: 31 Juli 2026)
+## Catatan Penting Pengembangan (Update Terakhir: 4 Agustus 2026)
 
 Ini adalah catatan untuk memastikan AI Assistant atau tim developer selalu memiliki konteks yang sama sebelum melanjutkan pengembangan aplikasi ini.
 
@@ -8,7 +8,7 @@ Ini adalah catatan untuk memastikan AI Assistant atau tim developer selalu memil
 - **Tipe Data JSON**: Selalu gunakan jsonb (bukan json) ketika membuat atau mengubah kolom database di migration Laravel. Aplikasi ini ketat menggunakan PostgreSQL, dan penggunaan json akan menyebabkan error.
 
 ### 2. Aplikasi Mobile (Flutter - att-mobile)
-- **Versi Terakhir**: v1.0.10
+- **Versi Terakhir**: v1.0.26
 - **Library Penting**: `flutter_background_service` (v5.1.0) digunakan untuk Live Tracking (melacak lokasi secara berkala).
 
 #### Aturan Ketat Android 14 (Background Service & Permissions):
@@ -31,6 +31,19 @@ Ini adalah catatan untuk memastikan AI Assistant atau tim developer selalu memil
 ---
 
 ## Riwayat Update (Changelog)
+
+### v1.0.26 (4 Agustus 2026) - Fase 1: Overhaul Dashboard Mobile
+**Fitur & Perubahan Baru:**
+1. **API Backend Dashboard (Laravel):**
+   - Menambahkan tabel dan model `work_targets` (pencatatan target HK per bulan).
+   - Menambahkan endpoint `GET /api/dashboard/stats` (menampilkan Target HK Pribadi, Running Rate, Kehadiran, Sakit, Cuti).
+   - Menambahkan endpoint `GET /api/dashboard/team-stats` khusus Team Leader (rekapitulasi absensi anggota tim: Hadir, Sakit, Kosong/Vacant).
+2. **UI & State Mobile (Flutter):**
+   - Mengimplementasikan `DashboardProvider` untuk manajemen data statistik dari API.
+   - Merombak `dashboard_screen.dart` agar menampilkan `DashboardStatsWidget` (untuk peran SPG, MD, TL) dan `TeamStatsWidget` (khusus TL) secara dinamis di tengah halaman, tanpa merusak Menu atas dan Navbar bawah.
+3. **Seeder Demo & Perbaikan:**
+   - Menambahkan `DashboardDemoSeeder.php` berisi akun `md@esagroup.com`, `spg@esagroup.com`, `tl@esagroup.com` (Password: `123456`). Memperbaiki error ketidakcocokan skema tabel di mana kolom yang benar adalah `employee_no` dan `full_name`.
+   - **PENTING (Catatan Build APK):** Jika melakukan *bumping version* di `pubspec.yaml`, selalu jalankan `flutter pub get` dan `flutter clean` terlebih dahulu sebelum `flutter build apk --release` agar versi internal di *binary* APK benar-benar terupdate dan tidak menimbulkan *loop* notifikasi update di HP user.
 
 ### v1.0.10 (31 Juli 2026)
 **Perbaikan Kritis (Bug Fixes):**
