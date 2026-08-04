@@ -11,10 +11,26 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class LocationService {
   static Future<void> initializeService() async {
     if (kIsWeb) return;
+    
+    // Create Notification Channel for Android 8+
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'location_tracking', // id
+      'Live Tracking Active', // title
+      description: 'Merekam lokasi di latar belakang...', // description
+      importance: Importance.low, 
+    );
+
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    if (Platform.isAndroid) {
+      await flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel);
+    }
+
     final service = FlutterBackgroundService();
 
     await service.configure(
@@ -147,6 +163,7 @@ Future<Position?> _getCurrentPosition() async {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
+  WidgetsFlutterBinding.ensureInitialized();
   // Only available for flutter 3.0.0 and later
   DartPluginRegistrant.ensureInitialized();
 
