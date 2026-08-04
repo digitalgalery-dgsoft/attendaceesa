@@ -54,7 +54,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String _parseLocalTime(String? raw, {String fmt = 'HH:mm'}) {
     if (raw == null || raw.isEmpty) return '-';
     try {
-      final dt = DateTime.parse('${raw}Z').toLocal();
+      final dt = DateTime.parse('${raw}');
       return DateFormat(fmt).format(dt);
     } catch (_) {
       return '-';

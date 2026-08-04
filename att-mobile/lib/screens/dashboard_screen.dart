@@ -128,8 +128,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       // Calculate duration if checkin exists
       if (checkinLog != null) {
         try {
-          DateTime cin = DateTime.parse('${checkinLog['logged_at']}Z');
-          DateTime cout = checkoutLog != null ? DateTime.parse('${checkoutLog['logged_at']}Z') : DateTime.now();
+          DateTime cin = DateTime.parse('${checkinLog['logged_at']}');
+          DateTime cout = checkoutLog != null ? DateTime.parse('${checkoutLog['logged_at']}') : DateTime.now();
           Duration diff = cout.difference(cin);
           String hours = diff.inHours.toString().padLeft(2, '0');
           String minutes = (diff.inMinutes % 60).toString().padLeft(2, '0');
@@ -619,7 +619,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   String _extractTime(String? datetimeStr) {
     if (datetimeStr == null || datetimeStr.isEmpty) return '-';
     try {
-      final dt = DateTime.parse('${datetimeStr}Z').toLocal();
+      final dt = DateTime.parse('${datetimeStr}');
       return DateFormat('HH:mm').format(dt);
     } catch (_) {
       return '-';
