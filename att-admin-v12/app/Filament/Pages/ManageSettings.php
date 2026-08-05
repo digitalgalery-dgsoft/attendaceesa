@@ -90,12 +90,17 @@ class ManageSettings extends Page implements HasForms
                             ->label('Application Logo')
                             ->image()
                             ->directory('logos'),
+                        TextInput::make('tracking_distance_meters')
+                            ->label('Tracking Distance Filter (Meter)')
+                            ->numeric()
+                            ->default(10)
+                            ->required(),
                         TextInput::make('tracking_interval_minutes')
-                            ->label('Tracking Interval (Menit)')
+                            ->label('Tracking Interval (Fallback - Menit)')
                             ->numeric()
                             ->default(5)
                             ->required(),
-                    ])->columns(1),
+                    ])->columns(2),
                 Section::make('Pengaturan Foto Wajib')
                     ->components([
                         \Filament\Forms\Components\Toggle::make('require_checkin_photo')
