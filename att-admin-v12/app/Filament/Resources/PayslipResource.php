@@ -34,7 +34,7 @@ class PayslipResource extends Resource
     {
         return $schema->components([
             Select::make('employee_id')
-                ->relationship('employee', 'first_name')
+                ->relationship('employee', 'full_name')
                 ->searchable()
                 ->required(),
             TextInput::make('month_year')
@@ -55,7 +55,7 @@ class PayslipResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('employee.first_name')
+                TextColumn::make('employee.full_name')
                     ->label('Employee')
                     ->searchable()
                     ->sortable(),
