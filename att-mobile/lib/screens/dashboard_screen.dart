@@ -19,6 +19,7 @@ import 'package:att_mobile/widgets/team_stats_widget.dart';
 import 'package:att_mobile/screens/blast_info_screen.dart';
 import 'package:att_mobile/screens/sales_pipeline_screen.dart';
 import 'package:att_mobile/services/location_service.dart';
+import 'package:att_mobile/screens/payslip_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -288,6 +289,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     {'title': 'Informasi', 'icon': Icons.campaign, 'color': const Color(0xFF149A6E), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const BlastInfoScreen()));
                     }},
+                    {'title': 'Payslip', 'icon': Icons.receipt_long, 'color': const Color(0xFF4A90E2), 'onTap': () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PayslipScreen()));
+                    }},
                   ];
                   if (hasSalesReporting) {
                     allMenus.add({'title': 'Sales', 'icon': Icons.trending_up, 'color': Colors.purple, 'onTap': () {
@@ -506,7 +510,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             Icon(Icons.info_outline, size: 10, color: subtitleColor),
                             const SizedBox(width: 5),
                             Text(
-                              attProvider.isCheckedIn ? 'Sedang bekerja sejak $checkinTime' : (attProvider.hasCheckedOutToday ? 'Selesai bekerja' : 'Belum check-in'),
+                              attProvider.isCheckedIn ? 'Sedang bekerja sejak $checkinTime • Durasi: $duration' : (attProvider.hasCheckedOutToday ? 'Selesai bekerja • Durasi: $duration' : 'Belum check-in'),
                               style: TextStyle(fontSize: 9, color: subtitleColor, fontWeight: FontWeight.bold)
                             ),
                           ],

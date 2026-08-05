@@ -74,4 +74,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Notification routes
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/read', [NotificationController::class, 'markAsRead']);
+
+    // Payslip routes
+    Route::get('/payslips', [\App\Http\Controllers\Api\PayslipApiController::class, 'getPayslips']);
 });

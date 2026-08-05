@@ -5,6 +5,7 @@ import 'package:toastification/toastification.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/theme_provider.dart';
 import 'login_screen.dart';
+import 'payslip_screen.dart';
 import '../utils/constants.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -414,6 +415,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 _buildActionSetting(Icons.password, 'Change Password', textColor: textColor, subtitleColor: subtitleColor, isDarkMode: isDarkMode, onTap: _showChangePasswordSheet),
                 _buildActionSetting(Icons.fingerprint, 'Biometric Login', value: 'Enabled', valueColor: primaryColor, textColor: textColor, subtitleColor: subtitleColor, isDarkMode: isDarkMode),
+              ],
+            ),
+            const SizedBox(height: 24),
+            
+            // Payroll & Documents
+            _buildSettingsSection(
+              icon: Icons.folder_special,
+              title: 'Payroll & Documents',
+              cardColor: cardColor,
+              textColor: textColor,
+              isDarkMode: isDarkMode,
+              primaryColor: primaryColor,
+              children: [
+                _buildActionSetting(
+                  Icons.receipt_long, 
+                  'Slip Gaji (Payslip)', 
+                  textColor: textColor, 
+                  subtitleColor: subtitleColor, 
+                  isDarkMode: isDarkMode, 
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const PayslipScreen()),
+                    );
+                  }
+                ),
               ],
             ),
             const SizedBox(height: 24),
