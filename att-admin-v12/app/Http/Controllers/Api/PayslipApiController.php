@@ -11,7 +11,7 @@ class PayslipApiController extends Controller
 {
     public function getPayslips(Request $request)
     {
-        $employee = $request->user()->employee;
+        $employee = $request->user();
         
         if (!$employee) {
             return response()->json([

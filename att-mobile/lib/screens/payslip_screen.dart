@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/payslip_provider.dart';
+import '../providers/auth_provider.dart';
 
 class PayslipScreen extends StatefulWidget {
   const PayslipScreen({super.key});
@@ -32,9 +33,27 @@ class _PayslipScreenState extends State<PayslipScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final primaryColor = authProvider.appColor ?? const Color(0xFF0F52BA);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFF3F4F6);
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF111C2D);
+    final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Slip Gaji'),
+        title: Text(
+          'Slip Gaji',
+          style: TextStyle(
+            color: textColor,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: bgColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
       ),
       body: Consumer<PayslipProvider>(
         builder: (context, provider, child) {

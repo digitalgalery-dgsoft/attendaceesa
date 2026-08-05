@@ -22,7 +22,7 @@ class DashboardApiController extends Controller
 
         // Target HK
         $workTarget = WorkTarget::where('employee_id', $employee->id)
-                                ->where('month_year', $currentMonth)
+                                ->whereIn('month_year', [$currentMonth, Carbon::now()->format('m-Y')])
                                 ->first();
         
         $targetHK = $workTarget ? $workTarget->target_hk : 0;
