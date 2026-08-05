@@ -31,8 +31,8 @@ class DashboardApiController extends Controller
 
         // Calculate Kehadiran (Attendances this month)
         $kehadiran = Attendance::where('employee_id', $employee->id)
-                               ->whereYear('date', Carbon::now()->year)
-                               ->whereMonth('date', Carbon::now()->month)
+                               ->whereYear('attendance_date', Carbon::now()->year)
+                               ->whereMonth('attendance_date', Carbon::now()->month)
                                ->count();
 
         // Calculate Sakit & Cuti (Approved Leave Requests this month)
@@ -58,8 +58,8 @@ class DashboardApiController extends Controller
 
         // Previous month kehadiran
         $prevKehadiran = Attendance::where('employee_id', $employee->id)
-                                   ->whereYear('date', Carbon::now()->subMonth()->year)
-                                   ->whereMonth('date', Carbon::now()->subMonth()->month)
+                                   ->whereYear('attendance_date', Carbon::now()->subMonth()->year)
+                                   ->whereMonth('attendance_date', Carbon::now()->subMonth()->month)
                                    ->count();
 
         return response()->json([
@@ -91,7 +91,7 @@ class DashboardApiController extends Controller
 
         // Count who is present today
         $hadirHariIni = Attendance::whereIn('employee_id', $teamIds)
-                                  ->whereDate('date', $today)
+                                  ->whereDate('attendance_date', $today)
                                   ->count();
 
         // Count who is sick / leave today
@@ -120,8 +120,8 @@ class DashboardApiController extends Controller
 
         // Current team attendance count this month
         $teamKehadiranBulanIni = Attendance::whereIn('employee_id', $teamIds)
-                                           ->whereYear('date', Carbon::now()->year)
-                                           ->whereMonth('date', Carbon::now()->month)
+                                           ->whereYear('attendance_date', Carbon::now()->year)
+                                           ->whereMonth('attendance_date', Carbon::now()->month)
                                            ->count();
         
         $teamRunningRate = 0;
