@@ -45,15 +45,17 @@ class _BlastInfoScreenState extends State<BlastInfoScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text(
+        backgroundColor: bgColor,
+        elevation: 0,
+        title: Text(
           'Informasi',
           style: TextStyle(
-            color: Colors.white,
+            color: textColor,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: textColor),
       ),
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -70,11 +72,11 @@ class _BlastInfoScreenState extends State<BlastInfoScreen> {
                       return Card(
                         color: cardColor,
                         margin: const EdgeInsets.only(bottom: 12),
+                        elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
                         ),
-                        elevation: 2,
-                        shadowColor: Colors.black.withOpacity(0.1),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(

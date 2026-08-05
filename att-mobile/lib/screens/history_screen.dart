@@ -5,7 +5,6 @@ import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/utils/constants.dart';
 import 'package:att_mobile/screens/tracking_history_screen.dart';
-import 'package:percent_indicator/percent_indicator.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -15,12 +14,15 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
-  DateTime _endDate = DateTime.now();
+  late DateTime _currentMonth;
+  late DateTime _selectedDate;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _currentMonth = DateTime(now.year, now.month, 1);
+    _selectedDate = DateTime(now.year, now.month, now.day);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchData();
     });
@@ -28,29 +30,28 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _fetchData() {
     final dateFormat = DateFormat('yyyy-MM-dd');
+    final startDate = _currentMonth;
+    final endDate = DateTime(_currentMonth.year, _currentMonth.month + 1, 0); // Last day of month
+    
     Provider.of<AttendanceProvider>(context, listen: false).fetchHistory(
-      startDate: dateFormat.format(_startDate),
-      endDate: dateFormat.format(_endDate),
+      startDate: dateFormat.format(startDate),
+      endDate: dateFormat.format(endDate),
     );
   }
 
-  Future<void> _selectDateRange(BuildContext context) async {
-    final DateTimeRange? picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
-    );
-    if (picked != null) {
-      setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
-      });
-      _fetchData();
-    }
+  void _changeMonth(int offset) {
+    setState(() {
+      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + offset, 1);
+      final lastDayOfNewMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
+      int newDay = _selectedDate.day;
+      if (newDay > lastDayOfNewMonth) {
+        newDay = lastDayOfNewMonth;
+      }
+      _selectedDate = DateTime(_currentMonth.year, _currentMonth.month, newDay);
+    });
+    _fetchData();
   }
 
-  /// Parse jam dari string UTC → waktu lokal device
   String _parseLocalTime(String? raw, {String fmt = 'HH:mm'}) {
     if (raw == null || raw.isEmpty) return '-';
     try {
@@ -66,21 +67,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final attProvider = Provider.of<AttendanceProvider>(context);
     final authProvider = Provider.of<AuthProvider>(context);
     final primaryColor = authProvider.appColor ?? const Color(0xFF0F52BA);
+    
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
+    final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF0E1830);
+    final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
+    final elevatedColor = isDarkMode ? Colors.grey.shade800 : const Color(0xFFEDF1F8);
 
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text(
-          'History',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text('Riwayat Kehadiran', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
         actions: [
           IconButton(
-            icon: const Icon(Icons.route, color: Colors.white),
+            icon: Icon(Icons.route, color: textColor),
             tooltip: 'Tracking History',
             onPressed: () {
               Navigator.push(
@@ -97,169 +101,147 @@ class _HistoryScreenState extends State<HistoryScreen> {
               onRefresh: () async => _fetchData(),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  children: [
-                    _buildHeader(attProvider, primaryColor),
-                    _buildStatsRow(attProvider),
-                    _buildHistoryList(attProvider),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Month Navigator
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: () => _changeMonth(-1),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(color: elevatedColor, borderRadius: BorderRadius.circular(20)),
+                              child: Text('‹', style: TextStyle(fontSize: 18, color: textColor, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                          const SizedBox(width: 15),
+                          Text(
+                            DateFormat('MMMM yyyy').format(_currentMonth),
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                          ),
+                          const SizedBox(width: 15),
+                          GestureDetector(
+                            onTap: () => _changeMonth(1),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(color: elevatedColor, borderRadius: BorderRadius.circular(20)),
+                              child: Text('›', style: TextStyle(fontSize: 18, color: textColor, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      // Date Strip
+                      SizedBox(
+                        height: 70,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day,
+                          itemBuilder: (context, index) {
+                            final date = DateTime(_currentMonth.year, _currentMonth.month, index + 1);
+                            final isSelected = _selectedDate.day == date.day && _selectedDate.month == date.month;
+                            final dateStr = DateFormat('yyyy-MM-dd').format(date);
+                            final hasData = attProvider.logsByDate.containsKey(dateStr);
+                            
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedDate = date;
+                                });
+                              },
+                              child: Container(
+                                width: 50,
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? primaryColor : elevatedColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: isSelected ? primaryColor : (hasData ? primaryColor.withOpacity(0.3) : Colors.transparent)),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      DateFormat('E').format(date).substring(0, 3),
+                                      style: TextStyle(fontSize: 10, color: isSelected ? Colors.white70 : subtitleColor, fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${date.day}',
+                                      style: TextStyle(fontSize: 16, color: isSelected ? Colors.white : textColor, fontWeight: FontWeight.bold),
+                                    ),
+                                    if (hasData)
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 4),
+                                        width: 4, height: 4,
+                                        decoration: BoxDecoration(color: isSelected ? Colors.white : primaryColor, shape: BoxShape.circle),
+                                      )
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      // Detail Card
+                      _buildDetailCard(attProvider, cardColor, elevatedColor, textColor, subtitleColor),
+
+                      const SizedBox(height: 20),
+
+                      // Month Stats
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Ringkasan Bulan Ini', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _buildMonthStats(attProvider, cardColor, textColor, subtitleColor, primaryColor, elevatedColor),
+                      
+                      const SizedBox(height: 30),
+                    ],
+                  ),
                 ),
               ),
             ),
     );
   }
 
-  Widget _buildHeader(AttendanceProvider provider, Color primaryColor) {
-    final stats = provider.stats;
-    int plan = stats['plan'] ?? 0;
-    int actual = stats['actual'] ?? 0;
-    double ach = (stats['ach'] ?? 0).toDouble();
-
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Column(
-        children: [
-          // Curved background to match Permit
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: primaryColor,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(24),
-                bottomRight: Radius.circular(24),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  InkWell(
-                    onTap: () => _selectDateRange(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${DateFormat('dd MMM yy').format(_startDate)} s/d ${DateFormat('dd MMM yy').format(_endDate)}',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                          ),
-                          const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  Widget _buildDetailCard(AttendanceProvider provider, Color cardColor, Color elevatedColor, Color textColor, Color subtitleColor) {
+    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final logs = provider.logsByDate[dateStr] as List? ?? [];
+    
+    if (logs.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Center(
+          child: Column(
             children: [
-              _buildCircularStat('Plan', plan.toString(), 1.0, Colors.grey[300]!),
-              _buildCircularStat('Actual', actual.toString(), plan > 0 ? actual / plan : 0, Colors.blue),
-              _buildCircularStat('Ach', '$ach%', ach / 100, Colors.orange),
+              Icon(Icons.event_busy, color: subtitleColor, size: 40),
+              const SizedBox(height: 12),
+              Text('Tidak ada riwayat pada tanggal ini.', style: TextStyle(color: subtitleColor, fontSize: 12, fontWeight: FontWeight.w500)),
             ],
           ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCircularStat(String title, String value, double percent, Color color) {
-    return Column(
-      children: [
-        CircularPercentIndicator(
-          radius: 35.0,
-          lineWidth: 6.0,
-          percent: percent > 1.0 ? 1.0 : (percent < 0 ? 0 : percent),
-          center: Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          progressColor: color,
-          backgroundColor: Colors.grey[200]!,
-          circularStrokeCap: CircularStrokeCap.round,
         ),
-        const SizedBox(height: 8),
-        Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-      ],
-    );
-  }
-
-  Widget _buildStatsRow(AttendanceProvider provider) {
-    final stats = provider.stats;
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(vertical: 16.0),
-      margin: const EdgeInsets.only(top: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildSmallStat('Total Masuk', (stats['total_masuk'] ?? 0).toString(), Icons.login, Colors.blue),
-          _buildSmallStat('Unique Store', (stats['unique_store'] ?? 0).toString(), Icons.store, Colors.purple),
-          _buildSmallStat('No Out', (stats['no_out'] ?? 0).toString(), Icons.warning_amber, Colors.red),
-          _buildSmallStat('<5 Menit', (stats['less_than_5_min'] ?? 0).toString(), Icons.timer, Colors.orange),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSmallStat(String title, String value, IconData icon, Color color) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: color, size: 24),
-        ),
-        const SizedBox(height: 8),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(title, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-      ],
-    );
-  }
-
-  Widget _buildHistoryList(AttendanceProvider provider) {
-    final logsByDate = provider.logsByDate;
-    if (logsByDate.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(32.0),
-        child: Center(child: Text("Tidak ada data kunjungan")),
       );
     }
-
-    var dates = logsByDate.keys.toList();
-    dates.sort((a, b) => b.compareTo(a));
-
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: dates.map((dateStr) {
-          final logs = logsByDate[dateStr] as List;
-          return _buildDateCard(dateStr, logs);
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildDateCard(String dateStr, List logs) {
-    String firstIn = '-';
-    String lastOut = '-';
-
+    
+    String firstIn = '--:--';
+    String lastOut = '--:--';
+    
     var checkins = logs.where((l) => l['log_type'] == 'checkin').toList();
     if (checkins.isNotEmpty) {
       firstIn = _parseLocalTime(checkins.first['logged_at']);
@@ -269,57 +251,120 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (checkouts.isNotEmpty) {
       lastOut = _parseLocalTime(checkouts.last['logged_at']);
     }
+    
+    int visits = logs.where((l) => l['log_type'] == 'visit_in').length;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ExpansionTile(
-        initiallyExpanded: true,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                DateFormat('dd').format(DateTime.parse(dateStr)),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue),
-              ),
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(DateFormat('EEEE, d MMMM').format(_selectedDate), style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor)),
+                    const SizedBox(height: 2),
+                    Text('${logs.length} aktivitas tercatat', style: TextStyle(fontSize: 10, color: subtitleColor)),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: const Color(0xFFE2F6EE), borderRadius: BorderRadius.circular(12)),
+                  child: const Text('Hadir', style: TextStyle(fontSize: 10, color: Color(0xFF149A6E), fontWeight: FontWeight.bold)),
+                )
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    DateFormat('EEEE, MMM yyyy').format(DateTime.parse(dateStr)),
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          ),
+          Divider(color: Colors.grey.shade200, height: 1),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: elevatedColor, borderRadius: BorderRadius.circular(12)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Check-in', style: TextStyle(fontSize: 9, color: subtitleColor, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(firstIn, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                            const SizedBox(width: 2),
+                            Padding(padding: const EdgeInsets.only(bottom: 2), child: Text('WIB', style: TextStyle(fontSize: 9, color: subtitleColor))),
+                          ],
+                        )
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.login, size: 14, color: Colors.green),
-                      const SizedBox(width: 4),
-                      Text(firstIn, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                      const SizedBox(width: 16),
-                      const Icon(Icons.logout, size: 14, color: Colors.red),
-                      const SizedBox(width: 4),
-                      Text(lastOut, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    ],
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: elevatedColor, borderRadius: BorderRadius.circular(12)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Check-out', style: TextStyle(fontSize: 9, color: subtitleColor, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(lastOut, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                            const SizedBox(width: 2),
+                            Padding(padding: const EdgeInsets.only(bottom: 2), child: Text('WIB', style: TextStyle(fontSize: 9, color: subtitleColor))),
+                          ],
+                        )
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (visits > 0 || logs.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, size: 12, color: const Color(0xFF149A6E)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${checkins.isNotEmpty ? 'Hadir' : 'Tidak Hadir'} · $visits kunjungan lapangan',
+                      style: TextStyle(fontSize: 11, color: subtitleColor, fontWeight: FontWeight.w500),
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-            child: Column(
-              children: logs.map((log) => _buildLogItem(log)).toList(),
+            
+          // Expansion view for detailed logs
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              title: Text('Lihat Detail Aktivitas', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textColor)),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                  child: Column(
+                    children: logs.map((log) => _buildLogItem(log, elevatedColor)).toList(),
+                  ),
+                )
+              ],
             ),
           )
         ],
@@ -327,7 +372,60 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Widget _buildLogItem(dynamic log) {
+  Widget _buildMonthStats(AttendanceProvider provider, Color cardColor, Color textColor, Color subtitleColor, Color primaryColor, Color elevatedColor) {
+    final stats = provider.stats;
+    int totalMasuk = stats['total_masuk'] ?? 0;
+    int uniqueStore = stats['unique_store'] ?? 0;
+    int noOut = stats['no_out'] ?? 0;
+    int less5m = stats['less_than_5_min'] ?? 0;
+
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      childAspectRatio: 2.2,
+      children: [
+        _buildStatItem('Total Masuk', totalMasuk.toString(), cardColor, textColor, subtitleColor, const Color(0xFF149A6E)),
+        _buildStatItem('Unique Store', uniqueStore.toString(), cardColor, textColor, subtitleColor, primaryColor),
+        _buildStatItem('No Out', noOut.toString(), cardColor, textColor, subtitleColor, const Color(0xFFE0473E)),
+        _buildStatItem('< 5 Menit', less5m.toString(), cardColor, textColor, subtitleColor, const Color(0xFFD98A2B)),
+      ],
+    );
+  }
+  
+  Widget _buildStatItem(String title, String value, Color cardColor, Color textColor, Color subtitleColor, Color iconColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
+                const SizedBox(height: 2),
+                Text(title, style: TextStyle(fontSize: 9, color: subtitleColor, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          Container(
+            width: 4, height: double.infinity,
+            decoration: BoxDecoration(color: iconColor, borderRadius: BorderRadius.circular(2)),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogItem(dynamic log, Color elevatedColor) {
     final String type = log['log_type'] ?? '';
     final String time = _parseLocalTime(log['logged_at']);
     final String? rawPhotoUrl = log['photo_url'];
@@ -338,191 +436,120 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final String? note = log['note'];
     final String locationName = log['location']?['name'] as String? ?? '';
 
-    IconData icon;
     Color color;
     String label;
 
     switch (type) {
       case 'checkin':
-        icon = Icons.login;
-        color = Colors.green;
+        color = const Color(0xFF149A6E);
         label = 'Check-in';
         break;
       case 'checkout':
-        icon = Icons.logout;
-        color = Colors.red;
+        color = const Color(0xFFE0473E);
         label = 'Check-out';
         break;
       case 'visit_in':
-        icon = Icons.storefront;
-        color = Colors.blue;
+        color = const Color(0xFF0FA8C4);
         label = 'Visit-in';
         break;
       case 'visit_out':
-        icon = Icons.storefront_outlined;
-        color = Colors.orange;
+        color = const Color(0xFFD98A2B);
         label = 'Visit-out';
         break;
       default:
-        icon = Icons.info_outline;
         color = Colors.grey;
         label = type;
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.15)),
+        border: Border(bottom: BorderSide(color: elevatedColor))
       ),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header row: icon + label + time ──────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 16, color: color),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: color,
-                        ),
-                      ),
-                      if (locationName.isNotEmpty)
-                        Row(
-                          children: [
-                            Icon(Icons.location_on, size: 11, color: Colors.grey[600]),
-                            const SizedBox(width: 2),
-                            Expanded(
-                              child: Text(
-                                locationName,
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 11,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                ),
-                // Time badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    time,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: color,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            width: 7, height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-
-          // ── Catatan / note ────────────────────────────────────────
-          if (note != null && note.trim().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.notes, size: 13, color: Colors.grey[500]),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      note.trim(),
-                      style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF0E1830))),
+                    Text(time, style: TextStyle(fontSize: 10, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : const Color(0xFF707893), fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                if (locationName.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(locationName, style: TextStyle(fontSize: 9, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : const Color(0xFF707893))),
+                  ),
+                if (note != null && note.trim().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.notes, size: 10, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade500 : Colors.grey),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(note.trim(), style: TextStyle(fontSize: 10, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey[700])),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-
-          // ── Foto ──────────────────────────────────────────────────
-          if (photoUrl != null && photoUrl.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: GestureDetector(
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => Dialog(
-                        backgroundColor: Colors.transparent,
-                        insetPadding: const EdgeInsets.all(16),
-                        child: Stack(
-                          alignment: Alignment.topRight,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.network(photoUrl, fit: BoxFit.contain),
+                if (photoUrl != null && photoUrl.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: GestureDetector(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => Dialog(
+                            backgroundColor: Colors.transparent,
+                            insetPadding: const EdgeInsets.all(16),
+                            child: Stack(
+                              alignment: Alignment.topRight,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(photoUrl, fit: BoxFit.contain),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                                  onPressed: () => Navigator.pop(context),
+                                ),
+                              ],
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.close, color: Colors.white, size: 30),
-                              onPressed: () => Navigator.pop(context),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      photoUrl,
-                      height: 50,
-                      width: 50,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        height: 50, width: 50,
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.broken_image, color: Colors.grey, size: 20),
-                      ),
-                      loadingBuilder: (_, child, progress) {
-                        if (progress == null) return child;
-                        return Container(
-                          height: 50, width: 50,
-                          color: Colors.grey[100],
-                          child: const Center(
-                            child: SizedBox(
-                              height: 16, width: 16, 
-                              child: CircularProgressIndicator(strokeWidth: 2)
-                            )
                           ),
                         );
                       },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.network(
+                          photoUrl,
+                          height: 40,
+                          width: 40,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 40, width: 40,
+                            color: elevatedColor,
+                            child: const Icon(Icons.broken_image, color: Colors.grey, size: 16),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
+              ],
             ),
+          )
         ],
       ),
     );

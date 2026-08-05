@@ -143,16 +143,44 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tambah Jadwal'),
-        foregroundColor: Colors.black,
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFF8F9FA);
+    final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF111C2D);
+    final subtitleColor = isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600;
+    final primaryColor = Provider.of<AuthProvider>(context, listen: false).appColor ?? const Color(0xFF0F52BA);
+
+    final inputDecoration = InputDecoration(
+      filled: true,
+      fillColor: isDarkMode ? const Color(0xFF2A2A3D) : Colors.grey.shade50,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
       ),
-      backgroundColor: Colors.grey[50],
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: primaryColor, width: 1.5),
+      ),
+      labelStyle: TextStyle(color: subtitleColor, fontSize: 13),
+    );
+
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        title: Text('Tambah Jadwal', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+        backgroundColor: bgColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
+      ),
       body: Consumer<ItineraryProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading && provider.workLocations.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(child: CircularProgressIndicator(color: primaryColor));
           }
 
           return SingleChildScrollView(
@@ -161,31 +189,29 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Date Selection
-                const Text(
+                Text(
                   'Tanggal Kunjungan',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
                 ),
                 const SizedBox(height: 8),
                 InkWell(
                   onTap: () => _selectDate(context),
+                  borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(8),
+                      color: cardColor,
+                      border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           DateFormat('dd MMMM yyyy').format(_selectedDate),
-                          style: const TextStyle(fontSize: 16),
+                          style: TextStyle(fontSize: 14, color: textColor),
                         ),
-                        const Icon(Icons.calendar_today, color: Colors.grey),
+                        Icon(Icons.calendar_today, color: subtitleColor, size: 20),
                       ],
                     ),
                   ),
@@ -197,20 +223,14 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Daftar Lokasi',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
                     ),
                     TextButton.icon(
                       onPressed: _addLocation,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Tambah'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Theme.of(context).primaryColor,
-                      ),
+                      icon: Icon(Icons.add, color: primaryColor, size: 18),
+                      label: Text('Tambah', style: TextStyle(color: primaryColor)),
                     ),
                   ],
                 ),
@@ -219,9 +239,9 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
                   Container(
                     padding: const EdgeInsets.all(32),
                     alignment: Alignment.center,
-                    child: const Text(
+                    child: Text(
                       'Belum ada lokasi ditambahkan',
-                      style: TextStyle(color: Colors.grey),
+                      style: TextStyle(color: subtitleColor, fontSize: 13),
                     ),
                   )
                 else
@@ -230,73 +250,68 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: _locations.length,
                     itemBuilder: (context, index) {
-                      return Card(
+                      return Container(
                         margin: const EdgeInsets.only(bottom: 16),
-                        shape: RoundedRectangleBorder(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
                           borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Colors.grey[200]!),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Kunjungan ke-${index + 1}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.close, color: Colors.red, size: 20),
-                                    onPressed: () => _removeLocation(index),
-                                    constraints: const BoxConstraints(),
-                                    padding: EdgeInsets.zero,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              
-                              // Location Dropdown
-                              DropdownButtonFormField<int>(
-                                decoration: const InputDecoration(
-                                  labelText: 'Lokasi Kerja',
-                                  isDense: true,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Kunjungan ke-${index + 1}',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: subtitleColor, fontSize: 12),
                                 ),
-                                value: _locations[index]['work_location_id'],
-                                items: provider.workLocations.map((loc) {
-                                  return DropdownMenuItem<int>(
-                                    value: loc['id'],
-                                    child: Text(loc['name'] ?? ''),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _locations[index]['work_location_id'] = value;
-                                  });
-                                },
-                              ),
-                              
-                              const SizedBox(height: 12),
-                              
-                              // Notes Field
-                              TextFormField(
-                                decoration: const InputDecoration(
-                                  labelText: 'Catatan (Opsional)',
-                                  isDense: true,
+                                GestureDetector(
+                                  onTap: () => _removeLocation(index),
+                                  child: const Icon(Icons.close, color: Colors.red, size: 20),
                                 ),
-                                maxLines: 2,
-                                initialValue: _locations[index]['notes'],
-                                onChanged: (value) {
-                                  _locations[index]['notes'] = value;
-                                },
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            
+                            // Location Dropdown
+                            DropdownButtonFormField<int>(
+                              dropdownColor: cardColor,
+                              style: TextStyle(color: textColor),
+                              decoration: inputDecoration.copyWith(
+                                labelText: 'Lokasi Kerja',
                               ),
-                            ],
-                          ),
+                              value: _locations[index]['work_location_id'],
+                              items: provider.workLocations.map((loc) {
+                                return DropdownMenuItem<int>(
+                                  value: loc['id'],
+                                  child: Text(loc['name'] ?? ''),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _locations[index]['work_location_id'] = value;
+                                });
+                              },
+                            ),
+                            
+                            const SizedBox(height: 16),
+                            
+                            // Notes Field
+                            TextFormField(
+                              style: TextStyle(color: textColor),
+                              decoration: inputDecoration.copyWith(
+                                labelText: 'Catatan (Opsional)',
+                              ),
+                              maxLines: 2,
+                              initialValue: _locations[index]['notes'],
+                              onChanged: (value) {
+                                _locations[index]['notes'] = value;
+                              },
+                            ),
+                          ],
                         ),
                       );
                     },
@@ -310,16 +325,19 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
                   height: 48,
                   child: ElevatedButton(
                     onPressed: _isSubmitting ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
                     child: _isSubmitting
                         ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                           )
-                        : const Text('Simpan Jadwal'),
+                        : const Text('Simpan Jadwal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 ),
                 

@@ -105,8 +105,40 @@ class DashboardApiController extends Controller
                                    ->whereDate('end_date', '>=', $today)
                                    ->count();
 
-        $vacant = $totalTeam - ($hadirHariIni + $sakitHariIni + $cutiHariIni);
-        if ($vacant < 0) $vacant = 0;
+        // Get IDs of present and on leave employees
+        $presentIds = Attendance::whereIn('employee_id', $teamIds)
+                                  ->whereDate('attendance_date', $today)
+                                  ->pluck('employee_id')
+                                  ->toArray();
+
+        $leaveIds = LeaveRequest::whereIn('employee_id', $teamIds)
+                                    ->where('status', 'approved')
+                                    ->whereDate('start_date', '<=', $today)
+                                    ->whereDate('end_date', '>=', $today)
+                                    ->pluck('employee_id')
+                                    ->toArray();
+
+        $activeIds = array_unique(array_merge($presentIds, $leaveIds));
+
+        // Vacant employees are those not in activeIds
+        $vacantEmployees = $teamMembers->whereNotIn('id', $activeIds);
+        
+        $vacantDetails = [];
+        foreach ($vacantEmployees as $emp) {
+            $lastAttendance = Attendance::where('employee_id', $emp->id)
+                                        ->orderBy('attendance_date', 'desc')
+                                        ->first();
+            $daysVacant = -1; // Indicates never attended
+            if ($lastAttendance) {
+                $daysVacant = Carbon::parse($lastAttendance->attendance_date)->diffInDays(Carbon::today());
+            }
+            $vacantDetails[] = [
+                'name' => $emp->full_name ?? 'Unknown',
+                'days' => $daysVacant
+            ];
+        }
+
+        $vacant = count($vacantDetails);
 
         // Team Target Mandays (Sum of targets of all team members this month)
         $currentMonth = Carbon::now()->format('Y-m');
@@ -131,6 +163,7 @@ class DashboardApiController extends Controller
             'sakit_hari_ini' => $sakitHariIni,
             'cuti_hari_ini' => $cutiHariIni,
             'vacant' => $vacant,
+            'vacant_details' => $vacantDetails,
             'team_target_mandays' => $teamTargetMandays,
             'team_running_rate' => $teamRunningRate
         ]);

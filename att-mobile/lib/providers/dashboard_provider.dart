@@ -33,12 +33,14 @@ class DashboardProvider with ChangeNotifier {
   int _vacant = 0;
   int _teamTargetMandays = 0;
   int _teamRunningRate = 0;
+  List<dynamic> _vacantDetails = [];
 
   int get totalTeam => _totalTeam;
   int get hadirHariIni => _hadirHariIni;
   int get sakitHariIni => _sakitHariIni;
   int get cutiHariIni => _cutiHariIni;
   int get vacant => _vacant;
+  List<dynamic> get vacantDetails => _vacantDetails;
   int get teamTargetMandays => _teamTargetMandays;
   int get teamRunningRate => _teamRunningRate;
 
@@ -48,7 +50,7 @@ class DashboardProvider with ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString('auth_token');
 
       if (token == null) {
         _isLoading = false;
@@ -57,7 +59,7 @@ class DashboardProvider with ChangeNotifier {
       }
 
       final response = await http.get(
-        Uri.parse('${Constants.baseUrl}/api/dashboard/stats'),
+        Uri.parse('${Constants.baseUrl}/dashboard/stats'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -85,12 +87,12 @@ class DashboardProvider with ChangeNotifier {
   Future<void> fetchTeamStats() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString('auth_token');
 
       if (token == null) return;
 
       final response = await http.get(
-        Uri.parse('${Constants.baseUrl}/api/dashboard/team-stats'),
+        Uri.parse('${Constants.baseUrl}/dashboard/team-stats'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -104,6 +106,7 @@ class DashboardProvider with ChangeNotifier {
         _sakitHariIni = data['sakit_hari_ini'] ?? 0;
         _cutiHariIni = data['cuti_hari_ini'] ?? 0;
         _vacant = data['vacant'] ?? 0;
+        _vacantDetails = data['vacant_details'] ?? [];
         _teamTargetMandays = data['team_target_mandays'] ?? 0;
         _teamRunningRate = data['team_running_rate'] ?? 0;
         notifyListeners();

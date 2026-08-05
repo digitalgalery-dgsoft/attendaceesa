@@ -49,17 +49,26 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFF8F9FA);
+    final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF111C2D);
+    final subtitleColor = isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600;
+    final primaryColor = Provider.of<AuthProvider>(context, listen: false).appColor ?? const Color(0xFF0F52BA);
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Itinerary',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
         ),
-        foregroundColor: Colors.black,
+        backgroundColor: bgColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh, color: textColor),
             onPressed: _fetchData,
           ),
         ],
@@ -67,7 +76,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
       body: Consumer<ItineraryProvider>(
         builder: (context, itineraryProvider, child) {
           if (itineraryProvider.isLoading && itineraryProvider.itineraries.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(child: CircularProgressIndicator(color: primaryColor));
           }
 
           final selectedEvents = _getEventsForDay(
@@ -78,12 +87,39 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
           return Column(
             children: [
               Container(
-                color: Colors.white,
+                color: cardColor,
                 child: TableCalendar(
                   firstDay: DateTime.now().subtract(const Duration(days: 365)),
                   lastDay: DateTime.now().add(const Duration(days: 365)),
                   focusedDay: _focusedDay,
                   calendarFormat: _calendarFormat,
+                  headerStyle: HeaderStyle(
+                    titleTextStyle: TextStyle(color: textColor, fontSize: 16),
+                    formatButtonTextStyle: TextStyle(color: textColor),
+                    leftChevronIcon: Icon(Icons.chevron_left, color: textColor),
+                    rightChevronIcon: Icon(Icons.chevron_right, color: textColor),
+                  ),
+                  daysOfWeekStyle: DaysOfWeekStyle(
+                    weekdayStyle: TextStyle(color: textColor),
+                    weekendStyle: TextStyle(color: Colors.red.shade400),
+                  ),
+                  calendarStyle: CalendarStyle(
+                    defaultTextStyle: TextStyle(color: textColor),
+                    weekendTextStyle: TextStyle(color: Colors.red.shade400),
+                    outsideTextStyle: TextStyle(color: subtitleColor),
+                    markerDecoration: BoxDecoration(
+                      color: primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    selectedDecoration: BoxDecoration(
+                      color: primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    todayDecoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
                   selectedDayPredicate: (day) {
                     return isSameDay(_selectedDay, day);
                   },
@@ -106,57 +142,38 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                     _focusedDay = focusedDay;
                   },
                   eventLoader: (day) => _getEventsForDay(day, itineraryProvider.itineraries),
-                  calendarStyle: CalendarStyle(
-                    markerDecoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                    selectedDecoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                    todayDecoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withOpacity(0.5),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
                 ),
               ),
               const SizedBox(height: 16),
               Expanded(
                 child: Container(
                   width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(24),
-                      topRight: Radius.circular(24),
-                    ),
-                  ),
+                  color: bgColor,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         child: Text(
                           'Jadwal Kunjungan: ${DateFormat('dd MMM yyyy').format(_selectedDay ?? _focusedDay)}',
-                          style: const TextStyle(
-                            fontSize: 16,
+                          style: TextStyle(
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
+                            color: textColor,
                           ),
                         ),
                       ),
                       if (selectedEvents.isEmpty)
-                        const Expanded(
+                        Expanded(
                           child: Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.event_busy, size: 64, color: Colors.grey),
-                                SizedBox(height: 16),
+                                Icon(Icons.event_busy, size: 48, color: subtitleColor),
+                                const SizedBox(height: 16),
                                 Text(
                                   'Tidak ada kunjungan',
-                                  style: TextStyle(color: Colors.grey, fontSize: 16),
+                                  style: TextStyle(color: subtitleColor, fontSize: 14),
                                 ),
                               ],
                             ),
@@ -173,31 +190,50 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                                   ? event['work_location']['name']
                                   : 'Unknown Location';
                                   
-                              return Card(
+                              return Container(
                                 margin: const EdgeInsets.only(bottom: 12),
-                                color: Colors.grey[50],
-                                shape: RoundedRectangleBorder(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: cardColor,
+                                  border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
                                   borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(color: Colors.grey[200]!),
                                 ),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-                                    child: Text(
-                                      '${index + 1}',
-                                      style: TextStyle(
-                                        color: Theme.of(context).primaryColor,
-                                        fontWeight: FontWeight.bold,
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: primaryColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        '${index + 1}',
+                                        style: TextStyle(
+                                          color: primaryColor,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  title: Text(
-                                    locationName,
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                  subtitle: event['notes'] != null && event['notes'].toString().isNotEmpty
-                                      ? Text(event['notes'])
-                                      : null,
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            locationName,
+                                            style: TextStyle(fontWeight: FontWeight.bold, color: textColor, fontSize: 14),
+                                          ),
+                                          if (event['notes'] != null && event['notes'].toString().isNotEmpty) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              event['notes'],
+                                              style: TextStyle(color: subtitleColor, fontSize: 12),
+                                            ),
+                                          ]
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               );
                             },
@@ -222,7 +258,8 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
             ),
           );
         },
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: primaryColor,
+        elevation: 2,
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );

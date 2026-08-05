@@ -6,7 +6,6 @@ import '../providers/auth_provider.dart';
 import 'package:att_mobile/screens/permit_form_screen.dart';
 import 'package:att_mobile/utils/constants.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'permit_form_screen.dart';
 
 class PermitScreen extends StatefulWidget {
   const PermitScreen({super.key});
@@ -30,18 +29,28 @@ class _PermitScreenState extends State<PermitScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final primaryColor = authProvider.appColor ?? const Color(0xFF0F52BA);
+    
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
+    final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF0E1830);
+    final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
+    final elevatedColor = isDarkMode ? Colors.grey.shade800 : const Color(0xFFEDF1F8);
 
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text(
-          'Permit',
+        title: Text(
+          'Pengajuan Izin',
           style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
+            color: textColor,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
       ),
       body: Consumer<PermitProvider>(
         builder: (context, provider, child) {
@@ -49,7 +58,7 @@ class _PermitScreenState extends State<PermitScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final currentMonth = DateFormat('MMMM, yyyy').format(_selectedDate);
+          final currentMonth = DateFormat('MMMM yyyy').format(_selectedDate);
           
           final filteredPermits = provider.permits.where((permit) {
             if (permit['start_date'] == null) return false;
@@ -65,16 +74,9 @@ class _PermitScreenState extends State<PermitScreen> {
             onRefresh: () => provider.fetchPermits(),
             child: Column(
               children: [
-                // Top Calendar Bar
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: primaryColor,
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(24),
-                      bottomRight: Radius.circular(24),
-                    ),
-                  ),
+                // Minimalist Month Picker
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: InkWell(
                     onTap: () async {
                       final picked = await showDatePicker(
@@ -91,26 +93,27 @@ class _PermitScreenState extends State<PermitScreen> {
                       }
                     },
                     child: Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: elevatedColor,
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             currentMonth,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
                           ),
-                          const Icon(Icons.calendar_month, color: Colors.blue),
+                          Icon(Icons.calendar_month, color: subtitleColor, size: 20),
                         ],
                       ),
                     ),
                   ),
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 
                 // List or Empty state
                 Expanded(
@@ -118,21 +121,13 @@ class _PermitScreenState extends State<PermitScreen> {
                       ? ListView(
                           physics: const AlwaysScrollableScrollPhysics(),
                           children: [
-                            const SizedBox(height: 50),
+                            const SizedBox(height: 80),
+                            Icon(Icons.event_busy, size: 80, color: Colors.grey.shade400),
+                            const SizedBox(height: 16),
                             Center(
                               child: Text(
-                                DateFormat('MMM yyyy').format(DateTime.now()),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                            ),
-                            const SizedBox(height: 40),
-                            // Placeholder icon/image
-                            const Icon(Icons.people_alt, size: 200, color: Colors.blueGrey),
-                            const SizedBox(height: 20),
-                            const Center(
-                              child: Text(
-                                'Oopss Data Not Found!',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                'Tidak ada data izin bulan ini.',
+                                style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: subtitleColor),
                               ),
                             ),
                           ],
@@ -145,48 +140,114 @@ class _PermitScreenState extends State<PermitScreen> {
                             final permit = filteredPermits[index];
                             final type = permit['type'] ?? '';
                             final status = permit['status'] ?? 'pending';
+                            final reason = permit['notes'] ?? '';
                             
                             // Format dates
                             String startDate = permit['start_date'] ?? '';
                             String endDate = permit['end_date'] ?? '';
+                            String rangeStr = '';
+                            int days = 1;
                             try {
-                              if (startDate.isNotEmpty) {
-                                startDate = DateFormat('dd MMM yyyy').format(DateTime.parse(startDate).toLocal());
-                              }
-                              if (endDate.isNotEmpty) {
-                                endDate = DateFormat('dd MMM yyyy').format(DateTime.parse(endDate).toLocal());
+                              if (startDate.isNotEmpty && endDate.isNotEmpty) {
+                                final start = DateTime.parse(startDate).toLocal();
+                                final end = DateTime.parse(endDate).toLocal();
+                                startDate = DateFormat('dd MMM yyyy').format(start);
+                                endDate = DateFormat('dd MMM yyyy').format(end);
+                                days = end.difference(start).inDays + 1;
+                                
+                                if (start.month == end.month && start.year == end.year) {
+                                  if (start.day == end.day) {
+                                    rangeStr = '${start.day} ${DateFormat('MMM yyyy').format(start)} · 1 hari';
+                                  } else {
+                                    rangeStr = '${start.day}–${end.day} ${DateFormat('MMM yyyy').format(start)} · $days hari';
+                                  }
+                                } else {
+                                  rangeStr = '${DateFormat('dd MMM').format(start)} – ${DateFormat('dd MMM yyyy').format(end)} · $days hari';
+                                }
                               }
                             } catch (_) {}
                             
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              color: Colors.white,
-                              elevation: 0.5,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              child: ListTile(
-                                onTap: () => _showDetailModal(context, permit, startDate, endDate, status),
-                                leading: const CircleAvatar(
-                                  backgroundColor: Color(0xFFE8E8E8),
-                                  child: Icon(Icons.event_note, color: Colors.blueGrey),
+                            Color iconBgColor;
+                            Color iconColor;
+                            Color badgeBgColor;
+                            Color badgeTextColor;
+                            String badgeText;
+                            
+                            if (status == 'approved') {
+                              iconBgColor = const Color(0xFFE2F6EE);
+                              iconColor = const Color(0xFF149A6E);
+                              badgeBgColor = const Color(0xFFE2F6EE);
+                              badgeTextColor = const Color(0xFF149A6E);
+                              badgeText = 'Disetujui';
+                            } else if (status == 'rejected') {
+                              iconBgColor = const Color(0xFFFCEAE9);
+                              iconColor = const Color(0xFFE0473E);
+                              badgeBgColor = const Color(0xFFFCEAE9);
+                              badgeTextColor = const Color(0xFFE0473E);
+                              badgeText = 'Ditolak';
+                            } else {
+                              iconBgColor = const Color(0xFFFDF0DE);
+                              iconColor = const Color(0xFFD98A2B);
+                              badgeBgColor = const Color(0xFFFDF0DE);
+                              badgeTextColor = const Color(0xFFD98A2B);
+                              badgeText = 'Diproses';
+                            }
+                            
+                            return GestureDetector(
+                              onTap: () => _showDetailModal(context, permit, startDate, endDate, status),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: cardColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.grey.shade300),
                                 ),
-                                title: Text(type.toString().toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Text("$startDate s/d $endDate"),
-                                trailing: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: status == 'approved' ? Colors.green.withOpacity(0.1) : 
-                                           status == 'rejected' ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    status.toString().toUpperCase(),
-                                    style: TextStyle(
-                                      color: status == 'approved' ? Colors.green : 
-                                             status == 'rejected' ? Colors.red : Colors.orange,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 44, height: 44,
+                                      decoration: BoxDecoration(color: iconBgColor, borderRadius: BorderRadius.circular(12)),
+                                      child: Icon(Icons.description, color: iconColor, size: 20),
                                     ),
-                                  ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(type.toString().toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor)),
+                                                    const SizedBox(height: 2),
+                                                    Text(rangeStr, style: TextStyle(fontSize: 10, color: subtitleColor, fontWeight: FontWeight.w600)),
+                                                  ],
+                                                ),
+                                              ),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(color: badgeBgColor, borderRadius: BorderRadius.circular(8)),
+                                                child: Text(badgeText, style: TextStyle(color: badgeTextColor, fontSize: 9, fontWeight: FontWeight.bold)),
+                                              )
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            reason.toString().isNotEmpty ? reason : 'Tidak ada keterangan tambahan.',
+                                            style: TextStyle(fontSize: 11, color: subtitleColor),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             );
@@ -199,7 +260,8 @@ class _PermitScreenState extends State<PermitScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.blue,
+        backgroundColor: primaryColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: const Icon(Icons.add, color: Colors.white),
         onPressed: () {
           Navigator.push(
@@ -229,47 +291,47 @@ class _PermitScreenState extends State<PermitScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Permit Detail',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    'Detail Pengajuan Izin',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: status == 'approved' ? Colors.green.withOpacity(0.1) : 
-                             status == 'rejected' ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                      color: status == 'approved' ? const Color(0xFFE2F6EE) : 
+                             status == 'rejected' ? const Color(0xFFFCEAE9) : const Color(0xFFFDF0DE),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      status.toUpperCase(),
+                      status == 'approved' ? 'Disetujui' : (status == 'rejected' ? 'Ditolak' : 'Diproses'),
                       style: TextStyle(
-                        color: status == 'approved' ? Colors.green : 
-                               status == 'rejected' ? Colors.red : Colors.orange,
+                        color: status == 'approved' ? const Color(0xFF149A6E) : 
+                               status == 'rejected' ? const Color(0xFFE0473E) : const Color(0xFFD98A2B),
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: 11,
                       ),
                     ),
                   ),
                 ],
               ),
               const Divider(height: 30),
-              _buildDetailRow('Type', (permit['type'] ?? '').toString().toUpperCase()),
+              _buildDetailRow('Tipe', (permit['type'] ?? '').toString().toUpperCase()),
               if (permit['sub_type'] != null)
-                _buildDetailRow('Sub Type', (permit['sub_type'] ?? '').toString().replaceAll('_', ' ').toUpperCase()),
-              _buildDetailRow('Start Date', startDate),
-              _buildDetailRow('End Date', endDate),
-              _buildDetailRow('Head Approval', (permit['head_approval_status'] ?? 'pending').toString().toUpperCase()),
+                _buildDetailRow('Sub Tipe', (permit['sub_type'] ?? '').toString().replaceAll('_', ' ').toUpperCase()),
+              _buildDetailRow('Tanggal Mulai', startDate),
+              _buildDetailRow('Tanggal Selesai', endDate),
+              _buildDetailRow('Persetujuan Atasan', (permit['head_approval_status'] ?? 'pending').toString().toUpperCase()),
               if (permit['head_approval_notes'] != null && permit['head_approval_notes'].toString().trim().isNotEmpty)
-                _buildDetailRow('Head Notes', permit['head_approval_notes'].toString()),
-              _buildDetailRow('HRD Approval', (permit['hrd_approval_status'] ?? 'pending').toString().toUpperCase()),
+                _buildDetailRow('Catatan Atasan', permit['head_approval_notes'].toString()),
+              _buildDetailRow('Persetujuan HRD', (permit['hrd_approval_status'] ?? 'pending').toString().toUpperCase()),
               if (permit['hrd_approval_notes'] != null && permit['hrd_approval_notes'].toString().trim().isNotEmpty)
-                _buildDetailRow('HRD Notes', permit['hrd_approval_notes'].toString()),
+                _buildDetailRow('Catatan HRD', permit['hrd_approval_notes'].toString()),
               const SizedBox(height: 10),
-              const Text('Notes', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              const Text('Keterangan', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              Text(permit['notes'] ?? '-', style: const TextStyle(fontSize: 14)),
+              Text(permit['notes'] ?? '-', style: const TextStyle(fontSize: 13)),
               if (permit['attachment_path'] != null) ...[
                 const SizedBox(height: 16),
-                const Text('Attachment', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                const Text('Lampiran', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
@@ -277,7 +339,7 @@ class _PermitScreenState extends State<PermitScreen> {
                     Constants.getImageUrl(permit['attachment_path']),
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Text('Failed to load image', style: TextStyle(color: Colors.red)),
+                    errorBuilder: (context, error, stackTrace) => const Text('Gagal memuat gambar', style: TextStyle(color: Colors.red)),
                   ),
                 ),
               ],
@@ -286,8 +348,8 @@ class _PermitScreenState extends State<PermitScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
-                    label: const Text('Download Surat Cuti', style: TextStyle(color: Colors.white)),
+                    icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 18),
+                    label: const Text('Download Surat Cuti', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                     onPressed: () async {
                       final url = Uri.parse(permit['pdf_url']);
                       if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
@@ -300,6 +362,7 @@ class _PermitScreenState extends State<PermitScreen> {
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.redAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -314,11 +377,12 @@ class _PermitScreenState extends State<PermitScreen> {
                   onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blueGrey,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: const Text('Close', style: TextStyle(color: Colors.white)),
+                  child: const Text('Tutup', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -336,16 +400,16 @@ class _PermitScreenState extends State<PermitScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: 130,
             child: Text(
               label,
-              style: const TextStyle(color: Colors.grey, fontSize: 13),
+              style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ),
         ],

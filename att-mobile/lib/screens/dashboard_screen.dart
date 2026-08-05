@@ -51,7 +51,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       if (positionName == 'TL') {
         dashboardProvider.fetchTeamStats();
       }
-      // Sync location service AFTER dashboard data loaded (activity is fully resumed here)
       _syncLocationService(attProvider);
     });
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -71,8 +70,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     });
   }
 
-  /// Sync LocationService based on check-in status.
-  /// Only called when Activity is fully in foreground to avoid OS crash.
   Future<void> _syncLocationService(AttendanceProvider attProvider) async {
     try {
       if (attProvider.isCheckedIn) {
@@ -87,7 +84,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // When app comes back to foreground (resumed), re-sync the service
     if (state == AppLifecycleState.resumed && mounted) {
       final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
       _syncLocationService(attProvider);
@@ -115,13 +111,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final employeeName = authProvider.employeeData?['full_name'] ?? 'User';
     final positionName = authProvider.employeeData?['position']?['name'] ?? '-';
     final branchName = authProvider.employeeData?['branch']?['name'] ?? '-';
-    final email = authProvider.employeeData?['email'] ?? '-'; 
-    final primaryColor = authProvider.appColor ?? const Color(0xFF0F52BA); // Use admin color with fallback
+    final primaryColor = authProvider.appColor ?? const Color(0xFF0F52BA);
     final hasSalesReporting = authProvider.employeeData?['department']?['has_sales_reporting'] == 1 || authProvider.employeeData?['department']?['has_sales_reporting'] == true;
 
-    // Determine current checkin status from todayLogs
-    String checkinTime = '-';
-    String checkoutTime = '-';
+    String checkinTime = '--:--';
+    String checkoutTime = '--:--';
     String duration = '-';
     
     List<dynamic> logs = attProvider.todayLogs;
@@ -136,7 +130,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         checkoutTime = _extractTime(checkoutLog['logged_at']);
       }
       
-      // Calculate duration if checkin exists
       if (checkinLog != null) {
         try {
           DateTime cin = DateTime.parse('${checkinLog['logged_at']}');
@@ -151,482 +144,534 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFF3F4F6);
+    final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
     final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
-    final textColor = isDarkMode ? Colors.white : const Color(0xFF111C2D);
-    final subtitleColor = isDarkMode ? Colors.grey.shade400 : Colors.grey;
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF0E1830);
+    final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
+    final elevatedColor = isDarkMode ? Colors.grey.shade800 : const Color(0xFFEDF1F8);
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Header and Grid
-            Stack(
-              clipBehavior: Clip.none,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 13),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Curved Background
-                Container(
-                  width: double.infinity,
-                  height: 220,
-                  decoration: BoxDecoration(
-                    color: primaryColor,
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(30),
-                      bottomRight: Radius.circular(30),
-                    ),
-                  ),
-                  child: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
-                      child: Row(
+                // Header (home-head)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          CircleAvatar(
-                            radius: 25,
-                            backgroundImage: (authProvider.employeeData?['photo'] != null && authProvider.employeeData!['photo'].toString().isNotEmpty)
-                                ? NetworkImage(Constants.getImageUrl(authProvider.employeeData!['photo']))
-                                : NetworkImage('https://ui-avatars.com/api/?name=${Uri.encodeComponent(employeeName)}&background=random') as ImageProvider,
+                          Text('Selamat pagi,', style: TextStyle(fontSize: 10, color: subtitleColor, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 3),
+                          Text(employeeName, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                          const SizedBox(height: 2),
+                          Text('$positionName · $branchName', style: TextStyle(fontSize: 10.5, color: subtitleColor, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()));
+                          },
+                          child: Container(
+                            width: 32, height: 32,
+                            decoration: BoxDecoration(
+                              color: cardColor,
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              clipBehavior: Clip.none,
+                              children: [
+                                Icon(Icons.notifications_none, size: 18, color: textColor),
+                                if (notificationProvider.unreadCount > 0)
+                                  Positioned(
+                                    top: 4, right: 4,
+                                    child: Container(
+                                      width: 6, height: 6,
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: cardColor, width: 1.5)
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(width: 12),
+                        ),
+                        const SizedBox(width: 7),
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: elevatedColor,
+                          backgroundImage: (authProvider.employeeData?['photo'] != null && authProvider.employeeData!['photo'].toString().isNotEmpty)
+                              ? NetworkImage(Constants.getImageUrl(authProvider.employeeData!['photo']))
+                              : NetworkImage('https://ui-avatars.com/api/?name=${Uri.encodeComponent(employeeName)}&background=random') as ImageProvider,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 11),
+
+                // Time Card
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF132247), Color(0xFF0E1830)],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        DateFormat('HH:mm:ss').format(_currentTime),
+                        style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'monospace'),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        DateFormat('EEEE, dd MMMM yyyy').format(_currentTime),
+                        style: const TextStyle(fontSize: 10, color: Color(0xFFB9C3DD)),
+                      ),
+                      const SizedBox(height: 7),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on, size: 10, color: Color(0xFF8FE3F5)),
+                          const SizedBox(width: 5),
+                          Text(
+                            '$branchName · Terverifikasi',
+                            style: const TextStyle(fontSize: 9, color: Color(0xFF8FE3F5), fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 11),
+
+                // Menu Lainnya
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Menu Lainnya', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Builder(builder: (context) {
+                  List<Map<String, dynamic>> allMenus = [
+                    {'title': 'Absensi', 'icon': Icons.calendar_today, 'color': primaryColor, 'onTap': () {
+                      if (widget.switchTab != null) { widget.switchTab!(1); }
+                      else { Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen())); }
+                    }},
+                    {'title': 'Itinerary', 'icon': Icons.map, 'color': const Color(0xFF0FA8C4), 'onTap': () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ItineraryScreen()));
+                    }},
+                    {'title': 'Permit', 'icon': Icons.event_note, 'color': const Color(0xFFD98A2B), 'onTap': () {
+                      if (widget.switchTab != null) { widget.switchTab!(2); }
+                      else { Navigator.push(context, MaterialPageRoute(builder: (_) => const PermitScreen())); }
+                    }},
+                    {'title': 'Informasi', 'icon': Icons.campaign, 'color': const Color(0xFF149A6E), 'onTap': () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const BlastInfoScreen()));
+                    }},
+                  ];
+                  if (hasSalesReporting) {
+                    allMenus.add({'title': 'Sales', 'icon': Icons.trending_up, 'color': Colors.purple, 'onTap': () {
+                      if (widget.switchTab != null) { widget.switchTab!(3); }
+                    }});
+                    allMenus.add({'title': 'Pipeline', 'icon': Icons.pie_chart, 'color': Colors.cyan, 'onTap': () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SalesPipelineScreen()));
+                    }});
+                  }
+
+                  List<Widget> displayMenus = [];
+                  if (allMenus.length > 4) {
+                     for (int i = 0; i < 3; i++) {
+                       displayMenus.add(_buildMenuQItem(allMenus[i]['title'], allMenus[i]['icon'], allMenus[i]['color'], allMenus[i]['onTap'], cardColor, textColor, false));
+                     }
+                     displayMenus.add(_buildMenuQItem('More', Icons.more_horiz, subtitleColor, () {
+                       _showMoreMenu(context, allMenus.sublist(3), isDarkMode, cardColor, elevatedColor, subtitleColor, textColor);
+                     }, cardColor, textColor, true));
+                  } else {
+                     for (int i = 0; i < allMenus.length; i++) {
+                       displayMenus.add(_buildMenuQItem(allMenus[i]['title'], allMenus[i]['icon'], allMenus[i]['color'], allMenus[i]['onTap'], cardColor, textColor, false));
+                     }
+                  }
+                  
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: displayMenus,
+                  );
+                }),
+
+                const SizedBox(height: 15),
+
+                // Target & Performa (For All Users)
+                const DashboardStatsWidget(),
+                const SizedBox(height: 15),
+
+                // Team Stats (For users with subordinates/team)
+                if (dashboardProvider.totalTeam > 0 || positionName.toUpperCase() == 'TL') ...[
+                  const TeamStatsWidget(),
+                  const SizedBox(height: 15),
+                ],
+
+                // Attend Card
+                Builder(builder: (context) {
+                  // Jika ada permit aktif yang disetujui, tampilkan kartu permit
+                  if (attProvider.hasActivePermit && attProvider.activePermit != null) {
+                    final permit = attProvider.activePermit!;
+                    final permitType = permit['type_label'] ?? permit['type'] ?? 'Izin';
+                    final permitNotes = permit['notes'] ?? '';
+                    Color permitColor;
+                    IconData permitIcon;
+                    Color permitBgColor;
+                    switch ((permit['type'] ?? '').toString().toLowerCase()) {
+                      case 'sakit':
+                        permitColor = const Color(0xFFE0473E);
+                        permitBgColor = const Color(0xFFFCEAE9);
+                        permitIcon = Icons.local_hospital_outlined;
+                        break;
+                      case 'cuti':
+                        permitColor = const Color(0xFF149A6E);
+                        permitBgColor = const Color(0xFFE2F6EE);
+                        permitIcon = Icons.beach_access_outlined;
+                        break;
+                      default: // izin
+                        permitColor = const Color(0xFFD98A2B);
+                        permitBgColor = const Color(0xFFFFF3E0);
+                        permitIcon = Icons.event_note_outlined;
+                    }
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: permitColor.withOpacity(0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48, height: 48,
+                            decoration: BoxDecoration(color: permitBgColor, borderRadius: BorderRadius.circular(13)),
+                            child: Icon(permitIcon, color: permitColor, size: 24),
+                          ),
+                          const SizedBox(width: 14),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  employeeName.toUpperCase(),
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                                Text(permitType.toUpperCase(),
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: permitColor)),
+                                const SizedBox(height: 3),
+                                Text('Disetujui – tidak perlu check-in hari ini',
+                                  style: TextStyle(fontSize: 11, color: subtitleColor)),
+                                if (permitNotes.isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  Text(permitNotes,
+                                    style: TextStyle(fontSize: 11, color: textColor),
+                                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  // Tampilan normal check-in/out
+                  return Container(
+                    padding: const EdgeInsets.fromLTRB(15, 14, 15, 13),
+                    decoration: BoxDecoration(
+                      color: cardColor,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 30, height: 30,
+                                    decoration: BoxDecoration(
+                                      color: (attProvider.isCheckedIn || attProvider.hasCheckedOutToday) ? const Color(0xFFE2F6EE) : elevatedColor,
+                                      borderRadius: BorderRadius.circular(9),
+                                    ),
+                                    child: Icon(Icons.login, size: 14, color: (attProvider.isCheckedIn || attProvider.hasCheckedOutToday) ? const Color(0xFF149A6E) : Colors.grey),
+                                  ),
+                                  const SizedBox(width: 9),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('CHECK-IN', style: TextStyle(fontSize: 9, color: subtitleColor, fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 2),
+                                      Text(checkinTime, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(width: 1, height: 30, color: Colors.grey.shade300, margin: const EdgeInsets.symmetric(horizontal: 8)),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 30, height: 30,
+                                    decoration: BoxDecoration(
+                                      color: attProvider.hasCheckedOutToday ? const Color(0xFFFCEAE9) : elevatedColor,
+                                      borderRadius: BorderRadius.circular(9),
+                                    ),
+                                    child: Icon(Icons.logout, size: 14, color: attProvider.hasCheckedOutToday ? const Color(0xFFE0473E) : subtitleColor),
+                                  ),
+                                  const SizedBox(width: 9),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('CHECK-OUT', style: TextStyle(fontSize: 9, color: subtitleColor, fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 2),
+                                      Text(checkoutTime, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: attProvider.hasCheckedOutToday ? textColor : subtitleColor)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        InkWell(
+                          onTap: () {
+                            if (attProvider.hasCheckedOutToday) return;
+                            if (!attProvider.canCheckin && !attProvider.isCheckedIn) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(attProvider.checkinBlockMessage), backgroundColor: Colors.red),
+                              );
+                              return;
+                            }
+                            if (attProvider.isCheckedIn) {
+                              if (attProvider.isVisiting) return;
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkout')));
+                            } else {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkin')));
+                            }
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              gradient: attProvider.hasCheckedOutToday
+                                  ? const LinearGradient(colors: [Colors.grey, Colors.grey])
+                                  : (!attProvider.canCheckin && !attProvider.isCheckedIn)
+                                      ? const LinearGradient(colors: [Colors.grey, Colors.grey])
+                                      : LinearGradient(colors: [primaryColor, primaryColor.withBlue(primaryColor.blue > 200 ? 255 : primaryColor.blue + 50)]),
+                              borderRadius: BorderRadius.circular(13),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  attProvider.hasCheckedOutToday ? Icons.done_all : (attProvider.isCheckedIn ? Icons.logout : Icons.login),
+                                  color: Colors.white, size: 14
                                 ),
+                                const SizedBox(width: 8),
                                 Text(
-                                  '$positionName - $branchName'.toUpperCase(),
-                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  email,
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
-                                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  attProvider.hasCheckedOutToday ? 'Selesai Bekerja' : (attProvider.isCheckedIn ? 'Check-out Sekarang' : 'Check-in Sekarang'),
+                                  style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold)
                                 ),
                               ],
                             ),
                           ),
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 28),
-                                onPressed: () {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()));
-                                },
-                              ),
-                              if (notificationProvider.unreadCount > 0)
-                                Positioned(
-                                  right: 8,
-                                  top: 8,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Text(
-                                      notificationProvider.unreadCount.toString(),
-                                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                DateFormat('HH:mm:ss').format(_currentTime),
-                                style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                DateFormat('dd MMM yyyy').format(_currentTime),
-                                style: const TextStyle(color: Colors.white70, fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // Floating Menu Card
-                Padding(
-                  padding: const EdgeInsets.only(top: 130, left: 16, right: 16),
-                  child: Card(
-                    color: cardColor,
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildMenuItem('Attendance', Icons.calendar_today, Colors.blue, () {
-                            if (widget.switchTab != null) {
-                              widget.switchTab!(1);
-                            } else {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen()));
-                            }
-                          }),
-                          _buildMenuItem('Itinerary', Icons.map, Colors.indigo, () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => const ItineraryScreen()));
-                          }),
-                          _buildMenuItem('Permit', Icons.event_note, Colors.orange, () {
-                            if (widget.switchTab != null) {
-                              widget.switchTab!(2);
-                            } else {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const PermitScreen()));
-                            }
-                          }),
-                          _buildMenuItem('Informasi', Icons.campaign, Colors.teal, () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => const BlastInfoScreen()));
-                          }),
-                          // _buildMenuItem('Overtime', Icons.access_time, Colors.red, () {
-                          //   Navigator.push(context, MaterialPageRoute(builder: (_) => const ComingSoonScreen(title: 'Overtime')));
-                          // }),
-                          if (hasSalesReporting) ...[
-                            _buildMenuItem('Sales', Icons.trending_up, Colors.purple, () {
-                              if (widget.switchTab != null) {
-                                widget.switchTab!(3);
-                              }
-                            }),
-                            _buildMenuItem('Pipeline', Icons.pie_chart, Colors.cyan, () {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const SalesPipelineScreen()));
-                            }),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // Informasi Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Informasi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
-                  const SizedBox(height: 12),
-                  Card(
-                    color: cardColor,
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.store, color: primaryColor, size: 28),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      branchName.toUpperCase(),
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
-                                    ),
-                                    Text('INHOUSE', style: TextStyle(fontSize: 12, color: subtitleColor)),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(color: Colors.green.withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
-                                child: const Text('Online', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 24),
-                          Row(
-                            children: [
-                              const Icon(Icons.access_time, color: Colors.green, size: 20),
-                              const SizedBox(width: 8),
-                              const Text('CHECK IN:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                              const SizedBox(width: 8),
-                              Text('$checkinTime WIB', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-                              const Spacer(),
-                              Text('Duration : $duration', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: attProvider.isCheckedIn
-                                ? ElevatedButton.icon(
-                                    onPressed: attProvider.isVisiting ? null : () {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkout')));
-                                    },
-                                    icon: const Icon(Icons.arrow_forward),
-                                    label: const Text('Checkout >>', style: TextStyle(fontSize: 16)),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
-                                      disabledBackgroundColor: Colors.grey.shade400,
-                                      disabledForegroundColor: Colors.white70,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                                    ),
-                                  )
-                                : ElevatedButton.icon(
-                                    onPressed: (attProvider.hasCheckedOutToday || !attProvider.canCheckin) ? null : () {
-                                      if (!attProvider.canCheckin) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(attProvider.checkinBlockMessage),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                        return;
-                                      }
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkin')));
-                                    },
-                                    icon: const Icon(Icons.login),
-                                    label: Text(
-                                      attProvider.hasCheckedOutToday
-                                        ? 'Sudah Selesai'
-                                        : !attProvider.canCheckin
-                                          ? 'Tidak Ada Jadwal'
-                                          : 'Checkin >>',
-                                      style: const TextStyle(fontSize: 16),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: !attProvider.canCheckin ? Colors.grey.shade400 : primaryColor,
-                                      disabledBackgroundColor: Colors.grey.shade400,
-                                      disabledForegroundColor: Colors.white70,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? () {
-                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_in')));
-                                  } : null,
-                                  icon: const Icon(Icons.transfer_within_a_station, size: 18),
-                                  label: const Text('Visit In', style: TextStyle(fontSize: 13)),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.teal,
-                                    disabledBackgroundColor: Colors.grey.shade300,
-                                    disabledForegroundColor: Colors.grey.shade600,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: (!attProvider.isVisiting || !attProvider.canVisit) ? null : () {
-                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_out')));
-                                  },
-                                  icon: const Icon(Icons.directions_run, size: 18),
-                                  label: const Text('Visit Out', style: TextStyle(fontSize: 13)),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.orange,
-                                    disabledBackgroundColor: Colors.grey.shade300,
-                                    disabledForegroundColor: Colors.grey.shade600,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Target & Performa (Only for MD, SPG, TL)
-            if (['MD', 'SPG', 'TL'].contains(positionName.toUpperCase())) ...[
-              const DashboardStatsWidget(),
-              const SizedBox(height: 20),
-            ],
-
-            // Team Stats (Only for TL)
-            if (positionName.toUpperCase() == 'TL') ...[
-              const TeamStatsWidget(),
-              const SizedBox(height: 20),
-            ],
-
-            // Aktivitas
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Aktivitas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
-                  const SizedBox(height: 12),
-                  Card(
-                    color: cardColor,
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 60, height: 60,
-                                    child: CircularProgressIndicator(value: attProvider.isCheckedIn ? 0.5 : 1.0, color: primaryColor, backgroundColor: Colors.grey.shade300, strokeWidth: 6),
-                                  ),
-                                  Text('100%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor)),
-                                ],
-                              ),
-                              const SizedBox(width: 20),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('1 dari 1 -', style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(color: Colors.blueAccent, borderRadius: BorderRadius.circular(6)),
-                                          child: Text('IN: $checkinTime', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(6)),
-                                          child: Text('OUT: $checkoutTime', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 30),
-                          // Timeline
-                          if (logs.isEmpty)
-                            const Center(child: Text('No activity today', style: TextStyle(color: Colors.grey)))
-                          else
-                            ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: logs.length,
-                              itemBuilder: (context, index) {
-                                final log = logs[index];
-                                final timeStr = _extractTime(log['logged_at']);
-                                final typeStr = log['log_type'].toString().toUpperCase();
-                                final locationName = (log['visit_location'] != null && log['visit_location']['name'] != null)
-                                    ? log['visit_location']['name']
-                                    : branchName;
-                                final Color dotColor = _getLogColor(log['log_type']);
-                                
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 16.0),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      SizedBox(width: 40, child: Text(timeStr, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor))),
-                                      Column(
-                                        children: [
-                                          Container(width: 10, height: 10, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
-                                          if (index != logs.length - 1)
-                                            Container(width: 2, height: 40, color: Colors.grey.shade300),
-                                        ],
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(locationName.toString().toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor)),
-                                            Text('$typeStr RECORDED', style: TextStyle(color: subtitleColor, fontSize: 11)),
-                                          ],
-                                        ),
-                                      ),
-                                      const Text('ONLINE', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 10)),
-                                    ],
-                                  ),
-                                );
-                              },
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.info_outline, size: 10, color: subtitleColor),
+                            const SizedBox(width: 5),
+                            Text(
+                              attProvider.isCheckedIn ? 'Sedang bekerja sejak $checkinTime' : (attProvider.hasCheckedOutToday ? 'Selesai bekerja' : 'Belum check-in'),
+                              style: TextStyle(fontSize: 9, color: subtitleColor, fontWeight: FontWeight.bold)
                             ),
-                        ],
-                      ),
+                          ],
+                        )
+                      ],
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            if (_appVersion.isNotEmpty)
-              Text(
-                'Version $_appVersion',
-                style: TextStyle(color: subtitleColor, fontSize: 12),
-              ),
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
-    );
-  }
+                  );
+                }),
+                
+                const SizedBox(height: 15),
 
-  Widget _buildMenuItem(String title, IconData icon, Color color, VoidCallback onTap) {
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          splashColor: color.withValues(alpha: 0.2),
-          highlightColor: color.withValues(alpha: 0.1),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Column(
-              children: [
-                Container(
-                  width: 45, height: 45,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, color: color, size: 24),
+                // Kunjungan Lapangan
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Kunjungan Lapangan', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
+                  ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  title, 
-                  textAlign: TextAlign.center, 
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF111C2D)), 
-                  maxLines: 1, 
-                  overflow: TextOverflow.ellipsis
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_in')));
+                        } : null,
+                        child: Container(
+                          padding: const EdgeInsets.all(11),
+                          decoration: BoxDecoration(
+                            gradient: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit)
+                                ? const LinearGradient(colors: [Color(0xFF14BEDB), Color(0xFF0FA8C4)])
+                                : LinearGradient(colors: [cardColor, cardColor]),
+                            border: Border.all(color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? Colors.transparent : Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 27, height: 27,
+                                decoration: BoxDecoration(
+                                  color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? Colors.white.withOpacity(0.2) : elevatedColor,
+                                  borderRadius: BorderRadius.circular(8)
+                                ),
+                                child: Icon(Icons.transfer_within_a_station, size: 14, color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? Colors.white : subtitleColor),
+                              ),
+                              const SizedBox(height: 7),
+                              Text('Visit-in', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? Colors.white : textColor)),
+                              const SizedBox(height: 2),
+                              Text('Mulai kunjungan', style: TextStyle(fontSize: 9, color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? const Color(0xFFDBF7FC) : subtitleColor, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: (!attProvider.isVisiting || !attProvider.canVisit) ? null : () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_out')));
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(11),
+                          decoration: BoxDecoration(
+                            color: cardColor,
+                            border: Border.all(color: (!attProvider.isVisiting || !attProvider.canVisit) ? Colors.grey.shade300 : primaryColor),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 27, height: 27,
+                                decoration: BoxDecoration(
+                                  color: elevatedColor,
+                                  borderRadius: BorderRadius.circular(8)
+                                ),
+                                child: Icon(Icons.directions_run, size: 14, color: (!attProvider.isVisiting || !attProvider.canVisit) ? subtitleColor : primaryColor),
+                              ),
+                              const SizedBox(height: 7),
+                              Text('Visit-out', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: (!attProvider.isVisiting || !attProvider.canVisit) ? textColor : primaryColor)),
+                              const SizedBox(height: 2),
+                              Text(!attProvider.isVisiting ? 'Belum ada visit' : 'Selesai kunjungan', style: TextStyle(fontSize: 9, color: subtitleColor, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+
+                const SizedBox(height: 15),
+
+                // Log Aktivitas
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Log Aktivitas Hari Ini', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
+                    Text('Semua', style: TextStyle(fontSize: 10, color: primaryColor, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (logs.isEmpty)
+                   Padding(
+                     padding: const EdgeInsets.all(16.0),
+                     child: Center(child: Text('Tidak ada aktivitas hari ini', style: TextStyle(color: subtitleColor, fontSize: 11))),
+                   )
+                else
+                   ListView.builder(
+                     shrinkWrap: true,
+                     physics: const NeverScrollableScrollPhysics(),
+                     itemCount: logs.length,
+                     itemBuilder: (context, index) {
+                       final log = logs[index];
+                       final timeStr = _extractTime(log['logged_at']);
+                       final typeStr = log['log_type'].toString();
+                       final locationName = (log['visit_location'] != null && log['visit_location']['name'] != null)
+                           ? log['visit_location']['name']
+                           : branchName;
+                       final Color dotColor = _getLogColor(log['log_type']);
+                       
+                       String title = typeStr.toUpperCase();
+                       if (typeStr == 'checkin') title = 'Check-in Kantor';
+                       if (typeStr == 'checkout') title = 'Check-out Kantor';
+                       if (typeStr == 'visit_in') title = 'Visit-in — $locationName';
+                       if (typeStr == 'visit_out') title = 'Visit-out — $locationName';
+
+                       return Container(
+                         padding: const EdgeInsets.symmetric(vertical: 7),
+                         decoration: BoxDecoration(
+                           border: index != logs.length - 1 ? Border(bottom: BorderSide(color: Colors.grey.shade300)) : null
+                         ),
+                         child: Row(
+                           children: [
+                             Container(
+                               width: 7, height: 7,
+                               decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                             ),
+                             const SizedBox(width: 9),
+                             Expanded(
+                               child: Column(
+                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                 children: [
+                                   Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textColor)),
+                                   const SizedBox(height: 1),
+                                   Text(locationName.toString(), style: TextStyle(fontSize: 9, color: subtitleColor, fontWeight: FontWeight.bold)),
+                                 ],
+                               ),
+                             ),
+                             Text(timeStr, style: TextStyle(fontSize: 9.5, color: subtitleColor, fontWeight: FontWeight.bold)),
+                           ],
+                         ),
+                       );
+                     },
+                   ),
+
+                const SizedBox(height: 20),
+                if (_appVersion.isNotEmpty)
+                  Center(
+                    child: Text(
+                      'v$_appVersion',
+                      style: TextStyle(color: subtitleColor, fontSize: 10),
+                    ),
+                  ),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -635,26 +680,137 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
+  Widget _buildMenuQItem(String title, IconData icon, Color color, VoidCallback onTap, Color cardColor, Color textColor, bool isMore) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          children: [
+            Container(
+              width: 44, height: 44,
+              decoration: BoxDecoration(
+                color: isMore ? (Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : const Color(0xFFEDF1F8)) : cardColor,
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Icon(icon, color: color, size: 19),
+            ),
+            const SizedBox(height: 6),
+            Text(title, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: textColor), textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMoreMenu(BuildContext context, List<Map<String, dynamic>> additionalMenus, bool isDarkMode, Color cardColor, Color elevatedColor, Color subtitleColor, Color textColor) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(17, 16, 17, 14),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: const BorderRadius.only(topLeft: Radius.circular(22), topRight: Radius.circular(22)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 36, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(3))),
+              const SizedBox(height: 12),
+              Column(
+                children: [
+                  Text('Menu Lainnya', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: textColor)),
+                  const SizedBox(height: 2),
+                  Text('Semua fitur tambahan Nexa Attendance', style: TextStyle(fontSize: 10.5, color: subtitleColor)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 1.1,
+                ),
+                itemCount: additionalMenus.length,
+                itemBuilder: (context, index) {
+                  final menu = additionalMenus[index];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      menu['onTap']();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+                      decoration: BoxDecoration(
+                        color: elevatedColor,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 38, height: 38,
+                            decoration: BoxDecoration(
+                              color: cardColor,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Icon(menu['icon'], color: menu['color'], size: 18),
+                          ),
+                          const SizedBox(height: 7),
+                          Text(menu['title'], style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: textColor), textAlign: TextAlign.center),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              InkWell(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Text('Tutup', textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor)),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    );
+  }
+
   String _extractTime(String? datetimeStr) {
-    if (datetimeStr == null || datetimeStr.isEmpty) return '-';
+    if (datetimeStr == null || datetimeStr.isEmpty) return '--:--';
     try {
       final dt = DateTime.parse('${datetimeStr}');
       return DateFormat('HH:mm').format(dt);
     } catch (_) {
-      return '-';
+      return '--:--';
     }
   }
 
   Color _getLogColor(String logType) {
     switch (logType.toLowerCase()) {
       case 'checkin':
-        return Colors.green;
+        return const Color(0xFF149A6E);
       case 'checkout':
-        return Colors.red;
+        return const Color(0xFFE0473E);
       case 'visit_in':
-        return Colors.teal;
+        return const Color(0xFF0FA8C4);
       case 'visit_out':
-        return Colors.orange;
+        return const Color(0xFFD98A2B);
       default:
         return Colors.blue;
     }

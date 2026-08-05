@@ -40,6 +40,10 @@ class AuthProvider with ChangeNotifier {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setInt('tracking_interval_minutes', int.parse(data['data']['tracking_interval_minutes'].toString()));
           }
+          if (data['data']['tracking_distance_meters'] != null) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setInt('tracking_distance_meters', int.parse(data['data']['tracking_distance_meters'].toString()));
+          }
           notifyListeners();
         }
       }

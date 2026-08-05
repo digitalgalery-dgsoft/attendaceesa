@@ -50,6 +50,13 @@ class AttendanceProvider with ChangeNotifier {
   String _checkinBlockMessage = '';
   String get checkinBlockMessage => _checkinBlockMessage;
 
+  // Active permit for today
+  bool _hasActivePermit = false;
+  bool get hasActivePermit => _hasActivePermit;
+
+  Map<String, dynamic>? _activePermit;
+  Map<String, dynamic>? get activePermit => _activePermit;
+
   // ─── Load jadwal hari ini + status absensi ────────────────────────────────
   Future<void> loadDashboardData() async {
     _isLoading = true;
@@ -83,6 +90,21 @@ class AttendanceProvider with ChangeNotifier {
       );
 
       final data = json.decode(response.body);
+
+      // Permit aktif untuk hari ini
+      if (data['has_active_permit'] == true && data['permit'] != null) {
+        _hasActivePermit = true;
+        _activePermit = data['permit'] as Map<String, dynamic>;
+        _canCheckin = false;
+        _canVisit = false;
+        _checkinBlockMessage = data['message'] ?? 'Anda memiliki izin yang disetujui hari ini.';
+        _todaySchedule = null;
+        _todayItinerary = null;
+        return;
+      }
+
+      _hasActivePermit = false;
+      _activePermit = null;
 
       if (response.statusCode == 200 && data['can_checkin'] == true) {
         _canCheckin = true;

@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:att_mobile/providers/attendance_provider.dart';
+import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:toastification/toastification.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:intl/intl.dart';
@@ -91,14 +92,27 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
     try {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
+        timeLimit: const Duration(seconds: 20),
       );
       setState(() {
         _currentPosition = position;
         _isLoading = false;
       });
     } catch (e) {
-      // Fallback location or show error
+      debugPrint('getCurrentPosition error: $e, trying last known position...');
+      try {
+        Position? lastPosition = await Geolocator.getLastKnownPosition();
+        if (lastPosition != null) {
+          setState(() {
+            _currentPosition = lastPosition;
+            _isLoading = false;
+          });
+          return;
+        }
+      } catch (e2) {
+        debugPrint('getLastKnownPosition error: $e2');
+      }
+
       setState(() {
         _isLoading = false;
       });
@@ -292,16 +306,27 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
     if (widget.type == 'visit_out') title = 'Visit Out Report';
 
     final attProvider = Provider.of<AttendanceProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final primaryColor = authProvider.appColor ?? const Color(0xFF0F52BA);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF111C2D);
+    final subtitleColor = isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600;
+    final bgColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFF8F9FA);
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        iconTheme: const IconThemeData(color: Colors.black),
+        title: Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+        backgroundColor: bgColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.blue,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.blue,
+          labelColor: primaryColor,
+          unselectedLabelColor: subtitleColor,
+          indicatorColor: primaryColor,
+          dividerColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
           tabs: [
             const Tab(text: 'ITINERARY (0)'),
             Tab(text: 'LOKASI SEKITAR (${attProvider.workLocations.length})'),
@@ -309,7 +334,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: primaryColor))
           : Stack(
               children: [
                 FlutterMap(
@@ -352,31 +377,32 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                   Positioned(
                     top: 16,
                     left: 16,
-                    child: Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 4,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.my_location, color: Colors.white, size: 20),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
                             ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Lokasi Anda', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                Text('Akurasi: ±${_currentPosition!.accuracy.toStringAsFixed(0)} m', style: const TextStyle(color: Colors.green, fontSize: 12)),
-                              ],
-                            ),
-                          ],
-                        ),
+                            child: Icon(Icons.my_location, color: primaryColor, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Lokasi Anda', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
+                              Text('Akurasi: ±${_currentPosition!.accuracy.toStringAsFixed(0)} m', style: TextStyle(color: isDarkMode ? Colors.green.shade400 : Colors.green, fontSize: 12)),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -386,7 +412,9 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                   child: FloatingActionButton(
                     heroTag: 'recenter',
                     mini: true,
-                    child: const Icon(Icons.my_location, color: Colors.black54),
+                    backgroundColor: cardColor,
+                    elevation: 1,
+                    child: Icon(Icons.my_location, color: textColor),
                     onPressed: () {
                       if (_currentPosition != null) {
                         _mapController.move(LatLng(_currentPosition!.latitude, _currentPosition!.longitude), 16.0);
@@ -397,8 +425,12 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
               ],
             ),
       bottomSheet: Container(
-        color: Colors.white,
+        color: cardColor,
         padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cardColor,
+          border: Border(top: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -411,14 +443,14 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                   children: [
                     Text(
                       isItinerary ? 'Itinerary anda (0)' : 'Lokasi Sekitar (${attProvider.workLocations.length})', 
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)
                     ),
                     TextButton.icon(
                       onPressed: () {
                         attProvider.fetchWorkLocations();
                       },
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text('Reload Data'),
+                      icon: Icon(Icons.refresh, size: 16, color: primaryColor),
+                      label: Text('Reload Data', style: TextStyle(color: primaryColor)),
                     ),
                   ],
                 );
@@ -426,12 +458,12 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
             ),
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-              child: const Row(
+              decoration: BoxDecoration(color: primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+              child: Row(
                 children: [
-                  Icon(Icons.info, color: Colors.blue, size: 16),
-                  SizedBox(width: 8),
-                  Text('Jarak berdasarkan estimasi lokasi', style: TextStyle(color: Colors.blue, fontSize: 12)),
+                  Icon(Icons.info, color: primaryColor, size: 16),
+                  const SizedBox(width: 8),
+                  Text('Jarak berdasarkan estimasi lokasi', style: TextStyle(color: primaryColor, fontSize: 12)),
                 ],
               ),
             ),
@@ -440,10 +472,17 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
               Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
                 child: DropdownButtonFormField<int>(
-                  decoration: const InputDecoration(
+                  dropdownColor: cardColor,
+                  style: TextStyle(color: textColor),
+                  decoration: InputDecoration(
                     labelText: 'Pilih Lokasi Visit',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    labelStyle: TextStyle(color: subtitleColor),
+                    filled: true,
+                    fillColor: isDarkMode ? const Color(0xFF2A2A3D) : Colors.grey.shade50,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: primaryColor)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   initialValue: _selectedWorkLocationId,
                   value: _selectedWorkLocationId,
@@ -466,10 +505,17 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                 child: Column(
                   children: [
                     DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(
+                      dropdownColor: cardColor,
+                      style: TextStyle(color: textColor),
+                      decoration: InputDecoration(
                         labelText: 'Jenis Visit',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        labelStyle: TextStyle(color: subtitleColor),
+                        filled: true,
+                        fillColor: isDarkMode ? const Color(0xFF2A2A3D) : Colors.grey.shade50,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: primaryColor)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       initialValue: _visitType,
                       value: _visitType,
@@ -487,10 +533,16 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                     TextField(
                       controller: _noteController,
                       maxLines: 2,
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: textColor),
+                      decoration: InputDecoration(
                         labelText: 'Keterangan Kunjungan',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        labelStyle: TextStyle(color: subtitleColor),
+                        filled: true,
+                        fillColor: isDarkMode ? const Color(0xFF2A2A3D) : Colors.grey.shade50,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: primaryColor)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       ),
                     ),
                   ],
@@ -516,9 +568,13 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _takeSelfie,
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text('Ambil Foto'),
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                    icon: Icon(Icons.camera_alt, color: primaryColor),
+                    label: Text('Ambil Foto', style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: BorderSide(color: primaryColor),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -527,8 +583,9 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                     onPressed: _selfieFile != null ? _submitAttendance : null,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      backgroundColor: widget.type.contains('out') ? Colors.red : const Color(0xFF0F52BA),
+                      backgroundColor: widget.type.contains('out') ? Colors.red : primaryColor,
                       foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: Text(
                       widget.type == 'checkin' ? 'Check In'

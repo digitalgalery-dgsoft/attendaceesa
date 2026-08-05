@@ -181,15 +181,15 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
   });
 
-  // Ambil interval dan token dari SharedPreferences
-  int intervalMinutes = 5;
+  // Ambil jarak filter dan token dari SharedPreferences
+  int distanceMeters = 10;
   String? token;
   
   try {
     final prefs = await SharedPreferences.getInstance();
-    intervalMinutes = prefs.getInt('tracking_interval_minutes') ?? 5;
+    distanceMeters = prefs.getInt('tracking_distance_meters') ?? 10;
     token = prefs.getString('auth_token');
-    debugPrint('[Tracking] Service started. Interval: ${intervalMinutes}m, Token: ${token != null ? "found" : "missing"}');
+    debugPrint('[Tracking] Service started. Distance Filter: ${distanceMeters}m, Token: ${token != null ? "found" : "missing"}');
   } catch (e) {
     debugPrint('[Tracking] Error reading prefs in background service: $e');
   }
@@ -220,28 +220,28 @@ void onStart(ServiceInstance service) async {
     }
   }
 
-  // Jalankan timer periodik sesuai interval
-  Timer.periodic(Duration(minutes: intervalMinutes), (timer) async {
+  // Jalankan stream posisi berdasarkan pergerakan jarak
+  final LocationSettings locationSettings = LocationSettings(
+    accuracy: LocationAccuracy.high,
+    distanceFilter: distanceMeters,
+  );
+
+  StreamSubscription<Position>? positionStream;
+
+  positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
+      .listen((Position? position) async {
+    
     // Gunakan token yang sudah didapat saat onStart.
     // Jika user logout (token hilang), UI akan memanggil stopService.
     if (token == null || token.isEmpty) {
       debugPrint('[Tracking] Token is null — stopping service');
-      timer.cancel();
+      positionStream?.cancel();
       service.stopSelf();
       return;
     }
 
-    try {
-      // Perbesar timeout menjadi 30 detik untuk background
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 30),
-      ).catchError((e) {
-        debugPrint('[Tracking] Error getting position in timer: $e');
-        return null;
-      });
-
-      if (position != null) {
+    if (position != null) {
+      try {
         await _sendLocation(token!, position.latitude, position.longitude);
         
         // Update notification dengan koordinat terbaru
@@ -251,10 +251,14 @@ void onStart(ServiceInstance service) async {
             content: 'Lokasi terakhir: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}',
           );
         }
+      } catch (e) {
+        debugPrint('[Tracking] Error in tracking stream: $e');
       }
-    } catch (e) {
-      debugPrint('[Tracking] Error in tracking timer: $e');
-      // Don't rethrow - let timer continue on next interval
     }
+  });
+
+  service.on('stopService').listen((event) {
+    positionStream?.cancel();
+    service.stopSelf();
   });
 }

@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:att_mobile/utils/constants.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:att_mobile/providers/auth_provider.dart';
 
 class TrackingHistoryScreen extends StatefulWidget {
   const TrackingHistoryScreen({super.key});
@@ -78,11 +80,22 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
   }
 
   Future<void> _pickDate() async {
+    final primaryColor = Provider.of<AuthProvider>(context, listen: false).appColor ?? const Color(0xFF0F52BA);
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime.now().subtract(const Duration(days: 30)),
       lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: primaryColor,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null && picked != _selectedDate) {
       setState(() => _selectedDate = picked);
@@ -96,14 +109,22 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final dateLabel = DateFormat('dd MMMM yyyy').format(_selectedDate);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFF8F9FA);
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF111C2D);
+    final authProvider = Provider.of<AuthProvider>(context);
+    final primaryColor = authProvider.appColor ?? const Color(0xFF0F52BA);
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Tracking History', style: TextStyle(fontWeight: FontWeight.bold)),
-        iconTheme: const IconThemeData(color: Colors.black),
+        title: Text('Tracking History', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+        backgroundColor: bgColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
         actions: [
           IconButton(
-            icon: const Icon(Icons.calendar_today),
+            icon: Icon(Icons.calendar_today, color: textColor),
             onPressed: _pickDate,
             tooltip: 'Pilih Tanggal',
           ),
@@ -114,27 +135,27 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
           // Date header + point count
           Container(
             width: double.infinity,
-            color: const Color(0xFF0F52BA),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            color: primaryColor,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.route, color: Colors.white, size: 18),
+                    const Icon(Icons.route, color: Colors.white, size: 20),
                     const SizedBox(width: 8),
-                    Text(dateLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    Text(dateLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '${_points.length} titik',
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -145,7 +166,7 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
           Expanded(
             flex: 3,
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator(color: primaryColor))
                 : FlutterMap(
                     mapController: _mapController,
                     options: MapOptions(
@@ -164,7 +185,7 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
                           polylines: [
                             Polyline(
                               points: _latLngs,
-                              color: const Color(0xFF0F52BA),
+                              color: primaryColor,
                               strokeWidth: 3.5,
                             ),
                           ],
@@ -196,7 +217,7 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
                                       height: 18,
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF0F52BA),
+                                          color: primaryColor,
                                           shape: BoxShape.circle,
                                           border: Border.all(color: Colors.white, width: 2),
                                         ),
@@ -227,53 +248,66 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
                               ],
                             ),
                           )
-                        : ListView.separated(
-                            padding: const EdgeInsets.all(8),
-                            itemCount: _points.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final p = _points[index];
-                              final isFirst = index == 0;
-                              final isLast = index == _points.length - 1;
-                              return ListTile(
-                                dense: true,
-                                leading: Icon(
-                                  isFirst
-                                      ? Icons.play_circle_fill
-                                      : isLast
-                                          ? Icons.stop_circle
-                                          : Icons.circle,
-                                  color: isFirst
-                                      ? Colors.green
-                                      : isLast
-                                          ? Colors.red
-                                          : const Color(0xFF0F52BA),
-                                  size: isFirst || isLast ? 22 : 14,
-                                ),
-                                title: Text(
-                                  '${p['latitude'].toStringAsFixed(6)}, ${p['longitude'].toStringAsFixed(6)}',
-                                  style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
-                                ),
-                                trailing: Text(
-                                  p['created_at'] ?? '',
-                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                ),
-                                onTap: () {
-                                  _mapController.move(
-                                    LatLng(p['latitude'], p['longitude']),
-                                    16.0,
-                                  );
-                                },
-                              );
-                            },
+                        : Container(
+                            color: bgColor,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              itemCount: _points.length,
+                              itemBuilder: (context, index) {
+                                final p = _points[index];
+                                final isFirst = index == 0;
+                                final isLast = index == _points.length - 1;
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  color: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    side: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                                  ),
+                                  child: ListTile(
+                                    dense: true,
+                                    leading: Icon(
+                                      isFirst
+                                          ? Icons.play_circle_fill
+                                          : isLast
+                                              ? Icons.stop_circle
+                                              : Icons.circle,
+                                      color: isFirst
+                                          ? Colors.green
+                                          : isLast
+                                              ? Colors.red
+                                              : primaryColor,
+                                      size: isFirst || isLast ? 24 : 14,
+                                    ),
+                                    title: Text(
+                                      '${p['latitude'].toStringAsFixed(6)}, ${p['longitude'].toStringAsFixed(6)}',
+                                      style: TextStyle(fontSize: 13, fontFamily: 'monospace', color: textColor, fontWeight: FontWeight.w600),
+                                    ),
+                                    trailing: Text(
+                                      p['created_at'] ?? '',
+                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    ),
+                                    onTap: () {
+                                      _mapController.move(
+                                        LatLng(p['latitude'], p['longitude']),
+                                        16.0,
+                                      );
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
                           ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.small(
         onPressed: _fetchHistory,
-        child: const Icon(Icons.refresh),
+        backgroundColor: primaryColor,
+        elevation: 2,
         tooltip: 'Refresh',
+        child: const Icon(Icons.refresh, color: Colors.white),
       ),
     );
   }

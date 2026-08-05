@@ -60,6 +60,16 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
       initialDate: initialDate.isBefore(firstDate) ? firstDate : initialDate,
       firstDate: firstDate,
       lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Provider.of<AuthProvider>(context, listen: false).appColor ?? const Color(0xFF0F52BA),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     
     if (picked != null) {
@@ -153,18 +163,46 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final primaryColor = authProvider.appColor ?? const Color(0xFF0F52BA);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFF8F9FA);
+    final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF111C2D);
+    final subtitleColor = isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600;
+
+    final inputDecoration = InputDecoration(
+      filled: true,
+      fillColor: isDarkMode ? const Color(0xFF2A2A3D) : Colors.grey.shade50,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: primaryColor, width: 1.5),
+      ),
+      labelStyle: TextStyle(color: subtitleColor, fontSize: 13),
+      hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
+    );
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Permit',
           style: TextStyle(
-            color: Colors.white,
+            color: textColor,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: bgColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
       ),
       body: Consumer<PermitProvider>(
         builder: (context, provider, child) {
@@ -174,15 +212,12 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 // Tipe Izin
-                const Text('Tipe Izin', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text('Tipe Izin', style: TextStyle(fontWeight: FontWeight.bold, color: textColor, fontSize: 14)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    filled: true,
-                    fillColor: Color(0xFFEEEEEE),
-                    border: OutlineInputBorder(borderSide: BorderSide.none),
-                  ),
-                  hint: const Text('Tipe Izin'),
+                  dropdownColor: cardColor,
+                  style: TextStyle(color: textColor),
+                  decoration: inputDecoration.copyWith(hintText: 'Tipe Izin'),
                   value: _selectedType,
                   items: _permitTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                   onChanged: (val) {
@@ -200,15 +235,12 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
                 
                 // Jenis Cuti (if Cuti)
                 if (_selectedType == 'Cuti') ...[
-                  const Text('Jenis Cuti', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Jenis Cuti', style: TextStyle(fontWeight: FontWeight.bold, color: textColor, fontSize: 14)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      filled: true,
-                      fillColor: Color(0xFFEEEEEE),
-                      border: OutlineInputBorder(borderSide: BorderSide.none),
-                    ),
-                    hint: const Text('Pilih Jenis Cuti'),
+                    dropdownColor: cardColor,
+                    style: TextStyle(color: textColor),
+                    decoration: inputDecoration.copyWith(hintText: 'Pilih Jenis Cuti'),
                     value: _selectedSubType,
                     items: _cutiTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                     onChanged: (val) => setState(() => _selectedSubType = val),
@@ -223,24 +255,26 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Tanggal Mulai', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('Tanggal Mulai', style: TextStyle(fontWeight: FontWeight.bold, color: textColor, fontSize: 14)),
                           const SizedBox(height: 8),
                           InkWell(
                             onTap: () => _selectDate(context, true),
+                            borderRadius: BorderRadius.circular(12),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEEEEEE),
-                                borderRadius: BorderRadius.circular(8),
+                                color: cardColor,
+                                border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     _startDate != null ? DateFormat('dd MMM yyyy').format(_startDate!) : 'Tanggal Mulai',
-                                    style: TextStyle(color: _startDate != null ? Colors.black : Colors.grey),
+                                    style: TextStyle(color: _startDate != null ? textColor : subtitleColor, fontSize: 13),
                                   ),
-                                  const Icon(Icons.arrow_drop_down),
+                                  Icon(Icons.calendar_today, color: subtitleColor, size: 18),
                                 ],
                               ),
                             ),
@@ -253,24 +287,26 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Tanggal Akhir', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('Tanggal Akhir', style: TextStyle(fontWeight: FontWeight.bold, color: textColor, fontSize: 14)),
                           const SizedBox(height: 8),
                           InkWell(
                             onTap: () => _selectDate(context, false),
+                            borderRadius: BorderRadius.circular(12),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEEEEEE),
-                                borderRadius: BorderRadius.circular(8),
+                                color: cardColor,
+                                border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     _endDate != null ? DateFormat('dd MMM yyyy').format(_endDate!) : 'Tanggal Akhir',
-                                    style: TextStyle(color: _endDate != null ? Colors.black : Colors.grey),
+                                    style: TextStyle(color: _endDate != null ? textColor : subtitleColor, fontSize: 13),
                                   ),
-                                  const Icon(Icons.arrow_drop_down),
+                                  Icon(Icons.calendar_today, color: subtitleColor, size: 18),
                                 ],
                               ),
                             ),
@@ -283,29 +319,34 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
                 
                 const SizedBox(height: 24),
                 
-                const Text('Foto', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text('Foto', style: TextStyle(fontWeight: FontWeight.bold, color: textColor, fontSize: 14)),
                 const SizedBox(height: 8),
                 InkWell(
                   onTap: _pickImage,
+                  borderRadius: BorderRadius.circular(12),
                   child: Container(
                     height: 150,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid),
-                      borderRadius: BorderRadius.circular(8),
+                      color: isDarkMode ? const Color(0xFF2A2A3D) : Colors.grey.shade50,
+                      border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300, style: BorderStyle.solid),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: _imageFile == null
-                        ? const Column(
+                        ? Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.camera_alt, size: 40, color: Colors.grey),
-                              SizedBox(height: 8),
-                              Text('Ambil Foto', style: TextStyle(color: Colors.grey)),
+                              Icon(Icons.camera_alt, size: 40, color: subtitleColor),
+                              const SizedBox(height: 8),
+                              Text('Ambil Foto', style: TextStyle(color: subtitleColor, fontSize: 13)),
                             ],
                           )
-                        : kIsWeb
-                            ? Image.network(_imageFile!.path, fit: BoxFit.cover)
-                            : Image.file(File(_imageFile!.path), fit: BoxFit.cover),
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: kIsWeb
+                                ? Image.network(_imageFile!.path, fit: BoxFit.cover)
+                                : Image.file(File(_imageFile!.path), fit: BoxFit.cover),
+                          ),
                   ),
                 ),
                 
@@ -313,38 +354,35 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
                 
                 TextFormField(
                   controller: _notesController,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.edit),
+                  style: TextStyle(color: textColor),
+                  decoration: inputDecoration.copyWith(
+                    prefixIcon: Icon(Icons.edit, color: subtitleColor, size: 20),
                     labelText: 'Alasan',
-                    border: UnderlineInputBorder(),
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.grey),
-                    ),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.blue),
-                    ),
                   ),
+                  maxLines: 3,
                 ),
                 
                 const SizedBox(height: 32),
                 
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
+                  height: 48,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor, // Use dynamic admin color
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
+                        borderRadius: BorderRadius.circular(12),
                       )
                     ),
                     onPressed: provider.isLoading ? null : _submit,
                     child: provider.isLoading 
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Submit', style: TextStyle(fontSize: 16)),
+                      : const Text('Simpan Pengajuan', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                   ),
                 ),
-                
+                const SizedBox(height: 24),
               ],
             ),
           );
