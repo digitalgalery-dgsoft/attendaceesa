@@ -24,6 +24,36 @@ class AttendanceController extends Controller
         $employee = $request->user();
         $today    = Carbon::today('Asia/Jakarta')->toDateString();
 
+        // Cek apakah ada permit (izin/cuti/sakit) yang sudah di-approve untuk hari ini
+        $activePermit = \App\Models\LeaveRequest::where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->first();
+
+        if ($activePermit) {
+            $typeLabel = match($activePermit->type) {
+                'sakit'  => 'Sakit',
+                'izin'   => 'Izin',
+                'cuti'   => 'Cuti',
+                default  => ucfirst($activePermit->type),
+            };
+            return response()->json([
+                'status'           => 'permit',
+                'can_checkin'      => false,
+                'has_active_permit' => true,
+                'permit'           => [
+                    'type'       => $activePermit->type,
+                    'type_label' => $typeLabel,
+                    'notes'      => $activePermit->notes,
+                    'start_date' => $activePermit->start_date->toDateString(),
+                    'end_date'   => $activePermit->end_date->toDateString(),
+                ],
+                'message'  => "Anda memiliki $typeLabel yang disetujui untuk hari ini. Check-in tidak diperlukan.",
+                'data'     => null,
+            ]);
+        }
+
         $schedule = EmployeeSchedule::where('employee_id', $employee->id)
             ->where('schedule_date', $today)
             ->with(['shift', 'workLocation'])
@@ -58,6 +88,7 @@ class AttendanceController extends Controller
             'can_checkin' => true,
             'has_itinerary' => $itinerary ? true : false,
             'can_visit'   => $itinerary ? true : false,
+            'has_active_permit' => false,
             'data'        => [
                 'schedule'  => $schedule,
                 'itinerary' => $itinerary,
