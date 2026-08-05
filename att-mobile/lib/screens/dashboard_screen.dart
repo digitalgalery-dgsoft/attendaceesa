@@ -303,12 +303,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   }
 
                   List<Widget> displayMenus = [];
-                  if (allMenus.length > 4) {
-                     for (int i = 0; i < 3; i++) {
+                  if (allMenus.length > 5) {
+                     for (int i = 0; i < 4; i++) {
                        displayMenus.add(_buildMenuQItem(allMenus[i]['title'], allMenus[i]['icon'], allMenus[i]['color'], allMenus[i]['onTap'], cardColor, textColor, false));
                      }
                      displayMenus.add(_buildMenuQItem('More', Icons.more_horiz, subtitleColor, () {
-                       _showMoreMenu(context, allMenus.sublist(3), isDarkMode, cardColor, elevatedColor, subtitleColor, textColor);
+                       _showMoreMenu(context, allMenus.sublist(4), isDarkMode, cardColor, elevatedColor, subtitleColor, textColor);
                      }, cardColor, textColor, true));
                   } else {
                      for (int i = 0; i < allMenus.length; i++) {
