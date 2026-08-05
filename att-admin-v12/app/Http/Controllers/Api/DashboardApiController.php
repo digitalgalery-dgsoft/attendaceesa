@@ -14,12 +14,10 @@ class DashboardApiController extends Controller
 {
     public function stats(Request $request)
     {
-        $user = $request->user();
-        if (!$user->employee) {
+        $employee = $request->user();
+        if (!$employee) {
             return response()->json(['error' => 'Employee profile not found'], 404);
         }
-
-        $employee = $user->employee;
         $currentMonth = Carbon::now()->format('Y-m');
 
         // Target HK
@@ -75,12 +73,10 @@ class DashboardApiController extends Controller
 
     public function teamStats(Request $request)
     {
-        $user = $request->user();
-        if (!$user->employee) {
+        $employee = $request->user();
+        if (!$employee) {
             return response()->json(['error' => 'Employee profile not found'], 404);
         }
-
-        $employee = $user->employee;
         $today = Carbon::today()->format('Y-m-d');
         
         // Get subordinates (direct reports)
