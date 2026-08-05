@@ -11,7 +11,7 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 2. **Perbaikan "Vacant Status" TL**:
    - Memperbaiki perhitungan "Vacant" di `DashboardApiController` agar menampilkan posisi apa yang kosong dan sudah berapa lama kosongnya (berdasarkan data histori karyawan/jabatan).
 
-## 🟡 Tahap 2: Manajemen Target HK & Payslip
+## ✅ Tahap 2: Manajemen Target HK & Payslip (SELESAI)
 *Tahap ini menghubungkan data operasional dasar antara Admin dan Karyawan.*
 1. **Menu Target HK (Admin)**:
    - Membuat *Filament Resource* untuk tabel `work_targets` agar Admin / HR bisa menginput target HK per karyawan atau massal per bulan. (Termasuk fitur import Excel).
@@ -20,7 +20,7 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - **Admin**: Membuat *Filament Resource* untuk manajemen upload payslip karyawan.
    - **Mobile**: Membuat halaman `payslip_screen.dart` agar karyawan bisa mendownload/melihat slip gaji mereka.
 
-## 🟢 Tahap 3: Laporan Sales (OOS, Plano, Promo)
+## 🟢 Tahap 3: Laporan Sales (OOS, Plano, Promo) *(Jadwal: Besok)*
 *Tahap ini berfokus pada pekerjaan lapangan (Sales/SPG/MD).*
 1. **Backend & Admin**:
    - Membuat tabel database untuk menyimpan form laporan toko: `Out of Stock (OOS)`, `Planogram (Plano)`, dan `Promotion (Promo)`.
