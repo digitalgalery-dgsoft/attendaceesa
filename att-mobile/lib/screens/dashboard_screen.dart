@@ -143,6 +143,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         } catch (_) {}
       }
     }
+    
+    String scheduleLocationName = branchName;
+    String scheduleLocationAddress = authProvider.employeeData?['branch']?['address'] ?? '-';
+    if (attProvider.todaySchedule != null && attProvider.todaySchedule!['work_location'] != null) {
+      scheduleLocationName = attProvider.todaySchedule!['work_location']['name'] ?? branchName;
+      scheduleLocationAddress = attProvider.todaySchedule!['work_location']['address'] ?? '-';
+    }
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
@@ -409,6 +416,31 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     child: Column(
                       children: [
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(color: elevatedColor, borderRadius: BorderRadius.circular(8)),
+                              child: Icon(Icons.business, size: 16, color: primaryColor),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(scheduleLocationName, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
+                                  const SizedBox(height: 3),
+                                  Text(scheduleLocationAddress, style: TextStyle(fontSize: 10, color: subtitleColor), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Divider(color: Colors.grey.shade300, height: 1),
+                        ),
+                        Row(
                           children: [
                             Expanded(
                               child: Row(
@@ -523,13 +555,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 const SizedBox(height: 15),
 
                 // Kunjungan Lapangan
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Kunjungan Lapangan', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
-                  ],
-                ),
-                const SizedBox(height: 8),
+                if (attProvider.canVisit) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Kunjungan Lapangan', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
@@ -601,8 +634,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 15),
+                ],
 
                 // Log Aktivitas
                 Row(

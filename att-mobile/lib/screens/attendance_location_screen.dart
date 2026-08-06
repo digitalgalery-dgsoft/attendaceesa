@@ -313,6 +313,14 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
     final textColor = isDarkMode ? Colors.white : const Color(0xFF111C2D);
     final subtitleColor = isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600;
     final bgColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFF8F9FA);
+    final elevatedColor = isDarkMode ? Colors.grey.shade800 : const Color(0xFFEDF1F8);
+
+    String scheduleLocationName = authProvider.employeeData?['branch']?['name'] ?? '-';
+    String scheduleLocationAddress = authProvider.employeeData?['branch']?['address'] ?? '-';
+    if (attProvider.todaySchedule != null && attProvider.todaySchedule!['work_location'] != null) {
+      scheduleLocationName = attProvider.todaySchedule!['work_location']['name'] ?? scheduleLocationName;
+      scheduleLocationAddress = attProvider.todaySchedule!['work_location']['address'] ?? '-';
+    }
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -433,7 +441,38 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.type == 'checkin' || widget.type == 'checkout') ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: elevatedColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.business, size: 16, color: primaryColor),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Jadwal Lokasi', style: TextStyle(fontSize: 9, color: subtitleColor, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 2),
+                          Text(scheduleLocationName, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+                          const SizedBox(height: 2),
+                          Text(scheduleLocationAddress, style: TextStyle(fontSize: 10, color: subtitleColor), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             AnimatedBuilder(
               animation: _tabController,
               builder: (context, child) {

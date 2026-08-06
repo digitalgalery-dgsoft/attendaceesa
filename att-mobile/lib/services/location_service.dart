@@ -115,7 +115,8 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 }
 
 /// Mengirim lokasi ke API server
-Future<void> _sendLocation(String token, double lat, double lng) async {
+Future<void> _sendLocation(String token, double lat, double lng, {DateTime? timestamp}) async {
+  final sendTime = timestamp ?? DateTime.now();
   try {
     final response = await http.post(
       Uri.parse('${Constants.baseUrl}/tracking'),
@@ -126,12 +127,107 @@ Future<void> _sendLocation(String token, double lat, double lng) async {
       body: {
         'latitude': lat.toString(),
         'longitude': lng.toString(),
+        'timestamp': sendTime.toIso8601String(),
       },
-    ).timeout(const Duration(seconds: 20));
+    ).timeout(const Duration(seconds: 15));
 
-    debugPrint('[Tracking] Sent ($lat, $lng) → HTTP ${response.statusCode}');
+    if (response.statusCode == 200) {
+      debugPrint('[Tracking] Sent ($lat, $lng) → HTTP ${response.statusCode}');
+      // Trigger sync for offline locations if any
+      _syncOfflineLocations(token);
+    } else {
+      _saveOfflineLocation(lat, lng, sendTime);
+    }
   } catch (e) {
     debugPrint('[Tracking] Failed to send location: $e');
+    _saveOfflineLocation(lat, lng, sendTime);
+  }
+}
+
+Future<void> _saveOfflineLocation(double lat, double lng, DateTime timestamp) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
+    List<String> offlineQueue = prefs.getStringList('offline_locations_queue') ?? [];
+    
+    // Prevent infinite growth
+    if (offlineQueue.length >= 1000) {
+       offlineQueue.removeAt(0); // Remove oldest
+    }
+    
+    final locationData = jsonEncode({
+      'lat': lat,
+      'lng': lng,
+      'timestamp': timestamp.toIso8601String(),
+    });
+    
+    offlineQueue.add(locationData);
+    await prefs.setStringList('offline_locations_queue', offlineQueue);
+    debugPrint('[Tracking] Saved offline location. Queue size: ${offlineQueue.length}');
+  } catch (e) {
+    debugPrint('[Tracking] Failed to save offline location: $e');
+  }
+}
+
+// Flag to prevent concurrent syncing
+bool _isSyncing = false;
+
+Future<void> _syncOfflineLocations(String token) async {
+  if (_isSyncing) return;
+  
+  try {
+    _isSyncing = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
+    List<String> offlineQueue = prefs.getStringList('offline_locations_queue') ?? [];
+    
+    if (offlineQueue.isEmpty) {
+      _isSyncing = false;
+      return;
+    }
+    
+    debugPrint('[Tracking] Syncing ${offlineQueue.length} offline locations...');
+    
+    List<String> remainingQueue = List.from(offlineQueue);
+    
+    for (String item in offlineQueue) {
+      final Map<String, dynamic> data = jsonDecode(item);
+      final lat = data['lat'];
+      final lng = data['lng'];
+      final tsStr = data['timestamp'];
+      
+      try {
+        final response = await http.post(
+          Uri.parse('${Constants.baseUrl}/tracking'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+          body: {
+            'latitude': lat.toString(),
+            'longitude': lng.toString(),
+            'timestamp': tsStr,
+          },
+        ).timeout(const Duration(seconds: 10));
+        
+        if (response.statusCode == 200) {
+          remainingQueue.remove(item);
+        } else {
+          // If server rejects or fails, stop syncing for now to avoid spamming
+          break;
+        }
+      } catch (e) {
+        // Network error, stop syncing
+        break;
+      }
+    }
+    
+    await prefs.setStringList('offline_locations_queue', remainingQueue);
+    debugPrint('[Tracking] Sync complete. Remaining queue size: ${remainingQueue.length}');
+  } catch (e) {
+    debugPrint('[Tracking] Sync offline locations error: $e');
+  } finally {
+    _isSyncing = false;
   }
 }
 
@@ -187,6 +283,7 @@ void onStart(ServiceInstance service) async {
   
   try {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload(); // FIX: Pastikan memuat nilai terbaru dari main isolate
     distanceMeters = prefs.getInt('tracking_distance_meters') ?? 10;
     token = prefs.getString('auth_token');
     debugPrint('[Tracking] Service started. Distance Filter: ${distanceMeters}m, Token: ${token != null ? "found" : "missing"}');
@@ -213,7 +310,7 @@ void onStart(ServiceInstance service) async {
       await prefs.reload();
       final currentToken = prefs.getString('auth_token');
       if (currentToken != null && currentToken.isNotEmpty) {
-        await _sendLocation(currentToken, initialPosition.latitude, initialPosition.longitude);
+        await _sendLocation(currentToken, initialPosition.latitude, initialPosition.longitude, timestamp: initialPosition.timestamp);
       }
     } catch (e) {
       debugPrint('[Tracking] Error on initial position send: $e');
@@ -221,28 +318,55 @@ void onStart(ServiceInstance service) async {
   }
 
   // Jalankan stream posisi berdasarkan pergerakan jarak
-  final LocationSettings locationSettings = LocationSettings(
-    accuracy: LocationAccuracy.high,
-    distanceFilter: distanceMeters,
-  );
+  late LocationSettings locationSettings;
+  
+  if (Platform.isAndroid) {
+    locationSettings = AndroidSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: distanceMeters,
+      intervalDuration: const Duration(seconds: 10),
+    );
+  } else if (Platform.isIOS || Platform.isMacOS) {
+    locationSettings = AppleSettings(
+      accuracy: LocationAccuracy.high,
+      activityType: ActivityType.fitness,
+      distanceFilter: distanceMeters,
+      pauseLocationUpdatesAutomatically: true,
+      showBackgroundLocationIndicator: true,
+    );
+  } else {
+    locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: distanceMeters,
+    );
+  }
 
   StreamSubscription<Position>? positionStream;
 
   positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
       .listen((Position? position) async {
     
-    // Gunakan token yang sudah didapat saat onStart.
-    // Jika user logout (token hilang), UI akan memanggil stopService.
-    if (token == null || token.isEmpty) {
-      debugPrint('[Tracking] Token is null — stopping service');
-      positionStream?.cancel();
-      service.stopSelf();
-      return;
-    }
-
     if (position != null) {
+      // FIX: Data Quality Filtering
+      if (position.accuracy > 200) {
+        debugPrint('[Tracking] Ignored point due to bad accuracy: ${position.accuracy}m');
+        return;
+      }
+
       try {
-        await _sendLocation(token!, position.latitude, position.longitude);
+        // FIX: Selalu memuat ulang preferensi lokal untuk mendapatkan token terbaru (menghindari stale cache di isolate ini)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.reload();
+        final currentToken = prefs.getString('auth_token');
+
+        if (currentToken == null || currentToken.isEmpty) {
+          debugPrint('[Tracking] Token is null — stopping service');
+          positionStream?.cancel();
+          service.stopSelf();
+          return;
+        }
+
+        await _sendLocation(currentToken, position.latitude, position.longitude, timestamp: position.timestamp);
         
         // Update notification dengan koordinat terbaru
         if (service is AndroidServiceInstance) {
