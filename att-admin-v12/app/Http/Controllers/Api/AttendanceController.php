@@ -494,8 +494,8 @@ class AttendanceController extends Controller
 
         // Use local Jakarta date for today's logs
         $todayLocal = Carbon::now('Asia/Jakarta')->toDateString();
-        $todayStart = Carbon::createFromFormat('Y-m-d', $todayLocal, 'Asia/Jakarta')->startOfDay()->utc();
-        $todayEnd   = Carbon::createFromFormat('Y-m-d', $todayLocal, 'Asia/Jakarta')->endOfDay()->utc();
+        $todayStart = Carbon::createFromFormat('Y-m-d', $todayLocal, 'Asia/Jakarta')->startOfDay();
+        $todayEnd   = Carbon::createFromFormat('Y-m-d', $todayLocal, 'Asia/Jakarta')->endOfDay();
 
         $todayLogs = AttendanceLog::where('employee_id', $employee->id)
             ->whereBetween('logged_at', [$todayStart, $todayEnd])
