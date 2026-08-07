@@ -36,11 +36,15 @@ class TrackingController extends Controller
         // Kita tetap rekam history meskipun belum check-in jika service nyala, 
         // tapi idealnya service dimatikan kalau belum check-in.
         
+        $createdAt = $request->timestamp ? Carbon::parse($request->timestamp) : now();
+
         TrackingHistory::create([
             'employee_id' => $employeeId,
             'attendance_id' => $attendance ? $attendance->id : null,
             'latitude' => $request->latitude,
             'longitude' => $request->longitude,
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
         ]);
 
         return response()->json([

@@ -450,6 +450,8 @@ class AttendanceController extends Controller
                     ->find($log->attendance_id);
                 if ($attendance && $attendance->employeeSchedule && $attendance->employeeSchedule->workLocation) {
                     $location = $attendance->employeeSchedule->workLocation;
+                } else {
+                    $location = \App\Models\Branch::find($employee->branch_id);
                 }
             }
 
