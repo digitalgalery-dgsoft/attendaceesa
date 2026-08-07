@@ -20,15 +20,18 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - **Admin**: Membuat *Filament Resource* untuk manajemen upload payslip karyawan.
    - **Mobile**: Membuat halaman `payslip_screen.dart` agar karyawan bisa mendownload/melihat slip gaji mereka.
 
-## 🟢 Tahap 3: Laporan Sales (OOS, Plano, Promo) *(Jadwal: Besok)*
+## ✅ Tahap 3: Laporan Sales (OOS, Plano, Promo) & Pembersihan Fitur Lama (SELESAI)
 *Tahap ini berfokus pada pekerjaan lapangan (Sales/SPG/MD).*
 1. **Backend & Admin**:
    - Membuat tabel database untuk menyimpan form laporan toko: `Out of Stock (OOS)`, `Planogram (Plano)`, dan `Promotion (Promo)`.
    - Membuat *Filament Resource* untuk melihat dan memonitor hasil laporannya.
+   - Menghapus menu dan fitur lama *Sales Pipeline* (B2B CRM) yang sudah tidak terpakai.
 2. **Mobile**:
    - Menghidupkan halaman `sales_report_screen.dart` dan menyambungkannya ke API untuk mengirim form OOS, Plano, dan Promo beserta bukti fotonya.
+   - Menyelaraskan desain *UI Sales Report* agar sama dengan tema *History* Nexa Attendance (Light/Dark mode, app bar, font, dan format form yang rapi).
+   - Menghapus *navigasi* dan *file* yang terkait dengan *Sales Pipeline*.
 
-## 🔵 Tahap 4: Laporan Tren Analitik (Web Admin)
+## 🟢 Tahap 4: Laporan Tren Analitik (Web Admin) *(Jadwal: Berikutnya)*
 *Tahap ini berfokus pada permintaan laporan kompleks di presentasi PPTX.*
 1. **Laporan Man Power**: Tren jumlah orang per perusahaan, region, dan TL (Jan-Des).
 2. **Laporan Turn Over**: Tren keluar/masuk karyawan per bulan.
