@@ -56,7 +56,7 @@ class AttendanceController extends Controller
 
         $schedule = EmployeeSchedule::where('employee_id', $employee->id)
             ->where('schedule_date', $today)
-            ->with(['shift', 'workLocation'])
+            ->with(['shift', 'workLocation.company'])
             ->first();
 
         if (!$schedule) {
@@ -190,11 +190,12 @@ class AttendanceController extends Controller
                 ]);
 
                 $attendance = Attendance::create([
-                    'employee_id'     => $employeeId,
-                    'attendance_date' => $today,
-                    'status'          => 'present',
-                    'checkin_at'      => $now,
-                    'checkin_log_id'  => $log->id,
+                    'employee_id'          => $employeeId,
+                    'employee_schedule_id' => $schedule->id,
+                    'attendance_date'      => $today,
+                    'status'               => 'present',
+                    'checkin_at'           => $now,
+                    'checkin_log_id'       => $log->id,
                 ]);
 
                 $log->update(['attendance_id' => $attendance->id]);
@@ -446,12 +447,25 @@ class AttendanceController extends Controller
 
             // For checkin/checkout, find location from schedule's work_location
             if (in_array($log->log_type, ['checkin', 'checkout']) && $location === null) {
-                $attendance = \App\Models\Attendance::with('employeeSchedule.workLocation')
+                $attendance = \App\Models\Attendance::with('employeeSchedule.workLocation.company')
                     ->find($log->attendance_id);
                 if ($attendance && $attendance->employeeSchedule && $attendance->employeeSchedule->workLocation) {
                     $location = $attendance->employeeSchedule->workLocation;
                 } else {
-                    $location = \App\Models\Branch::find($employee->branch_id);
+                    // Fallback to searching schedule by date
+                    $schedule = \App\Models\EmployeeSchedule::with('workLocation.company')
+                        ->where('employee_id', $employee->id)
+                        ->where('schedule_date', $date)
+                        ->first();
+                    if ($schedule && $schedule->workLocation) {
+                        $location = $schedule->workLocation;
+                        // Also update attendance record to fix missing ID
+                        if ($attendance && !$attendance->employee_schedule_id) {
+                            $attendance->update(['employee_schedule_id' => $schedule->id]);
+                        }
+                    } else {
+                        $location = \App\Models\Branch::find($employee->branch_id);
+                    }
                 }
             }
 
