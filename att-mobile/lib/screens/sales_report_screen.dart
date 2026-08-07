@@ -334,13 +334,6 @@ class _AddSalesReportFormState extends State<AddSalesReportForm> {
     );
   }
 
-
-  void _changeMonth(int offset) {
-    setState(() {
-      _selectedDate = DateTime(_selectedDate.year, _selectedDate.month + offset, 1);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -581,13 +574,6 @@ class _UpdateSalesReportFormState extends State<UpdateSalesReportForm> {
         );
       }
     }
-  }
-
-
-  void _changeMonth(int offset) {
-    setState(() {
-      _selectedDate = DateTime(_selectedDate.year, _selectedDate.month + offset, 1);
-    });
   }
 
   @override
