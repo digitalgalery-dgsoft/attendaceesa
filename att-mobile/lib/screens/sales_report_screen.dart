@@ -37,69 +37,71 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
     );
   }
 
+
+  void _changeMonth(int offset) {
+    setState(() {
+      _selectedDate = DateTime(_selectedDate.year, _selectedDate.month + offset, 1);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final sales = Provider.of<SalesProvider>(context);
-    final primaryColor = auth.appColor ?? const Color(0xFF7367F0);
+    final primaryColor = auth.appColor ?? const Color(0xFF0F52BA);
+    
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
+    final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF0E1830);
+    final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
+    final elevatedColor = isDarkMode ? Colors.grey.shade800 : const Color(0xFFEDF1F8);
 
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Sales Reporting',
           style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
+            color: textColor,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
       ),
       body: Column(
         children: [
-          // Top curved background
-          Container(
-            width: double.infinity,
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: primaryColor,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(24),
-                bottomRight: Radius.circular(24),
-              ),
-            ),
-            child: InkWell(
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _selectedDate,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime(2030),
-                  helpText: 'Pilih Bulan & Tahun (Pilih tanggal apa saja)',
-                );
-                if (picked != null) {
-                  setState(() {
-                    _selectedDate = picked;
-                  });
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: () => _changeMonth(-1),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(color: elevatedColor, borderRadius: BorderRadius.circular(20)),
+                    child: Text('‹', style: TextStyle(fontSize: 18, color: textColor, fontWeight: FontWeight.bold)),
+                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      DateFormat('MMMM, yyyy').format(_selectedDate),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    const Icon(Icons.calendar_month, color: Colors.blue),
-                  ],
+                const SizedBox(width: 15),
+                Text(
+                  DateFormat('MMMM yyyy').format(_selectedDate),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
                 ),
-              ),
+                const SizedBox(width: 15),
+                GestureDetector(
+                  onTap: () => _changeMonth(1),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(color: elevatedColor, borderRadius: BorderRadius.circular(20)),
+                    child: Text('›', style: TextStyle(fontSize: 18, color: textColor, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
             ),
           ),
           
@@ -130,10 +132,12 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                           itemCount: filteredReports.length,
                           itemBuilder: (context, index) {
                             final report = filteredReports[index];
-                            return Card(
+                            return Container(
                               margin: const EdgeInsets.only(bottom: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                              decoration: BoxDecoration(
+                                color: cardColor,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade300),
                               ),
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(12),
@@ -150,7 +154,8 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                           children: [
                                             Text(
                                               report['store_name'] ?? 'Unknown Store',
-                                              style: const TextStyle(
+                                              style: TextStyle(
+                                                color: textColor,
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 16,
                                               ),
@@ -188,7 +193,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                             const SizedBox(width: 4),
                                             Text(
                                               _formatDateString(report['report_date']),
-                                              style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                              style: TextStyle(color: subtitleColor, fontSize: 12, fontWeight: FontWeight.w500),
                                             ),
                                           ],
                                         ),
@@ -327,6 +332,13 @@ class _AddSalesReportFormState extends State<AddSalesReportForm> {
         ),
       ],
     );
+  }
+
+
+  void _changeMonth(int offset) {
+    setState(() {
+      _selectedDate = DateTime(_selectedDate.year, _selectedDate.month + offset, 1);
+    });
   }
 
   @override
@@ -569,6 +581,13 @@ class _UpdateSalesReportFormState extends State<UpdateSalesReportForm> {
         );
       }
     }
+  }
+
+
+  void _changeMonth(int offset) {
+    setState(() {
+      _selectedDate = DateTime(_selectedDate.year, _selectedDate.month + offset, 1);
+    });
   }
 
   @override

@@ -17,7 +17,7 @@ import 'package:att_mobile/providers/dashboard_provider.dart';
 import 'package:att_mobile/widgets/dashboard_stats_widget.dart';
 import 'package:att_mobile/widgets/team_stats_widget.dart';
 import 'package:att_mobile/screens/blast_info_screen.dart';
-import 'package:att_mobile/screens/sales_pipeline_screen.dart';
+
 import 'package:att_mobile/services/location_service.dart';
 import 'package:att_mobile/screens/payslip_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -308,9 +308,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     allMenus.add({'title': 'Sales', 'icon': Icons.trending_up, 'color': Colors.purple, 'onTap': () {
                       if (widget.switchTab != null) { widget.switchTab!(3); }
                     }});
-                    allMenus.add({'title': 'Pipeline', 'icon': Icons.pie_chart, 'color': Colors.cyan, 'onTap': () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SalesPipelineScreen()));
-                    }});
+
                   }
 
                   List<Widget> displayMenus = [];
