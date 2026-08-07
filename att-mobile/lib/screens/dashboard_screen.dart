@@ -148,6 +148,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     String scheduleLocationAddress = authProvider.employeeData?['branch']?['address'] ?? '-';
     if (attProvider.todaySchedule != null && attProvider.todaySchedule!['work_location'] != null) {
       scheduleLocationName = attProvider.todaySchedule!['work_location']['name'] ?? branchName;
+      final company = attProvider.todaySchedule!['work_location']['company'];
+      if (company != null && company['name'] != null) {
+        scheduleLocationName = '${company['name']} - $scheduleLocationName';
+      }
       scheduleLocationAddress = attProvider.todaySchedule!['work_location']['address'] ?? '-';
     }
 

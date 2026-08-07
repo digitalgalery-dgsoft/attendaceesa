@@ -26,17 +26,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _selectedDate = DateTime(now.year, now.month, now.day);
     _dateScrollController = ScrollController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchData();
-      _scrollToSelectedDate();
+      _fetchData().then((_) {
+        // Wait another frame to ensure ListView is built after isLoading becomes false
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToSelectedDate();
+        });
+      });
     });
   }
 
-  void _fetchData() {
+  Future<void> _fetchData() async {
     final dateFormat = DateFormat('yyyy-MM-dd');
     final startDate = _currentMonth;
     final endDate = DateTime(_currentMonth.year, _currentMonth.month + 1, 0); // Last day of month
     
-    Provider.of<AttendanceProvider>(context, listen: false).fetchHistory(
+    await Provider.of<AttendanceProvider>(context, listen: false).fetchHistory(
       startDate: dateFormat.format(startDate),
       endDate: dateFormat.format(endDate),
     );
@@ -74,9 +78,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
       }
       _selectedDate = DateTime(_currentMonth.year, _currentMonth.month, newDay);
     });
-    _fetchData();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToSelectedDate();
+    _fetchData().then((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToSelectedDate();
+      });
     });
   }
 
@@ -463,7 +468,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ? Constants.getImageUrl(photoPath) 
         : rawPhotoUrl;
     final String? note = log['note'];
-    final String locationName = log['location']?['name'] as String? ?? '';
+    String locationName = log['location']?['name'] as String? ?? '';
+    final companyName = log['location']?['company']?['name'] as String?;
+    if (companyName != null && companyName.isNotEmpty) {
+      locationName = '$companyName - $locationName';
+    }
     final String locationAddress = log['location']?['address'] as String? ?? '';
     final String lat = log['latitude']?.toString() ?? '';
     final String lng = log['longitude']?.toString() ?? '';
