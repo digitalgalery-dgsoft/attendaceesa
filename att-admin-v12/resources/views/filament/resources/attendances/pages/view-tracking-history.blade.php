@@ -66,8 +66,10 @@
             let map, markers = [];
             
             if (trackingData.length > 0) {
-                // Initialize the map, set view to the first point
-                map = L.map('map').setView([trackingData[0].latitude, trackingData[0].longitude], 15);
+                // Initialize the map, set view to the first point. 
+                // IMPORTANT: use preferCanvas to ensure lines and circlemarkers render correctly 
+                // and bypass any SVG CSS conflicts from Tailwind/Filament.
+                map = L.map('map', { preferCanvas: true }).setView([trackingData[0].latitude, trackingData[0].longitude], 15);
 
                 // Add OpenStreetMap tiles
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
