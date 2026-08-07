@@ -20,23 +20,48 @@ class SalesReportForm
                     ->required(),
                 Select::make('attendance_log_id')
                     ->relationship('attendanceLog', 'id'),
-                TextInput::make('client_name')
+                TextInput::make('store_name')
+                    ->label('Nama Toko/Outlet')
                     ->required(),
-                TextInput::make('client_company'),
-                TextInput::make('revenue')
-                    ->required()
-                    ->numeric()
-                    ->default(0.0),
+                Select::make('oos_status')
+                    ->label('Out of Stock (OOS)')
+                    ->options([
+                        'Aman' => 'Aman',
+                        'Kosong' => 'Kosong',
+                    ]),
+                Textarea::make('oos_notes')->label('Catatan OOS'),
+                FileUpload::make('photo_oos')
+                    ->label('Foto OOS')
+                    ->image(),
+                Select::make('plano_status')
+                    ->label('Planogram')
+                    ->options([
+                        'Sesuai' => 'Sesuai',
+                        'Tidak Sesuai' => 'Tidak Sesuai',
+                    ]),
+                Textarea::make('plano_notes')->label('Catatan Planogram'),
+                FileUpload::make('photo_plano')
+                    ->label('Foto Planogram')
+                    ->image(),
+                Select::make('promo_status')
+                    ->label('Promo')
+                    ->options([
+                        'Berjalan' => 'Berjalan',
+                        'Tidak Berjalan' => 'Tidak Berjalan',
+                    ]),
+                Textarea::make('promo_notes')->label('Catatan Promo'),
+                FileUpload::make('photo_promo')
+                    ->label('Foto Promo')
+                    ->image(),
                 Textarea::make('notes')
+                    ->label('Catatan Tambahan')
                     ->columnSpanFull(),
                 DatePicker::make('report_date')
                     ->required(),
                 TextInput::make('status')
                     ->required()
-                    ->default('pending'),
+                    ->default('submitted'),
                 TextInput::make('location'),
-                FileUpload::make('receipt_image')
-                    ->image(),
                 Textarea::make('ai_insights')
                     ->columnSpanFull(),
             ]);

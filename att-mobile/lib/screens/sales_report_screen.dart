@@ -149,7 +149,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
                                             Text(
-                                              report['client_name'] ?? 'Unknown Client',
+                                              report['store_name'] ?? 'Unknown Store',
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 16,
@@ -162,7 +162,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                report['status']?.toUpperCase() ?? 'PENDING',
+                                                report['status']?.toUpperCase() ?? 'SUBMITTED',
                                                 style: TextStyle(
                                                   color: _getStatusColor(report['status']),
                                                   fontSize: 10,
@@ -172,20 +172,13 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                             ),
                                           ],
                                         ),
-                                        if (report['client_company'] != null)
-                                          Padding(
-                                            padding: const EdgeInsets.only(top: 4),
-                                            child: Text(report['client_company'], style: const TextStyle(color: Colors.grey)),
-                                          ),
                                         const SizedBox(height: 12),
                                         Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            const Icon(Icons.attach_money, size: 16, color: Colors.green),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ').format(double.tryParse(report['revenue'].toString()) ?? 0),
-                                              style: const TextStyle(fontWeight: FontWeight.w600),
-                                            ),
+                                            _buildBadge('OOS: ${report['oos_status'] ?? '-'}', report['oos_status'] == 'Aman' ? Colors.green : Colors.red),
+                                            _buildBadge('Plano: ${report['plano_status'] ?? '-'}', report['plano_status'] == 'Sesuai' ? Colors.green : Colors.red),
+                                            _buildBadge('Promo: ${report['promo_status'] ?? '-'}', report['promo_status'] == 'Berjalan' ? Colors.green : Colors.red),
                                           ],
                                         ),
                                         const SizedBox(height: 8),
@@ -218,6 +211,21 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
         ),
       );
     }
+
+    Widget _buildBadge(String text, Color color) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          border: Border.all(color: color),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+        ),
+      );
+    }
   
     String _formatDateString(String? dateStr) {
       if (dateStr == null || dateStr.isEmpty) return '';
@@ -242,13 +250,11 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
 
     Color _getStatusColor(String? status) {
       switch (status?.toLowerCase()) {
-        case 'deal':
-        case 'closed_won':
+        case 'approved':
           return Colors.green;
-        case 'lost':
-        case 'closed_lost':
+        case 'rejected':
           return Colors.red;
-        case 'follow up':
+        case 'submitted':
           return Colors.blue;
         default:
           return Colors.orange;
@@ -265,23 +271,62 @@ class AddSalesReportForm extends StatefulWidget {
 
 class _AddSalesReportFormState extends State<AddSalesReportForm> {
   final _formKey = GlobalKey<FormState>();
-  final _clientNameCtrl = TextEditingController();
-  final _clientCompanyCtrl = TextEditingController();
-  final _revenueCtrl = TextEditingController();
+  final _storeNameCtrl = TextEditingController();
+  final _oosNotesCtrl = TextEditingController();
+  final _planoNotesCtrl = TextEditingController();
+  final _promoNotesCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   
-  String _status = 'pending';
-  bool _createPipeline = false;
-  XFile? _imageFile;
+  String _oosStatus = 'Aman';
+  String _planoStatus = 'Sesuai';
+  String _promoStatus = 'Berjalan';
+  
+  XFile? _photoOos;
+  XFile? _photoPlano;
+  XFile? _photoPromo;
   final ImagePicker _picker = ImagePicker();
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImage(String type) async {
     final XFile? image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
     if (image != null) {
       setState(() {
-        _imageFile = image;
+        if (type == 'oos') _photoOos = image;
+        else if (type == 'plano') _photoPlano = image;
+        else if (type == 'promo') _photoPromo = image;
       });
     }
+  }
+
+  Widget _buildPhotoPicker(String title, XFile? file, String type) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () => _pickImage(type),
+          child: Container(
+            width: double.infinity,
+            height: 120,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid),
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.grey.shade50,
+            ),
+            child: file != null
+                ? (kIsWeb ? Image.network(file.path, fit: BoxFit.cover) : Image.file(File(file.path), fit: BoxFit.cover))
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.camera_alt, color: Colors.grey, size: 40),
+                      SizedBox(height: 8),
+                      Text('Ambil Foto', style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -304,86 +349,86 @@ class _AddSalesReportFormState extends State<AddSalesReportForm> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Add Sales Report', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text('Add Store Report', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
               
               TextFormField(
-                controller: _clientNameCtrl,
-                decoration: const InputDecoration(labelText: 'Client Name', border: OutlineInputBorder()),
+                controller: _storeNameCtrl,
+                decoration: const InputDecoration(labelText: 'Nama Toko/Outlet', border: OutlineInputBorder()),
                 validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               
-              TextFormField(
-                controller: _clientCompanyCtrl,
-                decoration: const InputDecoration(labelText: 'Client Company (Optional)', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 16),
-              
-              TextFormField(
-                controller: _revenueCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Revenue (Rp)', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 16),
-
+              const Text('1. Out of Stock (OOS)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _status,
-                decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
+                value: _oosStatus,
+                decoration: const InputDecoration(labelText: 'Status OOS', border: OutlineInputBorder()),
                 items: const [
-                  DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                  DropdownMenuItem(value: 'closed', child: Text('Closed')),
-                  DropdownMenuItem(value: 'lost', child: Text('Lost')),
+                  DropdownMenuItem(value: 'Aman', child: Text('Aman')),
+                  DropdownMenuItem(value: 'Kosong', child: Text('Kosong')),
                 ],
                 onChanged: (v) {
-                  if (v != null) setState(() => _status = v);
+                  if (v != null) setState(() => _oosStatus = v);
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _oosNotesCtrl,
+                decoration: const InputDecoration(labelText: 'Catatan OOS', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 8),
+              _buildPhotoPicker('Foto OOS', _photoOos, 'oos'),
+              
+              const SizedBox(height: 24),
+              const Text('2. Planogram', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _planoStatus,
+                decoration: const InputDecoration(labelText: 'Status Planogram', border: OutlineInputBorder()),
+                items: const [
+                  DropdownMenuItem(value: 'Sesuai', child: Text('Sesuai')),
+                  DropdownMenuItem(value: 'Tidak Sesuai', child: Text('Tidak Sesuai')),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _planoStatus = v);
+                },
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _planoNotesCtrl,
+                decoration: const InputDecoration(labelText: 'Catatan Planogram', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 8),
+              _buildPhotoPicker('Foto Planogram', _photoPlano, 'plano'),
+              
+              const SizedBox(height: 24),
+              const Text('3. Promo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _promoStatus,
+                decoration: const InputDecoration(labelText: 'Status Promo', border: OutlineInputBorder()),
+                items: const [
+                  DropdownMenuItem(value: 'Berjalan', child: Text('Berjalan')),
+                  DropdownMenuItem(value: 'Tidak Berjalan', child: Text('Tidak Berjalan')),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _promoStatus = v);
+                },
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _promoNotesCtrl,
+                decoration: const InputDecoration(labelText: 'Catatan Promo', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 8),
+              _buildPhotoPicker('Foto Promo', _photoPromo, 'promo'),
 
+              const SizedBox(height: 24),
               TextFormField(
                 controller: _notesCtrl,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 16),
-              
-              Row(
-                children: [
-                  Checkbox(
-                    value: _createPipeline,
-                    activeColor: primaryColor,
-                    onChanged: (v) {
-                      setState(() => _createPipeline = v ?? false);
-                    },
-                  ),
-                  const Text('Add to Sales Pipeline (Leads)'),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Image Picker
-              GestureDetector(
-                onTap: _pickImage,
-                child: Container(
-                  width: double.infinity,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid),
-                    borderRadius: BorderRadius.circular(8),
-                    color: Colors.grey.shade50,
-                  ),
-                  child: _imageFile != null
-                      ? (kIsWeb ? Image.network(_imageFile!.path, fit: BoxFit.cover) : Image.file(File(_imageFile!.path), fit: BoxFit.cover))
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.camera_alt, color: Colors.grey, size: 40),
-                            SizedBox(height: 8),
-                            Text('Tap to take photo (Receipt/Card)', style: TextStyle(color: Colors.grey)),
-                          ],
-                        ),
-                ),
+                decoration: const InputDecoration(labelText: 'Catatan Tambahan', border: OutlineInputBorder()),
               ),
               
               const SizedBox(height: 24),
@@ -394,15 +439,21 @@ class _AddSalesReportFormState extends State<AddSalesReportForm> {
                   onPressed: sales.isLoading ? null : () async {
                     if (_formKey.currentState!.validate()) {
                       final data = {
-                        'client_name': _clientNameCtrl.text,
-                        'client_company': _clientCompanyCtrl.text,
-                        'revenue': _revenueCtrl.text,
+                        'store_name': _storeNameCtrl.text,
+                        'oos_status': _oosStatus,
+                        'oos_notes': _oosNotesCtrl.text,
+                        'plano_status': _planoStatus,
+                        'plano_notes': _planoNotesCtrl.text,
+                        'promo_status': _promoStatus,
+                        'promo_notes': _promoNotesCtrl.text,
                         'notes': _notesCtrl.text,
-                        'status': _status,
-                        'create_pipeline': _createPipeline,
+                        'status': 'submitted',
+                        'photo_oos': _photoOos?.path,
+                        'photo_plano': _photoPlano?.path,
+                        'photo_promo': _photoPromo?.path,
                       };
                       
-                      final result = await sales.submitSalesReport(data, imagePath: _imageFile?.path);
+                      final result = await sales.submitSalesReport(data);
                       
                       if (result['success']) {
                         if (context.mounted) {
@@ -457,18 +508,16 @@ class UpdateSalesReportForm extends StatefulWidget {
 class _UpdateSalesReportFormState extends State<UpdateSalesReportForm> {
   final _formKey = GlobalKey<FormState>();
   final _notesCtrl = TextEditingController();
-  String _status = 'Pending';
+  String _status = 'submitted';
   bool _isAnalyzing = false;
 
   @override
   void initState() {
     super.initState();
-    _status = widget.report['status'] ?? 'Pending';
-    // Capitalize first letter if needed to match options
-    if (_status.toLowerCase() == 'pending') _status = 'Pending';
-    if (_status.toLowerCase() == 'follow up') _status = 'Follow Up';
-    if (_status.toLowerCase() == 'deal') _status = 'Deal';
-    if (_status.toLowerCase() == 'lost') _status = 'Lost';
+    _status = widget.report['status'] ?? 'submitted';
+    if (_status.toLowerCase() == 'submitted') _status = 'submitted';
+    if (_status.toLowerCase() == 'approved') _status = 'approved';
+    if (_status.toLowerCase() == 'rejected') _status = 'rejected';
     _notesCtrl.text = widget.report['notes'] ?? '';
   }
 
@@ -552,7 +601,7 @@ class _UpdateSalesReportFormState extends State<UpdateSalesReportForm> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Klien: ${widget.report['client_name']}',
+                'Toko: ${widget.report['store_name']}',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 12),
@@ -588,10 +637,9 @@ class _UpdateSalesReportFormState extends State<UpdateSalesReportForm> {
                   border: OutlineInputBorder(),
                 ),
                 items: const [
-                  DropdownMenuItem(value: 'Pending', child: Text('Pending')),
-                  DropdownMenuItem(value: 'Follow Up', child: Text('Follow Up')),
-                  DropdownMenuItem(value: 'Deal', child: Text('Deal (Closed Won)')),
-                  DropdownMenuItem(value: 'Lost', child: Text('Lost (Closed Lost)')),
+                  DropdownMenuItem(value: 'submitted', child: Text('Submitted')),
+                  DropdownMenuItem(value: 'approved', child: Text('Approved')),
+                  DropdownMenuItem(value: 'rejected', child: Text('Rejected')),
                 ],
                 onChanged: (value) {
                   if (value != null) setState(() => _status = value);

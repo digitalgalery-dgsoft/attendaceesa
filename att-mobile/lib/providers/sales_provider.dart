@@ -81,7 +81,7 @@ class SalesProvider with ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>> submitSalesReport(Map<String, dynamic> data, {String? imagePath}) async {
+  Future<Map<String, dynamic>> submitSalesReport(Map<String, dynamic> data) async {
     _isLoading = true;
     notifyListeners();
 
@@ -96,29 +96,39 @@ class SalesProvider with ChangeNotifier {
       dio.options.headers['Accept'] = 'application/json';
 
       FormData formData = FormData.fromMap({
-        'client_name': data['client_name'],
-        'client_company': data['client_company'] ?? '',
-        'revenue': data['revenue'] ?? '0',
+        'store_name': data['store_name'],
+        'oos_status': data['oos_status'] ?? 'Aman',
+        'oos_notes': data['oos_notes'] ?? '',
+        'plano_status': data['plano_status'] ?? 'Sesuai',
+        'plano_notes': data['plano_notes'] ?? '',
+        'promo_status': data['promo_status'] ?? 'Berjalan',
+        'promo_notes': data['promo_notes'] ?? '',
         'notes': data['notes'] ?? '',
-        'status': data['status'] ?? 'pending',
+        'status': data['status'] ?? 'submitted',
         'location': data['location'] ?? '',
-        'create_pipeline': data['create_pipeline'] ? '1' : '0',
       });
 
-      if (data['create_pipeline'] == true) {
-        formData.fields.addAll([
-          MapEntry('stage', data['stage'] ?? 'prospecting'),
-          MapEntry('expected_revenue', data['expected_revenue'] ?? '0'),
-          MapEntry('probability', data['probability'] ?? '0'),
-          MapEntry('expected_close_date', data['expected_close_date'] ?? ''),
-        ]);
-      }
-
-      if (imagePath != null && imagePath.isNotEmpty) {
+      if (data['photo_oos'] != null && data['photo_oos'].isNotEmpty) {
         formData.files.add(
           MapEntry(
-            'receipt_image',
-            await MultipartFile.fromFile(imagePath),
+            'photo_oos',
+            await MultipartFile.fromFile(data['photo_oos']),
+          ),
+        );
+      }
+      if (data['photo_plano'] != null && data['photo_plano'].isNotEmpty) {
+        formData.files.add(
+          MapEntry(
+            'photo_plano',
+            await MultipartFile.fromFile(data['photo_plano']),
+          ),
+        );
+      }
+      if (data['photo_promo'] != null && data['photo_promo'].isNotEmpty) {
+        formData.files.add(
+          MapEntry(
+            'photo_promo',
+            await MultipartFile.fromFile(data['photo_promo']),
           ),
         );
       }

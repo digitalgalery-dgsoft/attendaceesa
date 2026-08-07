@@ -36,7 +36,8 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Akan diimplementasikan menggunakan *Filament Widgets / Chart* atau diekspor ke Excel (Export Maatwebsite).
 
 ---
-*Catatan Keamanan (Sudah Selesai & Aman):*
+*Catatan Keamanan & Penyempurnaan Sistem (Selesai & Aman):*
 - *No Fake GPS & Developer Mode terdeteksi dan diblokir menggunakan `safe_device`.*
 - *Akses Galeri untuk Absen sudah diblokir, hanya menggunakan Kamera (`ImageSource.camera`).*
 - *Pesan dari pusat sudah dicover menggunakan fitur Blast Info.*
+- **✅ Peningkatan Live Tracking (Selesai 6 Agustus 2026):** Menerapkan mekanisme **Offline Queue** menggunakan `SharedPreferences` untuk mengatasi kehilangan sinyal saat tracking, serta menambah **Data Quality Filter** (akurasi GPS) untuk mencegah titik koordinat yang melompat. Aplikasi mobile berhasil di-build ke versi **1.0.39**.

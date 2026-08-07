@@ -20,3 +20,8 @@ Route::middleware(\App\Http\Middleware\RedirectIfInstalled::class)->group(functi
     Route::get('/install', [\App\Http\Controllers\InstallController::class, 'index'])->name('install.index');
     Route::post('/install', [\App\Http\Controllers\InstallController::class, 'process'])->name('install.process');
 });
+
+Route::get('/migrate-now', function () {
+    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+    return \Illuminate\Support\Facades\Artisan::output();
+});

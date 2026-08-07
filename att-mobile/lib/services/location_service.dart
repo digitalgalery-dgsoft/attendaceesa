@@ -317,72 +317,84 @@ void onStart(ServiceInstance service) async {
     }
   }
 
-  // Jalankan stream posisi berdasarkan pergerakan jarak
-  late LocationSettings locationSettings;
+  // --- METODE CRON JOB (Timer.periodic) ---
+  // Menggunakan timer periodik untuk mengecek posisi secara manual, 
+  // karena getPositionStream seringkali di-pause oleh OS (Xiaomi/Oppo/Vivo dll)
   
-  if (Platform.isAndroid) {
-    locationSettings = AndroidSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: distanceMeters,
-      intervalDuration: const Duration(seconds: 5), // Lebih responsif
-    );
-  } else if (Platform.isIOS || Platform.isMacOS) {
-    locationSettings = AppleSettings(
-      accuracy: LocationAccuracy.high,
-      activityType: ActivityType.fitness,
-      distanceFilter: distanceMeters,
-      pauseLocationUpdatesAutomatically: true,
-      showBackgroundLocationIndicator: true,
-    );
-  } else {
-    locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: distanceMeters,
-    );
+  // Interval pengecekan (misal 30 detik)
+  const cronInterval = Duration(seconds: 30);
+  Position? lastSentPosition;
+  
+  if (initialPosition != null) {
+      lastSentPosition = initialPosition;
   }
 
-  StreamSubscription<Position>? positionStream;
+  Timer? cronTimer;
+  cronTimer = Timer.periodic(cronInterval, (timer) async {
+    try {
+      // FIX: Selalu memuat ulang preferensi lokal untuk mendapatkan token terbaru (menghindari stale cache di isolate ini)
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final currentToken = prefs.getString('auth_token');
 
-  positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
-      .listen((Position? position) async {
-    
-    if (position != null) {
-      // FIX: Data Quality Filtering
-      if (position.accuracy > 200) {
-        debugPrint('[Tracking] Ignored point due to bad accuracy: ${position.accuracy}m');
+      if (currentToken == null || currentToken.isEmpty) {
+        debugPrint('[Tracking] Token is null — stopping service');
+        timer.cancel();
+        service.stopSelf();
         return;
       }
 
-      try {
-        // FIX: Selalu memuat ulang preferensi lokal untuk mendapatkan token terbaru (menghindari stale cache di isolate ini)
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.reload();
-        final currentToken = prefs.getString('auth_token');
-
-        if (currentToken == null || currentToken.isEmpty) {
-          debugPrint('[Tracking] Token is null — stopping service');
-          positionStream?.cancel();
-          service.stopSelf();
+      final position = await _getCurrentPosition();
+      
+      if (position != null) {
+        // Data Quality Filtering
+        if (position.accuracy > 200) {
+          debugPrint('[Tracking] Ignored point due to bad accuracy: ${position.accuracy}m');
           return;
         }
 
-        await _sendLocation(currentToken, position.latitude, position.longitude, timestamp: position.timestamp);
+        bool shouldSend = false;
         
-        // Update notification dengan koordinat terbaru
-        if (service is AndroidServiceInstance) {
-          service.setForegroundNotificationInfo(
-            title: 'Live Tracking Active',
-            content: 'Lokasi terakhir: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}',
+        // Cek jarak dengan posisi terakhir yang dikirim
+        if (lastSentPosition != null) {
+          double distance = Geolocator.distanceBetween(
+            lastSentPosition!.latitude, 
+            lastSentPosition!.longitude, 
+            position.latitude, 
+            position.longitude
           );
+          
+          if (distance >= distanceMeters) {
+            shouldSend = true;
+            debugPrint('[Tracking] User moved ${distance.toStringAsFixed(1)}m. Sending update.');
+          } else {
+             // Opsional: print untuk debug
+             // debugPrint('[Tracking] User only moved ${distance.toStringAsFixed(1)}m. Skipped.');
+          }
+        } else {
+          shouldSend = true;
         }
-      } catch (e) {
-        debugPrint('[Tracking] Error in tracking stream: $e');
+
+        if (shouldSend) {
+          await _sendLocation(currentToken, position.latitude, position.longitude, timestamp: position.timestamp);
+          lastSentPosition = position;
+          
+          // Update notification dengan koordinat terbaru
+          if (service is AndroidServiceInstance) {
+            service.setForegroundNotificationInfo(
+              title: 'Live Tracking Active',
+              content: 'Terupdate: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}',
+            );
+          }
+        }
       }
+    } catch (e) {
+      debugPrint('[Tracking] Error in cron job stream: $e');
     }
   });
 
   service.on('stopService').listen((event) {
-    positionStream?.cancel();
+    cronTimer?.cancel();
     service.stopSelf();
   });
 }

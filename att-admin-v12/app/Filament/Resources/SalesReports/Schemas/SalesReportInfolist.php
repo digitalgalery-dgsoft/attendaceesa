@@ -17,20 +17,24 @@ class SalesReportInfolist
                 TextEntry::make('attendanceLog.id')
                     ->label('Attendance log')
                     ->placeholder('-'),
-                TextEntry::make('client_name'),
-                TextEntry::make('client_company')
-                    ->placeholder('-'),
-                TextEntry::make('revenue')
-                    ->numeric(),
+                TextEntry::make('store_name')->label('Nama Toko/Outlet'),
+                TextEntry::make('oos_status')->label('Status OOS')->placeholder('-'),
+                TextEntry::make('oos_notes')->label('Catatan OOS')->placeholder('-')->columnSpanFull(),
+                ImageEntry::make('photo_oos')->label('Foto OOS')->placeholder('-'),
+                TextEntry::make('plano_status')->label('Status Planogram')->placeholder('-'),
+                TextEntry::make('plano_notes')->label('Catatan Planogram')->placeholder('-')->columnSpanFull(),
+                ImageEntry::make('photo_plano')->label('Foto Planogram')->placeholder('-'),
+                TextEntry::make('promo_status')->label('Status Promo')->placeholder('-'),
+                TextEntry::make('promo_notes')->label('Catatan Promo')->placeholder('-')->columnSpanFull(),
+                ImageEntry::make('photo_promo')->label('Foto Promo')->placeholder('-'),
                 TextEntry::make('notes')
+                    ->label('Catatan Tambahan')
                     ->placeholder('-')
                     ->columnSpanFull(),
                 TextEntry::make('report_date')
                     ->date(),
                 TextEntry::make('status'),
                 TextEntry::make('location')
-                    ->placeholder('-'),
-                ImageEntry::make('receipt_image')
                     ->placeholder('-'),
                 TextEntry::make('ai_insights')
                     ->placeholder('-')

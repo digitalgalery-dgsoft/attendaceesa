@@ -24,31 +24,57 @@ class SalesReportsTable
                     ->label('Employee')
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('client_name')
+                TextColumn::make('store_name')
+                    ->label('Nama Toko/Outlet')
                     ->searchable(),
-                TextColumn::make('client_company')
-                    ->searchable(),
-                TextColumn::make('revenue')
-                    ->numeric()
-                    ->sortable()
-                    ->money('IDR'),
+                TextColumn::make('oos_status')
+                    ->label('OOS')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Aman' => 'success',
+                        'Kosong' => 'danger',
+                        default => 'gray',
+                    }),
+                TextColumn::make('plano_status')
+                    ->label('Planogram')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Sesuai' => 'success',
+                        'Tidak Sesuai' => 'danger',
+                        default => 'gray',
+                    }),
+                TextColumn::make('promo_status')
+                    ->label('Promo')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Berjalan' => 'success',
+                        'Tidak Berjalan' => 'danger',
+                        default => 'gray',
+                    }),
                 TextColumn::make('report_date')
                     ->date()
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'Deal' => 'success',
-                        'Follow Up' => 'warning',
-                        'Lost' => 'danger',
+                        'submitted' => 'warning',
+                        'approved' => 'success',
+                        'rejected' => 'danger',
                         default => 'gray',
                     })
                     ->searchable(),
                 TextColumn::make('location')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                ImageColumn::make('receipt_image')
-                    ->label('Evidence'),
+                ImageColumn::make('photo_oos')
+                    ->label('Foto OOS')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                ImageColumn::make('photo_plano')
+                    ->label('Foto Plano')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                ImageColumn::make('photo_promo')
+                    ->label('Foto Promo')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
