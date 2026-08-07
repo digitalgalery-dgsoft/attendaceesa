@@ -69,10 +69,17 @@ class TrackingController extends Controller
             ->orderBy('created_at', 'asc')
             ->get(['latitude', 'longitude', 'created_at'])
             ->map(function ($item) {
+                $time = \Carbon\Carbon::parse($item->created_at);
+                
+                // Fallback untuk data lama yang tersimpan dalam format UTC namun dianggap local oleh Laravel
+                if ($item->created_at->format('Y-m-d') === date('Y-m-d') && $item->created_at->hour < 11) {
+                    $time->addHours(7);
+                }
+
                 return [
                     'latitude'   => (float) $item->latitude,
                     'longitude'  => (float) $item->longitude,
-                    'created_at' => $item->created_at->format('H:i:s'),
+                    'created_at' => $time->format('H:i:s'),
                 ];
             });
 
