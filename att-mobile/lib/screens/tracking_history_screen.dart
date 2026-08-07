@@ -8,6 +8,7 @@ import 'package:att_mobile/utils/constants.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
+import 'package:geolocator/geolocator.dart';
 
 class TrackingHistoryScreen extends StatefulWidget {
   const TrackingHistoryScreen({super.key});
@@ -29,7 +30,7 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
     _fetchHistory();
   }
 
-  Future<void> _fetchHistory() async {
+  Future<void> _fetchHistory({bool refreshLocation = false}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = '';
@@ -39,6 +40,30 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+      // Manual push current location if date is today and requested refresh
+      if (refreshLocation && dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
+        try {
+          final position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 10),
+          );
+          await http.post(
+            Uri.parse('${Constants.baseUrl}/tracking'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
+            body: {
+              'latitude': position.latitude.toString(),
+              'longitude': position.longitude.toString(),
+              'timestamp': position.timestamp?.toIso8601String() ?? DateTime.now().toIso8601String(),
+            },
+          ).timeout(const Duration(seconds: 10));
+        } catch (e) {
+          debugPrint('Failed to refresh manual location: $e');
+        }
+      }
 
       final response = await http.get(
         Uri.parse('${Constants.baseUrl}/tracking/history?date=$dateStr'),
@@ -303,7 +328,7 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.small(
-        onPressed: _fetchHistory,
+        onPressed: () => _fetchHistory(refreshLocation: true),
         backgroundColor: primaryColor,
         elevation: 2,
         tooltip: 'Refresh',

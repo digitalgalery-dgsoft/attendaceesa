@@ -435,6 +435,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
         : rawPhotoUrl;
     final String? note = log['note'];
     final String locationName = log['location']?['name'] as String? ?? '';
+    final String locationAddress = log['location']?['address'] as String? ?? '';
+    final String lat = log['latitude']?.toString() ?? '';
+    final String lng = log['longitude']?.toString() ?? '';
 
     Color color;
     String label;
@@ -486,11 +489,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     Text(time, style: TextStyle(fontSize: 10, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : const Color(0xFF707893), fontWeight: FontWeight.bold)),
                   ],
                 ),
-                if (locationName.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(locationName, style: TextStyle(fontSize: 9, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : const Color(0xFF707893))),
-                  ),
                 if (note != null && note.trim().isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -505,48 +503,69 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       ],
                     ),
                   ),
-                if (photoUrl != null && photoUrl.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: GestureDetector(
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (_) => Dialog(
-                            backgroundColor: Colors.transparent,
-                            insetPadding: const EdgeInsets.all(16),
-                            child: Stack(
-                              alignment: Alignment.topRight,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image.network(photoUrl, fit: BoxFit.contain),
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (photoUrl != null && photoUrl.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: GestureDetector(
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (_) => Dialog(
+                                  backgroundColor: Colors.transparent,
+                                  insetPadding: const EdgeInsets.all(16),
+                                  child: Stack(
+                                    alignment: Alignment.topRight,
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Image.network(photoUrl, fit: BoxFit.contain),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                                        onPressed: () => Navigator.pop(context),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
-                                  onPressed: () => Navigator.pop(context),
+                              );
+                            },
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Image.network(
+                                photoUrl,
+                                height: 50,
+                                width: 50,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  height: 50, width: 50,
+                                  color: elevatedColor,
+                                  child: const Icon(Icons.broken_image, color: Colors.grey, size: 20),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
-                        );
-                      },
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Image.network(
-                          photoUrl,
-                          height: 40,
-                          width: 40,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            height: 40, width: 40,
-                            color: elevatedColor,
-                            child: const Icon(Icons.broken_image, color: Colors.grey, size: 16),
-                          ),
+                        ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (locationName.isNotEmpty)
+                              Text(locationName, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade300 : const Color(0xFF505565))),
+                            if (locationAddress.isNotEmpty)
+                              Text(locationAddress, style: TextStyle(fontSize: 9, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : const Color(0xFF707893)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            if (lat.isNotEmpty && lng.isNotEmpty)
+                              Text('Lat: $lat, Lng: $lng', style: TextStyle(fontSize: 9, color: const Color(0xFF0F52BA))),
+                          ],
                         ),
                       ),
-                    ),
+                    ],
                   ),
+                ),
               ],
             ),
           )
