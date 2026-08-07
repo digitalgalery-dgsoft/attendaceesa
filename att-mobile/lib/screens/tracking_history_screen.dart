@@ -309,6 +309,15 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
                                       '${p['latitude'].toStringAsFixed(6)}, ${p['longitude'].toStringAsFixed(6)}',
                                       style: TextStyle(fontSize: 13, fontFamily: 'monospace', color: textColor, fontWeight: FontWeight.w600),
                                     ),
+                                    subtitle: index > 0 
+                                      ? Padding(
+                                          padding: const EdgeInsets.only(top: 2),
+                                          child: Text(
+                                            '+ ${const Distance().as(LengthUnit.Meter, LatLng(_points[index-1]['latitude'], _points[index-1]['longitude']), LatLng(p['latitude'], p['longitude'])).round()}m dari titik sebelumnya', 
+                                            style: TextStyle(fontSize: 10, color: primaryColor, fontWeight: FontWeight.w500)
+                                          ),
+                                        )
+                                      : null,
                                     trailing: Text(
                                       p['created_at'] ?? '',
                                       style: const TextStyle(fontSize: 12, color: Colors.grey),

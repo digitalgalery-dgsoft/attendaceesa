@@ -278,13 +278,13 @@ void onStart(ServiceInstance service) async {
   });
 
   // Ambil jarak filter dan token dari SharedPreferences
-  int distanceMeters = 10;
+  int distanceMeters = 5;
   String? token;
   
   try {
     final prefs = await SharedPreferences.getInstance();
     await prefs.reload(); // FIX: Pastikan memuat nilai terbaru dari main isolate
-    distanceMeters = prefs.getInt('tracking_distance_meters') ?? 10;
+    distanceMeters = prefs.getInt('tracking_distance_meters') ?? 5;
     token = prefs.getString('auth_token');
     debugPrint('[Tracking] Service started. Distance Filter: ${distanceMeters}m, Token: ${token != null ? "found" : "missing"}');
   } catch (e) {
@@ -324,7 +324,7 @@ void onStart(ServiceInstance service) async {
     locationSettings = AndroidSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: distanceMeters,
-      intervalDuration: const Duration(seconds: 10),
+      intervalDuration: const Duration(seconds: 5), // Lebih responsif
     );
   } else if (Platform.isIOS || Platform.isMacOS) {
     locationSettings = AppleSettings(

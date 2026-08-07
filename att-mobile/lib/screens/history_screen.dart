@@ -16,6 +16,7 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   late DateTime _currentMonth;
   late DateTime _selectedDate;
+  late ScrollController _dateScrollController;
 
   @override
   void initState() {
@@ -23,8 +24,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final now = DateTime.now();
     _currentMonth = DateTime(now.year, now.month, 1);
     _selectedDate = DateTime(now.year, now.month, now.day);
+    _dateScrollController = ScrollController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchData();
+      _scrollToSelectedDate();
     });
   }
 
@@ -39,6 +42,28 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  void _scrollToSelectedDate() {
+    if (_dateScrollController.hasClients) {
+      // Each item is 50 width + 8 margin = 58
+      final offset = (_selectedDate.day - 1) * 58.0;
+      // Subtract half screen width to center it somewhat
+      final screenWidth = MediaQuery.of(context).size.width;
+      final targetOffset = offset - (screenWidth / 2) + 29.0;
+      
+      _dateScrollController.animateTo(
+        targetOffset < 0 ? 0 : targetOffset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _dateScrollController.dispose();
+    super.dispose();
+  }
+
   void _changeMonth(int offset) {
     setState(() {
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + offset, 1);
@@ -50,6 +75,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
       _selectedDate = DateTime(_currentMonth.year, _currentMonth.month, newDay);
     });
     _fetchData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToSelectedDate();
+    });
   }
 
   String _parseLocalTime(String? raw, {String fmt = 'HH:mm'}) {
@@ -141,6 +169,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       SizedBox(
                         height: 70,
                         child: ListView.builder(
+                          controller: _dateScrollController,
                           scrollDirection: Axis.horizontal,
                           itemCount: DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day,
                           itemBuilder: (context, index) {
