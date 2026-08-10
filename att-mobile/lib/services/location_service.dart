@@ -111,6 +111,7 @@ class LocationService {
 Future<bool> onIosBackground(ServiceInstance service) async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
+  await Constants.loadBaseUrl();
   return true;
 }
 
@@ -262,6 +263,9 @@ void onStart(ServiceInstance service) async {
   WidgetsFlutterBinding.ensureInitialized();
   // Only available for flutter 3.0.0 and later
   DartPluginRegistrant.ensureInitialized();
+  
+  // FIX: Load base url in this isolate
+  await Constants.loadBaseUrl();
 
   if (service is AndroidServiceInstance) {
     service.on('setAsForeground').listen((event) {
