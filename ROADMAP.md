@@ -31,12 +31,12 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Menyelaraskan desain *UI Sales Report* agar sama dengan tema *History* Nexa Attendance (Light/Dark mode, app bar, font, dan format form yang rapi).
    - Menghapus *navigasi* dan *file* yang terkait dengan *Sales Pipeline*.
 
-## 🟢 Tahap 4: Laporan Tren Analitik (Web Admin) *(Jadwal: Berikutnya)*
+## ✅ Tahap 4: Laporan Tren Analitik (Web Admin) (SELESAI)
 *Tahap ini berfokus pada permintaan laporan kompleks di presentasi PPTX.*
 1. **Laporan Man Power**: Tren jumlah orang per perusahaan, region, dan TL (Jan-Des).
 2. **Laporan Turn Over**: Tren keluar/masuk karyawan per bulan.
-3. **Laporan Mandays**: Target vs Aktual hari kerja per region/prinsipal.
-   - Akan diimplementasikan menggunakan *Filament Widgets / Chart* atau diekspor ke Excel (Export Maatwebsite).
+3. **Laporan Mandays**: Target vs Aktual hari kerja per region/perusahaan.
+   - Diimplementasikan menggunakan *Filament Custom Page & Chart* dan bisa diekspor ke Excel (Export Maatwebsite).
 
 ---
 *Catatan Keamanan & Penyempurnaan Sistem (Selesai & Aman):*
@@ -44,3 +44,8 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 - *Akses Galeri untuk Absen sudah diblokir, hanya menggunakan Kamera (`ImageSource.camera`).*
 - *Pesan dari pusat sudah dicover menggunakan fitur Blast Info.*
 - **✅ Peningkatan Live Tracking (Selesai 6 Agustus 2026):** Menerapkan mekanisme **Offline Queue** menggunakan `SharedPreferences` untuk mengatasi kehilangan sinyal saat tracking, serta menambah **Data Quality Filter** (akurasi GPS) untuk mencegah titik koordinat yang melompat. Aplikasi mobile berhasil di-build ke versi **1.0.39**.
+- **✅ Pembaruan Laporan & Optimasi (Selesai 11 Agustus 2026):** 
+  - Menyelesaikan 3 jenis laporan (Man Power, Turn Over, Mandays).
+  - Melakukan perombakan total pada query Database menggunakan pendekatan Array Mapping/In-Memory Calculation untuk mengatasi beban lambat (N+1 queries) di ketiga laporan. 
+  - Memperbaiki Error 500 di Dashboard utama akibat bentrok Widget (*isDiscovered* = false).
+  - Merapikan gaya desain (CSS/Padding) tabel khusus untuk *custom views* pada Filament sehingga lebih profesional dan rapi saat dieksekusi browser.
