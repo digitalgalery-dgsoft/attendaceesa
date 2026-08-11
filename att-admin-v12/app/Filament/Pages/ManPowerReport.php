@@ -21,8 +21,8 @@ class ManPowerReport extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static ?string $navigationIcon = 'heroicon-o-users';
-    protected static ?string $navigationGroup = 'Laporan & Analitik';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users';
+    protected static string|\UnitEnum|null $navigationGroup = 'Laporan & Analitik';
     protected static ?string $navigationLabel = 'Man Power Report';
     protected static ?string $title = 'Man Power Report';
     protected static ?int $navigationSort = 1;

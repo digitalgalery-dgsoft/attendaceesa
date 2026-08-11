@@ -23,8 +23,8 @@ class MandaysReport extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
-    protected static ?string $navigationGroup = 'Laporan & Analitik';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
+    protected static string|\UnitEnum|null $navigationGroup = 'Laporan & Analitik';
     protected static ?string $navigationLabel = 'Mandays Report';
     protected static ?string $title = 'Mandays Report';
     protected static ?int $navigationSort = 3;
