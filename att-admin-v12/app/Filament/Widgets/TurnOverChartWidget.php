@@ -8,7 +8,7 @@ use Carbon\Carbon;
 
 class TurnOverChartWidget extends ChartWidget
 {
-    protected static ?string $heading = 'Tren Masuk & Keluar';
+    protected ?string $heading = 'Tren Masuk & Keluar';
     
     public ?string $year = null;
     public ?string $company_id = null;

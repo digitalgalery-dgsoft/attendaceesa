@@ -9,7 +9,7 @@ use Carbon\Carbon;
 
 class ManPowerChartWidget extends ChartWidget
 {
-    protected static ?string $heading = 'Tren Man Power per Bulan';
+    protected ?string $heading = 'Tren Man Power per Bulan';
     
     public ?string $year = null;
     public ?string $company_id = null;

@@ -9,7 +9,7 @@ use App\Models\Attendance;
 
 class MandaysChartWidget extends ChartWidget
 {
-    protected static ?string $heading = 'Target vs Aktual HK (Top 10)';
+    protected ?string $heading = 'Target vs Aktual HK (Top 10)';
     
     public ?string $month = null;
     public ?string $year = null;
