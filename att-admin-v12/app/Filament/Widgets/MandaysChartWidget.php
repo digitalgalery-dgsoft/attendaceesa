@@ -14,7 +14,7 @@ class MandaysChartWidget extends ChartWidget
     public ?string $month = null;
     public ?string $year = null;
     public ?string $branch_id = null;
-    public ?string $principal_id = null;
+    public ?string $company_id = null;
 
     protected function getData(): array
     {
@@ -22,12 +22,12 @@ class MandaysChartWidget extends ChartWidget
         $year = $this->year ?: date('Y');
         $monthYear = $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT);
 
-        $employees = Employee::with(['branch', 'principal'])
+        $employees = Employee::with(['branch', 'company'])
             ->when($this->branch_id, function ($q) {
                 return $q->where('branch_id', $this->branch_id);
             })
-            ->when($this->principal_id, function ($q) {
-                return $q->where('principal_id', $this->principal_id);
+            ->when($this->company_id, function ($q) {
+                return $q->where('company_id', $this->company_id);
             })
             ->where('is_active', true)
             ->limit(10) // Limit to top 10 for chart readability

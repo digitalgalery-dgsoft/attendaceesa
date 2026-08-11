@@ -4,7 +4,7 @@
     </form>
 
     <div class="mt-8">
-        @livewire(\App\Filament\Widgets\MandaysChartWidget::class, ['month' => $month, 'year' => $year, 'branch_id' => $branch_id, 'principal_id' => $principal_id])
+        @livewire(\App\Filament\Widgets\MandaysChartWidget::class, ['month' => $month, 'year' => $year, 'branch_id' => $branch_id, 'company_id' => $company_id])
     </div>
 
     <div class="mt-8">
@@ -15,7 +15,7 @@
                         <tr>
                             <th class="px-4 py-3 text-sm font-semibold text-gray-950 dark:text-white">Nama Karyawan</th>
                             <th class="px-4 py-3 text-sm font-semibold text-gray-950 dark:text-white">Region / Area</th>
-                            <th class="px-4 py-3 text-sm font-semibold text-gray-950 dark:text-white">Principal</th>
+                            <th class="px-4 py-3 text-sm font-semibold text-gray-950 dark:text-white">Perusahaan</th>
                             <th class="px-4 py-3 text-sm font-semibold text-gray-950 dark:text-white">Target HK</th>
                             <th class="px-4 py-3 text-sm font-semibold text-gray-950 dark:text-white">Aktual HK</th>
                             <th class="px-4 py-3 text-sm font-semibold text-gray-950 dark:text-white">Pencapaian</th>
@@ -26,7 +26,7 @@
                             <tr class="hover:bg-gray-50 dark:hover:bg-white/5">
                                 <td class="px-4 py-3 text-sm font-medium text-gray-950 dark:text-white">{{ $row['employee'] }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $row['branch'] }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $row['principal'] }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $row['company'] }}</td>
                                 <td class="px-4 py-3 text-sm font-bold text-gray-700 dark:text-gray-300">{{ $row['target'] }}</td>
                                 <td class="px-4 py-3 text-sm font-bold text-primary-600">{{ $row['aktual'] }}</td>
                                 <td class="px-4 py-3 text-sm font-bold {{ $row['percentage'] >= 100 ? 'text-green-600' : 'text-red-600' }}">

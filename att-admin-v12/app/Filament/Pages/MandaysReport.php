@@ -10,7 +10,7 @@ use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Grid;
 use Filament\Actions\Action;
 use App\Models\Branch;
-use App\Models\Principal;
+use App\Models\Company;
 use App\Models\Employee;
 use App\Models\WorkTarget;
 use App\Models\Attendance;
@@ -34,7 +34,7 @@ class MandaysReport extends Page implements HasForms
     public ?string $month = null;
     public ?string $year = null;
     public ?string $branch_id = null;
-    public ?string $principal_id = null;
+    public ?string $company_id = null;
 
     public function mount(): void
     {
@@ -44,7 +44,7 @@ class MandaysReport extends Page implements HasForms
             'month' => $this->month,
             'year' => $this->year,
             'branch_id' => null,
-            'principal_id' => null,
+            'company_id' => null,
         ]);
     }
 
@@ -81,10 +81,10 @@ class MandaysReport extends Page implements HasForms
                         ->options(Branch::pluck('name', 'id'))
                         ->placeholder('Semua Region')
                         ->live(),
-                    Select::make('principal_id')
-                        ->label('Principal')
-                        ->options(Principal::pluck('name', 'id'))
-                        ->placeholder('Semua Principal')
+                    Select::make('company_id')
+                        ->label('Perusahaan')
+                        ->options(Company::pluck('name', 'id'))
+                        ->placeholder('Semua Perusahaan')
                         ->live(),
                 ])
             ])
@@ -108,12 +108,12 @@ class MandaysReport extends Page implements HasForms
         $year = $this->year ?: date('Y');
         $monthYear = $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT);
 
-        $employees = Employee::with(['branch', 'principal'])
+        $employees = Employee::with(['branch', 'company'])
             ->when($this->branch_id, function ($q) {
                 return $q->where('branch_id', $this->branch_id);
             })
-            ->when($this->principal_id, function ($q) {
-                return $q->where('principal_id', $this->principal_id);
+            ->when($this->company_id, function ($q) {
+                return $q->where('company_id', $this->company_id);
             })
             ->where('is_active', true)
             ->get();
@@ -139,7 +139,7 @@ class MandaysReport extends Page implements HasForms
             $data[] = [
                 'employee' => $emp->full_name,
                 'branch' => optional($emp->branch)->name ?? '-',
-                'principal' => optional($emp->principal)->name ?? '-',
+                'company' => optional($emp->company)->name ?? '-',
                 'target' => $targetHK,
                 'aktual' => $aktualHK,
                 'percentage' => $percentage,
@@ -158,7 +158,7 @@ class MandaysReport extends Page implements HasForms
             $exportData[] = [
                 $row['employee'],
                 $row['branch'],
-                $row['principal'],
+                $row['company'],
                 $row['target'],
                 $row['aktual'],
                 $row['percentage'],
