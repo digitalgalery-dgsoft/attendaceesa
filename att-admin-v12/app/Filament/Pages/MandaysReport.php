@@ -29,7 +29,7 @@ class MandaysReport extends Page implements HasForms
     protected static ?string $title = 'Mandays Report';
     protected static ?int $navigationSort = 3;
 
-    protected static string $view = 'filament.pages.mandays-report';
+    protected string $view = 'filament.pages.mandays-report';
 
     public ?string $month = null;
     public ?string $year = null;

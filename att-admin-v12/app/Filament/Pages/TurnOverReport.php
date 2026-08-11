@@ -26,7 +26,7 @@ class TurnOverReport extends Page implements HasForms
     protected static ?string $title = 'Turn Over Report';
     protected static ?int $navigationSort = 2;
 
-    protected static string $view = 'filament.pages.turn-over-report';
+    protected string $view = 'filament.pages.turn-over-report';
 
     public ?string $year = null;
     public ?string $company_id = null;

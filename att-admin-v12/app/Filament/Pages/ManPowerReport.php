@@ -27,7 +27,7 @@ class ManPowerReport extends Page implements HasForms
     protected static ?string $title = 'Man Power Report';
     protected static ?int $navigationSort = 1;
 
-    protected static string $view = 'filament.pages.man-power-report';
+    protected string $view = 'filament.pages.man-power-report';
 
     public ?string $year = null;
     public ?string $company_id = null;
