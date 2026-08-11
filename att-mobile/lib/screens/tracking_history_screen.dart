@@ -40,6 +40,8 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      // Radius filter dari pengaturan admin (default 5 meter)
+      final int minDistanceMeters = prefs.getInt('tracking_distance_meters') ?? 5;
 
       // Manual push current location if date is today and requested refresh
       if (refreshLocation && dateStr == DateFormat('yyyy-MM-dd').format(DateTime.now())) {
@@ -48,18 +50,39 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
             desiredAccuracy: LocationAccuracy.high,
             timeLimit: const Duration(seconds: 10),
           );
-          await http.post(
-            Uri.parse('${Constants.baseUrl}/tracking'),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Accept': 'application/json',
-            },
-            body: {
-              'latitude': position.latitude.toString(),
-              'longitude': position.longitude.toString(),
-              'timestamp': position.timestamp?.toIso8601String() ?? DateTime.now().toIso8601String(),
-            },
-          ).timeout(const Duration(seconds: 10));
+
+          // Cek apakah user sudah berpindah melebihi radius minimum dari titik terakhir
+          bool shouldSend = true;
+          if (_points.isNotEmpty) {
+            final lastPoint = _points.last;
+            final double distance = Geolocator.distanceBetween(
+              lastPoint['latitude'],
+              lastPoint['longitude'],
+              position.latitude,
+              position.longitude,
+            );
+            if (distance < minDistanceMeters) {
+              shouldSend = false;
+              debugPrint('[TrackingHistory] Refresh skipped: moved only ${distance.toStringAsFixed(1)}m (min: ${minDistanceMeters}m)');
+            } else {
+              debugPrint('[TrackingHistory] Refresh sending: moved ${distance.toStringAsFixed(1)}m (min: ${minDistanceMeters}m)');
+            }
+          }
+
+          if (shouldSend) {
+            await http.post(
+              Uri.parse('${Constants.baseUrl}/tracking'),
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Accept': 'application/json',
+              },
+              body: {
+                'latitude': position.latitude.toString(),
+                'longitude': position.longitude.toString(),
+                'timestamp': position.timestamp?.toIso8601String() ?? DateTime.now().toIso8601String(),
+              },
+            ).timeout(const Duration(seconds: 10));
+          }
         } catch (e) {
           debugPrint('Failed to refresh manual location: $e');
         }
