@@ -9,6 +9,7 @@ use Carbon\Carbon;
 
 class ManPowerChartWidget extends ChartWidget
 {
+    protected static bool $isDiscovered = false;
     protected ?string $heading = 'Tren Man Power per Bulan';
     
     public ?string $year = null;
@@ -18,10 +19,29 @@ class ManPowerChartWidget extends ChartWidget
     protected function getData(): array
     {
         $year = $this->year ?: date('Y');
+        $startOfYear = "{$year}-01-01";
+        $endOfYear = "{$year}-12-31";
         
         $companies = Company::when($this->company_id, function ($q) {
             return $q->where('id', $this->company_id);
         })->get();
+        
+        $companyIds = $companies->pluck('id')->toArray();
+
+        $employees = Employee::select('id', 'company_id', 'join_date', 'resign_date', 'employment_status')
+            ->whereIn('company_id', $companyIds)
+            ->when($this->branch_id, function ($q) {
+                return $q->where('branch_id', $this->branch_id);
+            })
+            ->where(function($q) use ($endOfYear) {
+                $q->whereNull('join_date')
+                  ->orWhere('join_date', '<=', $endOfYear);
+            })
+            ->where(function($q) use ($startOfYear) {
+                $q->whereNull('resign_date')
+                  ->orWhere('resign_date', '>=', $startOfYear);
+            })
+            ->get();
 
         $datasets = [];
         $months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -37,28 +57,21 @@ class ManPowerChartWidget extends ChartWidget
         foreach ($companies as $index => $company) {
             $monthlyData = [];
             
+            $companyEmployees = $employees->where('company_id', $company->id);
+            
             for ($month = 1; $month <= 12; $month++) {
-                $endOfMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth();
+                $endOfMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateString();
                 
-                $count = Employee::where('company_id', $company->id)
-                    ->when($this->branch_id, function ($q) {
-                        return $q->where('branch_id', $this->branch_id);
-                    })
-                    ->where(function ($q) use ($endOfMonth) {
-                        $q->whereNull('join_date')
-                          ->orWhere('join_date', '<=', $endOfMonth->toDateString());
-                    })
-                    ->where(function ($q) use ($endOfMonth) {
-                        $q->whereNull('resign_date')
-                          ->orWhere('resign_date', '>', $endOfMonth->toDateString());
-                    })
-                    ->where(function($q) use ($endOfMonth) {
-                         $q->where('employment_status', '!=', 'resigned')
-                           ->orWhere(function($sq) use ($endOfMonth) {
-                               $sq->where('employment_status', 'resigned')->whereNotNull('resign_date')->where('resign_date', '>', $endOfMonth->toDateString());
-                           });
-                    })
-                    ->count();
+                $count = 0;
+                foreach($companyEmployees as $emp) {
+                    $joinedBeforeEndOfMonth = is_null($emp->join_date) || $emp->join_date <= $endOfMonth;
+                    $resignedAfterEndOfMonth = is_null($emp->resign_date) || $emp->resign_date > $endOfMonth;
+                    $statusOk = $emp->employment_status !== 'resigned' || ($emp->employment_status === 'resigned' && !is_null($emp->resign_date) && $emp->resign_date > $endOfMonth);
+                    
+                    if ($joinedBeforeEndOfMonth && $resignedAfterEndOfMonth && $statusOk) {
+                        $count++;
+                    }
+                }
 
                 $monthlyData[] = $count;
             }

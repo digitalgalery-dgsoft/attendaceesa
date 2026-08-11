@@ -117,22 +117,26 @@ class MandaysReport extends Page implements HasForms
             })
             ->where('is_active', true)
             ->get();
+            
+        $employeeIds = $employees->pluck('id')->toArray();
+        
+        $targets = WorkTarget::whereIn('employee_id', $employeeIds)
+            ->where('month_year', $monthYear)
+            ->pluck('target_hk', 'employee_id');
+
+        $attendances = Attendance::select('employee_id', DB::raw('count(*) as total'))
+            ->whereIn('employee_id', $employeeIds)
+            ->whereYear('attendance_date', $year)
+            ->whereMonth('attendance_date', $month)
+            ->whereIn('status', ['present', 'late', 'permit'])
+            ->groupBy('employee_id')
+            ->pluck('total', 'employee_id');
 
         $data = [];
 
         foreach ($employees as $emp) {
-            $target = WorkTarget::where('employee_id', $emp->id)
-                ->where('month_year', $monthYear)
-                ->first();
-                
-            $targetHK = $target ? $target->target_hk : 0;
-
-            // Aktual HK termasuk present, late, permit
-            $aktualHK = Attendance::where('employee_id', $emp->id)
-                ->whereYear('attendance_date', $year)
-                ->whereMonth('attendance_date', $month)
-                ->whereIn('status', ['present', 'late', 'permit'])
-                ->count();
+            $targetHK = $targets[$emp->id] ?? 0;
+            $aktualHK = $attendances[$emp->id] ?? 0;
 
             $percentage = $targetHK > 0 ? round(($aktualHK / $targetHK) * 100, 2) : 0;
 

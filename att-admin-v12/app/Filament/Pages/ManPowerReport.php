@@ -88,10 +88,29 @@ class ManPowerReport extends Page implements HasForms
     public function getManPowerData(): array
     {
         $year = $this->year ?: date('Y');
+        $startOfYear = "{$year}-01-01";
+        $endOfYear = "{$year}-12-31";
         
         $companies = Company::when($this->company_id, function ($q) {
             return $q->where('id', $this->company_id);
         })->get();
+        
+        $companyIds = $companies->pluck('id')->toArray();
+
+        $employees = Employee::select('id', 'company_id', 'join_date', 'resign_date', 'employment_status')
+            ->whereIn('company_id', $companyIds)
+            ->when($this->branch_id, function ($q) {
+                return $q->where('branch_id', $this->branch_id);
+            })
+            ->where(function($q) use ($endOfYear) {
+                $q->whereNull('join_date')
+                  ->orWhere('join_date', '<=', $endOfYear);
+            })
+            ->where(function($q) use ($startOfYear) {
+                $q->whereNull('resign_date')
+                  ->orWhere('resign_date', '>=', $startOfYear);
+            })
+            ->get();
 
         $data = [];
 
@@ -99,38 +118,28 @@ class ManPowerReport extends Page implements HasForms
             $monthlyData = [];
             $totalActive = 0;
             
+            $companyEmployees = $employees->where('company_id', $company->id);
+            
             for ($month = 1; $month <= 12; $month++) {
-                $endOfMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth();
+                $endOfMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateString();
                 
-                // Count employees who joined on or before this month, and either haven't resigned or resigned AFTER this month
-                $count = Employee::where('company_id', $company->id)
-                    ->when($this->branch_id, function ($q) {
-                        return $q->where('branch_id', $this->branch_id);
-                    })
-                    ->where(function ($q) use ($endOfMonth) {
-                        $q->whereNull('join_date')
-                          ->orWhere('join_date', '<=', $endOfMonth->toDateString());
-                    })
-                    ->where(function ($q) use ($endOfMonth) {
-                        $q->whereNull('resign_date')
-                          ->orWhere('resign_date', '>', $endOfMonth->toDateString());
-                    })
-                    // Assuming people who have "resigned" status but no date might still need to be filtered? 
-                    // To be safe, if they have resign_date, we handle it. If not, and they are resigned, maybe they resigned long ago.
-                    ->where(function($q) use ($endOfMonth) {
-                         $q->where('employment_status', '!=', 'resigned')
-                           ->orWhere(function($sq) use ($endOfMonth) {
-                               $sq->where('employment_status', 'resigned')->whereNotNull('resign_date')->where('resign_date', '>', $endOfMonth->toDateString());
-                           });
-                    })
-                    ->count();
+                $count = 0;
+                foreach($companyEmployees as $emp) {
+                    $joinedBeforeEndOfMonth = is_null($emp->join_date) || $emp->join_date <= $endOfMonth;
+                    $resignedAfterEndOfMonth = is_null($emp->resign_date) || $emp->resign_date > $endOfMonth;
+                    $statusOk = $emp->employment_status !== 'resigned' || ($emp->employment_status === 'resigned' && !is_null($emp->resign_date) && $emp->resign_date > $endOfMonth);
+                    
+                    if ($joinedBeforeEndOfMonth && $resignedAfterEndOfMonth && $statusOk) {
+                        $count++;
+                    }
+                }
 
                 $monthlyData[] = $count;
                 $totalActive += $count;
             }
 
             $avg = round($totalActive / 12);
-            $monthlyData[] = $avg; // Add average as the last column
+            $monthlyData[] = $avg;
 
             $data[] = [
                 'company' => $company->name,
