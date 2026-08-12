@@ -4,7 +4,7 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 
 ---
 
-## 🔴 Tahap 1: Penyelarasan Antarmuka (UI Overhaul) & Vacant Status
+## ✅ Tahap 1: Penyelarasan Antarmuka (UI Overhaul) & Vacant Status (SELESAI)
 *Tahap ini berfokus menyelesaikan PR dari Fase 1 agar seluruh aplikasi mobile tampil seragam.*
 1. **Penyelarasan Desain UI Mobile**:
    - Mengubah style Halaman **Login**, **Check-in/out**, **Itinerary**, **Permit**, **Tracking History**, dan **Profile** agar desainnya se-modern Dashboard baru (penggunaan Card, border-radius, font dinamis sesuai `appColor`).
@@ -49,3 +49,25 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
   - Melakukan perombakan total pada query Database menggunakan pendekatan Array Mapping/In-Memory Calculation untuk mengatasi beban lambat (N+1 queries) di ketiga laporan. 
   - Memperbaiki Error 500 di Dashboard utama akibat bentrok Widget (*isDiscovered* = false).
   - Merapikan gaya desain (CSS/Padding) tabel khusus untuk *custom views* pada Filament sehingga lebih profesional dan rapi saat dieksekusi browser.
+
+---
+
+## 🔴 Tahap Khusus: Peningkatan Infrastruktur (Skala 20.000 Pengguna)
+*Tahap ini memastikan aplikasi tidak down saat menerima beban ribuan request absensi di jam sibuk.*
+1. **Instalasi Laravel Octane**: 
+   - Mengubah engine server dari standar ke Octane (Swoole / FrankenPHP) untuk performa tinggi.
+2. **Penerapan Redis**:
+   - Mengalihkan Session, Cache, dan Queue agar menggunakan Redis, bukan File lokal.
+3. **Penyimpanan Cloud (S3)**:
+   - Integrasi sistem penyimpanan (AWS S3 / GCS / DigitalOcean Spaces) agar foto absensi tidak membebani server aplikasi.
+
+---
+
+## 🔴 Tahap 5: Face Recognition & Realtime Notification (FCM)
+*Tahap ini berfokus pada peningkatan akurasi absensi dan penyampaian informasi real-time.*
+1. **Face Recognition**:
+   - Integrasi sistem deteksi dan pengenalan wajah pada saat Check-in / Check-out.
+   - Pendaftaran wajah karyawan via admin atau aplikasi (enrollment).
+2. **Realtime Notifications (Firebase Cloud Messaging / FCM)**:
+   - Integrasi FCM pada aplikasi mobile (Flutter) untuk menerima notifikasi.
+   - Penyesuaian backend (Laravel) untuk mengirim push notification (blast, alert absensi, approval).

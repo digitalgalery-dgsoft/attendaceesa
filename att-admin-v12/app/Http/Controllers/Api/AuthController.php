@@ -17,7 +17,11 @@ class AuthController extends Controller
             'device_name' => 'nullable|string',
         ]);
 
-        $employee = Employee::where('email', $request->email)
+        $loginId = $request->email;
+        $employee = Employee::where(function($query) use ($loginId) {
+                $query->where('email', $loginId)
+                      ->orWhere('employee_no', $loginId);
+            })
             ->where('is_active', true)
             ->with(['company', 'branch', 'department', 'position'])
             ->first();

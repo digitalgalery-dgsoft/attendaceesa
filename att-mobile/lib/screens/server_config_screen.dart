@@ -98,7 +98,19 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.canPop(context);
+
     return Scaffold(
+      appBar: canPop 
+        ? AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ) 
+        : null,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

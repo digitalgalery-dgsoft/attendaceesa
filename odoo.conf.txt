@@ -1,0 +1,25 @@
+[options]
+admin_passwd = perJ4lanaN@123
+db_host = 127.0.0.1
+db_port = 5432
+db_user = odoo_atk
+db_password = perJ4lanaN@123
+addons_path = /opt/odoo/server/odoo/addons,/opt/odoo/server/enterprise,/opt/odoo/odoo14_atk/customs
+log_level = info
+logfile = /opt/odoo/odoo14_atk/logs/odoo14_atk.log
+http_port = 8093
+longpolling_port = 8014
+xmlrpc_port = 8093
+db_name = odoo_atk
+data_dir = /mnt/odoo_nes/odoo_data
+
+workers = 20
+max_cron_threads = 2
+limit_memory_hard = 30000000000
+limit_memory_soft = 28318382080
+limit_request = 8192
+limit_time_cpu = 1200
+limit_time_real = 2400
+
+db_maxconn = 128
+proxy_mode = True

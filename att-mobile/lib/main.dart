@@ -19,9 +19,17 @@ import 'package:att_mobile/services/location_service.dart';
 import 'package:toastification/toastification.dart';
 import 'package:safe_device/safe_device.dart';
 import 'package:att_mobile/screens/security_warning_screen.dart';
+import 'package:att_mobile/screens/splash_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Firebase init error: $e');
+  }
   await Constants.loadBaseUrl();
   await LocationService.initializeService();
   
@@ -155,7 +163,7 @@ class AuthWrapper extends StatefulWidget {
   State<AuthWrapper> createState() => _AuthWrapperState();
 }
 
-class _AuthWrapperState extends State<AuthWrapper> {
+class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   late Future<bool> _initFuture;
   bool _isSecure = true;
   String _securityMessage = '';
@@ -163,10 +171,29 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initFuture = _initialize();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (Constants.baseUrl.isNotEmpty) {
+        importUpdateManagerAndCheck(context);
+      }
+    }
+  }
+
   Future<bool> _initialize() async {
+    // 0. Artificial Delay for Splash Screen (2 seconds)
+    await Future.delayed(const Duration(seconds: 2));
+
     // 1. Security Checks
     try {
       bool isDevMode = await SafeDevice.isDevelopmentModeEnable;
@@ -210,11 +237,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       future: _initFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
+          return const SplashScreen();
         }
 
         if (!_isSecure) {

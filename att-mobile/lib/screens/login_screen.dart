@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/screens/main_screen.dart';
+import 'package:att_mobile/screens/server_config_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -118,15 +119,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  TextFormField(
-                    controller: _emailController,
-                    validator: (value) => value!.isEmpty ? 'Email is required' : null,
-                    style: TextStyle(color: textColor),
-                    decoration: inputDecoration.copyWith(
-                      labelText: 'Email / NIP',
-                      prefixIcon: Icon(Icons.person_outline, color: subtitleColor),
+                    TextFormField(
+                      controller: _emailController,
+                      validator: (value) => value!.isEmpty ? 'Email or NIK is required' : null,
+                      style: TextStyle(color: textColor),
+                      decoration: inputDecoration.copyWith(
+                        labelText: 'Email / NIK',
+                        prefixIcon: Icon(Icons.person_outline, color: subtitleColor),
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passwordController,
@@ -168,6 +169,22 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       );
                     },
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ServerConfigScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.settings_ethernet, size: 18),
+                    label: const Text('Ganti URL Server'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: subtitleColor,
+                    ),
                   ),
                 ],
               ),
