@@ -271,12 +271,12 @@ class EmployeeScheduleRoster extends Page implements HasForms
                     ->label('Shift')
                     ->options(Shift::where('is_active', 1)->pluck('name', 'id'))
                     ->searchable()
-                    ->required(fn (\Filament\Forms\Get $get) => $get('schedule_type') === 'workday'),
+                    ->required(fn ($get) => $get('schedule_type') === 'workday'),
                 \Filament\Forms\Components\Select::make('work_location_id')
                     ->label('Work Location')
                     ->options(WorkLocation::pluck('name', 'id'))
                     ->searchable()
-                    ->required(fn (\Filament\Forms\Get $get) => $get('schedule_type') === 'workday'),
+                    ->required(fn ($get) => $get('schedule_type') === 'workday'),
             ])
             ->fillForm(function (array $arguments): array {
                 $schedule = EmployeeSchedule::where('employee_id', $arguments['employee_id'])
