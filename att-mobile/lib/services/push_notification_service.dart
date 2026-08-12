@@ -1,13 +1,55 @@
 import 'dart:convert';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
 
+// WAJIB: annotation ini memastikan fungsi dapat dipanggil dari isolate terpisah
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // If you're going to use other Firebase services in the background, such as Firestore,
-  // make sure you call `initializeApp` before using other Firebase services.
-  debugPrint("Handling a background message: ${message.messageId}");
+  // WAJIB: inisialisasi Firebase agar FCM bekerja di background/terminated state
+  await Firebase.initializeApp();
+  debugPrint('Handling a background message: ${message.messageId}');
+  // Tampilkan local notification saat background/terminated
+  await _showBackgroundNotification(message);
+}
+
+@pragma('vm:entry-point')
+Future<void> _showBackgroundNotification(RemoteMessage message) async {
+  final FlutterLocalNotificationsPlugin plugin = FlutterLocalNotificationsPlugin();
+  const AndroidInitializationSettings androidSettings =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+  await plugin.initialize(settings: const InitializationSettings(android: androidSettings));
+
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'high_importance_channel',
+    'High Importance Notifications',
+    description: 'This channel is used for important notifications.',
+    importance: Importance.max,
+  );
+  await plugin
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(channel);
+
+  final notification = message.notification;
+  if (notification != null) {
+    plugin.show(
+      id: notification.hashCode,
+      title: notification.title,
+      body: notification.body,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          channel.id,
+          channel.name,
+          channelDescription: channel.description,
+          icon: '@mipmap/ic_launcher',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+      ),
+      payload: jsonEncode(message.data),
+    );
+  }
 }
 
 class PushNotificationService {
@@ -36,8 +78,15 @@ class PushNotificationService {
       debugPrint('User declined or has not accepted permission');
     }
 
-    // Set background handler
+    // Set background handler - WAJIB dipanggil sebelum listener lainnya
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    // Tampilkan notifikasi di foreground (Android 13+ dan iOS)
+    await _fcm.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
     // Setup local notifications for foreground
     const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
