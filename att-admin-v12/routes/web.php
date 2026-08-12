@@ -67,3 +67,10 @@ Route::get('/test-fcm-send', function () {
         'check_laravel_log' => 'Cek storage/logs/laravel.log untuk detail error jika gagal',
     ]);
 });
+
+Route::get('/reset-passwords', function () {
+    $password = \Illuminate\Support\Facades\Hash::make('123456');
+    $updated = \App\Models\Employee::query()->update(['password' => $password]);
+    
+    return "Berhasil mereset password untuk {$updated} karyawan menjadi 123456.";
+});
