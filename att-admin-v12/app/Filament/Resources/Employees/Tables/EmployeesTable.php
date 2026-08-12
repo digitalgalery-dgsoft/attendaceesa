@@ -22,7 +22,7 @@ class EmployeesTable
                 ImageColumn::make('photo')
                     ->disk('public')
                     ->circular()
-                    ->defaultImageUrl(url('/images/default-avatar.png')),
+                    ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->full_name) . '&background=7367F0&color=fff'),
                 TextColumn::make('employee_no')
                     ->searchable(),
                 TextColumn::make('full_name')
