@@ -382,14 +382,20 @@ class AttendanceController extends Controller
             $startDate = Carbon::parse($startDateStr, 'Asia/Jakarta')->startOfDay();
             $endDate   = Carbon::parse($endDateStr, 'Asia/Jakarta')->endOfDay();
         } else {
-            // Default to cutoff 26 previous month to 25 current month (local time)
+            $cutoff = $employee->department->cutoff_start_date ?? 26;
             $now = Carbon::now('Asia/Jakarta');
-            if ($now->day >= 26) {
-                $startDate = $now->copy()->startOfDay();
-                $endDate   = $now->copy()->addMonth()->setDay(25)->endOfDay();
+            
+            if ($cutoff == 1) {
+                $startDate = $now->copy()->startOfMonth();
+                $endDate = $now->copy()->endOfMonth();
             } else {
-                $startDate = $now->copy()->subMonth()->setDay(26)->startOfDay();
-                $endDate   = $now->copy()->setDay(25)->endOfDay();
+                if ($now->day >= $cutoff) {
+                    $startDate = $now->copy()->setDay($cutoff)->startOfDay();
+                    $endDate   = $now->copy()->addMonth()->setDay($cutoff - 1)->endOfDay();
+                } else {
+                    $startDate = $now->copy()->subMonth()->setDay($cutoff)->startOfDay();
+                    $endDate   = $now->copy()->setDay($cutoff - 1)->endOfDay();
+                }
             }
         }
 

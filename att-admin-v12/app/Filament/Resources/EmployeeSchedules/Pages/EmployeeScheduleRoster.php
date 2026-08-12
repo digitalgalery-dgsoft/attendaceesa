@@ -251,4 +251,82 @@ class EmployeeScheduleRoster extends Page implements HasForms
             'startDate' => $startDate,
         ];
     }
+
+    public function editScheduleAction(): Action
+    {
+        return Action::make('editSchedule')
+            ->hiddenLabel()
+            ->modalHeading('Edit Employee Schedule')
+            ->form([
+                \Filament\Forms\Components\Hidden::make('employee_id'),
+                \Filament\Forms\Components\Hidden::make('schedule_date'),
+                \Filament\Forms\Components\Select::make('schedule_type')
+                    ->options([
+                        'workday' => 'Workday',
+                        'dayoff' => 'Dayoff',
+                    ])
+                    ->required()
+                    ->live(),
+                \Filament\Forms\Components\Select::make('shift_id')
+                    ->label('Shift')
+                    ->options(Shift::where('is_active', 1)->pluck('name', 'id'))
+                    ->searchable()
+                    ->required(fn (\Filament\Forms\Get $get) => $get('schedule_type') === 'workday'),
+                \Filament\Forms\Components\Select::make('work_location_id')
+                    ->label('Work Location')
+                    ->options(WorkLocation::pluck('name', 'id'))
+                    ->searchable()
+                    ->required(fn (\Filament\Forms\Get $get) => $get('schedule_type') === 'workday'),
+            ])
+            ->fillForm(function (array $arguments): array {
+                $schedule = EmployeeSchedule::where('employee_id', $arguments['employee_id'])
+                    ->where('schedule_date', $arguments['schedule_date'])
+                    ->first();
+                return [
+                    'employee_id' => $arguments['employee_id'],
+                    'schedule_date' => $arguments['schedule_date'],
+                    'schedule_type' => $schedule ? $schedule->schedule_type : 'dayoff',
+                    'shift_id' => $schedule ? $schedule->shift_id : null,
+                    'work_location_id' => $schedule ? $schedule->work_location_id : null,
+                ];
+            })
+            ->action(function (array $data): void {
+                $schedule = EmployeeSchedule::firstOrNew([
+                    'employee_id' => $data['employee_id'],
+                    'schedule_date' => $data['schedule_date'],
+                ]);
+
+                $schedule->schedule_type = $data['schedule_type'];
+                $schedule->shift_id = $data['shift_id'] ?: null;
+                $schedule->work_location_id = $data['work_location_id'] ?: null;
+
+                if ($data['schedule_type'] === 'workday' && $data['shift_id']) {
+                    $shift = Shift::find($data['shift_id']);
+                    if ($shift && $shift->start_time && $shift->end_time) {
+                        $plannedStart = Carbon::parse($data['schedule_date'] . ' ' . $shift->start_time);
+                        $plannedEnd = Carbon::parse($data['schedule_date'] . ' ' . $shift->end_time);
+
+                        if ($shift->is_cross_day ?? false) {
+                            $plannedEnd->addDay();
+                        } elseif ($plannedEnd->lt($plannedStart)) {
+                            $plannedEnd->addDay();
+                        }
+
+                        $schedule->planned_start_at = $plannedStart;
+                        $schedule->planned_end_at = $plannedEnd;
+                    }
+                } else {
+                    $schedule->planned_start_at = null;
+                    $schedule->planned_end_at = null;
+                }
+
+                $schedule->created_by = Auth::id();
+                $schedule->save();
+
+                Notification::make()
+                    ->title('Schedule updated')
+                    ->success()
+                    ->send();
+            });
+    }
 }

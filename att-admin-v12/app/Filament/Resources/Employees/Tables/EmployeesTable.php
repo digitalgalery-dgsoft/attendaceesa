@@ -22,6 +22,12 @@ class EmployeesTable
                 ImageColumn::make('photo')
                     ->disk('public')
                     ->circular()
+                    ->getStateUsing(function ($record) {
+                        if ($record->photo && \Illuminate\Support\Facades\Storage::disk('public')->exists($record->photo)) {
+                            return $record->photo;
+                        }
+                        return null;
+                    })
                     ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->full_name) . '&background=7367F0&color=fff'),
                 TextColumn::make('employee_no')
                     ->searchable(),

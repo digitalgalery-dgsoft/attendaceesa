@@ -36,15 +36,22 @@ class EmployeeScheduleObserver
 
         $date = Carbon::parse($schedule->schedule_date);
         
-        // Define Cutoff: 26 prev month - 25 current month
-        if ($date->day >= 26) {
-            $monthYear = $date->copy()->addMonth()->format('Y-m');
-            $start = $date->copy()->startOfMonth()->setDay(26);
-            $end = $date->copy()->addMonth()->startOfMonth()->setDay(25);
-        } else {
+        $cutoff = $schedule->employee->department->cutoff_start_date ?? 26;
+
+        if ($cutoff == 1) {
             $monthYear = $date->format('Y-m');
-            $start = $date->copy()->subMonth()->startOfMonth()->setDay(26);
-            $end = $date->copy()->startOfMonth()->setDay(25);
+            $start = $date->copy()->startOfMonth();
+            $end = $date->copy()->endOfMonth();
+        } else {
+            if ($date->day >= $cutoff) {
+                $monthYear = $date->copy()->addMonth()->format('Y-m');
+                $start = $date->copy()->setDay($cutoff)->startOfDay();
+                $end = $date->copy()->addMonth()->setDay($cutoff - 1)->endOfDay();
+            } else {
+                $monthYear = $date->format('Y-m');
+                $start = $date->copy()->subMonth()->setDay($cutoff)->startOfDay();
+                $end = $date->copy()->setDay($cutoff - 1)->endOfDay();
+            }
         }
 
         // Count workday in this period for the employee

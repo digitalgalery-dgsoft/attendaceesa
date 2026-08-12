@@ -34,6 +34,13 @@ class DepartmentForm
                 Toggle::make('has_sales_reporting')
                     ->label('Enable Sales Reporting Module')
                     ->default(false),
+                TextInput::make('cutoff_start_date')
+                    ->label('Tanggal Mulai Cut Off (Misal: 1, 21, atau 26)')
+                    ->numeric()
+                    ->default(26)
+                    ->minValue(1)
+                    ->maxValue(31)
+                    ->required(),
                 CheckboxList::make('working_days')
                     ->options([
                         '1' => 'Monday',

@@ -17,6 +17,7 @@ class Department extends Model
         'is_active',
         'working_days',
         'has_sales_reporting',
+        'cutoff_start_date',
     ];
 
     protected $casts = [

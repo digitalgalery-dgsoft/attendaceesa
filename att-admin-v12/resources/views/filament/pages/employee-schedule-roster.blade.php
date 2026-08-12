@@ -36,7 +36,7 @@
                                 $dateStr = $startDate->copy()->addDays($d - 1)->toDateString();
                                 $schedule = $schedules->get($employee->id)?->firstWhere('schedule_date', $dateStr);
                             @endphp
-                            <td class="px-4 py-4 sm:px-6 align-top" style="min-width: 140px; white-space: nowrap;">
+                            <td wire:click="mountAction('editSchedule', { employee_id: {{ $employee->id }}, schedule_date: '{{ $dateStr }}' })" class="px-4 py-4 sm:px-6 align-top cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition" style="min-width: 140px; white-space: nowrap;">
                                 @if ($schedule && $schedule->schedule_type == 'workday')
                                     <div class="text-emerald-600 dark:text-emerald-400 font-medium mb-1">Planned</div>
                                     <div class="text-gray-950 dark:text-white text-sm">
@@ -56,4 +56,6 @@
             </tbody>
         </table>
     </div>
+    
+    <x-filament-actions::modals />
 </x-filament-panels::page>
