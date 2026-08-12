@@ -28,9 +28,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'cd /www/wwwroot/appsend.my.id && git sparse-checkout set att-admin-v12',
         'cd /www/wwwroot/appsend.my.id && git fetch origin main',
         'cd /www/wwwroot/appsend.my.id && git reset --hard origin/main',
-        'cd /www/wwwroot/appsend.my.id && git clean -fd',
         'cd /www/wwwroot/appsend.my.id && git pull origin main',
         'cp -a /www/wwwroot/appsend.my.id/att-admin-v12/. /www/wwwroot/appsend.my.id/',
+        '/www/server/php/83/bin/php /usr/bin/composer install --working-dir=/www/wwwroot/appsend.my.id --no-dev --optimize-autoloader',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan migrate --force',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan optimize:clear',
     ];
