@@ -22,11 +22,13 @@ import 'package:att_mobile/screens/security_warning_screen.dart';
 import 'package:att_mobile/screens/splash_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:att_mobile/services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await Firebase.initializeApp();
+    await PushNotificationService().initialize();
   } catch (e) {
     debugPrint('Firebase init error: $e');
   }

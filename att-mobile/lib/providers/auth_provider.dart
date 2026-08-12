@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import '../utils/constants.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import '../services/push_notification_service.dart';
 
 class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
@@ -113,6 +114,9 @@ class AuthProvider with ChangeNotifier {
     final deviceInfo = await _getDeviceInfo();
 
     try {
+      final pushService = PushNotificationService();
+      final fcmToken = await pushService.getToken();
+
       final response = await http.post(
         Uri.parse('${Constants.baseUrl}/login'),
         body: {
@@ -120,6 +124,7 @@ class AuthProvider with ChangeNotifier {
           'password': password,
           if (deviceInfo['id'] != null) 'device_id': deviceInfo['id']!,
           if (deviceInfo['name'] != null) 'device_name': deviceInfo['name']!,
+          if (fcmToken != null) 'fcm_token': fcmToken,
         },
         headers: {
           'Accept': 'application/json',
