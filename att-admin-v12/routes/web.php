@@ -30,7 +30,7 @@ Route::get('/migrate-now', function () {
 Route::get('/debug-fcm', function () {
     $employees = \App\Models\Employee::whereNotNull('fcm_token')
         ->where('is_active', true)
-        ->select('id', 'name', 'email', 'fcm_token')
+        ->select('id', 'full_name', 'email', 'fcm_token')
         ->get();
 
     $credPath = storage_path('app/firebase-auth.json');
@@ -41,7 +41,7 @@ Route::get('/debug-fcm', function () {
         'credential_path' => $credPath,
         'employees_with_token_count' => $employees->count(),
         'employees' => $employees->map(fn($e) => [
-            'name' => $e->name,
+            'full_name' => $e->full_name,
             'email' => $e->email,
             'fcm_token_preview' => substr($e->fcm_token, 0, 30) . '...',
         ]),
