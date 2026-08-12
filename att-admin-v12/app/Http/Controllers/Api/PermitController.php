@@ -141,6 +141,22 @@ class PermitController extends Controller
                 ->sendToDatabase($user);
         }
 
+        // 3. Send Push Notification via Firebase
+        $userIds = $notifiableUsers->pluck('id')->toArray();
+        $fcmTokens = \App\Models\Employee::whereIn('user_id', $userIds)
+                        ->whereNotNull('fcm_token')
+                        ->pluck('fcm_token')
+                        ->toArray();
+        
+        if (!empty($fcmTokens)) {
+            $firebase = new \App\Services\FirebaseService();
+            $firebase->sendNotification(
+                $fcmTokens,
+                'Pengajuan Permit Baru',
+                "{$employee->full_name} telah mengajukan permit baru (" . ucwords(str_replace('_', ' ', $permit->type)) . ")."
+            );
+        }
+
         return response()->json([
             'status' => 'success',
             'message' => 'Pengajuan izin berhasil dikirim.',

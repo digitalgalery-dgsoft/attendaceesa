@@ -19,6 +19,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \App\Models\LeaveRequest::observe(\App\Observers\LeaveRequestObserver::class);
+
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
                 $setting = \App\Models\Setting::first();

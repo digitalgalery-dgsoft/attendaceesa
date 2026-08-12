@@ -15,6 +15,7 @@ class AuthController extends Controller
             'password' => 'required|string',
             'device_id' => 'nullable|string',
             'device_name' => 'nullable|string',
+            'fcm_token' => 'nullable|string',
         ]);
 
         $loginId = $request->email;
@@ -44,6 +45,11 @@ class AuthController extends Controller
                     'message' => 'Akun ini sudah ditautkan dengan perangkat lain. Silakan hubungi admin untuk melakukan Reset Device.'
                 ], 401);
             }
+        }
+
+        if ($request->filled('fcm_token')) {
+            $employee->fcm_token = $request->fcm_token;
+            $employee->save();
         }
 
         // Hapus token lama jika ada (opsional)

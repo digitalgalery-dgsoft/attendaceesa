@@ -152,10 +152,20 @@ class ManageSettings extends Page implements HasForms
         $data = $this->form->getState();
 
         $setting = Setting::first();
+        $oldVersion = $setting ? $setting->mobile_app_version : null;
+
         if ($setting) {
             $setting->update($data);
         } else {
-            Setting::create($data);
+            $setting = Setting::create($data);
+        }
+
+        if ($oldVersion !== $setting->mobile_app_version && !empty($setting->mobile_app_version)) {
+            $tokens = \App\Models\Employee::whereNotNull('fcm_token')->where('is_active', true)->pluck('fcm_token')->toArray();
+            if (!empty($tokens)) {
+                $firebase = new \App\Services\FirebaseService();
+                $firebase->sendNotification($tokens, 'Update Aplikasi Tersedia', "Versi {$setting->mobile_app_version} telah dirilis. Silakan update aplikasi Anda.");
+            }
         }
 
         Notification::make()
