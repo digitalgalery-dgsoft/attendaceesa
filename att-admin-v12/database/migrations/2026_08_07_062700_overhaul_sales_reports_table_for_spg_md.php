@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('sales_reports', function (Blueprint $table) {
             // Hapus kolom B2B yang lama
-            $table->dropColumn(['client_name', 'client_company', 'revenue', 'pipeline_stage']);
+            $table->dropColumn(['client_name', 'client_company', 'revenue']);
             
             // Tambahkan kolom baru untuk Store/Retail (SPG/MD)
             $table->string('store_name')->after('report_date')->nullable()->comment('Nama Toko/Outlet');
@@ -48,7 +48,6 @@ return new class extends Migration
             $table->string('client_name')->nullable();
             $table->string('client_company')->nullable();
             $table->decimal('revenue', 15, 2)->nullable();
-            $table->string('pipeline_stage')->nullable();
         });
     }
 };

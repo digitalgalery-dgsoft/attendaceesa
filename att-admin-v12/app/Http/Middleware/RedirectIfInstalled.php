@@ -15,9 +15,6 @@ class RedirectIfInstalled
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (config('app.env') === 'local') {
-            return $next($request);
-        }
 
         if (file_exists(storage_path('app/.installed'))) {
             return redirect('/admin');

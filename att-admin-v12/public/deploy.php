@@ -24,15 +24,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Kirim padding untuk memaksa browser/server me-render buffer pertama
     echo str_repeat(' ', 1024) . "\n";
     $commands = [
-        'cd /home/wabotbiz/dgsoft.web.id && git sparse-checkout init --cone',
-        'cd /home/wabotbiz/dgsoft.web.id && git sparse-checkout set att-admin-v12',
-        'cd /home/wabotbiz/dgsoft.web.id && git fetch origin main',
-        'cd /home/wabotbiz/dgsoft.web.id && git reset --hard origin/main',
-        'cd /home/wabotbiz/dgsoft.web.id && git clean -fd',
-        'cd /home/wabotbiz/dgsoft.web.id && git pull origin main',
-        'cp -a /home/wabotbiz/dgsoft.web.id/att-admin-v12/. /home/wabotbiz/dgsoft.web.id/',
-        '/opt/cpanel/ea-php83/root/usr/bin/php /home/wabotbiz/dgsoft.web.id/artisan migrate --force',
-        '/opt/cpanel/ea-php83/root/usr/bin/php /home/wabotbiz/dgsoft.web.id/artisan optimize:clear',
+        'cd /www/wwwroot/appsend.my.id && git sparse-checkout init --cone',
+        'cd /www/wwwroot/appsend.my.id && git sparse-checkout set att-admin-v12',
+        'cd /www/wwwroot/appsend.my.id && git fetch origin main',
+        'cd /www/wwwroot/appsend.my.id && git reset --hard origin/main',
+        'cd /www/wwwroot/appsend.my.id && git clean -fd',
+        'cd /www/wwwroot/appsend.my.id && git pull origin main',
+        'cp -a /www/wwwroot/appsend.my.id/att-admin-v12/. /www/wwwroot/appsend.my.id/',
+        '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan migrate --force',
+        '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan optimize:clear',
     ];
 
     foreach($commands as $cmd){

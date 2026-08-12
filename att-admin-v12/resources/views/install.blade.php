@@ -95,9 +95,16 @@
                             <span class="bg-indigo-100 text-indigo-600 p-2 rounded-lg mr-3">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
                             </span>
-                            Koneksi Database MySQL
+                            Koneksi Database
                         </h2>
                         <div class="space-y-5">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Tipe Database (Driver)</label>
+                                <select name="db_connection" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-3 bg-gray-50 focus:bg-white" required>
+                                    <option value="pgsql" {{ old('db_connection', 'pgsql') == 'pgsql' ? 'selected' : '' }}>PostgreSQL (Disarankan)</option>
+                                    <option value="mysql" {{ old('db_connection') == 'mysql' ? 'selected' : '' }}>MySQL / MariaDB</option>
+                                </select>
+                            </div>
                             <div class="grid grid-cols-2 gap-5">
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-1">DB Host</label>

@@ -27,12 +27,14 @@ class InstallController extends Controller
             'db_password' => 'nullable',
             'admin_email' => 'required|email',
             'admin_password' => 'required|min:6',
+            'db_connection' => 'required|in:mysql,pgsql',
         ]);
 
         try {
             // Update .env
             $this->updateEnv([
                 'APP_URL' => $request->app_url,
+                'DB_CONNECTION' => $request->db_connection,
                 'DB_HOST' => $request->db_host,
                 'DB_PORT' => $request->db_port,
                 'DB_DATABASE' => $request->db_name,
@@ -40,24 +42,30 @@ class InstallController extends Controller
                 'DB_PASSWORD' => $request->db_password ?? '',
             ]);
 
-            // Clear config cache so the new .env is loaded in the current request (sometimes requires full reload, but let's try)
+            // Clear config cache so the new .env is loaded in the current request
             Artisan::call('config:clear');
 
-            // Force reconnect to the new database
+            $dbConn = $request->db_connection;
+
+            // Force reconnect to the new database configuration
             config([
-                'database.connections.mysql.host' => $request->db_host,
-                'database.connections.mysql.port' => $request->db_port,
-                'database.connections.mysql.database' => $request->db_name,
-                'database.connections.mysql.username' => $request->db_user,
-                'database.connections.mysql.password' => $request->db_password ?? '',
+                "database.connections.{$dbConn}.host" => $request->db_host,
+                "database.connections.{$dbConn}.port" => $request->db_port,
+                "database.connections.{$dbConn}.database" => $request->db_name,
+                "database.connections.{$dbConn}.username" => $request->db_user,
+                "database.connections.{$dbConn}.password" => $request->db_password ?? '',
             ]);
             
-            DB::purge('mysql');
-            DB::reconnect('mysql');
+            DB::purge($dbConn);
+            config(['database.default' => $dbConn]);
+            
+            // Test Connection
+            DB::connection($dbConn)->getPdo();
             
             // Run migrations
             Artisan::call('migrate:fresh', [
                 '--force' => true,
+                '--database' => $dbConn,
             ]);
 
             // Run only PermissionsSeeder

@@ -32,6 +32,7 @@ class EmployeeForm
                             ->password()
                             ->required()
                             ->maxLength(255)
+                            ->default('123456')
                             ->dehydrateStateUsing(fn ($state) => \Illuminate\Support\Facades\Hash::make($state)),
                     ]),
                 Select::make('company_id')
