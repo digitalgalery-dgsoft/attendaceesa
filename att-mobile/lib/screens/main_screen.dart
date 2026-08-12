@@ -7,6 +7,7 @@ import 'package:att_mobile/screens/sales_report_screen.dart';
 
 import 'package:provider/provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'package:att_mobile/providers/blast_info_provider.dart';
 
@@ -25,6 +26,14 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkBlastInfo();
+    });
+
+    // Listen to foreground notifications to trigger Blast Info popup in realtime
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      if (mounted) {
+        // Automatically check for new blast infos when a notification arrives
+        _checkBlastInfo();
+      }
     });
   }
 
