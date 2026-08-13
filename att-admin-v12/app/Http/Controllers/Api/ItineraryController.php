@@ -47,7 +47,6 @@ class ItineraryController extends Controller
         $employee = $request->user();
         
         $locations = WorkLocation::with('branch')
-            ->where('company_id', $employee->company_id ?? 1)
             ->where('is_active', true)
             ->orderBy('name')
             ->get()
