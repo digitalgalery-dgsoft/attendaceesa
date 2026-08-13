@@ -345,105 +345,112 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
           ? Center(child: CircularProgressIndicator(color: primaryColor))
           : Stack(
               children: [
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: _currentPosition != null 
-                        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
-                        : const LatLng(-6.200000, 106.816666), // Jakarta fallback
-                    initialZoom: 16.0,
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.att_mobile',
-                    ),
-                    if (_currentPosition != null)
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-                            width: 80,
-                            height: 80,
-                            child: const Icon(Icons.location_on, color: Colors.red, size: 40),
-                          ),
-                          ...attProvider.workLocations.map((loc) {
-                            final lat = double.tryParse(loc['latitude'].toString()) ?? 0;
-                            final lng = double.tryParse(loc['longitude'].toString()) ?? 0;
-                            return Marker(
-                              point: LatLng(lat, lng),
-                              width: 40,
-                              height: 40,
-                              child: const Icon(Icons.store, color: Colors.blue, size: 30),
-                            );
-                          }),
-                        ],
-                      ),
-                  ],
-                ),
-                if (_currentPosition != null)
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: cardColor,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
+                Expanded(
+                  child: Stack(
+                    children: [
+                      FlutterMap(
+                        mapController: _mapController,
+                        options: MapOptions(
+                          initialCenter: _currentPosition != null 
+                              ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+                              : const LatLng(-6.200000, 106.816666), // Jakarta fallback
+                          initialZoom: 16.0,
+                        ),
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: primaryColor.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
+                          TileLayer(
+                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.example.att_mobile',
+                          ),
+                          if (_currentPosition != null)
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                                  width: 80,
+                                  height: 80,
+                                  child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                                ),
+                                ...attProvider.workLocations.map((loc) {
+                                  final lat = double.tryParse(loc['latitude'].toString()) ?? 0;
+                                  final lng = double.tryParse(loc['longitude'].toString()) ?? 0;
+                                  return Marker(
+                                    point: LatLng(lat, lng),
+                                    width: 40,
+                                    height: 40,
+                                    child: const Icon(Icons.store, color: Colors.blue, size: 30),
+                                  );
+                                }),
+                              ],
                             ),
-                            child: Icon(Icons.my_location, color: primaryColor, size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Lokasi Anda', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
-                              Text('Akurasi: ±${_currentPosition!.accuracy.toStringAsFixed(0)} m', style: TextStyle(color: isDarkMode ? Colors.green.shade400 : Colors.green, fontSize: 12)),
-                            ],
-                          ),
                         ],
                       ),
-                    ),
-                  ),
-                Positioned(
-                  top: 16,
-                  right: 16,
-                  child: FloatingActionButton(
-                    heroTag: 'recenter',
-                    mini: true,
-                    backgroundColor: cardColor,
-                    elevation: 1,
-                    child: Icon(Icons.my_location, color: textColor),
-                    onPressed: () {
-                      if (_currentPosition != null) {
-                        _mapController.move(LatLng(_currentPosition!.latitude, _currentPosition!.longitude), 16.0);
-                      }
-                    },
+                      if (_currentPosition != null)
+                        Positioned(
+                          top: 16,
+                          left: 16,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: cardColor,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: primaryColor.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.my_location, color: primaryColor, size: 20),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Lokasi Anda', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
+                                    Text('Akurasi: ±${_currentPosition!.accuracy.toStringAsFixed(0)} m', style: TextStyle(color: isDarkMode ? Colors.green.shade400 : Colors.green, fontSize: 12)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      Positioned(
+                        top: 16,
+                        right: 16,
+                        child: FloatingActionButton(
+                          heroTag: 'recenter',
+                          mini: true,
+                          backgroundColor: cardColor,
+                          elevation: 1,
+                          child: Icon(Icons.my_location, color: textColor),
+                          onPressed: () {
+                            if (_currentPosition != null) {
+                              _mapController.move(LatLng(_currentPosition!.latitude, _currentPosition!.longitude), 16.0);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-      bottomSheet: SafeArea(
-        child: Container(
-          color: cardColor,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: cardColor,
-            border: Border(top: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+
+                SafeArea(
+                  top: false,
+                  minimum: const EdgeInsets.only(bottom: 16),
+                  child: Container(
+                    color: cardColor,
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                    decoration: BoxDecoration(
+                      color: cardColor,
+                      border: Border(top: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200)),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
             if (widget.type == 'checkin' || widget.type == 'checkout') ...[
               Container(
                 padding: const EdgeInsets.all(12),
@@ -641,7 +648,9 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
           ],
         ),
       ),
-      ),
+    ),
+  ],
+),
     );
   }
 }
