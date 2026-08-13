@@ -34,7 +34,15 @@ class AdminPanelProvider extends PanelProvider
         $themeColor = $setting?->theme_color ?? '#0A192F';
 
         if ($setting && $setting->logo_path) {
-            $panel->brandLogo(\Illuminate\Support\Facades\Storage::disk('public')->url($setting->logo_path));
+            try {
+                $content = \Illuminate\Support\Facades\Storage::disk('public')->get($setting->logo_path);
+                $mime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($setting->logo_path);
+                $base64 = base64_encode($content);
+                $panel->brandLogo('data:' . $mime . ';base64,' . $base64);
+            } catch (\Exception $e) {
+                // Fallback URL if file cannot be read
+                $panel->brandLogo(\Illuminate\Support\Facades\Storage::disk('public')->url($setting->logo_path));
+            }
             $panel->brandLogoHeight('2rem');
         }
 

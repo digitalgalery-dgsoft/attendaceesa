@@ -582,8 +582,35 @@ class AttendanceController extends Controller
 
         $todayLogs = AttendanceLog::where('employee_id', $employee->id)
             ->whereBetween('logged_at', [$todayStart, $todayEnd])
-            ->orderBy('id', 'desc')
+            ->orderBy('id', 'asc') // Sort asc to track active visit location sequentially
             ->get();
+            
+        $activeVisitLocation = null;
+        
+        $todayLogs = $todayLogs->map(function ($log) use (&$activeVisitLocation) {
+            $logArray = $log->toArray();
+            
+            // If it's visit_in, update the active visit location
+            if ($log->log_type === 'visit_in') {
+                if (isset($log->metadata['visit_location_id'])) {
+                    $loc = \App\Models\WorkLocation::find($log->metadata['visit_location_id']);
+                    if ($loc) {
+                        $activeVisitLocation = $loc->toArray();
+                    }
+                } else {
+                    $activeVisitLocation = null;
+                }
+            }
+
+            // Append active visit location to any visit activity (visit_in, visit_report, visit_out)
+            if (in_array($log->log_type, ['visit_in', 'visit_report', 'visit_out'])) {
+                if ($activeVisitLocation) {
+                    $logArray['visit_location'] = $activeVisitLocation;
+                }
+            }
+            
+            return $logArray;
+        })->reverse()->values(); // Reverse back to desc
 
         return response()->json([
             'stats' => [

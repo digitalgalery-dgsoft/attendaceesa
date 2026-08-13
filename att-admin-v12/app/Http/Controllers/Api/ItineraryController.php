@@ -53,7 +53,8 @@ class ItineraryController extends Controller
             ->whereDate('logged_at', $today)
             ->get()
             ->map(function ($log) {
-                return $log->metadata['visit_location_id'] ?? null;
+                $id = $log->metadata['visit_location_id'] ?? null;
+                return $id ? (int) $id : null;
             })
             ->filter()
             ->unique()
