@@ -42,16 +42,20 @@ class ItineraryController extends Controller
         ]);
     }
 
-    /**
-     * Get available work locations for the user (filtered by branch)
-     */
     public function availableWorkLocations(Request $request)
     {
         $employee = $request->user();
         
-        $locations = WorkLocation::where('branch_id', $employee->branch_id)
+        $locations = WorkLocation::with('branch')
+            ->where('company_id', $employee->company_id ?? 1)
+            ->where('is_active', true)
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->map(function ($loc) {
+                $data = $loc->toArray();
+                $data['area'] = $loc->branch ? $loc->branch->name : null;
+                return $data;
+            });
             
         return response()->json([
             'status' => 'success',
