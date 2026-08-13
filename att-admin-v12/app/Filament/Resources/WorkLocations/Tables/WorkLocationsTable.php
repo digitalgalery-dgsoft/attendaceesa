@@ -15,11 +15,13 @@ class WorkLocationsTable
     {
         return $table
             ->columns([
-                TextColumn::make('company_id')
-                    ->numeric()
+                TextColumn::make('company.name')
+                    ->label('Company')
+                    ->searchable()
                     ->sortable(),
-                TextColumn::make('branch_id')
-                    ->numeric()
+                TextColumn::make('branch.name')
+                    ->label('Area')
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('name')
                     ->searchable(),
