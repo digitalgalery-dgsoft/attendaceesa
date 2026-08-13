@@ -124,50 +124,6 @@ class WorkLocationForm
                     ->label('Search Location')
                     ->columnSpanFull()
                     ->searchable()
-                    ->getSearchResultsUsing(function (string $search): array {
-                        if (blank($search)) {
-                            return [];
-                        }
-                        
-                        $response = Http::withHeaders([
-                            'User-Agent' => 'AttendanceApp/1.0'
-                        ])->get('https://nominatim.openstreetmap.org/search', [
-                            'format' => 'json',
-                            'q' => $search,
-                            'limit' => 5,
-                        ]);
-                        
-                        if ($response->successful()) {
-                            return collect($response->json())
-                                ->mapWithKeys(function ($item) {
-                                    return [$item['lat'] . ',' . $item['lon'] => $item['display_name']];
-                                })
-                                ->toArray();
-                        }
-                        
-                        return [];
-                    })
-                    ->getOptionLabelUsing(fn ($value): ?string => $value)
-                    ->live()
-                    ->afterStateUpdated(function ($state, $set, \Livewire\Component $livewire) {
-                        if (blank($state)) return;
-                        
-                        $coords = explode(',', $state);
-                        if (count($coords) === 2) {
-                            $lat = (float) $coords[0];
-                            $lng = (float) $coords[1];
-                            $set('latitude', $lat);
-                            $set('longitude', $lng);
-                            $set('location', ['lat' => $lat, 'lng' => $lng]);
-                            
-                            $livewire->dispatch('refreshMap');
-                        }
-                    })
-                    ->dehydrated(false),
-                TextInput::make('latitude')
-                    ->required()
-                    ->numeric()
-                    ->readOnly()
                     ->suffixAction(
                         \Filament\Actions\Action::make('extract_gmaps_coords')
                             ->label('🗺️ Ekstrak Maps')
@@ -236,7 +192,51 @@ class WorkLocationForm
                                         ->send();
                                 }
                             })
-                    ),
+                    )
+                    ->getSearchResultsUsing(function (string $search): array {
+                        if (blank($search)) {
+                            return [];
+                        }
+                        
+                        $response = Http::withHeaders([
+                            'User-Agent' => 'AttendanceApp/1.0'
+                        ])->get('https://nominatim.openstreetmap.org/search', [
+                            'format' => 'json',
+                            'q' => $search,
+                            'limit' => 5,
+                        ]);
+                        
+                        if ($response->successful()) {
+                            return collect($response->json())
+                                ->mapWithKeys(function ($item) {
+                                    return [$item['lat'] . ',' . $item['lon'] => $item['display_name']];
+                                })
+                                ->toArray();
+                        }
+                        
+                        return [];
+                    })
+                    ->getOptionLabelUsing(fn ($value): ?string => $value)
+                    ->live()
+                    ->afterStateUpdated(function ($state, $set, \Livewire\Component $livewire) {
+                        if (blank($state)) return;
+                        
+                        $coords = explode(',', $state);
+                        if (count($coords) === 2) {
+                            $lat = (float) $coords[0];
+                            $lng = (float) $coords[1];
+                            $set('latitude', $lat);
+                            $set('longitude', $lng);
+                            $set('location', ['lat' => $lat, 'lng' => $lng]);
+                            
+                            $livewire->dispatch('refreshMap');
+                        }
+                    })
+                    ->dehydrated(false),
+                TextInput::make('latitude')
+                    ->required()
+                    ->numeric()
+                    ->readOnly(),
                 TextInput::make('longitude')
                     ->required()
                     ->numeric()
