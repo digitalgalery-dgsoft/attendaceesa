@@ -45,9 +45,23 @@ class ItineraryController extends Controller
     public function availableWorkLocations(Request $request)
     {
         $employee = $request->user();
+        $today = Carbon::today('Asia/Jakarta')->toDateString();
+
+        // Ambil ID lokasi yang sudah di-visit hari ini
+        $visitedLocationIds = \App\Models\AttendanceLog::where('employee_id', $employee->id)
+            ->where('log_type', 'visit_in')
+            ->whereDate('logged_at', $today)
+            ->get()
+            ->map(function ($log) {
+                return $log->metadata['visit_location_id'] ?? null;
+            })
+            ->filter()
+            ->unique()
+            ->toArray();
         
         $locations = WorkLocation::with('branch')
             ->where('is_active', true)
+            ->whereNotIn('id', $visitedLocationIds)
             ->orderBy('name')
             ->get()
             ->map(function ($loc) {
