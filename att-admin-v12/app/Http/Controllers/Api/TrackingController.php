@@ -36,9 +36,11 @@ class TrackingController extends Controller
         // Kita tetap rekam history meskipun belum check-in jika service nyala, 
         // tapi idealnya service dimatikan kalau belum check-in.
         
+        // Simpan selalu dalam UTC. history() akan konversi ke WIB saat ditampilkan.
+        // Sebelumnya: store() konversi ke WIB → tersimpan "07:38", lalu history() konversi lagi → tampil "14:38" (SALAH).
         $createdAt = $request->timestamp 
-            ? Carbon::parse($request->timestamp)->setTimezone(config('app.timezone')) 
-            : now();
+            ? Carbon::parse($request->timestamp)->utc()  // parse dengan timezone dari string (Z/+07:00), simpan UTC
+            : now()->utc();
 
         TrackingHistory::create([
             'employee_id' => $employeeId,
@@ -69,7 +71,9 @@ class TrackingController extends Controller
             ->orderBy('created_at', 'asc')
             ->get(['latitude', 'longitude', 'created_at'])
             ->map(function ($item) {
-                $time = \Carbon\Carbon::parse($item->created_at)->timezone('Asia/Jakarta');
+                // created_at tersimpan dalam UTC di DB.
+                // Konversi sekali ke Asia/Jakarta untuk ditampilkan.
+                $time = \Carbon\Carbon::parse($item->created_at, 'UTC')->setTimezone('Asia/Jakarta');
 
                 return [
                     'latitude'   => (float) $item->latitude,
