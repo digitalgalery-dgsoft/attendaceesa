@@ -19,6 +19,7 @@ class VisitReport extends Model
         'actual',
         'deadline',
         'notes',
+        'photo_path',
         'status',
     ];
 
