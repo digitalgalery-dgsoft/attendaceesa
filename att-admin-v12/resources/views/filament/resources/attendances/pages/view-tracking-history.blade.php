@@ -54,25 +54,28 @@
         @endif
     </div>
 
-    <!-- Fix for Tailwind CSS breaking Leaflet SVG polylines -->
+    {{-- CRITICAL: Use Canvas renderer instead of SVG to bypass Tailwind global SVG reset --}}
+    {{-- Tailwind's preflight CSS injects styles that override SVG path attributes (fill, stroke)  --}}
+    {{-- causing Leaflet's polylines to become invisible. Canvas drawing is immune to CSS. --}}
     <style>
-        /* Force leaflet paths to render properly against Tailwind SVG reset */
-        path.my-polyline {
-            stroke: #3b82f6 !important;
-            stroke-width: 4px !important;
-            fill: none !important;
-            opacity: 0.8 !important;
+        /* Prevent Tailwind from nuking Leaflet SVG elements */
+        #map svg,
+        #map svg *,
+        #map path,
+        #map .leaflet-pane svg path,
+        .leaflet-overlay-pane svg path,
+        .leaflet-overlay-pane svg polyline {
+            fill: inherit !important;
+            stroke: inherit !important;
+            stroke-width: inherit !important;
         }
-        path.my-circle-marker {
-            stroke: #2563eb !important;
-            stroke-width: 1px !important;
-            fill: #3b82f6 !important;
-            fill-opacity: 0.9 !important;
-        }
+        /* The actual canvas drawn polyline is styled via JS options, not CSS.
+           These styles are a fallback for any residual SVG overlays. */
+        #map { isolation: isolate; }
     </style>
+
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-    
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
@@ -80,51 +83,67 @@
         document.addEventListener('DOMContentLoaded', function () {
             const trackingData = @json($trackingHistories);
             let map, markers = [];
-            
+
             if (trackingData.length > 0) {
-                // Initialize the map, set view to the first point. 
                 map = L.map('map').setView([trackingData[0].latitude, trackingData[0].longitude], 15);
 
-                // Add OpenStreetMap tiles
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
                     attribution: '© OpenStreetMap contributors'
                 }).addTo(map);
 
-                // Prepare latlngs for polyline
-                const latlngs = trackingData.map(point => [parseFloat(point.latitude), parseFloat(point.longitude)]);
+                const latlngs = trackingData.map(p => [parseFloat(p.latitude), parseFloat(p.longitude)]);
 
-                // Create polyline and add to map with explicit class name for CSS override
+                // ── KEY FIX: use Canvas renderer ──────────────────────────────────────────
+                // Leaflet by default uses SVG, which Tailwind's preflight CSS breaks by
+                // resetting fill/stroke on all SVG elements. The Canvas renderer draws
+                // directly onto an HTML <canvas> element, which is 100% immune to CSS.
+                const canvasRenderer = L.canvas({ padding: 0.5 });
+
+                // Draw route polyline using Canvas renderer
                 const polyline = L.polyline(latlngs, {
-                    color: '#3b82f6', weight: 4, opacity: 0.8, className: 'my-polyline'
+                    renderer: canvasRenderer,
+                    color: '#2563eb',
+                    weight: 4,
+                    opacity: 0.85,
+                    lineJoin: 'round',
+                    lineCap: 'round',
                 }).addTo(map);
 
-                // Add markers for each point
+                // Draw intermediate dots using Canvas renderer
                 trackingData.forEach((point, index) => {
                     const lat = parseFloat(point.latitude);
                     const lng = parseFloat(point.longitude);
                     let marker;
 
                     if (index === 0) {
-                        // Start marker
-                        marker = L.marker([lat, lng]).addTo(map).bindPopup(`<b>Mulai</b><br>${point.created_at}`);
+                        // First point: standard marker (not SVG path, so safe)
+                        marker = L.marker([lat, lng])
+                            .addTo(map)
+                            .bindPopup(`<b>Titik Awal</b><br>${point.created_at}`);
                     } else if (index === latlngs.length - 1) {
-                        // End marker
-                        marker = L.marker([lat, lng]).addTo(map).bindPopup(`<b>Terakhir</b><br>${point.created_at}`);
+                        // Last point: standard marker
+                        marker = L.marker([lat, lng])
+                            .addTo(map)
+                            .bindPopup(`<b>Titik Akhir</b><br>${point.created_at}`);
                     } else {
-                        // Intermediate — blue dot with explicit class name
+                        // Intermediate: canvas circle marker
                         marker = L.circleMarker([lat, lng], {
-                            radius: 5, color: '#2563eb', fillColor: '#3b82f6',
-                            fillOpacity: 0.9, weight: 1, className: 'my-circle-marker'
-                        }).addTo(map).bindPopup(`Titik ${index + 1}<br>${point.created_at}`);
+                            renderer: canvasRenderer,
+                            radius: 4,
+                            color: '#1d4ed8',
+                            weight: 1.5,
+                            fillColor: '#3b82f6',
+                            fillOpacity: 0.85,
+                        }).addTo(map).bindPopup(`<b>Titik ${index + 1}</b><br>${point.created_at}`);
                     }
                     markers.push(marker);
                 });
 
-                // Zoom map to fit polyline
-                map.fitBounds(polyline.getBounds(), {padding: [50, 50]});
+                // Fit map to show entire route
+                map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
 
-                // Click on table row → zoom to marker
+                // Click on table row → jump to that point on the map
                 document.querySelectorAll('.tracking-row').forEach(row => {
                     row.addEventListener('click', function () {
                         const lat = parseFloat(this.dataset.lat);
@@ -136,7 +155,7 @@
                 });
 
             } else {
-                // Default view if no data (Surabaya)
+                // No data — default Surabaya view
                 map = L.map('map').setView([-7.2575, 112.7521], 12);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
