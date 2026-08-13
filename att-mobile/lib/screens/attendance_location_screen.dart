@@ -432,17 +432,18 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                 ),
               ],
             ),
-      bottomSheet: Container(
-        color: cardColor,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
+      bottomSheet: SafeArea(
+        child: Container(
           color: cardColor,
-          border: Border(top: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            border: Border(top: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             if (widget.type == 'checkin' || widget.type == 'checkout') ...[
               Container(
                 padding: const EdgeInsets.all(12),
@@ -639,6 +640,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
             ),
           ],
         ),
+      ),
       ),
     );
   }
