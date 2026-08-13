@@ -34,6 +34,12 @@
                 return;
             }
 
+            // Jika link pendek, biarkan server yang proses
+            if (this.url.includes('goo.gl') || this.url.includes('maps.app.goo.gl')) {
+                this.error = 'Mendeteksi link pendek. Silakan langsung klik tombol "Gunakan Titik" di bagian bawah layar untuk memproses link ini secara otomatis oleh sistem.';
+                return;
+            }
+
             let matched = false;
             for (const pattern of this.patterns) {
                 const m = this.url.match(pattern);
@@ -46,13 +52,9 @@
             }
 
             if (!matched) {
-                this.error = 'Koordinat tidak ditemukan. Pastikan Anda menggunakan URL Google Maps lengkap (bukan link pendek goo.gl/maps).';
+                this.error = 'Koordinat tidak ditemukan. Pastikan URL valid, atau jika ini link khusus, klik "Gunakan Titik" agar diproses oleh sistem.';
             } else {
                 // Sync ke hidden Filament fields agar bisa dibaca sisi server
-                const latInput = document.querySelector('[wire\\:model*=\"extracted_lat\"], [wire\\:model\\.live*=\"extracted_lat\"], input[name*=\"extracted_lat\"]');
-                const lngInput = document.querySelector('[wire\\:model*=\"extracted_lng\"], [wire\\:model\\.live*=\"extracted_lng\"], input[name*=\"extracted_lng\"]');
-
-                // Try generic hidden input approach
                 document.querySelectorAll('input[type=\"hidden\"]').forEach(el => {
                     if (el.id && el.id.includes('extracted_lat')) {
                         el.value = this.lat;
@@ -67,16 +69,9 @@
         },
 
         applyCoords() {
-            if (this.lat === null || this.lng === null) {
-                this.extract();
-            }
-            if (this.lat !== null && this.lng !== null) {
-                // Dispatch Livewire event — listened to by the resource page
-                window.Livewire.dispatch('gmaps-coords-extracted', { lat: this.lat, lng: this.lng });
-
-                // Also close modal
-                window.dispatchEvent(new CustomEvent('close-modal', { detail: 'extract_gmaps_coords' }));
-            }
+            // Kita sudah menggunakan Modal Submit button bawaan Filament. 
+            // Jadi fungsi ini mungkin tidak digunakan lagi (karena Action action() sudah di-handle oleh ModalSubmitAction).
+            // Tapi biarkan saja untuk berjaga-jaga jika dipanggil manual.
         }
     }"
     class="space-y-4 pb-2"
@@ -156,17 +151,6 @@
                 <p class="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">Format Lengkap (Lat, Lng)</p>
                 <p class="text-lg font-bold text-blue-700" x-text="`${lat}, ${lng}`"></p>
             </div>
-
-            <button
-                @click="applyCoords()"
-                type="button"
-                class="w-full py-3 rounded-xl text-white font-bold text-sm transition"
-                style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);"
-                onmouseover="this.style.opacity='0.9'"
-                onmouseout="this.style.opacity='1'"
-            >
-                ✅ Gunakan Titik Ini
-            </button>
         </div>
     </template>
 </div>
