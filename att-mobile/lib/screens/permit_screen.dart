@@ -22,6 +22,7 @@ class _PermitScreenState extends State<PermitScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<PermitProvider>(context, listen: false).fetchPermits();
+      Provider.of<PermitProvider>(context, listen: false).fetchLeaveQuota();
     });
   }
 
@@ -113,7 +114,15 @@ class _PermitScreenState extends State<PermitScreen> {
                   ),
                 ),
                 
-                const SizedBox(height: 8),
+                // ── Kuota Cuti Tahunan Card ──────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: _buildLeaveQuotaCard(
+                    provider, primaryColor, cardColor, textColor, subtitleColor, isDarkMode,
+                  ),
+                ),
+
+                const SizedBox(height: 4),
                 
                 // List or Empty state
                 Expanded(
@@ -416,4 +425,134 @@ class _PermitScreenState extends State<PermitScreen> {
       ),
     );
   }
+
+  Widget _buildLeaveQuotaCard(
+    PermitProvider provider,
+    Color primaryColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    bool isDarkMode,
+  ) {
+    if (!provider.quotaEligible) {
+      // Not eligible or not yet loaded
+      final msg = provider.quotaMessage.isEmpty ? '' : provider.quotaMessage;
+      if (msg.isEmpty) return const SizedBox.shrink();
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDarkMode ? const Color(0xFF2A2A3D) : const Color(0xFFFFF3E0),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.4)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Color(0xFFFF9800), size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                msg,
+                style: TextStyle(
+                  color: isDarkMode ? const Color(0xFFFFB74D) : const Color(0xFFE65100),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final quota = provider.leaveQuota;
+    if (quota == null) return const SizedBox.shrink();
+
+    final total     = quota['total'] as int? ?? 12;
+    final used      = quota['used'] as int? ?? 0;
+    final remaining = quota['remaining'] as int? ?? (total - used);
+    final progress  = total > 0 ? (used / total).clamp(0.0, 1.0) : 0.0;
+    final year      = quota['year'] ?? DateTime.now().year;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [primaryColor.withOpacity(0.85), primaryColor],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withOpacity(0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Kuota Cuti Tahunan $year',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$remaining Hari Tersisa',
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.white.withOpacity(0.25),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+              minHeight: 8,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildQuotaStat('Total Kuota', '$total Hari'),
+              const SizedBox(width: 16),
+              _buildQuotaStat('Terpakai', '$used Hari'),
+              const SizedBox(width: 16),
+              _buildQuotaStat('Sisa', '$remaining Hari'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuotaStat(String label, String value) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 10)),
+          const SizedBox(height: 2),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
 }
+

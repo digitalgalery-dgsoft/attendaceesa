@@ -14,6 +14,7 @@ class LeaveRequest extends Model
         'employee_id',
         'type',
         'sub_type',
+        'cuti_peraturan_type',
         'start_date',
         'end_date',
         'notes',

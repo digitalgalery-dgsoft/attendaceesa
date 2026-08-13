@@ -61,6 +61,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Permit routes
     Route::get('/permits', [PermitController::class, 'index']);
     Route::post('/permits', [PermitController::class, 'store']);
+    Route::get('/permits/leave-quota', [PermitController::class, 'leaveQuota']);
+    Route::get('/permits/cuti-peraturan-types', [PermitController::class, 'cutiPeraturanTypes']);
 
     // Sales Report routes
     Route::get('/sales-reports', [SalesReportController::class, 'index']);

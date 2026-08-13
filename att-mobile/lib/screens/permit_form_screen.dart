@@ -20,7 +20,8 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
   final _formKey = GlobalKey<FormState>();
   
   String? _selectedType;
-  String? _selectedSubType;
+  String? _selectedSubType;         // 'Cuti Tahunan' or 'Cuti Peraturan'
+  String? _selectedCutiPeraturanKey; // key from server e.g. 'cuti_menikah'
   
   DateTime? _startDate;
   DateTime? _endDate;
@@ -44,6 +45,27 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
     'Cuti Peraturan'
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<PermitProvider>(context, listen: false).fetchCutiPeraturanTypes();
+    });
+  }
+
+  int? get _maxDaysForCutiPeraturan {
+    if (_selectedCutiPeraturanKey == null) return null;
+    final provider = Provider.of<PermitProvider>(context, listen: false);
+    try {
+      final match = provider.cutiPeraturanTypes.firstWhere(
+        (t) => t['key'] == _selectedCutiPeraturanKey,
+      );
+      return match['max_days'] as int?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _selectDate(BuildContext context, bool isStart) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -54,12 +76,21 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
     
     final initialDate = isStart ? (_startDate ?? minDate) : (_endDate ?? _startDate ?? minDate);
     final firstDate = isStart ? minDate : (_startDate ?? minDate);
+
+    // For Cuti Peraturan with max days, also cap end date
+    DateTime lastDate = DateTime(2030);
+    if (!isStart && _startDate != null && _selectedSubType == 'Cuti Peraturan') {
+      final maxDays = _maxDaysForCutiPeraturan;
+      if (maxDays != null) {
+        lastDate = _startDate!.add(Duration(days: maxDays - 1));
+      }
+    }
     
     final picked = await showDatePicker(
       context: context,
       initialDate: initialDate.isBefore(firstDate) ? firstDate : initialDate,
       firstDate: firstDate,
-      lastDate: DateTime(2030),
+      lastDate: lastDate,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -78,6 +109,14 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
           _startDate = picked;
           if (_endDate != null && _endDate!.isBefore(_startDate!)) {
             _endDate = _startDate;
+          }
+          // Auto-enforce max days for cuti peraturan
+          if (_selectedSubType == 'Cuti Peraturan' && _endDate != null) {
+            final maxDays = _maxDaysForCutiPeraturan;
+            if (maxDays != null) {
+              final maxEnd = _startDate!.add(Duration(days: maxDays - 1));
+              if (_endDate!.isAfter(maxEnd)) _endDate = maxEnd;
+            }
           }
         } else {
           _endDate = picked;
@@ -121,6 +160,20 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
       );
       return;
     }
+
+    // Validate cuti peraturan type selected
+    if (_selectedType == 'Cuti' &&
+        _selectedSubType == 'Cuti Peraturan' &&
+        _selectedCutiPeraturanKey == null) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        title: const Text('Error'),
+        description: const Text('Pilih Jenis Cuti Peraturan!'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
     
     final provider = Provider.of<PermitProvider>(context, listen: false);
     
@@ -130,6 +183,9 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
     final result = await provider.submitPermit(
       type: typeValue,
       subType: typeValue == 'cuti' ? subTypeValue : null,
+      cutiPeraturanType: (typeValue == 'cuti' && subTypeValue == 'cuti_peraturan')
+          ? _selectedCutiPeraturanKey
+          : null,
       startDate: DateFormat('yyyy-MM-dd').format(_startDate!),
       endDate: DateFormat('yyyy-MM-dd').format(_endDate!),
       notes: _notesController.text,
@@ -225,6 +281,7 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
                       _selectedType = val;
                       if (val != 'Cuti') {
                         _selectedSubType = null;
+                        _selectedCutiPeraturanKey = null;
                       }
                     });
                   },
@@ -243,10 +300,92 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
                     decoration: inputDecoration.copyWith(hintText: 'Pilih Jenis Cuti'),
                     value: _selectedSubType,
                     items: _cutiTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                    onChanged: (val) => setState(() => _selectedSubType = val),
+                    onChanged: (val) => setState(() {
+                      _selectedSubType = val;
+                      _selectedCutiPeraturanKey = null;
+                    }),
                     validator: (val) => val == null ? 'Pilih jenis cuti' : null,
                   ),
                   const SizedBox(height: 16),
+                ],
+
+                // Cuti Peraturan sub-type picker
+                if (_selectedType == 'Cuti' && _selectedSubType == 'Cuti Peraturan') ...[
+                  Text('Jenis Cuti Peraturan', style: TextStyle(fontWeight: FontWeight.bold, color: textColor, fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Pilih sesuai kejadian yang dialami',
+                    style: TextStyle(color: subtitleColor, fontSize: 11),
+                  ),
+                  const SizedBox(height: 8),
+                  if (provider.cutiPeraturanTypes.isEmpty)
+                    Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor)))
+                  else
+                    ...provider.cutiPeraturanTypes.map((t) {
+                      final key      = t['key'] as String;
+                      final label    = t['label'] as String;
+                      final maxDays  = t['max_days'] as int;
+                      final selected = _selectedCutiPeraturanKey == key;
+
+                      return GestureDetector(
+                        onTap: () => setState(() {
+                          _selectedCutiPeraturanKey = key;
+                          // Auto-cap end date
+                          if (_startDate != null && _endDate != null) {
+                            final maxEnd = _startDate!.add(Duration(days: maxDays - 1));
+                            if (_endDate!.isAfter(maxEnd)) _endDate = maxEnd;
+                          }
+                        }),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: selected ? primaryColor.withOpacity(0.1) : (isDarkMode ? const Color(0xFF2A2A3D) : Colors.grey.shade50),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: selected ? primaryColor : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                              width: selected ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                                color: selected ? primaryColor : subtitleColor,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  label,
+                                  style: TextStyle(
+                                    color: selected ? primaryColor : textColor,
+                                    fontSize: 13,
+                                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: selected ? primaryColor : Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  'Maks. $maxDays Hari',
+                                  style: TextStyle(
+                                    color: selected ? Colors.white : Colors.grey.shade700,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  const SizedBox(height: 8),
                 ],
                 
                 Row(
@@ -316,6 +455,16 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
                     ),
                   ],
                 ),
+
+                // Hint for max days when cuti peraturan selected
+                if (_selectedSubType == 'Cuti Peraturan' && _selectedCutiPeraturanKey != null && _maxDaysForCutiPeraturan != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Maksimal ${_maxDaysForCutiPeraturan} hari kerja untuk jenis cuti ini.',
+                      style: TextStyle(color: primaryColor, fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
+                  ),
                 
                 const SizedBox(height: 24),
                 

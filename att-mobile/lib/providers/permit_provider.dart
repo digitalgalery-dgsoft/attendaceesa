@@ -11,7 +11,17 @@ class PermitProvider with ChangeNotifier {
   List<dynamic> _permits = [];
   List<dynamic> get permits => _permits;
 
-  // _baseUrl removed
+  // Leave quota data
+  Map<String, dynamic>? _leaveQuota;
+  Map<String, dynamic>? get leaveQuota => _leaveQuota;
+  bool _quotaEligible = false;
+  bool get quotaEligible => _quotaEligible;
+  String _quotaMessage = '';
+  String get quotaMessage => _quotaMessage;
+
+  // Cuti Peraturan types from server
+  List<dynamic> _cutiPeraturanTypes = [];
+  List<dynamic> get cutiPeraturanTypes => _cutiPeraturanTypes;
 
   Future<void> fetchPermits() async {
     _isLoading = true;
@@ -47,9 +57,54 @@ class PermitProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> fetchLeaveQuota() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse('${Constants.baseUrl}/permits/leave-quota'),
+        headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _quotaEligible = data['eligible'] ?? false;
+        _quotaMessage = data['message'] ?? '';
+        _leaveQuota = data['quota'];
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error fetching leave quota: $e');
+    }
+  }
+
+  Future<void> fetchCutiPeraturanTypes() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse('${Constants.baseUrl}/permits/cuti-peraturan-types'),
+        headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _cutiPeraturanTypes = data['data'] ?? [];
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error fetching cuti peraturan types: $e');
+    }
+  }
+
   Future<Map<String, dynamic>> submitPermit({
     required String type,
     String? subType,
+    String? cutiPeraturanType,
     required String startDate,
     required String endDate,
     required String notes,
@@ -69,6 +124,7 @@ class PermitProvider with ChangeNotifier {
 
       request.fields['type'] = type;
       if (subType != null) request.fields['sub_type'] = subType;
+      if (cutiPeraturanType != null) request.fields['cuti_peraturan_type'] = cutiPeraturanType;
       request.fields['start_date'] = startDate;
       request.fields['end_date'] = endDate;
       request.fields['notes'] = notes;
@@ -92,6 +148,7 @@ class PermitProvider with ChangeNotifier {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         await fetchPermits(); // refresh
+        await fetchLeaveQuota(); // refresh quota
         return {'success': true, 'message': decodedData['message'] ?? 'Berhasil mengajukan izin.'};
       } else {
         return {'success': false, 'message': decodedData['message'] ?? 'Gagal mengajukan izin.'};
