@@ -22,11 +22,16 @@ class EditWorkLocation extends EditRecord
      * Menerima event dari modal GMaps extractor.
      */
     #[On('gmaps-coords-extracted')]
-    public function fillCoordsFromGmaps(float $lat, float $lng): void
+    public function fillCoordsFromGmaps(float $lat, float $lng, ?string $address = null): void
     {
         $this->data['latitude']  = $lat;
         $this->data['longitude'] = $lng;
         $this->data['location']  = ['lat' => $lat, 'lng' => $lng];
+        
+        if ($address) {
+            $this->data['address'] = $address;
+        }
+        
         $this->dispatch('refreshMap');
     }
 }
