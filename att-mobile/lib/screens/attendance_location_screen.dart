@@ -180,7 +180,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   }
 
   Future<void> _submitAttendance() async {
-    if (_selfieFile == null) {
+    if (_selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in')) {
       toastification.show(
         context: context,
         title: const Text('Silakan ambil foto terlebih dahulu'),
@@ -254,13 +254,16 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
     final String datetime = 'Waktu: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.now())}';
     final String coordinates = 'Lat: ${_currentPosition!.latitude.toStringAsFixed(6)}, Lng: ${_currentPosition!.longitude.toStringAsFixed(6)}';
 
-    // Compress and add watermark
-    final String finalImagePath = await ImageUtils.addWatermarkAndCompress(
-      imagePath: _selfieFile!.path,
-      locationName: locationName,
-      datetime: datetime,
-      coordinates: coordinates,
-    );
+    // Compress and add watermark if photo exists
+    String? finalImagePath;
+    if (_selfieFile != null) {
+      finalImagePath = await ImageUtils.addWatermarkAndCompress(
+        imagePath: _selfieFile!.path,
+        locationName: locationName,
+        datetime: datetime,
+        coordinates: coordinates,
+      );
+    }
 
     final result = await attProvider.submitAttendance(
       type: widget.type,
@@ -543,6 +546,25 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                       _selectedWorkLocationId = val;
                     });
                   },
+                ),
+              ),
+            if (widget.type == 'checkout')
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: TextField(
+                  controller: _noteController,
+                  maxLines: 2,
+                  style: TextStyle(color: textColor),
+                  decoration: InputDecoration(
+                    labelText: 'Catatan / Alasan (Opsional)',
+                    labelStyle: TextStyle(color: subtitleColor),
+                    filled: true,
+                    fillColor: isDarkMode ? const Color(0xFF2A2A3D) : Colors.grey.shade50,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: primaryColor)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
                 ),
               ),
             if (widget.type == 'visit_out')

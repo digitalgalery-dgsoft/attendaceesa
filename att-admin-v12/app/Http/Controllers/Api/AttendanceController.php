@@ -102,7 +102,7 @@ class AttendanceController extends Controller
             $request->validate([
                 'latitude'          => 'required|numeric',
                 'longitude'         => 'required|numeric',
-                'photo'             => 'required|image|max:5120',
+                'photo'             => 'nullable|image|max:5120',
                 'type'              => 'required|in:checkin,checkout,visit_in,visit_out',
                 'visit_type'        => 'nullable|in:store,prinsiple',
                 'note'              => 'nullable|string',
@@ -139,7 +139,12 @@ class AttendanceController extends Controller
             }
 
             // ─── UPLOAD FOTO ─────────────────────────────────────────────────
-            $path = $request->file('photo')->store('attendances', 'public');
+            $path = null;
+            if ($request->hasFile('photo')) {
+                $path = $request->file('photo')->store('attendances', 'public');
+            } elseif (in_array($request->type, ['checkin', 'visit_in'])) {
+                return response()->json(['message' => 'Foto wajib diunggah untuk absen ini'], 400);
+            }
 
             // ─── ATTENDANCE HARI INI ──────────────────────────────────────────
             $attendance = Attendance::where('employee_id', $employeeId)
@@ -219,7 +224,9 @@ class AttendanceController extends Controller
                 if ($attendance->checkout_at) return response()->json(['message' => 'Already checked out for today'], 400);
 
                 if ($refLocation && $refLocation->latitude && $refLocation->longitude && !$isInsideGeofence) {
-                    return response()->json(['message' => 'Check-out ditolak: Anda berada di luar radius lokasi kantor (' . round($distance) . 'm). Radius maksimal: ' . ($refLocation->radius_meter ?? 100) . 'm'], 400);
+                    if (empty($request->note)) {
+                        return response()->json(['message' => 'Catatan/alasan wajib diisi karena Anda berada di luar radius lokasi kantor (' . round($distance) . 'm). Radius maksimal: ' . ($refLocation->radius_meter ?? 100) . 'm'], 400);
+                    }
                 }
 
                 $log = AttendanceLog::create([
@@ -228,6 +235,7 @@ class AttendanceController extends Controller
                     'logged_at'                    => $now,
                     'latitude'                     => $request->latitude,
                     'longitude'                    => $request->longitude,
+                    'note'                         => $request->note,
                     'photo_path'                   => $path,
                     'is_inside_geofence'           => $isInsideGeofence,
                     'distance_from_location_meter' => $distance,
@@ -312,8 +320,8 @@ class AttendanceController extends Controller
                     return response()->json(['message' => 'Visit ditolak: Anda tidak memiliki itinerary (jadwal kunjungan) hari ini.'], 403);
                 }
                 
-                if (!$request->note || !$request->visit_type) {
-                    return response()->json(['message' => 'Jenis Visit dan Keterangan wajib diisi!'], 400);
+                if (!$request->visit_type) {
+                    return response()->json(['message' => 'Jenis Visit wajib diisi!'], 400);
                 }
 
                 $lastVisitIn = AttendanceLog::where('attendance_id', $attendance->id)
@@ -331,7 +339,9 @@ class AttendanceController extends Controller
                                 $loc->latitude, $loc->longitude
                             );
                             if ($dist > ($loc->radius_meter ?? 100)) {
-                                return response()->json(['message' => 'Di luar jangkauan lokasi Visit In!'], 400);
+                                if (empty($request->note)) {
+                                    return response()->json(['message' => 'Catatan/alasan wajib diisi karena Anda berada di luar radius lokasi Visit In! (' . round($dist) . 'm)'], 400);
+                                }
                             }
                         }
                     }
@@ -362,6 +372,57 @@ class AttendanceController extends Controller
         } catch (\Exception $e) {
             Log::error('Attendance Error: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to record attendance: ' . $e->getMessage() . ' Line: ' . $e->getLine(), 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function storeVisitReport(Request $request)
+    {
+        $request->validate([
+            'notes' => 'required|string',
+            'photo' => 'required|image|max:5120',
+        ]);
+
+        $employee = $request->user();
+        if (!$employee) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        try {
+            $path = $request->file('photo')->store('visit_reports', 'public');
+            
+            // Log this report as an attendance log so we know a report was submitted
+            $today = Carbon::today('Asia/Jakarta')->toDateString();
+            $attendance = Attendance::where('employee_id', $employee->id)
+                ->where('attendance_date', $today)
+                ->first();
+
+            $log = AttendanceLog::create([
+                'employee_id' => $employee->id,
+                'attendance_id' => $attendance ? $attendance->id : null,
+                'log_type' => 'visit_report',
+                'logged_at' => Carbon::now(),
+                'note' => $request->notes,
+                'photo_path' => $path,
+                'source' => 'android',
+                'validation_status' => 'valid',
+            ]);
+
+            // Save to visit_reports table
+            $visitReport = \App\Models\VisitReport::create([
+                'employee_id' => $employee->id,
+                'notes' => $request->notes,
+                'photo_path' => $path,
+                'status' => 'completed',
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Laporan visit berhasil dikirim',
+                'data' => $visitReport
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Visit Report Error: ' . $e->getMessage());
+            return response()->json(['message' => 'Gagal mengirim laporan visit: ' . $e->getMessage()], 500);
         }
     }
 

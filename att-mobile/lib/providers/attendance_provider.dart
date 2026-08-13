@@ -15,6 +15,9 @@ class AttendanceProvider with ChangeNotifier {
   bool _isVisiting = false;
   bool get isVisiting => _isVisiting;
 
+  bool _hasFilledVisitReport = false;
+  bool get hasFilledVisitReport => _hasFilledVisitReport;
+
   bool _hasCheckedOutToday = false;
   bool get hasCheckedOutToday => _hasCheckedOutToday;
 
@@ -161,9 +164,11 @@ class AttendanceProvider with ChangeNotifier {
 
         if (_todayLogs.isNotEmpty) {
           final lastLog = _todayLogs.first;
-          _isVisiting = lastLog['log_type'] == 'visit_in';
+          _isVisiting = lastLog['log_type'] == 'visit_in' || lastLog['log_type'] == 'visit_report';
+          _hasFilledVisitReport = lastLog['log_type'] == 'visit_report';
         } else {
           _isVisiting = false;
+          _hasFilledVisitReport = false;
         }
 
         // We CANNOT auto-start LocationService here because starting a Foreground Service 
@@ -236,7 +241,7 @@ class AttendanceProvider with ChangeNotifier {
     required String type,
     required double latitude,
     required double longitude,
-    required String imagePath,
+    String? imagePath,
     required bool isWeb,
     String? visitType,
     String? note,
@@ -261,12 +266,14 @@ class AttendanceProvider with ChangeNotifier {
       if (note != null) request.fields['note'] = note;
       if (visitLocationId != null) request.fields['visit_location_id'] = visitLocationId.toString();
 
-      if (isWeb) {
-        final imgResponse = await http.get(Uri.parse(imagePath));
-        final bytes = imgResponse.bodyBytes;
-        request.files.add(http.MultipartFile.fromBytes('photo', bytes, filename: 'selfie.jpg'));
-      } else {
-        request.files.add(await http.MultipartFile.fromPath('photo', imagePath));
+      if (imagePath != null) {
+        if (isWeb) {
+          final imgResponse = await http.get(Uri.parse(imagePath));
+          final bytes = imgResponse.bodyBytes;
+          request.files.add(http.MultipartFile.fromBytes('photo', bytes, filename: 'selfie.jpg'));
+        } else {
+          request.files.add(await http.MultipartFile.fromPath('photo', imagePath));
+        }
       }
 
       final response = await request.send();
@@ -280,6 +287,53 @@ class AttendanceProvider with ChangeNotifier {
         notifyListeners();
         // Return type so the UI layer can start/stop LocationService AFTER navigation
         return {'success': true, 'message': decodedData['message'] ?? 'Berhasil', 'type': type};
+      } else {
+        _isLoading = false;
+        notifyListeners();
+        return {'success': false, 'message': decodedData['message'] ?? 'Gagal'};
+      }
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+  Future<Map<String, dynamic>> submitVisitReport({
+    required String notes,
+    required String imagePath,
+    required bool isWeb,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      var request = http.MultipartRequest('POST', Uri.parse('${Constants.baseUrl}/attendance/visit-report'));
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
+
+      request.fields['notes'] = notes;
+
+      if (isWeb) {
+        final imgResponse = await http.get(Uri.parse(imagePath));
+        final bytes = imgResponse.bodyBytes;
+        request.files.add(http.MultipartFile.fromBytes('photo', bytes, filename: 'visit_report.jpg'));
+      } else {
+        request.files.add(await http.MultipartFile.fromPath('photo', imagePath));
+      }
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+      final decodedData = json.decode(responseBody);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        await checkAttendanceStatus();
+
+        _isLoading = false;
+        notifyListeners();
+        return {'success': true, 'message': decodedData['message'] ?? 'Berhasil'};
       } else {
         _isLoading = false;
         notifyListeners();

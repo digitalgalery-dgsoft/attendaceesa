@@ -43,6 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Attendance routes
     Route::get('/work-locations', [AttendanceController::class, 'workLocations']);
     Route::post('/attendance', [AttendanceController::class, 'store']);
+    Route::post('/attendance/visit-report', [AttendanceController::class, 'storeVisitReport']);
     Route::get('/attendance/history', [AttendanceController::class, 'history']);
     
     // Tracking routes

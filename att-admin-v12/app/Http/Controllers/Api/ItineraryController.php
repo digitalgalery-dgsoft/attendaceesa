@@ -80,26 +80,25 @@ class ItineraryController extends Controller
         try {
             DB::beginTransaction();
 
-            // Check if itinerary already exists for this date, if so delete to replace
-            $existing = Itinerary::where('employee_id', $employee->id)
+            // Check if itinerary already exists for this date, if so append items
+            $itinerary = Itinerary::where('employee_id', $employee->id)
                 ->where('date', $date)
                 ->first();
                 
-            if ($existing) {
-                $existing->items()->delete();
-                $existing->delete();
+            if (!$itinerary) {
+                // Create new itinerary
+                $itinerary = Itinerary::create([
+                    'employee_id' => $employee->id,
+                    'date' => $date,
+                    'status' => 'approved', // Auto approved for mobile user creation
+                    'notes' => 'Created via Mobile App'
+                ]);
+                $sequence = 1;
+            } else {
+                $sequence = $itinerary->items()->max('sequence') + 1;
             }
 
-            // Create new itinerary
-            $itinerary = Itinerary::create([
-                'employee_id' => $employee->id,
-                'date' => $date,
-                'status' => 'approved', // Auto approved for mobile user creation
-                'notes' => 'Created via Mobile App'
-            ]);
-
             // Create items
-            $sequence = 1;
             foreach ($request->input('locations') as $loc) {
                 ItineraryItem::create([
                     'itinerary_id' => $itinerary->id,

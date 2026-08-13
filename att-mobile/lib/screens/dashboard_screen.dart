@@ -12,6 +12,7 @@ import 'package:att_mobile/screens/permit_screen.dart';
 import 'package:att_mobile/screens/itinerary_screen.dart';
 import 'package:att_mobile/screens/coming_soon_screen.dart';
 import 'package:att_mobile/screens/notification_screen.dart';
+import 'package:att_mobile/screens/visit_report_screen.dart';
 import 'package:att_mobile/providers/notification_provider.dart';
 import 'package:att_mobile/providers/dashboard_provider.dart';
 import 'package:att_mobile/widgets/dashboard_stats_widget.dart';
@@ -578,7 +579,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_in')));
                         } : null,
                         child: Container(
-                          padding: const EdgeInsets.all(11),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
                           decoration: BoxDecoration(
                             gradient: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit)
                                 ? LinearGradient(colors: [primaryColor, Colors.lightBlue.shade400])
@@ -587,7 +588,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Container(
                                 width: 27, height: 27,
@@ -598,9 +599,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                 child: Icon(Icons.transfer_within_a_station, size: 14, color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? Colors.white : subtitleColor),
                               ),
                               const SizedBox(height: 7),
-                              Text('Visit-in', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? Colors.white : textColor)),
-                              const SizedBox(height: 2),
-                              Text('Mulai kunjungan', style: TextStyle(fontSize: 9, color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? const Color(0xFFDBF7FC) : subtitleColor, fontWeight: FontWeight.bold)),
+                              Text('Visit-in', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? Colors.white : textColor)),
                             ],
                           ),
                         ),
@@ -609,33 +608,67 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     const SizedBox(width: 8),
                     Expanded(
                       child: InkWell(
-                        onTap: (!attProvider.isVisiting || !attProvider.canVisit) ? null : () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_out')));
-                        },
+                        onTap: (attProvider.isVisiting && !attProvider.hasFilledVisitReport && attProvider.canVisit) ? () async {
+                          final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => VisitReportScreen()));
+                          if (result == true) {
+                            attProvider.checkAttendanceStatus();
+                          }
+                        } : null,
                         child: Container(
-                          padding: const EdgeInsets.all(11),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
                           decoration: BoxDecoration(
-                            gradient: (attProvider.isVisiting && attProvider.canVisit)
-                                ? LinearGradient(colors: [primaryColor, Colors.orange.shade400])
+                            gradient: (attProvider.isVisiting && !attProvider.hasFilledVisitReport && attProvider.canVisit)
+                                ? LinearGradient(colors: [primaryColor, Colors.purple.shade400])
                                 : LinearGradient(colors: [cardColor, cardColor]),
-                            border: Border.all(color: (attProvider.isVisiting && attProvider.canVisit) ? Colors.transparent : Colors.grey.shade300),
+                            border: Border.all(color: (attProvider.isVisiting && !attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.transparent : Colors.grey.shade300),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Container(
                                 width: 27, height: 27,
                                 decoration: BoxDecoration(
-                                  color: (attProvider.isVisiting && attProvider.canVisit) ? Colors.white.withOpacity(0.2) : elevatedColor,
+                                  color: (attProvider.isVisiting && !attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.white.withOpacity(0.2) : elevatedColor,
                                   borderRadius: BorderRadius.circular(8)
                                 ),
-                                child: Icon(Icons.directions_run, size: 14, color: (!attProvider.isVisiting || !attProvider.canVisit) ? subtitleColor : Colors.white),
+                                child: Icon(Icons.assignment, size: 14, color: (attProvider.isVisiting && !attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.white : subtitleColor),
                               ),
                               const SizedBox(height: 7),
-                              Text('Visit-out', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: (!attProvider.isVisiting || !attProvider.canVisit) ? textColor : Colors.white)),
-                              const SizedBox(height: 2),
-                              Text(!attProvider.isVisiting ? 'Belum ada visit' : 'Selesai kunjungan', style: TextStyle(fontSize: 9, color: (!attProvider.isVisiting || !attProvider.canVisit) ? subtitleColor : const Color(0xFFFBE4D2), fontWeight: FontWeight.bold)),
+                              Text('Laporan', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: (attProvider.isVisiting && !attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.white : textColor)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: (attProvider.isVisiting && attProvider.hasFilledVisitReport && attProvider.canVisit) ? () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_out')));
+                        } : null,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
+                          decoration: BoxDecoration(
+                            gradient: (attProvider.isVisiting && attProvider.hasFilledVisitReport && attProvider.canVisit)
+                                ? LinearGradient(colors: [primaryColor, Colors.orange.shade400])
+                                : LinearGradient(colors: [cardColor, cardColor]),
+                            border: Border.all(color: (attProvider.isVisiting && attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.transparent : Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 27, height: 27,
+                                decoration: BoxDecoration(
+                                  color: (attProvider.isVisiting && attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.white.withOpacity(0.2) : elevatedColor,
+                                  borderRadius: BorderRadius.circular(8)
+                                ),
+                                child: Icon(Icons.directions_run, size: 14, color: (attProvider.isVisiting && attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.white : subtitleColor),
+                              ),
+                              const SizedBox(height: 7),
+                              Text('Visit-out', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: (attProvider.isVisiting && attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.white : textColor)),
                             ],
                           ),
                         ),
