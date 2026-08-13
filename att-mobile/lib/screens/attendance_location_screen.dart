@@ -1,16 +1,17 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'package:provider/provider.dart';
 import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:toastification/toastification.dart';
-import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:intl/intl.dart';
+import 'liveness_camera_screen.dart';
 import 'package:att_mobile/utils/image_utils.dart';
 
 class AttendanceLocationScreen extends StatefulWidget {
@@ -36,16 +37,6 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
 
   final MapController _mapController = MapController();
 
-  final FaceDetector _faceDetector = FaceDetector(
-    options: FaceDetectorOptions(
-      enableContours: false,
-      enableLandmarks: false,
-      enableClassification: false,
-      enableTracking: false,
-      performanceMode: FaceDetectorMode.fast,
-    ),
-  );
-
   @override
   void initState() {
     super.initState();
@@ -59,7 +50,6 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
 
   @override
   void dispose() {
-    _faceDetector.close();
     _tabController.dispose();
     _noteController.dispose();
     super.dispose();
@@ -125,57 +115,16 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   }
 
   Future<void> _takeSelfie() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? photo = await picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.front,
-      imageQuality: 50,
+    final String? photoPath = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LivenessCameraScreen()),
     );
 
-    if (photo != null) {
+    if (photoPath != null) {
       if (!mounted) return;
-      
-      // Tampilkan indikator loading saat memproses wajah
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      try {
-        final inputImage = InputImage.fromFilePath(photo.path);
-        final faces = await _faceDetector.processImage(inputImage);
-        
-        if (!mounted) return;
-        Navigator.pop(context); // Tutup loading
-
-        if (faces.isEmpty) {
-          toastification.show(
-            context: context,
-            title: const Text('Wajah tidak terdeteksi, silakan foto ulang'),
-            type: ToastificationType.error,
-            style: ToastificationStyle.flat,
-            alignment: Alignment.topRight,
-            autoCloseDuration: const Duration(seconds: 4),
-          );
-          return;
-        }
-
-        setState(() {
-          _selfieFile = photo;
-        });
-      } catch (e) {
-        if (!mounted) return;
-        Navigator.pop(context);
-        toastification.show(
-          context: context,
-          title: Text('Gagal memproses foto: $e'),
-          type: ToastificationType.error,
-          style: ToastificationStyle.flat,
-          alignment: Alignment.topRight,
-          autoCloseDuration: const Duration(seconds: 4),
-        );
-      }
+      setState(() {
+        _selfieFile = XFile(photoPath);
+      });
     }
   }
 
@@ -650,7 +599,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      gradient: _selfieFile == null
+                      gradient: (_selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in'))
                         ? LinearGradient(colors: [Colors.grey.shade400, Colors.grey.shade400])
                         : LinearGradient(
                             colors: widget.type == 'checkin'
@@ -665,7 +614,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                           ),
                     ),
                     child: ElevatedButton(
-                      onPressed: _selfieFile != null ? _submitAttendance : null,
+                      onPressed: (_selfieFile != null || widget.type == 'checkout' || widget.type == 'visit_out') ? _submitAttendance : null,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: Colors.transparent,
