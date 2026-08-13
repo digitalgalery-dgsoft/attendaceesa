@@ -115,6 +115,33 @@ Future<bool> onIosBackground(ServiceInstance service) async {
   return true;
 }
 
+/// Simpan posisi terakhir ke SharedPreferences agar tahan terhadap restart service
+Future<void> _saveLastPosition(double lat, double lng) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('last_sent_lat', lat);
+    await prefs.setDouble('last_sent_lng', lng);
+  } catch (e) {
+    debugPrint('[Tracking] Failed to save last position: $e');
+  }
+}
+
+/// Baca posisi terakhir dari SharedPreferences
+Future<Map<String, double>?> _loadLastPosition() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
+    final lat = prefs.getDouble('last_sent_lat');
+    final lng = prefs.getDouble('last_sent_lng');
+    if (lat != null && lng != null) {
+      return {'lat': lat, 'lng': lng};
+    }
+  } catch (e) {
+    debugPrint('[Tracking] Failed to load last position: $e');
+  }
+  return null;
+}
+
 /// Mengirim lokasi ke API server
 Future<void> _sendLocation(String token, double lat, double lng, {DateTime? timestamp}) async {
   final sendTime = timestamp ?? DateTime.now();
@@ -303,11 +330,32 @@ void onStart(ServiceInstance service) async {
   }
 
   // FIX #2: Kirim titik pertama SEGERA saat service start (tidak menunggu interval pertama)
-  // Timer.periodic hanya ticking SETELAH interval pertama berlalu, sehingga jika
-  // perjalanan pendek, titik pertama bisa terlewat.
+  // TETAPI: Hanya kirim jika belum ada posisi tersimpan ATAU sudah bergerak melewati radius.
+  // Ini mencegah titik duplikat saat service di-restart oleh OS di lokasi yang sama.
   debugPrint('[Tracking] Capturing initial position immediately...');
   final initialPosition = await _getCurrentPosition();
+  final savedPosForInitial = await _loadLastPosition();
+  
+  bool shouldSendInitial = false;
   if (initialPosition != null) {
+    if (savedPosForInitial == null) {
+      // Tidak ada data tersimpan → ini benar-benar titik pertama, kirim
+      shouldSendInitial = true;
+    } else {
+      double distFromSaved = Geolocator.distanceBetween(
+        savedPosForInitial['lat']!, savedPosForInitial['lng']!,
+        initialPosition.latitude, initialPosition.longitude,
+      );
+      if (distFromSaved >= distanceMeters) {
+        shouldSendInitial = true;
+        debugPrint('[Tracking] Initial position ${distFromSaved.toStringAsFixed(1)}m from last saved → sending.');
+      } else {
+        debugPrint('[Tracking] Initial position only ${distFromSaved.toStringAsFixed(1)}m from last saved → SKIPPED (no movement).');
+      }
+    }
+  }
+
+  if (shouldSendInitial && initialPosition != null) {
     // Refresh token sebelum mengirim
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -315,6 +363,7 @@ void onStart(ServiceInstance service) async {
       final currentToken = prefs.getString('auth_token');
       if (currentToken != null && currentToken.isNotEmpty) {
         await _sendLocation(currentToken, initialPosition.latitude, initialPosition.longitude, timestamp: initialPosition.timestamp);
+        await _saveLastPosition(initialPosition.latitude, initialPosition.longitude);
       }
     } catch (e) {
       debugPrint('[Tracking] Error on initial position send: $e');
@@ -325,13 +374,20 @@ void onStart(ServiceInstance service) async {
   // Menggunakan timer periodik untuk mengecek posisi secara manual, 
   // karena getPositionStream seringkali di-pause oleh OS (Xiaomi/Oppo/Vivo dll)
   
-  // Interval pengecekan (misal 30 detik)
   const cronInterval = Duration(seconds: 30);
-  Position? lastSentPosition;
   
-  if (initialPosition != null) {
-      lastSentPosition = initialPosition;
-  }
+  // FIX: Load posisi terakhir dari SharedPreferences agar persisten saat service restart.
+  // Sebelumnya lastSentPosition di-reset ke null setiap restart service, sehingga
+  // titik baru selalu dikirim meskipun pengguna tidak bergerak.
+  final savedPos = await _loadLastPosition();
+
+  // Gunakan posisi tersimpan (SharedPrefs) sebagai referensi jarak, agar filter
+  // tetap bekerja saat service di-restart oleh OS.
+  // Prioritas: savedPos > initialPosition
+  double? refLat = savedPos?['lat'] ?? initialPosition?.latitude;
+  double? refLng = savedPos?['lng'] ?? initialPosition?.longitude;
+  
+  debugPrint('[Tracking] Reference position loaded: refLat=$refLat, refLng=$refLng (from ${savedPos != null ? "SharedPrefs" : "initial position"})');
 
   Timer? cronTimer;
   cronTimer = Timer.periodic(cronInterval, (timer) async {
@@ -359,29 +415,34 @@ void onStart(ServiceInstance service) async {
 
         bool shouldSend = false;
         
-        // Cek jarak dengan posisi terakhir yang dikirim
-        if (lastSentPosition != null) {
+        // Cek jarak dengan posisi terakhir yang dikirim.
+        // Menggunakan refLat/refLng yang persisten (dari SharedPreferences)
+        // sehingga filter tetap bekerja meskipun service di-restart oleh OS.
+        if (refLat != null && refLng != null) {
           double distance = Geolocator.distanceBetween(
-            lastSentPosition!.latitude, 
-            lastSentPosition!.longitude, 
+            refLat!, 
+            refLng!, 
             position.latitude, 
             position.longitude
           );
           
           if (distance >= distanceMeters) {
             shouldSend = true;
-            debugPrint('[Tracking] User moved ${distance.toStringAsFixed(1)}m. Sending update.');
+            debugPrint('[Tracking] User moved ${distance.toStringAsFixed(1)}m (≥ ${distanceMeters}m). Sending update.');
           } else {
-             // Opsional: print untuk debug
-             // debugPrint('[Tracking] User only moved ${distance.toStringAsFixed(1)}m. Skipped.');
+            debugPrint('[Tracking] Only ${distance.toStringAsFixed(1)}m from last point (< ${distanceMeters}m). Skipped.');
           }
         } else {
+          // Belum ada referensi posisi sama sekali — kirim titik pertama
           shouldSend = true;
         }
 
         if (shouldSend) {
           await _sendLocation(currentToken, position.latitude, position.longitude, timestamp: position.timestamp);
-          lastSentPosition = position;
+          refLat = position.latitude;
+          refLng = position.longitude;
+          // FIX: Simpan posisi ke SharedPreferences supaya restart service tidak kehilangan referensi
+          await _saveLastPosition(position.latitude, position.longitude);
           
           // Update notification dengan koordinat terbaru
           if (service is AndroidServiceInstance) {
