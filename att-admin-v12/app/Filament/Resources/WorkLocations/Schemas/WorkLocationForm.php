@@ -177,25 +177,10 @@ class WorkLocationForm
                                 }
 
                                 if ($lat && $lng) {
-                                    $address = null;
-                                    try {
-                                        $res = \Illuminate\Support\Facades\Http::withHeaders([
-                                            'User-Agent' => 'AttendanceApp/1.0'
-                                        ])->get('https://nominatim.openstreetmap.org/reverse', [
-                                            'format' => 'json',
-                                            'lat' => $lat,
-                                            'lon' => $lng,
-                                        ]);
-                                        
-                                        if ($res->successful()) {
-                                            $address = $res->json('display_name');
-                                        }
-                                    } catch (\Exception $e) {}
-
-                                    $livewire->dispatch('gmaps-coords-extracted', lat: (float)$lat, lng: (float)$lng, address: $address);
+                                    $livewire->dispatch('gmaps-coords-extracted', lat: (float)$lat, lng: (float)$lng);
                                     \Filament\Notifications\Notification::make()
-                                        ->title('✅ Koordinat & Alamat berhasil ditarik')
-                                        ->body("Lat: {$lat}, Lng: {$lng}")
+                                        ->title('✅ Koordinat berhasil ditemukan')
+                                        ->body("Latitude: {$lat} \nLongitude: {$lng}")
                                         ->success()
                                         ->send();
                                 } else {
