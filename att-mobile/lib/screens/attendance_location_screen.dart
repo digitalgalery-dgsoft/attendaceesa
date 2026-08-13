@@ -343,7 +343,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: primaryColor))
-          : Stack(
+          : Column(
               children: [
                 Expanded(
                   child: Stack(
