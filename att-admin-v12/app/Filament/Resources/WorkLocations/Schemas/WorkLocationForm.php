@@ -164,90 +164,80 @@ class WorkLocationForm
                         }
                     })
                     ->dehydrated(false),
-                // ── Google Maps URL → Koordinat ─────────────────────────────────────────
-                Actions::make([
-                    Action::make('extract_gmaps_coords')
-                        ->label('🗺️ Ekstrak Koordinat dari Google Maps')
-                        ->color('info')
-                        ->modalHeading('Ekstrak Koordinat Maps')
-                        ->modalDescription('Tempel link Google Maps untuk mendapatkan titik latitude dan longitude.')
-                        ->modalWidth('lg')
-                        ->modalSubmitActionLabel('Gunakan Titik')
-                        ->modalCancelActionLabel('Tutup')
-                        ->form([
-                            \Filament\Forms\Components\TextInput::make('gmaps_url')
-                                ->label('Tautan Google Maps')
-                                ->placeholder('https://maps.google.com/... atau https://goo.gl/maps/...')
-                                ->helperText('Tempel URL Google Maps lengkap dari browser. Untuk link pendek (goo.gl), buka dulu di browser lalu salin URL lengkapnya.')
-                                ->required()
-                                ->columnSpanFull()
-                                ->extraAttributes(['id' => 'gmaps-url-input']),
-                            \Filament\Forms\Components\Placeholder::make('gmaps_result_preview')
-                                ->label('')
-                                ->content('')
-                                ->columnSpanFull()
-                                ->extraAttributes(['id' => 'gmaps-result-placeholder'])
-                                ->dehydrated(false),
-                            \Filament\Forms\Components\Hidden::make('extracted_lat')
-                                ->extraAttributes(['id' => 'hidden-extracted-lat']),
-                            \Filament\Forms\Components\Hidden::make('extracted_lng')
-                                ->extraAttributes(['id' => 'hidden-extracted-lng']),
-                        ])
-                        ->action(function (array $data, $livewire) {
-                            $url   = $data['gmaps_url'] ?? '';
-                            $lat   = $data['extracted_lat'] ?? null;
-                            $lng   = $data['extracted_lng'] ?? null;
-
-                            // Server-side fallback parser untuk berbagai format URL GMaps
-                            if (!$lat || !$lng) {
-                                $patterns = [
-                                    // @lat,lng
-                                    '/@(-?\d+\.?\d*),(-?\d+\.?\d*)/',
-                                    // ?q=lat,lng
-                                    '/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/',
-                                    // /place/.../@lat,lng
-                                    '/place\/[^@]*@(-?\d+\.?\d*),(-?\d+\.?\d*)/',
-                                    // ll=lat,lng
-                                    '/ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/',
-                                    // !3d{lat}!4d{lng}
-                                    '/!3d(-?\d+\.?\d*).*?!4d(-?\d+\.?\d*)/',
-                                    // mlat / mlon
-                                    '/mlat=(-?\d+\.?\d*).*?mlon=(-?\d+\.?\d*)/',
-                                ];
-                                foreach ($patterns as $pattern) {
-                                    if (preg_match($pattern, $url, $m)) {
-                                        $lat = $m[1];
-                                        $lng = $m[2];
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if ($lat && $lng) {
-                                $livewire->dispatch('gmaps-coords-extracted', lat: (float)$lat, lng: (float)$lng);
-                                
-                                \Filament\Notifications\Notification::make()
-                                    ->title('✅ Koordinat berhasil digunakan')
-                                    ->body("Lat: {$lat} | Lng: {$lng}")
-                                    ->success()
-                                    ->send();
-                            } else {
-                                \Filament\Notifications\Notification::make()
-                                    ->title('❌ Gagal mengekstrak koordinat')
-                                    ->body('Format URL tidak dikenali. Pastikan URL adalah Google Maps lengkap (bukan link pendek).')
-                                    ->danger()
-                                    ->persistent()
-                                    ->send();
-                            }
-                        })
-                        ->modalContent(view('filament.components.gmaps-extractor-modal'))
-                        ->extraModalFooterActions([]),
-                ])->columnSpanFull(),
-
                 TextInput::make('latitude')
                     ->required()
                     ->numeric()
-                    ->readOnly(),
+                    ->readOnly()
+                    ->suffixAction(
+                        \Filament\Forms\Components\Actions\Action::make('extract_gmaps_coords')
+                            ->label('🗺️ Ekstrak Maps')
+                            ->color('info')
+                            ->modalHeading('Ekstrak Koordinat Maps')
+                            ->modalDescription('Tempel link Google Maps untuk mendapatkan titik latitude dan longitude.')
+                            ->modalWidth('lg')
+                            ->modalSubmitActionLabel('Gunakan Titik')
+                            ->modalCancelActionLabel('Tutup')
+                            ->form([
+                                \Filament\Forms\Components\TextInput::make('gmaps_url')
+                                    ->label('Tautan Google Maps')
+                                    ->placeholder('https://maps.google.com/... atau https://goo.gl/maps/...')
+                                    ->helperText('Tempel URL Google Maps lengkap dari browser.')
+                                    ->required()
+                                    ->columnSpanFull()
+                                    ->extraAttributes(['id' => 'gmaps-url-input']),
+                                \Filament\Forms\Components\Placeholder::make('gmaps_result_preview')
+                                    ->label('')
+                                    ->content('')
+                                    ->columnSpanFull()
+                                    ->extraAttributes(['id' => 'gmaps-result-placeholder'])
+                                    ->dehydrated(false),
+                                \Filament\Forms\Components\Hidden::make('extracted_lat')
+                                    ->extraAttributes(['id' => 'hidden-extracted-lat']),
+                                \Filament\Forms\Components\Hidden::make('extracted_lng')
+                                    ->extraAttributes(['id' => 'hidden-extracted-lng']),
+                            ])
+                            ->action(function (array $data, $livewire) {
+                                $url   = $data['gmaps_url'] ?? '';
+                                $lat   = $data['extracted_lat'] ?? null;
+                                $lng   = $data['extracted_lng'] ?? null;
+
+                                if (!$lat || !$lng) {
+                                    $patterns = [
+                                        '/@(-?\d+\.?\d*),(-?\d+\.?\d*)/',
+                                        '/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/',
+                                        '/place\/[^@]*@(-?\d+\.?\d*),(-?\d+\.?\d*)/',
+                                        '/ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/',
+                                        '/!3d(-?\d+\.?\d*).*?!4d(-?\d+\.?\d*)/',
+                                        '/mlat=(-?\d+\.?\d*).*?mlon=(-?\d+\.?\d*)/',
+                                    ];
+                                    foreach ($patterns as $pattern) {
+                                        if (preg_match($pattern, $url, $m)) {
+                                            $lat = $m[1];
+                                            $lng = $m[2];
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if ($lat && $lng) {
+                                    $livewire->dispatch('gmaps-coords-extracted', lat: (float)$lat, lng: (float)$lng);
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('✅ Koordinat berhasil digunakan')
+                                        ->body("Lat: {$lat} | Lng: {$lng}")
+                                        ->success()
+                                        ->send();
+                                } else {
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('❌ Gagal mengekstrak koordinat')
+                                        ->body('Format URL tidak dikenali.')
+                                        ->danger()
+                                        ->persistent()
+                                        ->send();
+                                }
+                            })
+                            ->modalContent(view('filament.components.gmaps-extractor-modal'))
+                            ->extraModalFooterActions([])
+                    ),
                 TextInput::make('longitude')
                     ->required()
                     ->numeric()
