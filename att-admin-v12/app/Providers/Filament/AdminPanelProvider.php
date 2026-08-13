@@ -33,17 +33,20 @@ class AdminPanelProvider extends PanelProvider
         $appName = $setting?->app_name ?? 'AbsensiKu';
         $themeColor = $setting?->theme_color ?? '#0A192F';
 
+        // Build logo HTML to inject via renderHook (more reliable than brandLogo())
+        $logoHtml = '';
         if ($setting && $setting->logo_path) {
             try {
-                $content = \Illuminate\Support\Facades\Storage::disk('public')->get($setting->logo_path);
-                $mime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($setting->logo_path);
-                $base64 = base64_encode($content);
-                $panel->brandLogo('data:' . $mime . ';base64,' . $base64);
+                $disk = \Illuminate\Support\Facades\Storage::disk('public');
+                if ($disk->exists($setting->logo_path)) {
+                    $content  = $disk->get($setting->logo_path);
+                    $mime     = $disk->mimeType($setting->logo_path) ?: 'image/png';
+                    $base64   = base64_encode($content);
+                    $logoHtml = '<img src="data:' . $mime . ';base64,' . $base64 . '" alt="' . htmlspecialchars($appName) . '" style="height:2rem;max-width:160px;object-fit:contain;">';
+                }
             } catch (\Exception $e) {
-                // Fallback URL if file cannot be read
-                $panel->brandLogo(\Illuminate\Support\Facades\Storage::disk('public')->url($setting->logo_path));
+                // logo inject failed, fall back to text name only
             }
-            $panel->brandLogoHeight('2rem');
         }
 
         return $panel
@@ -52,7 +55,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->sidebarCollapsibleOnDesktop()
-            ->brandName($appName)
+            ->brandName($logoHtml ? ' ' : $appName) // blank name when logo shown via hook
             ->font('Public Sans')
             ->colors([
                 'primary' => $themeColor,
@@ -95,7 +98,17 @@ class AdminPanelProvider extends PanelProvider
                     .dark .fi-topbar .fi-logo {
                         color: #ffffff !important;
                     }
+                    /* Custom logo override */
+                    .fi-logo-custom-img { display: flex; align-items: center; }
                 </style>'
+                . ($logoHtml ? '<style>
+                    /* Hide default brand name text when we have a logo image */
+                    .fi-logo span.truncate { display: none !important; }
+                </style>' : '')
+            )
+            ->renderHook(
+                PanelsRenderHook::SIDEBAR_NAV_START,
+                fn (): string => $logoHtml ? '<div class="fi-logo-custom-img" style="padding:12px 16px 8px;">' . $logoHtml . '</div>' : ''
             )
             ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_BEFORE,

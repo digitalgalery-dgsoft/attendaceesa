@@ -580,15 +580,29 @@ class AttendanceController extends Controller
         $todayStart = Carbon::createFromFormat('Y-m-d', $todayLocal, 'Asia/Jakarta')->startOfDay();
         $todayEnd   = Carbon::createFromFormat('Y-m-d', $todayLocal, 'Asia/Jakarta')->endOfDay();
 
-        $todayLogs = AttendanceLog::where('employee_id', $employee->id)
+        // Ambil schedule hari ini untuk mendapatkan work location checkin/checkout
+        $todaySchedule = \App\Models\EmployeeSchedule::where('employee_id', $employee->id)
+            ->where('schedule_date', $todayLocal)
+            ->with('workLocation')
+            ->first();
+        $scheduleWorkLocation = $todaySchedule?->workLocation ? $todaySchedule->workLocation->toArray() : null;
+
+        $rawLogs = AttendanceLog::where('employee_id', $employee->id)
             ->whereBetween('logged_at', [$todayStart, $todayEnd])
             ->orderBy('id', 'asc') // Sort asc to track active visit location sequentially
             ->get();
             
         $activeVisitLocation = null;
         
-        $todayLogs = $todayLogs->map(function ($log) use (&$activeVisitLocation) {
+        $todayLogs = $rawLogs->map(function ($log) use (&$activeVisitLocation, $scheduleWorkLocation) {
             $logArray = $log->toArray();
+            
+            // Attach schedule work location for checkin/checkout
+            if (in_array($log->log_type, ['checkin', 'checkout'])) {
+                if ($scheduleWorkLocation) {
+                    $logArray['visit_location'] = $scheduleWorkLocation;
+                }
+            }
             
             // If it's visit_in, update the active visit location
             if ($log->log_type === 'visit_in') {
@@ -642,6 +656,19 @@ class AttendanceController extends Controller
         $employee = $request->user();
         $today    = Carbon::today('Asia/Jakarta')->toDateString();
 
+        // Ambil ID lokasi yang sudah di-visit hari ini
+        $visitedLocationIds = AttendanceLog::where('employee_id', $employee->id)
+            ->where('log_type', 'visit_in')
+            ->whereDate('logged_at', $today)
+            ->get()
+            ->map(function ($log) {
+                $id = $log->metadata['visit_location_id'] ?? null;
+                return $id !== null ? (int) $id : null;
+            })
+            ->filter()
+            ->unique()
+            ->toArray();
+
         $itinerary = Itinerary::where('employee_id', $employee->id)
             ->where('date', $today)
             ->with(['items' => fn($q) => $q->orderBy('sequence'), 'items.workLocation'])
@@ -651,6 +678,7 @@ class AttendanceController extends Controller
             $locations = $itinerary->items
                 ->map(fn($item) => $item->workLocation)
                 ->filter()
+                ->reject(fn($loc) => in_array((int) $loc->id, $visitedLocationIds))
                 ->values();
 
             return response()->json([
