@@ -56,10 +56,18 @@
 
     <!-- Fix for Tailwind CSS breaking Leaflet SVG polylines -->
     <style>
-        .leaflet-pane > svg path {
-            pointer-events: auto;
-            fill: none;
-            stroke-width: 4px;
+        /* Force leaflet paths to render properly against Tailwind SVG reset */
+        path.my-polyline {
+            stroke: #3b82f6 !important;
+            stroke-width: 4px !important;
+            fill: none !important;
+            opacity: 0.8 !important;
+        }
+        path.my-circle-marker {
+            stroke: #2563eb !important;
+            stroke-width: 1px !important;
+            fill: #3b82f6 !important;
+            fill-opacity: 0.9 !important;
         }
     </style>
     <!-- Leaflet CSS -->
@@ -75,9 +83,7 @@
             
             if (trackingData.length > 0) {
                 // Initialize the map, set view to the first point. 
-                // IMPORTANT: use preferCanvas to ensure lines and circlemarkers render correctly 
-                // and bypass any SVG CSS conflicts from Tailwind/Filament.
-                map = L.map('map', { preferCanvas: true }).setView([trackingData[0].latitude, trackingData[0].longitude], 15);
+                map = L.map('map').setView([trackingData[0].latitude, trackingData[0].longitude], 15);
 
                 // Add OpenStreetMap tiles
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -88,8 +94,10 @@
                 // Prepare latlngs for polyline
                 const latlngs = trackingData.map(point => [parseFloat(point.latitude), parseFloat(point.longitude)]);
 
-                // Create polyline and add to map
-                const polyline = L.polyline(latlngs, {color: '#3b82f6', weight: 4, opacity: 0.8}).addTo(map);
+                // Create polyline and add to map with explicit class name for CSS override
+                const polyline = L.polyline(latlngs, {
+                    color: '#3b82f6', weight: 4, opacity: 0.8, className: 'my-polyline'
+                }).addTo(map);
 
                 // Add markers for each point
                 trackingData.forEach((point, index) => {
@@ -104,10 +112,10 @@
                         // End marker
                         marker = L.marker([lat, lng]).addTo(map).bindPopup(`<b>Terakhir</b><br>${point.created_at}`);
                     } else {
-                        // Intermediate — blue dot
+                        // Intermediate — blue dot with explicit class name
                         marker = L.circleMarker([lat, lng], {
                             radius: 5, color: '#2563eb', fillColor: '#3b82f6',
-                            fillOpacity: 0.9, weight: 1
+                            fillOpacity: 0.9, weight: 1, className: 'my-circle-marker'
                         }).addTo(map).bindPopup(`Titik ${index + 1}<br>${point.created_at}`);
                     }
                     markers.push(marker);

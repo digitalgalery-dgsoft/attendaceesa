@@ -48,11 +48,11 @@
                                         {{ ucfirst($attendance->status) }}
                                     </div>
                                     <div class="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300">
-                                        <x-heroicon-o-arrow-right-end-on-rectangle class="w-3.5 h-3.5 text-emerald-500" />
+                                        <x-heroicon-o-arrow-right-end-on-rectangle style="width: 14px; height: 14px; flex-shrink: 0;" class="text-emerald-500" />
                                         <span>In: <strong>{{ $attendance->checkin_at ? \Carbon\Carbon::parse($attendance->checkin_at)->timezone('Asia/Jakarta')->format('H:i') : '--:--' }}</strong></span>
                                     </div>
                                     <div class="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300 mt-1">
-                                        <x-heroicon-o-arrow-left-start-on-rectangle class="w-3.5 h-3.5 text-rose-500" />
+                                        <x-heroicon-o-arrow-left-start-on-rectangle style="width: 14px; height: 14px; flex-shrink: 0;" class="text-rose-500" />
                                         <span>Out: <strong>{{ $attendance->checkout_at ? \Carbon\Carbon::parse($attendance->checkout_at)->timezone('Asia/Jakarta')->format('H:i') : '--:--' }}</strong></span>
                                     </div>
                                 @else
