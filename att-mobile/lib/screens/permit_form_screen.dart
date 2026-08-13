@@ -299,7 +299,10 @@ class _PermitFormScreenState extends State<PermitFormScreen> {
                     style: TextStyle(color: textColor),
                     decoration: inputDecoration.copyWith(hintText: 'Pilih Jenis Cuti'),
                     value: _selectedSubType,
-                    items: _cutiTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                    items: (provider.quotaEligible 
+                            ? const ['Cuti Tahunan', 'Cuti Peraturan'] 
+                            : const ['Cuti Peraturan'])
+                        .map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                     onChanged: (val) => setState(() {
                       _selectedSubType = val;
                       _selectedCutiPeraturanKey = null;
