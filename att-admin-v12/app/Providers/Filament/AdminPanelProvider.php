@@ -34,7 +34,7 @@ class AdminPanelProvider extends PanelProvider
         $themeColor = $setting?->theme_color ?? '#0A192F';
 
         if ($setting && $setting->logo_path) {
-            $panel->brandLogo(asset('storage/' . $setting->logo_path));
+            $panel->brandLogo('/storage/' . $setting->logo_path);
             $panel->brandLogoHeight('2rem');
         }
 
