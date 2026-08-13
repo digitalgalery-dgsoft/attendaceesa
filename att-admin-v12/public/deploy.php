@@ -15,14 +15,20 @@ if (!isset($_GET['token']) || $_GET['token'] !== $secretToken) {
 
 // Jika request adalah POST, jalankan proses deploy (streaming output)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (ob_get_level()) ob_end_clean();
+    // Bersihkan semua output buffer yang mungkin aktif
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    
     header('Content-Type: application/octet-stream');
     header('Cache-Control: no-cache');
     header('X-Accel-Buffering: no'); // Nginx
     header('X-LiteSpeed-Buffer: no'); // LiteSpeed
     
-    // Kirim padding untuk memaksa browser/server me-render buffer pertama
-    echo str_repeat(' ', 1024) . "\n";
+    // Kirim padding (HTML comment) untuk memaksa server me-render buffer pertama (minimum 4KB untuk Nginx/FPM)
+    echo "<!--" . str_repeat(' ', 4096) . "-->\n";
+    @flush();
+
     $commands = [
         'cd /www/wwwroot/appsend.my.id && git sparse-checkout init --cone',
         'cd /www/wwwroot/appsend.my.id && git sparse-checkout set att-admin-v12',
@@ -37,10 +43,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
 
     foreach($commands as $cmd){
-        echo "\n<span style=\"color: #6BE236;\">$</span> <span style=\"color: #729FCF;\">{$cmd}</span>\n";
+        // Format command agar terlihat seperti di terminal asli (tanpa menampilkan path cd yang panjang)
+        $displayCmd = preg_replace('/^cd [^&]+ && /', '', $cmd);
+        $displayCmd = str_replace('/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/', 'php ', $displayCmd);
+        
+        echo "\n<span style=\"color: #6BE236;\">admin@server</span>:<span style=\"color: #729FCF;\">~/appsend</span>$ <span style=\"color: #FFFFFF;\">{$displayCmd}</span>\n";
+        echo "<!--" . str_repeat(' ', 4096) . "-->"; // Padding flush
         @flush();
 
-        // Menggunakan proc_open untuk stream output real-time (lebih aman dari shell_exec)
+        // Menggunakan proc_open untuk stream output real-time
         $descriptorspec = [
            0 => ["pipe", "r"],  // stdin
            1 => ["pipe", "w"],  // stdout
@@ -63,13 +74,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 if (!empty($out)) {
                     echo htmlentities($out);
-                    @ob_flush(); @flush();
+                    echo "<!--" . str_repeat(' ', 4096) . "-->";
+                    @flush();
                 }
                 if (!empty($err)) {
                     echo "<span style=\"color: #ff5555;\">" . htmlentities($err) . "</span>";
-                    @ob_flush(); @flush();
+                    echo "<!--" . str_repeat(' ', 4096) . "-->";
+                    @flush();
                 }
-                usleep(100000); // 100ms sleep
+                usleep(50000); // 50ms sleep
             }
             
             // Baca sisa output setelah proses selesai
@@ -77,11 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $err = stream_get_contents($pipes[2]);
             if (!empty($out)) {
                 echo htmlentities($out);
-                @ob_flush(); @flush();
+                echo "<!--" . str_repeat(' ', 4096) . "-->";
+                @flush();
             }
             if (!empty($err)) {
                 echo "<span style=\"color: #ff5555;\">" . htmlentities($err) . "</span>";
-                @ob_flush(); @flush();
+                echo "<!--" . str_repeat(' ', 4096) . "-->";
+                @flush();
             }
             
             fclose($pipes[0]);
@@ -90,10 +105,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             @proc_close($process);
         } else {
-            // Fallback jika proc_open disabled
+            // Fallback
             $output = @shell_exec($cmd . " 2>&1");
             echo htmlentities(trim($output)) . "\n";
-            @ob_flush(); @flush();
+            echo "<!--" . str_repeat(' ', 4096) . "-->";
+            @flush();
         }
     }
     echo "\n<span style=\"color: #6BE236;\">=== DEPLOYMENT SELESAI ===</span>\n";
