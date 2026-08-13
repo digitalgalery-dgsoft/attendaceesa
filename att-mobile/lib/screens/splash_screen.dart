@@ -15,7 +15,7 @@ class SplashScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
-              'assets/images/logo_app_esagroups.png',
+              'assets/images/logo.jpeg',
               height: 120,
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) => const Icon(

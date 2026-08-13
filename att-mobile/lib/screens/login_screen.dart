@@ -93,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   Center(
                     child: Image.asset(
-                      'assets/images/logo_app_esagroups.png',
+                      'assets/images/logo.jpeg',
                       height: 100,
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) => Icon(Icons.fingerprint, size: 80, color: primaryColor),

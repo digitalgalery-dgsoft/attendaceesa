@@ -518,7 +518,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   ? const LinearGradient(colors: [Colors.grey, Colors.grey])
                                   : (!attProvider.canCheckin && !attProvider.isCheckedIn)
                                       ? const LinearGradient(colors: [Colors.grey, Colors.grey])
-                                      : LinearGradient(colors: [primaryColor, primaryColor.withBlue(primaryColor.blue > 200 ? 255 : primaryColor.blue + 50)]),
+                                      : LinearGradient(
+                                          colors: [
+                                            primaryColor,
+                                            attProvider.isCheckedIn ? Colors.red.shade400 : Colors.green.shade400
+                                          ],
+                                        ),
                               borderRadius: BorderRadius.circular(13),
                             ),
                             child: Row(
@@ -576,7 +581,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           padding: const EdgeInsets.all(11),
                           decoration: BoxDecoration(
                             gradient: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit)
-                                ? const LinearGradient(colors: [Color(0xFF14BEDB), Color(0xFF0FA8C4)])
+                                ? LinearGradient(colors: [primaryColor, Colors.lightBlue.shade400])
                                 : LinearGradient(colors: [cardColor, cardColor]),
                             border: Border.all(color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? Colors.transparent : Colors.grey.shade300),
                             borderRadius: BorderRadius.circular(14),
@@ -610,8 +615,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         child: Container(
                           padding: const EdgeInsets.all(11),
                           decoration: BoxDecoration(
-                            color: cardColor,
-                            border: Border.all(color: (!attProvider.isVisiting || !attProvider.canVisit) ? Colors.grey.shade300 : primaryColor),
+                            gradient: (attProvider.isVisiting && attProvider.canVisit)
+                                ? LinearGradient(colors: [primaryColor, Colors.orange.shade400])
+                                : LinearGradient(colors: [cardColor, cardColor]),
+                            border: Border.all(color: (attProvider.isVisiting && attProvider.canVisit) ? Colors.transparent : Colors.grey.shade300),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Column(
@@ -620,15 +627,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               Container(
                                 width: 27, height: 27,
                                 decoration: BoxDecoration(
-                                  color: elevatedColor,
+                                  color: (attProvider.isVisiting && attProvider.canVisit) ? Colors.white.withOpacity(0.2) : elevatedColor,
                                   borderRadius: BorderRadius.circular(8)
                                 ),
-                                child: Icon(Icons.directions_run, size: 14, color: (!attProvider.isVisiting || !attProvider.canVisit) ? subtitleColor : primaryColor),
+                                child: Icon(Icons.directions_run, size: 14, color: (!attProvider.isVisiting || !attProvider.canVisit) ? subtitleColor : Colors.white),
                               ),
                               const SizedBox(height: 7),
-                              Text('Visit-out', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: (!attProvider.isVisiting || !attProvider.canVisit) ? textColor : primaryColor)),
+                              Text('Visit-out', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: (!attProvider.isVisiting || !attProvider.canVisit) ? textColor : Colors.white)),
                               const SizedBox(height: 2),
-                              Text(!attProvider.isVisiting ? 'Belum ada visit' : 'Selesai kunjungan', style: TextStyle(fontSize: 9, color: subtitleColor, fontWeight: FontWeight.bold)),
+                              Text(!attProvider.isVisiting ? 'Belum ada visit' : 'Selesai kunjungan', style: TextStyle(fontSize: 9, color: (!attProvider.isVisiting || !attProvider.canVisit) ? subtitleColor : const Color(0xFFFBE4D2), fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ),

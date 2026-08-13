@@ -64,6 +64,7 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
   void _addLocation() {
     setState(() {
       _locations.add({
+        'area': null,
         'work_location_id': null,
         'notes': '',
       });
@@ -276,6 +277,40 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
                             ),
                             const SizedBox(height: 16),
                             
+                            // Area Dropdown
+                            (() {
+                              final areas = provider.workLocations
+                                  .map((loc) {
+                                    final area = loc['area']?.toString().trim();
+                                    return (area == null || area.isEmpty) ? 'Area Lainnya' : area;
+                                  })
+                                  .toSet()
+                                  .toList();
+                              
+                              return DropdownButtonFormField<String>(
+                                dropdownColor: cardColor,
+                                style: TextStyle(color: textColor),
+                                decoration: inputDecoration.copyWith(
+                                  labelText: 'Area',
+                                ),
+                                value: _locations[index]['area'],
+                                items: areas.map((area) {
+                                  return DropdownMenuItem<String>(
+                                    value: area,
+                                    child: Text(area),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _locations[index]['area'] = value;
+                                    _locations[index]['work_location_id'] = null;
+                                  });
+                                },
+                              );
+                            })(),
+                            
+                            const SizedBox(height: 16),
+
                             // Location Dropdown
                             DropdownButtonFormField<int>(
                               dropdownColor: cardColor,
@@ -284,13 +319,17 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
                                 labelText: 'Lokasi Kerja',
                               ),
                               value: _locations[index]['work_location_id'],
-                              items: provider.workLocations.map((loc) {
+                              items: provider.workLocations.where((loc) {
+                                final locArea = loc['area']?.toString().trim();
+                                final normalizedArea = (locArea == null || locArea.isEmpty) ? 'Area Lainnya' : locArea;
+                                return normalizedArea == _locations[index]['area'];
+                              }).map((loc) {
                                 return DropdownMenuItem<int>(
                                   value: loc['id'],
                                   child: Text(loc['name'] ?? ''),
                                 );
                               }).toList(),
-                              onChanged: (value) {
+                              onChanged: _locations[index]['area'] == null ? null : (value) {
                                 setState(() {
                                   _locations[index]['work_location_id'] = value;
                                 });

@@ -441,7 +441,6 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                   top: false,
                   minimum: const EdgeInsets.only(bottom: 16),
                   child: Container(
-                    color: cardColor,
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                     decoration: BoxDecoration(
                       color: cardColor,
@@ -626,20 +625,39 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: _selfieFile != null ? _submitAttendance : null,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      backgroundColor: widget.type.contains('out') ? Colors.red : primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      gradient: _selfieFile == null
+                        ? LinearGradient(colors: [Colors.grey.shade400, Colors.grey.shade400])
+                        : LinearGradient(
+                            colors: widget.type == 'checkin'
+                                ? [primaryColor, Colors.green]
+                                : widget.type == 'checkout'
+                                    ? [primaryColor, Colors.red]
+                                    : widget.type == 'visit_in'
+                                        ? [primaryColor, Colors.lightBlue]
+                                        : [primaryColor, Colors.orange],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
                     ),
-                    child: Text(
-                      widget.type == 'checkin' ? 'Check In'
-                      : widget.type == 'checkout' ? 'Check Out'
-                      : widget.type == 'visit_in' ? 'Visit In'
-                      : 'Visit Out',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    child: ElevatedButton(
+                      onPressed: _selfieFile != null ? _submitAttendance : null,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text(
+                        widget.type == 'checkin' ? 'Check In'
+                        : widget.type == 'checkout' ? 'Check Out'
+                        : widget.type == 'visit_in' ? 'Visit In'
+                        : 'Visit Out',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                 ),
