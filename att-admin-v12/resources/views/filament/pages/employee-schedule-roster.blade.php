@@ -44,7 +44,7 @@
                                     </div>
                                     <div class="mt-2 flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1">
                                         <x-heroicon-o-calendar style="width: 14px; height: 14px; flex-shrink: 0; display: inline-block;" />
-                                        <span>{{ $schedule->shift?->code ?? 'N/A' }}</span>
+                                        <span>{{ $schedule->shift?->name ?? 'N/A' }}</span>
                                     </div>
                                 @else
                                     <div class="text-gray-400 dark:text-gray-500 text-sm">No Plan</div>

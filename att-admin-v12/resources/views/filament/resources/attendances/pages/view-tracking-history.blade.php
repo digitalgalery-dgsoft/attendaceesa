@@ -54,6 +54,14 @@
         @endif
     </div>
 
+    <!-- Fix for Tailwind CSS breaking Leaflet SVG polylines -->
+    <style>
+        .leaflet-pane > svg path {
+            pointer-events: auto;
+            fill: none;
+            stroke-width: 4px;
+        }
+    </style>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
     

@@ -19,6 +19,30 @@ class ViewTrackingHistory extends Page
     public $employeeName = '';
     public $attendanceDate = '';
 
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('clearTrackingHistory')
+                ->label('Clear Tracking')
+                ->color('danger')
+                ->icon('heroicon-o-trash')
+                ->requiresConfirmation()
+                ->action(function () {
+                    $date = \Carbon\Carbon::parse($this->record->attendance_date)->format('Y-m-d');
+                    \App\Models\TrackingHistory::where('employee_id', $this->record->employee_id)
+                        ->whereDate('created_at', $date)
+                        ->delete();
+                    
+                    \Filament\Notifications\Notification::make()
+                        ->title('Tracking history cleared')
+                        ->success()
+                        ->send();
+                        
+                    return redirect(request()->header('Referer'));
+                }),
+        ];
+    }
+
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);

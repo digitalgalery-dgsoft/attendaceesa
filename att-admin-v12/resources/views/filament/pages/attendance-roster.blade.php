@@ -38,23 +38,25 @@
                             @endphp
                             <td class="px-4 py-4 sm:px-6 align-top cursor-pointer hover:bg-primary-50 dark:hover:bg-primary-500/10 transition" style="min-width: 140px; white-space: nowrap;" wire:click="mountAction('viewDetails', { employee_id: {{ $employee->id }}, date: '{{ $dateStr }}' })">
                                 @if ($attendance)
-                                    <div class="font-medium mb-1
-                                        @if($attendance->status === 'present') text-emerald-600 dark:text-emerald-400
-                                        @elseif($attendance->status === 'absent') text-red-600 dark:text-red-400
-                                        @elseif($attendance->status === 'late') text-amber-600 dark:text-amber-400
-                                        @elseif($attendance->status === 'leave') text-blue-600 dark:text-blue-400
-                                        @else text-gray-600 dark:text-gray-400 @endif
+                                    <div class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mb-2
+                                        @if($attendance->status === 'present') bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400
+                                        @elseif($attendance->status === 'absent') bg-red-100 text-red-800 dark:bg-red-500/10 dark:text-red-400
+                                        @elseif($attendance->status === 'late') bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400
+                                        @elseif($attendance->status === 'leave') bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400
+                                        @else bg-gray-100 text-gray-800 dark:bg-gray-500/10 dark:text-gray-400 @endif
                                     ">
                                         {{ ucfirst($attendance->status) }}
                                     </div>
-                                    <div class="text-xs text-gray-950 dark:text-white">
-                                        In: {{ $attendance->checkin_at ? \Carbon\Carbon::parse($attendance->checkin_at)->timezone('Asia/Jakarta')->format('H:i') : '--:--' }}
+                                    <div class="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300">
+                                        <x-heroicon-o-arrow-right-end-on-rectangle class="w-3.5 h-3.5 text-emerald-500" />
+                                        <span>In: <strong>{{ $attendance->checkin_at ? \Carbon\Carbon::parse($attendance->checkin_at)->timezone('Asia/Jakarta')->format('H:i') : '--:--' }}</strong></span>
                                     </div>
-                                    <div class="text-xs text-gray-950 dark:text-white mt-0.5">
-                                        Out: {{ $attendance->checkout_at ? \Carbon\Carbon::parse($attendance->checkout_at)->timezone('Asia/Jakarta')->format('H:i') : '--:--' }}
+                                    <div class="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300 mt-1">
+                                        <x-heroicon-o-arrow-left-start-on-rectangle class="w-3.5 h-3.5 text-rose-500" />
+                                        <span>Out: <strong>{{ $attendance->checkout_at ? \Carbon\Carbon::parse($attendance->checkout_at)->timezone('Asia/Jakarta')->format('H:i') : '--:--' }}</strong></span>
                                     </div>
                                 @else
-                                    <div class="text-gray-400 dark:text-gray-500 text-sm">No Data</div>
+                                    <div class="text-gray-400 dark:text-gray-500 text-sm italic">No Data</div>
                                 @endif
                             </td>
                         @endfor
