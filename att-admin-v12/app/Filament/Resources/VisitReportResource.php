@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\VisitReportResource\Pages;
 use App\Models\VisitReport;
+use App\Models\ItineraryItem;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -37,9 +38,14 @@ class VisitReportResource extends Resource
     {
         return $schema->components([
             Select::make('itinerary_item_id')
-                ->relationship('itineraryItem', 'id') // Ideally this should show store name and employee name
                 ->label('Visit Kunjungan')
-                ->required()
+                ->nullable()
+                ->options(fn () => ItineraryItem::with(['itinerary.employee', 'workLocation'])
+                    ->get()
+                    ->mapWithKeys(fn ($item) => [
+                        $item->id => ($item->workLocation->name ?? 'Toko?') . ' - ' . ($item->itinerary->employee->full_name ?? 'Karyawan?'),
+                    ])
+                )
                 ->searchable(),
             Select::make('status')
                 ->options([
@@ -84,12 +90,13 @@ class VisitReportResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('employee.first_name')
+                TextColumn::make('employee.full_name')
                     ->label('Employee')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('itineraryItem.workLocation.name')
                     ->label('Store')
+                    ->default('-')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('status')
