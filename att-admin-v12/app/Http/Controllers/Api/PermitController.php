@@ -85,7 +85,22 @@ class PermitController extends Controller
 
     public function cutiPeraturanTypes(Request $request)
     {
-        $types = collect(self::CUTI_PERATURAN_TYPES)->map(function ($v, $k) {
+        $employee = $request->user();
+        
+        $types = collect(self::CUTI_PERATURAN_TYPES)->filter(function ($v, $k) use ($employee) {
+            if ($k === 'cuti_melahirkan') {
+                $isFemale = strtolower($employee->gender ?? '') === 'female';
+                $isLoreal = false;
+                if ($employee->principal_id) {
+                    $principal = \App\Models\Principal::find($employee->principal_id);
+                    if ($principal && stripos($principal->name, 'LOREAL') !== false) {
+                        $isLoreal = true;
+                    }
+                }
+                return $isFemale && $isLoreal;
+            }
+            return true;
+        })->map(function ($v, $k) {
             return ['key' => $k, 'label' => $v['label'], 'max_days' => $v['max_days']];
         })->values();
 
@@ -216,6 +231,23 @@ class PermitController extends Controller
                     'status'  => 'error',
                     'message' => 'Jenis Cuti Peraturan wajib dipilih.'
                 ], 422);
+            }
+
+            if ($cpType === 'cuti_melahirkan') {
+                $isFemale = strtolower($employee->gender ?? '') === 'female';
+                $isLoreal = false;
+                if ($employee->principal_id) {
+                    $principal = \App\Models\Principal::find($employee->principal_id);
+                    if ($principal && stripos($principal->name, 'LOREAL') !== false) {
+                        $isLoreal = true;
+                    }
+                }
+                if (!$isFemale || !$isLoreal) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => 'Cuti Melahirkan khusus untuk karyawati Principal PT LOREAL INDONESIA.'
+                    ], 422);
+                }
             }
 
             $maxDays   = self::CUTI_PERATURAN_TYPES[$cpType]['max_days'];
