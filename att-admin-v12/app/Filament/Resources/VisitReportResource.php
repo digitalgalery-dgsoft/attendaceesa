@@ -101,8 +101,19 @@ class VisitReportResource extends Resource
 
                     Section::make('Evidence')
                         ->schema([
+                            \Filament\Forms\Components\Placeholder::make('photo_preview')
+                                ->label('Preview Foto (Current)')
+                                ->content(function ($record) {
+                                    if ($record && $record->photo_path) {
+                                        return new \Illuminate\Support\HtmlString('<img src="'.\Illuminate\Support\Facades\Storage::url($record->photo_path).'" alt="Photo" class="rounded-lg shadow-sm" style="max-height: 400px; width: auto;" />');
+                                    }
+                                    return '-';
+                                })
+                                ->hidden(fn ($record) => !$record || !$record->photo_path)
+                                ->columnSpanFull(),
+
                             FileUpload::make('photo_path')
-                                ->label('Attachment / Foto')
+                                ->label('Upload / Ganti Foto')
                                 ->disk('public')
                                 ->directory('visit_reports')
                                 ->image()

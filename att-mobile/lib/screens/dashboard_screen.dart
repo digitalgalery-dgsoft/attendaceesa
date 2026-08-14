@@ -289,20 +289,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   List<Map<String, dynamic>> allMenus = [
                     {'title': 'Absensi', 'icon': Icons.calendar_today, 'color': primaryColor, 'onTap': () {
                       if (widget.switchTab != null) { widget.switchTab!(1); }
-                      else { Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen())); }
+                      else { Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen())).then((_) { attProvider.loadDashboardData(); }); }
                     }},
                     {'title': 'Itinerary', 'icon': Icons.map, 'color': const Color(0xFF0FA8C4), 'onTap': () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ItineraryScreen()));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ItineraryScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
                     {'title': 'Permit', 'icon': Icons.event_note, 'color': const Color(0xFFD98A2B), 'onTap': () {
                       if (widget.switchTab != null) { widget.switchTab!(2); }
-                      else { Navigator.push(context, MaterialPageRoute(builder: (_) => const PermitScreen())); }
+                      else { Navigator.push(context, MaterialPageRoute(builder: (_) => const PermitScreen())).then((_) { attProvider.loadDashboardData(); }); }
                     }},
                     {'title': 'Informasi', 'icon': Icons.campaign, 'color': const Color(0xFF149A6E), 'onTap': () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const BlastInfoScreen()));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const BlastInfoScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
                     {'title': 'Payslip', 'icon': Icons.receipt_long, 'color': const Color(0xFF4A90E2), 'onTap': () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PayslipScreen()));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PayslipScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
                   ];
                   if (hasSalesReporting) {
@@ -506,9 +506,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             }
                             if (attProvider.isCheckedIn) {
                               if (attProvider.isVisiting) return;
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkout')));
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkout'))).then((_) { attProvider.loadDashboardData(); });
                             } else {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkin')));
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkin'))).then((_) { attProvider.loadDashboardData(); });
                             }
                           },
                           child: Container(
@@ -576,7 +576,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     Expanded(
                       child: InkWell(
                         onTap: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_in')));
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_in'))).then((_) { attProvider.loadDashboardData(); });
                         } : null,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
@@ -645,7 +645,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     Expanded(
                       child: InkWell(
                         onTap: (attProvider.isVisiting && attProvider.hasFilledVisitReport && attProvider.canVisit) ? () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_out')));
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_out'))).then((_) { attProvider.loadDashboardData(); });
                         } : null,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
