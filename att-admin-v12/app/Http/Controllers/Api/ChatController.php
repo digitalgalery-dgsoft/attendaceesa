@@ -16,7 +16,7 @@ class ChatController extends Controller
      */
     public function getMessages(Request $request)
     {
-        $employeeId = Auth::id(); // Assuming Auth::user() returns the employee on the mobile app
+        $employeeId = $request->user()->id; // Get ID from sanctum authenticated user
 
         $conversation = Conversation::firstOrCreate([
             'employee_id' => $employeeId,
@@ -39,7 +39,7 @@ class ChatController extends Controller
             'message' => 'required|string',
         ]);
 
-        $employeeId = Auth::id();
+        $employeeId = $request->user()->id;
 
         $conversation = Conversation::firstOrCreate([
             'employee_id' => $employeeId,
@@ -55,7 +55,7 @@ class ChatController extends Controller
         // Broadcast the event
         try {
             broadcast(new MessageSent($message));
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Broadcast error: ' . $e->getMessage());
         }
 
@@ -70,7 +70,7 @@ class ChatController extends Controller
      */
     public function markAsRead(Request $request)
     {
-        $employeeId = Auth::id();
+        $employeeId = $request->user()->id;
 
         $conversation = Conversation::where('employee_id', $employeeId)->first();
 
