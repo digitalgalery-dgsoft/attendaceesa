@@ -9,8 +9,9 @@ use Illuminate\Support\Facades\Auth;
 
 class LiveChat extends Page
 {
-    protected static ?string $navigationIcon = 'heroicon-o-chat-bubble-left-right';
-    protected static ?string $navigationGroup = 'Komunikasi';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
+    protected static string|\UnitEnum|null $navigationGroup = 'Komunikasi';
+    protected static ?string $navigationLabel = 'Live Chat';
     protected static ?string $title = 'Live Chat';
     protected static ?string $slug = 'live-chat';
     protected static ?int $navigationSort = 1;
