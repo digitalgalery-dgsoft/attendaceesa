@@ -73,6 +73,8 @@
             display: flex;
             flex-direction: column;
             height: 100%;
+            min-height: 0;
+            overflow: hidden;
             background-color: #f3f4f6;
         }
         @media (min-width: 768px) {
@@ -355,8 +357,8 @@
             @if($activeConversation)
                 @php
                     $empName = $activeConversation->employee->full_name ?? 'Karyawan';
-                    $empPosition = $activeConversation->employee->position->name ?? 'Karyawan';
-                    $empArea = $activeConversation->employee->area->name ?? null;
+                    $empPosition = optional($activeConversation->employee->position)->name ?? '';
+                    $empArea = optional($activeConversation->employee->area)->name ?? null;
                     $empInitial = strtoupper(substr($empName, 0, 1));
                 @endphp
                 {{-- Header --}}
