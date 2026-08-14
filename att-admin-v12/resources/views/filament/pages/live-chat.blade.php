@@ -308,6 +308,10 @@
                         $unread = $conversation->unreadMessagesCount();
                         $isActive = $activeConversationId === $conversation->id;
                         $employeeName = $conversation->employee->full_name ?? 'Karyawan';
+                        $empPos = $conversation->employee->position->name ?? '';
+                        $empAr = $conversation->employee->area->name ?? '';
+                        $posArea = array_filter([$empPos, $empAr]);
+                        $subtitle = implode(' • ', $posArea);
                         $initial = strtoupper(substr($employeeName, 0, 1));
                     @endphp
                     <div wire:click="selectConversation({{ $conversation->id }})" 
@@ -321,6 +325,11 @@
                                 <h4 style="font-weight: 600; font-size: 0.875rem; {{ $isActive ? 'color: #2563eb;' : '' }}">
                                     {{ $employeeName }}
                                 </h4>
+                                @if(!empty($subtitle))
+                                <div style="font-size: 0.65rem; color: #9ca3af; margin-bottom: 0.125rem;">
+                                    {{ $subtitle }}
+                                </div>
+                                @endif
                                 <p style="font-size: 0.75rem; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                     {{ $latest ? \Illuminate\Support\Str::limit($latest->message, 30) : 'Belum ada pesan' }}
                                 </p>
@@ -346,6 +355,7 @@
                 @php
                     $empName = $activeConversation->employee->full_name ?? 'Karyawan';
                     $empPosition = $activeConversation->employee->position->name ?? 'Karyawan';
+                    $empArea = $activeConversation->employee->area->name ?? null;
                     $empInitial = strtoupper(substr($empName, 0, 1));
                 @endphp
                 {{-- Header --}}
@@ -355,7 +365,9 @@
                     </div>
                     <div>
                         <h3 style="font-weight: 700; font-size: 0.95rem;">{{ $empName }}</h3>
-                        <p style="font-size: 0.75rem; color: #6b7280;">{{ $empPosition }}</p>
+                        <p style="font-size: 0.75rem; color: #6b7280;">
+                            {{ $empPosition }}{{ $empArea ? ' • ' . $empArea : '' }}
+                        </p>
                     </div>
                 </div>
 

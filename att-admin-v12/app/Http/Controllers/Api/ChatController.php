@@ -55,6 +55,23 @@ class ChatController extends Controller
         // Broadcast the event
         try {
             broadcast(new MessageSent($message));
+            
+            // Kirim notifikasi database ke semua admin agar muncul di lonceng Filament
+            $admins = \App\Models\User::all();
+            if ($admins->isNotEmpty()) {
+                \Filament\Notifications\Notification::make()
+                    ->title('Pesan baru dari ' . $request->user()->full_name)
+                    ->body(\Illuminate\Support\Str::limit($request->message, 50))
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->success()
+                    ->actions([
+                        \Filament\Notifications\Actions\Action::make('view')
+                            ->label('Balas')
+                            ->url(url('/admin/live-chat'))
+                            ->button()
+                    ])
+                    ->sendToDatabase($admins);
+            }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Broadcast error: ' . $e->getMessage());
         }

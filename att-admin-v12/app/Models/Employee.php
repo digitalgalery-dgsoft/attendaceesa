@@ -45,4 +45,9 @@ class Employee extends Authenticatable
     {
         return $this->belongsTo(Employee::class, 'supervisor_id');
     }
+
+    public function area()
+    {
+        return $this->belongsTo(Area::class);
+    }
 }

@@ -56,7 +56,7 @@ class LiveChat extends Page
     public function selectConversation($id)
     {
         $this->activeConversationId = $id;
-        $this->activeConversation = Conversation::with(['employee', 'employee.position'])->find($id);
+        $this->activeConversation = Conversation::with(['employee', 'employee.position', 'employee.area'])->find($id);
         
         // Mark employee messages as read
         ChatMessage::where('conversation_id', $id)
