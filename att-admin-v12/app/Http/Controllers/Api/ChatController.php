@@ -53,7 +53,11 @@ class ChatController extends Controller
         ]);
 
         // Broadcast the event
-        broadcast(new MessageSent($message));
+        try {
+            broadcast(new MessageSent($message));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Broadcast error: ' . $e->getMessage());
+        }
 
         return response()->json([
             'status' => 'success',
