@@ -381,7 +381,7 @@
                             <div class="chat-bubble {{ $isAdmin ? 'admin' : 'user' }}">
                                 <p style="font-size: 0.875rem; white-space: pre-wrap; margin: 0;">{{ $msg['message'] }}</p>
                                 <div class="chat-time">
-                                    <span>{{ \Carbon\Carbon::parse($msg['created_at'])->format('H:i') }}</span>
+                                    <span>{{ \Carbon\Carbon::parse($msg['created_at'])->timezone(config('app.timezone', 'Asia/Jakarta'))->format('H:i') }}</span>
                                     @if($isAdmin)
                                         <svg style="width: 0.75rem; height: 0.75rem; {{ $msg['is_read'] ? 'color: #93c5fd;' : 'color: #bfdbfe;' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                                     @endif
