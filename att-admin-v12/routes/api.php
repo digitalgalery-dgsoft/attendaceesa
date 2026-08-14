@@ -85,4 +85,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Payslip routes
     Route::get('/payslips', [\App\Http\Controllers\Api\PayslipApiController::class, 'getPayslips']);
+
+    // Live Chat routes
+    Route::get('/chat/messages', [\App\Http\Controllers\Api\ChatController::class, 'getMessages']);
+    Route::post('/chat/send', [\App\Http\Controllers\Api\ChatController::class, 'sendMessage']);
+    Route::post('/chat/read', [\App\Http\Controllers\Api\ChatController::class, 'markAsRead']);
 });

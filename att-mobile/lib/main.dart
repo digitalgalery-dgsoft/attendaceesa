@@ -11,6 +11,7 @@ import 'package:att_mobile/providers/blast_info_provider.dart';
 import 'package:att_mobile/providers/dashboard_provider.dart';
 import 'package:att_mobile/providers/payslip_provider.dart';
 import 'package:att_mobile/providers/overtime_provider.dart';
+import 'package:att_mobile/providers/chat_provider.dart';
 import 'package:att_mobile/screens/login_screen.dart';
 import 'package:att_mobile/screens/main_screen.dart';
 import 'package:att_mobile/screens/server_config_screen.dart';
@@ -50,6 +51,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => PayslipProvider()),
         ChangeNotifierProvider(create: (_) => OvertimeProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],
       child: const AttendanceApp(),
     ),

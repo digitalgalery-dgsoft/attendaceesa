@@ -23,6 +23,8 @@ import 'package:att_mobile/screens/blast_info_screen.dart';
 import 'package:att_mobile/services/location_service.dart';
 import 'package:att_mobile/screens/payslip_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:att_mobile/screens/chat_screen.dart';
+import 'package:att_mobile/providers/chat_provider.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Function(int)? switchTab;
@@ -765,6 +767,39 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ),
           ),
         ),
+      ),
+      floatingActionButton: Consumer<ChatProvider>(
+        builder: (context, chatProvider, child) {
+          return Stack(
+            children: [
+              FloatingActionButton(
+                backgroundColor: primaryColor,
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen()));
+                },
+                child: const Icon(Icons.chat, color: Colors.white),
+              ),
+              if (chatProvider.unreadCount > 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      '${chatProvider.unreadCount}',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

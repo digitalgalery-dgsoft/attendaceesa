@@ -1,0 +1,84 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Conversation;
+use App\Models\ChatMessage;
+use App\Events\MessageSent;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class ChatController extends Controller
+{
+    /**
+     * Fetch conversation messages for the authenticated employee.
+     */
+    public function getMessages(Request $request)
+    {
+        $employeeId = Auth::id(); // Assuming Auth::user() returns the employee on the mobile app
+
+        $conversation = Conversation::firstOrCreate([
+            'employee_id' => $employeeId,
+        ]);
+
+        $messages = $conversation->messages()->orderBy('created_at', 'asc')->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $messages,
+        ]);
+    }
+
+    /**
+     * Send a new message.
+     */
+    public function sendMessage(Request $request)
+    {
+        $request->validate([
+            'message' => 'required|string',
+        ]);
+
+        $employeeId = Auth::id();
+
+        $conversation = Conversation::firstOrCreate([
+            'employee_id' => $employeeId,
+        ]);
+
+        $message = $conversation->messages()->create([
+            'sender_type' => 'employee',
+            'sender_id' => $employeeId,
+            'message' => $request->message,
+            'is_read' => false,
+        ]);
+
+        // Broadcast the event
+        broadcast(new MessageSent($message));
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $message,
+        ]);
+    }
+
+    /**
+     * Mark messages from admin as read.
+     */
+    public function markAsRead(Request $request)
+    {
+        $employeeId = Auth::id();
+
+        $conversation = Conversation::where('employee_id', $employeeId)->first();
+
+        if ($conversation) {
+            $conversation->messages()
+                ->where('sender_type', 'admin')
+                ->where('is_read', false)
+                ->update(['is_read' => true]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+        ]);
+    }
+}
