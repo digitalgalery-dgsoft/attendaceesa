@@ -11,7 +11,9 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
+use Filament\Forms\Form;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\DatePicker;
@@ -35,55 +37,83 @@ class VisitReportResource extends Resource
         return 'Attendance Management';
     }
 
-    public static function form(Schema $schema): Schema
+    public static function form(Form $form): Form
     {
-        return $schema->components([
-            Select::make('itinerary_item_id')
-                ->label('Visit Kunjungan')
-                ->nullable()
-                ->options(fn () => ItineraryItem::with(['itinerary.employee', 'workLocation'])
-                    ->get()
-                    ->mapWithKeys(fn ($item) => [
-                        $item->id => ($item->workLocation->name ?? 'Toko?') . ' - ' . ($item->itinerary->employee->full_name ?? 'Karyawan?'),
-                    ])
-                )
-                ->searchable(),
-            Select::make('status')
-                ->options([
-                    'open_issue' => 'Open Issue',
-                    'action_taken' => 'Action Taken',
-                    'completed' => 'Completed',
-                    'overdue' => 'Overdue',
+        return $form->schema([
+            Section::make('Visit Report Details')
+                ->description('Informasi lengkap mengenai laporan kunjungan')
+                ->schema([
+                    Grid::make(2)->schema([
+                        Select::make('itinerary_item_id')
+                            ->label('Visit Kunjungan (Jadwal)')
+                            ->nullable()
+                            ->options(fn () => ItineraryItem::with(['itinerary.employee', 'workLocation'])
+                                ->get()
+                                ->mapWithKeys(fn ($item) => [
+                                    $item->id => ($item->workLocation->name ?? 'Toko?') . ' - ' . ($item->itinerary->employee->full_name ?? 'Karyawan?'),
+                                ])
+                            )
+                            ->searchable()
+                            ->columnSpan(1),
+                            
+                        Select::make('status')
+                            ->options([
+                                'open_issue' => 'Open Issue',
+                                'action_taken' => 'Action Taken',
+                                'completed' => 'Completed',
+                                'overdue' => 'Overdue',
+                            ])
+                            ->required()
+                            ->label('Issue/Status')
+                            ->columnSpan(1),
+                            
+                        DatePicker::make('deadline')
+                            ->label('Deadline')
+                            ->columnSpan(1),
+                    ]),
+
+                    Textarea::make('notes')
+                        ->label('Catatan Kunjungan (Dari Mobile)')
+                        ->maxLength(65535)
+                        ->columnSpanFull(),
+
+                    Section::make('Issue & Resolution')
+                        ->schema([
+                            Grid::make(2)->schema([
+                                Textarea::make('issue')
+                                    ->label('Issue Description')
+                                    ->maxLength(65535)
+                                    ->rows(3),
+                                Textarea::make('action_taken')
+                                    ->label('Action Taken')
+                                    ->maxLength(65535)
+                                    ->rows(3),
+                                Textarea::make('target')
+                                    ->label('Target')
+                                    ->maxLength(65535)
+                                    ->rows(3),
+                                Textarea::make('actual')
+                                    ->label('Actual Result')
+                                    ->maxLength(65535)
+                                    ->rows(3),
+                            ])
+                        ])
+                        ->collapsible()
+                        ->collapsed(false),
+
+                    Section::make('Evidence')
+                        ->schema([
+                            FileUpload::make('photo_path')
+                                ->label('Attachment / Foto')
+                                ->directory('visit_reports')
+                                ->image()
+                                ->imageEditor()
+                                ->downloadable()
+                                ->openable()
+                                ->columnSpanFull(),
+                        ])
+                        ->collapsible(),
                 ])
-                ->required()
-                ->label('Issue/Status'),
-            Textarea::make('issue')
-                ->label('Issue Description')
-                ->maxLength(65535)
-                ->columnSpanFull(),
-            Textarea::make('action_taken')
-                ->label('Action Taken')
-                ->maxLength(65535)
-                ->columnSpanFull(),
-            Textarea::make('target')
-                ->label('Target')
-                ->maxLength(65535)
-                ->columnSpanFull(),
-            Textarea::make('actual')
-                ->label('Actual Result')
-                ->maxLength(65535)
-                ->columnSpanFull(),
-            DatePicker::make('deadline')
-                ->label('Deadline'),
-            Textarea::make('notes')
-                ->label('Notes')
-                ->maxLength(65535)
-                ->columnSpanFull(),
-            FileUpload::make('photo_path')
-                ->label('Attachment / Evidence')
-                ->directory('visit-reports')
-                ->image()
-                ->columnSpanFull(),
         ]);
     }
 
