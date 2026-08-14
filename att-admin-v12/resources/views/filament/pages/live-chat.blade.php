@@ -1,5 +1,230 @@
 <x-filament-panels::page>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 h-[70vh] bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm" x-data="{
+    <style>
+        .live-chat-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            height: 70vh;
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+        @media (min-width: 768px) {
+            .live-chat-container {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+        .chat-sidebar {
+            grid-column: span 1 / span 1;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background-color: #f9fafb;
+        }
+        .chat-sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            background-color: #ffffff;
+        }
+        .chat-sidebar-list {
+            flex: 1 1 0%;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+        .chat-item {
+            cursor: pointer;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background-color 0.2s;
+            margin-bottom: 0.5rem;
+        }
+        .chat-item:hover {
+            background-color: #f3f4f6;
+        }
+        .chat-item.active {
+            background-color: #eff6ff;
+            border: 1px solid #bfdbfe;
+        }
+        .chat-avatar {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 9999px;
+            background-color: #d1d5db;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4b5563;
+            font-weight: 700;
+            flex-shrink: 0;
+            margin-right: 0.75rem;
+        }
+        .chat-avatar.active {
+            background-color: #3b82f6;
+            color: #ffffff;
+        }
+        .chat-main {
+            grid-column: span 1 / span 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background-color: #f3f4f6;
+        }
+        @media (min-width: 768px) {
+            .chat-main {
+                grid-column: span 2 / span 2;
+            }
+        }
+        .chat-main-header {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            background-color: #ffffff;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            z-index: 10;
+        }
+        .chat-messages {
+            flex: 1 1 0%;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .chat-message-row {
+            display: flex;
+            width: 100%;
+        }
+        .chat-message-row.admin {
+            justify-content: flex-end;
+        }
+        .chat-message-row.user {
+            justify-content: flex-start;
+        }
+        .chat-bubble {
+            max-width: 75%;
+            border-radius: 1rem;
+            padding: 0.5rem 1rem;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+        .chat-bubble.admin {
+            background-color: #3b82f6;
+            color: #ffffff;
+            border-top-right-radius: 0;
+        }
+        .chat-bubble.user {
+            background-color: #ffffff;
+            border-top-left-radius: 0;
+            border: 1px solid #e5e7eb;
+        }
+        .chat-time {
+            font-size: 0.625rem;
+            margin-top: 0.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.25rem;
+        }
+        .chat-bubble.admin .chat-time {
+            color: #dbeafe;
+        }
+        .chat-bubble.user .chat-time {
+            color: #9ca3af;
+        }
+        .chat-input-area {
+            padding: 1rem;
+            background-color: #ffffff;
+            border-top: 1px solid #e5e7eb;
+        }
+        .chat-input-form {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .chat-input {
+            flex: 1 1 0%;
+            border-radius: 9999px;
+            border: 1px solid #d1d5db;
+            padding: 0.5rem 1rem;
+            outline: none;
+        }
+        .chat-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 1px #3b82f6;
+        }
+        .chat-send-btn {
+            background-color: #3b82f6;
+            color: #ffffff;
+            border-radius: 9999px;
+            padding: 0.5rem;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .chat-send-btn:hover {
+            background-color: #2563eb;
+        }
+        .chat-send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .chat-empty {
+            flex: 1 1 0%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+        }
+        .chat-empty svg {
+            width: 5rem;
+            height: 5rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        
+        /* Dark mode overrides if needed */
+        .dark .live-chat-container, .dark .chat-sidebar-header, .dark .chat-main-header, .dark .chat-input-area {
+            background-color: #111827;
+            border-color: #374151;
+            color: #f3f4f6;
+        }
+        .dark .chat-sidebar {
+            background-color: rgba(31, 41, 55, 0.5);
+            border-color: #374151;
+        }
+        .dark .chat-item:hover {
+            background-color: #1f2937;
+        }
+        .dark .chat-item.active {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+        .dark .chat-main {
+            background-color: rgba(17, 24, 39, 0.5);
+        }
+        .dark .chat-bubble.user {
+            background-color: #1f2937;
+            border-color: #374151;
+            color: #f3f4f6;
+        }
+        .dark .chat-input {
+            background-color: #1f2937;
+            border-color: #374151;
+            color: #f3f4f6;
+        }
+    </style>
+
+    <div class="live-chat-container" x-data="{
         scrollToBottom() {
             let container = $refs.chatContainer;
             if(container) {
@@ -19,11 +244,11 @@
     ">
         
         {{-- Sidebar: List of Conversations --}}
-        <div class="col-span-1 border-r border-gray-200 dark:border-gray-800 flex flex-col h-full bg-gray-50 dark:bg-gray-800/50">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-                <h3 class="text-lg font-bold">Percakapan</h3>
+        <div class="chat-sidebar">
+            <div class="chat-sidebar-header">
+                <h3 style="font-size: 1.125rem; font-weight: 700;">Percakapan</h3>
             </div>
-            <div class="flex-1 overflow-y-auto p-2 space-y-2">
+            <div class="chat-sidebar-list">
                 @forelse($conversations as $conversation)
                     @php
                         $latest = $conversation->messages->first();
@@ -31,28 +256,28 @@
                         $isActive = $activeConversationId === $conversation->id;
                     @endphp
                     <div wire:click="selectConversation({{ $conversation->id }})" 
-                         class="cursor-pointer p-3 rounded-lg flex items-center justify-between transition {{ $isActive ? 'bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/30' : 'hover:bg-gray-100 dark:hover:bg-gray-800' }}">
-                        <div class="flex items-center space-x-3 truncate">
-                            <div class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold flex-shrink-0">
+                         class="chat-item {{ $isActive ? 'active' : '' }}">
+                        <div style="display: flex; align-items: center; overflow: hidden;">
+                            <div class="chat-avatar {{ $isActive ? 'active' : '' }}">
                                 {{ strtoupper(substr($conversation->employee->first_name ?? 'U', 0, 1)) }}
                             </div>
-                            <div class="truncate">
-                                <h4 class="font-semibold text-sm truncate {{ $isActive ? 'text-primary-600 dark:text-primary-400' : '' }}">
+                            <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <h4 style="font-weight: 600; font-size: 0.875rem; {{ $isActive ? 'color: #2563eb;' : '' }}">
                                     {{ $conversation->employee->first_name ?? 'Unknown' }} {{ $conversation->employee->last_name ?? '' }}
                                 </h4>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                <p style="font-size: 0.75rem; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                     {{ $latest ? $latest->message : 'Belum ada pesan' }}
                                 </p>
                             </div>
                         </div>
                         @if($unread > 0)
-                            <div class="bg-danger-500 text-white text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
+                            <div style="background-color: #ef4444; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px;">
                                 {{ $unread }}
                             </div>
                         @endif
                     </div>
                 @empty
-                    <div class="text-center p-4 text-gray-500 text-sm">
+                    <div style="text-align: center; padding: 1rem; color: #6b7280; font-size: 0.875rem;">
                         Belum ada percakapan
                     </div>
                 @endforelse
@@ -60,56 +285,56 @@
         </div>
 
         {{-- Main Chat Area --}}
-        <div class="col-span-1 md:col-span-2 flex flex-col h-full bg-gray-100 dark:bg-gray-900/50">
+        <div class="chat-main">
             @if($activeConversation)
                 {{-- Header --}}
-                <div class="p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center space-x-3 shadow-sm z-10">
-                    <div class="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-bold">
+                <div class="chat-main-header">
+                    <div class="chat-avatar active">
                         {{ strtoupper(substr($activeConversation->employee->first_name ?? 'U', 0, 1)) }}
                     </div>
                     <div>
-                        <h3 class="font-bold">{{ $activeConversation->employee->first_name ?? 'Unknown' }} {{ $activeConversation->employee->last_name ?? '' }}</h3>
-                        <p class="text-xs text-gray-500">{{ $activeConversation->employee->position ?? 'Employee' }}</p>
+                        <h3 style="font-weight: 700;">{{ $activeConversation->employee->first_name ?? 'Unknown' }} {{ $activeConversation->employee->last_name ?? '' }}</h3>
+                        <p style="font-size: 0.75rem; color: #6b7280;">{{ $activeConversation->employee->position ?? 'Employee' }}</p>
                     </div>
                 </div>
 
                 {{-- Messages List --}}
-                <div class="flex-1 overflow-y-auto p-4 space-y-4" x-ref="chatContainer">
+                <div class="chat-messages" x-ref="chatContainer">
                     @forelse($messages as $msg)
                         @php
                             $isAdmin = $msg['sender_type'] === 'admin';
                         @endphp
-                        <div class="flex {{ $isAdmin ? 'justify-end' : 'justify-start' }}">
-                            <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm {{ $isAdmin ? 'bg-primary-600 text-white rounded-tr-none' : 'bg-white dark:bg-gray-800 rounded-tl-none border border-gray-200 dark:border-gray-700' }}">
-                                <p class="text-sm whitespace-pre-wrap">{{ $msg['message'] }}</p>
-                                <div class="text-[10px] mt-1 text-right {{ $isAdmin ? 'text-primary-100' : 'text-gray-400' }} flex items-center justify-end space-x-1">
+                        <div class="chat-message-row {{ $isAdmin ? 'admin' : 'user' }}">
+                            <div class="chat-bubble {{ $isAdmin ? 'admin' : 'user' }}">
+                                <p style="font-size: 0.875rem; white-space: pre-wrap; margin: 0;">{{ $msg['message'] }}</p>
+                                <div class="chat-time">
                                     <span>{{ \Carbon\Carbon::parse($msg['created_at'])->format('H:i') }}</span>
                                     @if($isAdmin)
-                                        <svg class="w-3 h-3 {{ $msg['is_read'] ? 'text-info-300' : 'text-primary-300' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                        <svg style="width: 0.75rem; height: 0.75rem; {{ $msg['is_read'] ? 'color: #93c5fd;' : 'color: #bfdbfe;' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                                     @endif
                                 </div>
                             </div>
                         </div>
                     @empty
-                        <div class="text-center text-gray-500 text-sm mt-10">
+                        <div style="text-align: center; color: #6b7280; font-size: 0.875rem; margin-top: 2.5rem;">
                             Mulai obrolan dengan {{ $activeConversation->employee->first_name ?? 'karyawan' }}
                         </div>
                     @endforelse
                 </div>
 
                 {{-- Input Area --}}
-                <div class="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
-                    <form wire:submit.prevent="sendMessage" class="flex items-center space-x-2">
-                        <input type="text" wire:model="newMessage" placeholder="Ketik pesan..." class="flex-1 rounded-full border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-primary-500 focus:border-primary-500">
-                        <button type="submit" class="bg-primary-600 hover:bg-primary-500 text-white rounded-full p-2.5 transition disabled:opacity-50" wire:loading.attr="disabled" wire:target="sendMessage">
-                            <svg class="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                <div class="chat-input-area">
+                    <form wire:submit.prevent="sendMessage" class="chat-input-form">
+                        <input type="text" wire:model="newMessage" placeholder="Ketik pesan..." class="chat-input">
+                        <button type="submit" class="chat-send-btn" wire:loading.attr="disabled" wire:target="sendMessage">
+                            <svg style="width: 1.25rem; height: 1.25rem; transform: rotate(90deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
                         </button>
                     </form>
                 </div>
             @else
-                <div class="flex-1 flex flex-col items-center justify-center text-gray-400">
-                    <svg class="w-20 h-20 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"></path></svg>
-                    <p class="text-lg font-medium">Pilih percakapan untuk mulai chat</p>
+                <div class="chat-empty">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"></path></svg>
+                    <p style="font-size: 1.125rem; font-weight: 500;">Pilih percakapan untuk mulai chat</p>
                 </div>
             @endif
         </div>
