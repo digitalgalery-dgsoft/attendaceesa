@@ -1,3 +1,5 @@
 -keep class com.google.mlkit.** { *; }
 -keep interface com.google.mlkit.** { *; }
 -keep class com.google.android.gms.vision.** { *; }
+-dontwarn org.slf4j.**
+-keep class org.slf4j.** { *; }

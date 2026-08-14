@@ -16,7 +16,7 @@ class LiveChat extends Page
     protected static ?string $slug = 'live-chat';
     protected static ?int $navigationSort = 1;
 
-    protected static string $view = 'filament.pages.live-chat';
+    protected string $view = 'filament.pages.live-chat';
 
     public $conversations = [];
     public $activeConversationId = null;
