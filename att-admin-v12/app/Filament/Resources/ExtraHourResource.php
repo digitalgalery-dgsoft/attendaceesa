@@ -78,12 +78,40 @@ class ExtraHourResource extends Resource
                 TextColumn::make('end_time')
                     ->time('H:i')
                     ->sortable(),
+                TextColumn::make('duration')
+                    ->label('Total Durasi (menit)')
+                    ->sortable()
+                    ->formatStateUsing(function ($state) {
+                        if (!$state) return '-';
+                        $hours = floor($state / 60);
+                        $mins = $state % 60;
+                        return "{$hours}j {$mins}m";
+                    }),
                 IconColumn::make('cross_day')
                     ->boolean(),
-                TextColumn::make('status')
+                TextColumn::make('head_approval_status')
+                    ->label('Head Approval')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'submitted' => 'warning',
+                        'submitted', 'pending' => 'warning',
+                        'approved'  => 'success',
+                        'rejected'  => 'danger',
+                        default     => 'gray',
+                    }),
+                TextColumn::make('hrd_approval_status')
+                    ->label('HRD Approval')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'submitted', 'pending' => 'warning',
+                        'approved'  => 'success',
+                        'rejected'  => 'danger',
+                        default     => 'gray',
+                    }),
+                TextColumn::make('status')
+                    ->label('Final Status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'submitted', 'pending' => 'warning',
                         'approved'  => 'success',
                         'rejected'  => 'danger',
                         default     => 'gray',
@@ -96,24 +124,80 @@ class ExtraHourResource extends Resource
             ->filters([])
             ->recordActions([
                 EditAction::make(),
-                Action::make('Approve')
+                Action::make('Approve Head')
                     ->icon('heroicon-o-check')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn (ExtraHour $record) => $record->status === 'submitted')
-                    ->action(fn (ExtraHour $record) => $record->update([
-                        'status'      => 'approved',
-                        'approved_by' => auth()->id(),
-                    ])),
-                Action::make('Reject')
+                    ->visible(function (ExtraHour $record) {
+                        $user = auth()->user();
+                        $isAdmin = $user->roles->contains(fn($role) => str_contains(strtolower($role->name), 'admin'));
+                        if ($isAdmin) return $record->head_approval_status === 'pending';
+                        if (!$user->employee) return false;
+                        return $record->head_approval_status === 'pending' && $record->employee->supervisor_id === $user->employee->id;
+                    })
+                    ->action(function (ExtraHour $record) {
+                        $record->update([
+                            'head_approval_status' => 'approved',
+                            'head_approved_by'     => auth()->id(),
+                            'head_approved_at'     => now(),
+                        ]);
+                    }),
+                Action::make('Reject Head')
                     ->icon('heroicon-o-x-mark')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->visible(fn (ExtraHour $record) => $record->status === 'submitted')
-                    ->action(fn (ExtraHour $record) => $record->update([
-                        'status'      => 'rejected',
-                        'approved_by' => auth()->id(),
-                    ])),
+                    ->visible(function (ExtraHour $record) {
+                        $user = auth()->user();
+                        $isAdmin = $user->roles->contains(fn($role) => str_contains(strtolower($role->name), 'admin'));
+                        if ($isAdmin) return $record->head_approval_status === 'pending';
+                        if (!$user->employee) return false;
+                        return $record->head_approval_status === 'pending' && $record->employee->supervisor_id === $user->employee->id;
+                    })
+                    ->action(function (ExtraHour $record) {
+                        $record->update([
+                            'head_approval_status' => 'rejected',
+                            'head_approved_by'     => auth()->id(),
+                            'head_approved_at'     => now(),
+                            'status'               => 'rejected',
+                        ]);
+                    }),
+                Action::make('Approve HRD')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->visible(function (ExtraHour $record) {
+                        $user = auth()->user();
+                        $isAdmin = $user->roles->contains(fn($role) => str_contains(strtolower($role->name), 'admin'));
+                        $isHRD = $user->hasRole(['HRD', 'hrd']) || $isAdmin;
+                        return $isHRD && $record->hrd_approval_status === 'pending' && ($record->head_approval_status === 'approved' || is_null($record->employee->supervisor_id));
+                    })
+                    ->action(function (ExtraHour $record) {
+                        $record->update([
+                            'hrd_approval_status' => 'approved',
+                            'hrd_approved_by'     => auth()->id(),
+                            'hrd_approved_at'     => now(),
+                            'status'              => 'approved',
+                            'approved_by'         => auth()->id(),
+                        ]);
+                    }),
+                Action::make('Reject HRD')
+                    ->icon('heroicon-o-x-mark')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->visible(function (ExtraHour $record) {
+                        $user = auth()->user();
+                        $isAdmin = $user->roles->contains(fn($role) => str_contains(strtolower($role->name), 'admin'));
+                        $isHRD = $user->hasRole(['HRD', 'hrd']) || $isAdmin;
+                        return $isHRD && $record->hrd_approval_status === 'pending';
+                    })
+                    ->action(function (ExtraHour $record) {
+                        $record->update([
+                            'hrd_approval_status' => 'rejected',
+                            'hrd_approved_by'     => auth()->id(),
+                            'hrd_approved_at'     => now(),
+                            'status'              => 'rejected',
+                        ]);
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

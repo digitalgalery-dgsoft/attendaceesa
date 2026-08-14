@@ -1,0 +1,1 @@
+<?php require __DIR__.'/../vendor/autoload.php'; \ = require_once __DIR__.'/../bootstrap/app.php'; \ = \->make(Illuminate\Contracts\Http\Kernel::class); \ = \->handle(Illuminate\Http\Request::capture()); \Illuminate\Support\Facades\Artisan::call('migrate'); echo \Illuminate\Support\Facades\Artisan::output(); ?>

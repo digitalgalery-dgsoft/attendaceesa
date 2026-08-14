@@ -15,10 +15,17 @@ class ExtraHour extends Model
         'date',
         'start_time',
         'end_time',
+        'duration',
         'notes',
         'cross_day',
         'status',
         'approved_by',
+        'head_approval_status',
+        'head_approved_by',
+        'head_approved_at',
+        'hrd_approval_status',
+        'hrd_approved_by',
+        'hrd_approved_at',
     ];
 
     protected $casts = [
@@ -34,5 +41,15 @@ class ExtraHour extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function headApprover(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'head_approved_by');
+    }
+
+    public function hrdApprover(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'hrd_approved_by');
     }
 }

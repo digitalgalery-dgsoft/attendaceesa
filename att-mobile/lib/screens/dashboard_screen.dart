@@ -13,6 +13,7 @@ import 'package:att_mobile/screens/itinerary_screen.dart';
 import 'package:att_mobile/screens/coming_soon_screen.dart';
 import 'package:att_mobile/screens/notification_screen.dart';
 import 'package:att_mobile/screens/visit_report_screen.dart';
+import 'package:att_mobile/screens/overtime_screen.dart';
 import 'package:att_mobile/providers/notification_provider.dart';
 import 'package:att_mobile/providers/dashboard_provider.dart';
 import 'package:att_mobile/widgets/dashboard_stats_widget.dart';
@@ -298,6 +299,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       if (widget.switchTab != null) { widget.switchTab!(2); }
                       else { Navigator.push(context, MaterialPageRoute(builder: (_) => const PermitScreen())).then((_) { attProvider.loadDashboardData(); }); }
                     }},
+                    {'title': 'Lembur', 'icon': Icons.timer, 'color': Colors.redAccent, 'onTap': () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const OvertimeScreen())).then((_) { attProvider.loadDashboardData(); });
+                    }},
                     {'title': 'Informasi', 'icon': Icons.campaign, 'color': const Color(0xFF149A6E), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const BlastInfoScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
@@ -309,7 +313,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     allMenus.add({'title': 'Sales', 'icon': Icons.trending_up, 'color': Colors.purple, 'onTap': () {
                       if (widget.switchTab != null) { widget.switchTab!(3); }
                     }});
-
                   }
 
                   List<Widget> displayMenus = [];

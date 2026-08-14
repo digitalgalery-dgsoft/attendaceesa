@@ -64,6 +64,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/permits/leave-quota', [PermitController::class, 'leaveQuota']);
     Route::get('/permits/cuti-peraturan-types', [PermitController::class, 'cutiPeraturanTypes']);
 
+    // Overtime / Extra Hour routes
+    Route::get('/overtime/status', [\App\Http\Controllers\Api\ExtraHourController::class, 'status']);
+    Route::post('/overtime/start', [\App\Http\Controllers\Api\ExtraHourController::class, 'start']);
+    Route::post('/overtime/finish', [\App\Http\Controllers\Api\ExtraHourController::class, 'finish']);
+
     // Sales Report routes
     Route::get('/sales-reports', [SalesReportController::class, 'index']);
     Route::post('/sales-reports', [SalesReportController::class, 'store']);
