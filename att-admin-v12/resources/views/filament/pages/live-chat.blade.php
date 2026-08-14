@@ -305,11 +305,12 @@
                 @forelse($conversations as $conversation)
                     @php
                         $latest = $conversation->messages->first();
-                        $unread = $conversation->unreadMessagesCount();
+                        // Hitung unread dari koleksi yang sudah di-eager-load (tanpa N+1 query)
+                        $unread = $conversation->messages->filter(fn($m) => $m->sender_type === 'employee' && !$m->is_read)->count();
                         $isActive = $activeConversationId === $conversation->id;
                         $employeeName = $conversation->employee->full_name ?? 'Karyawan';
-                        $empPos = $conversation->employee->position->name ?? '';
-                        $empAr = $conversation->employee->area->name ?? '';
+                        $empPos = optional($conversation->employee->position)->name ?? '';
+                        $empAr = optional($conversation->employee->area)->name ?? '';
                         $posArea = array_filter([$empPos, $empAr]);
                         $subtitle = implode(' • ', $posArea);
                         $initial = strtoupper(substr($employeeName, 0, 1));

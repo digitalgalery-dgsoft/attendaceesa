@@ -68,18 +68,14 @@ class ChatController extends Controller
             \Illuminate\Support\Facades\Log::info('Sending Filament notification to ' . $admins->count() . ' admins for: ' . $employeeName);
             
             if ($admins->isNotEmpty()) {
-                \Filament\Notifications\Notification::make()
-                    ->title('💬 Pesan baru dari ' . $employeeName)
-                    ->body(\Illuminate\Support\Str::limit($request->message, 50))
-                    ->icon('heroicon-o-chat-bubble-left-right')
-                    ->success()
-                    ->actions([
-                        \Filament\Notifications\Actions\Action::make('view')
-                            ->label('Balas')
-                            ->url(url('/admin/live-chat'))
-                            ->button()
-                    ])
-                    ->sendToDatabase($admins);
+                foreach ($admins as $admin) {
+                    \Filament\Notifications\Notification::make()
+                        ->title('💬 Pesan baru dari ' . $employeeName)
+                        ->body(\Illuminate\Support\Str::limit($request->message, 50))
+                        ->icon('heroicon-o-chat-bubble-left-right')
+                        ->success()
+                        ->sendToDatabase($admin);
+                }
                 \Illuminate\Support\Facades\Log::info('Filament notification sent successfully.');
             }
         } catch (\Throwable $e) {
