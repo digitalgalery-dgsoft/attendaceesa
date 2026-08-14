@@ -16,9 +16,9 @@ class LiveChat extends Page
     protected static ?string $slug = 'live-chat';
     protected static ?int $navigationSort = 1;
 
-    public function getMaxContentWidth(): \Filament\Support\Enums\MaxWidth | string | null
+    public function getMaxContentWidth(): \Filament\Support\Enums\Width | string | null
     {
-        return \Filament\Support\Enums\MaxWidth::Full;
+        return \Filament\Support\Enums\Width::Full;
     }
 
     protected string $view = 'filament.pages.live-chat';
