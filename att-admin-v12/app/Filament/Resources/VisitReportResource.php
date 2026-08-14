@@ -41,7 +41,7 @@ class VisitReportResource extends Resource
                 ->label('Visit Kunjungan')
                 ->required()
                 ->searchable(),
-            Select::make('issue_type')
+            Select::make('status')
                 ->options([
                     'open_issue' => 'Open Issue',
                     'action_taken' => 'Action Taken',
@@ -50,7 +50,11 @@ class VisitReportResource extends Resource
                 ])
                 ->required()
                 ->label('Issue/Status'),
-            Textarea::make('action')
+            Textarea::make('issue')
+                ->label('Issue Description')
+                ->maxLength(65535)
+                ->columnSpanFull(),
+            Textarea::make('action_taken')
                 ->label('Action Taken')
                 ->maxLength(65535)
                 ->columnSpanFull(),
@@ -68,7 +72,7 @@ class VisitReportResource extends Resource
                 ->label('Notes')
                 ->maxLength(65535)
                 ->columnSpanFull(),
-            FileUpload::make('attachment_path')
+            FileUpload::make('photo_path')
                 ->label('Attachment / Evidence')
                 ->directory('visit-reports')
                 ->image()
@@ -80,7 +84,7 @@ class VisitReportResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('itineraryItem.itinerary.employee.first_name')
+                TextColumn::make('employee.first_name')
                     ->label('Employee')
                     ->searchable()
                     ->sortable(),
@@ -88,7 +92,7 @@ class VisitReportResource extends Resource
                     ->label('Store')
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('issue_type')
+                TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => str_replace('_', ' ', ucfirst($state)))
                     ->color(fn (string $state): string => match ($state) {
@@ -101,7 +105,7 @@ class VisitReportResource extends Resource
                 TextColumn::make('deadline')
                     ->date()
                     ->sortable(),
-                ImageColumn::make('attachment_path')
+                ImageColumn::make('photo_path')
                     ->label('Evidence'),
                 TextColumn::make('created_at')
                     ->dateTime()
