@@ -111,35 +111,38 @@ class LiveChat extends Page
         $this->loadMessages();
         $this->loadConversations();
 
-        // Send FCM push notification to employee's device
-        try {
-            $conversation = $this->activeConversation 
-                ?? Conversation::with('employee')->find($this->activeConversationId);
+        $conversation = $this->activeConversation 
+            ?? Conversation::with('employee')->find($this->activeConversationId);
             
-            $employee = $conversation?->employee;
-            
-            if ($employee && !empty($employee->fcm_token)) {
-                $firebase = new FirebaseService();
-                $firebase->sendNotification(
-                    $employee->fcm_token,
-                    'Pesan dari Admin',
-                    $messageText,
-                    [
-                        'type' => 'chat',
-                        'conversation_id' => (string) $this->activeConversationId,
-                    ]
-                );
+        // Jalankan pengiriman FCM dan Broadcast setelah response dikirim ke browser (Background)
+        // Ini menghilangkan jeda/delay pada UI Admin.
+        app()->terminating(function () use ($messageText, $conversation, $message) {
+            // Send FCM push notification
+            try {
+                $employee = $conversation?->employee;
+                if ($employee && !empty($employee->fcm_token)) {
+                    $firebase = new FirebaseService();
+                    $firebase->sendNotification(
+                        $employee->fcm_token,
+                        'Pesan dari Admin',
+                        $messageText,
+                        [
+                            'type' => 'chat',
+                            'conversation_id' => (string) $conversation->id,
+                        ]
+                    );
+                }
+            } catch (\Throwable $e) {
+                Log::error('LiveChat FCM notification error: ' . $e->getMessage());
             }
-        } catch (\Throwable $e) {
-            Log::error('LiveChat FCM notification error: ' . $e->getMessage());
-        }
-        
-        // Broadcast via WebSocket (Reverb) - wrapped in try/catch
-        try {
-            broadcast(new \App\Events\MessageSent($message))->toOthers();
-        } catch (\Throwable $e) {
-            Log::error('LiveChat broadcast error: ' . $e->getMessage());
-        }
+            
+            // Broadcast via WebSocket (Reverb)
+            try {
+                broadcast(new \App\Events\MessageSent($message))->toOthers();
+            } catch (\Throwable $e) {
+                Log::error('LiveChat broadcast error: ' . $e->getMessage());
+            }
+        });
         
         $this->dispatch('scroll-to-bottom');
     }
