@@ -50,6 +50,9 @@ class AttendanceProvider with ChangeNotifier {
   bool _canVisit = false;
   bool get canVisit => _canVisit;
 
+  bool _hasUnfinishedItinerary = false;
+  bool get hasUnfinishedItinerary => _hasUnfinishedItinerary;
+
   String _checkinBlockMessage = '';
   String get checkinBlockMessage => _checkinBlockMessage;
 
@@ -95,11 +98,12 @@ class AttendanceProvider with ChangeNotifier {
       final data = json.decode(response.body);
 
       // Permit aktif untuk hari ini
-      if (data['has_active_permit'] == true && data['permit'] != null) {
+      if (response.statusCode == 200 && data['has_active_permit'] == true) {
         _hasActivePermit = true;
         _activePermit = data['permit'] as Map<String, dynamic>;
         _canCheckin = false;
         _canVisit = false;
+        _hasUnfinishedItinerary = false;
         _checkinBlockMessage = data['message'] ?? 'Anda memiliki izin yang disetujui hari ini.';
         _todaySchedule = null;
         _todayItinerary = null;
@@ -112,12 +116,14 @@ class AttendanceProvider with ChangeNotifier {
       if (response.statusCode == 200 && data['can_checkin'] == true) {
         _canCheckin = true;
         _canVisit = data['can_visit'] ?? false;
+        _hasUnfinishedItinerary = data['has_unfinished_itinerary'] ?? false;
         _checkinBlockMessage = '';
         _todaySchedule = data['data']?['schedule'];
         _todayItinerary = data['data']?['itinerary'];
       } else {
         _canCheckin = false;
         _canVisit = false;
+        _hasUnfinishedItinerary = false;
         _checkinBlockMessage = data['message'] ?? 'Tidak bisa melakukan Check-In hari ini.';
         _todaySchedule = null;
         _todayItinerary = null;

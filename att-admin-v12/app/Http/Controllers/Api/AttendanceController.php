@@ -83,10 +83,34 @@ class AttendanceController extends Controller
             ->with(['items.workLocation'])
             ->first();
 
+        $hasUnfinishedItinerary = false;
+        if ($itinerary && $itinerary->items->count() > 0) {
+            $visitedLocationIds = \App\Models\AttendanceLog::where('employee_id', $employee->id)
+                ->where('log_type', 'visit_in')
+                ->whereDate('logged_at', $today)
+                ->get()
+                ->map(function ($log) {
+                    $id = $log->metadata['visit_location_id'] ?? null;
+                    return $id !== null ? (int) $id : null;
+                })
+                ->filter()
+                ->unique()
+                ->toArray();
+            
+            $unvisitedCount = $itinerary->items->filter(function($item) use ($visitedLocationIds) {
+                return !in_array((int)$item->work_location_id, $visitedLocationIds);
+            })->count();
+            
+            if ($unvisitedCount > 0) {
+                $hasUnfinishedItinerary = true;
+            }
+        }
+
         return response()->json([
             'status'      => 'success',
             'can_checkin' => true,
             'has_itinerary' => $itinerary ? true : false,
+            'has_unfinished_itinerary' => $hasUnfinishedItinerary,
             'can_visit'   => $itinerary ? true : false,
             'has_active_permit' => false,
             'data'        => [

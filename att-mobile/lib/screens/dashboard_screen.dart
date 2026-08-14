@@ -505,7 +505,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               return;
                             }
                             if (attProvider.isCheckedIn) {
-                              if (attProvider.isVisiting) return;
+                              if (attProvider.isVisiting || attProvider.hasUnfinishedItinerary) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Selesaikan jadwal kunjungan (visit) Anda terlebih dahulu.'), backgroundColor: Colors.orange),
+                                );
+                                return;
+                              }
                               Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkout'))).then((_) { attProvider.loadDashboardData(); });
                             } else {
                               Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkin'))).then((_) { attProvider.loadDashboardData(); });
@@ -519,12 +524,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   ? const LinearGradient(colors: [Colors.grey, Colors.grey])
                                   : (!attProvider.canCheckin && !attProvider.isCheckedIn)
                                       ? const LinearGradient(colors: [Colors.grey, Colors.grey])
-                                      : LinearGradient(
-                                          colors: [
-                                            primaryColor,
-                                            attProvider.isCheckedIn ? Colors.red.shade400 : Colors.green.shade400
-                                          ],
-                                        ),
+                                      : (attProvider.isCheckedIn && (attProvider.isVisiting || attProvider.hasUnfinishedItinerary))
+                                          ? const LinearGradient(colors: [Colors.grey, Colors.grey])
+                                          : LinearGradient(
+                                              colors: [
+                                                primaryColor,
+                                                attProvider.isCheckedIn ? Colors.red.shade400 : Colors.green.shade400
+                                              ],
+                                            ),
                               borderRadius: BorderRadius.circular(13),
                             ),
                             child: Row(
