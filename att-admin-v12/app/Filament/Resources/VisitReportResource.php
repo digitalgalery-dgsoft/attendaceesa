@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\VisitReportResource\Pages;
 use App\Models\VisitReport;
 use App\Models\ItineraryItem;
+use App\Models\EmployeeSchedule;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -94,11 +95,26 @@ class VisitReportResource extends Resource
                     ->label('Employee')
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('itineraryItem.workLocation.name')
-                    ->label('Store')
-                    ->default('-')
-                    ->searchable()
-                    ->sortable(),
+                TextColumn::make('store_location')
+                    ->label('Store / Location')
+                    ->getStateUsing(function (VisitReport $record): string {
+                        // 1. Try from itinerary item (if set)
+                        if ($record->itinerary_item_id && $record->itineraryItem?->workLocation) {
+                            return $record->itineraryItem->workLocation->name;
+                        }
+                        // 2. Try from employee schedule on the report date
+                        $scheduleDate = \Carbon\Carbon::parse($record->created_at)->toDateString();
+                        $schedule = EmployeeSchedule::where('employee_id', $record->employee_id)
+                            ->where('schedule_date', $scheduleDate)
+                            ->with('workLocation')
+                            ->first();
+                        if ($schedule?->workLocation) {
+                            return $schedule->workLocation->name;
+                        }
+                        return '-';
+                    })
+                    ->searchable(false)
+                    ->wrap(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => str_replace('_', ' ', ucfirst($state)))
@@ -109,15 +125,23 @@ class VisitReportResource extends Resource
                         'overdue' => 'warning',
                         default => 'gray',
                     }),
+                TextColumn::make('notes')
+                    ->label('Notes')
+                    ->limit(50)
+                    ->tooltip(fn (VisitReport $record) => $record->notes)
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: false),
                 TextColumn::make('deadline')
                     ->date()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 ImageColumn::make('photo_path')
                     ->label('Evidence'),
                 TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->label('Report Date')
+                    ->dateTime('d M Y H:i')
+                    ->timezone('Asia/Jakarta')
+                    ->sortable(),
             ])
             ->filters([
                 //

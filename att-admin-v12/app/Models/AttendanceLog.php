@@ -43,4 +43,9 @@ class AttendanceLog extends Model
     {
         return $this->belongsTo(Principal::class);
     }
+
+    public function itineraryItem()
+    {
+        return $this->belongsTo(\App\Models\ItineraryItem::class);
+    }
 }

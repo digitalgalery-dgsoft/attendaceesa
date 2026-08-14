@@ -61,22 +61,22 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 
 ---
 
-## 🔴 Tahap Khusus: Peningkatan Infrastruktur (Skala 20.000 Pengguna)
+## 🟡 Tahap Khusus: Peningkatan Infrastruktur (Skala 20.000 Pengguna) (Sebagian Selesai)
 *Tahap ini memastikan aplikasi tidak down saat menerima beban ribuan request absensi di jam sibuk.*
-1. **Instalasi Laravel Octane**: 
+1. ✅ **Instalasi Laravel Octane (SELESAI)**: 
    - Mengubah engine server dari standar ke Octane (Swoole / FrankenPHP) untuk performa tinggi.
-2. **Penerapan Redis**:
+2. ✅ **Penerapan Redis (SELESAI)**:
    - Mengalihkan Session, Cache, dan Queue agar menggunakan Redis, bukan File lokal.
-3. **Penyimpanan Cloud (S3)**:
+3. 🔴 **Penyimpanan Cloud (S3) (BELUM)**:
    - Integrasi sistem penyimpanan (AWS S3 / GCS / DigitalOcean Spaces) agar foto absensi tidak membebani server aplikasi.
 
 ---
 
-## 🔴 Tahap 5: Face Recognition & Realtime Notification (FCM)
+## 🟡 Tahap 5: Face Recognition & Realtime Notification (FCM) (Sebagian Selesai)
 *Tahap ini berfokus pada peningkatan akurasi absensi dan penyampaian informasi real-time.*
-1. **Face Recognition**:
+1. 🔴 **Face Recognition (BELUM)**:
    - Integrasi sistem deteksi dan pengenalan wajah pada saat Check-in / Check-out.
    - Pendaftaran wajah karyawan via admin atau aplikasi (enrollment).
-2. **Realtime Notifications (Firebase Cloud Messaging / FCM)**:
+2. ✅ **Realtime Notifications (Firebase Cloud Messaging / FCM) (SELESAI)**:
    - Integrasi FCM pada aplikasi mobile (Flutter) untuk menerima notifikasi.
    - Penyesuaian backend (Laravel) untuk mengirim push notification (blast, alert absensi, approval).

@@ -198,6 +198,7 @@ class AttendanceRoster extends Page implements HasForms
                 $logs = [];
                 if ($attendance) {
                     $logs = AttendanceLog::where('attendance_id', $attendance->id)
+                        ->with(['itineraryItem.workLocation'])
                         ->orderBy('logged_at', 'asc')
                         ->get();
                 }

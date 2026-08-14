@@ -50,22 +50,63 @@
                         <div class="flex items-start justify-between">
                             <div class="flex-1 pr-4">
                                 <div class="mb-2">
+                                    @php
+                                        $logTypeLabel = match($log->log_type) {
+                                            'checkin'       => 'Check In',
+                                            'checkout'      => 'Check Out',
+                                            'visit_in'      => 'Visit In',
+                                            'visit_out'     => 'Visit Out',
+                                            'visit_report'  => 'Visit Report',
+                                            default         => str_replace('_', ' ', ucfirst($log->log_type)),
+                                        };
+                                        $isCheckin = in_array($log->log_type, ['checkin', 'visit_in']);
+                                        $isReport  = $log->log_type === 'visit_report';
+                                    @endphp
                                     <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium uppercase
-                                        @if(str_contains($log->log_type, 'in')) bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20
+                                        @if($isReport) bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/20 dark:bg-purple-500/10 dark:text-purple-400
+                                        @elseif($isCheckin) bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20
                                         @else bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20 @endif
                                     ">
-                                        {{ str_replace('_', ' ', $log->log_type) }}
+                                        {{ $logTypeLabel }}
                                     </span>
                                     <span class="ml-2 text-sm font-semibold text-gray-900 dark:text-white">
                                         {{ \Carbon\Carbon::parse($log->logged_at)->timezone('Asia/Jakarta')->format('H:i:s') }}
                                     </span>
                                 </div>
+
+                                {{-- Location Display with fallbacks --}}
                                 <div class="mt-1 text-sm text-gray-700 dark:text-gray-300">
                                     <div class="flex items-start">
                                         <x-filament::icon icon="heroicon-o-map-pin" class="w-5 h-5 mr-2 text-gray-400 flex-shrink-0" />
-                                        <span>{{ $log->address_text ?? 'Location not recorded' }}</span>
+                                        @if($log->address_text)
+                                            <span>{{ $log->address_text }}</span>
+                                        @elseif($log->latitude && $log->longitude)
+                                            <span class="text-gray-500 italic">
+                                                {{ number_format($log->latitude, 6) }}, {{ number_format($log->longitude, 6) }}
+                                                @if($log->accuracy_meter)
+                                                    <span class="ml-1 text-xs text-gray-400">(±{{ round($log->accuracy_meter) }}m)</span>
+                                                @endif
+                                            </span>
+                                        @elseif($log->itinerary_item_id)
+                                            @php
+                                                $itItem = \App\Models\ItineraryItem::with('workLocation')->find($log->itinerary_item_id);
+                                            @endphp
+                                            <span class="text-gray-500">{{ $itItem?->workLocation?->name ?? 'Location not recorded' }}</span>
+                                        @else
+                                            <span class="text-gray-400 italic">Location not recorded</span>
+                                        @endif
                                     </div>
                                 </div>
+
+                                {{-- Geofence status --}}
+                                @if(!is_null($log->is_inside_geofence))
+                                    <div class="mt-1 text-xs {{ $log->is_inside_geofence ? 'text-emerald-600' : 'text-red-500' }}">
+                                        {{ $log->is_inside_geofence ? '✓ Dalam radius lokasi' : '✗ Di luar radius lokasi' }}
+                                        @if($log->distance_from_location_meter)
+                                            ({{ round($log->distance_from_location_meter) }}m)
+                                        @endif
+                                    </div>
+                                @endif
                             </div>
                             
                             @if ($log->photo_path)
