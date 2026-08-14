@@ -103,6 +103,7 @@ class VisitReportResource extends Resource
                         ->schema([
                             FileUpload::make('photo_path')
                                 ->label('Attachment / Foto')
+                                ->disk('public')
                                 ->directory('visit_reports')
                                 ->image()
                                 ->imageEditor()
