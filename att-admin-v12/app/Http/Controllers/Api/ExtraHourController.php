@@ -27,11 +27,45 @@ class ExtraHourController extends Controller
             ->whereNull('end_time')
             ->first();
 
+        $canStart = false;
+        $message = '';
+        
+        if ($activeOvertime) {
+            $message = 'Lembur sedang berjalan';
+        } else {
+            $schedule = EmployeeSchedule::where('employee_id', $employee->id)
+                ->where('date', $date)
+                ->first();
+
+            if (!$schedule || !$schedule->schedule_out) {
+                $message = 'Jadwal kerja hari ini tidak ditemukan';
+            } else {
+                $isDriver = false;
+                if ($employee->position && (stripos($employee->position->name, 'driver') !== false || stripos($employee->position->name, 'supir') !== false)) {
+                    $isDriver = true;
+                }
+
+                $scheduleOutTime = Carbon::parse($date . ' ' . $schedule->schedule_out);
+                $minStartTime = $isDriver ? $scheduleOutTime : $scheduleOutTime->copy()->addHour();
+                $now = Carbon::now();
+
+                if ($now->lt($minStartTime)) {
+                    $message = $isDriver ? 
+                        'Baru Bisa Pengajuan Lembur setelah Jam Pulang (' . $schedule->schedule_out . ')' : 
+                        'Baru Bisa Pengajuan Lembur 1 Jam setelah Jam Pulang (' . $minStartTime->format('H:i') . ')';
+                } else {
+                    $canStart = true;
+                }
+            }
+        }
+
         return response()->json([
             'status' => 'success',
             'data' => [
                 'is_running' => $activeOvertime !== null,
-                'overtime' => $activeOvertime
+                'overtime' => $activeOvertime,
+                'can_start' => $canStart,
+                'message' => $message
             ]
         ]);
     }
