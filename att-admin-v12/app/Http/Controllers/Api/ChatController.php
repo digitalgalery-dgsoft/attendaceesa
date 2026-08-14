@@ -61,10 +61,15 @@ class ChatController extends Controller
 
         // Kirim notifikasi database ke semua admin agar muncul di lonceng Filament
         try {
+            $employee = $request->user(); // Employee model (Sanctum)
+            $employeeName = $employee->full_name ?? $employee->name ?? 'Karyawan';
+            
             $admins = \App\Models\User::all();
+            \Illuminate\Support\Facades\Log::info('Sending Filament notification to ' . $admins->count() . ' admins for: ' . $employeeName);
+            
             if ($admins->isNotEmpty()) {
                 \Filament\Notifications\Notification::make()
-                    ->title('Pesan baru dari ' . $request->user()->full_name)
+                    ->title('💬 Pesan baru dari ' . $employeeName)
                     ->body(\Illuminate\Support\Str::limit($request->message, 50))
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->success()
@@ -75,9 +80,10 @@ class ChatController extends Controller
                             ->button()
                     ])
                     ->sendToDatabase($admins);
+                \Illuminate\Support\Facades\Log::info('Filament notification sent successfully.');
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Filament notification error: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Filament notification error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
         }
 
         return response()->json([

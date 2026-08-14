@@ -46,7 +46,7 @@ class LiveChat extends Page
 
     public function loadConversations()
     {
-        $this->conversations = Conversation::with(['employee', 'messages' => function ($query) {
+        $this->conversations = Conversation::with(['employee', 'employee.position', 'employee.area', 'messages' => function ($query) {
             $query->latest();
         }])->get()->sortByDesc(function ($conv) {
             return $conv->messages->first() ? $conv->messages->first()->created_at : $conv->created_at;
