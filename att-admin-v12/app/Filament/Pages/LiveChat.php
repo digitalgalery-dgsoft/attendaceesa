@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Conversation;
 use App\Models\ChatMessage;
+use App\Services\FirebaseService;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -57,7 +58,7 @@ class LiveChat extends Page
         $this->activeConversationId = $id;
         $this->activeConversation = Conversation::with(['employee', 'employee.position'])->find($id);
         
-        // Mark as read
+        // Mark employee messages as read
         ChatMessage::where('conversation_id', $id)
             ->where('sender_type', 'employee')
             ->where('is_read', false)
@@ -80,7 +81,7 @@ class LiveChat extends Page
     }
 
     /**
-     * Polling: called every N seconds from frontend to refresh messages
+     * Polling: called every N seconds from frontend to refresh messages in real-time
      */
     public function pollMessages()
     {
@@ -96,19 +97,44 @@ class LiveChat extends Page
             return;
         }
 
+        $messageText = $this->newMessage;
+
         $message = ChatMessage::create([
             'conversation_id' => $this->activeConversationId,
             'sender_type' => 'admin',
             'sender_id' => Auth::id(),
-            'message' => $this->newMessage,
+            'message' => $messageText,
             'is_read' => false,
         ]);
 
         $this->newMessage = '';
         $this->loadMessages();
         $this->loadConversations();
+
+        // Send FCM push notification to employee's device
+        try {
+            $conversation = $this->activeConversation 
+                ?? Conversation::with('employee')->find($this->activeConversationId);
+            
+            $employee = $conversation?->employee;
+            
+            if ($employee && !empty($employee->fcm_token)) {
+                $firebase = new FirebaseService();
+                $firebase->sendNotification(
+                    $employee->fcm_token,
+                    'Pesan dari Admin',
+                    $messageText,
+                    [
+                        'type' => 'chat',
+                        'conversation_id' => (string) $this->activeConversationId,
+                    ]
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::error('LiveChat FCM notification error: ' . $e->getMessage());
+        }
         
-        // Broadcast the event — wrapped in try/catch so failure doesn't break UX
+        // Broadcast via WebSocket (Reverb) - wrapped in try/catch
         try {
             broadcast(new \App\Events\MessageSent($message))->toOthers();
         } catch (\Throwable $e) {

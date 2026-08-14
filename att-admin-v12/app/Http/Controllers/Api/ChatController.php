@@ -85,4 +85,26 @@ class ChatController extends Controller
             'status' => 'success',
         ]);
     }
+    /**
+     * Get unread message count for badge display.
+     */
+    public function getUnreadCount(Request $request)
+    {
+        $employeeId = $request->user()->id;
+
+        $conversation = Conversation::where('employee_id', $employeeId)->first();
+
+        $count = 0;
+        if ($conversation) {
+            $count = $conversation->messages()
+                ->where('sender_type', 'admin')
+                ->where('is_read', false)
+                ->count();
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => ['unread_count' => $count],
+        ]);
+    }
 }

@@ -90,4 +90,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/chat/messages', [\App\Http\Controllers\Api\ChatController::class, 'getMessages']);
     Route::post('/chat/send', [\App\Http\Controllers\Api\ChatController::class, 'sendMessage']);
     Route::post('/chat/read', [\App\Http\Controllers\Api\ChatController::class, 'markAsRead']);
+    Route::get('/chat/unread', [\App\Http\Controllers\Api\ChatController::class, 'getUnreadCount']);
 });
