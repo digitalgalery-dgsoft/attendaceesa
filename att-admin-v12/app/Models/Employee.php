@@ -15,12 +15,6 @@ class Employee extends Authenticatable
 
     protected $hidden = ['password', 'remember_token', 'tokens'];
 
-    public function getFullNameAttribute()
-    {
-        return trim("{$this->first_name} {$this->last_name}");
-    }
-
-
     public function user()
     {
         return $this->belongsTo(User::class);
