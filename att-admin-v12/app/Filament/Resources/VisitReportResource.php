@@ -11,9 +11,8 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
-use Filament\Forms\Form;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Grid;
+use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\DatePicker;
@@ -37,13 +36,13 @@ class VisitReportResource extends Resource
         return 'Attendance Management';
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form->schema([
+        return $schema->components([
             Section::make('Visit Report Details')
                 ->description('Informasi lengkap mengenai laporan kunjungan')
+                ->columns(2)
                 ->schema([
-                    Grid::make(2)->schema([
                         Select::make('itinerary_item_id')
                             ->label('Visit Kunjungan (Jadwal)')
                             ->nullable()
@@ -78,8 +77,8 @@ class VisitReportResource extends Resource
                         ->columnSpanFull(),
 
                     Section::make('Issue & Resolution')
+                        ->columns(2)
                         ->schema([
-                            Grid::make(2)->schema([
                                 Textarea::make('issue')
                                     ->label('Issue Description')
                                     ->maxLength(65535)
@@ -96,7 +95,6 @@ class VisitReportResource extends Resource
                                     ->label('Actual Result')
                                     ->maxLength(65535)
                                     ->rows(3),
-                            ])
                         ])
                         ->collapsible()
                         ->collapsed(false),
@@ -113,7 +111,6 @@ class VisitReportResource extends Resource
                                 ->columnSpanFull(),
                         ])
                         ->collapsible(),
-                ])
         ]);
     }
 
