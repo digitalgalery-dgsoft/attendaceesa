@@ -4,7 +4,7 @@
             display: grid;
             grid-template-columns: 1fr;
             gap: 1.5rem;
-            height: 70vh;
+            height: 75vh;
             background-color: #ffffff;
             border-radius: 0.75rem;
             border: 1px solid #e5e7eb;
@@ -153,6 +153,7 @@
             border: 1px solid #d1d5db;
             padding: 0.5rem 1rem;
             outline: none;
+            font-size: 0.875rem;
         }
         .chat-input:focus {
             border-color: #3b82f6;
@@ -169,6 +170,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
         }
         .chat-send-btn:hover {
             background-color: #2563eb;
@@ -191,8 +194,28 @@
             margin-bottom: 1rem;
             opacity: 0.5;
         }
+        .poll-indicator {
+            font-size: 0.65rem;
+            color: #9ca3af;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            border-top: 1px solid #f3f4f6;
+        }
+        .poll-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 9999px;
+            background-color: #10b981;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
         
-        /* Dark mode overrides if needed */
+        /* Dark mode overrides */
         .dark .live-chat-container, .dark .chat-sidebar-header, .dark .chat-main-header, .dark .chat-input-area {
             background-color: #111827;
             border-color: #374151;
@@ -222,26 +245,56 @@
             border-color: #374151;
             color: #f3f4f6;
         }
+        .dark .poll-indicator {
+            border-color: #1f2937;
+        }
     </style>
 
-    <div class="live-chat-container" x-data="{
-        scrollToBottom() {
-            let container = $refs.chatContainer;
-            if(container) {
-                container.scrollTop = container.scrollHeight;
+    <div class="live-chat-container" 
+         x-data="{
+            pollInterval: null,
+            activeConvId: {{ $activeConversationId ?? 'null' }},
+            startPolling() {
+                this.stopPolling();
+                if (this.activeConvId) {
+                    this.pollInterval = setInterval(() => {
+                        $wire.pollMessages();
+                    }, 3000); // Poll every 3 seconds
+                }
+            },
+            stopPolling() {
+                if (this.pollInterval) {
+                    clearInterval(this.pollInterval);
+                    this.pollInterval = null;
+                }
+            },
+            scrollToBottom() {
+                let container = $refs.chatContainer;
+                if(container) {
+                    container.scrollTop = container.scrollHeight;
+                }
             }
-        }
-    }" x-init="
-        $wire.on('scroll-to-bottom', () => {
-            setTimeout(scrollToBottom, 100);
-        });
-        $wire.on('notify', (message) => {
-            new FilamentNotification()
-                .title(message)
-                .success()
-                .send();
-        });
-    ">
+         }" 
+         x-init="
+            // Start polling if there's already an active conversation
+            if (activeConvId) startPolling();
+
+            $wire.on('scroll-to-bottom', () => {
+                setTimeout(() => scrollToBottom(), 100);
+            });
+            $wire.on('notify', (message) => {
+                new FilamentNotification()
+                    .title(message)
+                    .success()
+                    .send();
+            });
+         "
+         @conversation-selected.window="
+            activeConvId = $event.detail.id;
+            startPolling();
+         "
+         x-on:livewire:navigating.window="stopPolling()"
+    >
         
         {{-- Sidebar: List of Conversations --}}
         <div class="chat-sidebar">
@@ -254,24 +307,27 @@
                         $latest = $conversation->messages->first();
                         $unread = $conversation->unreadMessagesCount();
                         $isActive = $activeConversationId === $conversation->id;
+                        $employeeName = $conversation->employee->full_name ?? 'Karyawan';
+                        $initial = strtoupper(substr($employeeName, 0, 1));
                     @endphp
                     <div wire:click="selectConversation({{ $conversation->id }})" 
+                         x-on:click="activeConvId = {{ $conversation->id }}; startPolling();"
                          class="chat-item {{ $isActive ? 'active' : '' }}">
                         <div style="display: flex; align-items: center; overflow: hidden;">
                             <div class="chat-avatar {{ $isActive ? 'active' : '' }}">
-                                {{ strtoupper(substr($conversation->employee->first_name ?? 'U', 0, 1)) }}
+                                {{ $initial }}
                             </div>
                             <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                 <h4 style="font-weight: 600; font-size: 0.875rem; {{ $isActive ? 'color: #2563eb;' : '' }}">
-                                    {{ $conversation->employee->first_name ?? 'Unknown' }} {{ $conversation->employee->last_name ?? '' }}
+                                    {{ $employeeName }}
                                 </h4>
                                 <p style="font-size: 0.75rem; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    {{ $latest ? $latest->message : 'Belum ada pesan' }}
+                                    {{ $latest ? \Illuminate\Support\Str::limit($latest->message, 30) : 'Belum ada pesan' }}
                                 </p>
                             </div>
                         </div>
                         @if($unread > 0)
-                            <div style="background-color: #ef4444; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px;">
+                            <div style="background-color: #ef4444; color: white; font-size: 0.75rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 9999px; flex-shrink: 0;">
                                 {{ $unread }}
                             </div>
                         @endif
@@ -287,14 +343,19 @@
         {{-- Main Chat Area --}}
         <div class="chat-main">
             @if($activeConversation)
+                @php
+                    $empName = $activeConversation->employee->full_name ?? 'Karyawan';
+                    $empPosition = $activeConversation->employee->position->name ?? 'Karyawan';
+                    $empInitial = strtoupper(substr($empName, 0, 1));
+                @endphp
                 {{-- Header --}}
                 <div class="chat-main-header">
-                    <div class="chat-avatar active">
-                        {{ strtoupper(substr($activeConversation->employee->first_name ?? 'U', 0, 1)) }}
+                    <div class="chat-avatar active" style="margin-right: 0.75rem;">
+                        {{ $empInitial }}
                     </div>
                     <div>
-                        <h3 style="font-weight: 700;">{{ $activeConversation->employee->first_name ?? 'Unknown' }} {{ $activeConversation->employee->last_name ?? '' }}</h3>
-                        <p style="font-size: 0.75rem; color: #6b7280;">{{ $activeConversation->employee->position ?? 'Employee' }}</p>
+                        <h3 style="font-weight: 700; font-size: 0.95rem;">{{ $empName }}</h3>
+                        <p style="font-size: 0.75rem; color: #6b7280;">{{ $empPosition }}</p>
                     </div>
                 </div>
 
@@ -317,15 +378,27 @@
                         </div>
                     @empty
                         <div style="text-align: center; color: #6b7280; font-size: 0.875rem; margin-top: 2.5rem;">
-                            Mulai obrolan dengan {{ $activeConversation->employee->first_name ?? 'karyawan' }}
+                            Mulai obrolan dengan {{ $empName }}
                         </div>
                     @endforelse
+                </div>
+
+                {{-- Polling status indicator --}}
+                <div class="poll-indicator">
+                    <div class="poll-dot"></div>
+                    <span>Auto-refresh aktif • setiap 3 detik</span>
                 </div>
 
                 {{-- Input Area --}}
                 <div class="chat-input-area">
                     <form wire:submit.prevent="sendMessage" class="chat-input-form">
-                        <input type="text" wire:model="newMessage" placeholder="Ketik pesan..." class="chat-input">
+                        <input 
+                            type="text" 
+                            wire:model="newMessage" 
+                            placeholder="Ketik pesan..." 
+                            class="chat-input"
+                            wire:keydown.enter="sendMessage"
+                        >
                         <button type="submit" class="chat-send-btn" wire:loading.attr="disabled" wire:target="sendMessage">
                             <svg style="width: 1.25rem; height: 1.25rem; transform: rotate(90deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
                         </button>

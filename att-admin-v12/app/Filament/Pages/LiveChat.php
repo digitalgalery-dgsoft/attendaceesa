@@ -6,6 +6,7 @@ use App\Models\Conversation;
 use App\Models\ChatMessage;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class LiveChat extends Page
 {
@@ -32,7 +33,7 @@ class LiveChat extends Page
     protected function getListeners()
     {
         return [
-            "echo-private:chat.{$this->activeConversationId},MessageSent" => 'receiveMessage',
+            'pollMessages' => 'pollMessages',
             'refreshChatList' => '$refresh',
         ];
     }
@@ -44,7 +45,6 @@ class LiveChat extends Page
 
     public function loadConversations()
     {
-        // Load all conversations with the latest message and unread count
         $this->conversations = Conversation::with(['employee', 'messages' => function ($query) {
             $query->latest();
         }])->get()->sortByDesc(function ($conv) {
@@ -55,7 +55,7 @@ class LiveChat extends Page
     public function selectConversation($id)
     {
         $this->activeConversationId = $id;
-        $this->activeConversation = Conversation::with('employee')->find($id);
+        $this->activeConversation = Conversation::with(['employee', 'employee.position'])->find($id);
         
         // Mark as read
         ChatMessage::where('conversation_id', $id)
@@ -79,6 +79,17 @@ class LiveChat extends Page
         }
     }
 
+    /**
+     * Polling: called every N seconds from frontend to refresh messages
+     */
+    public function pollMessages()
+    {
+        if ($this->activeConversationId) {
+            $this->loadMessages();
+            $this->loadConversations();
+        }
+    }
+
     public function sendMessage()
     {
         if (empty(trim($this->newMessage)) || !$this->activeConversationId) {
@@ -97,8 +108,12 @@ class LiveChat extends Page
         $this->loadMessages();
         $this->loadConversations();
         
-        // Broadcast the event
-        broadcast(new \App\Events\MessageSent($message))->toOthers();
+        // Broadcast the event — wrapped in try/catch so failure doesn't break UX
+        try {
+            broadcast(new \App\Events\MessageSent($message))->toOthers();
+        } catch (\Throwable $e) {
+            Log::error('LiveChat broadcast error: ' . $e->getMessage());
+        }
         
         $this->dispatch('scroll-to-bottom');
     }
@@ -108,12 +123,10 @@ class LiveChat extends Page
         $message = $event['message'];
         
         if ($this->activeConversationId == $message['conversation_id']) {
-            // If the chat is active, append it and mark as read
             $this->loadMessages();
             ChatMessage::where('id', $message['id'])->update(['is_read' => true]);
             $this->dispatch('scroll-to-bottom');
         } else {
-            // Otherwise just notify and refresh list
             $this->dispatch('notify', 'Pesan baru dari Karyawan');
         }
         
