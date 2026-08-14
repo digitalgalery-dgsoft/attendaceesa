@@ -55,8 +55,12 @@ class ChatController extends Controller
         // Broadcast the event
         try {
             broadcast(new MessageSent($message));
-            
-            // Kirim notifikasi database ke semua admin agar muncul di lonceng Filament
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Chat broadcast error: ' . $e->getMessage());
+        }
+
+        // Kirim notifikasi database ke semua admin agar muncul di lonceng Filament
+        try {
             $admins = \App\Models\User::all();
             if ($admins->isNotEmpty()) {
                 \Filament\Notifications\Notification::make()
@@ -73,7 +77,7 @@ class ChatController extends Controller
                     ->sendToDatabase($admins);
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Broadcast error: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Filament notification error: ' . $e->getMessage());
         }
 
         return response()->json([
