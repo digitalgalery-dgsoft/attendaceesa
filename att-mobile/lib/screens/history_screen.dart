@@ -476,6 +476,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final String locationAddress = log['location']?['address'] as String? ?? '';
     final String lat = log['latitude']?.toString() ?? '';
     final String lng = log['longitude']?.toString() ?? '';
+    final String distance = log['distance_from_location_meter']?.toString() ?? '';
 
     Color color;
     String label;
@@ -597,7 +598,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             if (locationAddress.isNotEmpty)
                               Text(locationAddress, style: TextStyle(fontSize: 9, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : const Color(0xFF707893)), maxLines: 2, overflow: TextOverflow.ellipsis),
                             if (lat.isNotEmpty && lng.isNotEmpty)
-                              Text('Lat: $lat, Lng: $lng', style: TextStyle(fontSize: 9, color: const Color(0xFF0F52BA))),
+                              Text(
+                                'Lat: $lat, Lng: $lng${distance.isNotEmpty && distance != 'null' ? ' | Radius: ${double.tryParse(distance)?.toStringAsFixed(1) ?? distance}m' : ''}', 
+                                style: const TextStyle(fontSize: 9, color: Color(0xFF0F52BA))
+                              ),
                           ],
                         ),
                       ),

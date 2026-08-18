@@ -53,9 +53,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       final dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
       await dashboardProvider.fetchDashboardStats();
       final positionName = authProvider.employeeData?['position']?['name']?.toString().toUpperCase() ?? '';
-      if (positionName == 'TL') {
-        dashboardProvider.fetchTeamStats();
-      }
+      dashboardProvider.fetchTeamStats();
       _syncLocationService(attProvider);
     });
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -344,7 +342,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 const SizedBox(height: 15),
 
                 // Team Stats (For users with subordinates/team)
-                if (dashboardProvider.totalTeam > 0 || positionName.toUpperCase() == 'TL') ...[
+                if (dashboardProvider.totalTeam > 0) ...[
                   const TeamStatsWidget(),
                   const SizedBox(height: 15),
                 ],
