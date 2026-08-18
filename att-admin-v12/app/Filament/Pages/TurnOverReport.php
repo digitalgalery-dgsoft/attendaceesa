@@ -21,7 +21,7 @@ class TurnOverReport extends Page implements HasForms
     use InteractsWithForms;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrow-path-rounded-square';
-    protected static ?string $navigationGroup = '6. Reports & Analytics';
+    protected static string|\UnitEnum|null $navigationGroup = '6. Reports & Analytics';
     protected static ?string $navigationLabel = 'Turn Over Report';
     protected static ?string $title = 'Turn Over Report';
     protected static ?int $navigationSort = 2;

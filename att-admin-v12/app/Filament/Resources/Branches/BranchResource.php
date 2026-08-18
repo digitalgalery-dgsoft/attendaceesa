@@ -21,7 +21,7 @@ class BranchResource extends Resource
     protected static ?string $model = Branch::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-storefront';
-    protected static ?string $navigationGroup = '1. Master Data';
+    protected static string|\UnitEnum|null $navigationGroup = '1. Master Data';
     protected static ?int $navigationSort = 5;
     protected static ?string $modelLabel = 'Area';
     protected static ?string $pluralModelLabel = 'Areas';

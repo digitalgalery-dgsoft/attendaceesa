@@ -18,7 +18,7 @@ class BlastInfoResource extends Resource
     protected static ?string $model = BlastInfo::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-megaphone';
-    protected static ?string $navigationGroup = '5. Communication';
+    protected static string|\UnitEnum|null $navigationGroup = '5. Communication';
     protected static ?int $navigationSort = 2;
     
     public static function getNavigationGroup(): ?string

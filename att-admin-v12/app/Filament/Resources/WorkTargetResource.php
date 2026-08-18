@@ -21,7 +21,7 @@ class WorkTargetResource extends Resource
     protected static ?string $model = WorkTarget::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
-    protected static ?string $navigationGroup = '2. Employee Management';
+    protected static string|\UnitEnum|null $navigationGroup = '2. Employee Management';
     protected static ?int $navigationSort = 2;
 
     public static function getNavigationGroup(): ?string

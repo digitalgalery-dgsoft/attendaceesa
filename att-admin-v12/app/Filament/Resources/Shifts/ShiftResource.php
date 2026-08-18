@@ -19,7 +19,7 @@ class ShiftResource extends Resource
     protected static ?string $model = Shift::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clock';
-    protected static ?string $navigationGroup = '1. Master Data';
+    protected static string|\UnitEnum|null $navigationGroup = '1. Master Data';
     protected static ?int $navigationSort = 7;
 
     public static function form(Schema $schema): Schema

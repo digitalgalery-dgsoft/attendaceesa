@@ -19,7 +19,7 @@ class PrincipalResource extends Resource
     protected static ?string $model = Principal::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-    protected static ?string $navigationGroup = '1. Master Data';
+    protected static string|\UnitEnum|null $navigationGroup = '1. Master Data';
     protected static ?int $navigationSort = 4;
 
     protected static ?string $recordTitleAttribute = 'name';
