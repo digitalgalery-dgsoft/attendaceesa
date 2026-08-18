@@ -105,20 +105,28 @@ class OdooSyncService
         foreach ($records as $rec) {
             try {
                 $code = $rec['code_principal'] ?? $rec['ref'] ?? null;
+                $finalCode = $code ?: ('OD-' . $rec['id']);
 
-                $principal = Principal::updateOrCreate(
-                    ['odoo_id' => $rec['id']],
-                    [
-                        'name'       => $rec['name'],
-                        'code'       => $code ?: ('OD-' . $rec['id']),
+                $principal = Principal::where('odoo_id', $rec['id'])
+                                      ->orWhere('code', $finalCode)
+                                      ->first();
+
+                if ($principal) {
+                    $principal->update([
+                        'odoo_id' => $rec['id'], // ensure odoo_id is linked
+                        'name' => $rec['name'],
+                        'code' => $finalCode,
                         'company_id' => $companyId,
-                    ]
-                );
-
-                if ($principal->wasRecentlyCreated) {
-                    $created++;
-                } else {
+                    ]);
                     $updated++;
+                } else {
+                    Principal::create([
+                        'odoo_id' => $rec['id'],
+                        'name' => $rec['name'],
+                        'code' => $finalCode,
+                        'company_id' => $companyId,
+                    ]);
+                    $created++;
                 }
             } catch (\Exception $e) {
                 $errors[] = "Principal [{$rec['name']}]: " . $e->getMessage();
