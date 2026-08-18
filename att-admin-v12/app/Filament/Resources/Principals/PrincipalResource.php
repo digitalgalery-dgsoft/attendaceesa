@@ -21,13 +21,9 @@ class PrincipalResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
     protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
     protected static ?int $navigationSort = 4;
+    protected static ?string $navigationLabel = 'Principals';
 
     protected static ?string $recordTitleAttribute = 'name';
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Master Data';
-    }
 
     public static function canViewAny(): bool
     {

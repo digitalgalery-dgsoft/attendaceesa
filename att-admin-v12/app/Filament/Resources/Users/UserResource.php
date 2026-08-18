@@ -21,6 +21,7 @@ class UserResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
     protected static string|\UnitEnum|null $navigationGroup = 'System & Settings';
     protected static ?int $navigationSort = 1;
+    protected static ?string $navigationLabel = 'Users';
 
     public static function form(Schema $schema): Schema
     {
@@ -46,11 +47,6 @@ class UserResource extends Resource
             'create' => CreateUser::route('/create'),
             'edit' => EditUser::route('/{record}/edit'),
         ];
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'System';
     }
 
     public static function canViewAny(): bool

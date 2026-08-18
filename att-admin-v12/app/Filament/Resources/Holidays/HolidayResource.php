@@ -26,7 +26,7 @@ class HolidayResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
 
-    protected static ?string $navigationLabel = 'Hari Libur';
+    protected static ?string $navigationLabel = 'Holidays';
 
     protected static ?string $modelLabel = 'Hari Libur';
 
@@ -110,10 +110,5 @@ class HolidayResource extends Resource
             'create' => CreateHoliday::route('/create'),
             'edit'   => EditHoliday::route('/{record}/edit'),
         ];
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Pengaturan';
     }
 }

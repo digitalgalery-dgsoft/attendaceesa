@@ -21,6 +21,7 @@ class WorkLocationResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-map-pin';
     protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
     protected static ?int $navigationSort = 6;
+    protected static ?string $navigationLabel = 'Work Locations';
 
     public static function form(Schema $schema): Schema
     {
@@ -46,11 +47,6 @@ class WorkLocationResource extends Resource
             'create' => CreateWorkLocation::route('/create'),
             'edit' => EditWorkLocation::route('/{record}/edit'),
         ];
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Master Data';
     }
 
     public static function canViewAny(): bool

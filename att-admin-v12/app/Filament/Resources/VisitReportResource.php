@@ -32,11 +32,7 @@ class VisitReportResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-magnifying-glass';
     protected static string|\UnitEnum|null $navigationGroup = 'Field Operations & Sales';
     protected static ?int $navigationSort = 2;
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Attendance Management';
-    }
+    protected static ?string $navigationLabel = 'Visit Reports';
 
     public static function form(Schema $schema): Schema
     {

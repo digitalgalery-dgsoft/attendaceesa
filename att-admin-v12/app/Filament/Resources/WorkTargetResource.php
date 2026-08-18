@@ -23,11 +23,7 @@ class WorkTargetResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
     protected static string|\UnitEnum|null $navigationGroup = 'Employee Management';
     protected static ?int $navigationSort = 2;
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Employee Management';
-    }
+    protected static ?string $navigationLabel = 'Work Targets';
 
     public static function form(Schema $schema): Schema
     {

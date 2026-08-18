@@ -21,6 +21,7 @@ class PositionResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-identification';
     protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
     protected static ?int $navigationSort = 3;
+    protected static ?string $navigationLabel = 'Positions';
 
     public static function form(Schema $schema): Schema
     {
@@ -46,11 +47,6 @@ class PositionResource extends Resource
             'create' => CreatePosition::route('/create'),
             'edit' => EditPosition::route('/{record}/edit'),
         ];
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Master Data';
     }
 
     public static function canViewAny(): bool

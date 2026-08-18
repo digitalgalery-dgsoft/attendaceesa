@@ -21,6 +21,7 @@ class AttendanceResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
     protected static string|\UnitEnum|null $navigationGroup = 'Attendance & Time Management';
     protected static ?int $navigationSort = 1;
+    protected static ?string $navigationLabel = 'Attendances';
 
     public static function form(Schema $schema): Schema
     {
@@ -47,11 +48,6 @@ class AttendanceResource extends Resource
             'edit' => \App\Filament\Resources\Attendances\Pages\EditAttendance::route('/{record}/edit'),
             'view-route' => \App\Filament\Resources\Attendances\Pages\ViewTrackingHistory::route('/{record}/view-route'),
         ];
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Attendance';
     }
 
     public static function canViewAny(): bool

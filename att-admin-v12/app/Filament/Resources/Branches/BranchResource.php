@@ -61,11 +61,6 @@ class BranchResource extends Resource
             ]);
     }
 
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Master Data';
-    }
-
     public static function canViewAny(): bool
     {
         return auth()->user()->hasRole('Super Admin') || auth()->user()->can('view_areas');

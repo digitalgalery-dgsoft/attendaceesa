@@ -30,11 +30,7 @@ class LeaveRequestResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
     protected static string|\UnitEnum|null $navigationGroup = 'Attendance & Time Management';
     protected static ?int $navigationSort = 3;
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Attendance Management';
-    }
+    protected static ?string $navigationLabel = 'Leave Requests';
 
     public static function form(Schema $schema): Schema
     {

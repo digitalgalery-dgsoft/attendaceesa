@@ -24,13 +24,9 @@ class SalesReportResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar-square';
     protected static string|\UnitEnum|null $navigationGroup = 'Field Operations & Sales';
     protected static ?int $navigationSort = 3;
+    protected static ?string $navigationLabel = 'Sales Reports';
 
     protected static ?string $recordTitleAttribute = 'client_name';
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Sales & Marketing';
-    }
 
     public static function getEloquentQuery(): Builder
     {

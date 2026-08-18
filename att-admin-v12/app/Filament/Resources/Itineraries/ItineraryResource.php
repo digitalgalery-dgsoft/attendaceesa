@@ -21,6 +21,7 @@ class ItineraryResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-map';
     protected static string|\UnitEnum|null $navigationGroup = 'Field Operations & Sales';
     protected static ?int $navigationSort = 1;
+    protected static ?string $navigationLabel = 'Visit Schedule';
 
     public static function form(Schema $schema): Schema
     {
@@ -46,11 +47,6 @@ class ItineraryResource extends Resource
             'create' => CreateItinerary::route('/create'),
             'edit' => EditItinerary::route('/{record}/edit'),
         ];
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Attendance';
     }
 
     public static function canViewAny(): bool

@@ -21,6 +21,7 @@ class ShiftResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clock';
     protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
     protected static ?int $navigationSort = 7;
+    protected static ?string $navigationLabel = 'Shifts';
 
     public static function form(Schema $schema): Schema
     {
@@ -46,11 +47,6 @@ class ShiftResource extends Resource
             'create' => CreateShift::route('/create'),
             'edit' => EditShift::route('/{record}/edit'),
         ];
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Master Data';
     }
 
     public static function canViewAny(): bool

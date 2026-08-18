@@ -23,6 +23,7 @@ class EmployeeResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-users';
     protected static string|\UnitEnum|null $navigationGroup = 'Employee Management';
     protected static ?int $navigationSort = 1;
+    protected static ?string $navigationLabel = 'Employees';
 
     public static function form(Schema $schema): Schema
     {
@@ -56,11 +57,6 @@ class EmployeeResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
-    }
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Master Data';
     }
 
     public static function canViewAny(): bool

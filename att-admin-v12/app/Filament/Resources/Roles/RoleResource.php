@@ -21,11 +21,7 @@ class RoleResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-shield-check';
     protected static string|\UnitEnum|null $navigationGroup = 'System & Settings';
     protected static ?int $navigationSort = 2;
-
-    public static function getNavigationGroup(): ?string
-    {
-        return 'System';
-    }
+    protected static ?string $navigationLabel = 'Roles';
 
     protected static ?string $recordTitleAttribute = 'name';
 
