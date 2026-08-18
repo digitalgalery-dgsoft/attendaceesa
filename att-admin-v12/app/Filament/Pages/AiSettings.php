@@ -50,11 +50,10 @@ class AiSettings extends Page implements HasForms
                         Select::make('gemini_model')
                             ->label('Gemini Model')
                             ->options([
-                                'gemini-1.5-flash' => 'Gemini 1.5 Flash (Fast)',
-                                'gemini-1.5-pro' => 'Gemini 1.5 Pro (Accurate)',
                                 'gemini-2.5-flash' => 'Gemini 2.5 Flash',
+                                'gemini-3.6-flash' => 'Gemini 3.6 Flash',
                             ])
-                            ->default('gemini-1.5-flash'),
+                            ->default('gemini-2.5-flash'),
                     ])->columns(1),
 
                 Section::make('Backup API (Sumopod / Fallback)')
