@@ -40,7 +40,20 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->sidebarCollapsibleOnDesktop()
-            ->brandName($logoPath ? '' : $appName)
+            ->brandName($appName)
+            ->brandLogo(function () use ($logoPath): ?string {
+                if (!$logoPath) return null;
+                try {
+                    $disk = \Illuminate\Support\Facades\Storage::disk('public');
+                    if ($disk->exists($logoPath)) {
+                        $content = $disk->get($logoPath);
+                        $mime    = $disk->mimeType($logoPath) ?: 'image/png';
+                        return 'data:' . $mime . ';base64,' . base64_encode($content);
+                    }
+                } catch (\Exception $e) {}
+                return null;
+            })
+            ->brandLogoHeight($logoPath ? '2.5rem' : null)
             ->font('Public Sans')
             ->colors([
                 'primary' => $themeColor,
@@ -85,19 +98,7 @@ class AdminPanelProvider extends PanelProvider
                     }
                     /* Custom logo override */
                     .fi-logo-custom-img { display: flex; align-items: center; }
-                    /* Hide default brand name when logo is shown */
-                    .fi-sidebar-header .fi-logo span.truncate { display: none !important; }
                 </style>'
-            )
-            ->renderHook(
-                PanelsRenderHook::SIDEBAR_NAV_START,
-                function () use ($logoPath, $appName): string {
-                    if ($logoPath) {
-                        $url = asset('storage/' . ltrim($logoPath, '/'));
-                        return '<div style="padding:12px 16px 8px; display:flex; align-items:center;"><img src="' . e($url) . '" alt="' . e($appName) . '" style="height:2.5rem;max-width:180px;object-fit:contain;"></div>';
-                    }
-                    return '';
-                }
             )
             ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
