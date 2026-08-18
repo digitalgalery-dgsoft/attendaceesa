@@ -11,6 +11,7 @@ class Position extends Model
 
     protected $fillable = [
         'company_id',
+        'principal_id',
         'code',
         'name',
         'level',
@@ -28,5 +29,10 @@ class Position extends Model
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function principal()
+    {
+        return $this->belongsTo(Principal::class);
     }
 }

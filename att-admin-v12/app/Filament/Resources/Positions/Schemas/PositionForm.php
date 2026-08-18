@@ -13,8 +13,9 @@ class PositionForm
     {
         return $schema
             ->components([
-                Select::make('company_id')
-                    ->relationship('company', 'name')
+                Select::make('principal_id')
+                    ->relationship('principal', 'name')
+                    ->label('Company')
                     ->required(),
                 TextInput::make('name')
                     ->required(),

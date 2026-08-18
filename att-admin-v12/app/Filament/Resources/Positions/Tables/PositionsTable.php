@@ -15,8 +15,9 @@ class PositionsTable
     {
         return $table
             ->columns([
-                TextColumn::make('company_id')
-                    ->numeric()
+                TextColumn::make('principal.name')
+                    ->label('Company')
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('name')
                     ->searchable(),
