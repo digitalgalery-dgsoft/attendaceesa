@@ -302,6 +302,9 @@
         <div class="chat-sidebar">
             <div class="chat-sidebar-header">
                 <h3 style="font-size: 1.125rem; font-weight: 700;">Percakapan</h3>
+                <div style="margin-top: 0.75rem;">
+                    <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari nama karyawan..." class="chat-input" style="width: 100%;">
+                </div>
             </div>
             <div class="chat-sidebar-list">
                 @forelse($conversations as $conversation)

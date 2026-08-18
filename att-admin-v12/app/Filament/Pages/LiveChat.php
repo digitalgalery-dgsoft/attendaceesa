@@ -31,6 +31,8 @@ class LiveChat extends Page
     public $messages = [];
     public $newMessage = '';
 
+    public $search = '';
+
     protected function getListeners()
     {
         return [
@@ -44,11 +46,24 @@ class LiveChat extends Page
         $this->loadConversations();
     }
 
+    public function updatedSearch()
+    {
+        $this->loadConversations();
+    }
+
     public function loadConversations()
     {
-        $this->conversations = Conversation::with(['employee', 'employee.position', 'employee.area', 'messages' => function ($query) {
+        $query = Conversation::with(['employee', 'employee.position', 'employee.area', 'messages' => function ($query) {
             $query->latest();
-        }])->get()->sortByDesc(function ($conv) {
+        }]);
+
+        if (!empty($this->search)) {
+            $query->whereHas('employee', function ($q) {
+                $q->where('full_name', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        $this->conversations = $query->get()->sortByDesc(function ($conv) {
             return $conv->messages->first() ? $conv->messages->first()->created_at : $conv->created_at;
         });
     }
