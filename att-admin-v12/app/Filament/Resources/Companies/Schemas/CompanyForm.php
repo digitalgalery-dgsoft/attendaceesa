@@ -13,7 +13,7 @@ class CompanyForm
     {
         return $schema
             ->components([
-                \Filament\Forms\Components\Section::make('Company Info')
+                \Filament\Schemas\Components\Section::make('Company Info')
                     ->schema([
                         TextInput::make('name')
                             ->required(),
@@ -26,7 +26,7 @@ class CompanyForm
                         Toggle::make('is_active')
                             ->required(),
                     ]),
-                \Filament\Forms\Components\Section::make('Odoo Integration')
+                \Filament\Schemas\Components\Section::make('Odoo Integration')
                     ->description('Konfigurasi koneksi ke Odoo ERP untuk sinkronisasi data per perusahaan.')
                     ->schema([
                         TextInput::make('odoo_url')
