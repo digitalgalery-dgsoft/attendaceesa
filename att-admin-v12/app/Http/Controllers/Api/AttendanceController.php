@@ -111,7 +111,7 @@ class AttendanceController extends Controller
             'can_checkin' => true,
             'has_itinerary' => $itinerary ? true : false,
             'has_unfinished_itinerary' => $hasUnfinishedItinerary,
-            'can_visit'   => $itinerary ? true : false,
+            'can_visit'   => $hasUnfinishedItinerary,
             'has_active_permit' => false,
             'data'        => [
                 'schedule'  => $schedule,

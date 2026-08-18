@@ -510,9 +510,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               return;
                             }
                             if (attProvider.isCheckedIn) {
-                              if (attProvider.isVisiting || attProvider.hasUnfinishedItinerary) {
+                              if (attProvider.isVisiting) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Selesaikan jadwal kunjungan (visit) Anda terlebih dahulu.'), backgroundColor: Colors.orange),
+                                  const SnackBar(content: Text('Selesaikan laporan kunjungan (visit-out) Anda terlebih dahulu.'), backgroundColor: Colors.orange),
                                 );
                                 return;
                               }
@@ -529,7 +529,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   ? const LinearGradient(colors: [Colors.grey, Colors.grey])
                                   : (!attProvider.canCheckin && !attProvider.isCheckedIn)
                                       ? const LinearGradient(colors: [Colors.grey, Colors.grey])
-                                      : (attProvider.isCheckedIn && (attProvider.isVisiting || attProvider.hasUnfinishedItinerary))
+                                      : (attProvider.isCheckedIn && attProvider.isVisiting)
                                           ? const LinearGradient(colors: [Colors.grey, Colors.grey])
                                           : LinearGradient(
                                               colors: [

@@ -55,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/itineraries/principals', [ItineraryController::class, 'getPrincipals']);
     Route::get('/itineraries', [ItineraryController::class, 'index']);
     Route::post('/itineraries', [ItineraryController::class, 'store']);
+    Route::delete('/itineraries/{id}', [ItineraryController::class, 'destroy']);
     
     // Blast Infos
     Route::get('/blast-infos', [BlastInfoController::class, 'index']);

@@ -158,4 +158,25 @@ class ItineraryController extends Controller
             'data' => $principals
         ]);
     }
+
+    public function destroy($id, Request $request)
+    {
+        $employee = $request->user();
+        $item = ItineraryItem::where('id', $id)
+            ->whereHas('itinerary', function($q) use ($employee) {
+                $q->where('employee_id', $employee->id);
+            })
+            ->first();
+
+        if (!$item) {
+            return response()->json(['status' => 'error', 'message' => 'Jadwal tidak ditemukan atau tidak berhak dihapus'], 404);
+        }
+        
+        $item->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Jadwal berhasil dihapus'
+        ]);
+    }
 }

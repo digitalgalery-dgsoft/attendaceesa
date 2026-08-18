@@ -4,6 +4,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/itinerary_provider.dart';
+import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/screens/add_itinerary_screen.dart';
 
 class ItineraryScreen extends StatefulWidget {
@@ -233,6 +234,44 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                                         ],
                                       ),
                                     ),
+                                    if ((_selectedDay ?? _focusedDay).isAfter(DateTime.now().subtract(const Duration(days: 1))))
+                                      IconButton(
+                                        icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                                        onPressed: () async {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (ctx) => AlertDialog(
+                                              backgroundColor: cardColor,
+                                              title: Text('Batalkan Jadwal?', style: TextStyle(color: textColor)),
+                                              content: Text('Apakah Anda yakin ingin membatalkan jadwal kunjungan ini?', style: TextStyle(color: subtitleColor)),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(ctx, false),
+                                                  child: const Text('Tidak', style: TextStyle(color: Colors.grey)),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(ctx, true),
+                                                  child: const Text('Ya, Batalkan', style: TextStyle(color: Colors.red)),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          
+                                          if (confirm == true) {
+                                            final auth = Provider.of<AuthProvider>(context, listen: false);
+                                            final success = await Provider.of<ItineraryProvider>(context, listen: false)
+                                                .cancelItineraryItem(auth, event['id']);
+                                                
+                                            if (success && mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Jadwal berhasil dibatalkan'), backgroundColor: Colors.green),
+                                              );
+                                              // Refresh dashboard to update the 'Kunjungan Lapangan' section
+                                              Provider.of<AttendanceProvider>(context, listen: false).loadDashboardData();
+                                            }
+                                          }
+                                        },
+                                      ),
                                   ],
                                 ),
                               );

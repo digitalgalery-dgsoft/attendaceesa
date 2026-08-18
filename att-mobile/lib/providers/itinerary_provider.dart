@@ -143,4 +143,36 @@ class ItineraryProvider with ChangeNotifier {
       return false;
     }
   }
+
+  Future<bool> cancelItineraryItem(AuthProvider authProvider, int itemId) async {
+    _setAuthToken(authProvider);
+    _isLoading = true;
+    _error = '';
+    notifyListeners();
+
+    try {
+      final response = await _dio.delete('/itineraries/$itemId');
+      if (response.statusCode == 200 && response.data['status'] == 'success') {
+        _isLoading = false;
+        notifyListeners();
+        await fetchItineraries(authProvider);
+        return true;
+      } else {
+        _error = response.data['message'] ?? 'Failed to cancel itinerary';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } on DioException catch (e) {
+      _error = e.response?.data['message'] ?? e.message ?? 'Unknown error occurred';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
 }

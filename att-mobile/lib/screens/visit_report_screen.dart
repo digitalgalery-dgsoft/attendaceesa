@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:toastification/toastification.dart';
 import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
+import 'package:att_mobile/screens/main_screen.dart';
 import 'package:intl/intl.dart';
 
 class VisitReportScreen extends StatefulWidget {
@@ -160,7 +161,11 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
           description: const Text('Laporan Visit & Visit-Out berhasil disimpan'),
           autoCloseDuration: const Duration(seconds: 3),
         );
-        Navigator.pop(context);
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+          (route) => false,
+        );
       } else {
         toastification.show(
           context: context,
