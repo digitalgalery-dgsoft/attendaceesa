@@ -60,7 +60,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
       backgroundColor: bgColor,
       appBar: AppBar(
         title: Text(
-          'Itinerary',
+          'Visit',
           style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
         ),
         backgroundColor: bgColor,

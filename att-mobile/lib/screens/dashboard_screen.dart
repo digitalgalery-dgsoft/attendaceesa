@@ -294,7 +294,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       if (widget.switchTab != null) { widget.switchTab!(1); }
                       else { Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen())).then((_) { attProvider.loadDashboardData(); }); }
                     }},
-                    {'title': 'Itinerary', 'icon': Icons.map, 'color': const Color(0xFF0FA8C4), 'onTap': () {
+                    {'title': 'Visit', 'icon': Icons.map, 'color': const Color(0xFF0FA8C4), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const ItineraryScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
                     {'title': 'Permit', 'icon': Icons.event_note, 'color': const Color(0xFFD98A2B), 'onTap': () {
@@ -846,8 +846,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               Column(
                 children: [
                   Text('Menu Lainnya', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: textColor)),
-                  const SizedBox(height: 2),
-                  Text('Semua fitur tambahan Nexa Attendance', style: TextStyle(fontSize: 10.5, color: subtitleColor)),
+                  const SizedBox(height: 4),
+                  Text('Semua fitur tambahan ESA groups', style: TextStyle(fontSize: 10.5, color: subtitleColor)),
                 ],
               ),
               const SizedBox(height: 16),

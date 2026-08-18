@@ -9,7 +9,7 @@ class ItineraryItem extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['itinerary_id', 'work_location_id', 'sequence', 'notes', 'principal_id'];
+    protected $fillable = ['itinerary_id', 'work_location_id', 'sequence', 'notes', 'principal_id', 'visit_type', 'meeting_type', 'agenda'];
 
     public function principal()
     {

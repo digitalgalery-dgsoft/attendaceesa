@@ -23,6 +23,9 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
   String? _selectedArea;
   int? _selectedWorkLocationId;
   int? _selectedPrincipalId;
+  String? _selectedVisitType;
+  String? _selectedMeetingType;
+  final TextEditingController _agendaController = TextEditingController();
   bool _isSubmitting = false;
 
   @override
@@ -77,17 +80,50 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
 
     DateTime targetDate = DateTime.now();
 
+    if (_selectedVisitType == null) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Perhatian'),
+        description: const Text('Harap pilih Type Visit terlebih dahulu'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    if (_selectedMeetingType == null) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Perhatian'),
+        description: const Text('Harap pilih Type Meeting terlebih dahulu'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    if (_agendaController.text.trim().isEmpty) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Perhatian'),
+        description: const Text('Harap isi Agenda terlebih dahulu'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
     if (type == 'scheduled') {
-      final DateTime? picked = await showDatePicker(
+      final picked = await showDatePicker(
         context: context,
         initialDate: targetDate,
-        firstDate: targetDate, // Tidak bisa backdate
-        lastDate: targetDate.add(const Duration(days: 365)),
+        firstDate: DateTime.now(),
+        lastDate: DateTime.now().add(const Duration(days: 30)),
         builder: (context, child) {
           return Theme(
             data: Theme.of(context).copyWith(
               colorScheme: ColorScheme.light(
-                primary: Theme.of(context).primaryColor,
+                primary: Provider.of<AuthProvider>(context, listen: false).appColor ?? const Color(0xFF0F52BA),
               ),
             ),
             child: child!,
@@ -114,6 +150,9 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
         'work_location_id': _selectedWorkLocationId,
         'principal_id': _selectedPrincipalId,
         'notes': type == 'now' ? 'Visit Now' : 'Scheduled Visit',
+        'visit_type': _selectedVisitType,
+        'meeting_type': _selectedMeetingType,
+        'agenda': _agendaController.text.trim(),
       }],
     );
 
@@ -290,6 +329,64 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
                             _selectedPrincipalId = value;
                           });
                         },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Type Visit Dropdown
+                      DropdownButtonFormField<String>(
+                        dropdownColor: cardColor,
+                        style: TextStyle(color: textColor),
+                        decoration: inputDecoration.copyWith(
+                          labelText: 'Type Visit',
+                        ),
+                        value: _selectedVisitType,
+                        items: ['Store', 'Prinsiple', 'Lainnya'].map((type) {
+                          return DropdownMenuItem<String>(
+                            value: type,
+                            child: Text(type),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedVisitType = value;
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Type Meeting Dropdown
+                      DropdownButtonFormField<String>(
+                        dropdownColor: cardColor,
+                        style: TextStyle(color: textColor),
+                        decoration: inputDecoration.copyWith(
+                          labelText: 'Type Meeting',
+                        ),
+                        value: _selectedMeetingType,
+                        items: ['Online', 'Offline'].map((type) {
+                          return DropdownMenuItem<String>(
+                            value: type,
+                            child: Text(type),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedMeetingType = value;
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Agenda TextField
+                      TextFormField(
+                        controller: _agendaController,
+                        style: TextStyle(color: textColor),
+                        maxLines: 3,
+                        decoration: inputDecoration.copyWith(
+                          labelText: 'Agenda',
+                        ),
                       ),
                     ],
                   ),

@@ -87,7 +87,10 @@ class ItineraryController extends Controller
             'locations' => 'required|array',
             'locations.*.work_location_id' => 'required|integer|exists:work_locations,id',
             'locations.*.principal_id' => 'nullable|integer|exists:principals,id',
-            'locations.*.notes' => 'nullable|string'
+            'locations.*.notes' => 'nullable|string',
+            'locations.*.visit_type' => 'nullable|string',
+            'locations.*.meeting_type' => 'nullable|string',
+            'locations.*.agenda' => 'nullable|string'
         ]);
 
         $employee = $request->user();
@@ -121,7 +124,10 @@ class ItineraryController extends Controller
                     'work_location_id' => $loc['work_location_id'],
                     'principal_id' => $loc['principal_id'] ?? null,
                     'sequence' => $sequence++,
-                    'notes' => $loc['notes'] ?? null
+                    'notes' => $loc['notes'] ?? null,
+                    'visit_type' => $loc['visit_type'] ?? null,
+                    'meeting_type' => $loc['meeting_type'] ?? null,
+                    'agenda' => $loc['agenda'] ?? null
                 ]);
             }
 
