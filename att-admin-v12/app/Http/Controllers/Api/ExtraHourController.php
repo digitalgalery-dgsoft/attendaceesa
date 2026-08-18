@@ -20,7 +20,9 @@ class ExtraHourController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Employee not found'], 404);
         }
 
-        $date = Carbon::now()->toDateString();
+        $employeeTz = $employee->timezone ?? config('app.timezone');
+        $now = Carbon::now($employeeTz);
+        $date = $now->toDateString();
         
         $activeOvertime = ExtraHour::where('employee_id', $employee->id)
             ->where('date', $date)
@@ -45,9 +47,17 @@ class ExtraHourController extends Controller
                     $isDriver = true;
                 }
 
-                $scheduleOutTime = Carbon::parse($date . ' ' . $schedule->schedule_out);
+                $scheduleOutTime = Carbon::parse($date . ' ' . $schedule->schedule_out, $employeeTz);
                 $minStartTime = $isDriver ? $scheduleOutTime : $scheduleOutTime->copy()->addHour();
-                $now = Carbon::now();
+
+                \Illuminate\Support\Facades\Log::info("Overtime Check for Employee {$employee->id}:", [
+                    'now' => $now->toDateTimeString(),
+                    'schedule_out' => $schedule->schedule_out,
+                    'scheduleOutTime' => $scheduleOutTime->toDateTimeString(),
+                    'minStartTime' => $minStartTime->toDateTimeString(),
+                    'isDriver' => $isDriver,
+                    'canStart' => !$now->lt($minStartTime)
+                ]);
 
                 if ($now->lt($minStartTime)) {
                     $message = $isDriver ? 
@@ -58,6 +68,12 @@ class ExtraHourController extends Controller
                 }
             }
         }
+        
+        \Illuminate\Support\Facades\Log::info("Overtime Result for Employee {$employee->id}:", [
+            'activeOvertime' => $activeOvertime ? true : false,
+            'message' => $message,
+            'canStart' => $canStart
+        ]);
 
         return response()->json([
             'status' => 'success',
@@ -85,7 +101,8 @@ class ExtraHourController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Employee not found'], 404);
         }
 
-        $now = Carbon::now();
+        $employeeTz = $employee->timezone ?? config('app.timezone');
+        $now = Carbon::now($employeeTz);
         $date = $now->toDateString();
 
         // Check if there's already a running overtime
@@ -112,10 +129,10 @@ class ExtraHourController extends Controller
             $isDriver = true;
         }
 
-        $scheduleOutTime = Carbon::parse($date . ' ' . $schedule->schedule_out);
+        $scheduleOutTime = Carbon::parse($date . ' ' . $schedule->schedule_out, $employeeTz);
         $minStartTime = $isDriver ? $scheduleOutTime : $scheduleOutTime->copy()->addHour();
 
-        $inputStartTime = Carbon::parse($date . ' ' . $request->start_time);
+        $inputStartTime = Carbon::parse($date . ' ' . $request->start_time, $employeeTz);
 
         if ($inputStartTime->lt($minStartTime)) {
             $message = $isDriver ? 
@@ -155,7 +172,9 @@ class ExtraHourController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Employee not found'], 404);
         }
 
-        $date = Carbon::now()->toDateString();
+        $employeeTz = $employee->timezone ?? config('app.timezone');
+        $now = Carbon::now($employeeTz);
+        $date = $now->toDateString();
         
         $activeOvertime = ExtraHour::where('employee_id', $employee->id)
             ->where('date', $date)
@@ -166,10 +185,10 @@ class ExtraHourController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Tidak ada sesi lembur yang sedang berjalan'], 404);
         }
 
-        $startTime = Carbon::parse($activeOvertime->date->format('Y-m-d') . ' ' . $activeOvertime->start_time);
+        $startTime = Carbon::parse($activeOvertime->date->format('Y-m-d') . ' ' . $activeOvertime->start_time, $employeeTz);
         
         // Handle cross day
-        $inputEndTime = Carbon::parse($date . ' ' . $request->end_time);
+        $inputEndTime = Carbon::parse($date . ' ' . $request->end_time, $employeeTz);
         $crossDay = false;
         
         if ($inputEndTime->lt($startTime)) {

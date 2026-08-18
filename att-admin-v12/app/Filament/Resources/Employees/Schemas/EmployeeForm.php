@@ -20,6 +20,7 @@ class EmployeeForm
                 Select::make('user_id')
                     ->relationship('user', 'name')
                     ->label('User Account')
+                    ->searchable()
                     ->createOptionForm([
                         TextInput::make('name')
                             ->required()
@@ -37,19 +38,24 @@ class EmployeeForm
                     ]),
                 Select::make('company_id')
                     ->relationship('company', 'name')
+                    ->searchable()
                     ->required()
                     ->live(),
                 Select::make('branch_id')
                     ->relationship('branch', 'name')
+                    ->searchable()
                     ->label('Area'),
                 Select::make('department_id')
                     ->relationship('department', 'name', fn (Builder $query, $get) => $query->whereHas('companies', fn($q) => $q->where('companies.id', $get('company_id'))))
+                    ->searchable()
                     ->label('Department'),
                 Select::make('position_id')
                     ->relationship('position', 'name')
+                    ->searchable()
                     ->label('Position'),
                 Select::make('supervisor_id')
                     ->relationship('supervisor', 'full_name')
+                    ->searchable()
                     ->label('Supervisor'),
                 TextInput::make('employee_no')
                     ->required(),
