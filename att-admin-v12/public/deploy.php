@@ -38,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'cp -a /www/wwwroot/appsend.my.id/att-admin-v12/. /www/wwwroot/appsend.my.id/',
         'cd /www/wwwroot/appsend.my.id && curl -sS https://getcomposer.org/installer | /www/server/php/83/bin/php',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/composer.phar install --working-dir=/www/wwwroot/appsend.my.id --no-dev --optimize-autoloader',
+        '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan storage:link',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan migrate --force',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan optimize:clear',
     ];
