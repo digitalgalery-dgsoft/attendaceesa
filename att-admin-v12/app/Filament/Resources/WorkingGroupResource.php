@@ -25,10 +25,7 @@ class WorkingGroupResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
 
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Attendance';
-    }
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function form(Schema $schema): Schema
     {

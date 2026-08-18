@@ -21,11 +21,7 @@ class BlastInfoResource extends Resource
     protected static string|\UnitEnum|null $navigationGroup = 'Communication';
     protected static ?int $navigationSort = 2;
     protected static ?string $navigationLabel = 'Blast Infos';
-    
-    public static function getNavigationGroup(): ?string
-    {
-        return 'Settings'; // Or maybe General / Employee Management depending on existing groups
-    }
+
 
     public static function getEloquentQuery(): Builder
     {
