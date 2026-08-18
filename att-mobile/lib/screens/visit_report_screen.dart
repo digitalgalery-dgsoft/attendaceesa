@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:toastification/toastification.dart';
 import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
+import 'package:intl/intl.dart';
 
 class VisitReportScreen extends StatefulWidget {
   const VisitReportScreen({super.key});
