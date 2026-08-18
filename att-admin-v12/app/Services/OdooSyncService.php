@@ -91,18 +91,21 @@ class OdooSyncService
             $domain[] = ['company_id', '=', $odooCompanyId];
         }
 
-        $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
-            $this->db, $uid, $this->apiKey,
-            'res.partner', 'search_read',
-            [$domain],
-            ['fields' => ['id', 'name', 'code_principal', 'ref', 'active'], 'limit' => 500],
-        ]);
-
         $created  = 0;
         $updated  = 0;
         $errors   = [];
+        $offset   = 0;
+        $limit    = 500;
 
-        foreach ($records as $rec) {
+        do {
+            $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
+                $this->db, $uid, $this->apiKey,
+                'res.partner', 'search_read',
+                [$domain],
+                ['fields' => ['id', 'name', 'code_principal', 'ref', 'active'], 'limit' => $limit, 'offset' => $offset],
+            ]);
+
+            foreach ($records as $rec) {
             try {
                 $code = $rec['code_principal'] ?? $rec['ref'] ?? null;
                 $finalCode = $code ?: ('OD-' . $rec['id']);
@@ -149,6 +152,8 @@ class OdooSyncService
                 Log::error('Odoo Sync Principal Error', ['record' => $rec, 'error' => $e->getMessage()]);
             }
         }
+            $offset += $limit;
+        } while (count($records) == $limit);
 
         return compact('created', 'updated', 'errors');
     }
@@ -167,27 +172,31 @@ class OdooSyncService
             $domain[] = ['company_id', '=', $odooCompanyId];
         }
 
-        $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
-            $this->db, $uid, $this->apiKey,
-            'hr.employee', 'search_read',
-            [$domain],
-            [
-                'fields' => [
-                    'id', 'name', 'registration_number', 'identification_id',
-                    'mobile_phone', 'work_email', 'private_email', 'gender', 'birthday',
-                    'department_id', 'job_id', 'principle_id', 'first_contract_date',
-                    'area_id', 'company_id', 'active',
-                ],
-                'limit' => 1000,
-            ],
-        ]);
-
         $localCompany = Company::find($companyId);
         $created  = 0;
         $updated  = 0;
         $errors   = [];
+        $offset   = 0;
+        $limit    = 500;
 
-        foreach ($records as $rec) {
+        do {
+            $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
+                $this->db, $uid, $this->apiKey,
+                'hr.employee', 'search_read',
+                [$domain],
+                [
+                    'fields' => [
+                        'id', 'name', 'registration_number', 'identification_id',
+                        'mobile_phone', 'work_email', 'private_email', 'gender', 'birthday',
+                        'department_id', 'job_id', 'principle_id', 'first_contract_date',
+                        'area_id', 'company_id', 'active',
+                    ],
+                    'limit' => $limit,
+                    'offset' => $offset,
+                ],
+            ]);
+
+            foreach ($records as $rec) {
             try {
                 // Resolve Principal
                 $principalId = null;
@@ -337,6 +346,8 @@ class OdooSyncService
                 Log::error('Odoo Sync Employee Error', ['record' => $rec, 'error' => $e->getMessage()]);
             }
         }
+            $offset += $limit;
+        } while (count($records) == $limit);
 
         return compact('created', 'updated', 'errors');
     }
