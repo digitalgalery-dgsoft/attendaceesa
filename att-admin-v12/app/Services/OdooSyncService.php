@@ -187,8 +187,8 @@ class OdooSyncService
                     $positionId = $position->id;
                 }
 
-                // Map employment status (default to permanent as employee_type is not available in some Odoo versions)
-                $employmentStatus = 'permanent';
+                // Map employment status (default to contract as employee_type is not available in some Odoo versions)
+                $employmentStatus = 'contract';
 
                 // Map gender
                 $gender = match ($rec['gender'] ?? '') {
