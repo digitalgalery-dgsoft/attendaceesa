@@ -22,8 +22,11 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
   final _positionController = TextEditingController();
   final _notesController = TextEditingController();
   final _actionController = TextEditingController();
-  final _targetController = TextEditingController();
-  final _actualController = TextEditingController();
+  final _targetQtyController = TextEditingController();
+  final _actualQtyController = TextEditingController();
+  final _targetValueController = TextEditingController();
+  final _actualValueController = TextEditingController();
+  String _targetType = 'Target Qty';
   DateTime? _deadline;
   
   bool _isIssue = false;
@@ -65,8 +68,10 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
     _positionController.dispose();
     _notesController.dispose();
     _actionController.dispose();
-    _targetController.dispose();
-    _actualController.dispose();
+    _targetQtyController.dispose();
+    _actualQtyController.dispose();
+    _targetValueController.dispose();
+    _actualValueController.dispose();
     super.dispose();
   }
 
@@ -137,8 +142,11 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
         photoPath: _photoFile!.path,
         metWith: _metWithController.text,
         position: _positionController.text,
-        target: _targetController.text.isNotEmpty ? _targetController.text : null,
-        actual: _actualController.text.isNotEmpty ? _actualController.text : null,
+        targetType: _targetType,
+        targetQty: _targetType == 'Target Qty' || _targetType == 'Keduanya' ? _targetQtyController.text : null,
+        actualQty: _targetType == 'Target Qty' || _targetType == 'Keduanya' ? _actualQtyController.text : null,
+        targetValue: _targetType == 'Target Value' || _targetType == 'Keduanya' ? _targetValueController.text : null,
+        actualValue: _targetType == 'Target Value' || _targetType == 'Keduanya' ? _actualValueController.text : null,
         deadline: _deadline != null ? DateFormat('yyyy-MM-dd').format(_deadline!) : null,
       );
 
@@ -305,23 +313,75 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                       
                       const SizedBox(height: 16),
                       
-                      TextFormField(
-                        controller: _targetController,
-                        style: TextStyle(color: textColor),
-                        decoration: inputDecoration.copyWith(labelText: 'Target Report (Qty / Values) *'),
-                        validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                      DropdownButtonFormField<String>(
+                        value: _targetType,
+                        decoration: inputDecoration.copyWith(labelText: 'Target Report *'),
+                        items: ['Target Qty', 'Target Value', 'Keduanya']
+                            .map((e) => DropdownMenuItem(value: e, child: Text(e, style: TextStyle(color: textColor))))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _targetType = val;
+                            });
+                          }
+                        },
                       ),
-                      
                       const SizedBox(height: 16),
                       
-                      TextFormField(
-                        controller: _actualController,
-                        style: TextStyle(color: textColor),
-                        decoration: inputDecoration.copyWith(labelText: 'Actual (Qty / Value) *'),
-                        validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
-                      ),
+                      if (_targetType == 'Target Qty' || _targetType == 'Keduanya') ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _targetQtyController,
+                                style: TextStyle(color: textColor),
+                                keyboardType: TextInputType.number,
+                                decoration: inputDecoration.copyWith(labelText: 'Target (Qty) *'),
+                                validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _actualQtyController,
+                                style: TextStyle(color: textColor),
+                                keyboardType: TextInputType.number,
+                                decoration: inputDecoration.copyWith(labelText: 'Actual (Qty) *'),
+                                validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       
-                      const SizedBox(height: 16),
+                      if (_targetType == 'Target Value' || _targetType == 'Keduanya') ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _targetValueController,
+                                style: TextStyle(color: textColor),
+                                keyboardType: TextInputType.number,
+                                decoration: inputDecoration.copyWith(labelText: 'Target (Value) *'),
+                                validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _actualValueController,
+                                style: TextStyle(color: textColor),
+                                keyboardType: TextInputType.number,
+                                decoration: inputDecoration.copyWith(labelText: 'Actual (Value) *'),
+                                validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       
                       InkWell(
                         onTap: () async {

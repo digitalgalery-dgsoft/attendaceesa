@@ -87,14 +87,29 @@ class VisitReportResource extends Resource
                                     ->label('Action Taken')
                                     ->maxLength(65535)
                                     ->rows(3),
-                                Textarea::make('target')
-                                    ->label('Target')
-                                    ->maxLength(65535)
-                                    ->rows(3),
-                                Textarea::make('actual')
-                                    ->label('Actual Result')
-                                    ->maxLength(65535)
-                                    ->rows(3),
+                        ])
+                        ->collapsible()
+                        ->collapsed(false),
+                    
+                    Section::make('Target Report')
+                        ->columns(2)
+                        ->schema([
+                            Select::make('target_type')
+                                ->label('Tipe Target')
+                                ->options([
+                                    'Target Qty' => 'Target Qty',
+                                    'Target Value' => 'Target Value',
+                                    'Keduanya' => 'Keduanya',
+                                ])
+                                ->columnSpanFull(),
+                            \Filament\Forms\Components\TextInput::make('target_qty')
+                                ->label('Target (Qty)'),
+                            \Filament\Forms\Components\TextInput::make('actual_qty')
+                                ->label('Actual (Qty)'),
+                            \Filament\Forms\Components\TextInput::make('target_value')
+                                ->label('Target (Value)'),
+                            \Filament\Forms\Components\TextInput::make('actual_value')
+                                ->label('Actual (Value)'),
                         ])
                         ->collapsible()
                         ->collapsed(false),

@@ -411,6 +411,12 @@ class AttendanceController extends Controller
             'is_issue' => 'required|boolean',
             'action_taken' => 'nullable|string',
             'itinerary_item_id' => 'nullable|integer', // Optional, if mobile has it
+            'target_type' => 'nullable|string',
+            'target_qty' => 'nullable|string',
+            'actual_qty' => 'nullable|string',
+            'target_value' => 'nullable|string',
+            'actual_value' => 'nullable|string',
+            'deadline' => 'nullable|date',
         ]);
 
         $employee = $request->user();
@@ -483,6 +489,12 @@ class AttendanceController extends Controller
                 'issue' => $request->is_issue ? 'Ya' : 'Tidak',
                 'notes' => $request->notes,
                 'action_taken' => $request->is_issue ? $request->action_taken : null,
+                'target_type' => $request->target_type,
+                'target_qty' => $request->target_qty,
+                'actual_qty' => $request->actual_qty,
+                'target_value' => $request->target_value,
+                'actual_value' => $request->actual_value,
+                'deadline' => $request->deadline,
                 'photo_path' => $path,
                 'status' => 'completed',
             ]);

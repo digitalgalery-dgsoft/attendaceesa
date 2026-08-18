@@ -326,8 +326,11 @@ class AttendanceProvider with ChangeNotifier {
     required String photoPath,
     required String metWith,
     required String position,
-    String? target,
-    String? actual,
+    String? targetType,
+    String? targetQty,
+    String? actualQty,
+    String? targetValue,
+    String? actualValue,
     String? deadline,
   }) async {
     _isLoading = true;
@@ -370,11 +373,20 @@ class AttendanceProvider with ChangeNotifier {
       if (notes != null && notes.isNotEmpty) {
         request.fields['notes'] = notes;
       }
-      if (target != null && target.isNotEmpty) {
-        request.fields['target'] = target;
+      if (targetType != null && targetType.isNotEmpty) {
+        request.fields['target_type'] = targetType;
       }
-      if (actual != null && actual.isNotEmpty) {
-        request.fields['actual'] = actual;
+      if (targetQty != null && targetQty.isNotEmpty) {
+        request.fields['target_qty'] = targetQty;
+      }
+      if (actualQty != null && actualQty.isNotEmpty) {
+        request.fields['actual_qty'] = actualQty;
+      }
+      if (targetValue != null && targetValue.isNotEmpty) {
+        request.fields['target_value'] = targetValue;
+      }
+      if (actualValue != null && actualValue.isNotEmpty) {
+        request.fields['actual_value'] = actualValue;
       }
       if (deadline != null && deadline.isNotEmpty) {
         request.fields['deadline'] = deadline;
