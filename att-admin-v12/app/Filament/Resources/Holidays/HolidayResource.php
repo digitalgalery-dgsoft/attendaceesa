@@ -37,11 +37,6 @@ class HolidayResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Select::make('company_id')
-                ->relationship('company', 'name')
-                ->searchable()
-                ->preload()
-                ->required(),
             DatePicker::make('holiday_date')
                 ->label('Tanggal Libur')
                 ->required(),
@@ -67,10 +62,6 @@ class HolidayResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('company.name')
-                    ->label('Perusahaan')
-                    ->sortable()
-                    ->searchable(),
                 TextColumn::make('holiday_date')
                     ->label('Tanggal')
                     ->date('d M Y')
