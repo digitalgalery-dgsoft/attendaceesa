@@ -4,10 +4,15 @@ import 'package:http/http.dart' as http;
 import '../utils/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/location_service.dart';
+import 'package:att_mobile/providers/auth_provider.dart';
+import 'package:geolocator/geolocator.dart';
 
 class AttendanceProvider with ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
+
+  String _error = '';
+  String get error => _error;
 
   bool _isCheckedIn = false;
   bool get isCheckedIn => _isCheckedIn;
@@ -334,7 +339,9 @@ class AttendanceProvider with ChangeNotifier {
       double latitude = 0.0;
       double longitude = 0.0;
       try {
-        final pos = await LocationService.getCurrentLocation();
+        final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
         latitude = pos.latitude;
         longitude = pos.longitude;
       } catch (e) {
@@ -376,7 +383,6 @@ class AttendanceProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return false;
-    }
     }
   }
 }
