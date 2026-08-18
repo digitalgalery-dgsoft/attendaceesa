@@ -86,6 +86,7 @@ class ItineraryController extends Controller
             'date' => 'required|date',
             'locations' => 'required|array',
             'locations.*.work_location_id' => 'required|integer|exists:work_locations,id',
+            'locations.*.principal_id' => 'nullable|integer|exists:principals,id',
             'locations.*.notes' => 'nullable|string'
         ]);
 
@@ -118,6 +119,7 @@ class ItineraryController extends Controller
                 ItineraryItem::create([
                     'itinerary_id' => $itinerary->id,
                     'work_location_id' => $loc['work_location_id'],
+                    'principal_id' => $loc['principal_id'] ?? null,
                     'sequence' => $sequence++,
                     'notes' => $loc['notes'] ?? null
                 ]);
@@ -140,5 +142,14 @@ class ItineraryController extends Controller
                 'message' => 'Failed to create itinerary'
             ], 500);
         }
+    }
+
+    public function getPrincipals()
+    {
+        $principals = \App\Models\Principal::select('id', 'name', 'code')->orderBy('name')->get();
+        return response()->json([
+            'status' => 'success',
+            'data' => $principals
+        ]);
     }
 }

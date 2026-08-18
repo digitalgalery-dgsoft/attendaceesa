@@ -18,6 +18,9 @@ class AttendanceProvider with ChangeNotifier {
   bool _hasFilledVisitReport = false;
   bool get hasFilledVisitReport => _hasFilledVisitReport;
 
+  DateTime? _visitStartTime;
+  DateTime? get visitStartTime => _visitStartTime;
+
   bool _hasCheckedOutToday = false;
   bool get hasCheckedOutToday => _hasCheckedOutToday;
 
@@ -170,11 +173,17 @@ class AttendanceProvider with ChangeNotifier {
 
         if (_todayLogs.isNotEmpty) {
           final lastLog = _todayLogs.first;
-          _isVisiting = lastLog['log_type'] == 'visit_in' || lastLog['log_type'] == 'visit_report';
-          _hasFilledVisitReport = lastLog['log_type'] == 'visit_report';
+          _isVisiting = lastLog['log_type'] == 'visit_in';
+          _hasFilledVisitReport = lastLog['log_type'] == 'visit_report' || lastLog['log_type'] == 'visit_out';
+          if (_isVisiting) {
+            _visitStartTime = DateTime.tryParse(lastLog['logged_at'] ?? '');
+          } else {
+            _visitStartTime = null;
+          }
         } else {
           _isVisiting = false;
           _hasFilledVisitReport = false;
+          _visitStartTime = null;
         }
 
         // We CANNOT auto-start LocationService here because starting a Foreground Service 
@@ -304,31 +313,48 @@ class AttendanceProvider with ChangeNotifier {
       return {'success': false, 'message': e.toString()};
     }
   }
-  Future<Map<String, dynamic>> submitVisitReport({
+  Future<bool> submitVisitReport({
+    required AuthProvider authProvider,
     required String notes,
-    required String imagePath,
-    required bool isWeb,
+    required String photoPath,
+    required String metWith,
+    required String position,
+    required bool isIssue,
+    required String actionTaken,
   }) async {
     _isLoading = true;
+    _error = '';
     notifyListeners();
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = authProvider.token;
+      if (token == null) throw Exception('Not authenticated');
+
+      // Get current location
+      double latitude = 0.0;
+      double longitude = 0.0;
+      try {
+        final pos = await LocationService.getCurrentLocation();
+        latitude = pos.latitude;
+        longitude = pos.longitude;
+      } catch (e) {
+        debugPrint('Failed to get location for visit report: $e');
+        // We might want to require location, but for now we send 0.0 if failed
+      }
 
       var request = http.MultipartRequest('POST', Uri.parse('${Constants.baseUrl}/attendance/visit-report'));
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['Accept'] = 'application/json';
 
       request.fields['notes'] = notes;
+      request.fields['met_with'] = metWith;
+      request.fields['position'] = position;
+      request.fields['is_issue'] = isIssue ? '1' : '0';
+      request.fields['action_taken'] = actionTaken;
+      request.fields['latitude'] = latitude.toString();
+      request.fields['longitude'] = longitude.toString();
 
-      if (isWeb) {
-        final imgResponse = await http.get(Uri.parse(imagePath));
-        final bytes = imgResponse.bodyBytes;
-        request.files.add(http.MultipartFile.fromBytes('photo', bytes, filename: 'visit_report.jpg'));
-      } else {
-        request.files.add(await http.MultipartFile.fromPath('photo', imagePath));
-      }
+      request.files.add(await http.MultipartFile.fromPath('photo', photoPath));
 
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
@@ -336,19 +362,21 @@ class AttendanceProvider with ChangeNotifier {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         await checkAttendanceStatus();
-
         _isLoading = false;
         notifyListeners();
-        return {'success': true, 'message': decodedData['message'] ?? 'Berhasil'};
+        return true;
       } else {
+        _error = decodedData['message'] ?? 'Gagal menyimpan laporan';
         _isLoading = false;
         notifyListeners();
-        return {'success': false, 'message': decodedData['message'] ?? 'Gagal'};
+        return false;
       }
     } catch (e) {
+      _error = e.toString();
       _isLoading = false;
       notifyListeners();
-      return {'success': false, 'message': e.toString()};
+      return false;
+    }
     }
   }
 }

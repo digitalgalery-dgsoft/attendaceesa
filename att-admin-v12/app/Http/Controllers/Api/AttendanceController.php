@@ -402,8 +402,15 @@ class AttendanceController extends Controller
     public function storeVisitReport(Request $request)
     {
         $request->validate([
-            'notes' => 'required|string',
+            'notes' => 'nullable|string', // Deskripsi Isu or General Notes
             'photo' => 'required|image|max:5120',
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+            'met_with' => 'required|string',
+            'position' => 'required|string',
+            'is_issue' => 'required|boolean',
+            'action_taken' => 'nullable|string',
+            'itinerary_item_id' => 'nullable|integer', // Optional, if mobile has it
         ]);
 
         $employee = $request->user();
@@ -411,37 +418,99 @@ class AttendanceController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
+        $employeeId = $employee->id;
+        $today = Carbon::today('Asia/Jakarta')->toDateString();
+        $now = Carbon::now();
+
         try {
-            $path = $request->file('photo')->store('visit_reports', 'public');
-            
-            // Log this report as an attendance log so we know a report was submitted
-            $today = Carbon::today('Asia/Jakarta')->toDateString();
-            $attendance = Attendance::where('employee_id', $employee->id)
+            $attendance = Attendance::where('employee_id', $employeeId)
                 ->where('attendance_date', $today)
                 ->first();
 
-            $log = AttendanceLog::create([
-                'employee_id' => $employee->id,
-                'attendance_id' => $attendance ? $attendance->id : null,
-                'log_type' => 'visit_report',
-                'logged_at' => Carbon::now(),
-                'note' => $request->notes,
-                'photo_path' => $path,
-                'source' => 'android',
-                'validation_status' => 'valid',
-            ]);
+            if (!$attendance) {
+                return response()->json(['message' => 'Harap Check-in terlebih dahulu sebelum melakukan visit'], 400);
+            }
 
-            // Save to visit_reports table
+            // Find the last visit_in log
+            $lastVisitIn = AttendanceLog::where('attendance_id', $attendance->id)
+                ->where('log_type', 'visit_in')
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if (!$lastVisitIn) {
+                return response()->json(['message' => 'Anda belum melakukan Visit-In'], 400);
+            }
+
+            $visitLocationId = $lastVisitIn->metadata['visit_location_id'] ?? null;
+            $principalId = null;
+            
+            // Try to find the associated itinerary item
+            if ($request->itinerary_item_id) {
+                $item = \App\Models\ItineraryItem::find($request->itinerary_item_id);
+                if ($item) $principalId = $item->principal_id;
+            } elseif ($visitLocationId) {
+                // Find itinerary item for today that matches this location
+                $item = \App\Models\ItineraryItem::whereHas('itinerary', function ($q) use ($employeeId, $today) {
+                    $q->where('employee_id', $employeeId)->where('date', $today);
+                })->where('work_location_id', $visitLocationId)->first();
+                if ($item) $principalId = $item->principal_id;
+            }
+
+            // Calculate distance for visit_out log
+            $distance = 0;
+            $isInsideGeofence = false;
+            if ($visitLocationId) {
+                $loc = WorkLocation::find($visitLocationId);
+                if ($loc && $loc->latitude && $loc->longitude) {
+                    $distance = $this->calculateDistance(
+                        $request->latitude, $request->longitude,
+                        $loc->latitude, $loc->longitude
+                    );
+                    $isInsideGeofence = ($distance <= ($loc->radius_meter ?? 100));
+                }
+            }
+
+            // Upload Photo
+            $path = $request->file('photo')->store('visit_reports', 'public');
+
+            // 1. Create Visit Report Record
             $visitReport = \App\Models\VisitReport::create([
-                'employee_id' => $employee->id,
+                'employee_id' => $employeeId,
+                'itinerary_item_id' => $request->itinerary_item_id ?? ($item->id ?? null),
+                'principal_id' => $principalId,
+                'met_with' => $request->met_with,
+                'position' => $request->position,
+                'issue' => $request->is_issue ? 'Ya' : 'Tidak',
                 'notes' => $request->notes,
+                'action_taken' => $request->is_issue ? $request->action_taken : null,
                 'photo_path' => $path,
                 'status' => 'completed',
             ]);
 
+            // 2. Create automatic Visit Out Log
+            $log = AttendanceLog::create([
+                'employee_id' => $employeeId,
+                'attendance_id' => $attendance->id,
+                'log_type' => 'visit_out',
+                'logged_at' => $now,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
+                'photo_path' => $path,
+                'is_inside_geofence' => $isInsideGeofence,
+                'distance_from_location_meter' => $distance,
+                'source' => 'android',
+                'validation_status' => 'valid',
+                'note' => 'Report Submitted',
+                'metadata' => [
+                    'visit_report_id' => $visitReport->id,
+                    'visit_location_id' => $visitLocationId,
+                    'visit_type' => 'store' // default for now
+                ]
+            ]);
+
             return response()->json([
                 'status' => 'success',
-                'message' => 'Laporan visit berhasil dikirim',
+                'message' => 'Laporan visit & Visit Out berhasil diproses',
                 'data' => $visitReport
             ]);
         } catch (\Exception $e) {

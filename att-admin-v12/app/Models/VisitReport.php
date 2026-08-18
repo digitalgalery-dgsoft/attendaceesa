@@ -21,6 +21,9 @@ class VisitReport extends Model
         'notes',
         'photo_path',
         'status',
+        'principal_id',
+        'met_with',
+        'position',
     ];
 
     protected $casts = [

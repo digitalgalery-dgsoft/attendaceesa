@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:toastification/toastification.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/itinerary_provider.dart';
+import 'package:att_mobile/screens/attendance_location_screen.dart';
 
 class AddItineraryScreen extends StatefulWidget {
   final DateTime initialDate;
@@ -18,87 +19,69 @@ class AddItineraryScreen extends StatefulWidget {
 }
 
 class _AddItineraryScreenState extends State<AddItineraryScreen> {
-  late DateTime _selectedDate;
-  final List<Map<String, dynamic>> _locations = [];
+  String? _selectedArea;
+  int? _selectedWorkLocationId;
+  int? _selectedPrincipalId;
   bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
-    _selectedDate = widget.initialDate;
-    _fetchLocations();
+    _fetchData();
   }
 
-  void _fetchLocations() {
+  void _fetchData() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      Provider.of<ItineraryProvider>(context, listen: false)
-          .fetchWorkLocations(authProvider);
+      Provider.of<ItineraryProvider>(context, listen: false).fetchWorkLocations(authProvider);
+      Provider.of<ItineraryProvider>(context, listen: false).fetchPrincipals(authProvider);
     });
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 30)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: Theme.of(context).primaryColor,
+  Future<void> _submit(String type) async {
+    if (_selectedWorkLocationId == null) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Perhatian'),
+        description: const Text('Harap pilih lokasi kerja terlebih dahulu'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+    
+    if (_selectedPrincipalId == null) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Perhatian'),
+        description: const Text('Harap pilih Brand / Prinsiple terlebih dahulu'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    DateTime targetDate = DateTime.now();
+
+    if (type == 'scheduled') {
+      final DateTime? picked = await showDatePicker(
+        context: context,
+        initialDate: targetDate,
+        firstDate: targetDate, // Tidak bisa backdate
+        lastDate: targetDate.add(const Duration(days: 365)),
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: ColorScheme.light(
+                primary: Theme.of(context).primaryColor,
+              ),
             ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
-      });
-    }
-  }
-
-  void _addLocation() {
-    setState(() {
-      _locations.add({
-        'area': null,
-        'work_location_id': null,
-        'notes': '',
-      });
-    });
-  }
-
-  void _removeLocation(int index) {
-    setState(() {
-      _locations.removeAt(index);
-    });
-  }
-
-  Future<void> _submit() async {
-    if (_locations.isEmpty) {
-      toastification.show(
-        context: context,
-        type: ToastificationType.warning,
-        title: const Text('Perhatian'),
-        description: const Text('Silakan tambahkan minimal 1 lokasi kunjungan'),
-        autoCloseDuration: const Duration(seconds: 3),
+            child: child!,
+          );
+        },
       );
-      return;
-    }
-
-    bool hasEmptyLocation = _locations.any((loc) => loc['work_location_id'] == null);
-    if (hasEmptyLocation) {
-      toastification.show(
-        context: context,
-        type: ToastificationType.warning,
-        title: const Text('Perhatian'),
-        description: const Text('Harap pilih lokasi untuk semua jadwal'),
-        autoCloseDuration: const Duration(seconds: 3),
-      );
-      return;
+      if (picked == null) return;
+      targetDate = picked;
     }
 
     setState(() {
@@ -108,12 +91,16 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final itineraryProvider = Provider.of<ItineraryProvider>(context, listen: false);
     
-    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
     
     final success = await itineraryProvider.createItinerary(
       authProvider,
       dateStr,
-      _locations,
+      [{
+        'work_location_id': _selectedWorkLocationId,
+        'principal_id': _selectedPrincipalId,
+        'notes': type == 'now' ? 'Visit Now' : 'Scheduled Visit',
+      }],
     );
 
     setState(() {
@@ -130,7 +117,13 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
         description: const Text('Jadwal kunjungan berhasil disimpan'),
         autoCloseDuration: const Duration(seconds: 3),
       );
-      Navigator.pop(context);
+      if (type == 'now') {
+        // Redirect to dashboard to perform visit_in, or directly to visit_in screen
+        Navigator.pop(context);
+        // Bisa langsung diarahkan ke layar visit_in, tapi dashboard akan menampilkan tombol Visit In
+      } else {
+        Navigator.pop(context);
+      }
     } else {
       toastification.show(
         context: context,
@@ -173,214 +166,160 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: Text('Tambah Jadwal', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+        title: Text('Form Visit', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
         backgroundColor: bgColor,
         elevation: 0,
         iconTheme: IconThemeData(color: textColor),
       ),
       body: Consumer<ItineraryProvider>(
         builder: (context, provider, child) {
-          if (provider.isLoading && provider.workLocations.isEmpty) {
+          if (provider.isLoading && (provider.workLocations.isEmpty || provider.principals.isEmpty)) {
             return Center(child: CircularProgressIndicator(color: primaryColor));
           }
+
+          final areas = provider.workLocations
+              .map((loc) {
+                final area = loc['area']?.toString().trim();
+                return (area == null || area.isEmpty) ? 'Area Lainnya' : area;
+              })
+              .toSet()
+              .toList();
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Date Selection
-                Text(
-                  'Tanggal Kunjungan',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
-                ),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: () => _selectDate(context),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: cardColor,
-                      border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          DateFormat('dd MMMM yyyy').format(_selectedDate),
-                          style: TextStyle(fontSize: 14, color: textColor),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Pilih Lokasi Visit',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor),
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Area Dropdown
+                      DropdownButtonFormField<String>(
+                        dropdownColor: cardColor,
+                        style: TextStyle(color: textColor),
+                        decoration: inputDecoration.copyWith(
+                          labelText: 'Area',
                         ),
-                        Icon(Icons.calendar_today, color: subtitleColor, size: 20),
-                      ],
-                    ),
+                        value: _selectedArea,
+                        items: areas.map((area) {
+                          return DropdownMenuItem<String>(
+                            value: area,
+                            child: Text(area),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedArea = value;
+                            _selectedWorkLocationId = null;
+                          });
+                        },
+                      ),
+                      
+                      const SizedBox(height: 16),
+
+                      // Location Dropdown
+                      DropdownButtonFormField<int>(
+                        dropdownColor: cardColor,
+                        style: TextStyle(color: textColor),
+                        decoration: inputDecoration.copyWith(
+                          labelText: 'Lokasi Kerja',
+                        ),
+                        value: _selectedWorkLocationId,
+                        items: provider.workLocations.where((loc) {
+                          final locArea = loc['area']?.toString().trim();
+                          final normalizedArea = (locArea == null || locArea.isEmpty) ? 'Area Lainnya' : locArea;
+                          return normalizedArea == _selectedArea;
+                        }).map((loc) {
+                          return DropdownMenuItem<int>(
+                            value: loc['id'],
+                            child: Text(loc['name'] ?? ''),
+                          );
+                        }).toList(),
+                        onChanged: _selectedArea == null ? null : (value) {
+                          setState(() {
+                            _selectedWorkLocationId = value;
+                          });
+                        },
+                      ),
+                      
+                      const SizedBox(height: 16),
+
+                      // Brand/Prinsiple Dropdown
+                      DropdownButtonFormField<int>(
+                        dropdownColor: cardColor,
+                        style: TextStyle(color: textColor),
+                        decoration: inputDecoration.copyWith(
+                          labelText: 'Brand / Prinsiple',
+                        ),
+                        value: _selectedPrincipalId,
+                        items: provider.principals.map((prin) {
+                          return DropdownMenuItem<int>(
+                            value: prin['id'],
+                            child: Text(prin['name'] ?? ''),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedPrincipalId = value;
+                          });
+                        },
+                      ),
+                    ],
                   ),
                 ),
                 
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
                 
-                // Locations List
+                // Buttons
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Daftar Lokasi',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _isSubmitting ? null : () => _submit('scheduled'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: primaryColor,
+                          side: BorderSide(color: primaryColor),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Scheduled', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      ),
                     ),
-                    TextButton.icon(
-                      onPressed: _addLocation,
-                      icon: Icon(Icons.add, color: primaryColor, size: 18),
-                      label: Text('Tambah', style: TextStyle(color: primaryColor)),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _isSubmitting ? null : () => _submit('now'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Text('Visit Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      ),
                     ),
                   ],
                 ),
-                
-                if (_locations.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(32),
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Belum ada lokasi ditambahkan',
-                      style: TextStyle(color: subtitleColor, fontSize: 13),
-                    ),
-                  )
-                else
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _locations.length,
-                    itemBuilder: (context, index) {
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: cardColor,
-                          border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Kunjungan ke-${index + 1}',
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: subtitleColor, fontSize: 12),
-                                ),
-                                GestureDetector(
-                                  onTap: () => _removeLocation(index),
-                                  child: const Icon(Icons.close, color: Colors.red, size: 20),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            
-                            // Area Dropdown
-                            (() {
-                              final areas = provider.workLocations
-                                  .map((loc) {
-                                    final area = loc['area']?.toString().trim();
-                                    return (area == null || area.isEmpty) ? 'Area Lainnya' : area;
-                                  })
-                                  .toSet()
-                                  .toList();
-                              
-                              return DropdownButtonFormField<String>(
-                                dropdownColor: cardColor,
-                                style: TextStyle(color: textColor),
-                                decoration: inputDecoration.copyWith(
-                                  labelText: 'Area',
-                                ),
-                                value: _locations[index]['area'],
-                                items: areas.map((area) {
-                                  return DropdownMenuItem<String>(
-                                    value: area,
-                                    child: Text(area),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _locations[index]['area'] = value;
-                                    _locations[index]['work_location_id'] = null;
-                                  });
-                                },
-                              );
-                            })(),
-                            
-                            const SizedBox(height: 16),
-
-                            // Location Dropdown
-                            DropdownButtonFormField<int>(
-                              dropdownColor: cardColor,
-                              style: TextStyle(color: textColor),
-                              decoration: inputDecoration.copyWith(
-                                labelText: 'Lokasi Kerja',
-                              ),
-                              value: _locations[index]['work_location_id'],
-                              items: provider.workLocations.where((loc) {
-                                final locArea = loc['area']?.toString().trim();
-                                final normalizedArea = (locArea == null || locArea.isEmpty) ? 'Area Lainnya' : locArea;
-                                return normalizedArea == _locations[index]['area'];
-                              }).map((loc) {
-                                return DropdownMenuItem<int>(
-                                  value: loc['id'],
-                                  child: Text(loc['name'] ?? ''),
-                                );
-                              }).toList(),
-                              onChanged: _locations[index]['area'] == null ? null : (value) {
-                                setState(() {
-                                  _locations[index]['work_location_id'] = value;
-                                });
-                              },
-                            ),
-                            
-                            const SizedBox(height: 16),
-                            
-                            // Notes Field
-                            TextFormField(
-                              style: TextStyle(color: textColor),
-                              decoration: inputDecoration.copyWith(
-                                labelText: 'Catatan (Opsional)',
-                              ),
-                              maxLines: 2,
-                              initialValue: _locations[index]['notes'],
-                              onChanged: (value) {
-                                _locations[index]['notes'] = value;
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  
-                const SizedBox(height: 32),
-                
-                // Submit Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: _isSubmitting ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 0,
-                    ),
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : const Text('Simpan Jadwal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  ),
-                ),
-                
-                const SizedBox(height: 32),
               ],
             ),
           );

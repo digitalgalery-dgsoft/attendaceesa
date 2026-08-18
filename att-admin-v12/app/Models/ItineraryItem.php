@@ -9,7 +9,12 @@ class ItineraryItem extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['itinerary_id', 'work_location_id', 'sequence', 'notes'];
+    protected $fillable = ['itinerary_id', 'work_location_id', 'sequence', 'notes', 'principal_id'];
+
+    public function principal()
+    {
+        return $this->belongsTo(Principal::class);
+    }
 
     public function itinerary()
     {

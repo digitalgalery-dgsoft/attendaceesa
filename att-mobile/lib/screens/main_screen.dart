@@ -9,6 +9,8 @@ import 'package:att_mobile/screens/chat_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/chat_provider.dart';
+import 'package:att_mobile/providers/attendance_provider.dart';
+import 'package:att_mobile/screens/visit_report_screen.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'package:att_mobile/providers/blast_info_provider.dart';
@@ -132,6 +134,12 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
+    final attProvider = Provider.of<AttendanceProvider>(context);
+
+    if (attProvider.isVisiting) {
+      return const VisitReportScreen();
+    }
+
     final primaryColor = auth.appColor ?? const Color(0xFF7367F0);
     final hasSalesReporting = auth.employeeData?['department']?['has_sales_reporting'] == 1 || auth.employeeData?['department']?['has_sales_reporting'] == true;
 

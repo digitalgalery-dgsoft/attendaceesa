@@ -54,7 +54,14 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
   - **Filter Lokasi Visit**: Menyempurnakan API mobile agar lokasi visit yang sudah dikunjungi hari ini otomatis hilang dari daftar dropdown.
   - **Hari Ini (Log Absensi)**: Melampirkan data *work location* ke log *Check-in* dan *Check-out* berdasarkan jadwal harian karyawan.
   - **Deploy Script**: Memperbaiki fungsi output streaming `deploy.php` dengan *buffer padding* agar berjalan *real-time* seperti terminal.
-  - **Sistem Kuota Cuti (APK v1.0.70)**: 
+  - **Sistem Kuota Cuti (APK v1.0.80 (2026-08-18)):**
+    - [x] Perombakan metode visit: Add Area, Work Location, and Brand (Principal) selection.
+    - [x] "Visit Now" feature to immediately execute visit.
+    - [x] "Scheduled" visit with future date selection.
+    - [x] Visit Report Form locked until submitted.
+    - [x] Backend API overhaul for Visit Now and auto-visit-out in `storeVisitReport`.
+    - [x] Added `met_with` and `position` to Visit Reports.
+  - **v1.0.79 (2026-08-18)**: 
     - Penambahan logika backend dan frontend untuk Kuota Cuti Tahunan (maks 12 hari/tahun, minimal kerja 1 tahun, pengajuan H-14). 
     - Penambahan validasi batasan maksimal hari untuk setiap kategori Cuti Peraturan (misal: Menikah maks 3 hari, Istri Melahirkan maks 2 hari, dll).
     - *Dropdown* Cuti Tahunan secara otomatis disembunyikan apabila masa kerja pengguna belum mencapai 1 tahun.

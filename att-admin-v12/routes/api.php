@@ -52,6 +52,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Itinerary routes
     Route::get('/itineraries/work-locations', [ItineraryController::class, 'availableWorkLocations']);
+    Route::get('/itineraries/principals', [ItineraryController::class, 'getPrincipals']);
     Route::get('/itineraries', [ItineraryController::class, 'index']);
     Route::post('/itineraries', [ItineraryController::class, 'store']);
     
