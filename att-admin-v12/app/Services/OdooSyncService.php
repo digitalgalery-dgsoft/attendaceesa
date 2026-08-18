@@ -107,19 +107,35 @@ class OdooSyncService
                 $code = $rec['code_principal'] ?? $rec['ref'] ?? null;
                 $finalCode = $code ?: ('OD-' . $rec['id']);
 
-                $principal = Principal::where('odoo_id', $rec['id'])
-                                      ->orWhere('code', $finalCode)
-                                      ->first();
+                // 1. Try to find by odoo_id first
+                $principal = Principal::where('odoo_id', $rec['id'])->first();
+
+                // 2. If not found, try to find by code
+                if (!$principal) {
+                    $principal = Principal::where('code', $finalCode)->first();
+                }
 
                 if ($principal) {
+                    // Check code conflict before update
+                    $conflict = Principal::where('code', $finalCode)->where('id', '!=', $principal->id)->first();
+                    if ($conflict) {
+                        $finalCode = $finalCode . '-OD' . $rec['id'];
+                    }
+
                     $principal->update([
-                        'odoo_id' => $rec['id'], // ensure odoo_id is linked
+                        'odoo_id' => $rec['id'],
                         'name' => $rec['name'],
                         'code' => $finalCode,
                         'company_id' => $companyId,
                     ]);
                     $updated++;
                 } else {
+                    // Check code conflict before create
+                    $conflict = Principal::where('code', $finalCode)->first();
+                    if ($conflict) {
+                        $finalCode = $finalCode . '-OD' . $rec['id'];
+                    }
+
                     Principal::create([
                         'odoo_id' => $rec['id'],
                         'name' => $rec['name'],
@@ -252,9 +268,24 @@ class OdooSyncService
                 // Employee no — prefer identification_id (NIK)
                 $employeeNo = $rec['identification_id'] ?: ('OD-' . $rec['id']);
 
-                $employee = Employee::withTrashed()->updateOrCreate(
-                    ['odoo_id' => $rec['id']],
-                    [
+                $employee = Employee::withTrashed()->where('odoo_id', $rec['id'])->first();
+                if (!$employee) {
+                    $employee = Employee::withTrashed()->where('company_id', $companyId)->where('employee_no', $employeeNo)->first();
+                }
+
+                if ($employee) {
+                    // Check if another employee uses this employee_no in the same company
+                    $conflict = Employee::withTrashed()
+                        ->where('company_id', $companyId)
+                        ->where('employee_no', $employeeNo)
+                        ->where('id', '!=', $employee->id)
+                        ->first();
+                    if ($conflict) {
+                        $employeeNo = $employeeNo . '-OD' . $rec['id'];
+                    }
+
+                    $employee->update([
+                        'odoo_id'           => $rec['id'],
                         'company_id'        => $companyId,
                         'principal_id'      => $principalId,
                         'department_id'     => $departmentId,
@@ -269,15 +300,38 @@ class OdooSyncService
                         'email'             => $rec['private_email'] ?: ($rec['work_email'] ?: null),
                         'employment_status' => $employmentStatus,
                         'is_active'         => (bool) $rec['active'],
-                        'deleted_at'        => null, // restore if soft-deleted
-                    ]
-                );
-
-                if ($employee->wasRecentlyCreated) {
-                    $created++;
-                } else {
+                        'deleted_at'        => null,
+                    ]);
                     $updated++;
+                } else {
+                    $conflict = Employee::withTrashed()
+                        ->where('company_id', $companyId)
+                        ->where('employee_no', $employeeNo)
+                        ->first();
+                    if ($conflict) {
+                        $employeeNo = $employeeNo . '-OD' . $rec['id'];
+                    }
+
+                    Employee::create([
+                        'odoo_id'           => $rec['id'],
+                        'company_id'        => $companyId,
+                        'principal_id'      => $principalId,
+                        'department_id'     => $departmentId,
+                        'position_id'       => $positionId,
+                        'branch_id'         => $localBranchId,
+                        'employee_no'       => $employeeNo,
+                        'full_name'         => $rec['name'],
+                        'gender'            => $gender,
+                        'birth_date'        => $rec['birthday'] ?: null,
+                        'join_date'         => $rec['first_contract_date'] ?: null,
+                        'phone'             => $rec['mobile_phone'] ?: null,
+                        'email'             => $rec['private_email'] ?: ($rec['work_email'] ?: null),
+                        'employment_status' => $employmentStatus,
+                        'is_active'         => (bool) $rec['active'],
+                    ]);
+                    $created++;
                 }
+
             } catch (\Exception $e) {
                 $errors[] = "Employee [{$rec['name']}]: " . $e->getMessage();
                 Log::error('Odoo Sync Employee Error', ['record' => $rec, 'error' => $e->getMessage()]);
