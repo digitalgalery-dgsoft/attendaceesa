@@ -34,7 +34,7 @@ Future<void> _showBackgroundNotification(RemoteMessage message) async {
   final notification = message.notification;
   if (notification != null) {
     plugin.show(
-      id: notification.hashCode,
+      id: notification.title?.hashCode ?? notification.hashCode,
       title: notification.title,
       body: notification.body,
       notificationDetails: NotificationDetails(
@@ -127,7 +127,7 @@ class PushNotificationService {
 
       if (notification != null) {
         _localNotificationsPlugin.show(
-          id: notification.hashCode,
+          id: notification.title?.hashCode ?? notification.hashCode,
           title: notification.title,
           body: notification.body,
           notificationDetails: NotificationDetails(

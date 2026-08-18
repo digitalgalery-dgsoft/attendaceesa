@@ -162,6 +162,7 @@ class ManageSettings extends Page implements HasForms
 
         if ($oldVersion !== $setting->mobile_app_version && !empty($setting->mobile_app_version)) {
             $tokens = \App\Models\Employee::whereNotNull('fcm_token')->where('is_active', true)->pluck('fcm_token')->toArray();
+            $tokens = array_unique($tokens);
             if (!empty($tokens)) {
                 $firebase = new \App\Services\FirebaseService();
                 $firebase->sendNotification($tokens, 'Update Aplikasi Tersedia', "Versi {$setting->mobile_app_version} telah dirilis. Silakan update aplikasi Anda.");
