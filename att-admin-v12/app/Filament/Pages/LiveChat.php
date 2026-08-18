@@ -59,7 +59,7 @@ class LiveChat extends Page
 
         if (!empty($this->search)) {
             $query->whereHas('employee', function ($q) {
-                $q->where('full_name', 'like', '%' . $this->search . '%');
+                $q->whereRaw('LOWER(full_name) LIKE LOWER(?)', ['%' . $this->search . '%']);
             });
         }
 
