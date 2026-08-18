@@ -37,7 +37,7 @@
 
     @if ($this->isConfigured())
         {{-- Sync Cards --}}
-        <x-filament::grid default="1" md="3" gap="6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {{-- Sync Principal --}}
             <x-filament::section>
@@ -105,7 +105,7 @@
                 </x-filament::button>
             </x-filament::section>
 
-        </x-filament::grid>
+        </div>
 
         {{-- Info Notes --}}
         <x-filament::section>
