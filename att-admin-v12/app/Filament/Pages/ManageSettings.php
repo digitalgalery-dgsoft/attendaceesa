@@ -144,34 +144,6 @@ class ManageSettings extends Page implements HasForms
                         TextInput::make('mail_from_address')->label('From Address')->email()->placeholder('noreply@example.com'),
                         TextInput::make('mail_from_name')->label('From Name')->placeholder('My App'),
                     ])->columns(2),
-                Section::make('Odoo Integration')
-                    ->icon('heroicon-o-arrow-path')
-                    ->description('Konfigurasi koneksi ke sistem Odoo ERP untuk sinkronisasi data Principal dan Employee.')
-                    ->components([
-                        \Filament\Forms\Components\Toggle::make('odoo_sync_enabled')
-                            ->label('Aktifkan Odoo Sync')
-                            ->default(false)
-                            ->columnSpanFull(),
-                        TextInput::make('odoo_url')
-                            ->label('Odoo URL')
-                            ->placeholder('https://erp.example.com')
-                            ->url()
-                            ->maxLength(255),
-                        TextInput::make('odoo_db')
-                            ->label('Odoo Database Name')
-                            ->placeholder('nama_database_odoo')
-                            ->maxLength(255),
-                        TextInput::make('odoo_username')
-                            ->label('Odoo Username / Email')
-                            ->placeholder('admin@example.com')
-                            ->maxLength(255),
-                        TextInput::make('odoo_api_key')
-                            ->label('Odoo API Key')
-                            ->password()
-                            ->revealable()
-                            ->placeholder('API Key dari Preferences → Account Security')
-                            ->maxLength(512),
-                    ])->columns(2),
             ])
             ->statePath('data');
     }

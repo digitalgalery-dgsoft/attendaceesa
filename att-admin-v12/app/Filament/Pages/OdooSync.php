@@ -27,15 +27,16 @@ class OdooSync extends Page
         $this->selectedCompanyId = Company::where('is_active', true)->value('id');
     }
 
-    public function getSetting(): ?Setting
+    public function getCompany(): ?Company
     {
-        return Setting::first();
+        if (!$this->selectedCompanyId) return null;
+        return Company::find($this->selectedCompanyId);
     }
 
     public function isConfigured(): bool
     {
-        $s = $this->getSetting();
-        return $s && $s->odoo_sync_enabled && $s->odoo_url && $s->odoo_db && $s->odoo_username && $s->odoo_api_key;
+        $c = $this->getCompany();
+        return $c && $c->odoo_url && $c->odoo_db && $c->odoo_username && $c->odoo_api_key;
     }
 
     protected function getHeaderActions(): array
@@ -47,13 +48,16 @@ class OdooSync extends Page
                 ->color('info')
                 ->action(function () {
                     try {
-                        $setting = Setting::first();
-                        $service = new OdooSyncService(
-                            $setting->odoo_url,
-                            $setting->odoo_db,
-                            $setting->odoo_username,
-                            $setting->odoo_api_key,
-                        );
+                        $company = Company::find($this->selectedCompanyId);
+                        if (!$company) {
+                            throw new \Exception("Company tidak ditemukan.");
+                        }
+                        
+                        $service = OdooSyncService::fromCompany($company);
+                        if (!$service) {
+                            throw new \Exception("Konfigurasi Odoo untuk perusahaan ini belum lengkap.");
+                        }
+
                         $result = $service->testConnection();
                         Notification::make()
                             ->title('Koneksi Berhasil')
@@ -78,13 +82,12 @@ class OdooSync extends Page
             return;
         }
         try {
-            $setting = Setting::first();
-            $service = new OdooSyncService(
-                $setting->odoo_url,
-                $setting->odoo_db,
-                $setting->odoo_username,
-                $setting->odoo_api_key,
-            );
+            $company = Company::find($this->selectedCompanyId);
+            $service = OdooSyncService::fromCompany($company);
+            if (!$service) {
+                throw new \Exception("Konfigurasi Odoo untuk perusahaan ini belum lengkap.");
+            }
+            
             $result = $service->syncPrincipals($this->selectedCompanyId);
             $body   = "✅ Baru: {$result['created']} | 🔄 Diperbarui: {$result['updated']}";
             if (!empty($result['errors'])) {
@@ -107,13 +110,12 @@ class OdooSync extends Page
             return;
         }
         try {
-            $setting = Setting::first();
-            $service = new OdooSyncService(
-                $setting->odoo_url,
-                $setting->odoo_db,
-                $setting->odoo_username,
-                $setting->odoo_api_key,
-            );
+            $company = Company::find($this->selectedCompanyId);
+            $service = OdooSyncService::fromCompany($company);
+            if (!$service) {
+                throw new \Exception("Konfigurasi Odoo untuk perusahaan ini belum lengkap.");
+            }
+            
             $result = $service->syncEmployees($this->selectedCompanyId);
             $body   = "✅ Baru: {$result['created']} | 🔄 Diperbarui: {$result['updated']}";
             if (!empty($result['errors'])) {
@@ -136,13 +138,11 @@ class OdooSync extends Page
             return;
         }
         try {
-            $setting = Setting::first();
-            $service = new OdooSyncService(
-                $setting->odoo_url,
-                $setting->odoo_db,
-                $setting->odoo_username,
-                $setting->odoo_api_key,
-            );
+            $company = Company::find($this->selectedCompanyId);
+            $service = OdooSyncService::fromCompany($company);
+            if (!$service) {
+                throw new \Exception("Konfigurasi Odoo untuk perusahaan ini belum lengkap.");
+            }
             $p = $service->syncPrincipals($this->selectedCompanyId);
             $e = $service->syncEmployees($this->selectedCompanyId);
 

@@ -28,15 +28,14 @@ class OdooSyncService
     }
 
     /**
-     * Build an Odoo XML-RPC service instance from app settings.
+     * Build an Odoo XML-RPC service instance from a specific company.
      */
-    public static function fromSettings(): ?self
+    public static function fromCompany(Company $company): ?self
     {
-        $setting = Setting::first();
-        if (!$setting || !$setting->odoo_sync_enabled || !$setting->odoo_url || !$setting->odoo_db || !$setting->odoo_username || !$setting->odoo_api_key) {
+        if (!$company->odoo_url || !$company->odoo_db || !$company->odoo_username || !$company->odoo_api_key) {
             return null;
         }
-        return new self($setting->odoo_url, $setting->odoo_db, $setting->odoo_username, $setting->odoo_api_key);
+        return new self($company->odoo_url, $company->odoo_db, $company->odoo_username, $company->odoo_api_key);
     }
 
     /**

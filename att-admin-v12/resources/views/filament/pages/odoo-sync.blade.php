@@ -14,8 +14,8 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                 </svg>
                 <span class="text-sm font-medium">
-                    Konfigurasi Odoo belum lengkap atau sync belum diaktifkan.
-                    <a href="{{ route('filament.admin.pages.manage-settings') }}" class="underline font-bold">Buka General Settings</a> untuk mengatur.
+                    Konfigurasi Odoo untuk Company ini belum lengkap.
+                    <a href="{{ route('filament.admin.resources.companies.index') }}" class="underline font-bold">Buka Master Companies</a> untuk mengatur.
                 </span>
             </div>
         @endif
