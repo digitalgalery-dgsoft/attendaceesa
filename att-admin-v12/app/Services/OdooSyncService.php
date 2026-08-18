@@ -151,7 +151,7 @@ class OdooSyncService
                 'fields' => [
                     'id', 'name', 'registration_number', 'identification_id',
                     'mobile_phone', 'work_email', 'gender', 'birthday',
-                    'department_id', 'job_id', 'employee_type',
+                    'department_id', 'job_id',
                     'company_id', 'active',
                 ],
                 'limit' => 1000,
@@ -187,8 +187,8 @@ class OdooSyncService
                     $positionId = $position->id;
                 }
 
-                // Map employment status
-                $employmentStatus = $this->mapEmploymentStatus($rec['employee_type'] ?? 'employee');
+                // Map employment status (default to permanent as employee_type is not available in some Odoo versions)
+                $employmentStatus = 'permanent';
 
                 // Map gender
                 $gender = match ($rec['gender'] ?? '') {
