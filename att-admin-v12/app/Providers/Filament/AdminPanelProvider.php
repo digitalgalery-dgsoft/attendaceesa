@@ -35,7 +35,8 @@ class AdminPanelProvider extends PanelProvider
 
         $logoUrl = null;
         if ($setting && $setting->logo_path) {
-            $logoUrl = asset('storage/' . $setting->logo_path);
+            // Use relative path so it works regardless of APP_URL setting
+            $logoUrl = '/storage/' . ltrim($setting->logo_path, '/');
         }
 
         return $panel
