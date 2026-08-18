@@ -36,6 +36,24 @@ class ItineraryController extends Controller
             ->orderBy('date', 'asc')
             ->get();
 
+        // Get visited locations
+        $visitedLocationIds = \App\Models\AttendanceLog::where('employee_id', $employee->id)
+            ->where('log_type', 'visit_in')
+            ->whereBetween('logged_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->get()
+            ->map(function ($log) {
+                return $log->metadata['visit_location_id'] ?? null;
+            })
+            ->filter()
+            ->unique()
+            ->toArray();
+
+        $itineraries->each(function($itinerary) use ($visitedLocationIds) {
+            $itinerary->items->each(function($item) use ($visitedLocationIds) {
+                $item->is_visited = in_array((int)$item->work_location_id, $visitedLocationIds);
+            });
+        });
+
         return response()->json([
             'status' => 'success',
             'data' => $itineraries

@@ -234,7 +234,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                                         ],
                                       ),
                                     ),
-                                    if ((_selectedDay ?? _focusedDay).isAfter(DateTime.now().subtract(const Duration(days: 1))))
+                                    if ((_selectedDay ?? _focusedDay).isAfter(DateTime.now().subtract(const Duration(days: 1))) && event['is_visited'] != true)
                                       IconButton(
                                         icon: const Icon(Icons.cancel_outlined, color: Colors.red),
                                         onPressed: () async {
