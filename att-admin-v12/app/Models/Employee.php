@@ -15,6 +15,10 @@ class Employee extends Authenticatable
 
     protected $hidden = ['password', 'remember_token', 'tokens'];
 
+    protected $casts = [
+        'odoo_id' => 'integer',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);

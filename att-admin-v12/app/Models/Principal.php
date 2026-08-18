@@ -11,6 +11,10 @@ class Principal extends Model
     
     protected $guarded = [];
 
+    protected $casts = [
+        'odoo_id' => 'integer',
+    ];
+
     public function company()
     {
         return $this->belongsTo(Company::class);
