@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Area;
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\Employee;
