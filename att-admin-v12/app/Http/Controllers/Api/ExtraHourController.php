@@ -50,22 +50,14 @@ class ExtraHourController extends Controller
                 $scheduleOutTime = Carbon::parse($date . ' ' . $schedule->schedule_out, $employeeTz);
                 $minStartTime = $isDriver ? $scheduleOutTime : $scheduleOutTime->copy()->addHour();
 
-                \Illuminate\Support\Facades\Log::info("Overtime Check for Employee {$employee->id}:", [
-                    'now' => $now->toDateTimeString(),
-                    'schedule_out' => $schedule->schedule_out,
-                    'scheduleOutTime' => $scheduleOutTime->toDateTimeString(),
-                    'minStartTime' => $minStartTime->toDateTimeString(),
-                    'isDriver' => $isDriver,
-                    'canStart' => !$now->lt($minStartTime)
-                ]);
-
                 if ($now->lt($minStartTime)) {
                     $message = $isDriver ? 
                         'Baru Bisa Pengajuan Lembur setelah Jam Pulang (' . $schedule->schedule_out . ')' : 
                         'Baru Bisa Pengajuan Lembur 1 Jam setelah Jam Pulang (' . $minStartTime->format('H:i') . ')';
-                } else {
-                    $canStart = true;
                 }
+                
+                // TEMPORARY FIX: Always allow starting overtime to debug if frontend is blocking it
+                $canStart = true;
             }
         }
         
