@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:toastification/toastification.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/itinerary_provider.dart';
+import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/screens/attendance_location_screen.dart';
 
 class AddItineraryScreen extends StatefulWidget {
@@ -57,6 +58,19 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
         title: const Text('Perhatian'),
         description: const Text('Harap pilih Brand / Prinsiple terlebih dahulu'),
         autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+
+    if (type == 'now' && !attProvider.isCheckedIn) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        title: const Text('Gagal'),
+        description: const Text('Anda harus Check-in terlebih dahulu sebelum melakukan Visit-in.'),
+        autoCloseDuration: const Duration(seconds: 4),
       );
       return;
     }
