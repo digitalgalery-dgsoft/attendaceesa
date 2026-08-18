@@ -152,7 +152,7 @@ class OdooSyncService
                     'id', 'name', 'registration_number', 'identification_id',
                     'mobile_phone', 'work_email', 'private_email', 'gender', 'birthday',
                     'department_id', 'job_id', 'principle_id', 'first_contract_date',
-                    'company_id', 'active',
+                    'area_id', 'company_id', 'active',
                 ],
                 'limit' => 1000,
             ],
@@ -203,6 +203,17 @@ class OdooSyncService
                 );
                 $departmentId = $department->id;
 
+                // Resolve Area — auto-create if not found
+                $localAreaId = null;
+                if (!empty($rec['area_id']) && is_array($rec['area_id'])) {
+                    $areaName = $rec['area_id'][1];
+                    $area = Area::firstOrCreate(
+                        ['name' => $areaName],
+                        ['code' => 'OD-AREA-' . $rec['area_id'][0]]
+                    );
+                    $localAreaId = $area->id;
+                }
+
                 // Resolve Position — auto-create if not found, assign principal_id
                 $positionId = null;
                 if (!empty($rec['job_id']) && is_array($rec['job_id'])) {
@@ -239,6 +250,7 @@ class OdooSyncService
                         'company_id'        => $companyId,
                         'department_id'     => $departmentId,
                         'position_id'       => $positionId,
+                        'area_id'           => $localAreaId,
                         'employee_no'       => $employeeNo,
                         'full_name'         => $rec['name'],
                         'gender'            => $gender,
