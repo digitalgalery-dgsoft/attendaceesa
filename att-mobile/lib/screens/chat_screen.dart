@@ -17,11 +17,24 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<ChatProvider>(context, listen: false);
+      // Fetch messages then start real-time polling
       provider.fetchMessages().then((_) {
         provider.markAsRead();
         _scrollToBottom();
+        provider.startMessagePolling();
       });
     });
+  }
+
+  @override
+  void dispose() {
+    // Stop polling when leaving chat screen
+    final provider = Provider.of<ChatProvider>(context, listen: false);
+    provider.stopMessagePolling();
+    provider.markAsRead();
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _scrollToBottom() {
@@ -57,7 +70,7 @@ class _ChatScreenState extends State<ChatScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Admin / HR Support', style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('IT Helpdesk', style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold)),
                 Text('Online', style: TextStyle(fontSize: 12, color: Colors.green)),
               ],
             ),

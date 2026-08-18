@@ -4,9 +4,11 @@ import 'package:att_mobile/screens/history_screen.dart';
 import 'package:att_mobile/screens/permit_screen.dart';
 import 'package:att_mobile/screens/profile_screen.dart';
 import 'package:att_mobile/screens/sales_report_screen.dart';
+import 'package:att_mobile/screens/chat_screen.dart';
 
 import 'package:provider/provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
+import 'package:att_mobile/providers/chat_provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'package:att_mobile/providers/blast_info_provider.dart';
@@ -26,15 +28,32 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkBlastInfo();
+
+      // Start polling unread chat count in background
+      final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+      chatProvider.startUnreadPolling();
     });
 
-    // Listen to foreground notifications to trigger Blast Info popup in realtime
+    // Listen to foreground FCM notifications
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       if (mounted) {
-        // Automatically check for new blast infos when a notification arrives
         _checkBlastInfo();
+
+        // If it's a chat notification, refresh unread count
+        if (message.data['type'] == 'chat') {
+          final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+          chatProvider.fetchUnreadCount();
+        }
       }
     });
+  }
+
+  @override
+  void dispose() {
+    // Stop unread polling when main screen is disposed
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    chatProvider.stopUnreadPolling();
+    super.dispose();
   }
 
   Future<void> _checkBlastInfo() async {
@@ -72,8 +91,6 @@ class _MainScreenState extends State<MainScreen> {
               onPressed: () {
                 Provider.of<BlastInfoProvider>(context, listen: false).markAsRead(blastInfo.id);
                 Navigator.of(context).pop();
-                
-                // Show next if any
                 _checkBlastInfo();
               },
               child: const Text('OK, Saya Mengerti'),
@@ -81,6 +98,15 @@ class _MainScreenState extends State<MainScreen> {
           ],
         );
       }
+    );
+  }
+
+  void _openChat(BuildContext context) {
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    chatProvider.markAsRead();
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ChatScreen()),
     );
   }
 
@@ -111,7 +137,6 @@ class _MainScreenState extends State<MainScreen> {
 
     final screens = _buildScreens(hasSalesReporting);
     
-    // Ensure index doesn't go out of bounds if switching states
     if (_currentIndex >= screens.length) {
       _currentIndex = 0;
     }
@@ -122,6 +147,47 @@ class _MainScreenState extends State<MainScreen> {
 
     return Scaffold(
       body: screens[_currentIndex],
+      
+      // Chat Floating Action Button with badge
+      floatingActionButton: _currentIndex == 0 ? Consumer<ChatProvider>(
+        builder: (context, chatProvider, _) {
+          final unread = chatProvider.unreadCount;
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              FloatingActionButton(
+                onPressed: () => _openChat(context),
+                backgroundColor: primaryColor,
+                tooltip: 'Live Chat',
+                child: const Icon(Icons.chat_bubble_rounded, color: Colors.white),
+              ),
+              if (unread > 0)
+                Positioned(
+                  top: -6,
+                  right: -6,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                    child: Text(
+                      unread > 99 ? '99+' : '$unread',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ) : null,
+
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
