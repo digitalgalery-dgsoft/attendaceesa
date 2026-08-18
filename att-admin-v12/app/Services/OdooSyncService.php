@@ -204,15 +204,15 @@ class OdooSyncService
                 );
                 $departmentId = $department->id;
 
-                // Resolve Area — auto-create if not found
-                $localAreaId = null;
+                // Resolve Area (Branch in local db) — auto-create if not found
+                $localBranchId = null;
                 if (!empty($rec['area_id']) && is_array($rec['area_id'])) {
                     $areaName = $rec['area_id'][1];
-                    $area = Area::firstOrCreate(
+                    $branch = \App\Models\Branch::firstOrCreate(
                         ['name' => $areaName],
-                        ['code' => 'OD-AREA-' . $rec['area_id'][0]]
+                        ['code' => 'OD-AREA-' . $rec['area_id'][0], 'is_active' => true]
                     );
-                    $localAreaId = $area->id;
+                    $localBranchId = $branch->id;
                 }
 
                 // Resolve Position — auto-create if not found, assign principal_id
@@ -249,9 +249,10 @@ class OdooSyncService
                     ['odoo_id' => $rec['id']],
                     [
                         'company_id'        => $companyId,
+                        'principal_id'      => $principalId,
                         'department_id'     => $departmentId,
                         'position_id'       => $positionId,
-                        'area_id'           => $localAreaId,
+                        'branch_id'         => $localBranchId,
                         'employee_no'       => $employeeNo,
                         'full_name'         => $rec['name'],
                         'gender'            => $gender,

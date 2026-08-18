@@ -32,7 +32,7 @@ class EmployeesTable
                     ->searchable(),
                 TextColumn::make('full_name')
                     ->searchable(),
-                TextColumn::make('company.name')
+                TextColumn::make('principal.name')
                     ->label('Company')
                     ->sortable()
                     ->searchable(),
