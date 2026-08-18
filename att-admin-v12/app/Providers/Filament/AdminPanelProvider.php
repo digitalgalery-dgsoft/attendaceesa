@@ -33,20 +33,9 @@ class AdminPanelProvider extends PanelProvider
         $appName = $setting?->app_name ?? 'AbsensiKu';
         $themeColor = $setting?->theme_color ?? '#0A192F';
 
-        // Build logo HTML to inject via renderHook (more reliable than brandLogo())
-        $logoHtml = '';
+        $logoUrl = null;
         if ($setting && $setting->logo_path) {
-            try {
-                $disk = \Illuminate\Support\Facades\Storage::disk('public');
-                if ($disk->exists($setting->logo_path)) {
-                    $content  = $disk->get($setting->logo_path);
-                    $mime     = $disk->mimeType($setting->logo_path) ?: 'image/png';
-                    $base64   = base64_encode($content);
-                    $logoHtml = '<img src="data:' . $mime . ';base64,' . $base64 . '" alt="' . htmlspecialchars($appName) . '" style="height:2rem;max-width:160px;object-fit:contain;">';
-                }
-            } catch (\Exception $e) {
-                // logo inject failed, fall back to text name only
-            }
+            $logoUrl = asset('storage/' . $setting->logo_path);
         }
 
         return $panel
@@ -55,7 +44,9 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->sidebarCollapsibleOnDesktop()
-            ->brandName($logoHtml ? ' ' : $appName) // blank name when logo shown via hook
+            ->brandName($appName)
+            ->brandLogo($logoUrl)
+            ->brandLogoHeight($logoUrl ? '2.5rem' : null)
             ->font('Public Sans')
             ->colors([
                 'primary' => $themeColor,
@@ -101,14 +92,7 @@ class AdminPanelProvider extends PanelProvider
                     /* Custom logo override */
                     .fi-logo-custom-img { display: flex; align-items: center; }
                 </style>'
-                . ($logoHtml ? '<style>
-                    /* Hide default brand name text when we have a logo image */
-                    .fi-logo span.truncate { display: none !important; }
-                </style>' : '')
-            )
-            ->renderHook(
-                PanelsRenderHook::SIDEBAR_NAV_START,
-                fn (): string => $logoHtml ? '<div class="fi-logo-custom-img" style="padding:12px 16px 8px;">' . $logoHtml . '</div>' : ''
+                </style>'
             )
             ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
