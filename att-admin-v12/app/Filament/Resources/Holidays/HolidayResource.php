@@ -24,7 +24,7 @@ class HolidayResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Pengaturan';
+    protected static ?string $navigationGroup = '1. Master Data';
 
     protected static ?string $navigationLabel = 'Hari Libur';
 
@@ -32,7 +32,7 @@ class HolidayResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Hari Libur';
 
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 8;
 
     public static function form(Schema $schema): Schema
     {

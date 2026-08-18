@@ -19,7 +19,8 @@ class ItineraryResource extends Resource
     protected static ?string $model = Itinerary::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-map';
-    protected static string|\UnitEnum|null $navigationGroup = 'Attendance';
+    protected static ?string $navigationGroup = '4. Field Operations & Sales';
+    protected static ?int $navigationSort = 1;
 
     public static function form(Schema $schema): Schema
     {

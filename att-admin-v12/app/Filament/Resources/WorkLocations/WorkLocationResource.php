@@ -19,6 +19,8 @@ class WorkLocationResource extends Resource
     protected static ?string $model = WorkLocation::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-map-pin';
+    protected static ?string $navigationGroup = '1. Master Data';
+    protected static ?int $navigationSort = 6;
 
     public static function form(Schema $schema): Schema
     {

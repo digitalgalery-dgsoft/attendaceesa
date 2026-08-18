@@ -25,6 +25,8 @@ class ExtraHourResource extends Resource
     protected static ?string $model = ExtraHour::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clock';
+    protected static ?string $navigationGroup = '3. Attendance & Time Management';
+    protected static ?int $navigationSort = 4;
 
     public static function getNavigationGroup(): ?string
     {

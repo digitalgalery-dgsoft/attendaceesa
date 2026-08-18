@@ -19,6 +19,8 @@ class AttendanceResource extends Resource
     protected static ?string $model = Attendance::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
+    protected static ?string $navigationGroup = '3. Attendance & Time Management';
+    protected static ?int $navigationSort = 1;
 
     public static function form(Schema $schema): Schema
     {

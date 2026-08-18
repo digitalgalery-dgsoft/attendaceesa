@@ -19,7 +19,8 @@ class EmployeeScheduleResource extends Resource
     protected static ?string $model = EmployeeSchedule::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar';
-    protected static string|\UnitEnum|null $navigationGroup = 'Attendance';
+    protected static ?string $navigationGroup = '3. Attendance & Time Management';
+    protected static ?int $navigationSort = 2;
     protected static ?string $navigationLabel = 'Roster Individual';
 
     public static function form(Schema $schema): Schema

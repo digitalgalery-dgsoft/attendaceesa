@@ -19,6 +19,8 @@ class PositionResource extends Resource
     protected static ?string $model = Position::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-identification';
+    protected static ?string $navigationGroup = '1. Master Data';
+    protected static ?int $navigationSort = 3;
 
     public static function form(Schema $schema): Schema
     {

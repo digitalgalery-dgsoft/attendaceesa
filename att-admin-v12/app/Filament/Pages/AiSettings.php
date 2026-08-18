@@ -19,8 +19,8 @@ class AiSettings extends Page implements HasForms
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cpu-chip';
     protected static ?string $title = 'AI Configuration';
-    protected static string|\UnitEnum|null $navigationGroup = 'System';
-    protected static ?int $navigationSort = 101;
+    protected static ?string $navigationGroup = '7. System & Settings';
+    protected static ?int $navigationSort = 3;
     protected string $view = 'filament.pages.ai-settings';
 
     public ?array $data = [];
