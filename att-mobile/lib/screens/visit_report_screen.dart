@@ -21,6 +21,9 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
   final _positionController = TextEditingController();
   final _notesController = TextEditingController();
   final _actionController = TextEditingController();
+  final _targetController = TextEditingController();
+  final _actualController = TextEditingController();
+  DateTime? _deadline;
   
   bool _isIssue = false;
   XFile? _photoFile;
@@ -61,6 +64,8 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
     _positionController.dispose();
     _notesController.dispose();
     _actionController.dispose();
+    _targetController.dispose();
+    _actualController.dispose();
     super.dispose();
   }
 
@@ -92,6 +97,18 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
   Future<void> _submitReport() async {
     if (!_formKey.currentState!.validate()) return;
     
+    if (_deadline == null) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Perhatian'),
+        description: const Text('Silakan pilih Deadline terlebih dahulu'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      setState(() {}); // trigger error text update
+      return;
+    }
+    
     if (_photoFile == null) {
       toastification.show(
         context: context,
@@ -113,12 +130,15 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
     try {
       final success = await attProvider.submitVisitReport(
         authProvider: authProvider,
-        notes: _notesController.text,
+        issue: _isIssue ? _notesController.text : null,
+        actionTaken: _isIssue ? _actionController.text : null,
+        notes: !_isIssue ? _notesController.text : null,
         photoPath: _photoFile!.path,
         metWith: _metWithController.text,
         position: _positionController.text,
-        isIssue: _isIssue,
-        actionTaken: _actionController.text,
+        target: _targetController.text.isNotEmpty ? _targetController.text : null,
+        actual: _actualController.text.isNotEmpty ? _actualController.text : null,
+        deadline: _deadline != null ? DateFormat('yyyy-MM-dd').format(_deadline!) : null,
       );
 
       if (!mounted) return;
@@ -280,6 +300,62 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                         style: TextStyle(color: textColor),
                         decoration: inputDecoration.copyWith(labelText: 'Jabatan *'),
                         validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      TextFormField(
+                        controller: _targetController,
+                        style: TextStyle(color: textColor),
+                        decoration: inputDecoration.copyWith(labelText: 'Target Report (Qty / Values) *'),
+                        validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      TextFormField(
+                        controller: _actualController,
+                        style: TextStyle(color: textColor),
+                        decoration: inputDecoration.copyWith(labelText: 'Actual (Qty / Value) *'),
+                        validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      InkWell(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _deadline ?? DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: isDarkMode 
+                                    ? ColorScheme.dark(primary: primaryColor, surface: cardColor)
+                                    : ColorScheme.light(primary: primaryColor),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (date != null) {
+                            setState(() {
+                              _deadline = date;
+                            });
+                          }
+                        },
+                        child: InputDecorator(
+                          decoration: inputDecoration.copyWith(
+                            labelText: 'Deadline *',
+                            errorText: _deadline == null ? 'Wajib diisi' : null,
+                          ),
+                          child: Text(
+                            _deadline == null ? 'Pilih Deadline' : DateFormat('dd MMM yyyy').format(_deadline!),
+                            style: TextStyle(color: textColor),
+                          ),
+                        ),
                       ),
                       
                       const SizedBox(height: 24),

@@ -320,12 +320,15 @@ class AttendanceProvider with ChangeNotifier {
   }
   Future<bool> submitVisitReport({
     required AuthProvider authProvider,
-    required String notes,
+    String? issue,
+    String? actionTaken,
+    String? notes,
     required String photoPath,
     required String metWith,
     required String position,
-    required bool isIssue,
-    required String actionTaken,
+    String? target,
+    String? actual,
+    String? deadline,
   }) async {
     _isLoading = true;
     _error = '';
@@ -353,11 +356,29 @@ class AttendanceProvider with ChangeNotifier {
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['Accept'] = 'application/json';
 
-      request.fields['notes'] = notes;
       request.fields['met_with'] = metWith;
       request.fields['position'] = position;
-      request.fields['is_issue'] = isIssue ? '1' : '0';
-      request.fields['action_taken'] = actionTaken;
+      if (issue != null && issue.isNotEmpty) {
+        request.fields['is_issue'] = '1';
+        request.fields['issue'] = issue;
+      } else {
+        request.fields['is_issue'] = '0';
+      }
+      if (actionTaken != null && actionTaken.isNotEmpty) {
+        request.fields['action_taken'] = actionTaken;
+      }
+      if (notes != null && notes.isNotEmpty) {
+        request.fields['notes'] = notes;
+      }
+      if (target != null && target.isNotEmpty) {
+        request.fields['target'] = target;
+      }
+      if (actual != null && actual.isNotEmpty) {
+        request.fields['actual'] = actual;
+      }
+      if (deadline != null && deadline.isNotEmpty) {
+        request.fields['deadline'] = deadline;
+      }
       request.fields['latitude'] = latitude.toString();
       request.fields['longitude'] = longitude.toString();
 

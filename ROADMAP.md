@@ -65,7 +65,9 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - Penambahan logika backend dan frontend untuk Kuota Cuti Tahunan (maks 12 hari/tahun, minimal kerja 1 tahun, pengajuan H-14). 
     - Penambahan validasi batasan maksimal hari untuk setiap kategori Cuti Peraturan (misal: Menikah maks 3 hari, Istri Melahirkan maks 2 hari, dll).
     - *Dropdown* Cuti Tahunan secara otomatis disembunyikan apabila masa kerja pengguna belum mencapai 1 tahun.
-  - **Versi 1.0.81 (Current)**:
+  - **Versi 1.0.82 (Current)**:
+    - [x] Tambahan input form `Target Report (Qty / Values)`, `Actual (Qty / Value)`, `Deadline` di form Laporan Visit (Visit-Out).
+  - **Versi 1.0.81**:
     - [x] Validasi tombol Visit Now hanya bisa digunakan jika sudah check-in.
     - [x] Tambah inputan Type Visit, Type Meeting, dan Agenda pada Form Visit.
     - [x] Ubah label "Itinerary" menjadi "Visit" di seluruh aplikasi.
