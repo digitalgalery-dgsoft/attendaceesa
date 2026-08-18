@@ -129,6 +129,22 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
+            ->navigationGroups([
+                \Filament\Navigation\NavigationGroup::make()
+                     ->label('Master Data'),
+                \Filament\Navigation\NavigationGroup::make()
+                     ->label('Employee Management'),
+                \Filament\Navigation\NavigationGroup::make()
+                     ->label('Attendance & Time Management'),
+                \Filament\Navigation\NavigationGroup::make()
+                     ->label('Field Operations & Sales'),
+                \Filament\Navigation\NavigationGroup::make()
+                     ->label('Communication'),
+                \Filament\Navigation\NavigationGroup::make()
+                     ->label('Reports & Analytics'),
+                \Filament\Navigation\NavigationGroup::make()
+                     ->label('System & Settings'),
+            ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

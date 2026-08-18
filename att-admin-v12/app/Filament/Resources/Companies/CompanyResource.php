@@ -21,7 +21,7 @@ class CompanyResource extends Resource
     protected static ?string $model = Company::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';
-    protected static string|\UnitEnum|null $navigationGroup = '1. Master Data';
+    protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
     protected static ?int $navigationSort = 1;
 
     public static function form(Schema $schema): Schema

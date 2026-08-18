@@ -22,7 +22,7 @@ class SalesReportResource extends Resource
     protected static ?string $model = SalesReport::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar-square';
-    protected static string|\UnitEnum|null $navigationGroup = '4. Field Operations & Sales';
+    protected static string|\UnitEnum|null $navigationGroup = 'Field Operations & Sales';
     protected static ?int $navigationSort = 3;
 
     protected static ?string $recordTitleAttribute = 'client_name';

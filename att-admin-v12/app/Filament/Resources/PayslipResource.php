@@ -24,7 +24,7 @@ class PayslipResource extends Resource
     protected static ?string $model = Payslip::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
-    protected static string|\UnitEnum|null $navigationGroup = '2. Employee Management';
+    protected static string|\UnitEnum|null $navigationGroup = 'Employee Management';
     protected static ?int $navigationSort = 3;
 
     public static function getNavigationGroup(): ?string

@@ -22,7 +22,7 @@ class ManPowerReport extends Page implements HasForms
     use InteractsWithForms;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users';
-    protected static string|\UnitEnum|null $navigationGroup = '6. Reports & Analytics';
+    protected static string|\UnitEnum|null $navigationGroup = 'Reports & Analytics';
     protected static ?string $navigationLabel = 'Man Power Report';
     protected static ?string $title = 'Man Power Report';
     protected static ?int $navigationSort = 1;

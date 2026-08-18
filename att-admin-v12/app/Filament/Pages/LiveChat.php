@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Log;
 class LiveChat extends Page
 {
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
-    protected static string|\UnitEnum|null $navigationGroup = '5. Communication';
+    protected static string|\UnitEnum|null $navigationGroup = 'Communication';
     protected static ?string $navigationLabel = 'Live Chat';
     protected static ?string $title = 'Live Chat';
     protected static ?string $slug = 'live-chat';
