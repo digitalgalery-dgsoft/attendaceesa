@@ -25,8 +25,8 @@ class DashboardStatsWidget extends BaseWidget
                 ->description('Total check-in hari ini')
                 ->descriptionIcon('heroicon-m-check-badge')
                 ->color('primary'),
-            Stat::make('Total Companies', Company::count())
-                ->description('Jumlah perusahaan/klien')
+            Stat::make('Total Principals', \App\Models\Principal::count())
+                ->description('Jumlah principal/klien')
                 ->descriptionIcon('heroicon-m-building-office-2')
                 ->color('info'),
             Stat::make('Total Areas', \App\Models\Branch::count())

@@ -29,6 +29,11 @@ class Employee extends Authenticatable
         return $this->belongsTo(Company::class);
     }
     
+    public function principal()
+    {
+        return $this->belongsTo(Principal::class);
+    }
+    
     public function branch()
     {
         return $this->belongsTo(Branch::class);
