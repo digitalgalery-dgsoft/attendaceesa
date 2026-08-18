@@ -132,3 +132,11 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 2. ✅ **Realtime Notifications (Firebase Cloud Messaging / FCM) (SELESAI)**:
    - Integrasi FCM pada aplikasi mobile (Flutter) untuk menerima notifikasi.
    - Penyesuaian backend (Laravel) untuk mengirim push notification (blast, alert absensi, approval).
+
+---
+- **✅ Penyempurnaan Integrasi Odoo & Bug Fix (18 Agustus 2026):**
+  - **Bug Fix**: Memperbaiki isu kehabisan memori (*Memory Exhausted*) pada form Edit Employee di web Admin dengan menerapkan *searchable()* pada seluruh field Dropdown (Select) berelasi besar.
+  - **Odoo Sync**: Menambahkan logika paginasi (*do-while loop*) 500 data/siklus pada `OdooSyncService` untuk sanggup menarik lebih dari 1000 data (menghindari limitasi *request* XML-RPC).
+  - **Dashboard & Tabel**: Memperbaiki label *Dashboard* dan kolom tabel Employee agar menggunakan relasi nama Principal alih-alih Company. Mengubah desain halaman *Odoo Sync* menggunakan komponen Filament bawaan.
+  - **Lembur (Overtime)**: Memperbaiki sistem zona waktu (*timezone*) pada validasi Lembur dan menerapkan *bypass backend* sementara untuk menginvestigasi *hardcoded restriction* di aplikasi *mobile*.
+  - **Rencana Mendatang (Automated Odoo Sync)**: Telah merancang arsitektur implementasi *Task Scheduler* dan injeksi filter `write_date >= odoo_last_sync_at` untuk sinkronisasi Odoo otomatis & inkremental di *background*.
