@@ -16,7 +16,8 @@ import 'package:att_mobile/utils/image_utils.dart';
 
 class AttendanceLocationScreen extends StatefulWidget {
   final String type; // 'checkin', 'checkout', 'visit_in', 'visit_out'
-  const AttendanceLocationScreen({super.key, required this.type});
+  final int? initialWorkLocationId;
+  const AttendanceLocationScreen({super.key, required this.type, this.initialWorkLocationId});
 
   @override
   State<AttendanceLocationScreen> createState() => _AttendanceLocationScreenState();
@@ -41,6 +42,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _selectedWorkLocationId = widget.initialWorkLocationId;
     _getCurrentLocation();
     
     WidgetsBinding.instance.addPostFrameCallback((_) {

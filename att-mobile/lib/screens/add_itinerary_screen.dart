@@ -171,9 +171,15 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
         autoCloseDuration: const Duration(seconds: 3),
       );
       if (type == 'now') {
-        // Redirect to dashboard to perform visit_in, or directly to visit_in screen
-        Navigator.pop(context);
-        // Bisa langsung diarahkan ke layar visit_in, tapi dashboard akan menampilkan tombol Visit In
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AttendanceLocationScreen(
+              type: 'visit_in',
+              initialWorkLocationId: _selectedWorkLocationId,
+            ),
+          ),
+        );
       } else {
         Navigator.pop(context);
       }

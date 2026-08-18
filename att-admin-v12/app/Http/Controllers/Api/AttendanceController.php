@@ -303,7 +303,18 @@ class AttendanceController extends Controller
                     return response()->json(['message' => 'Visit ditolak: Anda tidak memiliki itinerary (jadwal kunjungan) hari ini.'], 403);
                 }
 
+                $isOnlineMeeting = false;
                 if ($request->visit_location_id) {
+                    $itineraryItem = \App\Models\ItineraryItem::whereHas('itinerary', function($q) use ($employeeId, $today) {
+                        $q->where('employee_id', $employeeId)->where('date', $today);
+                    })->where('work_location_id', $request->visit_location_id)->orderBy('id', 'desc')->first();
+
+                    if ($itineraryItem && strtolower(trim($itineraryItem->meeting_type)) === 'online') {
+                        $isOnlineMeeting = true;
+                    }
+                }
+
+                if ($request->visit_location_id && !$isOnlineMeeting) {
                     $loc = WorkLocation::find($request->visit_location_id);
                     if ($loc && $loc->latitude && $loc->longitude) {
                         $dist = $this->calculateDistance(
