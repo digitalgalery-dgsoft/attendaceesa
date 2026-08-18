@@ -150,8 +150,8 @@ class OdooSyncService
             [
                 'fields' => [
                     'id', 'name', 'registration_number', 'identification_id',
-                    'mobile_phone', 'work_email', 'gender', 'birthday',
-                    'department_id', 'job_id',
+                    'mobile_phone', 'work_email', 'private_email', 'gender', 'birthday',
+                    'department_id', 'job_id', 'principle_id', 'first_contract_date',
                     'company_id', 'active',
                 ],
                 'limit' => 1000,
@@ -165,29 +165,62 @@ class OdooSyncService
 
         foreach ($records as $rec) {
             try {
-                // Resolve Department — auto-create if not found
-                $departmentId = null;
-                if (!empty($rec['department_id']) && is_array($rec['department_id'])) {
-                    $deptName     = $rec['department_id'][1];
-                    $department   = Department::firstOrCreate(
-                        ['name' => $deptName, 'company_id' => $companyId],
-                        ['is_active' => true]
-                    );
-                    $departmentId = $department->id;
+                // Resolve Principal
+                $principalId = null;
+                $principalName = '';
+                if (!empty($rec['principle_id']) && is_array($rec['principle_id'])) {
+                    $principalName = trim($rec['principle_id'][1]);
+                    $principal = Principal::where('odoo_id', $rec['principle_id'][0])->first();
+                    if ($principal) {
+                        $principalId = $principal->id;
+                    } else {
+                        $principal = Principal::create([
+                            'odoo_id' => $rec['principle_id'][0],
+                            'name' => $principalName,
+                            'code' => 'OD-' . $rec['principle_id'][0],
+                            'company_id' => $companyId,
+                        ]);
+                        $principalId = $principal->id;
+                    }
                 }
 
-                // Resolve Position (job_id in Odoo) — auto-create if not found
+                // Resolve Department — jika prinsiple = company -> Inhouse, else -> Ratecard
+                $companyName = strtolower(trim($localCompany->name ?? ''));
+                $odooCompanyName = !empty($rec['company_id']) && is_array($rec['company_id']) ? strtolower(trim($rec['company_id'][1])) : '';
+                
+                $isInhouse = false;
+                if ($principalName !== '') {
+                    $pNameLower = strtolower($principalName);
+                    if ($pNameLower === $companyName || $pNameLower === $odooCompanyName) {
+                        $isInhouse = true;
+                    }
+                }
+
+                $deptName = $isInhouse ? 'Inhouse' : 'Ratecard';
+                $department = Department::firstOrCreate(
+                    ['name' => $deptName, 'company_id' => $companyId],
+                    ['is_active' => true]
+                );
+                $departmentId = $department->id;
+
+                // Resolve Position — auto-create if not found, assign principal_id
                 $positionId = null;
                 if (!empty($rec['job_id']) && is_array($rec['job_id'])) {
                     $posName    = $rec['job_id'][1];
                     $position   = Position::firstOrCreate(
                         ['name' => $posName, 'company_id' => $companyId],
-                        ['is_active' => true]
+                        ['is_active' => true, 'principal_id' => $principalId]
                     );
+                    
+                    // Update principal_id if it was previously empty
+                    if (!$position->principal_id && $principalId) {
+                        $position->update(['principal_id' => $principalId]);
+                    }
+                    
                     $positionId = $position->id;
                 }
 
-                // Map employment status (default to contract as employee_type is not available in some Odoo versions)
+                // Map employment status
                 $employmentStatus = 'contract';
 
                 // Map gender
@@ -197,8 +230,8 @@ class OdooSyncService
                     default  => null,
                 };
 
-                // Employee no — prefer registration_number, fallback to identification_id
-                $employeeNo = $rec['registration_number'] ?: ($rec['identification_id'] ?: ('OD-' . $rec['id']));
+                // Employee no — prefer identification_id (NIK)
+                $employeeNo = $rec['identification_id'] ?: ('OD-' . $rec['id']);
 
                 $employee = Employee::withTrashed()->updateOrCreate(
                     ['odoo_id' => $rec['id']],
@@ -210,8 +243,9 @@ class OdooSyncService
                         'full_name'         => $rec['name'],
                         'gender'            => $gender,
                         'birth_date'        => $rec['birthday'] ?: null,
+                        'join_date'         => $rec['first_contract_date'] ?: null,
                         'phone'             => $rec['mobile_phone'] ?: null,
-                        'email'             => $rec['work_email'] ?: null,
+                        'email'             => $rec['private_email'] ?: ($rec['work_email'] ?: null),
                         'employment_status' => $employmentStatus,
                         'is_active'         => (bool) $rec['active'],
                         'deleted_at'        => null, // restore if soft-deleted
