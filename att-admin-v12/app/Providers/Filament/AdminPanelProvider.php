@@ -92,7 +92,6 @@ class AdminPanelProvider extends PanelProvider
                     /* Custom logo override */
                     .fi-logo-custom-img { display: flex; align-items: center; }
                 </style>'
-                </style>'
             )
             ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
