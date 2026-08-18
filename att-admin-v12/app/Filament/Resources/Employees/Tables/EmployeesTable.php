@@ -20,11 +20,10 @@ class EmployeesTable
         return $table
             ->columns([
                 ImageColumn::make('photo')
-                    ->disk('public')
                     ->circular()
                     ->getStateUsing(function ($record) {
                         if ($record->photo && \Illuminate\Support\Facades\Storage::disk('public')->exists($record->photo)) {
-                            return $record->photo;
+                            return asset('storage/' . $record->photo);
                         }
                         return null;
                     })
