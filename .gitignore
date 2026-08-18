@@ -1,4 +1,4 @@
-﻿attendance-esa-groups-firebase-adminsdk*.json
+attendance-esa-groups-firebase-adminsdk*.json
 app-release-*.apk
 att-mobile/app-release-*.apk
 att-mobile/android/app/google-services.json
@@ -10,3 +10,6 @@ deploy_out.txt
 *.json
 attendance-esa-groups-firebase-adminsdk-fbsvc-ae351648f6.json
 *.apk
+# Odoo custom modules (reference only, not part of this repo)
+odoocustoms/
+odoocustoms.zip
