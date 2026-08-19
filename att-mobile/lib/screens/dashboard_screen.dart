@@ -1192,7 +1192,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 Expanded(
                   flex: 2,
                   child: ElevatedButton.icon(
-                    onPressed: () async {
+                    onPressed: () {
                       if (!attProvider.isCheckedIn) {
                         toastification.show(
                           context: context,
@@ -1204,65 +1204,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         return;
                       }
 
-                      // Check location
-                      double lat = 0;
-                      double lng = 0;
-                      try {
-                        final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-                        lat = pos.latitude;
-                        lng = pos.longitude;
-                      } catch (e) {
-                        toastification.show(
-                          context: context,
-                          type: ToastificationType.error,
-                          title: const Text('GPS Tidak Ditemukan'),
-                          description: const Text('Pastikan GPS aktif untuk melakukan Meet-In.'),
-                          autoCloseDuration: const Duration(seconds: 3),
-                        );
-                        return;
-                      }
-
-                      // Check radius if offline
-                      if (!isOnline && meeting.latitude != null && meeting.longitude != null) {
-                        final distance = Geolocator.distanceBetween(lat, lng, meeting.latitude!, meeting.longitude!);
-                        if (distance > meeting.radiusMeter) {
-                          toastification.show(
-                            context: context,
-                            type: ToastificationType.error,
-                            title: const Text('Di Luar Radius Meeting'),
-                            description: Text('Anda berada ${distance.round()}m dari lokasi meeting (Batas max ${meeting.radiusMeter}m).'),
-                            autoCloseDuration: const Duration(seconds: 4),
-                          );
-                          return;
-                        }
-                      }
-
-                      final res = await attProvider.meetIn(
-                        meetingId: meeting.id,
-                        latitude: lat,
-                        longitude: lng,
-                      );
-
-                      if (res['success'] == true) {
-                        if (context.mounted) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => MeetingReportScreen(meeting: meeting),
-                            ),
-                          ).then((_) => attProvider.loadDashboardData());
-                        }
-                      } else {
-                        if (context.mounted) {
-                          toastification.show(
-                            context: context,
-                            type: ToastificationType.error,
-                            title: const Text('Gagal Meet-In'),
-                            description: Text(res['message'] ?? 'Terjadi kesalahan'),
-                            autoCloseDuration: const Duration(seconds: 3),
-                          );
-                        }
-                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AttendanceLocationScreen(
+                            type: 'meet_in',
+                            meeting: meeting,
+                          ),
+                        ),
+                      ).then((_) => attProvider.loadDashboardData());
                     },
                     icon: const Icon(Icons.login, size: 14, color: Colors.white),
                     label: const Text('Meet-In', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),

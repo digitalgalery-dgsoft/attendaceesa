@@ -13,11 +13,14 @@ import 'package:toastification/toastification.dart';
 import 'package:intl/intl.dart';
 import 'liveness_camera_screen.dart';
 import 'package:att_mobile/utils/image_utils.dart';
+import 'package:att_mobile/models/meeting_model.dart';
+import 'meeting_report_screen.dart';
 
 class AttendanceLocationScreen extends StatefulWidget {
-  final String type; // 'checkin', 'checkout', 'visit_in', 'visit_out'
+  final String type; // 'checkin', 'checkout', 'visit_in', 'visit_out', 'meet_in'
   final int? initialWorkLocationId;
-  const AttendanceLocationScreen({super.key, required this.type, this.initialWorkLocationId});
+  final MeetingModel? meeting;
+  const AttendanceLocationScreen({super.key, required this.type, this.initialWorkLocationId, this.meeting});
 
   @override
   State<AttendanceLocationScreen> createState() => _AttendanceLocationScreenState();
@@ -131,7 +134,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   }
 
   Future<void> _submitAttendance() async {
-    if (_selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in')) {
+    if (_selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in')) {
       toastification.show(
         context: context,
         title: const Text('Silakan ambil foto terlebih dahulu'),
@@ -189,7 +192,9 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
 
     // Get location name for watermark
     String locationName = 'Lokasi: Tidak Diketahui';
-    if (widget.type.contains('visit') && _selectedWorkLocationId != null) {
+    if (widget.type == 'meet_in' && widget.meeting != null) {
+      locationName = 'Meeting: ${widget.meeting!.title} (${widget.meeting!.isOnline ? 'Online' : widget.meeting!.locationName ?? 'Offline'})';
+    } else if (widget.type.contains('visit') && _selectedWorkLocationId != null) {
       final loc = attProvider.workLocations.cast<Map<String,dynamic>>().firstWhere(
         (e) => e['id'] == _selectedWorkLocationId, 
         orElse: () => {'name': 'Lokasi Visit'},
@@ -214,6 +219,67 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
         datetime: datetime,
         coordinates: coordinates,
       );
+    }
+
+    if (widget.type == 'meet_in') {
+      if (widget.meeting != null && widget.meeting!.isOffline && widget.meeting!.latitude != null && widget.meeting!.longitude != null) {
+        final distance = Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          widget.meeting!.latitude!,
+          widget.meeting!.longitude!,
+        );
+        if (distance > widget.meeting!.radiusMeter) {
+          if (!mounted) return;
+          Navigator.pop(context); // Close loading
+          toastification.show(
+            context: context,
+            type: ToastificationType.error,
+            title: const Text('Di Luar Radius Meeting'),
+            description: Text('Anda berada ${distance.round()}m dari lokasi meeting (Batas max ${widget.meeting!.radiusMeter}m).'),
+            autoCloseDuration: const Duration(seconds: 4),
+          );
+          return;
+        }
+      }
+
+      final result = await attProvider.meetIn(
+        meetingId: widget.meeting!.id,
+        latitude: _currentPosition!.latitude,
+        longitude: _currentPosition!.longitude,
+        photoPath: finalImagePath,
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading
+
+      if (result['success'] == true) {
+        toastification.show(
+          context: context,
+          title: Text(result['message'] ?? 'Meet-In Berhasil'),
+          type: ToastificationType.success,
+          style: ToastificationStyle.flat,
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MeetingReportScreen(meeting: widget.meeting!),
+          ),
+        );
+      } else {
+        toastification.show(
+          context: context,
+          title: const Text('Gagal Melakukan Meet-In'),
+          description: Text(result['message'] ?? 'Terjadi kesalahan'),
+          type: ToastificationType.error,
+          style: ToastificationStyle.flat,
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+      return;
     }
 
     final result = await attProvider.submitAttendance(
@@ -258,6 +324,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
     if (widget.type == 'checkout') title = 'Check Out Location';
     if (widget.type == 'visit_in') title = 'Visit In';
     if (widget.type == 'visit_out') title = 'Visit Out Report';
+    if (widget.type == 'meet_in') title = 'Meet-In Presensi Meeting';
 
     final attProvider = Provider.of<AttendanceProvider>(context);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -283,17 +350,19 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
         backgroundColor: bgColor,
         elevation: 0,
         iconTheme: IconThemeData(color: textColor),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: primaryColor,
-          unselectedLabelColor: subtitleColor,
-          indicatorColor: primaryColor,
-          dividerColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
-          tabs: [
-            const Tab(text: 'ITINERARY (0)'),
-            Tab(text: 'LOKASI SEKITAR (${attProvider.workLocations.length})'),
-          ],
-        ),
+        bottom: (widget.type == 'meet_in')
+            ? null
+            : TabBar(
+                controller: _tabController,
+                labelColor: primaryColor,
+                unselectedLabelColor: subtitleColor,
+                indicatorColor: primaryColor,
+                dividerColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                tabs: [
+                  const Tab(text: 'ITINERARY (0)'),
+                  Tab(text: 'LOKASI SEKITAR (${attProvider.workLocations.length})'),
+                ],
+              ),
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: primaryColor))
@@ -315,6 +384,19 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                             userAgentPackageName: 'com.example.att_mobile',
                           ),
+                          if (widget.type == 'meet_in' && widget.meeting != null && widget.meeting!.latitude != null && widget.meeting!.longitude != null)
+                            CircleLayer(
+                              circles: [
+                                CircleMarker(
+                                  point: LatLng(widget.meeting!.latitude!, widget.meeting!.longitude!),
+                                  color: primaryColor.withValues(alpha: 0.15),
+                                  borderColor: primaryColor,
+                                  borderStrokeWidth: 2,
+                                  radius: widget.meeting!.radiusMeter.toDouble(),
+                                  useRadiusInMeter: true,
+                                ),
+                              ],
+                            ),
                           if (_currentPosition != null)
                             MarkerLayer(
                               markers: [
@@ -324,16 +406,31 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                                   height: 80,
                                   child: const Icon(Icons.location_on, color: Colors.red, size: 40),
                                 ),
-                                ...attProvider.workLocations.map((loc) {
-                                  final lat = double.tryParse(loc['latitude'].toString()) ?? 0;
-                                  final lng = double.tryParse(loc['longitude'].toString()) ?? 0;
-                                  return Marker(
-                                    point: LatLng(lat, lng),
-                                    width: 40,
-                                    height: 40,
-                                    child: const Icon(Icons.store, color: Colors.blue, size: 30),
-                                  );
-                                }),
+                                if (widget.type == 'meet_in' && widget.meeting != null && widget.meeting!.latitude != null && widget.meeting!.longitude != null)
+                                  Marker(
+                                    point: LatLng(widget.meeting!.latitude!, widget.meeting!.longitude!),
+                                    width: 48,
+                                    height: 48,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.purple.shade600,
+                                        shape: BoxShape.circle,
+                                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                                      ),
+                                      child: const Icon(Icons.video_camera_front, color: Colors.white, size: 24),
+                                    ),
+                                  ),
+                                if (widget.type != 'meet_in')
+                                  ...attProvider.workLocations.map((loc) {
+                                    final lat = double.tryParse(loc['latitude'].toString()) ?? 0;
+                                    final lng = double.tryParse(loc['longitude'].toString()) ?? 0;
+                                    return Marker(
+                                      point: LatLng(lat, lng),
+                                      width: 40,
+                                      height: 40,
+                                      child: const Icon(Icons.store, color: Colors.blue, size: 30),
+                                    );
+                                  }),
                               ],
                             ),
                         ],
@@ -434,40 +531,158 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                 ),
               ),
             ],
-            AnimatedBuilder(
-              animation: _tabController,
-              builder: (context, child) {
-                final isItinerary = _tabController.index == 0;
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      isItinerary ? 'Itinerary anda (0)' : 'Lokasi Sekitar (${attProvider.workLocations.length})', 
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)
+            if (widget.type == 'meet_in' && widget.meeting != null) ...[
+              Builder(
+                builder: (context) {
+                  final m = widget.meeting!;
+                  final double? distanceToMeeting = (_currentPosition != null && m.latitude != null && m.longitude != null)
+                      ? Geolocator.distanceBetween(_currentPosition!.latitude, _currentPosition!.longitude, m.latitude!, m.longitude!)
+                      : null;
+                  final bool isInsideRadius = distanceToMeeting != null ? (distanceToMeeting <= m.radiusMeter) : true;
+
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: elevatedColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
                     ),
-                    TextButton.icon(
-                      onPressed: () {
-                        attProvider.fetchWorkLocations();
-                      },
-                      icon: Icon(Icons.refresh, size: 16, color: primaryColor),
-                      label: Text('Reload Data', style: TextStyle(color: primaryColor)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: m.isOnline ? Colors.blue.withValues(alpha: 0.15) : Colors.green.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Icon(
+                                m.isOnline ? Icons.video_camera_front : Icons.meeting_room,
+                                size: 16,
+                                color: m.isOnline ? Colors.blue.shade700 : Colors.green.shade700,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(m.title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+                                  Text(
+                                    '${m.meetingDate} • ${m.startTime}${m.endTime != null ? ' - ${m.endTime}' : ''} WIB',
+                                    style: TextStyle(fontSize: 10, color: subtitleColor),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: m.isOnline ? Colors.blue.shade100 : Colors.green.shade100,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                m.meetingType.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: m.isOnline ? Colors.blue.shade800 : Colors.green.shade800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(m.isOnline ? Icons.link : Icons.place, size: 13, color: subtitleColor),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                m.isOnline ? (m.meetingLink ?? 'Link Online') : (m.locationName ?? '-'),
+                                style: TextStyle(fontSize: 11, color: subtitleColor),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (m.isOffline && distanceToMeeting != null) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isInsideRadius ? Colors.green.withValues(alpha: 0.12) : Colors.red.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isInsideRadius ? Icons.check_circle : Icons.error,
+                                  size: 12,
+                                  color: isInsideRadius ? Colors.green.shade700 : Colors.red.shade700,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isInsideRadius
+                                      ? 'Dalam Radius: ${distanceToMeeting.round()}m (Maks ${m.radiusMeter}m)'
+                                      : 'Di Luar Radius: ${distanceToMeeting.round()}m (Maks ${m.radiusMeter}m)',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: isInsideRadius ? Colors.green.shade700 : Colors.red.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                );
-              },
-            ),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-              child: Row(
-                children: [
-                  Icon(Icons.info, color: primaryColor, size: 16),
-                  const SizedBox(width: 8),
-                  Text('Jarak berdasarkan estimasi lokasi', style: TextStyle(color: primaryColor, fontSize: 12)),
-                ],
+                  );
+                },
               ),
-            ),
-            const SizedBox(height: 16),
+            ],
+            if (widget.type != 'meet_in') ...[
+              AnimatedBuilder(
+                animation: _tabController,
+                builder: (context, child) {
+                  final isItinerary = _tabController.index == 0;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        isItinerary ? 'Itinerary anda (0)' : 'Lokasi Sekitar (${attProvider.workLocations.length})', 
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          attProvider.fetchWorkLocations();
+                        },
+                        icon: Icon(Icons.refresh, size: 16, color: primaryColor),
+                        label: Text('Reload Data', style: TextStyle(color: primaryColor)),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                child: Row(
+                  children: [
+                    Icon(Icons.info, color: primaryColor, size: 16),
+                    const SizedBox(width: 8),
+                    Text('Jarak berdasarkan estimasi lokasi', style: TextStyle(color: primaryColor, fontSize: 12)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             if (widget.type == 'visit_in')
               Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
@@ -601,7 +816,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      gradient: (_selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in'))
+                      gradient: (_selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in'))
                         ? LinearGradient(colors: [Colors.grey.shade400, Colors.grey.shade400])
                         : LinearGradient(
                             colors: widget.type == 'checkin'
@@ -610,7 +825,9 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                                     ? [primaryColor, Colors.red]
                                     : widget.type == 'visit_in'
                                         ? [primaryColor, Colors.lightBlue]
-                                        : [primaryColor, Colors.orange],
+                                        : widget.type == 'meet_in'
+                                            ? [primaryColor, Colors.teal]
+                                            : [primaryColor, Colors.orange],
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
                           ),
@@ -628,6 +845,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                         widget.type == 'checkin' ? 'Check In'
                         : widget.type == 'checkout' ? 'Check Out'
                         : widget.type == 'visit_in' ? 'Visit In'
+                        : widget.type == 'meet_in' ? 'Meet-In Sekarang'
                         : 'Visit Out',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
