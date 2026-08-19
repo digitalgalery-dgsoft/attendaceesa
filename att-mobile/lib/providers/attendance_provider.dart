@@ -606,5 +606,32 @@ class AttendanceProvider with ChangeNotifier {
       };
     }
   }
+
+  Future<MeetingDetailModel?> fetchMeetingDetail(int meetingId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) throw Exception('Not authenticated');
+
+      final response = await http.get(
+        Uri.parse('${Constants.baseUrl}/meetings/$meetingId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        if (decoded['status'] == 'success' && decoded['data'] != null) {
+          return MeetingDetailModel.fromJson(decoded['data']);
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error fetchMeetingDetail: $e');
+      return null;
+    }
+  }
 }
 

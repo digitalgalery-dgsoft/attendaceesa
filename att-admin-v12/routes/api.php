@@ -99,5 +99,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/meetings/meet-in', [\App\Http\Controllers\Api\MeetingController::class, 'meetIn']);
     Route::post('/meetings/meet-out', [\App\Http\Controllers\Api\MeetingController::class, 'meetOut']);
     Route::get('/meetings/history', [\App\Http\Controllers\Api\MeetingController::class, 'history']);
+    Route::get('/meetings/{id}', [\App\Http\Controllers\Api\MeetingController::class, 'show']);
 });
 

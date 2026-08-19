@@ -108,11 +108,26 @@ class _MeetingReportScreenState extends State<MeetingReportScreen> {
   Future<void> _submitReport() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_photoFile == null) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Perhatian'),
+        description: const Text('Silakan ambil foto bukti meeting terlebih dahulu'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Konfirmasi Meet-Out'),
-        content: const Text('Apakah Anda yakin ingin menyelesaikan meeting dan mengirim laporan ini?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Konfirmasi Meet-Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: const Text(
+          'Apakah Anda yakin ingin menyelesaikan meeting dan mengirim laporan ini?',
+          style: TextStyle(fontSize: 13),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -120,8 +135,11 @@ class _MeetingReportScreenState extends State<MeetingReportScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Ya, Selesaikan', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE0473E),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Ya, Selesaikan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -201,9 +219,30 @@ class _MeetingReportScreenState extends State<MeetingReportScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final primaryColor = authProvider.appColor ?? const Color(0xFF0F52BA);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFF8F9FA);
     final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
-    final textColor = isDarkMode ? Colors.white : const Color(0xFF0E1830);
-    final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF111C2D);
+    final subtitleColor = isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600;
+
+    final inputDecoration = InputDecoration(
+      filled: true,
+      fillColor: isDarkMode ? const Color(0xFF2A2A3D) : Colors.grey.shade50,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: primaryColor, width: 1.5),
+      ),
+      labelStyle: TextStyle(color: subtitleColor, fontSize: 13),
+      hintStyle: TextStyle(color: isDarkMode ? Colors.grey.shade600 : Colors.grey.shade400, fontSize: 13),
+    );
 
     return PopScope(
       canPop: false, // Locked screen during meet-in
@@ -218,12 +257,13 @@ class _MeetingReportScreenState extends State<MeetingReportScreen> {
         );
       },
       child: Scaffold(
+        backgroundColor: bgColor,
         appBar: AppBar(
-          title: const Text('Laporan Hasil Meeting', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          automaticallyImplyLeading: false, // Hide back button for lock
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
+          title: Text('Laporan Meeting', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
+          backgroundColor: bgColor,
           elevation: 0,
+          automaticallyImplyLeading: false, // Hide back button for lock
+          centerTitle: false,
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
@@ -232,20 +272,61 @@ class _MeetingReportScreenState extends State<MeetingReportScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Meeting Header Card
+                // 1. Durasi Timer Card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: primaryColor.withValues(alpha: 0.25)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.timer_outlined, size: 16, color: primaryColor),
+                          const SizedBox(width: 6),
+                          Text(
+                            'DURASI MEETING BERJALAN',
+                            style: TextStyle(
+                              color: primaryColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        _formatDuration(_duration),
+                        style: TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Timer otomatis menghitung durasi sejak Meet-In',
+                        style: TextStyle(color: subtitleColor, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // 2. Info Jadwal Meeting Card
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: primaryColor.withOpacity(0.3)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                    border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,27 +335,27 @@ class _MeetingReportScreenState extends State<MeetingReportScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                             decoration: BoxDecoration(
                               color: widget.meeting.isOnline
-                                  ? Colors.blue.withOpacity(0.15)
-                                  : Colors.green.withOpacity(0.15),
+                                  ? const Color(0xFF0284C7).withValues(alpha: 0.12)
+                                  : const Color(0xFF10B981).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               children: [
                                 Icon(
                                   widget.meeting.isOnline ? Icons.videocam : Icons.location_on,
-                                  size: 14,
-                                  color: widget.meeting.isOnline ? Colors.blue : Colors.green,
+                                  size: 13,
+                                  color: widget.meeting.isOnline ? const Color(0xFF0284C7) : const Color(0xFF10B981),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   widget.meeting.isOnline ? 'MEETING ONLINE' : 'MEETING OFFLINE',
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 10.5,
                                     fontWeight: FontWeight.bold,
-                                    color: widget.meeting.isOnline ? Colors.blue : Colors.green,
+                                    color: widget.meeting.isOnline ? const Color(0xFF0284C7) : const Color(0xFF10B981),
                                   ),
                                 ),
                               ],
@@ -283,16 +364,16 @@ class _MeetingReportScreenState extends State<MeetingReportScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.15),
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Row(
                               children: [
-                                Icon(Icons.radio_button_checked, size: 10, color: Colors.orange),
+                                Icon(Icons.radio_button_checked, size: 10, color: Color(0xFFF59E0B)),
                                 SizedBox(width: 4),
                                 Text(
                                   'IN MEETING',
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange),
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFF59E0B)),
                                 ),
                               ],
                             ),
@@ -302,16 +383,16 @@ class _MeetingReportScreenState extends State<MeetingReportScreen> {
                       const SizedBox(height: 12),
                       Text(
                         widget.meeting.title,
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(Icons.access_time, size: 14, color: subtitleColor),
-                          const SizedBox(width: 5),
+                          Icon(Icons.schedule, size: 14, color: subtitleColor),
+                          const SizedBox(width: 6),
                           Text(
-                            '${widget.meeting.startTime} ${widget.meeting.endTime != null ? '- ${widget.meeting.endTime}' : ''}',
-                            style: TextStyle(fontSize: 12, color: subtitleColor, fontWeight: FontWeight.w600),
+                            '${widget.meeting.startTime} ${widget.meeting.endTime != null ? '- ${widget.meeting.endTime}' : ''} WIB',
+                            style: TextStyle(fontSize: 12, color: subtitleColor, fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
@@ -319,11 +400,11 @@ class _MeetingReportScreenState extends State<MeetingReportScreen> {
                       Row(
                         children: [
                           Icon(
-                            widget.meeting.isOnline ? Icons.link : Icons.place,
+                            widget.meeting.isOnline ? Icons.link : Icons.place_outlined,
                             size: 14,
                             color: subtitleColor,
                           ),
-                          const SizedBox(width: 5),
+                          const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               widget.meeting.isOnline
@@ -339,24 +420,25 @@ class _MeetingReportScreenState extends State<MeetingReportScreen> {
                       if (widget.meeting.isOnline &&
                           widget.meeting.meetingLink != null &&
                           widget.meeting.meetingLink!.isNotEmpty) ...[
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         InkWell(
                           onTap: () => _openMeetingLink(widget.meeting.meetingLink!),
+                          borderRadius: BorderRadius.circular(10),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                             decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.blue.shade200),
+                              color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.3)),
                             ),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.open_in_new, size: 14, color: Colors.blue),
+                                const Icon(Icons.open_in_new, size: 14, color: Color(0xFF0284C7)),
                                 const SizedBox(width: 6),
-                                Text(
-                                  'Buka Link Meeting (Zoom / Meet)',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+                                const Text(
+                                  'Buka Link Meeting (Zoom/GMeet)',
+                                  style: TextStyle(fontSize: 12, color: Color(0xFF0284C7), fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -369,172 +451,142 @@ class _MeetingReportScreenState extends State<MeetingReportScreen> {
 
                 const SizedBox(height: 16),
 
-                // Live Duration Timer Card
+                // 3. Form Input Laporan Meeting
                 Container(
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [primaryColor.withOpacity(0.08), primaryColor.withOpacity(0.02)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: cardColor,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: primaryColor.withOpacity(0.3)),
+                    border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
                   ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.timer, size: 18, color: primaryColor),
-                          const SizedBox(width: 6),
-                          Text(
-                            'DURASI MEETING BERJALAN',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1,
-                              color: primaryColor,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Catatan / Notulensi Meeting *',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        _formatDuration(_duration),
-                        style: TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.w900,
-                          color: primaryColor,
-                          fontFamily: 'monospace',
-                          letterSpacing: 2,
+                      TextFormField(
+                        controller: _notesController,
+                        maxLines: 4,
+                        minLines: 3,
+                        style: TextStyle(color: textColor, fontSize: 13),
+                        decoration: inputDecoration.copyWith(
+                          hintText: 'Tuliskan poin pembahasan, hasil keputusan, atau notulensi rapat...',
                         ),
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty ? 'Catatan meeting wajib diisi' : null,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 16),
                       Text(
-                        'Timer otomatis menghitung durasi sejak Meet-In',
-                        style: TextStyle(fontSize: 11, color: subtitleColor),
+                        'Foto Bukti Meeting (Kamera) *',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
                       ),
+                      const SizedBox(height: 8),
+
+                      if (_photoFile != null) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Stack(
+                            children: [
+                              Image.file(
+                                File(_photoFile!.path),
+                                height: 180,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: InkWell(
+                                  onTap: _takePhoto,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.7),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Row(
+                                      children: [
+                                        Icon(Icons.camera_alt, color: Colors.white, size: 14),
+                                        SizedBox(width: 4),
+                                        Text('Ambil Ulang', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        InkWell(
+                          onTap: _takePhoto,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: isDarkMode ? const Color(0xFF2A2A3D) : Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300, style: BorderStyle.solid),
+                            ),
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: primaryColor.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.camera_alt, color: primaryColor, size: 24),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Ambil Foto Suasana / Hasil Meeting',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: textColor),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Wajib menggunakan kamera langsung sebagai bukti kehadiran rapat',
+                                  style: TextStyle(fontSize: 10.5, color: subtitleColor),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
-                // Form Catatan / Notulensi
-                Text(
-                  'Catatan / Notulensi Meeting *',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _notesController,
-                  maxLines: 4,
-                  validator: (val) {
-                    if (val == null || val.trim().isEmpty) {
-                      return 'Catatan / hasil meeting wajib diisi.';
-                    }
-                    if (val.trim().length < 5) {
-                      return 'Catatan minimal 5 karakter.';
-                    }
-                    return null;
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'Tuliskan hasil diskusi, kesepakatan, atau notulensi meeting...',
-                    hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-                    filled: true,
-                    fillColor: cardColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: primaryColor, width: 2),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Foto Bukti Meeting
-                Text(
-                  'Foto Bukti Meeting (Opsional / Kamera)',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
-                ),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: _takePhoto,
-                  child: Container(
-                    height: 130,
-                    decoration: BoxDecoration(
-                      color: cardColor,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
-                    ),
-                    child: _photoFile != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.file(
-                              File(_photoFile!.path),
-                              width: double.infinity,
-                              height: 130,
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.camera_alt, size: 36, color: primaryColor),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Ambil Foto Bukti Meeting',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryColor),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Foto suasana rapat / screenshot online meeting',
-                                style: TextStyle(fontSize: 10, color: subtitleColor),
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
-
-                const SizedBox(height: 28),
-
-                // Tombol Meet-Out & Kirim Laporan
-                ElevatedButton(
+                // 4. Tombol Meet-Out & Kirim Laporan
+                ElevatedButton.icon(
                   onPressed: _isSubmitting ? null : _submitReport,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade600,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    elevation: 2,
-                  ),
-                  child: _isSubmitting
+                  icon: _isSubmitting
                       ? const SizedBox(
-                          height: 20,
-                          width: 20,
+                          width: 18,
+                          height: 18,
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.stop_circle_outlined, color: Colors.white, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Meet-Out & Kirim Laporan',
-                              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
+                      : const Icon(Icons.stop_circle, color: Colors.white, size: 20),
+                  label: Text(
+                    _isSubmitting ? 'Mengirim Laporan...' : 'Meet-Out & Kirim Laporan',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE0473E),
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                 ),
-                const SizedBox(height: 20),
+
+                const SizedBox(height: 30),
               ],
             ),
           ),

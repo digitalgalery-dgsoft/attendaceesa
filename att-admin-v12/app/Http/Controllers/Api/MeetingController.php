@@ -188,7 +188,7 @@ class MeetingController extends Controller
             // Catat ke attendance_logs agar muncul di Aktivitas Hari Ini & Riwayat
             AttendanceLog::create([
                 'employee_id' => $employee->id,
-                'attendance_id' => $dailyAttendance?->id,
+                'attendance_id' => $dailyAttendance ? $dailyAttendance->id : null,
                 'log_type' => 'meet_in',
                 'logged_at' => $now,
                 'latitude' => $request->latitude,
@@ -295,7 +295,7 @@ class MeetingController extends Controller
             // Catat log meet_out ke attendance_logs
             AttendanceLog::create([
                 'employee_id' => $employee->id,
-                'attendance_id' => $dailyAttendance?->id,
+                'attendance_id' => $dailyAttendance ? $dailyAttendance->id : null,
                 'log_type' => 'meet_out',
                 'logged_at' => $now,
                 'latitude' => $request->latitude ?? $attendance->meet_in_lat,
@@ -356,6 +356,115 @@ class MeetingController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $attendances
+        ]);
+    }
+
+    /**
+     * Ambil detail & laporan hasil meeting lengkap beserta list peserta.
+     */
+    public function show($id, Request $request)
+    {
+        $employee = $request->user();
+        if (!$employee) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+        }
+
+        $meeting = Meeting::with([
+            'participants.employee.designation',
+            'participants.employee.department',
+            'attendances.employee'
+        ])->findOrFail($id);
+
+        $attendancesByEmp = $meeting->attendances->keyBy('employee_id');
+
+        $participantsData = $meeting->participants->map(function ($part) use ($attendancesByEmp) {
+            $emp = $part->employee;
+            $att = $attendancesByEmp->get($part->employee_id);
+
+            $status = 'not_attended';
+            if ($att) {
+                $status = $att->status; // 'in_meeting' or 'completed'
+            }
+
+            $durationFormatted = '-';
+            if ($att && $att->duration_seconds) {
+                $hours = floor($att->duration_seconds / 3600);
+                $mins = floor(($att->duration_seconds % 3600) / 60);
+                $secs = $att->duration_seconds % 60;
+                if ($hours > 0) {
+                    $durationFormatted = sprintf('%02d:%02d:%02d', $hours, $mins, $secs);
+                } else {
+                    $durationFormatted = sprintf('%02d:%02d', $mins, $secs);
+                }
+            } elseif ($att && $att->status === 'in_meeting') {
+                $durationFormatted = 'Sedang Berlangsung';
+            }
+
+            $empPosition = '-';
+            if ($emp) {
+                if ($emp->designation) {
+                    $empPosition = $emp->designation->name;
+                } elseif ($emp->position) {
+                    $empPosition = $emp->position;
+                }
+            }
+
+            $empDepartment = ($emp && $emp->department) ? $emp->department->name : '-';
+
+            return [
+                'employee_id' => $part->employee_id,
+                'name' => $emp ? $emp->name : 'Karyawan',
+                'employee_no' => $emp ? ($emp->employee_no ?? $emp->nik) : null,
+                'position' => $empPosition,
+                'department' => $empDepartment,
+                'avatar' => ($emp && $emp->photo) ? asset('storage/' . $emp->photo) : null,
+                'status' => $status,
+                'meet_in_at' => ($att && $att->meet_in_at) ? $att->meet_in_at->format('H:i:s') : null,
+                'meet_out_at' => ($att && $att->meet_out_at) ? $att->meet_out_at->format('H:i:s') : null,
+                'meet_in_time_full' => ($att && $att->meet_in_at) ? $att->meet_in_at->format('d M Y, H:i') : null,
+                'meet_out_time_full' => ($att && $att->meet_out_at) ? $att->meet_out_at->format('d M Y, H:i') : null,
+                'duration_seconds' => $att ? $att->duration_seconds : null,
+                'formatted_duration' => $durationFormatted,
+                'report_notes' => $att ? $att->report_notes : null,
+                'meet_in_photo' => ($att && $att->meet_in_photo) ? asset('storage/' . $att->meet_in_photo) : null,
+                'meet_out_photo' => ($att && $att->meet_out_photo) ? asset('storage/' . $att->meet_out_photo) : null,
+                'meet_in_lat' => $att ? $att->meet_in_lat : null,
+                'meet_in_lng' => $att ? $att->meet_in_lng : null,
+                'meet_out_lat' => $att ? $att->meet_out_lat : null,
+                'meet_out_lng' => $att ? $att->meet_out_lng : null,
+            ];
+        });
+
+        $completedCount = $participantsData->where('status', 'completed')->count();
+        $inMeetingCount = $participantsData->where('status', 'in_meeting')->count();
+        $notAttendedCount = $participantsData->where('status', 'not_attended')->count();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'id' => $meeting->id,
+                'title' => $meeting->title,
+                'meeting_date' => $meeting->meeting_date->format('Y-m-d'),
+                'meeting_date_formatted' => $meeting->meeting_date->locale('id')->isoFormat('dddd, D MMMM Y'),
+                'start_time' => substr($meeting->start_time, 0, 5),
+                'end_time' => $meeting->end_time ? substr($meeting->end_time, 0, 5) : null,
+                'time_range' => substr($meeting->start_time, 0, 5) . ($meeting->end_time ? ' - ' . substr($meeting->end_time, 0, 5) . ' WIB' : ' WIB'),
+                'meeting_type' => $meeting->meeting_type,
+                'meeting_link' => $meeting->meeting_link,
+                'location_name' => $meeting->location_name,
+                'latitude' => $meeting->latitude,
+                'longitude' => $meeting->longitude,
+                'radius_meter' => $meeting->radius_meter,
+                'notes' => $meeting->notes,
+                'status' => $meeting->status,
+                'stats' => [
+                    'total_participants' => $participantsData->count(),
+                    'completed_count' => $completedCount,
+                    'in_meeting_count' => $inMeetingCount,
+                    'not_attended_count' => $notAttendedCount,
+                ],
+                'participants' => $participantsData->values(),
+            ]
         ]);
     }
 

@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\Principal;
 use App\Models\WorkLocation;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -180,6 +181,22 @@ class MeetingForm
                             ->required()
                             ->columnSpanFull()
                             ->helperText('Ketik nama atau No. KTP / NIK karyawan untuk mencari.'),
+                    ]),
+
+                Section::make('Laporan Kehadiran Peserta Meeting')
+                    ->description('Data presensi, waktu in/out, notulensi, dan foto bukti kehadiran peserta')
+                    ->visible(fn ($record) => $record !== null)
+                    ->collapsible()
+                    ->collapsed(false)
+                    ->schema([
+                        Placeholder::make('attendance_report_view')
+                            ->label('')
+                            ->content(function ($record) {
+                                if (!$record) return '-';
+                                $record->load(['participants.employee.designation', 'attendances.employee']);
+                                return view('filament.components.meeting-attendance-report', ['meeting' => $record]);
+                            })
+                            ->columnSpanFull(),
                     ]),
             ]);
     }

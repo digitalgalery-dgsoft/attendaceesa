@@ -27,6 +27,7 @@ import 'package:att_mobile/screens/chat_screen.dart';
 import 'package:att_mobile/providers/chat_provider.dart';
 import 'package:att_mobile/models/meeting_model.dart';
 import 'package:att_mobile/screens/meeting_report_screen.dart';
+import 'package:att_mobile/screens/meeting_detail_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:toastification/toastification.dart';
@@ -1106,8 +1107,45 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ],
           ),
           const SizedBox(height: 10),
-          // Action Button
-          if (isInMeeting)
+          // Action Buttons
+          if (isInMeeting) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MeetingReportScreen(meeting: meeting),
+                        ),
+                      ).then((_) => attProvider.loadDashboardData());
+                    },
+                    icon: const Icon(Icons.assignment, size: 14, color: Colors.white),
+                    label: const Text('Buka Laporan Meeting (In Meeting)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange.shade700,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MeetingDetailScreen(meetingId: meeting.id),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.info_outline, size: 20, color: Colors.orange),
+                  tooltip: 'Detail & Peserta',
+                ),
+              ],
+            ),
+          ] else if (isCompleted) ...[
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -1115,20 +1153,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => MeetingReportScreen(meeting: meeting),
+                      builder: (_) => MeetingDetailScreen(meetingId: meeting.id),
                     ),
-                  ).then((_) => attProvider.loadDashboardData());
+                  );
                 },
-                icon: const Icon(Icons.assignment, size: 14, color: Colors.white),
-                label: const Text('Buka Laporan Meeting (In Meeting)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                icon: const Icon(Icons.assignment_turned_in, size: 15, color: Colors.white),
+                label: const Text('Lihat Laporan Hasil Meeting', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange.shade700,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  backgroundColor: primaryColor,
+                  padding: const EdgeInsets.symmetric(vertical: 9),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
-            )
-          else if (!isCompleted)
+            ),
+          ] else ...[
             Row(
               children: [
                 if (isOnline && meeting.meetingLink != null && meeting.meetingLink!.isNotEmpty) ...[
@@ -1141,7 +1179,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         }
                       },
                       icon: const Icon(Icons.open_in_new, size: 13, color: Colors.blue),
-                      label: const Text('Buka Link', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue)),
+                      label: const Text('Link', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         side: const BorderSide(color: Colors.blue),
@@ -1152,7 +1190,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   const SizedBox(width: 8),
                 ],
                 Expanded(
-                  flex: isOnline ? 1 : 2,
+                  flex: 2,
                   child: ElevatedButton.icon(
                     onPressed: () async {
                       if (!attProvider.isCheckedIn) {
@@ -1235,8 +1273,22 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MeetingDetailScreen(meetingId: meeting.id),
+                      ),
+                    );
+                  },
+                  icon: Icon(Icons.info_outline, size: 20, color: primaryColor),
+                  tooltip: 'Detail & Peserta',
+                ),
               ],
             ),
+          ],
         ],
       ),
     );
