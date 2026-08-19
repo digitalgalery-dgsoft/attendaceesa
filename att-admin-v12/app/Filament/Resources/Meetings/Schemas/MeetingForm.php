@@ -140,26 +140,27 @@ class MeetingForm
 
                         Select::make('employees')
                             ->label('Daftar Peserta Meeting (Multiple)')
-                            ->relationship('employees', 'full_name', function ($query, $get) {
-                                $principalId = $get('filter_principal_id');
-                                $areaId = $get('filter_area_id');
-                                if ($principalId) {
-                                    $query->where('principal_id', $principalId);
+                            ->relationship(
+                                name: 'employees',
+                                titleAttribute: 'full_name',
+                                modifyQueryUsing: function ($query, $get) {
+                                    $principalId = $get('filter_principal_id');
+                                    $areaId = $get('filter_area_id');
+                                    return $query->where('is_active', true)
+                                        ->when($principalId, fn ($q) => $q->where('principal_id', $principalId))
+                                        ->when($areaId, fn ($q) => $q->where('area_id', $areaId));
                                 }
-                                if ($areaId) {
-                                    $query->where('area_id', $areaId);
-                                }
-                                return $query->where('is_active', true);
-                            })
+                            )
                             ->getSearchResultsUsing(function (string $search, $get) {
                                 $principalId = $get('filter_principal_id');
                                 $areaId = $get('filter_area_id');
+                                $searchTerm = mb_strtolower(trim($search));
                                 return Employee::where('is_active', true)
                                     ->when($principalId, fn ($q) => $q->where('principal_id', $principalId))
                                     ->when($areaId, fn ($q) => $q->where('area_id', $areaId))
-                                    ->where(function ($q) use ($search) {
-                                        $q->where('full_name', 'like', "%{$search}%")
-                                          ->orWhere('employee_no', 'like', "%{$search}%");
+                                    ->where(function ($q) use ($searchTerm) {
+                                        $q->whereRaw('LOWER(full_name) LIKE ?', ["%{$searchTerm}%"])
+                                          ->orWhereRaw('LOWER(employee_no) LIKE ?', ["%{$searchTerm}%"]);
                                     })
                                     ->limit(50)
                                     ->get()
@@ -172,15 +173,17 @@ class MeetingForm
                             ->getOptionLabelsUsing(function (array $values) {
                                 return Employee::whereIn('id', $values)
                                     ->get()
-                                    ->mapWithKeys(fn ($emp) => [$emp->id => "{$emp->full_name} (NIK: {$emp->employee_no})"])
+                                    ->mapWithKeys(function ($emp) {
+                                        $pos = $emp->position ? $emp->position->name : '-';
+                                        return [$emp->id => "{$emp->full_name} (NIK: {$emp->employee_no}) - {$pos}"];
+                                    })
                                     ->toArray();
                             })
                             ->multiple()
                             ->searchable()
-                            ->preload()
                             ->required()
                             ->columnSpanFull()
-                            ->helperText('Ketik nama atau No. KTP / NIK karyawan untuk mencari.'),
+                            ->helperText('Ketik nama atau No. KTP / NIK karyawan untuk mencari (tidak case-sensitive).'),
                     ]),
             ]);
     }

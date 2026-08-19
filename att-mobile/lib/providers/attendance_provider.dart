@@ -280,6 +280,9 @@ class AttendanceProvider with ChangeNotifier {
     String? visitType,
     String? note,
     int? visitLocationId,
+    String? scheduledType,
+    int? scheduledWorkLocationId,
+    int? scheduledMeetingId,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -299,6 +302,9 @@ class AttendanceProvider with ChangeNotifier {
       if (visitType != null) request.fields['visit_type'] = visitType;
       if (note != null) request.fields['note'] = note;
       if (visitLocationId != null) request.fields['visit_location_id'] = visitLocationId.toString();
+      if (scheduledType != null) request.fields['scheduled_type'] = scheduledType;
+      if (scheduledWorkLocationId != null) request.fields['scheduled_work_location_id'] = scheduledWorkLocationId.toString();
+      if (scheduledMeetingId != null) request.fields['scheduled_meeting_id'] = scheduledMeetingId.toString();
 
       if (imagePath != null) {
         if (isWeb) {

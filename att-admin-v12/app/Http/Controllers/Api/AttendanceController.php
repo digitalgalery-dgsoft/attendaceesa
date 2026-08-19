@@ -124,13 +124,16 @@ class AttendanceController extends Controller
     {
         try {
             $request->validate([
-                'latitude'          => 'required|numeric',
-                'longitude'         => 'required|numeric',
-                'photo'             => 'nullable|image|max:5120',
-                'type'              => 'required|in:checkin,checkout,visit_in,visit_out',
-                'visit_type'        => 'nullable|in:store,prinsiple',
-                'note'              => 'nullable|string',
-                'visit_location_id' => 'nullable|integer',
+                'latitude'                     => 'required|numeric',
+                'longitude'                    => 'required|numeric',
+                'photo'                        => 'nullable|image|max:5120',
+                'type'                         => 'required|in:checkin,checkout,visit_in,visit_out',
+                'visit_type'                   => 'nullable|in:store,prinsiple',
+                'note'                         => 'nullable|string',
+                'visit_location_id'            => 'nullable|integer',
+                'scheduled_type'               => 'nullable|string',
+                'scheduled_work_location_id'   => 'nullable|integer',
+                'scheduled_meeting_id'         => 'nullable|integer',
             ]);
 
             $employee = $request->user();
@@ -185,6 +188,41 @@ class AttendanceController extends Controller
                 $refLocation = \App\Models\Branch::find($employee->branch_id);
             }
 
+            $isScheduledLocation = false;
+            $scheduledLocationName = null;
+
+            if ($request->type === 'checkin') {
+                if ($request->filled('scheduled_work_location_id') || ($request->filled('visit_location_id') && $request->scheduled_type === 'visit')) {
+                    $locId = $request->scheduled_work_location_id ?: $request->visit_location_id;
+                    $customLoc = \App\Models\WorkLocation::find($locId);
+                    if ($customLoc) {
+                        $refLocation = $customLoc;
+                        $isScheduledLocation = true;
+                        $scheduledLocationName = $customLoc->name;
+                    }
+                } elseif ($request->filled('scheduled_meeting_id') || ($request->filled('meeting_id') && $request->scheduled_type === 'meeting')) {
+                    $mId = $request->scheduled_meeting_id ?: $request->meeting_id;
+                    $meeting = \App\Models\Meeting::find($mId);
+                    if ($meeting && $meeting->latitude && $meeting->longitude) {
+                        $refLocation = (object) [
+                            'latitude'     => (float) $meeting->latitude,
+                            'longitude'    => (float) $meeting->longitude,
+                            'radius_meter' => $meeting->radius_meter ?? 100,
+                            'name'         => $meeting->location_name ?? $meeting->title,
+                        ];
+                        $isScheduledLocation = true;
+                        $scheduledLocationName = $meeting->title . ' (' . ($meeting->location_name ?? 'Meeting') . ')';
+                    }
+                }
+
+                // If scheduled location is used, note is required
+                if ($isScheduledLocation && empty(trim($request->note ?? ''))) {
+                    return response()->json([
+                        'message' => 'Catatan wajib diisi jika melakukan Check-in di Lokasi Terjadwal.'
+                    ], 422);
+                }
+            }
+
             if ($refLocation && $refLocation->latitude && $refLocation->longitude) {
                 $distance = $this->calculateDistance(
                     $request->latitude, $request->longitude,
@@ -198,11 +236,25 @@ class AttendanceController extends Controller
 
             if ($request->type === 'checkin') {
                 if ($refLocation && $refLocation->latitude && $refLocation->longitude && !$isInsideGeofence) {
-                    return response()->json(['message' => 'Check-in ditolak: Anda berada di luar radius lokasi kantor (' . round($distance) . 'm). Radius maksimal: ' . ($refLocation->radius_meter ?? 100) . 'm'], 400);
+                    $locName = isset($refLocation->name) ? $refLocation->name : 'kantor';
+                    return response()->json(['message' => 'Check-in ditolak: Anda berada di luar radius lokasi ' . $locName . ' (' . round($distance) . 'm). Radius maksimal: ' . ($refLocation->radius_meter ?? 100) . 'm'], 400);
                 }
 
                 if ($attendance) {
                     return response()->json(['message' => 'Already checked in for today'], 400);
+                }
+
+                $meta = [];
+                if ($isScheduledLocation) {
+                    $meta['is_scheduled_location'] = true;
+                    $meta['scheduled_type'] = $request->scheduled_type ?? ($request->filled('scheduled_meeting_id') ? 'meeting' : 'visit');
+                    $meta['scheduled_location_name'] = $scheduledLocationName;
+                    if ($request->filled('scheduled_work_location_id') || $request->filled('visit_location_id')) {
+                        $meta['visit_location_id'] = (int) ($request->scheduled_work_location_id ?: $request->visit_location_id);
+                    }
+                    if ($request->filled('scheduled_meeting_id') || $request->filled('meeting_id')) {
+                        $meta['meeting_id'] = (int) ($request->scheduled_meeting_id ?: $request->meeting_id);
+                    }
                 }
 
                 $log = AttendanceLog::create([
@@ -212,6 +264,8 @@ class AttendanceController extends Controller
                     'latitude'                     => $request->latitude,
                     'longitude'                    => $request->longitude,
                     'photo_path'                   => $path,
+                    'note'                         => $request->note,
+                    'metadata'                     => !empty($meta) ? $meta : null,
                     'is_inside_geofence'           => $isInsideGeofence,
                     'distance_from_location_meter' => $distance,
                     'source'                       => 'android',
@@ -623,7 +677,12 @@ class AttendanceController extends Controller
             $meta = $log->metadata ?: [];
             $location = null;
 
-            if (isset($meta['visit_location_id'])) {
+            if (!empty($meta['is_scheduled_location']) && !empty($meta['scheduled_location_name'])) {
+                $location = [
+                    'name' => $meta['scheduled_location_name'] . ' (Lokasi Terjadwal)',
+                    'address' => ($meta['scheduled_type'] ?? '') === 'meeting' ? 'Jadwal Meeting' : 'Jadwal Visit',
+                ];
+            } elseif (isset($meta['visit_location_id'])) {
                 $location = $allWorkLocations->get($meta['visit_location_id']);
                 $uniqueStores[$meta['visit_location_id']] = true;
             } elseif (in_array($log->log_type, ['meet_in', 'meet_out'])) {
