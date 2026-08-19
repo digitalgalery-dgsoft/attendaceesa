@@ -5,7 +5,6 @@ import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/utils/constants.dart';
 import 'package:att_mobile/screens/tracking_history_screen.dart';
-import 'package:att_mobile/screens/meeting_detail_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -617,48 +616,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ],
                   ),
                 ),
-                if ((type == 'meet_in' || type == 'meet_out') && log['metadata'] != null) ...[
-                  Builder(
-                    builder: (ctx) {
-                      final metadata = log['metadata'] is Map ? log['metadata'] : null;
-                      final mId = metadata != null ? (metadata['meeting_id'] is int ? metadata['meeting_id'] : int.tryParse('${metadata['meeting_id']}')) : null;
-                      if (mId == null) return const SizedBox.shrink();
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => MeetingDetailScreen(meetingId: mId),
-                              ),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(6),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF8B5CF6).withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.assignment_turned_in, size: 12, color: Color(0xFF8B5CF6)),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Lihat Laporan Hasil Meeting',
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF8B5CF6)),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
               ],
             ),
           )

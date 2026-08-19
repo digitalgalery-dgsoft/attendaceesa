@@ -722,7 +722,29 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     ],
                   ),
                   const SizedBox(height: 8),
-                  ...attProvider.todayMeetings.map((meeting) {
+                  ...attProvider.todayMeetings.where((meeting) {
+                    // Hide meetings that have ended AND user has not attended/is not in meeting
+                    if (!meeting.isInMeeting && !meeting.isCompleted) {
+                      // Parse end time to check if meeting has passed
+                      try {
+                        final now = DateTime.now();
+                        final endTimeStr = meeting.endTime ?? meeting.startTime;
+                        final parts = endTimeStr.split(':');
+                        if (parts.length >= 2) {
+                          final meetingEnd = DateTime(
+                            now.year, now.month, now.day,
+                            int.parse(parts[0]),
+                            int.parse(parts[1]),
+                          );
+                          // Add 30 min grace period after end time
+                          if (now.isAfter(meetingEnd.add(const Duration(minutes: 30)))) {
+                            return false; // hide expired unattended meeting
+                          }
+                        }
+                      } catch (_) {}
+                    }
+                    return true;
+                  }).map((meeting) {
                     return _buildMeetingCard(context, meeting, attProvider, primaryColor, cardColor, textColor, subtitleColor);
                   }).toList(),
                   const SizedBox(height: 14),
@@ -1109,43 +1131,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           const SizedBox(height: 10),
           // Action Buttons
           if (isInMeeting) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MeetingReportScreen(meeting: meeting),
-                        ),
-                      ).then((_) => attProvider.loadDashboardData());
-                    },
-                    icon: const Icon(Icons.assignment, size: 14, color: Colors.white),
-                    label: const Text('Buka Laporan Meeting (In Meeting)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange.shade700,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MeetingDetailScreen(meetingId: meeting.id),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.info_outline, size: 20, color: Colors.orange),
-                  tooltip: 'Detail & Peserta',
-                ),
-              ],
-            ),
-          ] else if (isCompleted) ...[
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -1153,17 +1138,38 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => MeetingDetailScreen(meetingId: meeting.id),
+                      builder: (_) => MeetingReportScreen(meeting: meeting),
                     ),
-                  );
+                  ).then((_) => attProvider.loadDashboardData());
                 },
-                icon: const Icon(Icons.assignment_turned_in, size: 15, color: Colors.white),
-                label: const Text('Lihat Laporan Hasil Meeting', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                icon: const Icon(Icons.assignment, size: 14, color: Colors.white),
+                label: const Text('Buka Laporan Meeting', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  backgroundColor: Colors.orange.shade700,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
+              ),
+            ),
+          ] else if (isCompleted) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade300),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle, size: 15, color: Colors.green.shade700),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Selesai (Hadir)',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade700),
+                  ),
+                ],
               ),
             ),
           ] else ...[
@@ -1191,50 +1197,78 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 ],
                 Expanded(
                   flex: 2,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      if (!attProvider.isCheckedIn) {
-                        toastification.show(
-                          context: context,
-                          type: ToastificationType.warning,
-                          title: const Text('Check-in Terlebih Dahulu'),
-                          description: const Text('Silakan lakukan Check-in masuk kerja sebelum memulai Meet-In.'),
-                          autoCloseDuration: const Duration(seconds: 3),
+                  child: Builder(builder: (context) {
+                    // Check if meeting time has already passed
+                    bool isMeetingExpired = false;
+                    try {
+                      final now = DateTime.now();
+                      final endTimeStr = meeting.endTime ?? meeting.startTime;
+                      final parts = endTimeStr.split(':');
+                      if (parts.length >= 2) {
+                        final meetingEnd = DateTime(
+                          now.year, now.month, now.day,
+                          int.parse(parts[0]),
+                          int.parse(parts[1]),
                         );
-                        return;
+                        isMeetingExpired = now.isAfter(meetingEnd.add(const Duration(minutes: 30)));
                       }
+                    } catch (_) {}
 
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AttendanceLocationScreen(
-                            type: 'meet_in',
-                            meeting: meeting,
-                          ),
+                    if (isMeetingExpired) {
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
                         ),
-                      ).then((_) => attProvider.loadDashboardData());
-                    },
-                    icon: const Icon(Icons.login, size: 14, color: Colors.white),
-                    label: const Text('Meet-In', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.shade600,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MeetingDetailScreen(meetingId: meeting.id),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.timer_off, size: 14, color: Colors.grey.shade500),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Waktu Meeting Telah Lewat',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.grey.shade500),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ElevatedButton.icon(
+                      onPressed: () {
+                        if (!attProvider.isCheckedIn) {
+                          toastification.show(
+                            context: context,
+                            type: ToastificationType.warning,
+                            title: const Text('Check-in Terlebih Dahulu'),
+                            description: const Text('Silakan lakukan Check-in masuk kerja sebelum memulai Meet-In.'),
+                            autoCloseDuration: const Duration(seconds: 3),
+                          );
+                          return;
+                        }
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AttendanceLocationScreen(
+                              type: 'meet_in',
+                              meeting: meeting,
+                            ),
+                          ),
+                        ).then((_) => attProvider.loadDashboardData());
+                      },
+                      icon: const Icon(Icons.login, size: 14, color: Colors.white),
+                      label: const Text('Meet-In', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade600,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                     );
-                  },
-                  icon: Icon(Icons.info_outline, size: 20, color: primaryColor),
-                  tooltip: 'Detail & Peserta',
+                  }),
                 ),
               ],
             ),
