@@ -42,7 +42,8 @@ class ItineraryController extends Controller
             ->whereBetween('logged_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->get()
             ->map(function ($log) {
-                return $log->metadata['visit_location_id'] ?? null;
+                $meta = is_array($log->metadata) ? $log->metadata : (is_string($log->metadata) ? json_decode($log->metadata, true) : []);
+                return is_array($meta) ? ($meta['visit_location_id'] ?? null) : null;
             })
             ->filter()
             ->unique()
@@ -71,7 +72,8 @@ class ItineraryController extends Controller
             ->whereDate('logged_at', $today)
             ->get()
             ->map(function ($log) {
-                $id = $log->metadata['visit_location_id'] ?? null;
+                $meta = is_array($log->metadata) ? $log->metadata : (is_string($log->metadata) ? json_decode($log->metadata, true) : []);
+                $id = is_array($meta) ? ($meta['visit_location_id'] ?? null) : null;
                 return $id ? (int) $id : null;
             })
             ->filter()

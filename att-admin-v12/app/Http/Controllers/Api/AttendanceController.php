@@ -90,7 +90,8 @@ class AttendanceController extends Controller
                 ->whereDate('logged_at', $today)
                 ->get()
                 ->map(function ($log) {
-                    $id = $log->metadata['visit_location_id'] ?? null;
+                    $meta = is_array($log->metadata) ? $log->metadata : (is_string($log->metadata) ? json_decode($log->metadata, true) : []);
+                    $id = is_array($meta) ? ($meta['visit_location_id'] ?? null) : null;
                     return $id !== null ? (int) $id : null;
                 })
                 ->filter()
@@ -598,241 +599,294 @@ class AttendanceController extends Controller
 
     public function history(Request $request)
     {
-        $employee = $request->user();
+        try {
+            $employee = $request->user();
 
-        if (!$employee || !($employee instanceof Employee)) {
-            return response()->json([]);
-        }
+            if (!$employee || !($employee instanceof Employee)) {
+                return response()->json([
+                    'stats' => [
+                        'total_masuk' => 0,
+                        'plan' => 0,
+                        'actual' => 0,
+                        'ach' => 0,
+                        'unique_store' => 0,
+                        'no_out' => 0,
+                        'less_than_5_min' => 0
+                    ],
+                    'period' => ['start' => '', 'end' => ''],
+                    'data' => [],
+                    'logs_by_date' => (object)[],
+                    'today_logs' => []
+                ]);
+            }
 
-        $startDateStr = $request->query('start_date');
-        $endDateStr   = $request->query('end_date');
+            $startDateStr = $request->query('start_date');
+            $endDateStr   = $request->query('end_date');
 
-        $tz = new \DateTimeZone('Asia/Jakarta');
-
-        if ($startDateStr && $endDateStr) {
-            $startDate = Carbon::parse($startDateStr, 'Asia/Jakarta')->startOfDay();
-            $endDate   = Carbon::parse($endDateStr, 'Asia/Jakarta')->endOfDay();
-        } else {
-            $cutoff = $employee->department->cutoff_start_date ?? 26;
-            $now = Carbon::now('Asia/Jakarta');
-            
-            if ($cutoff == 1) {
-                $startDate = $now->copy()->startOfMonth();
-                $endDate = $now->copy()->endOfMonth();
+            if ($startDateStr && $endDateStr) {
+                $startDate = Carbon::parse($startDateStr, 'Asia/Jakarta')->startOfDay();
+                $endDate   = Carbon::parse($endDateStr, 'Asia/Jakarta')->endOfDay();
             } else {
-                if ($now->day >= $cutoff) {
-                    $startDate = $now->copy()->setDay($cutoff)->startOfDay();
-                    $endDate   = $now->copy()->addMonth()->setDay($cutoff - 1)->endOfDay();
+                $cutoff = ($employee->department && isset($employee->department->cutoff_start_date)) ? (int)$employee->department->cutoff_start_date : 26;
+                $now = Carbon::now('Asia/Jakarta');
+                
+                if ($cutoff == 1) {
+                    $startDate = $now->copy()->startOfMonth();
+                    $endDate   = $now->copy()->endOfMonth();
                 } else {
-                    $startDate = $now->copy()->subMonth()->setDay($cutoff)->startOfDay();
-                    $endDate   = $now->copy()->setDay($cutoff - 1)->endOfDay();
+                    if ($now->day >= $cutoff) {
+                        $startDate = $now->copy()->setDay($cutoff)->startOfDay();
+                        $endDate   = $now->copy()->addMonth()->setDay($cutoff - 1)->endOfDay();
+                    } else {
+                        $startDate = $now->copy()->subMonth()->setDay($cutoff)->startOfDay();
+                        $endDate   = $now->copy()->setDay($cutoff - 1)->endOfDay();
+                    }
                 }
             }
-        }
 
-        $plan = 0;
-        $currentDate = $startDate->copy();
-        while ($currentDate <= $endDate) {
-            if ($currentDate->isWeekday()) {
-                $plan++;
-            }
-            $currentDate->addDay();
-        }
-
-        $attendances = Attendance::where('employee_id', $employee->id)
-            ->whereBetween('attendance_date', [
-                $startDate->toDateString(),
-                $endDate->toDateString(),
-            ])
-            ->orderBy('attendance_date', 'desc')
-            ->get();
-
-        $actual = $attendances->count();
-        $ach = $plan > 0 ? round(($actual / $plan) * 100, 2) : 0;
-
-        $noOut = 0;
-        foreach ($attendances as $att) {
-            if (!$att->checkout_at) {
-                $noOut++;
-            }
-        }
-
-        $logs = AttendanceLog::where('employee_id', $employee->id)
-            ->whereBetween('logged_at', [$startDate, $endDate])
-            ->orderBy('logged_at', 'asc')
-            ->get();
-
-        // Preload work locations for checkin/checkout
-        $allWorkLocations = WorkLocation::all()->keyBy('id');
-
-        $uniqueStores = [];
-        $lessThan5Min = 0;
-
-        $visitSessions = [];
-        $formattedLogs = [];
-
-        foreach ($logs as $log) {
-            // Group by local date (Asia/Jakarta)
-            $date = Carbon::parse($log->logged_at)->timezone('Asia/Jakarta')->toDateString();
-            $meta = $log->metadata ?: [];
-            $location = null;
-
-            if (!empty($meta['is_scheduled_location']) && !empty($meta['scheduled_location_name'])) {
-                $location = [
-                    'name' => $meta['scheduled_location_name'] . ' (Lokasi Terjadwal)',
-                    'address' => ($meta['scheduled_type'] ?? '') === 'meeting' ? 'Jadwal Meeting' : 'Jadwal Visit',
-                ];
-            } elseif (isset($meta['visit_location_id'])) {
-                $location = $allWorkLocations->get($meta['visit_location_id']);
-                $uniqueStores[$meta['visit_location_id']] = true;
-            } elseif (in_array($log->log_type, ['meet_in', 'meet_out'])) {
-                $location = [
-                    'name' => ($meta['meeting_title'] ?? 'Meeting') . ' (' . ($meta['meeting_type'] ?? 'Meeting') . ')',
-                    'address' => $meta['location_name'] ?? ($meta['meeting_type'] === 'online' ? 'Online Meeting' : '-'),
-                ];
+            $plan = 0;
+            $currentDate = $startDate->copy();
+            while ($currentDate <= $endDate) {
+                if ($currentDate->isWeekday()) {
+                    $plan++;
+                }
+                $currentDate->addDay();
             }
 
-            // For checkin/checkout, find location from schedule's work_location
-            if (in_array($log->log_type, ['checkin', 'checkout']) && $location === null) {
-                $attendance = \App\Models\Attendance::with('employeeSchedule.workLocation.company')
-                    ->find($log->attendance_id);
-                if ($attendance && $attendance->employeeSchedule && $attendance->employeeSchedule->workLocation) {
-                    $location = $attendance->employeeSchedule->workLocation;
-                } else {
-                    // Fallback to searching schedule by date
-                    $schedule = \App\Models\EmployeeSchedule::with('workLocation.company')
-                        ->where('employee_id', $employee->id)
-                        ->where('schedule_date', $date)
-                        ->first();
-                    if ($schedule && $schedule->workLocation) {
-                        $location = $schedule->workLocation;
-                        // Also update attendance record to fix missing ID
-                        if ($attendance && !$attendance->employee_schedule_id) {
-                            $attendance->update(['employee_schedule_id' => $schedule->id]);
+            $attendances = Attendance::where('employee_id', $employee->id)
+                ->whereBetween('attendance_date', [
+                    $startDate->toDateString(),
+                    $endDate->toDateString(),
+                ])
+                ->orderBy('attendance_date', 'desc')
+                ->get();
+
+            $actual = $attendances->count();
+            $ach = $plan > 0 ? round(($actual / $plan) * 100, 2) : 0;
+
+            $noOut = 0;
+            foreach ($attendances as $att) {
+                if (!$att->checkout_at) {
+                    $noOut++;
+                }
+            }
+
+            $logs = AttendanceLog::where('employee_id', $employee->id)
+                ->where(function ($q) use ($startDate, $endDate) {
+                    $q->whereBetween('logged_at', [$startDate, $endDate])
+                      ->orWhereBetween('logged_at', [$startDate->toDateTimeString(), $endDate->toDateTimeString()]);
+                })
+                ->orderBy('logged_at', 'asc')
+                ->get();
+
+            // Preload work locations for checkin/checkout
+            $allWorkLocations = WorkLocation::all()->keyBy('id');
+
+            $uniqueStores = [];
+            $lessThan5Min = 0;
+
+            $visitSessions = [];
+            $formattedLogs = [];
+
+            foreach ($logs as $log) {
+                // Group by local date (Asia/Jakarta)
+                $date = Carbon::parse($log->logged_at)->timezone('Asia/Jakarta')->toDateString();
+                $meta = is_array($log->metadata) ? $log->metadata : (is_string($log->metadata) ? json_decode($log->metadata, true) : []);
+                if (!is_array($meta)) {
+                    $meta = [];
+                }
+                $location = null;
+
+                if (!empty($meta['is_scheduled_location']) && !empty($meta['scheduled_location_name'])) {
+                    $location = [
+                        'name' => $meta['scheduled_location_name'] . ' (Lokasi Terjadwal)',
+                        'address' => ($meta['scheduled_type'] ?? '') === 'meeting' ? 'Jadwal Meeting' : 'Jadwal Visit',
+                    ];
+                } elseif (isset($meta['visit_location_id'])) {
+                    $loc = $allWorkLocations->get($meta['visit_location_id']);
+                    $location = $loc ? $loc->toArray() : null;
+                    $uniqueStores[$meta['visit_location_id']] = true;
+                } elseif (in_array($log->log_type, ['meet_in', 'meet_out'])) {
+                    $location = [
+                        'name' => ($meta['meeting_title'] ?? 'Meeting') . ' (' . ucfirst($meta['meeting_type'] ?? 'Meeting') . ')',
+                        'address' => $meta['location_name'] ?? (($meta['meeting_type'] ?? '') === 'online' ? 'Online Meeting' : '-'),
+                    ];
+                }
+
+                // For checkin/checkout, find location from schedule's work_location
+                if (in_array($log->log_type, ['checkin', 'checkout']) && $location === null) {
+                    $attRecord = \App\Models\Attendance::with('employeeSchedule.workLocation.company')
+                        ->find($log->attendance_id);
+                    if ($attRecord && $attRecord->employeeSchedule && $attRecord->employeeSchedule->workLocation) {
+                        $location = $attRecord->employeeSchedule->workLocation->toArray();
+                    } else {
+                        // Fallback to searching schedule by date
+                        $schedule = \App\Models\EmployeeSchedule::with('workLocation.company')
+                            ->where('employee_id', $employee->id)
+                            ->where('schedule_date', $date)
+                            ->first();
+                        if ($schedule && $schedule->workLocation) {
+                            $location = $schedule->workLocation->toArray();
+                            if ($attRecord && !$attRecord->employee_schedule_id) {
+                                $attRecord->update(['employee_schedule_id' => $schedule->id]);
+                            }
+                        } else {
+                            $branch = \App\Models\Branch::find($employee->branch_id);
+                            $location = $branch ? $branch->toArray() : null;
+                        }
+                    }
+                }
+
+                if ($log->log_type === 'visit_in') {
+                    $visitSessions[$log->attendance_id] = [
+                        'in_log'   => $log,
+                        'in_time'  => Carbon::parse($log->logged_at),
+                        'location' => $location,
+                    ];
+                } elseif ($log->log_type === 'visit_out') {
+                    if (isset($visitSessions[$log->attendance_id])) {
+                        $inSession = $visitSessions[$log->attendance_id];
+                        $outTime   = Carbon::parse($log->logged_at);
+                        $duration  = $outTime->diffInMinutes($inSession['in_time']);
+
+                        if ($duration < 5) {
+                            $lessThan5Min++;
+                        }
+
+                        if (!$location) {
+                            $location = $inSession['location'];
+                        }
+
+                        unset($visitSessions[$log->attendance_id]);
+                    }
+                }
+
+                $logArray             = $log->toArray();
+                $logArray['location'] = $location;
+                // Build full photo URL
+                $logArray['photo_url'] = $log->photo_path
+                    ? url('storage/' . $log->photo_path)
+                    : null;
+
+                if (!isset($formattedLogs[$date])) {
+                    $formattedLogs[$date] = [];
+                }
+                $formattedLogs[$date][] = $logArray;
+            }
+
+            $uniqueStoreCount = count($uniqueStores);
+
+            // Use local Jakarta date for today's logs
+            $todayLocal = Carbon::now('Asia/Jakarta')->toDateString();
+            $todayStart = Carbon::createFromFormat('Y-m-d', $todayLocal, 'Asia/Jakarta')->startOfDay();
+            $todayEnd   = Carbon::createFromFormat('Y-m-d', $todayLocal, 'Asia/Jakarta')->endOfDay();
+
+            // Ambil schedule hari ini untuk mendapatkan work location checkin/checkout
+            $todaySchedule = \App\Models\EmployeeSchedule::where('employee_id', $employee->id)
+                ->where('schedule_date', $todayLocal)
+                ->with('workLocation')
+                ->first();
+            $scheduleWorkLocation = ($todaySchedule && $todaySchedule->workLocation) ? $todaySchedule->workLocation->toArray() : null;
+
+            $rawLogs = AttendanceLog::where('employee_id', $employee->id)
+                ->where(function ($q) use ($todayLocal, $todayStart, $todayEnd) {
+                    $q->whereDate('logged_at', $todayLocal)
+                      ->orWhereBetween('logged_at', [$todayStart, $todayEnd]);
+                })
+                ->orderBy('id', 'asc') // Sort asc to track active visit location sequentially
+                ->get();
+                
+            $activeVisitLocation = null;
+            
+            $todayLogs = $rawLogs->map(function ($log) use (&$activeVisitLocation, $scheduleWorkLocation) {
+                $logArray = $log->toArray();
+                $meta = is_array($log->metadata) ? $log->metadata : (is_string($log->metadata) ? json_decode($log->metadata, true) : []);
+                if (!is_array($meta)) {
+                    $meta = [];
+                }
+                
+                // Attach schedule work location for checkin/checkout
+                if (in_array($log->log_type, ['checkin', 'checkout'])) {
+                    if (!empty($meta['is_scheduled_location']) && !empty($meta['scheduled_location_name'])) {
+                        $logArray['visit_location'] = [
+                            'name' => $meta['scheduled_location_name'] . ' (Lokasi Terjadwal)',
+                            'address' => ($meta['scheduled_type'] ?? '') === 'meeting' ? 'Jadwal Meeting' : 'Jadwal Visit',
+                        ];
+                    } elseif ($scheduleWorkLocation) {
+                        $logArray['visit_location'] = $scheduleWorkLocation;
+                    }
+                }
+                
+                // If it's visit_in, update the active visit location
+                if ($log->log_type === 'visit_in') {
+                    if (isset($meta['visit_location_id'])) {
+                        $loc = \App\Models\WorkLocation::find($meta['visit_location_id']);
+                        if ($loc) {
+                            $activeVisitLocation = $loc->toArray();
                         }
                     } else {
-                        $location = \App\Models\Branch::find($employee->branch_id);
+                        $activeVisitLocation = null;
                     }
                 }
-            }
 
-            if ($log->log_type === 'visit_in') {
-                $visitSessions[$log->attendance_id] = [
-                    'in_log'   => $log,
-                    'in_time'  => Carbon::parse($log->logged_at),
-                    'location' => $location,
-                ];
-            } elseif ($log->log_type === 'visit_out') {
-                if (isset($visitSessions[$log->attendance_id])) {
-                    $inSession = $visitSessions[$log->attendance_id];
-                    $outTime   = Carbon::parse($log->logged_at);
-                    $duration  = $outTime->diffInMinutes($inSession['in_time']);
-
-                    if ($duration < 5) {
-                        $lessThan5Min++;
+                // Append active visit location to any visit activity (visit_in, visit_report, visit_out)
+                if (in_array($log->log_type, ['visit_in', 'visit_report', 'visit_out'])) {
+                    if ($activeVisitLocation) {
+                        $logArray['visit_location'] = $activeVisitLocation;
                     }
-
-                    if (!$location) {
-                        $location = $inSession['location'];
-                    }
-
-                    unset($visitSessions[$log->attendance_id]);
                 }
-            }
 
-            $logArray             = $log->toArray();
-            $logArray['location'] = $location;
-            // Build full photo URL
-            $logArray['photo_url'] = $log->photo_path
-                ? url('storage/' . $log->photo_path)
-                : null;
+                // Append meeting info for meet_in and meet_out
+                if (in_array($log->log_type, ['meet_in', 'meet_out'])) {
+                    $logArray['visit_location'] = [
+                        'name' => ($meta['meeting_title'] ?? 'Meeting') . ' (' . ucfirst($meta['meeting_type'] ?? 'Meeting') . ')',
+                        'address' => $meta['location_name'] ?? (($meta['meeting_type'] ?? '') === 'online' ? 'Online Meeting' : '-'),
+                    ];
+                }
 
-            if (!isset($formattedLogs[$date])) {
-                $formattedLogs[$date] = [];
-            }
-            $formattedLogs[$date][] = $logArray;
+                $logArray['photo_url'] = $log->photo_path ? url('storage/' . $log->photo_path) : null;
+                
+                return $logArray;
+            })->reverse()->values(); // Reverse back to desc
+
+            return response()->json([
+                'stats' => [
+                    'total_masuk' => $actual,
+                    'plan' => $plan,
+                    'actual' => $actual,
+                    'ach' => $ach,
+                    'unique_store' => $uniqueStoreCount,
+                    'no_out' => $noOut,
+                    'less_than_5_min' => $lessThan5Min
+                ],
+                'period' => [
+                    'start' => $startDate->toDateString(),
+                    'end' => $endDate->toDateString()
+                ],
+                'data' => $attendances,
+                'logs_by_date' => !empty($formattedLogs) ? $formattedLogs : (object)[],
+                'today_logs' => $todayLogs
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Attendance History Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal memuat riwayat kehadiran: ' . $e->getMessage(),
+                'stats' => [
+                    'total_masuk' => 0,
+                    'plan' => 0,
+                    'actual' => 0,
+                    'ach' => 0,
+                    'unique_store' => 0,
+                    'no_out' => 0,
+                    'less_than_5_min' => 0
+                ],
+                'period' => ['start' => '', 'end' => ''],
+                'data' => [],
+                'logs_by_date' => (object)[],
+                'today_logs' => []
+            ], 200);
         }
-
-        $uniqueStoreCount = count($uniqueStores);
-
-        // Use local Jakarta date for today's logs
-        $todayLocal = Carbon::now('Asia/Jakarta')->toDateString();
-        $todayStart = Carbon::createFromFormat('Y-m-d', $todayLocal, 'Asia/Jakarta')->startOfDay();
-        $todayEnd   = Carbon::createFromFormat('Y-m-d', $todayLocal, 'Asia/Jakarta')->endOfDay();
-
-        // Ambil schedule hari ini untuk mendapatkan work location checkin/checkout
-        $todaySchedule = \App\Models\EmployeeSchedule::where('employee_id', $employee->id)
-            ->where('schedule_date', $todayLocal)
-            ->with('workLocation')
-            ->first();
-        $scheduleWorkLocation = $todaySchedule?->workLocation ? $todaySchedule->workLocation->toArray() : null;
-
-        $rawLogs = AttendanceLog::where('employee_id', $employee->id)
-            ->whereBetween('logged_at', [$todayStart, $todayEnd])
-            ->orderBy('id', 'asc') // Sort asc to track active visit location sequentially
-            ->get();
-            
-        $activeVisitLocation = null;
-        
-        $todayLogs = $rawLogs->map(function ($log) use (&$activeVisitLocation, $scheduleWorkLocation) {
-            $logArray = $log->toArray();
-            
-            // Attach schedule work location for checkin/checkout
-            if (in_array($log->log_type, ['checkin', 'checkout'])) {
-                if ($scheduleWorkLocation) {
-                    $logArray['visit_location'] = $scheduleWorkLocation;
-                }
-            }
-            
-            // If it's visit_in, update the active visit location
-            if ($log->log_type === 'visit_in') {
-                if (isset($log->metadata['visit_location_id'])) {
-                    $loc = \App\Models\WorkLocation::find($log->metadata['visit_location_id']);
-                    if ($loc) {
-                        $activeVisitLocation = $loc->toArray();
-                    }
-                } else {
-                    $activeVisitLocation = null;
-                }
-            }
-
-            // Append active visit location to any visit activity (visit_in, visit_report, visit_out)
-            if (in_array($log->log_type, ['visit_in', 'visit_report', 'visit_out'])) {
-                if ($activeVisitLocation) {
-                    $logArray['visit_location'] = $activeVisitLocation;
-                }
-            }
-
-            // Append meeting info for meet_in and meet_out
-            if (in_array($log->log_type, ['meet_in', 'meet_out'])) {
-                $meta = $log->metadata ?: [];
-                $logArray['visit_location'] = [
-                    'name' => ($meta['meeting_title'] ?? 'Meeting') . ' (' . ucfirst($meta['meeting_type'] ?? 'meeting') . ')',
-                    'address' => $meta['location_name'] ?? ($meta['meeting_type'] === 'online' ? 'Online Meeting' : '-'),
-                ];
-            }
-            
-            return $logArray;
-        })->reverse()->values(); // Reverse back to desc
-
-        return response()->json([
-            'stats' => [
-                'total_masuk' => $actual,
-                'plan' => $plan,
-                'actual' => $actual,
-                'ach' => $ach,
-                'unique_store' => $uniqueStoreCount,
-                'no_out' => $noOut,
-                'less_than_5_min' => $lessThan5Min
-            ],
-            'period' => [
-                'start' => $startDate->toDateString(),
-                'end' => $endDate->toDateString()
-            ],
-            'data' => $attendances,
-            'logs_by_date' => $formattedLogs,
-            'today_logs' => $todayLogs
-        ]);
     }
 
     /**
