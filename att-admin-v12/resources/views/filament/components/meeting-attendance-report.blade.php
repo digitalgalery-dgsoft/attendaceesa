@@ -71,8 +71,8 @@
                     @endphp
                     <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-700/50">
                         <td class="px-4 py-3">
-                            <div class="font-semibold text-gray-900 dark:text-white">{{ $emp->full_name ?? ($emp->name ?? 'Karyawan') }}</div>
-                            <div class="text-xs text-gray-500 dark:text-gray-400">NIK: {{ $emp->employee_no ?? '-' }} · {{ $emp->position->name ?? ($emp->position ?? '-') }}</div>
+                            <div class="font-semibold text-gray-900 dark:text-white">{{ $emp?->full_name ?? ($emp?->name ?? 'Karyawan') }}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">NIK: {{ $emp?->employee_no ?? '-' }} · {{ is_object($emp?->position) ? $emp->position->name : ($emp?->position ?? '-') }}</div>
                         </td>
                         <td class="px-4 py-3">
                             @if ($att && $att->status === 'completed')

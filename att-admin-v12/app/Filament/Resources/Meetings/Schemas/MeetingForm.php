@@ -193,7 +193,7 @@ class MeetingForm
                             ->label('')
                             ->content(function ($record) {
                                 if (!$record) return '-';
-                                $record->load(['participants.employee.designation', 'attendances.employee']);
+                                $record->load(['participants.employee.position', 'attendances.employee']);
                                 return view('filament.components.meeting-attendance-report', ['meeting' => $record]);
                             })
                             ->columnSpanFull(),

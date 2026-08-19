@@ -370,7 +370,7 @@ class MeetingController extends Controller
         }
 
         $meeting = Meeting::with([
-            'participants.employee.designation',
+            'participants.employee.position',
             'participants.employee.department',
             'attendances.employee'
         ])->findOrFail($id);
@@ -402,10 +402,8 @@ class MeetingController extends Controller
 
             $empPosition = '-';
             if ($emp) {
-                if ($emp->designation) {
-                    $empPosition = $emp->designation->name;
-                } elseif ($emp->position) {
-                    $empPosition = $emp->position;
+                if ($emp->position) {
+                    $empPosition = is_object($emp->position) ? $emp->position->name : $emp->position;
                 }
             }
 
