@@ -85,7 +85,10 @@ class MeetingsTable
                     ]),
             ])
             ->recordActions([
-                ViewAction::make(),
+                ViewAction::make()
+                    ->label('Laporan Hasil Meeting')
+                    ->icon('heroicon-o-document-chart-bar')
+                    ->color('info'),
                 EditAction::make(),
             ])
             ->toolbarActions([

@@ -182,22 +182,6 @@ class MeetingForm
                             ->columnSpanFull()
                             ->helperText('Ketik nama atau No. KTP / NIK karyawan untuk mencari.'),
                     ]),
-
-                Section::make('Laporan Kehadiran Peserta Meeting')
-                    ->description('Data presensi, waktu in/out, notulensi, dan foto bukti kehadiran peserta')
-                    ->visible(fn ($record) => $record !== null)
-                    ->collapsible()
-                    ->collapsed(false)
-                    ->schema([
-                        Placeholder::make('attendance_report_view')
-                            ->label('')
-                            ->content(function ($record) {
-                                if (!$record) return '-';
-                                $record->load(['participants.employee.position', 'attendances.employee']);
-                                return view('filament.components.meeting-attendance-report', ['meeting' => $record]);
-                            })
-                            ->columnSpanFull(),
-                    ]),
             ]);
     }
 }
