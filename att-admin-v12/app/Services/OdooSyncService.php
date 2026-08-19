@@ -167,7 +167,7 @@ class OdooSyncService
     {
         $uid = $this->authenticate();
 
-        $domain = [['active', '=', true]];
+        $domain = [];
         if ($odooCompanyId) {
             $domain[] = ['company_id', '=', $odooCompanyId];
         }
@@ -175,7 +175,11 @@ class OdooSyncService
         $localCompany = Company::find($companyId);
         $created  = 0;
         $updated  = 0;
+        $resigned = 0;
         $errors   = [];
+        $newEmployees = [];
+        $updatedEmployees = [];
+        $resignedEmployees = [];
         $offset   = 0;
         $limit    = 500;
 
@@ -249,6 +253,7 @@ class OdooSyncService
 
                 // Resolve Position — auto-create if not found, assign principal_id
                 $positionId = null;
+                $posName = '';
                 if (!empty($rec['job_id']) && is_array($rec['job_id'])) {
                     $posName    = $rec['job_id'][1];
                     $position   = Position::firstOrCreate(
@@ -265,7 +270,8 @@ class OdooSyncService
                 }
 
                 // Map employment status
-                $employmentStatus = 'contract';
+                $isActiveInOdoo = isset($rec['active']) ? (bool) $rec['active'] : true;
+                $employmentStatus = $isActiveInOdoo ? 'contract' : 'resigned';
 
                 // Map gender
                 $gender = match ($rec['gender'] ?? '') {
@@ -297,10 +303,6 @@ class OdooSyncService
 
                 if ($existingEmployees->isNotEmpty()) {
                     // Pick the best primary record to keep & update
-                    // Preference:
-                    // 1. Record with matching odoo_id
-                    // 2. Record with non-empty photo or password (user-configured)
-                    // 3. First record
                     $primary = $existingEmployees->firstWhere('odoo_id', $rec['id'])
                         ?: ($existingEmployees->first(fn ($e) => !empty($e->photo) || !empty($e->password))
                         ?: $existingEmployees->first());
@@ -310,6 +312,8 @@ class OdooSyncService
                     if (!empty($duplicateIds)) {
                         $this->mergeDuplicates($primary, $duplicateIds);
                     }
+
+                    $wasActive = $primary->is_active;
 
                     $primary->update([
                         'odoo_id'           => $rec['id'],
@@ -326,10 +330,18 @@ class OdooSyncService
                         'phone'             => $rec['mobile_phone'] ?: $primary->phone,
                         'email'             => $rec['private_email'] ?: ($rec['work_email'] ?: $primary->email),
                         'employment_status' => $employmentStatus,
-                        'is_active'         => (bool) $rec['active'],
+                        'is_active'         => $isActiveInOdoo,
+                        'resign_date'       => !$isActiveInOdoo ? ($primary->resign_date ?: now()->toDateString()) : null,
                         'deleted_at'        => null,
                     ]);
-                    $updated++;
+
+                    if (!$isActiveInOdoo && $wasActive) {
+                        $resigned++;
+                        $resignedEmployees[] = ['name' => $rec['name'], 'nik' => $employeeNo];
+                    } else {
+                        $updated++;
+                        $updatedEmployees[] = ['name' => $rec['name'], 'nik' => $employeeNo, 'position' => $posName];
+                    }
                 } else {
                     Employee::create([
                         'odoo_id'           => $rec['id'],
@@ -346,9 +358,17 @@ class OdooSyncService
                         'phone'             => $rec['mobile_phone'] ?: null,
                         'email'             => $rec['private_email'] ?: ($rec['work_email'] ?: null),
                         'employment_status' => $employmentStatus,
-                        'is_active'         => (bool) $rec['active'],
+                        'is_active'         => $isActiveInOdoo,
+                        'resign_date'       => !$isActiveInOdoo ? now()->toDateString() : null,
                     ]);
-                    $created++;
+
+                    if ($isActiveInOdoo) {
+                        $created++;
+                        $newEmployees[] = ['name' => $rec['name'], 'nik' => $employeeNo, 'position' => $posName];
+                    } else {
+                        $resigned++;
+                        $resignedEmployees[] = ['name' => $rec['name'], 'nik' => $employeeNo];
+                    }
                 }
 
             } catch (\Exception $e) {
@@ -359,7 +379,133 @@ class OdooSyncService
             $offset += $limit;
         } while (count($records) == $limit);
 
-        return compact('created', 'updated', 'errors');
+        return compact(
+            'created',
+            'updated',
+            'resigned',
+            'errors',
+            'newEmployees',
+            'updatedEmployees',
+            'resignedEmployees'
+        );
+    }
+
+    /**
+     * Run full sync for all companies with valid Odoo configuration.
+     * Companies without configuration will be automatically skipped.
+     */
+    public static function syncAllConfiguredCompanies(string $triggerType = 'cron', ?string $batchId = null): array
+    {
+        $batchId = $batchId ?: ('SYNC-' . date('Ymd-His') . '-' . \Illuminate\Support\Str::random(6));
+
+        $companies = Company::where('is_active', true)
+            ->whereNotNull('odoo_url')
+            ->whereNotNull('odoo_db')
+            ->whereNotNull('odoo_username')
+            ->whereNotNull('odoo_api_key')
+            ->where('odoo_url', '!=', '')
+            ->where('odoo_db', '!=', '')
+            ->where('odoo_username', '!=', '')
+            ->where('odoo_api_key', '!=', '')
+            ->orderBy('id')
+            ->get();
+
+        $results = [
+            'batch_id' => $batchId,
+            'companies_count' => $companies->count(),
+            'companies' => [],
+            'total_created' => 0,
+            'total_updated' => 0,
+            'total_resigned' => 0,
+            'total_employees' => 0,
+            'errors' => [],
+        ];
+
+        foreach ($companies as $company) {
+            $companyResult = [
+                'company_id' => $company->id,
+                'company_name' => $company->name,
+                'company_code' => $company->code ?? strtoupper(substr($company->name, 0, 4)),
+                'created' => 0,
+                'updated' => 0,
+                'resigned' => 0,
+                'total_employees' => 0,
+                'status' => 'success',
+                'errors' => [],
+            ];
+
+            try {
+                $service = self::fromCompany($company);
+                if (!$service) {
+                    continue;
+                }
+
+                // 1. Sync Principals
+                $pResult = $service->syncPrincipals($company->id);
+
+                // 2. Sync Employees
+                $eResult = $service->syncEmployees($company->id);
+
+                $companyResult['created'] = $eResult['created'] ?? 0;
+                $companyResult['updated'] = $eResult['updated'] ?? 0;
+                $companyResult['resigned'] = $eResult['resigned'] ?? 0;
+                $companyResult['errors'] = array_merge($pResult['errors'] ?? [], $eResult['errors'] ?? []);
+
+                $totalActive = Employee::where('company_id', $company->id)->where('is_active', true)->count();
+                $companyResult['total_employees'] = $totalActive;
+
+                if (!empty($companyResult['errors'])) {
+                    $companyResult['status'] = 'partial';
+                }
+
+                // Save log to odoo_sync_logs table
+                \App\Models\OdooSyncLog::create([
+                    'batch_id' => $batchId,
+                    'company_id' => $company->id,
+                    'sync_type' => 'all',
+                    'trigger_type' => $triggerType,
+                    'status' => $companyResult['status'],
+                    'new_count' => $companyResult['created'],
+                    'update_count' => $companyResult['updated'],
+                    'resign_count' => $companyResult['resigned'],
+                    'total_employee_count' => $totalActive,
+                    'details' => [
+                        'principals' => $pResult,
+                        'new_employees' => $eResult['newEmployees'] ?? [],
+                        'updated_employees' => $eResult['updatedEmployees'] ?? [],
+                        'resigned_employees' => $eResult['resignedEmployees'] ?? [],
+                        'errors' => $companyResult['errors'],
+                    ],
+                ]);
+
+                $results['total_created'] += $companyResult['created'];
+                $results['total_updated'] += $companyResult['updated'];
+                $results['total_resigned'] += $companyResult['resigned'];
+                $results['total_employees'] += $totalActive;
+
+            } catch (\Exception $e) {
+                $companyResult['status'] = 'failed';
+                $companyResult['errors'][] = $e->getMessage();
+                $results['errors'][] = "Company [{$company->name}]: " . $e->getMessage();
+
+                \App\Models\OdooSyncLog::create([
+                    'batch_id' => $batchId,
+                    'company_id' => $company->id,
+                    'sync_type' => 'all',
+                    'trigger_type' => $triggerType,
+                    'status' => 'failed',
+                    'new_count' => 0,
+                    'update_count' => 0,
+                    'resign_count' => 0,
+                    'total_employee_count' => Employee::where('company_id', $company->id)->where('is_active', true)->count(),
+                    'error_message' => $e->getMessage(),
+                ]);
+            }
+
+            $results['companies'][$company->id] = $companyResult;
+        }
+
+        return $results;
     }
 
     /**

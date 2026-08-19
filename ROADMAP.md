@@ -143,5 +143,11 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - Menambahkan fitur **Auto-Merge Duplikat & Tombol Pembersih NIK Duplikat** pada halaman Odoo Sync untuk otomatis mendeteksi, menggabungkan riwayat, dan membersihkan baris ganda di tabel database.
   - **Dashboard & Tabel**: Memperbaiki label *Dashboard* dan kolom tabel Employee agar menggunakan relasi nama Principal alih-alih Company. Mengubah desain halaman *Odoo Sync* menggunakan komponen Filament bawaan.
   - **Lembur (Overtime)**: Memperbaiki sistem zona waktu (*timezone*) pada validasi Lembur dan menerapkan *bypass backend* sementara untuk menginvestigasi *hardcoded restriction* di aplikasi *mobile*.
-  - **Rencana Mendatang (Automated Odoo Sync)**: Telah merancang arsitektur implementasi *Task Scheduler* dan injeksi filter `write_date >= odoo_last_sync_at` untuk sinkronisasi Odoo otomatis & inkremental di *background*.
+  - **Odoo Sync (Automasi Cron & Halaman Laporan Sync - SELESAI 19 Agustus 2026)**:
+    - [x] Implementasi Artisan Command `php artisan odoo:sync` dengan auto-loop seluruh active company yang terisi konfigurasi Odoo (skip otomatis untuk company kosong).
+    - [x] Pendaftaran Schedule Task harian otomatis di `routes/console.php` (setiap 02:00 AM).
+    - [x] Tabel database `odoo_sync_logs` & model `OdooSyncLog` untuk mencatat metrik per batch: `new_count`, `update_count`, `resign_count`, `total_employee_count`, durasi, serta snapshot detail nama karyawan.
+    - [x] Pembuatan Filament Page & View **Laporan Sinkronisasi Odoo** (`/admin/odoo-sync-report`) dengan 4 kolom utama: **Data Employee New**, **Data Employee Update**, **Data Employee Resign**, dan **Total Employee per Company** sesuai mockup.
+    - [x] Tabel Riwayat Sinkronisasi (Sync History) dengan modal detail individual per batch.
+
 

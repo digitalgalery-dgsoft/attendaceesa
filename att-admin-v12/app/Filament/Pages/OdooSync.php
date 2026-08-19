@@ -103,6 +103,11 @@ class OdooSync extends Page
                             ->send();
                     }
                 }),
+            Action::make('view_report')
+                ->label('Buka Laporan Sync')
+                ->icon('heroicon-o-document-chart-bar')
+                ->color('info')
+                ->url(fn () => route('filament.admin.pages.odoo-sync-report')),
         ];
     }
 
@@ -148,10 +153,27 @@ class OdooSync extends Page
             }
             
             $result = $service->syncEmployees($this->selectedCompanyId);
-            $body   = "✅ Baru: {$result['created']} | 🔄 Diperbarui: {$result['updated']}";
+            $body   = "✅ Baru: {$result['created']} | 🔄 Diperbarui: {$result['updated']} | 🚪 Resign: " . ($result['resigned'] ?? 0);
             if (!empty($result['errors'])) {
                 $body .= "\n⚠️ Error: " . implode('; ', array_slice($result['errors'], 0, 3));
             }
+
+            // Save log
+            $batchId = 'SYNC-' . date('Ymd-His') . '-' . \Illuminate\Support\Str::random(6);
+            $totalActive = \App\Models\Employee::where('company_id', $this->selectedCompanyId)->where('is_active', true)->count();
+            \App\Models\OdooSyncLog::create([
+                'batch_id' => $batchId,
+                'company_id' => $this->selectedCompanyId,
+                'sync_type' => 'employee',
+                'trigger_type' => 'manual',
+                'status' => empty($result['errors']) ? 'success' : 'partial',
+                'new_count' => $result['created'],
+                'update_count' => $result['updated'],
+                'resign_count' => $result['resigned'] ?? 0,
+                'total_employee_count' => $totalActive,
+                'details' => $result,
+            ]);
+
             Notification::make()
                 ->title('Sync Employee Selesai')
                 ->body($body)
@@ -179,10 +201,29 @@ class OdooSync extends Page
 
             $allErrors = array_merge($p['errors'] ?? [], $e['errors'] ?? []);
             $body = "📦 Principal — Baru: {$p['created']}, Update: {$p['updated']}\n"
-                  . "👤 Employee — Baru: {$e['created']}, Update: {$e['updated']}";
+                  . "👤 Employee — Baru: {$e['created']}, Update: {$e['updated']}, Resign: " . ($e['resigned'] ?? 0);
             if ($allErrors) {
                 $body .= "\n⚠️ " . count($allErrors) . " error(s)";
             }
+
+            // Save log
+            $batchId = 'SYNC-' . date('Ymd-His') . '-' . \Illuminate\Support\Str::random(6);
+            $totalActive = \App\Models\Employee::where('company_id', $this->selectedCompanyId)->where('is_active', true)->count();
+            \App\Models\OdooSyncLog::create([
+                'batch_id' => $batchId,
+                'company_id' => $this->selectedCompanyId,
+                'sync_type' => 'all',
+                'trigger_type' => 'manual',
+                'status' => empty($allErrors) ? 'success' : 'partial',
+                'new_count' => $e['created'],
+                'update_count' => $e['updated'],
+                'resign_count' => $e['resigned'] ?? 0,
+                'total_employee_count' => $totalActive,
+                'details' => [
+                    'principals' => $p,
+                    'employees' => $e,
+                ],
+            ]);
 
             Notification::make()
                 ->title('Sync All Selesai')
