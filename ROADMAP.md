@@ -133,7 +133,6 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Integrasi FCM pada aplikasi mobile (Flutter) untuk menerima notifikasi.
    - Penyesuaian backend (Laravel) untuk mengirim push notification (blast, alert absensi, approval).
 
----
 - **✅ Penyempurnaan Integrasi Odoo & Bug Fix (18 - 19 Agustus 2026):**
   - **Bug Fix**: Memperbaiki isu kehabisan memori (*Memory Exhausted*) pada form Edit Employee di web Admin dengan menerapkan *searchable()* pada seluruh field Dropdown (Select) berelasi besar.
   - **Odoo Sync (Paginasi)**: Menambahkan logika paginasi (*do-while loop*) 500 data/siklus pada `OdooSyncService` untuk sanggup menarik lebih dari 1000 data (menghindari limitasi *request* XML-RPC).
@@ -150,10 +149,13 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - [x] Pembuatan Filament Page & View **Laporan Sinkronisasi Odoo** (`/admin/odoo-sync-report`) dengan 4 kolom utama: **Data Employee New**, **Data Employee Update**, **Data Employee Resign**, dan **Total Employee per Company** sesuai mockup.
     - [x] Tabel Riwayat Sinkronisasi (Sync History) dengan modal detail individual per batch.
     - [x] Endpoint Web Cron `/cron/odoo-sync` untuk kemudahan automasi via URL-task aaPanel / cPanel.
+  - **Odoo Sync (Dirty Checking & Default Password 123456 - SELESAI 19 Agustus 2026)**:
+    - [x] Implementasi *Dirty Checking* (`$primary->getDirty()`) pada `OdooSyncService` agar kategori **Data Employee Update** hanya menghitung karyawan yang benar-benar mengalami perubahan data riil (promosi, mutasi cabang/area, ganti nomor kontak, dll.), mencegah penggelembungan angka update ke seluruh populasi karyawan.
+    - [x] Penetapan password default **`123456`** (`Hash::make('123456')`) untuk seluruh akun karyawan baru maupun karyawan lama yang belum memiliki password saat disinkronkan dari Odoo.
 
 ---
 
-## ✅ Tahap 6: Fitur Absensi & Laporan Meeting (SELESAI 19 Agustus 2026)
+## ✅ Tahap 6: Fitur Absensi & Laporan Meeting (SELESAI 19 Agustus 2026, APK v1.0.89 - v1.0.91)
 *Tahap ini menyediakan fitur penjadwalan meeting, presensi Meet-In/Meet-Out, dan pelaporan hasil rapat.*
 1. **Database & Backend Models**:
    - Membuat tabel `meetings`, `meeting_participants`, dan `meeting_attendances`.
@@ -161,7 +163,7 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 2. **Web Admin (Filament Resource `MeetingResource`)**:
    - Penjadwalan meeting lengkap: Judul, Tanggal, Jam Mulai/Selesai, Jenis (Online/Offline), Link / Lokasi & Radius Lock.
    - Filter peserta dinamis: Dropdown pembantu filter by **Principal** dan **Area/Branch**.
-   - Multi-select peserta dengan pencarian cepat berdasarkan **Nama Karyawan** atau **No. KTP / NIK**.
+   - Multi-select peserta dengan pencarian cepat *case-insensitive* berdasarkan **Nama Karyawan** atau **No. KTP / NIK**.
 3. **Backend API (`MeetingController`)**:
    - `GET /api/meetings/today`: Mengambil daftar meeting karyawan hari ini beserta status kehadiran.
    - `POST /api/meetings/meet-in`: Validasi radius untuk meeting offline (bypass radius untuk online), pencatatan koordinat & foto, dan update log aktivitas.
@@ -170,13 +172,45 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Integrasi otomatis aktivitas `meet_in` dan `meet_out` ke *Aktivitas Hari Ini* dan *History*.
 4. **Mobile App (Flutter `att-mobile`)**:
    - Card **Jadwal Meeting Hari Ini** di Dashboard dengan informasi waktu, lokasi/link, status, dan tombol **Meet-In**.
-   - **Halaman Laporan Meeting Terkunci (`MeetingReportScreen`)**:
-     - Header informasi meeting & tombol buka Link Meeting (jika Online).
-     - **Live Duration Timer** berjalan real-time sejak Meet-In.
-     - Form Catatan / Notulensi Rapat & Pengambilan Foto Bukti Meeting (Kamera).
-     - Tombol **Meet-Out & Kirim Laporan** dengan konfirmasi dialog.
-     - Proteksi layar terkunci (*locked screen / PopScope false*) selama meeting berlangsung.
-   - Tampilan aktivitas `meet_in` dan `meet_out` di timeline **Log Aktivitas Hari Ini** dan detail **History**.
+   - **(v1.0.90)** Proses Meet-In diselaraskan penuh dengan Check-In / Visit-In: Menampilkan Peta (Maps), Geofence visual, Radius GPS, dan Wajib Foto Selfie Kamera.
+   - **(v1.0.91)** Validasi jadwal meeting yang telah lewat jamnya otomatis disembunyikan/tidak dapat di-Meet-In lagi.
+   - **(v1.0.91)** Proteksi akses: Menyembunyikan tombol "Lihat Laporan Hasil Meeting" dan halaman hasil meeting dari aplikasi karyawan.
+   - **(v1.0.91)** Integrasi log aktivitas `meet_in` dan `meet_out` ke timeline **Detail Aktivitas** di Halaman History.
 
+---
 
+## ✅ Tahap 7: Check-In Lokasi Terjadwal & Perbaikan Form Admin (SELESAI 19 Agustus 2026, APK v1.0.92)
+1. **Check-In Lokasi Terjadwal (Mobile)**:
+   - Mengganti tab "Lokasi Sekitar" pada halaman Check-In menjadi **"Lokasi Terjadwal"**.
+   - Menampilkan daftar lokasi dinamis berdasarkan jadwal visit atau jadwal meeting karyawan pada hari tersebut (di luar lokasi check-in utama).
+   - Validasi wajib mengisi **Catatan** ketika karyawan melakukan check-in menggunakan Lokasi Terjadwal.
+   - Render dinamis polygon / lingkaran geofence sesuai koordinat lokasi terjadwal yang dipilih.
+2. **Penyelarasan Form Employee (Web Admin)**:
+   - Menyelaraskan field Company pada form detail/edit employee agar menampilkan nama Principal yang sama persis dengan tabel data karyawan.
+   - Otomatisasi sinkronisasi `company_id` dari `principal_id` pada Create & Edit Employee.
+   - Memperbaiki query relasi Department pada form karyawan.
+3. **Pencarian Peserta Meeting**:
+   - Mengubah query pencarian peserta rapat di Admin Filament menjadi *case-insensitive* untuk fleksibilitas pencarian nama karyawan.
 
+---
+
+## ✅ Tahap 8: Monitoring Tim Belum Check-In & Stabilisasi History (SELESAI 19 Agustus 2026, APK v1.0.93)
+1. **Stabilisasi Endpoint Riwayat Absensi (`/api/attendance/history`)**:
+   - Memperbaiki error handling dan parsing metadata JSON pada log aktivitas meeting & presensi.
+   - Mencegah error 500 jika terjadi kegagalan pembacaan tanggal cutoff departemen atau null relationship.
+   - Memastikan Dashboard dan Halaman Riwayat di aplikasi mobile selalu menampilkan data jam check-in/out dan timeline aktivitas dengan stabil.
+2. **Perubahan Judul Card Dashboard ("Tim Belum Check-In")**:
+   - Mengubah label card grid pada widget Team Overview dari `Vacant (Kosong)` menjadi **`Tim Belum Check-In`**.
+3. **Halaman Khusus Monitoring Tim Belum Check-In (`TeamUncheckedScreen`)**:
+   - Menampilkan daftar anggota tim yang tidak melakukan check-in dalam 7 hari terakhir secara lengkap:
+     - Nama Lengkap & NIK
+     - Jabatan
+     - Prinsiple
+     - Area / Cabang
+     - Tanggal & Status Terakhir Check-In
+     - Rincian chip tanggal tidak hadir dalam 7 hari terakhir
+   - Dilengkapi fitur **Pencarian Real-Time** dan **Filter Cepat** (*Semua*, *Belum Check-In Hari Ini*, *≥ 3 Hari Tidak Hadir*, *Belum Pernah Hadir*).
+4. **Backend API**:
+   - Menambahkan endpoint `GET /api/dashboard/team-unchecked` dengan eager loading relasi lengkap dan agregasi presensi 7 hari terakhir.
+5. **Rilis APK Versi 1.0.93**:
+   - Sukses build APK release `app-release-1.0.93.apk`.
