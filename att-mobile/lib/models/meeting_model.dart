@@ -68,6 +68,7 @@ class MeetingParticipantModel {
   final String? employeeNo;
   final String? position;
   final String? department;
+  final String? principal;
   final String? avatar;
   final String status; // 'completed', 'in_meeting', 'not_attended'
   final String? meetInAt;
@@ -90,6 +91,7 @@ class MeetingParticipantModel {
     this.employeeNo,
     this.position,
     this.department,
+    this.principal,
     this.avatar,
     required this.status,
     this.meetInAt,
@@ -118,6 +120,7 @@ class MeetingParticipantModel {
       employeeNo: json['employee_no'],
       position: json['position'],
       department: json['department'],
+      principal: json['principal'],
       avatar: json['avatar'],
       status: json['status'] ?? 'not_attended',
       meetInAt: json['meet_in_at'],

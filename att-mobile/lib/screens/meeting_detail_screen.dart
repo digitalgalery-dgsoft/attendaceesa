@@ -599,6 +599,13 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                       '${p.employeeNo ?? '-'} · ${p.position ?? '-'}',
                       style: TextStyle(fontSize: 11, color: subtitleColor),
                     ),
+                    if (p.principal != null && p.principal!.isNotEmpty && p.principal != '-') ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Principal: ${p.principal}',
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: primaryColor),
+                      ),
+                    ],
                   ],
                 ),
               ),

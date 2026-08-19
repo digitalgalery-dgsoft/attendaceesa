@@ -372,6 +372,7 @@ class MeetingController extends Controller
         $meeting = Meeting::with([
             'participants.employee.position',
             'participants.employee.department',
+            'participants.employee.principal',
             'attendances.employee'
         ])->findOrFail($id);
 
@@ -408,6 +409,7 @@ class MeetingController extends Controller
             }
 
             $empDepartment = ($emp && $emp->department) ? $emp->department->name : '-';
+            $empPrincipal = ($emp && $emp->principal) ? $emp->principal->name : ($emp ? ($emp->principal_name ?? '-') : '-');
 
             return [
                 'employee_id' => $part->employee_id,
@@ -415,6 +417,7 @@ class MeetingController extends Controller
                 'employee_no' => $emp ? ($emp->employee_no ?? $emp->nik) : null,
                 'position' => $empPosition,
                 'department' => $empDepartment,
+                'principal' => $empPrincipal,
                 'avatar' => ($emp && $emp->photo) ? asset('storage/' . $emp->photo) : null,
                 'status' => $status,
                 'meet_in_at' => ($att && $att->meet_in_at) ? $att->meet_in_at->format('H:i:s') : null,

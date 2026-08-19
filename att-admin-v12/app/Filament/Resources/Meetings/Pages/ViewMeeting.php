@@ -30,6 +30,7 @@ class ViewMeeting extends Page
             'creator',
             'participants.employee.position',
             'participants.employee.department',
+            'participants.employee.principal',
             'attendances.employee'
         ]);
     }

@@ -280,9 +280,13 @@
                                 <div style="font-size: 11px; color: #6b7280; margin-top: 1px;" class="dark:!text-gray-400">
                                     NIK: {{ $emp?->employee_no ?? '-' }} · {{ is_object($emp?->position) ? $emp->position->name : ($emp?->position ?? '-') }}
                                 </div>
-                                @if ($emp?->department)
-                                    <div style="font-size: 10px; color: #9ca3af;">
-                                        Divisi: {{ $emp->department->name }}
+                                @if ($emp?->principal)
+                                    <div style="font-size: 11px; color: #2563eb; font-weight: 600; margin-top: 2px;">
+                                        Principal: {{ $emp->principal->name }}
+                                    </div>
+                                @elseif ($emp?->principal_name)
+                                    <div style="font-size: 11px; color: #2563eb; font-weight: 600; margin-top: 2px;">
+                                        Principal: {{ $emp->principal_name }}
                                     </div>
                                 @endif
                             </td>
