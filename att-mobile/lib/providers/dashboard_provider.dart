@@ -34,6 +34,8 @@ class DashboardProvider with ChangeNotifier {
   int _teamTargetMandays = 0;
   int _teamRunningRate = 0;
   List<dynamic> _vacantDetails = [];
+  List<dynamic> _teamUncheckedList = [];
+  bool _isLoadingUnchecked = false;
 
   int get totalTeam => _totalTeam;
   int get hadirHariIni => _hadirHariIni;
@@ -41,6 +43,8 @@ class DashboardProvider with ChangeNotifier {
   int get cutiHariIni => _cutiHariIni;
   int get vacant => _vacant;
   List<dynamic> get vacantDetails => _vacantDetails;
+  List<dynamic> get teamUncheckedList => _teamUncheckedList;
+  bool get isLoadingUnchecked => _isLoadingUnchecked;
   int get teamTargetMandays => _teamTargetMandays;
   int get teamRunningRate => _teamRunningRate;
 
@@ -114,5 +118,43 @@ class DashboardProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Error fetching team stats: $e');
     }
+  }
+
+  Future<void> fetchTeamUncheckedList() async {
+    _isLoadingUnchecked = true;
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      if (token == null) {
+        _isLoadingUnchecked = false;
+        notifyListeners();
+        return;
+      }
+
+      final response = await http.get(
+        Uri.parse('${Constants.baseUrl}/dashboard/team-unchecked'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final res = json.decode(response.body);
+        _teamUncheckedList = res['data'] ?? [];
+      } else {
+        // Fallback to vacantDetails if team-unchecked route returns non-200
+        _teamUncheckedList = _vacantDetails;
+      }
+    } catch (e) {
+      debugPrint('Error fetching team unchecked list: $e');
+      _teamUncheckedList = _vacantDetails;
+    }
+
+    _isLoadingUnchecked = false;
+    notifyListeners();
   }
 }
