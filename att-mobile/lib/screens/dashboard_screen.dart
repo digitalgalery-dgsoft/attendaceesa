@@ -25,6 +25,12 @@ import 'package:att_mobile/screens/payslip_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:att_mobile/screens/chat_screen.dart';
 import 'package:att_mobile/providers/chat_provider.dart';
+import 'package:att_mobile/models/meeting_model.dart';
+import 'package:att_mobile/screens/meeting_report_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:toastification/toastification.dart';
+
 
 class DashboardScreen extends StatefulWidget {
   final Function(int)? switchTab;
@@ -689,6 +695,38 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 const SizedBox(height: 15),
                 ],
 
+                // ─── Jadwal Meeting Hari Ini ──────────────────────────────────
+                if (attProvider.todayMeetings.isNotEmpty) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.video_camera_front, size: 15, color: primaryColor),
+                          const SizedBox(width: 6),
+                          Text('Jadwal Meeting Hari Ini', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${attProvider.todayMeetings.length} Meeting',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: primaryColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ...attProvider.todayMeetings.map((meeting) {
+                    return _buildMeetingCard(context, meeting, attProvider, primaryColor, cardColor, textColor, subtitleColor);
+                  }).toList(),
+                  const SizedBox(height: 14),
+                ],
+
                 // Log Aktivitas
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -722,6 +760,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                        if (typeStr == 'checkout') title = 'Check-out Kantor';
                        if (typeStr == 'visit_in') title = 'Visit-in — $locationName';
                        if (typeStr == 'visit_out') title = 'Visit-out — $locationName';
+                       if (typeStr == 'meet_in') title = 'Meet-In — $locationName';
+                       if (typeStr == 'meet_out') title = 'Meet-Out / Selesai — $locationName';
 
                        return Container(
                          padding: const EdgeInsets.symmetric(vertical: 7),
@@ -751,6 +791,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                        );
                      },
                    ),
+
 
                 const SizedBox(height: 20),
                 if (_appVersion.isNotEmpty)
@@ -933,8 +974,272 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         return const Color(0xFF0FA8C4);
       case 'visit_out':
         return const Color(0xFFD98A2B);
+      case 'meet_in':
+        return const Color(0xFF10B981);
+      case 'meet_out':
+        return const Color(0xFF8B5CF6);
       default:
         return Colors.blue;
     }
   }
+
+  Widget _buildMeetingCard(
+    BuildContext context,
+    MeetingModel meeting,
+    AttendanceProvider attProvider,
+    Color primaryColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+  ) {
+    final bool isOnline = meeting.isOnline;
+    final bool isInMeeting = meeting.isInMeeting;
+    final bool isCompleted = meeting.isCompleted;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isInMeeting
+              ? Colors.orange
+              : isCompleted
+                  ? Colors.green.shade300
+                  : Colors.grey.shade300,
+          width: isInMeeting ? 1.5 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isOnline ? Colors.blue.withOpacity(0.12) : Colors.green.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isOnline ? Icons.videocam : Icons.location_on,
+                      size: 12,
+                      color: isOnline ? Colors.blue : Colors.green,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isOnline ? 'Online' : 'Offline',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: isOnline ? Colors.blue : Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isInMeeting)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.radio_button_checked, size: 10, color: Colors.orange),
+                      SizedBox(width: 4),
+                      Text('Sedang Berlangsung', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),
+                    ],
+                  ),
+                )
+              else if (isCompleted)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.check_circle, size: 10, color: Colors.green),
+                      SizedBox(width: 4),
+                      Text('Selesai (Hadir)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(meeting.title, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor)),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.access_time, size: 12, color: subtitleColor),
+              const SizedBox(width: 4),
+              Text(
+                '${meeting.startTime} ${meeting.endTime != null ? '- ${meeting.endTime}' : ''}',
+                style: TextStyle(fontSize: 11, color: subtitleColor, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 12),
+              Icon(isOnline ? Icons.link : Icons.place, size: 12, color: subtitleColor),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  isOnline ? (meeting.meetingLink ?? 'Link Online') : (meeting.locationName ?? '-'),
+                  style: TextStyle(fontSize: 11, color: subtitleColor),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Action Button
+          if (isInMeeting)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MeetingReportScreen(meeting: meeting),
+                    ),
+                  ).then((_) => attProvider.loadDashboardData());
+                },
+                icon: const Icon(Icons.assignment, size: 14, color: Colors.white),
+                label: const Text('Buka Laporan Meeting (In Meeting)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade700,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            )
+          else if (!isCompleted)
+            Row(
+              children: [
+                if (isOnline && meeting.meetingLink != null && meeting.meetingLink!.isNotEmpty) ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final uri = Uri.parse(meeting.meetingLink!.startsWith('http') ? meeting.meetingLink! : 'https://${meeting.meetingLink}');
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                      icon: const Icon(Icons.open_in_new, size: 13, color: Colors.blue),
+                      label: const Text('Buka Link', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        side: const BorderSide(color: Colors.blue),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  flex: isOnline ? 1 : 2,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      if (!attProvider.isCheckedIn) {
+                        toastification.show(
+                          context: context,
+                          type: ToastificationType.warning,
+                          title: const Text('Check-in Terlebih Dahulu'),
+                          description: const Text('Silakan lakukan Check-in masuk kerja sebelum memulai Meet-In.'),
+                          autoCloseDuration: const Duration(seconds: 3),
+                        );
+                        return;
+                      }
+
+                      // Check location
+                      double lat = 0;
+                      double lng = 0;
+                      try {
+                        final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+                        lat = pos.latitude;
+                        lng = pos.longitude;
+                      } catch (e) {
+                        toastification.show(
+                          context: context,
+                          type: ToastificationType.error,
+                          title: const Text('GPS Tidak Ditemukan'),
+                          description: const Text('Pastikan GPS aktif untuk melakukan Meet-In.'),
+                          autoCloseDuration: const Duration(seconds: 3),
+                        );
+                        return;
+                      }
+
+                      // Check radius if offline
+                      if (!isOnline && meeting.latitude != null && meeting.longitude != null) {
+                        final distance = Geolocator.distanceBetween(lat, lng, meeting.latitude!, meeting.longitude!);
+                        if (distance > meeting.radiusMeter) {
+                          toastification.show(
+                            context: context,
+                            type: ToastificationType.error,
+                            title: const Text('Di Luar Radius Meeting'),
+                            description: Text('Anda berada ${distance.round()}m dari lokasi meeting (Batas max ${meeting.radiusMeter}m).'),
+                            autoCloseDuration: const Duration(seconds: 4),
+                          );
+                          return;
+                        }
+                      }
+
+                      final res = await attProvider.meetIn(
+                        meetingId: meeting.id,
+                        latitude: lat,
+                        longitude: lng,
+                      );
+
+                      if (res['success'] == true) {
+                        if (context.mounted) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MeetingReportScreen(meeting: meeting),
+                            ),
+                          ).then((_) => attProvider.loadDashboardData());
+                        }
+                      } else {
+                        if (context.mounted) {
+                          toastification.show(
+                            context: context,
+                            type: ToastificationType.error,
+                            title: const Text('Gagal Meet-In'),
+                            description: Text(res['message'] ?? 'Terjadi kesalahan'),
+                            autoCloseDuration: const Duration(seconds: 3),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.login, size: 14, color: Colors.white),
+                    label: const Text('Meet-In', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade600,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
 }
+

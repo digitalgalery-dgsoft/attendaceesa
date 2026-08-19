@@ -149,5 +149,34 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - [x] Tabel database `odoo_sync_logs` & model `OdooSyncLog` untuk mencatat metrik per batch: `new_count`, `update_count`, `resign_count`, `total_employee_count`, durasi, serta snapshot detail nama karyawan.
     - [x] Pembuatan Filament Page & View **Laporan Sinkronisasi Odoo** (`/admin/odoo-sync-report`) dengan 4 kolom utama: **Data Employee New**, **Data Employee Update**, **Data Employee Resign**, dan **Total Employee per Company** sesuai mockup.
     - [x] Tabel Riwayat Sinkronisasi (Sync History) dengan modal detail individual per batch.
+    - [x] Endpoint Web Cron `/cron/odoo-sync` untuk kemudahan automasi via URL-task aaPanel / cPanel.
+
+---
+
+## ✅ Tahap 6: Fitur Absensi & Laporan Meeting (SELESAI 19 Agustus 2026)
+*Tahap ini menyediakan fitur penjadwalan meeting, presensi Meet-In/Meet-Out, dan pelaporan hasil rapat.*
+1. **Database & Backend Models**:
+   - Membuat tabel `meetings`, `meeting_participants`, dan `meeting_attendances`.
+   - Mendukung tipe `online` (dengan kolom `meeting_link` Zoom / GMeet / Teams) dan `offline` (dengan master lokasi, koordinat, dan `radius_meter` lock).
+2. **Web Admin (Filament Resource `MeetingResource`)**:
+   - Penjadwalan meeting lengkap: Judul, Tanggal, Jam Mulai/Selesai, Jenis (Online/Offline), Link / Lokasi & Radius Lock.
+   - Filter peserta dinamis: Dropdown pembantu filter by **Principal** dan **Area/Branch**.
+   - Multi-select peserta dengan pencarian cepat berdasarkan **Nama Karyawan** atau **No. KTP / NIK**.
+3. **Backend API (`MeetingController`)**:
+   - `GET /api/meetings/today`: Mengambil daftar meeting karyawan hari ini beserta status kehadiran.
+   - `POST /api/meetings/meet-in`: Validasi radius untuk meeting offline (bypass radius untuk online), pencatatan koordinat & foto, dan update log aktivitas.
+   - `POST /api/meetings/meet-out`: Pengiriman catatan / notulensi hasil meeting, foto bukti, durasi, dan penyelesaian meeting.
+   - `GET /api/meetings/history`: Riwayat meeting karyawan.
+   - Integrasi otomatis aktivitas `meet_in` dan `meet_out` ke *Aktivitas Hari Ini* dan *History*.
+4. **Mobile App (Flutter `att-mobile`)**:
+   - Card **Jadwal Meeting Hari Ini** di Dashboard dengan informasi waktu, lokasi/link, status, dan tombol **Meet-In**.
+   - **Halaman Laporan Meeting Terkunci (`MeetingReportScreen`)**:
+     - Header informasi meeting & tombol buka Link Meeting (jika Online).
+     - **Live Duration Timer** berjalan real-time sejak Meet-In.
+     - Form Catatan / Notulensi Rapat & Pengambilan Foto Bukti Meeting (Kamera).
+     - Tombol **Meet-Out & Kirim Laporan** dengan konfirmasi dialog.
+     - Proteksi layar terkunci (*locked screen / PopScope false*) selama meeting berlangsung.
+   - Tampilan aktivitas `meet_in` dan `meet_out` di timeline **Log Aktivitas Hari Ini** dan detail **History**.
+
 
 

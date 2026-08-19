@@ -626,6 +626,11 @@ class AttendanceController extends Controller
             if (isset($meta['visit_location_id'])) {
                 $location = $allWorkLocations->get($meta['visit_location_id']);
                 $uniqueStores[$meta['visit_location_id']] = true;
+            } elseif (in_array($log->log_type, ['meet_in', 'meet_out'])) {
+                $location = [
+                    'name' => ($meta['meeting_title'] ?? 'Meeting') . ' (' . ($meta['meeting_type'] ?? 'Meeting') . ')',
+                    'address' => $meta['location_name'] ?? ($meta['meeting_type'] === 'online' ? 'Online Meeting' : '-'),
+                ];
             }
 
             // For checkin/checkout, find location from schedule's work_location
@@ -737,6 +742,15 @@ class AttendanceController extends Controller
                 if ($activeVisitLocation) {
                     $logArray['visit_location'] = $activeVisitLocation;
                 }
+            }
+
+            // Append meeting info for meet_in and meet_out
+            if (in_array($log->log_type, ['meet_in', 'meet_out'])) {
+                $meta = $log->metadata ?: [];
+                $logArray['visit_location'] = [
+                    'name' => ($meta['meeting_title'] ?? 'Meeting') . ' (' . ucfirst($meta['meeting_type'] ?? 'meeting') . ')',
+                    'address' => $meta['location_name'] ?? ($meta['meeting_type'] === 'online' ? 'Online Meeting' : '-'),
+                ];
             }
             
             return $logArray;

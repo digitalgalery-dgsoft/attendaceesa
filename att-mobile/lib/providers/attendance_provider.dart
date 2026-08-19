@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/location_service.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:geolocator/geolocator.dart';
+import '../models/meeting_model.dart';
 
 class AttendanceProvider with ChangeNotifier {
   bool _isLoading = false;
@@ -71,6 +72,18 @@ class AttendanceProvider with ChangeNotifier {
   Map<String, dynamic>? _activePermit;
   Map<String, dynamic>? get activePermit => _activePermit;
 
+  // ─── Meetings ─────────────────────────────────────────────────────────────
+  List<MeetingModel> _todayMeetings = [];
+  List<MeetingModel> get todayMeetings => _todayMeetings;
+
+  MeetingModel? _activeMeeting;
+  MeetingModel? get activeMeeting => _activeMeeting;
+
+  bool get isInMeeting => _activeMeeting != null;
+
+  DateTime? _meetingStartTime;
+  DateTime? get meetingStartTime => _meetingStartTime;
+
   // ─── Load jadwal hari ini + status absensi ────────────────────────────────
   Future<void> loadDashboardData() async {
     _isLoading = true;
@@ -79,6 +92,7 @@ class AttendanceProvider with ChangeNotifier {
     await Future.wait([
       _fetchTodaySchedule(),
       checkAttendanceStatus(),
+      fetchTodayMeetings(),
     ]);
 
     _isLoading = false;
@@ -418,4 +432,179 @@ class AttendanceProvider with ChangeNotifier {
       return false;
     }
   }
+
+  // ─── Meeting Operations ───────────────────────────────────────────────────
+  Future<void> fetchTodayMeetings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse('${Constants.baseUrl}/meetings/today'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        if (decoded['status'] == 'success' && decoded['data'] is List) {
+          _todayMeetings = (decoded['data'] as List)
+              .map((item) => MeetingModel.fromJson(item))
+              .toList();
+
+          // Check if there is an active meeting in progress
+          try {
+            _activeMeeting = _todayMeetings.firstWhere((m) => m.isInMeeting);
+            if (_activeMeeting?.myAttendance?['meet_in_at'] != null) {
+              _meetingStartTime = DateTime.tryParse(_activeMeeting!.myAttendance!['meet_in_at']);
+            }
+          } catch (_) {
+            _activeMeeting = null;
+            _meetingStartTime = null;
+          }
+        }
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error fetching today meetings: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> meetIn({
+    required int meetingId,
+    required double latitude,
+    required double longitude,
+    String? photoPath,
+  }) async {
+    _isLoading = true;
+    _error = '';
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) throw Exception('Not authenticated');
+
+      var request = http.MultipartRequest('POST', Uri.parse('${Constants.baseUrl}/meetings/meet-in'));
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
+
+      request.fields['meeting_id'] = meetingId.toString();
+      request.fields['latitude'] = latitude.toString();
+      request.fields['longitude'] = longitude.toString();
+
+      if (photoPath != null && photoPath.isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('photo', photoPath));
+      }
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+      final decodedData = json.decode(responseBody);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        await fetchTodayMeetings();
+        await checkAttendanceStatus();
+        _isLoading = false;
+        notifyListeners();
+        return {
+          'success': true,
+          'message': decodedData['message'] ?? 'Meet-In berhasil dicatat',
+          'data': decodedData['data'],
+        };
+      } else {
+        _isLoading = false;
+        _error = decodedData['message'] ?? 'Gagal melakukan Meet-In';
+        notifyListeners();
+        return {
+          'success': false,
+          'message': _error,
+        };
+      }
+    } catch (e) {
+      _isLoading = false;
+      _error = e.toString();
+      notifyListeners();
+      return {
+        'success': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> meetOut({
+    required int meetingId,
+    required String notes,
+    String? photoPath,
+    double? latitude,
+    double? longitude,
+    int? durationSeconds,
+  }) async {
+    _isLoading = true;
+    _error = '';
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) throw Exception('Not authenticated');
+
+      var request = http.MultipartRequest('POST', Uri.parse('${Constants.baseUrl}/meetings/meet-out'));
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
+
+      request.fields['meeting_id'] = meetingId.toString();
+      request.fields['report_notes'] = notes;
+      if (durationSeconds != null) {
+        request.fields['duration_seconds'] = durationSeconds.toString();
+      }
+      if (latitude != null) {
+        request.fields['latitude'] = latitude.toString();
+      }
+      if (longitude != null) {
+        request.fields['longitude'] = longitude.toString();
+      }
+
+      if (photoPath != null && photoPath.isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('photo', photoPath));
+      }
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+      final decodedData = json.decode(responseBody);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _activeMeeting = null;
+        _meetingStartTime = null;
+        await fetchTodayMeetings();
+        await checkAttendanceStatus();
+        _isLoading = false;
+        notifyListeners();
+        return {
+          'success': true,
+          'message': decodedData['message'] ?? 'Laporan meeting berhasil dikirim',
+          'data': decodedData['data'],
+        };
+      } else {
+        _isLoading = false;
+        _error = decodedData['message'] ?? 'Gagal mengirim laporan meeting';
+        notifyListeners();
+        return {
+          'success': false,
+          'message': _error,
+        };
+      }
+    } catch (e) {
+      _isLoading = false;
+      _error = e.toString();
+      notifyListeners();
+      return {
+        'success': false,
+        'message': e.toString(),
+      };
+    }
+  }
 }
+

@@ -93,4 +93,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/chat/send', [\App\Http\Controllers\Api\ChatController::class, 'sendMessage']);
     Route::post('/chat/read', [\App\Http\Controllers\Api\ChatController::class, 'markAsRead']);
     Route::get('/chat/unread', [\App\Http\Controllers\Api\ChatController::class, 'getUnreadCount']);
+
+    // Meeting Attendance routes
+    Route::get('/meetings/today', [\App\Http\Controllers\Api\MeetingController::class, 'today']);
+    Route::post('/meetings/meet-in', [\App\Http\Controllers\Api\MeetingController::class, 'meetIn']);
+    Route::post('/meetings/meet-out', [\App\Http\Controllers\Api\MeetingController::class, 'meetOut']);
+    Route::get('/meetings/history', [\App\Http\Controllers\Api\MeetingController::class, 'history']);
 });
+

@@ -498,6 +498,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
         color = const Color(0xFFD98A2B);
         label = 'Visit-out';
         break;
+      case 'meet_in':
+        color = const Color(0xFF10B981);
+        label = 'Meet-In';
+        break;
+      case 'meet_out':
+        color = const Color(0xFF8B5CF6);
+        label = 'Meet-Out / Laporan';
+        break;
       default:
         color = Colors.grey;
         label = type;
