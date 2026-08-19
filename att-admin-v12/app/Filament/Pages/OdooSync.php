@@ -70,6 +70,8 @@ class OdooSync extends Page
                             ->body($e->getMessage())
                             ->danger()
                             ->send();
+                    }
+                }),
             Action::make('cleanup_duplicates')
                 ->label('Bersihkan Duplikat NIK')
                 ->icon('heroicon-o-sparkles')
