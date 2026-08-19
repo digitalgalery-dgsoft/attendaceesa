@@ -314,8 +314,9 @@ class OdooSyncService
                     }
 
                     $wasActive = $primary->is_active;
+                    $wasTrashed = $primary->trashed();
 
-                    $primary->update([
+                    $updatePayload = [
                         'odoo_id'           => $rec['id'],
                         'company_id'        => $companyId,
                         'principal_id'      => $principalId,
@@ -332,15 +333,33 @@ class OdooSyncService
                         'employment_status' => $employmentStatus,
                         'is_active'         => $isActiveInOdoo,
                         'resign_date'       => !$isActiveInOdoo ? ($primary->resign_date ?: now()->toDateString()) : null,
-                        'deleted_at'        => null,
-                    ]);
+                    ];
+
+                    // Set default password '123456' if employee currently has no password
+                    if (empty($primary->password)) {
+                        $updatePayload['password'] = \Illuminate\Support\Facades\Hash::make('123456');
+                    }
+
+                    $primary->fill($updatePayload);
+                    $dirtyAttributes = $primary->getDirty();
+                    $isDirty = count($dirtyAttributes) > 0 || $wasTrashed;
+
+                    if ($wasTrashed) {
+                        $primary->deleted_at = null;
+                    }
+                    $primary->save();
 
                     if (!$isActiveInOdoo && $wasActive) {
                         $resigned++;
                         $resignedEmployees[] = ['name' => $rec['name'], 'nik' => $employeeNo];
-                    } else {
+                    } elseif ($isDirty) {
                         $updated++;
-                        $updatedEmployees[] = ['name' => $rec['name'], 'nik' => $employeeNo, 'position' => $posName];
+                        $updatedEmployees[] = [
+                            'name' => $rec['name'],
+                            'nik' => $employeeNo,
+                            'position' => $posName,
+                            'changes' => array_keys($dirtyAttributes)
+                        ];
                     }
                 } else {
                     Employee::create([
@@ -352,6 +371,7 @@ class OdooSyncService
                         'branch_id'         => $localBranchId,
                         'employee_no'       => $employeeNo,
                         'full_name'         => $rec['name'],
+                        'password'          => \Illuminate\Support\Facades\Hash::make('123456'),
                         'gender'            => $gender,
                         'birth_date'        => $rec['birthday'] ?: null,
                         'join_date'         => $rec['first_contract_date'] ?: null,
