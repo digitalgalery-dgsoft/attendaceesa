@@ -25,3 +25,21 @@ Route::get('/migrate-now', function () {
     \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
     return \Illuminate\Support\Facades\Artisan::output();
 });
+
+// Web Cron Endpoint for Odoo Sync
+Route::get('/cron/odoo-sync', function () {
+    try {
+        $results = \App\Services\OdooSyncService::syncAllConfiguredCompanies('cron');
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Odoo sync executed successfully',
+            'data' => $results
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ], 500);
+    }
+});
+
