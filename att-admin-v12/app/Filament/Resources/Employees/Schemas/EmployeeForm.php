@@ -36,8 +36,9 @@ class EmployeeForm
                             ->default('123456')
                             ->dehydrateStateUsing(fn ($state) => \Illuminate\Support\Facades\Hash::make($state)),
                     ]),
-                Select::make('company_id')
-                    ->relationship('company', 'name')
+                Select::make('principal_id')
+                    ->relationship('principal', 'name')
+                    ->label('Company')
                     ->searchable()
                     ->required()
                     ->live(),
@@ -46,7 +47,7 @@ class EmployeeForm
                     ->searchable()
                     ->label('Area'),
                 Select::make('department_id')
-                    ->relationship('department', 'name', fn (Builder $query, $get) => $query->whereHas('companies', fn($q) => $q->where('companies.id', $get('company_id'))))
+                    ->relationship('department', 'name')
                     ->searchable()
                     ->label('Department'),
                 Select::make('position_id')
