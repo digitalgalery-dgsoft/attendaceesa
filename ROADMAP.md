@@ -134,9 +134,14 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Penyesuaian backend (Laravel) untuk mengirim push notification (blast, alert absensi, approval).
 
 ---
-- **✅ Penyempurnaan Integrasi Odoo & Bug Fix (18 Agustus 2026):**
+- **✅ Penyempurnaan Integrasi Odoo & Bug Fix (18 - 19 Agustus 2026):**
   - **Bug Fix**: Memperbaiki isu kehabisan memori (*Memory Exhausted*) pada form Edit Employee di web Admin dengan menerapkan *searchable()* pada seluruh field Dropdown (Select) berelasi besar.
-  - **Odoo Sync**: Menambahkan logika paginasi (*do-while loop*) 500 data/siklus pada `OdooSyncService` untuk sanggup menarik lebih dari 1000 data (menghindari limitasi *request* XML-RPC).
+  - **Odoo Sync (Paginasi)**: Menambahkan logika paginasi (*do-while loop*) 500 data/siklus pada `OdooSyncService` untuk sanggup menarik lebih dari 1000 data (menghindari limitasi *request* XML-RPC).
+  - **Odoo Sync (Pencocokan NIK / No. KTP & Anti-Duplikat)**:
+    - Mengubah algoritma pencarian karyawan pada sinkronisasi Odoo agar memprioritaskan pencocokan via **NIK / No. KTP** (`identification_id` / `employee_no`) secara global lintas company.
+    - Jika karyawan dengan NIK yang sama sudah ada, data lama akan **diperbarui (ter-replace)** ke Company & Jabatan baru, dengan tetap mempertahankan foto profil, password login mobile, dan relasi data absensi/aktivitas lama.
+    - Menambahkan fitur **Auto-Merge Duplikat & Tombol Pembersih NIK Duplikat** pada halaman Odoo Sync untuk otomatis mendeteksi, menggabungkan riwayat, dan membersihkan baris ganda di tabel database.
   - **Dashboard & Tabel**: Memperbaiki label *Dashboard* dan kolom tabel Employee agar menggunakan relasi nama Principal alih-alih Company. Mengubah desain halaman *Odoo Sync* menggunakan komponen Filament bawaan.
   - **Lembur (Overtime)**: Memperbaiki sistem zona waktu (*timezone*) pada validasi Lembur dan menerapkan *bypass backend* sementara untuk menginvestigasi *hardcoded restriction* di aplikasi *mobile*.
   - **Rencana Mendatang (Automated Odoo Sync)**: Telah merancang arsitektur implementasi *Task Scheduler* dan injeksi filter `write_date >= odoo_last_sync_at` untuk sinkronisasi Odoo otomatis & inkremental di *background*.
+

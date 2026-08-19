@@ -274,26 +274,44 @@ class OdooSyncService
                     default  => null,
                 };
 
-                // Employee no — prefer identification_id (NIK)
-                $employeeNo = $rec['identification_id'] ?: ('OD-' . $rec['id']);
+                // Employee no — prefer identification_id (NIK / No. KTP)
+                $rawNik = !empty($rec['identification_id']) ? trim((string) $rec['identification_id']) : null;
+                $rawRegNo = !empty($rec['registration_number']) ? trim((string) $rec['registration_number']) : null;
+                $employeeNo = $rawNik ?: ($rawRegNo ?: ('OD-' . $rec['id']));
 
-                $employee = Employee::withTrashed()->where('odoo_id', $rec['id'])->first();
-                if (!$employee) {
-                    $employee = Employee::withTrashed()->where('company_id', $companyId)->where('employee_no', $employeeNo)->first();
+                // Look up existing employee:
+                // 1. Check by NIK / No. KTP (employee_no) or Odoo ID
+                if ($rawNik) {
+                    $existingEmployees = Employee::withTrashed()
+                        ->where(function ($q) use ($rawNik, $rec) {
+                            $q->where('employee_no', $rawNik)
+                              ->orWhere('odoo_id', $rec['id']);
+                        })
+                        ->get();
+                } else {
+                    $existingEmployees = Employee::withTrashed()
+                        ->where('odoo_id', $rec['id'])
+                        ->orWhere('employee_no', $employeeNo)
+                        ->get();
                 }
 
-                if ($employee) {
-                    // Check if another employee uses this employee_no in the same company
-                    $conflict = Employee::withTrashed()
-                        ->where('company_id', $companyId)
-                        ->where('employee_no', $employeeNo)
-                        ->where('id', '!=', $employee->id)
-                        ->first();
-                    if ($conflict) {
-                        $employeeNo = $employeeNo . '-OD' . $rec['id'];
+                if ($existingEmployees->isNotEmpty()) {
+                    // Pick the best primary record to keep & update
+                    // Preference:
+                    // 1. Record with matching odoo_id
+                    // 2. Record with non-empty photo or password (user-configured)
+                    // 3. First record
+                    $primary = $existingEmployees->firstWhere('odoo_id', $rec['id'])
+                        ?: ($existingEmployees->first(fn ($e) => !empty($e->photo) || !empty($e->password))
+                        ?: $existingEmployees->first());
+
+                    // If there are duplicate records with this same NIK/employee_no, merge and remove the redundant ones
+                    $duplicateIds = $existingEmployees->where('id', '!=', $primary->id)->pluck('id')->toArray();
+                    if (!empty($duplicateIds)) {
+                        $this->mergeDuplicates($primary, $duplicateIds);
                     }
 
-                    $employee->update([
+                    $primary->update([
                         'odoo_id'           => $rec['id'],
                         'company_id'        => $companyId,
                         'principal_id'      => $principalId,
@@ -303,24 +321,16 @@ class OdooSyncService
                         'employee_no'       => $employeeNo,
                         'full_name'         => $rec['name'],
                         'gender'            => $gender,
-                        'birth_date'        => $rec['birthday'] ?: null,
-                        'join_date'         => $rec['first_contract_date'] ?: null,
-                        'phone'             => $rec['mobile_phone'] ?: null,
-                        'email'             => $rec['private_email'] ?: ($rec['work_email'] ?: null),
+                        'birth_date'        => $rec['birthday'] ?: $primary->birth_date,
+                        'join_date'         => $rec['first_contract_date'] ?: $primary->join_date,
+                        'phone'             => $rec['mobile_phone'] ?: $primary->phone,
+                        'email'             => $rec['private_email'] ?: ($rec['work_email'] ?: $primary->email),
                         'employment_status' => $employmentStatus,
                         'is_active'         => (bool) $rec['active'],
                         'deleted_at'        => null,
                     ]);
                     $updated++;
                 } else {
-                    $conflict = Employee::withTrashed()
-                        ->where('company_id', $companyId)
-                        ->where('employee_no', $employeeNo)
-                        ->first();
-                    if ($conflict) {
-                        $employeeNo = $employeeNo . '-OD' . $rec['id'];
-                    }
-
                     Employee::create([
                         'odoo_id'           => $rec['id'],
                         'company_id'        => $companyId,
@@ -350,6 +360,97 @@ class OdooSyncService
         } while (count($records) == $limit);
 
         return compact('created', 'updated', 'errors');
+    }
+
+    /**
+     * Merge and clean up duplicate employee records.
+     */
+    public function mergeDuplicates(Employee $primary, array $duplicateIds): void
+    {
+        if (empty($duplicateIds)) {
+            return;
+        }
+
+        $tables = [
+            ['table' => 'attendances', 'column' => 'employee_id'],
+            ['table' => 'attendance_logs', 'column' => 'employee_id'],
+            ['table' => 'leave_requests', 'column' => 'employee_id'],
+            ['table' => 'extra_hours', 'column' => 'employee_id'],
+            ['table' => 'bap_requests', 'column' => 'employee_id'],
+            ['table' => 'itineraries', 'column' => 'employee_id'],
+            ['table' => 'sales_reports', 'column' => 'employee_id'],
+            ['table' => 'work_targets', 'column' => 'employee_id'],
+            ['table' => 'payslips', 'column' => 'employee_id'],
+            ['table' => 'tracking_histories', 'column' => 'employee_id'],
+            ['table' => 'employees', 'column' => 'supervisor_id'],
+        ];
+
+        foreach ($tables as $t) {
+            try {
+                if (\Illuminate\Support\Facades\Schema::hasTable($t['table'])) {
+                    \Illuminate\Support\Facades\DB::table($t['table'])
+                        ->whereIn($t['column'], $duplicateIds)
+                        ->update([$t['column'] => $primary->id]);
+                }
+            } catch (\Exception $e) {
+                Log::warning("OdooSync merge duplicate table {$t['table']} error: " . $e->getMessage());
+            }
+        }
+
+        $duplicates = Employee::withTrashed()->whereIn('id', $duplicateIds)->get();
+        foreach ($duplicates as $dup) {
+            if (empty($primary->photo) && !empty($dup->photo)) {
+                $primary->photo = $dup->photo;
+            }
+            if (empty($primary->password) && !empty($dup->password)) {
+                $primary->password = $dup->password;
+            }
+            if (empty($primary->device_id) && !empty($dup->device_id)) {
+                $primary->device_id = $dup->device_id;
+                $primary->device_name = $dup->device_name;
+            }
+            if (empty($primary->user_id) && !empty($dup->user_id)) {
+                $primary->user_id = $dup->user_id;
+            }
+            $primary->save();
+
+            try {
+                $dup->forceDelete();
+            } catch (\Exception $e) {
+                Log::warning("OdooSync delete duplicate employee ID {$dup->id} error: " . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Clean up all duplicate employees in database based on NIK / employee_no.
+     */
+    public static function cleanupAllDuplicateEmployees(): int
+    {
+        $duplicateNiks = Employee::withTrashed()
+            ->select('employee_no')
+            ->groupBy('employee_no')
+            ->havingRaw('COUNT(*) > 1')
+            ->pluck('employee_no');
+
+        $totalCleaned = 0;
+        foreach ($duplicateNiks as $nik) {
+            $records = Employee::withTrashed()->where('employee_no', $nik)->get();
+            if ($records->count() > 1) {
+                $primary = $records->firstWhere('odoo_id', '!=', null)
+                    ?: ($records->first(fn ($e) => !empty($e->photo) || !empty($e->password))
+                    ?: $records->first());
+
+                $dupIds = $records->where('id', '!=', $primary->id)->pluck('id')->toArray();
+                if (!empty($dupIds)) {
+                    $service = new self('', '', '', '');
+                    $service->mergeDuplicates($primary, $dupIds);
+                    $totalCleaned += count($dupIds);
+                }
+            }
+        }
+
+        return $totalCleaned;
     }
 
     // ── Private Helpers ────────────────────────────────────────────────────────

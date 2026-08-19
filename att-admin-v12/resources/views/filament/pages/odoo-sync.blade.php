@@ -116,8 +116,8 @@
                 </div>
             </x-slot>
             <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-2 list-disc list-inside ml-2">
-                <li>Proses memakan waktu tergantung jumlah data (rata-rata sinkronisasi memproses ratusan data per detik). Harap tunggu hingga notifikasi muncul.</li>
-                <li>Data yang sudah ada akan <strong>diperbarui</strong>, bukan digandakan (berdasarkan Odoo ID).</li>
+                <li>Data yang sudah ada akan <strong>diperbarui (ter-replace)</strong> berdasarkan <strong>NIK / No. KTP</strong> (atau Odoo ID), bukan digandakan.</li>
+                <li>Foto profil, password, dan riwayat aktivitas karyawan lama akan tetap dipertahankan.</li>
                 <li>Department & Position yang belum ada di master akan <strong>otomatis dibuat</strong>.</li>
                 <li>Karyawan yang tidak aktif di Odoo akan <strong>dinonaktifkan</strong> di sistem ini.</li>
                 <li>Gunakan tombol <strong>Test Connection</strong> di atas untuk memverifikasi koneksi Odoo.</li>

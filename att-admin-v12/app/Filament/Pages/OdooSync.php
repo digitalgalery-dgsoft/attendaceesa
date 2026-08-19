@@ -70,6 +70,35 @@ class OdooSync extends Page
                             ->body($e->getMessage())
                             ->danger()
                             ->send();
+            Action::make('cleanup_duplicates')
+                ->label('Bersihkan Duplikat NIK')
+                ->icon('heroicon-o-sparkles')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Bersihkan Data Duplikat Karyawan')
+                ->modalDescription('Sistem akan mencari seluruh karyawan dengan NIK / No. KTP yang sama, menggabungkan riwayat aktivitasnya ke akun utama, dan menghapus record duplikatnya.')
+                ->action(function () {
+                    try {
+                        $cleaned = OdooSyncService::cleanupAllDuplicateEmployees();
+                        if ($cleaned > 0) {
+                            Notification::make()
+                                ->title('Pembersihan Selesai')
+                                ->body("Berhasil membersihkan dan menggabungkan {$cleaned} data karyawan duplikat.")
+                                ->success()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('Tidak Ada Duplikat')
+                                ->body('Tidak ditemukan data karyawan duplikat berdasarkan NIK / No. KTP.')
+                                ->info()
+                                ->send();
+                        }
+                    } catch (\Exception $e) {
+                        Notification::make()
+                            ->title('Gagal Membersihkan Duplikat')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
                     }
                 }),
         ];
