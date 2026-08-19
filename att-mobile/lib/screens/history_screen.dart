@@ -287,6 +287,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
     
     int visits = logs.where((l) => l['log_type'] == 'visit_in').length;
+    int meetings = logs.where((l) => l['log_type'] == 'meet_in').length;
 
     return Container(
       decoration: BoxDecoration(
@@ -378,7 +379,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '${checkins.isNotEmpty ? 'Hadir' : 'Tidak Hadir'} · $visits kunjungan lapangan',
+                      '${checkins.isNotEmpty ? 'Hadir' : 'Tidak Hadir'}${visits > 0 ? ' · $visits kunjungan' : ''}${meetings > 0 ? ' · $meetings meeting' : ''}',
                       style: TextStyle(fontSize: 11, color: subtitleColor, fontWeight: FontWeight.w500),
                     ),
                   ),
@@ -478,6 +479,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final String lng = log['longitude']?.toString() ?? '';
     final String distance = log['distance_from_location_meter']?.toString() ?? '';
 
+    final Map<String, dynamic>? metadata = log['metadata'] is Map
+        ? Map<String, dynamic>.from(log['metadata'])
+        : null;
+
+    // For meet_in/meet_out: get meeting name from location or metadata
+    String? meetingTitle;
+    String? meetingLocationInfo;
+    if (type == 'meet_in' || type == 'meet_out') {
+      meetingTitle = log['location']?['name'] as String?
+          ?? metadata?['meeting_title'] as String?;
+      meetingLocationInfo = log['location']?['address'] as String?
+          ?? metadata?['location_name'] as String?
+          ?? (metadata?['meeting_type'] == 'online' ? 'Online Meeting' : null);
+    }
+
     Color color;
     String label;
 
@@ -504,7 +520,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         break;
       case 'meet_out':
         color = const Color(0xFF8B5CF6);
-        label = 'Meet-Out / Laporan';
+        label = 'Meet-Out';
         break;
       default:
         color = Colors.grey;
@@ -536,6 +552,44 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     Text(time, style: TextStyle(fontSize: 10, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : const Color(0xFF707893), fontWeight: FontWeight.bold)),
                   ],
                 ),
+                // Show meeting title for meet_in / meet_out
+                if (meetingTitle != null && meetingTitle.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Row(
+                      children: [
+                        Icon(Icons.video_camera_front, size: 10, color: color),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            meetingTitle,
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                // Show meeting location/type info
+                if ((type == 'meet_in' || type == 'meet_out') && meetingLocationInfo != null && meetingLocationInfo.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Row(
+                      children: [
+                        Icon(Icons.place_outlined, size: 10, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            meetingLocationInfo,
+                            style: TextStyle(fontSize: 9, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey[600]),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (note != null && note.trim().isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -550,72 +604,126 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       ],
                     ),
                   ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (photoUrl != null && photoUrl.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: GestureDetector(
-                            onTap: () {
-                              showDialog(
-                                context: context,
-                                builder: (_) => Dialog(
-                                  backgroundColor: Colors.transparent,
-                                  insetPadding: const EdgeInsets.all(16),
-                                  child: Stack(
-                                    alignment: Alignment.topRight,
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: Image.network(photoUrl, fit: BoxFit.contain),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.close, color: Colors.white, size: 30),
-                                        onPressed: () => Navigator.pop(context),
-                                      ),
-                                    ],
+                // Only show photo and location block for non-meeting types
+                if (type != 'meet_in' && type != 'meet_out')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (photoUrl != null && photoUrl.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: GestureDetector(
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (_) => Dialog(
+                                    backgroundColor: Colors.transparent,
+                                    insetPadding: const EdgeInsets.all(16),
+                                    child: Stack(
+                                      alignment: Alignment.topRight,
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(12),
+                                          child: Image.network(photoUrl, fit: BoxFit.contain),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                                          onPressed: () => Navigator.pop(context),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              );
-                            },
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: Image.network(
-                                photoUrl,
-                                height: 50,
-                                width: 50,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  height: 50, width: 50,
-                                  color: elevatedColor,
-                                  child: const Icon(Icons.broken_image, color: Colors.grey, size: 20),
+                                );
+                              },
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: Image.network(
+                                  photoUrl,
+                                  height: 50,
+                                  width: 50,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    height: 50, width: 50,
+                                    color: elevatedColor,
+                                    child: const Icon(Icons.broken_image, color: Colors.grey, size: 20),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (locationName.isNotEmpty)
+                                Text(locationName, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade300 : const Color(0xFF505565))),
+                              if (locationAddress.isNotEmpty)
+                                Text(locationAddress, style: TextStyle(fontSize: 9, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : const Color(0xFF707893)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                              if (lat.isNotEmpty && lng.isNotEmpty)
+                                Text(
+                                  'Lat: $lat, Lng: $lng${distance.isNotEmpty && distance != 'null' ? ' | Radius: ${double.tryParse(distance)?.toStringAsFixed(1) ?? distance}m' : ''}', 
+                                  style: const TextStyle(fontSize: 9, color: Color(0xFF0F52BA))
+                                ),
+                            ],
+                          ),
                         ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (locationName.isNotEmpty)
-                              Text(locationName, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade300 : const Color(0xFF505565))),
-                            if (locationAddress.isNotEmpty)
-                              Text(locationAddress, style: TextStyle(fontSize: 9, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : const Color(0xFF707893)), maxLines: 2, overflow: TextOverflow.ellipsis),
-                            if (lat.isNotEmpty && lng.isNotEmpty)
-                              Text(
-                                'Lat: $lat, Lng: $lng${distance.isNotEmpty && distance != 'null' ? ' | Radius: ${double.tryParse(distance)?.toStringAsFixed(1) ?? distance}m' : ''}', 
-                                style: const TextStyle(fontSize: 9, color: Color(0xFF0F52BA))
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                // For meet_in/meet_out: show selfie photo below
+                if ((type == 'meet_in' || type == 'meet_out') && photoUrl != null && photoUrl.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: GestureDetector(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => Dialog(
+                            backgroundColor: Colors.transparent,
+                            insetPadding: const EdgeInsets.all(16),
+                            child: Stack(
+                              alignment: Alignment.topRight,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(photoUrl, fit: BoxFit.contain),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                                  onPressed: () => Navigator.pop(context),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.network(
+                              photoUrl,
+                              height: 50,
+                              width: 50,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                height: 50, width: 50,
+                                color: elevatedColor,
+                                child: const Icon(Icons.broken_image, color: Colors.grey, size: 20),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Foto Selfie Meeting',
+                            style: TextStyle(fontSize: 9, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           )
