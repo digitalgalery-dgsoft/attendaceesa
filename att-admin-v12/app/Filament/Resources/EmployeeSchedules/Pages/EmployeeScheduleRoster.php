@@ -119,6 +119,32 @@ class EmployeeScheduleRoster extends Page implements HasForms
             ->statePath('filterData');
     }
 
+    public static function isWorkingDay(Carbon $date, $deptWorkingDays): bool
+    {
+        $workingDays = null;
+        if (!empty($deptWorkingDays)) {
+            if (is_array($deptWorkingDays)) {
+                $workingDays = $deptWorkingDays;
+            } elseif (is_string($deptWorkingDays)) {
+                $decoded = json_decode($deptWorkingDays, true);
+                if (is_array($decoded)) {
+                    $workingDays = $decoded;
+                }
+            }
+        }
+
+        $dow = $date->dayOfWeek; // 0 = Sun, 1 = Mon, ..., 6 = Sat
+        $iso = $date->dayOfWeekIso; // 1 = Mon, ..., 7 = Sun
+
+        if (!empty($workingDays)) {
+            $normalized = array_map('strval', $workingDays);
+            return in_array(strval($dow), $normalized) || in_array(strval($iso), $normalized);
+        }
+
+        // Default Mon-Fri (1, 2, 3, 4, 5)
+        return in_array($dow, [1, 2, 3, 4, 5]);
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -319,11 +345,12 @@ class EmployeeScheduleRoster extends Page implements HasForms
             ];
         }
 
-        // Query employees with relationships
+        // Query employees with relationships & department working days
         $employeeQuery = DB::table('employees')
             ->leftJoin('positions', 'employees.position_id', '=', 'positions.id')
             ->leftJoin('branches', 'employees.branch_id', '=', 'branches.id')
             ->leftJoin('principals', 'employees.principal_id', '=', 'principals.id')
+            ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
             ->whereIn('employees.id', $scheduledEmpIds)
             ->where('employees.is_active', true)
             ->whereNull('employees.deleted_at');
@@ -345,6 +372,8 @@ class EmployeeScheduleRoster extends Page implements HasForms
             'employees.employee_no',
             'employees.full_name',
             'employees.photo',
+            'employees.department_id',
+            'departments.working_days as dept_working_days',
             'positions.name as position_name',
             'branches.name as branch_name',
             'principals.name as principal_name',
@@ -400,8 +429,10 @@ class EmployeeScheduleRoster extends Page implements HasForms
                 ->groupBy('employee_id');
         }
 
-        // Summary stats across all filtered employees
+        // Summary stats across all filtered employees matching working days and holidays
         $allEmpIds = $allEmployees->pluck('id')->toArray();
+        $empWorkingDaysMap = $allEmployees->pluck('dept_working_days', 'id')->toArray();
+
         $summary = [
             'total_scheduled' => $totalEmployeesCount,
             'total_workday' => 0,
@@ -413,11 +444,26 @@ class EmployeeScheduleRoster extends Page implements HasForms
             $allScheds = DB::table('employee_schedules')
                 ->whereIn('employee_id', $allEmpIds)
                 ->whereBetween('schedule_date', [$startDateStr, $endDateStr])
-                ->select(['schedule_type', 'shift_id'])
+                ->select(['employee_id', 'schedule_date', 'schedule_type', 'shift_id'])
                 ->get();
 
-            $summary['total_workday'] = $allScheds->whereIn('schedule_type', ['workday', 'remote', 'field'])->count();
-            $summary['total_dayoff'] = $allScheds->whereIn('schedule_type', ['dayoff', 'holiday'])->count();
+            foreach ($allScheds as $sched) {
+                $schedDate = Carbon::parse($sched->schedule_date);
+                $isHoliday = isset($holidayMap[$sched->schedule_date]);
+                $deptWd = $empWorkingDaysMap[$sched->employee_id] ?? null;
+                $isWorkDay = self::isWorkingDay($schedDate, $deptWd);
+
+                if (in_array($sched->schedule_type, ['workday', 'remote', 'field'])) {
+                    if (!$isHoliday && $isWorkDay) {
+                        $summary['total_workday']++;
+                    } else {
+                        $summary['total_dayoff']++;
+                    }
+                } else {
+                    $summary['total_dayoff']++;
+                }
+            }
+
             $summary['unique_shifts'] = $allScheds->pluck('shift_id')->filter()->unique()->count();
         }
 

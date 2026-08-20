@@ -102,7 +102,7 @@
             padding: 8px 10px;
             border-right: 1px solid #e2e8f0;
             border-bottom: 1px solid #e2e8f0;
-            vertical-align: top;
+            vertical-align: middle;
         }
         .dark .roster-bordered-table td {
             border-right-color: #334155;
@@ -297,7 +297,7 @@
             </form>
             <div style="margin-top: 8px; font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 6px;">
                 <x-filament::icon icon="heroicon-o-information-circle" style="width: 16px; height: 16px;" />
-                <span>Rentang kalender roster menampilkan maksimal <strong>31 hari</strong>. Klik pada sel jadwal untuk mengedit shift dan lokasi kerja secara spesifik.</span>
+                <span>Rentang kalender roster menampilkan maksimal <strong>31 hari</strong>. Hari libur (weekend / tanggal merah) otomatis diselaraskan dengan jam kerja departemen.</span>
             </div>
         </div>
 
@@ -385,13 +385,19 @@
                                         $dateObj = $startDate->copy()->addDays($d - 1);
                                         $isWeekend = in_array($dateObj->dayOfWeek, [0, 6]);
                                         $isNatHoliday = isset($holidayMap[$dateStr]);
+                                        $isDeptWorkDay = \App\Filament\Resources\EmployeeSchedules\Pages\EmployeeScheduleRoster::isWorkingDay($dateObj, $employee->dept_working_days);
                                         
                                         $empScheds = $schedules->get($employee->id);
                                         $sched = $empScheds ? $empScheds->firstWhere('schedule_date', $dateStr) : null;
                                     @endphp
-                                    <td style="background: {{ ($isWeekend || $isNatHoliday) ? '#fdf2f2' : 'inherit' }};">
+                                    <td style="background: {{ ($isWeekend || $isNatHoliday || !$isDeptWorkDay) ? '#fdf2f2' : 'inherit' }};">
                                         <div class="schedule-cell-clickable" wire:click="mountAction('editSchedule', { employee_id: {{ $employee->id }}, schedule_date: '{{ $dateStr }}' })" title="Klik untuk edit jadwal">
-                                            @if ($sched && in_array($sched->schedule_type, ['workday', 'remote', 'field']))
+                                            @if ($isNatHoliday || !$isDeptWorkDay || ($sched && in_array($sched->schedule_type, ['dayoff', 'holiday'])))
+                                                {{-- Non-working day / Weekend / Holiday --}}
+                                                <div style="display: flex; align-items: center; justify-content: center; min-height: 48px;">
+                                                    <span class="sched-badge sched-badge-dayoff">Libur</span>
+                                                </div>
+                                            @elseif ($sched && in_array($sched->schedule_type, ['workday', 'remote', 'field']))
                                                 <div>
                                                     @if ($sched->schedule_type === 'workday')
                                                         <span class="sched-badge sched-badge-workday">Planned</span>
@@ -415,10 +421,6 @@
                                                 <div class="loc-pill" title="{{ $sched->work_location_name ?? ($sched->shift_name ?? 'Office') }}">
                                                     <x-filament::icon icon="heroicon-o-map-pin" style="width: 12px; height: 12px; flex-shrink: 0; color: #64748b;" />
                                                     <span style="overflow: hidden; text-overflow: ellipsis;">{{ $sched->work_location_name ?? ($sched->shift_name ?? 'Office') }}</span>
-                                                </div>
-                                            @elseif ($sched && in_array($sched->schedule_type, ['dayoff', 'holiday']))
-                                                <div style="display: flex; align-items: center; justify-content: center; min-height: 48px;">
-                                                    <span class="sched-badge sched-badge-dayoff">Libur</span>
                                                 </div>
                                             @else
                                                 <div style="display: flex; align-items: center; justify-content: center; min-height: 48px; color: #94a3b8; font-size: 12px;">
