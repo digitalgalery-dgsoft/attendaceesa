@@ -211,17 +211,43 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
     {
         if (empty($rawDate)) return null;
 
+        $rawDate = trim((string)$rawDate);
+
+        // Jika format serial tanggal Excel numerik
         if (is_numeric($rawDate)) {
             try {
                 $dateTime = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($rawDate);
                 return Carbon::instance($dateTime)->toDateString();
             } catch (\Throwable $e) {
-                // Abaikan dan coba parsing string
+                // Abaikan dan lanjut ke string parser
             }
         }
 
+        // Coba format tanggal umum di Indonesia (d/m/Y, d-m-Y, Y-m-d)
+        $formats = [
+            'd/m/Y',
+            'd-m-Y',
+            'Y-m-d',
+            'Y/m/d',
+            'd M Y',
+            'd F Y',
+            'm/d/Y',
+        ];
+
+        foreach ($formats as $format) {
+            try {
+                $parsed = Carbon::createFromFormat($format, $rawDate);
+                if ($parsed && $parsed->format($format) === $rawDate) {
+                    return $parsed->toDateString();
+                }
+            } catch (\Throwable $e) {
+                // Coba format berikutnya
+            }
+        }
+
+        // Fallback terakhir dengan Carbon parse
         try {
-            return Carbon::parse($rawDate)->toDateString();
+            return Carbon::parse(str_replace('/', '-', $rawDate))->toDateString();
         } catch (\Throwable $e) {
             return null;
         }
