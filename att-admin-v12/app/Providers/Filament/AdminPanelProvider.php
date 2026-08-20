@@ -105,11 +105,11 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::PAGE_START,
                 fn (): string => session()->has('impersonated_by') ? \Illuminate\Support\Facades\Blade::render('
-                    <div style="background: linear-gradient(90deg, #fef3c7, #fffbeb); border: 1px solid #f59e0b; border-left: 5px solid #d97706; border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.04);">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 20px;">⚠️</span>
+                    <div style="background: linear-gradient(90deg, #fef3c7, #fffbeb); border: 1px solid #f59e0b; border-left: 5px solid #d97706; border-radius: 10px; padding: 12px 18px; margin-top: 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 14px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 22px;">⚠️</span>
                             <div>
-                                <div style="font-size: 13px; font-weight: 700; color: #92400e;">
+                                <div style="font-size: 13px; font-weight: 700; color: #92400e; margin-bottom: 2px;">
                                     Mode Switch Akun: Anda sedang melihat sistem sebagai <u>{{ auth()->user()->name }}</u> ({{ auth()->user()->email }})
                                 </div>
                                 <div style="font-size: 11px; color: #b45309;">
@@ -117,7 +117,7 @@ class AdminPanelProvider extends PanelProvider
                                 </div>
                             </div>
                         </div>
-                        <a href="/admin/stop-impersonation" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 6px; background: #d97706; color: #ffffff; font-size: 12px; font-weight: 700; text-decoration: none; box-shadow: 0 1px 2px rgba(0,0,0,0.1); white-space: nowrap;">
+                        <a href="/admin/stop-impersonation" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 7px; background: #d97706; color: #ffffff; font-size: 12px; font-weight: 700; text-decoration: none; box-shadow: 0 1px 3px rgba(0,0,0,0.12); white-space: nowrap; transition: background 0.15s ease;" onmouseover="this.style.background=\'#b45309\'" onmouseout="this.style.background=\'#d97706\'">
                             ✕ Kembali ke Super Admin
                         </a>
                     </div>
