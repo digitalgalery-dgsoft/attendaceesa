@@ -29,15 +29,17 @@ class EmployeesTable
                     })
                     ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->full_name) . '&background=7367F0&color=fff'),
                 TextColumn::make('employee_no')
+                    ->label('NIK / No Karyawan')
                     ->searchable(),
                 TextColumn::make('full_name')
+                    ->label('Nama Karyawan')
                     ->searchable(),
                 TextColumn::make('principal.name')
-                    ->label('Company')
+                    ->label('Prinsiple')
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('branch.name')
-                    ->label('Branch')
+                    ->label('Area')
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('department.name')
@@ -98,6 +100,26 @@ class EmployeesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                \Filament\Tables\Filters\SelectFilter::make('branch_id')
+                    ->label('Filter Area')
+                    ->searchable()
+                    ->preload()
+                    ->relationship('branch', 'name', function (\Illuminate\Database\Eloquent\Builder $query) {
+                        if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+                            $query->whereIn('id', auth()->user()->getAccessibleBranchIds());
+                        }
+                        return $query->orderBy('name');
+                    }),
+                \Filament\Tables\Filters\SelectFilter::make('principal_id')
+                    ->label('Filter Prinsiple')
+                    ->searchable()
+                    ->preload()
+                    ->relationship('principal', 'name', function (\Illuminate\Database\Eloquent\Builder $query) {
+                        if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+                            $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
+                        }
+                        return $query->orderBy('name');
+                    }),
                 TrashedFilter::make(),
             ])
             ->recordActions([
