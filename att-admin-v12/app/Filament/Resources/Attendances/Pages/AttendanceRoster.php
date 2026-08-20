@@ -218,11 +218,43 @@ class AttendanceRoster extends Page implements HasForms
             $daysInPeriod = 31;
         }
 
-        // Query employees lightweight
+        // Cari hanya karyawan yang MEMILIKI record attendance / checkin di periode terpilih
+        $activeAttendanceEmpIds = DB::table('attendances')
+            ->whereBetween('attendance_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->distinct()
+            ->pluck('employee_id')
+            ->toArray();
+
+        if (empty($activeAttendanceEmpIds)) {
+            return [
+                'employees' => collect(),
+                'totalEmployees' => 0,
+                'attendances' => collect(),
+                'daysInPeriod' => $daysInPeriod,
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+                'summary' => [
+                    'total_present' => 0,
+                    'total_late' => 0,
+                    'total_absent' => 0,
+                    'total_leave' => 0,
+                ],
+                'pagination' => [
+                    'page' => 1,
+                    'per_page' => $this->perPage,
+                    'total_pages' => 1,
+                    'from' => 0,
+                    'to' => 0,
+                ]
+            ];
+        }
+
+        // Query employees lightweight hanya untuk karyawan yang punya data absensi
         $employeeQuery = DB::table('employees')
             ->leftJoin('positions', 'employees.position_id', '=', 'positions.id')
             ->leftJoin('branches', 'employees.branch_id', '=', 'branches.id')
             ->leftJoin('principals', 'employees.principal_id', '=', 'principals.id')
+            ->whereIn('employees.id', $activeAttendanceEmpIds)
             ->where('employees.is_active', true)
             ->whereNull('employees.deleted_at');
 
