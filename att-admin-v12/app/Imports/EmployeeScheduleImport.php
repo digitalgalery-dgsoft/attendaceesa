@@ -166,6 +166,8 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                 $scheduleType = 'dayoff';
                 $shiftIdToUse = null;
 
+                $dow = strval($currentDate->dayOfWeek);
+                $iso = strval($currentDate->dayOfWeekIso);
                 $isSingleDay = $startDate->equalTo($endDate);
 
                 if (!$isOff && ($isSingleDay || in_array($dow, $normalizedWd) || in_array($iso, $normalizedWd))) {

@@ -297,6 +297,8 @@ class EmployeeScheduleRoster extends Page implements HasForms
                             $scheduleType = 'dayoff';
                             $shiftIdToUse = null;
 
+                            $dow = strval($currentDate->dayOfWeek);
+                            $iso = strval($currentDate->dayOfWeekIso);
                             $isSingleDay = $startDate->equalTo($endDate);
 
                             if ($isSingleDay || in_array($dow, $normalizedWd) || in_array($iso, $normalizedWd)) {
