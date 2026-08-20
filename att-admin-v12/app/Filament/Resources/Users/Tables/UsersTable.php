@@ -20,13 +20,28 @@ class UsersTable
                     ->label('Email address')
                     ->searchable(),
                 TextColumn::make('roles.name')
-                    ->badge(),
+                    ->badge()
+                    ->color('primary'),
+                TextColumn::make('branches.name')
+                    ->label('Area / Cabang')
+                    ->badge()
+                    ->color('info')
+                    ->placeholder('Semua Area')
+                    ->searchable(),
+                TextColumn::make('principals.name')
+                    ->label('Prinsiple')
+                    ->badge()
+                    ->color('success')
+                    ->placeholder('Semua Prinsiple')
+                    ->searchable(),
                 TextColumn::make('employee.full_name')
                     ->label('Employee')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('email_verified_at')
                     ->dateTime()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -40,6 +55,20 @@ class UsersTable
                 //
             ])
             ->recordActions([
+                \Filament\Actions\Action::make('impersonate')
+                    ->label('Switch Akun')
+                    ->icon('heroicon-o-arrow-right-start-on-rectangle')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Switch ke Akun User')
+                    ->modalDescription(fn ($record) => "Anda akan login dan melihat sistem sebagai {$record->name} ({$record->email}). Anda dapat kembali ke akun Super Admin kapan saja.")
+                    ->modalSubmitActionLabel('Ya, Switch Sekarang')
+                    ->visible(fn ($record) => auth()->check() && auth()->user()->isSuperAdmin() && auth()->id() !== $record->id && !session()->has('impersonated_by'))
+                    ->action(function ($record) {
+                        session()->put('impersonated_by', auth()->id());
+                        auth()->loginUsingId($record->id);
+                        return redirect()->to('/admin');
+                    }),
                 EditAction::make(),
             ])
             ->toolbarActions([

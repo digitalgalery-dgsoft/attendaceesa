@@ -48,3 +48,17 @@ Route::get('/cron/odoo-sync', function () {
     }
 });
 
+// Stop User Impersonation and return to Super Admin
+Route::middleware(['web', 'auth'])->get('/admin/stop-impersonation', function () {
+    if (session()->has('impersonated_by')) {
+        $superAdminId = session()->pull('impersonated_by');
+        \Illuminate\Support\Facades\Auth::loginUsingId($superAdminId);
+        \Filament\Notifications\Notification::make()
+            ->title('Kembali ke Akun Utama')
+            ->body('Anda telah kembali login sebagai Super Admin.')
+            ->success()
+            ->send();
+    }
+    return redirect()->to('/admin');
+})->name('impersonation.stop');
+

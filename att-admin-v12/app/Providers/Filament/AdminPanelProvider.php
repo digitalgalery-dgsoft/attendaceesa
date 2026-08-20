@@ -103,11 +103,34 @@ class AdminPanelProvider extends PanelProvider
                 </style>'
             )
             ->renderHook(
+                PanelsRenderHook::PAGE_START,
+                fn (): string => session()->has('impersonated_by') ? \Illuminate\Support\Facades\Blade::render('
+                    <div style="background: linear-gradient(90deg, #fef3c7, #fffbeb); border: 1px solid #f59e0b; border-left: 5px solid #d97706; border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.04);">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 20px;">⚠️</span>
+                            <div>
+                                <div style="font-size: 13px; font-weight: 700; color: #92400e;">
+                                    Mode Switch Akun: Anda sedang melihat sistem sebagai <u>{{ auth()->user()->name }}</u> ({{ auth()->user()->email }})
+                                </div>
+                                <div style="font-size: 11px; color: #b45309;">
+                                    Data dan menu yang tampil dibatasi sesuai hak akses Area & Prinsiple user ini.
+                                </div>
+                            </div>
+                        </div>
+                        <a href="/admin/stop-impersonation" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 6px; background: #d97706; color: #ffffff; font-size: 12px; font-weight: 700; text-decoration: none; box-shadow: 0 1px 2px rgba(0,0,0,0.1); white-space: nowrap;">
+                            ✕ Kembali ke Super Admin
+                        </a>
+                    </div>
+                ') : ''
+            )
+            ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
                 fn (): string => \Illuminate\Support\Facades\Blade::render('
                     <div style="display: flex; flex-direction: column; text-align: right; margin-right: 0.75rem; justify-content: center;">
                         <span style="font-size: 0.875rem; font-weight: 700; line-height: 1.25; color: inherit; margin-bottom: 2px;">{{ auth()->user()->name }}</span>
-                        <span style="font-size: 0.75rem; color: #6b7280; text-transform: uppercase; line-height: 1.25;">Super Admin</span>
+                        <span style="font-size: 0.75rem; color: #6b7280; text-transform: uppercase; line-height: 1.25;">
+                            {{ session()->has("impersonated_by") ? "Switch Mode" : (auth()->user()->roles->first()?->name ?? "User") }}
+                        </span>
                     </div>
                 ')
             )

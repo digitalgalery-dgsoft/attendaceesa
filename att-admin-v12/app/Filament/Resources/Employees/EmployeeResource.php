@@ -51,6 +51,12 @@ class EmployeeResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        return \App\Traits\ScopesUserData::applyUserAccessScope($query);
+    }
+
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()
@@ -64,4 +70,3 @@ class EmployeeResource extends Resource
         return auth()->user()->hasRole('Super Admin') || auth()->user()->can('view_employees');
     }
 }
-

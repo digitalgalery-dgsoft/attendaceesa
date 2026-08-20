@@ -113,12 +113,24 @@ class MandaysReport extends Page implements HasForms
                         ->live(),
                     Select::make('branch_id')
                         ->label('Region / Area')
-                        ->options(Branch::orderBy('name')->pluck('name', 'id'))
+                        ->options(function () {
+                            $query = Branch::orderBy('name');
+                            if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+                                $query->whereIn('id', auth()->user()->getAccessibleBranchIds());
+                            }
+                            return $query->pluck('name', 'id');
+                        })
                         ->placeholder('Semua Region / Area')
                         ->live(),
                     Select::make('principal_id')
                         ->label('Prinsiple')
-                        ->options(Principal::orderBy('name')->pluck('name', 'id'))
+                        ->options(function () {
+                            $query = Principal::orderBy('name');
+                            if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+                                $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
+                            }
+                            return $query->pluck('name', 'id');
+                        })
                         ->placeholder('Semua Prinsiple')
                         ->live(),
                 ])
@@ -168,9 +180,17 @@ class MandaysReport extends Page implements HasForms
             ->whereNull('employees.deleted_at')
             ->when(!empty($this->branch_id), function ($q) {
                 return $q->where('employees.branch_id', $this->branch_id);
+            }, function ($q) {
+                if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+                    return $q->whereIn('employees.branch_id', auth()->user()->getAccessibleBranchIds());
+                }
             })
             ->when(!empty($this->principal_id), function ($q) {
                 return $q->where('employees.principal_id', $this->principal_id);
+            }, function ($q) {
+                if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+                    return $q->whereIn('employees.principal_id', auth()->user()->getAccessiblePrincipalIds());
+                }
             })
             ->select([
                 'employees.id',

@@ -82,12 +82,24 @@ class ManPowerReport extends Page implements HasForms
                         ->live(),
                     Select::make('principal_id')
                         ->label('Prinsiple')
-                        ->options(Principal::orderBy('name')->pluck('name', 'id'))
+                        ->options(function () {
+                            $query = Principal::orderBy('name');
+                            if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+                                $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
+                            }
+                            return $query->pluck('name', 'id');
+                        })
                         ->placeholder('Semua Prinsiple')
                         ->live(),
                     Select::make('branch_id')
                         ->label('Region / Area')
-                        ->options(Branch::orderBy('name')->pluck('name', 'id'))
+                        ->options(function () {
+                            $query = Branch::orderBy('name');
+                            if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+                                $query->whereIn('id', auth()->user()->getAccessibleBranchIds());
+                            }
+                            return $query->pluck('name', 'id');
+                        })
                         ->placeholder('Semua Region / Area')
                         ->live(),
                 ])
@@ -142,6 +154,8 @@ class ManPowerReport extends Page implements HasForms
         $principalsQuery = DB::table('principals')->orderBy('name');
         if (!empty($this->principal_id)) {
             $principalsQuery->where('id', $this->principal_id);
+        } elseif (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+            $principalsQuery->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
         }
         $principals = $principalsQuery->select('id', 'name')->get();
 
@@ -158,6 +172,8 @@ class ManPowerReport extends Page implements HasForms
 
         if (!empty($this->branch_id)) {
             $employeesQuery->where('branch_id', $this->branch_id);
+        } elseif (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+            $employeesQuery->whereIn('branch_id', auth()->user()->getAccessibleBranchIds());
         }
 
         $employees = $employeesQuery

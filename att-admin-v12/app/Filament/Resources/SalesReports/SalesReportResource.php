@@ -31,23 +31,7 @@ class SalesReportResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
-        
-        $user = auth()->user();
-        
-        // Super Admin can view all
-        if ($user->hasRole('Super Admin')) {
-            return $query;
-        }
-        
-        // If not super admin, check if employee exists and has a principal
-        if ($user->employee && $user->employee->principal_id) {
-            return $query->whereHas('employee', function ($q) use ($user) {
-                $q->where('principal_id', $user->employee->principal_id);
-            });
-        }
-        
-        // Otherwise return empty result
-        return $query->where('id', 0);
+        return \App\Traits\ScopesUserData::applyUserAccessScope($query);
     }
 
     public static function form(Schema $schema): Schema

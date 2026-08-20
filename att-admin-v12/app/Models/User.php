@@ -52,6 +52,53 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasOne(Employee::class);
     }
 
+    public function branches()
+    {
+        return $this->belongsToMany(Branch::class, 'branch_user')->withTimestamps();
+    }
+
+    public function principals()
+    {
+        return $this->belongsToMany(Principal::class, 'principal_user')->withTimestamps();
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole('Super Admin') || $this->hasRole('super_admin');
+    }
+
+    public function hasBranchRestriction(): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return false;
+        }
+        return $this->branches()->exists();
+    }
+
+    public function getAccessibleBranchIds(): array
+    {
+        if ($this->isSuperAdmin()) {
+            return [];
+        }
+        return $this->branches()->pluck('branches.id')->toArray();
+    }
+
+    public function hasPrincipalRestriction(): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return false;
+        }
+        return $this->principals()->exists();
+    }
+
+    public function getAccessiblePrincipalIds(): array
+    {
+        if ($this->isSuperAdmin()) {
+            return [];
+        }
+        return $this->principals()->pluck('principals.id')->toArray();
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
         return true;

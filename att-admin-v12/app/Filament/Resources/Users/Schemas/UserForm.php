@@ -28,6 +28,20 @@ class UserForm
                     ->multiple()
                     ->relationship('roles', 'name')
                     ->preload(),
+                \Filament\Forms\Components\Select::make('branches')
+                    ->label('Area / Cabang yang Di-cover')
+                    ->helperText('Pilih area/cabang yang dapat diakses oleh user ini. Jika dikosongkan, user dapat mengakses seluruh area.')
+                    ->multiple()
+                    ->relationship('branches', 'name')
+                    ->preload()
+                    ->searchable(),
+                \Filament\Forms\Components\Select::make('principals')
+                    ->label('Prinsiple yang Di-handle')
+                    ->helperText('Pilih prinsiple yang dapat diakses oleh user ini. Jika dikosongkan, user dapat mengakses seluruh prinsiple.')
+                    ->multiple()
+                    ->relationship('principals', 'name')
+                    ->preload()
+                    ->searchable(),
                 \Filament\Forms\Components\Select::make('employee_id')
                     ->label('Link to Employee')
                     ->options(\App\Models\Employee::pluck('full_name', 'id'))

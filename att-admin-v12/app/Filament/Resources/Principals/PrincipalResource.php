@@ -47,6 +47,12 @@ class PrincipalResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery();
+        return \App\Traits\ScopesUserData::applyUserAccessScope($query);
+    }
+
     public static function getPages(): array
     {
         return [

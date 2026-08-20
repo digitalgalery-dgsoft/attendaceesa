@@ -53,6 +53,12 @@ class BranchResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        return \App\Traits\ScopesUserData::applyUserAccessScope($query);
+    }
+
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()
@@ -66,4 +72,3 @@ class BranchResource extends Resource
         return auth()->user()->hasRole('Super Admin') || auth()->user()->can('view_areas');
     }
 }
-

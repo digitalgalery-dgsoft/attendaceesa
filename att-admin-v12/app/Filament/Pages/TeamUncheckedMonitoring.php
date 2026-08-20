@@ -111,7 +111,7 @@ class TeamUncheckedMonitoring extends Page
         $sevenDaysAgoStr = $sevenDaysAgo->format('Y-m-d');
 
         // Query raw lightweight employees
-        $employees = DB::table('employees')
+        $employeesQuery = DB::table('employees')
             ->leftJoin('principals', 'employees.principal_id', '=', 'principals.id')
             ->leftJoin('branches', 'employees.branch_id', '=', 'branches.id')
             ->leftJoin('positions', 'employees.position_id', '=', 'positions.id')
@@ -121,8 +121,18 @@ class TeamUncheckedMonitoring extends Page
             ->where(function ($q) {
                 $q->whereNull('employees.employment_status')
                   ->orWhere('employees.employment_status', '!=', 'resigned');
-            })
-            ->select([
+            });
+
+        if (auth()->check() && !auth()->user()->isSuperAdmin()) {
+            if (auth()->user()->hasBranchRestriction()) {
+                $employeesQuery->whereIn('employees.branch_id', auth()->user()->getAccessibleBranchIds());
+            }
+            if (auth()->user()->hasPrincipalRestriction()) {
+                $employeesQuery->whereIn('employees.principal_id', auth()->user()->getAccessiblePrincipalIds());
+            }
+        }
+
+        $employees = $employeesQuery->select([
                 'employees.id',
                 'employees.employee_no',
                 'employees.full_name',

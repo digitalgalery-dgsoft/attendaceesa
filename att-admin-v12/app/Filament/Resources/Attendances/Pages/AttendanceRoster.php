@@ -95,19 +95,37 @@ class AttendanceRoster extends Page implements HasForms
                         ->required(),
                     Select::make('filter_branch_id')
                         ->label('Region / Area')
-                        ->options(Branch::orderBy('name')->pluck('name', 'id'))
+                        ->options(function () {
+                            $query = Branch::orderBy('name');
+                            if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+                                $query->whereIn('id', auth()->user()->getAccessibleBranchIds());
+                            }
+                            return $query->pluck('name', 'id');
+                        })
                         ->placeholder('Semua Region')
                         ->searchable()
                         ->live(),
                     Select::make('filter_principal_id')
                         ->label('Prinsiple')
-                        ->options(Principal::orderBy('name')->pluck('name', 'id'))
+                        ->options(function () {
+                            $query = Principal::orderBy('name');
+                            if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+                                $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
+                            }
+                            return $query->pluck('name', 'id');
+                        })
                         ->placeholder('Semua Prinsiple')
                         ->searchable()
                         ->live(),
                     Select::make('filter_employee_id')
                         ->label('Karyawan Spesifik')
-                        ->options(Employee::where('is_active', 1)->orderBy('full_name')->pluck('full_name', 'id'))
+                        ->options(function () {
+                            $query = Employee::where('is_active', 1);
+                            if (auth()->check()) {
+                                $query = \App\Traits\ScopesUserData::applyUserAccessScope($query);
+                            }
+                            return $query->orderBy('full_name')->pluck('full_name', 'id');
+                        })
                         ->placeholder('Semua Karyawan')
                         ->searchable()
                         ->live(),
@@ -304,10 +322,14 @@ class AttendanceRoster extends Page implements HasForms
 
         if (!empty($this->filterData['filter_branch_id'])) {
             $employeeQuery->where('employees.branch_id', $this->filterData['filter_branch_id']);
+        } elseif (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+            $employeeQuery->whereIn('employees.branch_id', auth()->user()->getAccessibleBranchIds());
         }
 
         if (!empty($this->filterData['filter_principal_id'])) {
             $employeeQuery->where('employees.principal_id', $this->filterData['filter_principal_id']);
+        } elseif (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+            $employeeQuery->whereIn('employees.principal_id', auth()->user()->getAccessiblePrincipalIds());
         }
 
         if (!empty($this->filterData['filter_employee_id'])) {

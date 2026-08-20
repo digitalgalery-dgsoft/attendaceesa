@@ -217,12 +217,14 @@ class VisitReportResource extends Resource
         ];
     }
 
-    public static function getPages(): array
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return [
-            'index' => Pages\ListVisitReports::route('/'),
-            'create' => Pages\CreateVisitReport::route('/create'),
-            'edit' => Pages\EditVisitReport::route('/{record}/edit'),
-        ];
+        $query = parent::getEloquentQuery();
+        return \App\Traits\ScopesUserData::applyUserAccessScope($query);
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasRole('Super Admin') || auth()->user()->can('view_visit_reports');
     }
 }

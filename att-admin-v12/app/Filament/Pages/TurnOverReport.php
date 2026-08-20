@@ -78,7 +78,13 @@ class TurnOverReport extends Page implements HasForms
                         ->live(),
                     Select::make('principal_id')
                         ->label('Prinsiple')
-                        ->options(Principal::orderBy('name')->pluck('name', 'id'))
+                        ->options(function () {
+                            $query = Principal::orderBy('name');
+                            if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+                                $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
+                            }
+                            return $query->pluck('name', 'id');
+                        })
                         ->placeholder('Semua Prinsiple')
                         ->live(),
                 ])
@@ -122,6 +128,13 @@ class TurnOverReport extends Page implements HasForms
             ->whereNull('deleted_at')
             ->when(!empty($this->principal_id), function ($q) {
                 return $q->where('principal_id', $this->principal_id);
+            }, function ($q) {
+                if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+                    return $q->whereIn('principal_id', auth()->user()->getAccessiblePrincipalIds());
+                }
+            })
+            ->when(auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction(), function ($q) {
+                return $q->whereIn('branch_id', auth()->user()->getAccessibleBranchIds());
             })
             ->where(function ($q) use ($startDate, $endDate) {
                 $q->whereBetween('join_date', [$startDate, $endDate])

@@ -85,6 +85,17 @@ class PayslipResource extends Resource
         return [];
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery();
+        return \App\Traits\ScopesUserData::applyUserAccessScope($query);
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasRole('Super Admin') || auth()->user()->can('view_payslips');
+    }
+
     public static function getPages(): array
     {
         return [
