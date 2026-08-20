@@ -310,20 +310,25 @@ class AttendanceRoster extends Page implements HasForms
 
         $pagedEmployeeIds = $pagedEmployees->pluck('id')->toArray();
 
-        // Fetch attendances for currently paged employees
+        // Fetch attendances for currently paged employees with schedule & shift data
         $attendances = collect();
         if (!empty($pagedEmployeeIds)) {
             $attendances = DB::table('attendances')
-                ->whereIn('employee_id', $pagedEmployeeIds)
-                ->whereBetween('attendance_date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->leftJoin('employee_schedules', 'attendances.employee_schedule_id', '=', 'employee_schedules.id')
+                ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
+                ->whereIn('attendances.employee_id', $pagedEmployeeIds)
+                ->whereBetween('attendances.attendance_date', [$startDate->toDateString(), $endDate->toDateString()])
                 ->select([
-                    'id',
-                    'employee_id',
-                    'attendance_date',
-                    'status',
-                    'checkin_at',
-                    'checkout_at',
-                    'late_minutes',
+                    'attendances.id',
+                    'attendances.employee_id',
+                    'attendances.attendance_date',
+                    'attendances.status',
+                    'attendances.checkin_at',
+                    'attendances.checkout_at',
+                    'attendances.late_minutes',
+                    'shifts.start_time as shift_start_time',
+                    'shifts.grace_checkin_minutes',
+                    'employee_schedules.planned_start_at',
                 ])
                 ->get()
                 ->groupBy('employee_id');
@@ -339,17 +344,65 @@ class AttendanceRoster extends Page implements HasForms
         ];
 
         if (!empty($allEmpIds)) {
-            $stats = DB::table('attendances')
-                ->whereIn('employee_id', $allEmpIds)
-                ->whereBetween('attendance_date', [$startDate->toDateString(), $endDate->toDateString()])
-                ->select('status', DB::raw('count(*) as total'))
-                ->groupBy('status')
-                ->pluck('total', 'status');
+            $allFilteredAtts = DB::table('attendances')
+                ->leftJoin('employee_schedules', 'attendances.employee_schedule_id', '=', 'employee_schedules.id')
+                ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
+                ->whereIn('attendances.employee_id', $allEmpIds)
+                ->whereBetween('attendances.attendance_date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->select([
+                    'attendances.id',
+                    'attendances.status',
+                    'attendances.checkin_at',
+                    'attendances.attendance_date',
+                    'attendances.late_minutes',
+                    'shifts.start_time as shift_start_time',
+                    'shifts.grace_checkin_minutes',
+                    'employee_schedules.planned_start_at',
+                ])
+                ->get();
 
-            $summary['total_present'] = (int)($stats['present'] ?? 0);
-            $summary['total_late'] = (int)($stats['late'] ?? 0);
-            $summary['total_absent'] = (int)($stats['absent'] ?? 0);
-            $summary['total_leave'] = (int)($stats['leave'] ?? 0) + (int)($stats['permit'] ?? 0);
+            foreach ($allFilteredAtts as $row) {
+                if ($row->status === 'absent') {
+                    $summary['total_absent']++;
+                    continue;
+                }
+                if (in_array($row->status, ['leave', 'permit', 'sick'])) {
+                    $summary['total_leave']++;
+                    continue;
+                }
+
+                // Check lateness
+                $isLate = false;
+                if ($row->status === 'late' || (int)$row->late_minutes > 0) {
+                    $isLate = true;
+                } elseif (!empty($row->checkin_at)) {
+                    $checkin = Carbon::parse($row->checkin_at)->timezone('Asia/Jakarta');
+                    if (!empty($row->shift_start_time)) {
+                        $shiftStart = Carbon::parse($row->attendance_date . ' ' . $row->shift_start_time);
+                        $grace = (int)($row->grace_checkin_minutes ?? 0);
+                        if ($checkin->greaterThan($shiftStart->copy()->addMinutes($grace))) {
+                            $isLate = true;
+                        }
+                    } elseif (!empty($row->planned_start_at)) {
+                        $plannedStart = Carbon::parse($row->planned_start_at);
+                        if ($checkin->greaterThan($plannedStart)) {
+                            $isLate = true;
+                        }
+                    } else {
+                        // Standard default shift 08:30:00
+                        $defaultStart = Carbon::parse($row->attendance_date . ' 08:30:00');
+                        if ($checkin->greaterThan($defaultStart)) {
+                            $isLate = true;
+                        }
+                    }
+                }
+
+                if ($isLate) {
+                    $summary['total_late']++;
+                } else {
+                    $summary['total_present']++;
+                }
+            }
         }
 
         return [

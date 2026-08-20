@@ -273,13 +273,32 @@ class AttendanceController extends Controller
                     'validation_status'            => 'valid',
                 ]);
 
+                $lateMinutes = 0;
+                $status = 'present';
+                if ($schedule && $schedule->shift && !empty($schedule->shift->start_time)) {
+                    $shiftStartTime = Carbon::parse($today . ' ' . $schedule->shift->start_time);
+                    $grace = (int)($schedule->shift->grace_checkin_minutes ?? 0);
+                    $allowedTime = $shiftStartTime->copy()->addMinutes($grace);
+                    if ($now->greaterThan($allowedTime)) {
+                        $lateMinutes = (int)$now->diffInMinutes($shiftStartTime);
+                        $status = 'late';
+                    }
+                } elseif ($schedule && !empty($schedule->planned_start_at)) {
+                    $plannedStart = Carbon::parse($schedule->planned_start_at);
+                    if ($now->greaterThan($plannedStart)) {
+                        $lateMinutes = (int)$now->diffInMinutes($plannedStart);
+                        $status = 'late';
+                    }
+                }
+
                 $attendance = Attendance::create([
                     'employee_id'          => $employeeId,
                     'employee_schedule_id' => $schedule->id,
                     'attendance_date'      => $today,
-                    'status'               => 'present',
+                    'status'               => $status,
                     'checkin_at'           => $now,
                     'checkin_log_id'       => $log->id,
+                    'late_minutes'         => $lateMinutes,
                 ]);
 
                 $log->update(['attendance_id' => $attendance->id]);

@@ -187,6 +187,7 @@
             background: #fef3c7;
             color: #92400e;
             border: 1px solid #fde68a;
+            box-shadow: 0 1px 2px rgba(217, 119, 6, 0.15);
         }
         .att-badge-absent {
             background: #fee2e2;
@@ -236,7 +237,7 @@
                 <div>
                     <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Karyawan</div>
                     <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-top: 4px;">{{ number_format($viewData['totalEmployees']) }}</div>
-                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Sesuai filter aktif</div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Aktif absen periode ini</div>
                 </div>
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0e7ff; color: #4338ca; display: flex; align-items: center; justify-content: center;">
                     <x-filament::icon icon="heroicon-o-users" style="width: 24px; height: 24px;" />
@@ -247,7 +248,7 @@
                 <div>
                     <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase;">Total Hadir (On-Time)</div>
                     <div style="font-size: 26px; font-weight: 800; color: #059669; margin-top: 4px;">{{ number_format($summary['total_present']) }}</div>
-                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Periode terpilih</div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Check-in tepat waktu</div>
                 </div>
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: #d1fae5; color: #059669; display: flex; align-items: center; justify-content: center;">
                     <x-filament::icon icon="heroicon-o-check-circle" style="width: 24px; height: 24px;" />
@@ -373,15 +374,52 @@
                                         
                                         $empAtts = $attendances->get($employee->id);
                                         $att = $empAtts ? $empAtts->firstWhere('attendance_date', $dateStr) : null;
+
+                                        $isLate = false;
+                                        $lateText = '';
+
+                                        if ($att) {
+                                            if ($att->status === 'late' || (int)$att->late_minutes > 0) {
+                                                $isLate = true;
+                                                $lateText = (int)$att->late_minutes > 0 ? '+' . (int)$att->late_minutes . 'm' : '';
+                                            } elseif (!empty($att->checkin_at)) {
+                                                $checkin = \Carbon\Carbon::parse($att->checkin_at)->timezone('Asia/Jakarta');
+                                                if (!empty($att->shift_start_time)) {
+                                                    $shiftStart = \Carbon\Carbon::parse($att->attendance_date . ' ' . $att->shift_start_time);
+                                                    $grace = (int)($att->grace_checkin_minutes ?? 0);
+                                                    if ($checkin->greaterThan($shiftStart->copy()->addMinutes($grace))) {
+                                                        $isLate = true;
+                                                        $diffM = (int)$checkin->diffInMinutes($shiftStart);
+                                                        $lateText = '+' . $diffM . 'm';
+                                                    }
+                                                } elseif (!empty($att->planned_start_at)) {
+                                                    $plannedStart = \Carbon\Carbon::parse($att->planned_start_at);
+                                                    if ($checkin->greaterThan($plannedStart)) {
+                                                        $isLate = true;
+                                                        $diffM = (int)$checkin->diffInMinutes($plannedStart);
+                                                        $lateText = '+' . $diffM . 'm';
+                                                    }
+                                                } else {
+                                                    $defaultStart = \Carbon\Carbon::parse($att->attendance_date . ' 08:30:00');
+                                                    if ($checkin->greaterThan($defaultStart)) {
+                                                        $isLate = true;
+                                                        $diffM = (int)$checkin->diffInMinutes($defaultStart);
+                                                        $lateText = '+' . $diffM . 'm';
+                                                    }
+                                                }
+                                            }
+                                        }
                                     @endphp
-                                    <td style="text-align: center; background: {{ $isWeekend ? '#fdf2f2' : 'inherit' }};">
+                                    <td style="text-align: center; background: {{ $isLate ? '#fffbeb' : ($isWeekend ? '#fdf2f2' : 'inherit') }};">
                                         @if ($att)
                                             <div class="roster-cell-clickable" wire:click="mountAction('viewDetails', { employee_id: {{ $employee->id }}, date: '{{ $dateStr }}' })" title="Klik untuk rincian absensi">
                                                 <div>
-                                                    @if ($att->status === 'present')
+                                                    @if ($isLate)
+                                                        <span class="att-badge att-badge-late">
+                                                            Telat {{ $lateText }}
+                                                        </span>
+                                                    @elseif ($att->status === 'present')
                                                         <span class="att-badge att-badge-present">Hadir</span>
-                                                    @elseif ($att->status === 'late')
-                                                        <span class="att-badge att-badge-late">Telat</span>
                                                     @elseif ($att->status === 'absent')
                                                         <span class="att-badge att-badge-absent">Alpha</span>
                                                     @elseif ($att->status === 'leave')
@@ -396,8 +434,10 @@
                                                 @if (!empty($att->checkin_at))
                                                     <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 2px; align-items: center;">
                                                         <div class="time-pill">
-                                                            <span style="color: #059669; font-weight: 700;">In:</span>
-                                                            <span>{{ \Carbon\Carbon::parse($att->checkin_at)->timezone('Asia/Jakarta')->format('H:i') }}</span>
+                                                            <span style="color: {{ $isLate ? '#d97706' : '#059669' }}; font-weight: 700;">In:</span>
+                                                            <span style="color: {{ $isLate ? '#b45309' : 'inherit' }}; font-weight: {{ $isLate ? '800' : '600' }};">
+                                                                {{ \Carbon\Carbon::parse($att->checkin_at)->timezone('Asia/Jakarta')->format('H:i') }}
+                                                            </span>
                                                         </div>
                                                         @if (!empty($att->checkout_at))
                                                             <div class="time-pill">
