@@ -27,8 +27,8 @@
         $matrix = $this->getMatrixData();
         $details = $this->getFilteredDetailData();
         $summary = $matrix['summary_info'];
-        $allPrincipals = \App\Models\Principal::orderBy('name')->get();
-        $allBranches = \App\Models\Branch::orderBy('name')->get();
+        $allPrincipals = \App\Models\Principal::orderBy('name')->get(['id', 'name']);
+        $allBranches = \App\Models\Branch::orderBy('name')->get(['id', 'name']);
 
         // Hitung metrik ringkasan
         $todayUncheckedCount = collect($summary['employees'])->where('is_today_unchecked', true)->count();
@@ -222,7 +222,8 @@
                     @forelse ($matrix['rows'] as $index => $row)
                         @php
                             $isEven = ($index % 2 === 0);
-                            $isRowSelected = ($selectedCellPrincipalId === $row['principal_id']);
+                            $rowPId = (int)($row['principal_id'] ?? 0);
+                            $isRowSelected = ($selectedCellPrincipalId === $rowPId);
                         @endphp
                         <tr class="{{ $isEven ? 'bg-white dark:bg-gray-900' : 'bg-gray-50/60 dark:bg-white/[0.02]' }} hover:bg-gray-100/70 dark:hover:bg-white/5 transition">
                             {{-- Principal Name Header Cell --}}
@@ -231,7 +232,7 @@
                                     <span>{{ $row['principal_name'] }}</span>
                                     <button
                                         type="button"
-                                        wire:click="selectMatrixCell({{ $row['principal_id'] }}, null, '{{ addslashes($row['principal_name']) }}', null)"
+                                        wire:click="selectMatrixCell({{ $rowPId }}, 0, '{{ addslashes($row['principal_name']) }}', '')"
                                         title="Filter seluruh area untuk {{ $row['principal_name'] }}"
                                         class="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 underline font-normal ml-2"
                                     >
@@ -243,14 +244,15 @@
                             {{-- Branch Values --}}
                             @foreach ($matrix['columns'] as $colId => $colName)
                                 @php
+                                    $colBId = (int)$colId;
                                     $val = $row['branches'][$colId] ?? 0;
-                                    $isCellActive = ($selectedCellPrincipalId === $row['principal_id'] && $selectedCellBranchId === $colId);
+                                    $isCellActive = ($selectedCellPrincipalId === $rowPId && $selectedCellBranchId === $colBId);
                                 @endphp
                                 <td class="py-3 px-4 text-center border-r border-gray-200 dark:border-white/5 {{ $isCellActive ? 'bg-primary-100 dark:bg-primary-950/60 ring-2 ring-primary-500 font-bold' : '' }}">
                                     @if ($val > 0)
                                         <button
                                             type="button"
-                                            wire:click="selectMatrixCell({{ $row['principal_id'] }}, {{ $colId }}, '{{ addslashes($row['principal_name']) }}', '{{ addslashes($colName) }}')"
+                                            wire:click="selectMatrixCell({{ $rowPId }}, {{ $colBId }}, '{{ addslashes($row['principal_name']) }}', '{{ addslashes($colName) }}')"
                                             class="matrix-cell-clickable inline-flex items-center justify-center px-2.5 py-1 text-xs font-bold rounded-lg {{ $val >= 3 ? 'bg-danger-100 text-danger-800 dark:bg-danger-950/50 dark:text-danger-300' : 'bg-warning-100 text-warning-800 dark:bg-warning-950/50 dark:text-warning-300' }}"
                                             title="Klik untuk melihat {{ $val }} karyawan"
                                         >
@@ -267,7 +269,7 @@
                                 @if ($row['total_row'] > 0)
                                     <button
                                         type="button"
-                                        wire:click="selectMatrixCell({{ $row['principal_id'] }}, null, '{{ addslashes($row['principal_name']) }}', null)"
+                                        wire:click="selectMatrixCell({{ $rowPId }}, 0, '{{ addslashes($row['principal_name']) }}', '')"
                                         class="matrix-cell-clickable text-xs font-extrabold text-primary-600 dark:text-primary-400 hover:underline"
                                     >
                                         {{ $row['total_row'] }}
@@ -295,14 +297,15 @@
                             </td>
                             @foreach ($matrix['columns'] as $colId => $colName)
                                 @php
+                                    $colBId = (int)$colId;
                                     $colTotal = $matrix['column_totals'][$colId] ?? 0;
-                                    $isColActive = ($selectedCellBranchId === $colId && $selectedCellPrincipalId === null);
+                                    $isColActive = ($selectedCellBranchId === $colBId && $selectedCellPrincipalId === null);
                                 @endphp
                                 <td class="py-3 px-4 text-center text-gray-900 dark:text-white border-r border-gray-200 dark:border-white/5 {{ $isColActive ? 'bg-primary-200 dark:bg-primary-900/60 font-bold' : '' }}">
                                     @if ($colTotal > 0)
                                         <button
                                             type="button"
-                                            wire:click="selectMatrixCell(null, {{ $colId }}, null, '{{ addslashes($colName) }}')"
+                                            wire:click="selectMatrixCell(0, {{ $colBId }}, '', '{{ addslashes($colName) }}')"
                                             class="matrix-cell-clickable text-xs font-bold text-gray-900 dark:text-white hover:text-primary-600 hover:underline"
                                             title="Filter seluruh prinsiple di {{ $colName }}"
                                         >
@@ -387,13 +390,21 @@
                     @forelse ($details as $index => $emp)
                         @php
                             $isEven = ($index % 2 === 0);
+                            $photoUrl = 'https://ui-avatars.com/api/?name=' . urlencode($emp['full_name']) . '&background=7367F0&color=fff&size=64';
+                            if (!empty($emp['photo'])) {
+                                try {
+                                    if (\Illuminate\Support\Facades\Storage::disk('public')->exists($emp['photo'])) {
+                                        $photoUrl = asset('storage/' . $emp['photo']);
+                                    }
+                                } catch (\Throwable $e) {}
+                            }
                         @endphp
                         <tr class="{{ $isEven ? 'bg-white dark:bg-gray-900' : 'bg-gray-50/60 dark:bg-white/[0.02]' }} hover:bg-gray-100/70 dark:hover:bg-white/5 transition">
                             {{-- Nama Karyawan --}}
                             <td class="py-3 px-4">
                                 <div class="flex items-center gap-3">
                                     <img
-                                        src="{{ $emp['photo'] && \Illuminate\Support\Facades\Storage::disk('public')->exists($emp['photo']) ? asset('storage/' . $emp['photo']) : 'https://ui-avatars.com/api/?name=' . urlencode($emp['full_name']) . '&background=7367F0&color=fff&size=64' }}"
+                                        src="{{ $photoUrl }}"
                                         alt="{{ $emp['full_name'] }}"
                                         class="w-9 h-9 rounded-full object-cover ring-1 ring-gray-200 dark:ring-white/10 shrink-0"
                                     />

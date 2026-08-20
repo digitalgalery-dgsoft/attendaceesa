@@ -44,6 +44,11 @@ class TeamUncheckedMonitoring extends Page
         $this->quickFilter = 'all';
     }
 
+    public static function canAccess(): bool
+    {
+        return auth()->check();
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -61,44 +66,54 @@ class TeamUncheckedMonitoring extends Page
     }
 
     /**
-     * Mengambil data seluruh karyawan aktif dan kalkulasi missed check-in 7 hari terakhir.
+     * Mengambil data seluruh karyawan aktif dan kalkulasi missed check-in 7 hari terakhir secara efisien.
      */
     public function getCalculatedData(): array
     {
         $today = Carbon::today('Asia/Jakarta');
         $todayStr = $today->format('Y-m-d');
         $sevenDaysAgo = $today->copy()->subDays(6);
+        $sevenDaysAgoStr = $sevenDaysAgo->format('Y-m-d');
 
         $employees = Employee::where('is_active', true)
             ->where(function ($q) {
                 $q->whereNull('employment_status')
                   ->orWhere('employment_status', '!=', 'resigned');
             })
-            ->with(['principal', 'branch', 'position', 'company', 'area'])
-            ->get();
+            ->with(['principal:id,name', 'branch:id,name', 'position:id,name', 'company:id,name'])
+            ->get(['id', 'employee_no', 'full_name', 'principal_id', 'branch_id', 'position_id', 'company_id', 'photo', 'phone', 'is_active', 'employment_status']);
 
         $empIds = $employees->pluck('id')->toArray();
 
-        // 1. Ambil seluruh presensi 7 hari terakhir
+        if (empty($empIds)) {
+            return [
+                'today_formatted' => $today->translatedFormat('d F Y'),
+                'seven_days_range' => $sevenDaysAgo->translatedFormat('d M') . ' - ' . $today->translatedFormat('d M Y'),
+                'total_active_employees' => 0,
+                'total_unchecked_employees' => 0,
+                'employees' => [],
+            ];
+        }
+
+        // 1. Ambil seluruh presensi 7 hari terakhir (hanya kolom yang diperlukan)
         $attendances7Days = Attendance::whereIn('employee_id', $empIds)
-            ->whereBetween('attendance_date', [$sevenDaysAgo->toDateString(), $todayStr])
-            ->get()
+            ->whereBetween('attendance_date', [$sevenDaysAgoStr, $todayStr])
+            ->get(['id', 'employee_id', 'attendance_date'])
             ->groupBy('employee_id');
 
         // 2. Ambil seluruh permohonan cuti approved 7 hari terakhir
         $leaves7Days = LeaveRequest::whereIn('employee_id', $empIds)
             ->where('status', 'approved')
-            ->where('end_date', '>=', $sevenDaysAgo->toDateString())
+            ->where('end_date', '>=', $sevenDaysAgoStr)
             ->where('start_date', '<=', $todayStr)
-            ->get()
+            ->get(['id', 'employee_id', 'start_date', 'end_date'])
             ->groupBy('employee_id');
 
-        // 3. Ambil presensi terakhir untuk setiap karyawan
-        $latestAttendances = Attendance::whereIn('employee_id', $empIds)
-            ->orderBy('attendance_date', 'desc')
-            ->get()
+        // 3. Ambil tanggal presensi terakhir secara efisien (menggunakan MAX query, bukan memuat ribuan row)
+        $latestDates = Attendance::whereIn('employee_id', $empIds)
+            ->selectRaw('employee_id, MAX(attendance_date) as max_date')
             ->groupBy('employee_id')
-            ->map(fn ($group) => $group->first());
+            ->pluck('max_date', 'employee_id');
 
         $uncheckedEmployees = [];
 
@@ -107,7 +122,7 @@ class TeamUncheckedMonitoring extends Page
             $empLeaves = $leaves7Days->get($emp->id, collect());
 
             $attendedDates = $empAttendances->pluck('attendance_date')
-                ->map(fn ($d) => Carbon::parse($d)->toDateString())
+                ->map(fn ($d) => is_string($d) ? substr($d, 0, 10) : Carbon::parse($d)->toDateString())
                 ->toArray();
 
             // Hitung tanggal tidak hadir dalam 7 hari terakhir
@@ -117,7 +132,9 @@ class TeamUncheckedMonitoring extends Page
                 $cStr = $curr->toDateString();
                 $isAttended = in_array($cStr, $attendedDates);
                 $isOnLeave = $empLeaves->first(function ($leave) use ($cStr) {
-                    return $cStr >= $leave->start_date && $cStr <= $leave->end_date;
+                    $s = is_string($leave->start_date) ? substr($leave->start_date, 0, 10) : Carbon::parse($leave->start_date)->toDateString();
+                    $e = is_string($leave->end_date) ? substr($leave->end_date, 0, 10) : Carbon::parse($leave->end_date)->toDateString();
+                    return $cStr >= $s && $cStr <= $e;
                 }) !== null;
 
                 if (!$isAttended && !$isOnLeave) {
@@ -138,16 +155,24 @@ class TeamUncheckedMonitoring extends Page
 
             // Hanya proses karyawan yang memiliki setidaknya 1 hari bolos/belum absen dalam 7 hari
             if ($missedCount > 0) {
-                $lastAtt = $latestAttendances->get($emp->id);
+                $lastAttDate = $latestDates->get($emp->id);
                 $daysSinceLast = -1;
-                if ($lastAtt) {
-                    $daysSinceLast = Carbon::parse($lastAtt->attendance_date)->diffInDays($today);
+                $formattedLastAtt = 'Belum Pernah Hadir';
+                
+                if ($lastAttDate) {
+                    try {
+                        $parsedLast = Carbon::parse($lastAttDate);
+                        $daysSinceLast = $parsedLast->diffInDays($today);
+                        $formattedLastAtt = $parsedLast->translatedFormat('d M Y');
+                    } catch (\Exception $e) {
+                        $formattedLastAtt = (string)$lastAttDate;
+                    }
                 }
 
                 $isTodayUnchecked = !in_array($todayStr, $attendedDates);
 
                 $principalName = $emp->principal?->name ?? ($emp->company?->name ?? 'Tanpa Prinsiple');
-                $branchName = $emp->branch?->name ?? ($emp->area?->name ?? 'Tanpa Area');
+                $branchName = $emp->branch?->name ?? 'Tanpa Area';
 
                 $uncheckedEmployees[] = [
                     'id' => $emp->id,
@@ -155,14 +180,14 @@ class TeamUncheckedMonitoring extends Page
                     'full_name' => $emp->full_name ?? 'Unknown',
                     'photo' => $emp->photo,
                     'position' => $emp->position?->name ?? 'Staff',
-                    'principal_id' => $emp->principal_id,
+                    'principal_id' => $emp->principal_id ? (int)$emp->principal_id : null,
                     'principal_name' => $principalName,
-                    'branch_id' => $emp->branch_id,
+                    'branch_id' => $emp->branch_id ? (int)$emp->branch_id : null,
                     'branch_name' => $branchName,
                     'phone' => $emp->phone ?? '-',
                     'is_today_unchecked' => $isTodayUnchecked,
                     'days_since_last' => $daysSinceLast,
-                    'last_attendance_date' => $lastAtt ? Carbon::parse($lastAtt->attendance_date)->translatedFormat('d M Y') : 'Belum Pernah Hadir',
+                    'last_attendance_date' => $formattedLastAtt,
                     'missed_count_7days' => $missedCount,
                     'missed_dates' => $missedDates,
                 ];
@@ -191,19 +216,13 @@ class TeamUncheckedMonitoring extends Page
         if ($this->selectedPrincipalId) {
             $principalsQuery->where('id', $this->selectedPrincipalId);
         }
-        $principals = $principalsQuery->get();
+        $principals = $principalsQuery->get(['id', 'name']);
 
         $branchesQuery = Branch::orderBy('name');
         if ($this->selectedBranchId) {
             $branchesQuery->where('id', $this->selectedBranchId);
         }
-        $branches = $branchesQuery->get();
-
-        // Siapkan struktur matriks
-        // rows: array of [principal_id, principal_name, branches => [branch_id => count], total_row]
-        // columns: array of [branch_id, branch_name]
-        // column_totals: array of [branch_id => count]
-        // grand_total: int
+        $branches = $branchesQuery->get(['id', 'name']);
 
         $columns = [];
         foreach ($branches as $branch) {
@@ -325,7 +344,7 @@ class TeamUncheckedMonitoring extends Page
             }
 
             // Filter Search Text
-            if (!empty(trim($this->searchQuery))) {
+            if (!empty(trim($this->searchQuery ?? ''))) {
                 $q = strtolower(trim($this->searchQuery));
                 $nameMatch = str_contains(strtolower($emp['full_name']), $q);
                 $noMatch = str_contains(strtolower($emp['employee_no']), $q);
@@ -355,22 +374,27 @@ class TeamUncheckedMonitoring extends Page
     /**
      * Memilih Cell Matriks untuk filtering langsung tabel detail
      */
-    public function selectMatrixCell(?int $principalId, ?int $branchId, ?string $principalName = null, ?string $branchName = null): void
+    public function selectMatrixCell($principalId = 0, $branchId = 0, $principalName = '', $branchName = ''): void
     {
+        $pId = !empty($principalId) ? (int)$principalId : null;
+        $bId = !empty($branchId) ? (int)$branchId : null;
+        $pName = !empty($principalName) ? (string)$principalName : null;
+        $bName = !empty($branchName) ? (string)$branchName : null;
+
         // Toggle selection jika cell yang sama diklik lagi
-        if ($this->selectedCellPrincipalId === $principalId && $this->selectedCellBranchId === $branchId) {
+        if ($this->selectedCellPrincipalId === $pId && $this->selectedCellBranchId === $bId) {
             $this->resetCellFilter();
             return;
         }
 
-        $this->selectedCellPrincipalId = $principalId;
-        $this->selectedCellBranchId = $branchId;
-        $this->selectedCellPrincipalName = $principalName;
-        $this->selectedCellBranchName = $branchName;
+        $this->selectedCellPrincipalId = $pId;
+        $this->selectedCellBranchId = $bId;
+        $this->selectedCellPrincipalName = $pName;
+        $this->selectedCellBranchName = $bName;
 
         Notification::make()
             ->title('Filter Matriks Diterapkan')
-            ->body("Menampilkan detail untuk: " . ($principalName ?: 'Semua') . " - " . ($branchName ?: 'Semua'))
+            ->body("Menampilkan detail untuk: " . ($pName ?: 'Semua Prinsiple') . " - " . ($bName ?: 'Semua Area'))
             ->info()
             ->send();
     }
