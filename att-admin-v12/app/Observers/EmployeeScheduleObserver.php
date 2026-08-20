@@ -35,8 +35,15 @@ class EmployeeScheduleObserver
         }
 
         $date = Carbon::parse($schedule->schedule_date);
-        
-        $cutoff = $schedule->employee->department->cutoff_start_date ?? 26;
+
+        $employee = $schedule->employee ?: \App\Models\Employee::with('department')->find($schedule->employee_id);
+        if (!$employee) {
+            return;
+        }
+
+        $cutoff = ($employee->department && isset($employee->department->cutoff_start_date)) 
+            ? (int)$employee->department->cutoff_start_date 
+            : 26;
 
         if ($cutoff == 1) {
             $monthYear = $date->format('Y-m');

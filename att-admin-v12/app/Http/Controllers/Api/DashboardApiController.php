@@ -18,35 +18,87 @@ class DashboardApiController extends Controller
         if (!$employee) {
             return response()->json(['error' => 'Employee profile not found'], 404);
         }
-        $currentMonth = Carbon::now()->format('Y-m');
 
-        // Target HK
+        // Hitung Periode Cut Off Aktif untuk Karyawan ini
+        $cutoff = ($employee->department && isset($employee->department->cutoff_start_date)) ? (int)$employee->department->cutoff_start_date : 26;
+        $now = Carbon::now('Asia/Jakarta');
+
+        if ($cutoff == 1) {
+            $startDate = $now->copy()->startOfMonth();
+            $endDate   = $now->copy()->endOfMonth();
+            $monthYear = $now->format('Y-m');
+
+            $prevStartDate = $now->copy()->subMonth()->startOfMonth();
+            $prevEndDate   = $now->copy()->subMonth()->endOfMonth();
+        } else {
+            if ($now->day >= $cutoff) {
+                $startDate = $now->copy()->setDay($cutoff)->startOfDay();
+                $endDate   = $now->copy()->addMonth()->setDay($cutoff - 1)->endOfDay();
+                $monthYear = $now->copy()->addMonth()->format('Y-m');
+
+                $prevStartDate = $now->copy()->subMonth()->setDay($cutoff)->startOfDay();
+                $prevEndDate   = $now->copy()->setDay($cutoff - 1)->endOfDay();
+            } else {
+                $startDate = $now->copy()->subMonth()->setDay($cutoff)->startOfDay();
+                $endDate   = $now->copy()->setDay($cutoff - 1)->endOfDay();
+                $monthYear = $now->format('Y-m');
+
+                $prevStartDate = $now->copy()->subMonths(2)->setDay($cutoff)->startOfDay();
+                $prevEndDate   = $now->copy()->subMonth()->setDay($cutoff - 1)->endOfDay();
+            }
+        }
+
+        // Target HK: Cek dari WorkTarget periode cut off ini
         $workTarget = WorkTarget::where('employee_id', $employee->id)
-                                ->whereIn('month_year', [$currentMonth, Carbon::now()->format('m-Y')])
-                                ->first();
-        
-        $targetHK = $workTarget ? $workTarget->target_hk : 0;
+            ->where(function ($q) use ($monthYear) {
+                $q->where('month_year', $monthYear)
+                  ->orWhere('month_year', Carbon::parse($monthYear . '-01')->format('m-Y'));
+            })
+            ->first();
 
-        // Calculate Kehadiran (Attendances this month)
+        // Jika belum ada di tabel WorkTarget, hitung otomatis dari EmployeeSchedule atau hari kerja dalam periode cutoff
+        if ($workTarget && $workTarget->target_hk > 0) {
+            $targetHK = (int)$workTarget->target_hk;
+        } else {
+            $scheduledWorkdays = \App\Models\EmployeeSchedule::where('employee_id', $employee->id)
+                ->whereBetween('schedule_date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->where('schedule_type', 'workday')
+                ->count();
+
+            if ($scheduledWorkdays > 0) {
+                $targetHK = $scheduledWorkdays;
+            } else {
+                // Default weekdays dalam periode cutoff
+                $plan = 0;
+                $cur = $startDate->copy();
+                while ($cur->lte($endDate)) {
+                    if ($cur->isWeekday()) {
+                        $plan++;
+                    }
+                    $cur->addDay();
+                }
+                $targetHK = $plan;
+            }
+        }
+
+        // Calculate Kehadiran (Attendances pada periode cut off yang sedang berjalan)
         $kehadiran = Attendance::where('employee_id', $employee->id)
-                               ->whereYear('attendance_date', Carbon::now()->year)
-                               ->whereMonth('attendance_date', Carbon::now()->month)
-                               ->count();
+            ->whereBetween('attendance_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->whereIn('status', ['present', 'late', 'permit'])
+            ->count();
 
-        // Calculate Sakit & Cuti (Approved Leave Requests this month)
+        // Calculate Sakit & Cuti (Approved Leave Requests pada periode cut off yang sedang berjalan)
         $sakit = LeaveRequest::where('employee_id', $employee->id)
-                             ->where('status', 'approved')
-                             ->where('type', 'sakit')
-                             ->whereYear('start_date', Carbon::now()->year)
-                             ->whereMonth('start_date', Carbon::now()->month)
-                             ->count();
+            ->where('status', 'approved')
+            ->where('type', 'sakit')
+            ->whereBetween('start_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->count();
 
         $cuti = LeaveRequest::where('employee_id', $employee->id)
-                            ->where('status', 'approved')
-                            ->whereIn('type', ['cuti', 'izin'])
-                            ->whereYear('start_date', Carbon::now()->year)
-                            ->whereMonth('start_date', Carbon::now()->month)
-                            ->count();
+            ->where('status', 'approved')
+            ->whereIn('type', ['cuti', 'izin'])
+            ->whereBetween('start_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->count();
 
         // Running Rate
         $runningRate = 0;
@@ -54,11 +106,11 @@ class DashboardApiController extends Controller
             $runningRate = round(($kehadiran / $targetHK) * 100);
         }
 
-        // Previous month kehadiran
+        // Previous cut off period kehadiran
         $prevKehadiran = Attendance::where('employee_id', $employee->id)
-                                   ->whereYear('attendance_date', Carbon::now()->subMonth()->year)
-                                   ->whereMonth('attendance_date', Carbon::now()->subMonth()->month)
-                                   ->count();
+            ->whereBetween('attendance_date', [$prevStartDate->toDateString(), $prevEndDate->toDateString()])
+            ->whereIn('status', ['present', 'late', 'permit'])
+            ->count();
 
         return response()->json([
             'position' => $employee->position ? $employee->position->name : 'Standar',
@@ -84,95 +136,76 @@ class DashboardApiController extends Controller
         // Get subordinates (direct reports) with relations
         $teamMembers = Employee::where('supervisor_id', $employee->id)
             ->where('is_active', true)
-            ->with(['position', 'principal', 'branch', 'company'])
+            ->with(['position', 'principal', 'branch', 'company', 'department'])
             ->get();
         $totalTeam = $teamMembers->count();
 
         $teamIds = $teamMembers->pluck('id')->toArray();
 
-        // Count who is present today
-        $hadirHariIni = Attendance::whereIn('employee_id', $teamIds)
-                                  ->whereDate('attendance_date', $todayStr)
-                                  ->count();
+        // Get attendances today
+        $todayAttendances = Attendance::whereIn('employee_id', $teamIds)
+            ->whereDate('attendance_date', $todayStr)
+            ->get()
+            ->keyBy('employee_id');
 
-        // Count who is sick / leave today
-        $sakitHariIni = LeaveRequest::whereIn('employee_id', $teamIds)
-                                    ->where('status', 'approved')
-                                    ->where('type', 'sakit')
-                                    ->whereDate('start_date', '<=', $todayStr)
-                                    ->whereDate('end_date', '>=', $todayStr)
-                                    ->count();
+        // Get leave requests today
+        $todayLeaves = LeaveRequest::whereIn('employee_id', $teamIds)
+            ->where('status', 'approved')
+            ->where('start_date', '<=', $todayStr)
+            ->where('end_date', '>=', $todayStr)
+            ->get()
+            ->keyBy('employee_id');
 
-        $cutiHariIni = LeaveRequest::whereIn('employee_id', $teamIds)
-                                   ->where('status', 'approved')
-                                   ->whereIn('type', ['cuti', 'izin'])
-                                   ->whereDate('start_date', '<=', $todayStr)
-                                   ->whereDate('end_date', '>=', $todayStr)
-                                   ->count();
+        $hadirHariIni = 0;
+        $sakitHariIni = 0;
+        $cutiHariIni = 0;
+        $vacantDetails = [];
 
-        // Get IDs of present and on leave employees
-        $presentIds = Attendance::whereIn('employee_id', $teamIds)
-                                  ->whereDate('attendance_date', $todayStr)
-                                  ->pluck('employee_id')
-                                  ->toArray();
-
-        $leaveIds = LeaveRequest::whereIn('employee_id', $teamIds)
-                                    ->where('status', 'approved')
-                                    ->whereDate('start_date', '<=', $todayStr)
-                                    ->whereDate('end_date', '>=', $todayStr)
-                                    ->pluck('employee_id')
-                                    ->toArray();
-
-        $activeIds = array_unique(array_merge($presentIds, $leaveIds));
-
-        // Unchecked / Vacant employees today are those not in activeIds
-        $vacantEmployees = $teamMembers->whereNotIn('id', $activeIds);
-        
-        // Preload attendances & leaves for last 7 days
+        // Check each team member status for last 7 days
         $attendances7Days = Attendance::whereIn('employee_id', $teamIds)
             ->whereBetween('attendance_date', [$sevenDaysAgo->toDateString(), $todayStr])
             ->get()
             ->groupBy('employee_id');
 
-        $leaves7Days = LeaveRequest::whereIn('employee_id', $teamIds)
-            ->where('status', 'approved')
-            ->where('end_date', '>=', $sevenDaysAgo->toDateString())
-            ->where('start_date', '<=', $todayStr)
-            ->get()
-            ->groupBy('employee_id');
+        foreach ($teamMembers as $emp) {
+            $attToday = $todayAttendances->get($emp->id);
+            $leaveToday = $todayLeaves->get($emp->id);
 
-        $vacantDetails = [];
-        foreach ($vacantEmployees as $emp) {
-            $empAttendances = $attendances7Days->get($emp->id, collect());
-            $empLeaves = $leaves7Days->get($emp->id, collect());
-            $attendedDates = $empAttendances->pluck('attendance_date')->map(fn($d) => Carbon::parse($d)->toDateString())->toArray();
+            if ($attToday) {
+                $hadirHariIni++;
+                continue;
+            }
+
+            if ($leaveToday) {
+                if ($leaveToday->type === 'sakit') {
+                    $sakitHariIni++;
+                } else {
+                    $cutiHariIni++;
+                }
+                continue;
+            }
+
+            // If not present and not on leave today, check recent vacancy
+            $empAtts = $attendances7Days->get($emp->id, collect());
+            $attendedDates = $empAtts->pluck('attendance_date')->toArray();
 
             $missedDates = [];
-            $curr = $sevenDaysAgo->copy();
-            while ($curr <= $today) {
-                $cStr = $curr->toDateString();
-                $isAttended = in_array($cStr, $attendedDates);
-                $isOnLeave = $empLeaves->first(function($leave) use ($cStr) {
-                    return $cStr >= $leave->start_date && $cStr <= $leave->end_date;
-                }) !== null;
-
-                if (!$isAttended && !$isOnLeave) {
-                    $missedDates[] = [
-                        'date' => $cStr,
-                        'formatted_date' => $curr->translatedFormat('d M Y'),
-                        'day_name' => $curr->translatedFormat('l'),
-                    ];
+            for ($i = 0; $i < 7; $i++) {
+                $checkDate = $today->copy()->subDays($i)->format('Y-m-d');
+                if (!in_array($checkDate, $attendedDates)) {
+                    $missedDates[] = $checkDate;
                 }
-                $curr->addDay();
             }
-            $missedDates = array_reverse($missedDates);
 
             $lastAttendance = Attendance::where('employee_id', $emp->id)
-                                        ->orderBy('attendance_date', 'desc')
-                                        ->first();
-            $daysVacant = -1; // Indicates never attended
+                ->orderBy('attendance_date', 'desc')
+                ->first();
+
+            $daysVacant = 1;
             if ($lastAttendance) {
                 $daysVacant = Carbon::parse($lastAttendance->attendance_date)->diffInDays($today);
+            } else {
+                $daysVacant = 7;
             }
 
             $vacantDetails[] = [
@@ -196,17 +229,45 @@ class DashboardApiController extends Controller
 
         $vacant = count($vacantDetails);
 
-        // Team Target Mandays (Sum of targets of all team members this month)
-        $currentMonth = Carbon::now('Asia/Jakarta')->format('Y-m');
-        $teamTargetMandays = WorkTarget::whereIn('employee_id', $teamIds)
-                                       ->where('month_year', $currentMonth)
-                                       ->sum('target_hk');
+        // Team Target Mandays (Berdasarkan periode cutoff berjalan)
+        $cutoff = ($employee->department && isset($employee->department->cutoff_start_date)) ? (int)$employee->department->cutoff_start_date : 26;
+        $now = Carbon::now('Asia/Jakarta');
 
-        // Current team attendance count this month
+        if ($cutoff == 1) {
+            $startDate = $now->copy()->startOfMonth();
+            $endDate   = $now->copy()->endOfMonth();
+            $monthYear = $now->format('Y-m');
+        } else {
+            if ($now->day >= $cutoff) {
+                $startDate = $now->copy()->setDay($cutoff)->startOfDay();
+                $endDate   = $now->copy()->addMonth()->setDay($cutoff - 1)->endOfDay();
+                $monthYear = $now->copy()->addMonth()->format('Y-m');
+            } else {
+                $startDate = $now->copy()->subMonth()->setDay($cutoff)->startOfDay();
+                $endDate   = $now->copy()->setDay($cutoff - 1)->endOfDay();
+                $monthYear = $now->format('Y-m');
+            }
+        }
+
+        $teamTargetMandays = (int)WorkTarget::whereIn('employee_id', $teamIds)
+            ->where(function ($q) use ($monthYear) {
+                $q->where('month_year', $monthYear)
+                  ->orWhere('month_year', Carbon::parse($monthYear . '-01')->format('m-Y'));
+            })
+            ->sum('target_hk');
+
+        if ($teamTargetMandays == 0) {
+            $teamTargetMandays = \App\Models\EmployeeSchedule::whereIn('employee_id', $teamIds)
+                ->whereBetween('schedule_date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->where('schedule_type', 'workday')
+                ->count();
+        }
+
+        // Current team attendance count in this cutoff period
         $teamKehadiranBulanIni = Attendance::whereIn('employee_id', $teamIds)
-                                           ->whereYear('attendance_date', Carbon::now('Asia/Jakarta')->year)
-                                           ->whereMonth('attendance_date', Carbon::now('Asia/Jakarta')->month)
-                                           ->count();
+            ->whereBetween('attendance_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->whereIn('status', ['present', 'late', 'permit'])
+            ->count();
         
         $teamRunningRate = 0;
         if ($teamTargetMandays > 0) {
