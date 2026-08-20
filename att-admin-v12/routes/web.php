@@ -28,6 +28,11 @@ Route::get('/migrate-now', function () {
 
 // Web Cron Endpoint for Odoo Sync
 Route::get('/cron/odoo-sync', function () {
+    @ignore_user_abort(true);
+    @set_time_limit(0);
+    @ini_set('max_execution_time', '1800');
+    @ini_set('memory_limit', '1024M');
+    
     try {
         $results = \App\Services\OdooSyncService::syncAllConfiguredCompanies('cron');
         return response()->json([
