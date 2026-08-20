@@ -58,6 +58,14 @@
             border-radius: 7px;
             cursor: pointer;
             transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .vcal-nav-btn svg {
+            width: 15px !important;
+            height: 15px !important;
+            min-width: 15px !important;
+            flex-shrink: 0;
+            display: inline-block;
         }
         .vcal-nav-btn:hover {
             color: #0f172a;
@@ -88,13 +96,24 @@
         .vcal-counter-pill {
             display: inline-flex;
             align-items: center;
-            padding: 6px 14px;
+            gap: 8px;
+            padding: 8px 16px;
             background: #eff6ff;
-            border: 1px solid #dbeafe;
+            border: 1.5px solid #bfdbfe;
             color: #1d4ed8;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 700;
             border-radius: 9999px;
+            white-space: nowrap;
+            line-height: 1;
+        }
+        .vcal-counter-pill svg {
+            width: 16px !important;
+            height: 16px !important;
+            min-width: 16px !important;
+            min-height: 16px !important;
+            flex-shrink: 0;
+            display: inline-block;
         }
         .dark .vcal-counter-pill {
             background: #1e3a8a33;
@@ -408,7 +427,7 @@
             letter-spacing: 0.02em;
         }
 
-        /* --- Polished Detail Modal --- */
+        /* --- Extra Wide & Polished Detail Modal --- */
         .vcal-modal-backdrop {
             position: fixed;
             inset: 0;
@@ -418,16 +437,16 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 24px;
         }
 
         .vcal-modal-panel {
             background: #ffffff;
             border: 1px solid #cbd5e1;
-            border-radius: 18px;
+            border-radius: 20px;
             width: 100%;
-            max-width: 720px;
-            max-height: 88vh;
+            max-width: 980px;
+            max-height: 90vh;
             overflow-y: auto;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
             display: flex;
@@ -445,14 +464,14 @@
         }
 
         .vcal-modal-header {
-            padding: 18px 24px;
+            padding: 18px 26px;
             border-bottom: 1px solid #e2e8f0;
             display: flex;
             align-items: center;
             justify-content: space-between;
             background: #f8fafc;
-            border-top-left-radius: 18px;
-            border-top-right-radius: 18px;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
         }
         .dark .vcal-modal-header {
             background: #0f172a;
@@ -460,7 +479,7 @@
         }
 
         .vcal-modal-title {
-            font-size: 1.15rem;
+            font-size: 1.2rem;
             font-weight: 800;
             color: #0f172a;
             margin: 0;
@@ -470,9 +489,10 @@
         }
 
         .vcal-modal-subtitle {
-            font-size: 12px;
+            font-size: 13px;
             color: #64748b;
             margin-top: 2px;
+            font-weight: 500;
         }
         .dark .vcal-modal-subtitle {
             color: #94a3b8;
@@ -485,7 +505,17 @@
             cursor: pointer;
             border-radius: 8px;
             padding: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             transition: all 0.15s ease;
+        }
+        .vcal-modal-close svg {
+            width: 20px !important;
+            height: 20px !important;
+            min-width: 20px !important;
+            flex-shrink: 0;
+            display: inline-block;
         }
         .vcal-modal-close:hover {
             color: #0f172a;
@@ -497,23 +527,23 @@
         }
 
         .vcal-modal-content {
-            padding: 24px;
+            padding: 26px;
             display: flex;
             flex-direction: column;
-            gap: 18px;
+            gap: 20px;
         }
 
         /* Profile Summary Card */
         .vcal-emp-card {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 16px;
+            border-radius: 14px;
+            padding: 18px 20px;
             display: flex;
             flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
-            gap: 14px;
+            gap: 16px;
         }
         .dark .vcal-emp-card {
             background: #0f172a;
@@ -523,13 +553,13 @@
         .vcal-emp-info {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
         }
 
         .vcal-avatar-circle {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
             background: #2563eb;
             color: #ffffff;
             font-size: 16px;
@@ -538,18 +568,20 @@
             align-items: center;
             justify-content: center;
             text-transform: uppercase;
-            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+            flex-shrink: 0;
         }
 
         .vcal-tag-pill {
             display: inline-flex;
             align-items: center;
-            padding: 2px 8px;
+            padding: 3px 10px;
             border-radius: 6px;
             font-size: 11px;
             font-weight: 600;
             background: #e2e8f0;
             color: #334155;
+            white-space: nowrap;
         }
         .dark .vcal-tag-pill {
             background: #334155;
@@ -559,36 +591,43 @@
         .vcal-status-badge {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-            padding: 4px 12px;
+            gap: 6px;
+            padding: 6px 14px;
             border-radius: 9999px;
             font-size: 11px;
-            font-weight: 700;
+            font-weight: 800;
             text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
         .vcal-status-badge.approved {
             background: #dcfce7;
             color: #15803d;
+            border: 1px solid #bbf7d0;
         }
         .dark .vcal-status-badge.approved {
             background: #14532d;
             color: #86efac;
+            border-color: #166534;
         }
         .vcal-status-badge.draft {
             background: #fef9c3;
             color: #a16207;
+            border: 1px solid #fef08a;
         }
         .dark .vcal-status-badge.draft {
             background: #713f12;
             color: #fef08a;
+            border-color: #854d0e;
         }
         .vcal-status-badge.cancelled {
             background: #fee2e2;
             color: #b91c1c;
+            border: 1px solid #fecaca;
         }
         .dark .vcal-status-badge.cancelled {
             background: #7f1d1d;
             color: #fca5a5;
+            border-color: #991b1b;
         }
 
         /* Locations Table */
@@ -596,25 +635,27 @@
             border: 1px solid #e2e8f0;
             border-radius: 12px;
             overflow: hidden;
+            background: #ffffff;
         }
         .dark .vcal-table-box {
             border-color: #334155;
+            background: #1e293b;
         }
 
         .vcal-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12px;
+            font-size: 13px;
             text-align: left;
         }
         .vcal-table th {
             background: #f1f5f9;
             color: #475569;
             font-weight: 700;
-            padding: 10px 14px;
+            padding: 12px 16px;
             border-bottom: 1px solid #cbd5e1;
             text-transform: uppercase;
-            font-size: 10px;
+            font-size: 11px;
             letter-spacing: 0.05em;
         }
         .dark .vcal-table th {
@@ -623,10 +664,10 @@
             border-bottom-color: #334155;
         }
         .vcal-table td {
-            padding: 12px 14px;
+            padding: 14px 16px;
             border-bottom: 1px solid #f1f5f9;
             color: #1e293b;
-            vertical-align: top;
+            vertical-align: middle;
         }
         .dark .vcal-table td {
             border-bottom-color: #334155;
@@ -643,8 +684,8 @@
         }
 
         .vcal-seq-badge {
-            width: 22px;
-            height: 22px;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
             background: #e2e8f0;
             color: #0f172a;
@@ -660,38 +701,55 @@
         }
 
         .vcal-modal-footer {
-            padding: 16px 24px;
+            padding: 16px 26px;
             border-top: 1px solid #e2e8f0;
             background: #f8fafc;
-            border-bottom-left-radius: 18px;
-            border-bottom-right-radius: 18px;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            gap: 10px;
+            gap: 12px;
         }
         .dark .vcal-modal-footer {
             background: #0f172a;
             border-top-color: #334155;
         }
 
-        .vcal-btn-danger {
+        .vcal-btn-danger, .vcal-btn-primary, .vcal-btn-secondary {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 8px 16px;
+            justify-content: center;
+            gap: 8px;
+            height: 40px;
+            padding: 0 18px;
+            border-radius: 8px;
             font-size: 13px;
             font-weight: 700;
+            white-space: nowrap;
+            cursor: pointer;
+            text-decoration: none;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .vcal-btn-danger svg, .vcal-btn-primary svg, .vcal-btn-secondary svg {
+            width: 18px !important;
+            height: 18px !important;
+            min-width: 18px !important;
+            min-height: 18px !important;
+            flex-shrink: 0;
+            display: inline-block;
+        }
+
+        .vcal-btn-danger {
             color: #dc2626;
             background: #ffffff;
-            border: 1px solid #fecaca;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.15s ease;
+            border: 1.5px solid #fca5a5;
         }
         .vcal-btn-danger:hover {
             background: #fee2e2;
-            border-color: #f87171;
+            border-color: #ef4444;
+            color: #b91c1c;
         }
         .dark .vcal-btn-danger {
             background: #7f1d1d22;
@@ -703,20 +761,10 @@
         }
 
         .vcal-btn-primary {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 8px 18px;
-            font-size: 13px;
-            font-weight: 700;
             color: #ffffff;
             background: #2563eb;
-            border: 1px solid #2563eb;
-            border-radius: 8px;
-            cursor: pointer;
-            text-decoration: none;
-            transition: all 0.15s ease;
-            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.2);
+            border: 1.5px solid #2563eb;
+            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
         }
         .vcal-btn-primary:hover {
             background: #1d4ed8;
@@ -725,21 +773,14 @@
         }
 
         .vcal-btn-secondary {
-            display: inline-flex;
-            align-items: center;
-            padding: 8px 16px;
-            font-size: 13px;
-            font-weight: 600;
             color: #475569;
             background: #ffffff;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.15s ease;
+            border: 1.5px solid #cbd5e1;
         }
         .vcal-btn-secondary:hover {
             background: #f1f5f9;
             color: #0f172a;
+            border-color: #94a3b8;
         }
         .dark .vcal-btn-secondary {
             background: #1e293b;
@@ -757,13 +798,13 @@
             <div class="vcal-top-bar">
                 <div class="vcal-nav-group">
                     <button type="button" wire:click="prevMonth" class="vcal-nav-btn">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                         Bulan Lalu
                     </button>
                     <button type="button" wire:click="today" class="vcal-nav-btn" style="border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1;">Hari Ini</button>
                     <button type="button" wire:click="nextMonth" class="vcal-nav-btn">
                         Bulan Depan
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                     </button>
                 </div>
 
@@ -772,8 +813,8 @@
                 </div>
 
                 <div class="vcal-counter-pill">
-                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                    Total: {{ $this->totalSchedulesInMonth }} Jadwal Visit
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    <span>Total: {{ $this->totalSchedulesInMonth }} Jadwal Visit</span>
                 </div>
             </div>
 
@@ -879,7 +920,7 @@
         </div>
     </div>
 
-    <!-- Polished Detail Modal -->
+    <!-- Extra Wide Polished Detail Modal -->
     @if ($showDetailModal && $selectedItinerary)
         <div class="vcal-modal-backdrop" wire:click.self="closeDetailModal">
             <div class="vcal-modal-panel">
@@ -891,7 +932,7 @@
                         </div>
                     </div>
                     <button type="button" wire:click="closeDetailModal" class="vcal-modal-close" title="Tutup">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
 
@@ -903,10 +944,10 @@
                                 {{ strtoupper(substr($selectedItinerary['employee_name'], 0, 2)) }}
                             </div>
                             <div>
-                                <div style="font-size: 15px; font-weight: 800; color: #0f172a;" class="dark:text-white">
+                                <div style="font-size: 16px; font-weight: 800; color: #0f172a;" class="dark:text-white">
                                     {{ $selectedItinerary['employee_name'] }}
                                 </div>
-                                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;">
                                     <span class="vcal-tag-pill">NIK: {{ $selectedItinerary['employee_no'] }}</span>
                                     <span class="vcal-tag-pill" style="background: #e0e7ff; color: #3730a3;" class="dark:bg-indigo-900/50 dark:text-indigo-300">{{ $selectedItinerary['position'] }}</span>
                                     <span class="vcal-tag-pill" style="background: #f0fdf4; color: #166534;" class="dark:bg-emerald-900/50 dark:text-emerald-300">Area: {{ $selectedItinerary['area'] }}</span>
@@ -923,21 +964,21 @@
                     </div>
 
                     @if (!empty($selectedItinerary['notes']))
-                        <div style="padding: 12px 14px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; font-size: 12px; color: #0369a1;" class="dark:bg-sky-900/30 dark:border-sky-800 dark:text-sky-300">
+                        <div style="padding: 14px 16px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; font-size: 13px; color: #0369a1;" class="dark:bg-sky-900/30 dark:border-sky-800 dark:text-sky-300">
                             <strong>Catatan Kunjungan:</strong> {{ $selectedItinerary['notes'] }}
                         </div>
                     @endif
 
                     <!-- Locations Table -->
                     <div>
-                        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; margin-bottom: 8px;" class="dark:text-gray-300">
+                        <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; margin-bottom: 10px;" class="dark:text-gray-300">
                             Daftar Titik / Toko Kunjungan ({{ count($selectedItinerary['items']) }} Lokasi)
                         </div>
                         <div class="vcal-table-box">
                             <table class="vcal-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 44px; text-align: center;">Urutan</th>
+                                        <th style="width: 55px; text-align: center;">Urutan</th>
                                         <th>Lokasi / Toko</th>
                                         <th>Prinsiple</th>
                                         <th>Tipe Kunjungan</th>
@@ -952,9 +993,9 @@
                                                 <span class="vcal-seq-badge">{{ $item['sequence'] }}</span>
                                             </td>
                                             <td>
-                                                <div style="font-weight: 700; color: #0f172a;" class="dark:text-white">{{ $item['location_name'] }}</div>
+                                                <div style="font-weight: 700; font-size: 13px; color: #0f172a;" class="dark:text-white">{{ $item['location_name'] }}</div>
                                                 @if (!empty($item['location_address']))
-                                                    <div style="font-size: 11px; color: #64748b;" class="dark:text-gray-400">{{ $item['location_address'] }}</div>
+                                                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;" class="dark:text-gray-400">{{ $item['location_address'] }}</div>
                                                 @endif
                                             </td>
                                             <td>
@@ -967,7 +1008,7 @@
                                             </td>
                                             <td style="text-align: center;">
                                                 @if ($item['is_checkin_location'])
-                                                    <span class="vcal-checkin-badge" style="padding: 3px 8px; font-size: 10px;">
+                                                    <span class="vcal-checkin-badge" style="padding: 3px 8px; font-size: 11px;">
                                                         ✓ Ya (Check-in)
                                                     </span>
                                                 @else
@@ -978,7 +1019,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8;">
+                                            <td colspan="6" style="text-align: center; padding: 28px; color: #94a3b8;">
                                                 Belum ada lokasi kunjungan yang didaftarkan.
                                             </td>
                                         </tr>
@@ -991,12 +1032,12 @@
 
                 <div class="vcal-modal-footer">
                     <button type="button" wire:click="deleteItinerary({{ $selectedItinerary['id'] }})" wire:confirm="Apakah Anda yakin ingin menghapus jadwal visit ini?" class="vcal-btn-danger">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        Hapus Jadwal
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        <span>Hapus Jadwal</span>
                     </button>
                     <a href="{{ App\Filament\Resources\Itineraries\ItineraryResource::getUrl('edit', ['record' => $selectedItinerary['id']]) }}" class="vcal-btn-primary">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                        Edit Jadwal Visit
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        <span>Edit Jadwal Visit</span>
                     </a>
                     <button type="button" wire:click="closeDetailModal" class="vcal-btn-secondary">Tutup</button>
                 </div>
