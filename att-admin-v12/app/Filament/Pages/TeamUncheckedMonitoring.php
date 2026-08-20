@@ -147,10 +147,10 @@ class TeamUncheckedMonitoring extends Page
             ];
         }
 
-        // 1. Ambil seluruh presensi 7 hari terakhir (hanya kolom employee_id dan tanggal)
+        // 1. Ambil seluruh presensi 7 hari terakhir (hanya kolom employee_id dan attendance_date)
         $attendances7Days = DB::table('attendances')
             ->whereBetween('attendance_date', [$sevenDaysAgoStr, $todayStr])
-            ->select('employee_id', DB::raw('SUBSTRING(attendance_date, 1, 10) as att_date'))
+            ->select('employee_id', 'attendance_date')
             ->get()
             ->groupBy('employee_id');
 
@@ -165,7 +165,7 @@ class TeamUncheckedMonitoring extends Page
 
         // 3. Ambil tanggal presensi terakhir
         $latestDates = DB::table('attendances')
-            ->select('employee_id', DB::raw('MAX(SUBSTRING(attendance_date, 1, 10)) as max_date'))
+            ->selectRaw('employee_id, MAX(attendance_date) as max_date')
             ->groupBy('employee_id')
             ->pluck('max_date', 'employee_id');
 
@@ -181,7 +181,7 @@ class TeamUncheckedMonitoring extends Page
 
         foreach ($employees as $emp) {
             $empAtt = $attendances7Days->get($emp->id);
-            $attendedDates = $empAtt ? $empAtt->pluck('att_date')->toArray() : [];
+            $attendedDates = $empAtt ? $empAtt->map(fn($item) => substr((string)$item->attendance_date, 0, 10))->toArray() : [];
             $empLeaves = $leaves7Days->get($emp->id);
 
             // Hitung tanggal tidak hadir (raw strings)
