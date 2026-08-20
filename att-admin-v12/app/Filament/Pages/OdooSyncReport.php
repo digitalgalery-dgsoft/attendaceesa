@@ -9,6 +9,7 @@ use App\Services\OdooSyncService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Enums\Width;
 use Illuminate\Support\Carbon;
 
 class OdooSyncReport extends Page
@@ -20,20 +21,37 @@ class OdooSyncReport extends Page
     protected static ?string $navigationLabel = 'Laporan Odoo Sync';
     protected string $view = 'filament.pages.odoo-sync-report';
 
-    public ?string $selectedBatchId = 'latest';
     public ?string $filterDate = null;
+    public ?string $selectedBatchId = 'all_today';
     public ?int $selectedCompanyId = null;
 
     public ?array $activeLogDetail = null;
 
-    public function mount(): void
+    public function getMaxContentWidth(): Width | string | null
     {
-        $this->filterDate = Carbon::today()->format('Y-m-d');
-        $latestBatch = OdooSyncLog::latest()->value('batch_id');
-        $this->selectedBatchId = $latestBatch ?: 'latest';
+        return Width::Full;
     }
 
-    public function getHeaderActions(): array
+    public function mount(): void
+    {
+        @ini_set('memory_limit', '512M');
+        $this->filterDate = Carbon::today('Asia/Jakarta')->toDateString();
+        $this->selectedBatchId = 'all_today';
+        $this->selectedCompanyId = null;
+    }
+
+    public function setToday(): void
+    {
+        $this->filterDate = Carbon::today('Asia/Jakarta')->toDateString();
+        $this->selectedBatchId = 'all_today';
+    }
+
+    public function updatedFilterDate(): void
+    {
+        $this->selectedBatchId = 'all_today';
+    }
+
+    protected function getHeaderActions(): array
     {
         return [
             Action::make('sync_now')
@@ -47,6 +65,7 @@ class OdooSyncReport extends Page
                     try {
                         $results = OdooSyncService::syncAllConfiguredCompanies('manual');
                         $this->selectedBatchId = $results['batch_id'];
+                        $this->filterDate = Carbon::today('Asia/Jakarta')->toDateString();
 
                         Notification::make()
                             ->title('Sinkronisasi Selesai')
@@ -65,29 +84,31 @@ class OdooSyncReport extends Page
     }
 
     /**
-     * Get summary metrics for the selected batch/date.
+     * Get summary metrics for the selected date / batch.
      */
     public function getReportData(): array
     {
+        @ini_set('memory_limit', '512M');
+        $targetDate = $this->filterDate ?: Carbon::today('Asia/Jakarta')->toDateString();
+
         $companies = Company::where('is_active', true)->orderBy('name')->get();
 
-        // Get logs based on selected batch
-        $logsQuery = OdooSyncLog::with('company');
-        if ($this->selectedBatchId && $this->selectedBatchId !== 'latest') {
+        // Query logs for the selected date
+        $logsQuery = OdooSyncLog::with('company')
+            ->whereDate('created_at', $targetDate);
+
+        if ($this->selectedBatchId && $this->selectedBatchId !== 'all_today' && $this->selectedBatchId !== 'latest') {
             $logsQuery->where('batch_id', $this->selectedBatchId);
-        } else {
-            $latestBatch = OdooSyncLog::latest()->value('batch_id');
-            if ($latestBatch) {
-                $logsQuery->where('batch_id', $latestBatch);
-            }
         }
 
         if ($this->selectedCompanyId) {
             $logsQuery->where('company_id', $this->selectedCompanyId);
         }
 
-        $logs = $logsQuery->get();
-        $logsByCompany = $logs->keyBy('company_id');
+        $logs = $logsQuery->orderBy('created_at', 'desc')->get();
+
+        // Group logs by company for aggregation
+        $logsByCompany = $logs->groupBy('company_id');
 
         $newData = [];
         $updateData = [];
@@ -101,16 +122,34 @@ class OdooSyncReport extends Page
 
         foreach ($companies as $company) {
             $code = $company->code ?: strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $company->name), 0, 4));
-            $log = $logsByCompany->get($company->id);
+            $companyLogs = $logsByCompany->get($company->id, collect());
+            $latestCompanyLog = $companyLogs->first();
 
-            $newCount = $log ? $log->new_count : 0;
-            $updateCount = $log ? $log->update_count : 0;
-            $resignCount = $log ? $log->resign_count : 0;
+            // Aggregation across the day for this company
+            $newCount = (int) $companyLogs->sum('new_count');
+            $updateCount = (int) ($latestCompanyLog ? $latestCompanyLog->update_count : $companyLogs->sum('update_count'));
+            $resignCount = (int) $companyLogs->sum('resign_count');
 
-            // Live count of active employees in company
+            // Live count or latest sync count of active employees in company
             $totalActive = Employee::where('company_id', $company->id)->where('is_active', true)->count();
-            if ($log && $log->total_employee_count > 0) {
-                $totalActive = $log->total_employee_count;
+            if ($latestCompanyLog && $latestCompanyLog->total_employee_count > 0) {
+                $totalActive = $latestCompanyLog->total_employee_count;
+            }
+
+            // Collect details if available
+            $newEmpDetails = [];
+            $updEmpDetails = [];
+            $rsgEmpDetails = [];
+            foreach ($companyLogs as $cl) {
+                if (!empty($cl->details['new_employees'])) {
+                    $newEmpDetails = array_merge($newEmpDetails, (array)$cl->details['new_employees']);
+                }
+                if (!empty($cl->details['updated_employees'])) {
+                    $updEmpDetails = array_merge($updEmpDetails, (array)$cl->details['updated_employees']);
+                }
+                if (!empty($cl->details['resigned_employees'])) {
+                    $rsgEmpDetails = array_merge($rsgEmpDetails, (array)$cl->details['resigned_employees']);
+                }
             }
 
             $newData[] = [
@@ -118,7 +157,7 @@ class OdooSyncReport extends Page
                 'code' => $code,
                 'name' => $company->name,
                 'count' => $newCount,
-                'details' => $log ? ($log->details['new_employees'] ?? []) : [],
+                'details' => $newEmpDetails,
             ];
 
             $updateData[] = [
@@ -126,7 +165,7 @@ class OdooSyncReport extends Page
                 'code' => $code,
                 'name' => $company->name,
                 'count' => $updateCount,
-                'details' => $log ? ($log->details['updated_employees'] ?? []) : [],
+                'details' => $updEmpDetails,
             ];
 
             $resignData[] = [
@@ -134,7 +173,7 @@ class OdooSyncReport extends Page
                 'code' => $code,
                 'name' => $company->name,
                 'count' => $resignCount,
-                'details' => $log ? ($log->details['resigned_employees'] ?? []) : [],
+                'details' => $rsgEmpDetails,
             ];
 
             $totalEmployeeData[] = [
@@ -159,6 +198,8 @@ class OdooSyncReport extends Page
             'sum_update' => $sumUpdate,
             'sum_resign' => $sumResign,
             'sum_total_employees' => $sumTotalEmployees,
+            'target_date' => $targetDate,
+            'target_date_formatted' => Carbon::parse($targetDate)->translatedFormat('d F Y'),
             'batch_id' => $this->selectedBatchId,
             'logs_count' => $logs->count(),
             'executed_at' => $logs->first() ? $logs->first()->created_at->format('d M Y H:i:s') : null,
@@ -167,33 +208,46 @@ class OdooSyncReport extends Page
     }
 
     /**
-     * Get recent sync batches for dropdown filter.
+     * Get recent sync batches for dropdown filter on the selected date.
      */
     public function getRecentBatches(): array
     {
-        return OdooSyncLog::select('batch_id', 'created_at', 'trigger_type', 'status')
+        $targetDate = $this->filterDate ?: Carbon::today('Asia/Jakarta')->toDateString();
+
+        return OdooSyncLog::whereDate('created_at', $targetDate)
+            ->select('batch_id', 'created_at', 'trigger_type', 'status')
             ->selectRaw('SUM(new_count) as total_new, SUM(update_count) as total_update, SUM(resign_count) as total_resign')
             ->groupBy('batch_id', 'created_at', 'trigger_type', 'status')
             ->orderBy('created_at', 'desc')
-            ->limit(20)
             ->get()
             ->mapWithKeys(function ($row) {
-                $date = $row->created_at->format('d/m/Y H:i');
-                $label = "Batch {$date} [{$row->trigger_type}] — New: {$row->total_new}, Upd: {$row->total_update}, Resign: {$row->total_resign}";
+                $time = $row->created_at->format('H:i:s');
+                $label = "Batch {$time} [{$row->trigger_type}] — New: {$row->total_new}, Upd: {$row->total_update}, Resign: {$row->total_resign}";
                 return [$row->batch_id => $label];
             })
             ->toArray();
     }
 
     /**
-     * Get history log list for the bottom table.
+     * Get history log list for the bottom table strictly filtered for the selected day.
      */
     public function getHistoryLogs()
     {
-        return OdooSyncLog::with('company')
-            ->orderBy('created_at', 'desc')
-            ->limit(50)
-            ->get();
+        $targetDate = $this->filterDate ?: Carbon::today('Asia/Jakarta')->toDateString();
+
+        $query = OdooSyncLog::with('company')
+            ->whereDate('created_at', $targetDate)
+            ->orderBy('created_at', 'desc');
+
+        if ($this->selectedBatchId && $this->selectedBatchId !== 'all_today' && $this->selectedBatchId !== 'latest') {
+            $query->where('batch_id', $this->selectedBatchId);
+        }
+
+        if ($this->selectedCompanyId) {
+            $query->where('company_id', $this->selectedCompanyId);
+        }
+
+        return $query->get();
     }
 
     /**

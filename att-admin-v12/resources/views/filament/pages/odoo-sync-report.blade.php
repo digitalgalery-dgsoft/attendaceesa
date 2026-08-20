@@ -3,7 +3,7 @@
         .odoo-sync-grid-4col {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 24px;
+            gap: 20px;
         }
         .odoo-sync-kpi-grid {
             display: grid;
@@ -38,11 +38,32 @@
     <x-filament::section>
         <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
             <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; flex: 1;">
-                <div style="min-width: 280px; max-width: 420px; width: 100%;">
-                    <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #6b7280; display: block; margin-bottom: 4px;">Pilih Batch Sinkronisasi</label>
+                
+                {{-- Filter Tanggal Berjalan --}}
+                <div style="min-width: 200px;">
+                    <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #6b7280; display: block; margin-bottom: 4px;">Pilih Tanggal</label>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <input
+                            type="date"
+                            wire:model.live="filterDate"
+                            style="padding: 6px 10px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; color: #0f172a; width: 100%;"
+                        />
+                        <button
+                            type="button"
+                            wire:click="setToday"
+                            style="padding: 6px 12px; font-size: 12px; font-weight: 700; background: #e0e7ff; color: #4338ca; border-radius: 6px; border: 1px solid #c7d2fe; cursor: pointer; white-space: nowrap;"
+                        >
+                            Hari Ini
+                        </button>
+                    </div>
+                </div>
+
+                {{-- Filter Batch Sinkronisasi --}}
+                <div style="min-width: 280px; max-width: 400px; flex: 1;">
+                    <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #6b7280; display: block; margin-bottom: 4px;">Batch Sinkronisasi ({{ $report['target_date_formatted'] }})</label>
                     <x-filament::input.wrapper>
                         <x-filament::input.select wire:model.live="selectedBatchId" style="width: 100%; font-size: 13px;">
-                            <option value="latest">-- Batch Terakhir (Default) --</option>
+                            <option value="all_today">-- Akumulasi Seluruh Batch Hari Ini --</option>
                             @foreach ($batches as $batchId => $label)
                                 <option value="{{ $batchId }}">{{ $label }}</option>
                             @endforeach
@@ -52,8 +73,8 @@
 
                 @if ($report['executed_at'])
                     <div style="padding: 8px 14px; border-radius: 8px; background: rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.08); font-size: 12px;" class="dark:!bg-white/5 dark:!border-white/10">
-                        <div><strong>Waktu Eksekusi:</strong> {{ $report['executed_at'] }}</div>
-                        <div><strong>Tipe Trigger:</strong> <span style="font-weight: 700; text-transform: uppercase; color: #2563eb;">{{ $report['trigger_type'] ?? 'Cron' }}</span></div>
+                        <div><strong>Waktu Terakhir:</strong> {{ $report['executed_at'] }}</div>
+                        <div><strong>Trigger:</strong> <span style="font-weight: 700; text-transform: uppercase; color: #2563eb;">{{ $report['trigger_type'] ?? 'Cron' }}</span></div>
                     </div>
                 @endif
             </div>
@@ -75,7 +96,7 @@
         <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02)); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 18px;">
             <div style="display: flex; align-items: center; justify-content: space-between;">
                 <div>
-                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #059669; display: block; margin-bottom: 4px;">Total Employee New</span>
+                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #059669; display: block; margin-bottom: 4px;">Employee New ({{ $report['target_date_formatted'] }})</span>
                     <span style="font-size: 28px; font-weight: 800; color: #047857; line-height: 1;">{{ number_format($report['sum_new']) }}</span>
                 </div>
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; color: #059669;">
@@ -88,7 +109,7 @@
         <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.02)); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 18px;">
             <div style="display: flex; align-items: center; justify-content: space-between;">
                 <div>
-                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #2563eb; display: block; margin-bottom: 4px;">Total Employee Update</span>
+                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #2563eb; display: block; margin-bottom: 4px;">Employee Update ({{ $report['target_date_formatted'] }})</span>
                     <span style="font-size: 28px; font-weight: 800; color: #1d4ed8; line-height: 1;">{{ number_format($report['sum_update']) }}</span>
                 </div>
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; color: #2563eb;">
@@ -101,7 +122,7 @@
         <div style="background: linear-gradient(135deg, rgba(244, 63, 94, 0.08), rgba(244, 63, 94, 0.02)); border: 1px solid rgba(244, 63, 94, 0.3); border-radius: 12px; padding: 18px;">
             <div style="display: flex; align-items: center; justify-content: space-between;">
                 <div>
-                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #e11d48; display: block; margin-bottom: 4px;">Total Employee Resign</span>
+                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #e11d48; display: block; margin-bottom: 4px;">Employee Resign ({{ $report['target_date_formatted'] }})</span>
                     <span style="font-size: 28px; font-weight: 800; color: #be123c; line-height: 1;">{{ number_format($report['sum_resign']) }}</span>
                 </div>
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(244, 63, 94, 0.15); display: flex; align-items: center; justify-content: center; color: #e11d48;">
@@ -124,7 +145,7 @@
         </div>
     </div>
 
-    {{-- Main 4-Column Layout (Matching User Mockup) --}}
+    {{-- Main 4-Column Layout --}}
     <x-filament::section>
         <div class="odoo-sync-grid-4col">
             
@@ -163,7 +184,7 @@
                 <div>
                     <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; margin-bottom: 14px; border-bottom: 2px solid #3b82f6;">
                         <span style="font-size: 15px; font-weight: 700; color: #1d4ed8;" class="dark:!text-blue-400">Data Employee Update</span>
-                        <span style="font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: #dbeafe; color: #1e40af;">{{ $report['sum_update'] }}</span>
+                        <span style="font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: #dbeafe; color: #1e40af;">{{ number_format($report['sum_update']) }}</span>
                     </div>
 
                     <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -173,7 +194,7 @@
                                     {{ $item['name'] }} :
                                 </span>
                                 <span style="font-size: 14px; font-weight: 700; color: {{ $item['count'] > 0 ? '#2563eb' : '#9ca3af' }}; font-family: monospace; margin-left: 8px;">
-                                    {{ $item['count'] }}
+                                    {{ number_format($item['count']) }}
                                 </span>
                             </div>
                         @empty
@@ -184,7 +205,7 @@
 
                 <div style="margin-top: 16px; padding-top: 12px; border-top: 1px dashed #e5e7eb; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; color: #4b5563;" class="dark:!border-white/10 dark:!text-gray-400">
                     <span>TOTAL UPDATE :</span>
-                    <span style="font-size: 16px; font-weight: 800; color: #2563eb; font-family: monospace;">{{ $report['sum_update'] }}</span>
+                    <span style="font-size: 16px; font-weight: 800; color: #2563eb; font-family: monospace;">{{ number_format($report['sum_update']) }}</span>
                 </div>
             </div>
 
@@ -251,8 +272,11 @@
         </div>
     </x-filament::section>
 
-    {{-- Tabel Riwayat Sinkronisasi (Sync History) --}}
-    <x-filament::section title="Riwayat Sinkronisasi (Sync History)" description="Catatan log eksekusi otomatis maupun manual dari cron Odoo Sync.">
+    {{-- Tabel Riwayat Sinkronisasi (Sync History) Per Hari Berjalan --}}
+    <x-filament::section
+        title="Riwayat Sinkronisasi Tanggal {{ $report['target_date_formatted'] }}"
+        description="Catatan log eksekusi otomatis maupun manual dari cron Odoo Sync pada hari berjalan."
+    >
         <div style="overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
                 <thead>
@@ -301,24 +325,28 @@
                                 {{ $log->new_count }}
                             </td>
                             <td style="padding: 10px 14px; text-align: center; font-weight: 700; color: #2563eb; font-family: monospace;">
-                                {{ $log->update_count }}
+                                {{ number_format($log->update_count) }}
                             </td>
                             <td style="padding: 10px 14px; text-align: center; font-weight: 700; color: #e11d48; font-family: monospace;">
                                 {{ $log->resign_count }}
                             </td>
-                            <td style="padding: 10px 14px; text-align: center; font-weight: 700; color: #7c3aed; font-family: monospace;">
+                            <td style="padding: 10px 14px; text-align: center; font-weight: 700; color: #6d28d9; font-family: monospace;">
                                 {{ number_format($log->total_employee_count) }}
                             </td>
                             <td style="padding: 10px 14px; text-align: center;">
-                                <button type="button" wire:click="showLogDetail({{ $log->id }})" style="color: #4f46e5; text-decoration: underline; font-size: 12px; cursor: pointer; background: none; border: none;">
+                                <button
+                                    type="button"
+                                    wire:click="showLogDetail({{ $log->id }})"
+                                    style="font-size: 12px; font-weight: 600; color: #4f46e5; text-decoration: underline; background: none; border: none; cursor: pointer;"
+                                >
                                     Detail
                                 </button>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" style="padding: 24px; text-align: center; color: #9ca3af; font-style: italic;">
-                                Belum ada riwayat sinkronisasi.
+                            <td colspan="10" style="padding: 30px; text-align: center; color: #6b7280;">
+                                Tidak ada catatan log sinkronisasi pada tanggal {{ $report['target_date_formatted'] }}.
                             </td>
                         </tr>
                     @endforelse
@@ -329,66 +357,44 @@
 
     {{-- Detail Modal --}}
     @if ($activeLogDetail)
-        <div style="position: fixed; inset: 0; z-index: 50; overflow-y: auto; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; padding: 16px;">
-            <div style="background: var(--modal-bg, #ffffff); border-radius: 16px; max-width: 650px; width: 100%; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); border: 1px solid #e5e7eb;" class="dark:!bg-gray-900 dark:!border-gray-800">
-                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 16px;" class="dark:!border-gray-800">
+        <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px;">
+            <div style="background: white; border-radius: 12px; max-width: 800px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);" class="dark:!bg-gray-900">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px;" class="dark:!border-white/10">
                     <h3 style="font-size: 16px; font-weight: 700; color: #111827;" class="dark:!text-white">
-                        Detail Log Sinkronisasi [{{ $activeLogDetail['batch_id'] }}]
+                        Rincian Log Sinkronisasi #{{ $activeLogDetail['batch_id'] }}
                     </h3>
-                    <button wire:click="closeLogDetail" style="color: #9ca3af; font-size: 24px; font-weight: 700; background: none; border: none; cursor: pointer;">&times;</button>
+                    <button type="button" wire:click="closeLogDetail" style="font-size: 20px; font-weight: 700; color: #9ca3af; background: none; border: none; cursor: pointer;">
+                        &times;
+                    </button>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; text-align: center; margin-bottom: 16px;">
-                    <div style="padding: 10px; border-radius: 8px; background: #d1fae5; border: 1px solid #a7f3d0;">
-                        <span style="font-size: 10px; color: #065f46; font-weight: 700; display: block;">NEW</span>
-                        <span style="font-size: 18px; font-family: monospace; font-weight: 800; color: #047857;">{{ $activeLogDetail['new_count'] }}</span>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; font-size: 13px;">
+                    <div style="padding: 10px; border-radius: 8px; background: #f9fafb;" class="dark:!bg-white/5">
+                        <div style="color: #6b7280; font-size: 11px; font-weight: 600;">NEW</div>
+                        <div style="font-size: 20px; font-weight: 800; color: #059669;">{{ $activeLogDetail['new_count'] }}</div>
                     </div>
-                    <div style="padding: 10px; border-radius: 8px; background: #dbeafe; border: 1px solid #bfdbfe;">
-                        <span style="font-size: 10px; color: #1e40af; font-weight: 700; display: block;">UPDATE</span>
-                        <span style="font-size: 18px; font-family: monospace; font-weight: 800; color: #1d4ed8;">{{ $activeLogDetail['update_count'] }}</span>
+                    <div style="padding: 10px; border-radius: 8px; background: #f9fafb;" class="dark:!bg-white/5">
+                        <div style="color: #6b7280; font-size: 11px; font-weight: 600;">UPDATE</div>
+                        <div style="font-size: 20px; font-weight: 800; color: #2563eb;">{{ number_format($activeLogDetail['update_count']) }}</div>
                     </div>
-                    <div style="padding: 10px; border-radius: 8px; background: #ffe4e6; border: 1px solid #fecdd3;">
-                        <span style="font-size: 10px; color: #9f1239; font-weight: 700; display: block;">RESIGN</span>
-                        <span style="font-size: 18px; font-family: monospace; font-weight: 800; color: #be123c;">{{ $activeLogDetail['resign_count'] }}</span>
+                    <div style="padding: 10px; border-radius: 8px; background: #f9fafb;" class="dark:!bg-white/5">
+                        <div style="color: #6b7280; font-size: 11px; font-weight: 600;">RESIGN</div>
+                        <div style="font-size: 20px; font-weight: 800; color: #e11d48;">{{ $activeLogDetail['resign_count'] }}</div>
                     </div>
-                    <div style="padding: 10px; border-radius: 8px; background: #ede9fe; border: 1px solid #ddd6fe;">
-                        <span style="font-size: 10px; color: #5b21b6; font-weight: 700; display: block;">TOTAL EMP</span>
-                        <span style="font-size: 18px; font-family: monospace; font-weight: 800; color: #6d28d9;">{{ number_format($activeLogDetail['total_employee_count']) }}</span>
+                    <div style="padding: 10px; border-radius: 8px; background: #f9fafb;" class="dark:!bg-white/5">
+                        <div style="color: #6b7280; font-size: 11px; font-weight: 600;">TOTAL EMP</div>
+                        <div style="font-size: 20px; font-weight: 800; color: #7c3aed;">{{ number_format($activeLogDetail['total_employee_count']) }}</div>
                     </div>
                 </div>
 
-                @if (!empty($activeLogDetail['details']['new_employees']))
-                    <div style="margin-bottom: 12px;">
-                        <span style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase; display: block; margin-bottom: 4px;">Karyawan Baru Terdaftar:</span>
-                        <div style="max-height: 120px; overflow-y: auto; background: rgba(0,0,0,0.03); padding: 8px 12px; border-radius: 8px; font-size: 12px; font-family: monospace;" class="dark:!bg-white/5">
-                            @foreach ($activeLogDetail['details']['new_employees'] as $emp)
-                                <div style="display: flex; justify-content: space-between; padding: 2px 0;">
-                                    <span>{{ $emp['name'] }} ({{ $emp['nik'] ?? '-' }})</span>
-                                    <span style="color: #6b7280;">{{ $emp['position'] ?? '' }}</span>
-                                </div>
-                            @endforeach
-                        </div>
+                @if (!empty($activeLogDetail['details']))
+                    <div style="font-size: 12px; margin-top: 12px;">
+                        <h4 style="font-weight: 700; margin-bottom: 6px; color: #374151;" class="dark:!text-gray-200">Raw Log Details:</h4>
+                        <pre style="background: #111827; color: #10b981; padding: 12px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 11px;">{{ json_encode($activeLogDetail['details'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                     </div>
                 @endif
 
-                @if (!empty($activeLogDetail['details']['resigned_employees']))
-                    <div style="margin-bottom: 12px;">
-                        <span style="font-size: 11px; font-weight: 700; color: #e11d48; text-transform: uppercase; display: block; margin-bottom: 4px;">Karyawan Resign / Dinonaktifkan:</span>
-                        <div style="max-height: 120px; overflow-y: auto; background: rgba(0,0,0,0.03); padding: 8px 12px; border-radius: 8px; font-size: 12px; font-family: monospace; color: #be123c;" class="dark:!bg-white/5">
-                            @foreach ($activeLogDetail['details']['resigned_employees'] as $emp)
-                                <div style="padding: 2px 0;">{{ $emp['name'] }} ({{ $emp['nik'] ?? '-' }})</div>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
-
-                @if (!empty($activeLogDetail['error_message']))
-                    <div style="padding: 10px; background: #ffe4e6; border: 1px solid #fecdd3; color: #9f1239; font-size: 12px; border-radius: 8px; margin-bottom: 12px;">
-                        <strong>Error:</strong> {{ $activeLogDetail['error_message'] }}
-                    </div>
-                @endif
-
-                <div style="display: flex; justify-content: flex-end; padding-top: 8px;">
+                <div style="margin-top: 20px; text-align: right;">
                     <x-filament::button wire:click="closeLogDetail" color="gray" size="sm">
                         Tutup
                     </x-filament::button>
