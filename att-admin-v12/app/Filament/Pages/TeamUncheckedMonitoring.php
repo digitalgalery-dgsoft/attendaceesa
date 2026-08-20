@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Enums\MaxWidth;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -35,6 +36,11 @@ class TeamUncheckedMonitoring extends Page
     // Pagination
     public int $page = 1;
     public int $perPage = 25;
+
+    public function getMaxContentWidth(): MaxWidth | string | null
+    {
+        return MaxWidth::Full;
+    }
 
     public function mount(): void
     {
@@ -76,7 +82,6 @@ class TeamUncheckedMonitoring extends Page
 
     /**
      * Mengambil data seluruh karyawan aktif dan kalkulasi missed check-in 7 hari terakhir
-     * Menggunakan DB Query Builder untuk konsumsi memori yang sangat hemat.
      */
     public function getCalculatedData(): array
     {
@@ -406,7 +411,6 @@ class TeamUncheckedMonitoring extends Page
 
     /**
      * Mengambil Detail Karyawan (Gambar 2) yang sudah terfilter dan DIPAGINASI
-     * Menghindari render ribuan row HTML sekaligus yang menyebabkan kehabisan RAM.
      */
     public function getFilteredDetailData(): array
     {
@@ -516,7 +520,7 @@ class TeamUncheckedMonitoring extends Page
     }
 
     /**
-     * Export hasil monitoring ke Excel (mengambil seluruh data terfilter)
+     * Export hasil monitoring ke Excel
      */
     public function exportExcel()
     {
