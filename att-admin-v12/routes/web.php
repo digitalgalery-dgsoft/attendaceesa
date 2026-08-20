@@ -43,23 +43,3 @@ Route::get('/cron/odoo-sync', function () {
     }
 });
 
-// Debug endpoint to check latest error logs safely
-Route::get('/debug-log', function () {
-    try {
-        $logPath = storage_path('logs/laravel.log');
-        if (!file_exists($logPath)) {
-            return "No laravel.log file found at: " . $logPath;
-        }
-        $fp = fopen($logPath, 'r');
-        $size = filesize($logPath);
-        if ($size > 60000) {
-            fseek($fp, $size - 60000);
-        }
-        $data = fread($fp, 60000);
-        fclose($fp);
-        return response('<pre style="font-family: monospace; font-size: 12px; background: #1e1e1e; color: #fff; padding: 16px;">' . htmlspecialchars($data) . '</pre>');
-    } catch (\Throwable $e) {
-        return "Error reading log: " . $e->getMessage();
-    }
-});
-
