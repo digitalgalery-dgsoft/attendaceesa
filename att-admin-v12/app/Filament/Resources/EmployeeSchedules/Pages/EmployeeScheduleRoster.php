@@ -3,73 +3,118 @@
 namespace App\Filament\Resources\EmployeeSchedules\Pages;
 
 use App\Filament\Resources\EmployeeSchedules\EmployeeScheduleResource;
-use Filament\Resources\Pages\Page;
-use App\Models\Employee;
+use App\Models\Branch;
 use App\Models\Department;
+use App\Models\Employee;
+use App\Models\EmployeeSchedule;
+use App\Models\Holiday;
+use App\Models\Principal;
 use App\Models\Shift;
 use App\Models\WorkLocation;
-use App\Models\EmployeeSchedule;
 use Carbon\Carbon;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
-use Filament\Notifications\Notification;
-use Illuminate\Support\Facades\Auth;
-
+use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Schemas\Schema;
+use Filament\Notifications\Notification;
+use Filament\Resources\Pages\Page;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class EmployeeScheduleRoster extends Page implements HasForms
 {
     use InteractsWithForms;
-    
-    protected static string $resource = EmployeeScheduleResource::class;
 
+    protected static string $resource = EmployeeScheduleResource::class;
     protected string $view = 'filament.pages.employee-schedule-roster';
-    
-    public ?array $filterData = [];
-    
-    public function mount()
+
+    public $filterData = [];
+    public ?string $search = '';
+    public int $page = 1;
+    public int $perPage = 25;
+
+    public function getMaxContentWidth(): Width | string | null
     {
+        return Width::Full;
+    }
+
+    public function boot(): void
+    {
+        @ini_set('memory_limit', '512M');
+    }
+
+    public function mount(): void
+    {
+        @ini_set('memory_limit', '512M');
         $this->form->fill([
             'filter_start_date' => Carbon::now()->startOfMonth()->toDateString(),
             'filter_end_date' => Carbon::now()->endOfMonth()->toDateString(),
+            'filter_branch_id' => null,
+            'filter_principal_id' => null,
+            'filter_employee_id' => null,
         ]);
+        $this->search = '';
+        $this->page = 1;
+        $this->perPage = 25;
     }
-    
+
+    public function rendering(): void
+    {
+        @ini_set('memory_limit', '512M');
+    }
+
+    public function updatedFilterData(): void
+    {
+        $this->page = 1;
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->page = 1;
+    }
+
+    public function updatedPerPage(): void
+    {
+        $this->page = 1;
+    }
+
     public function form(Schema $form): Schema
     {
         return $form
             ->schema([
-                Grid::make(4)->schema([
+                Grid::make(5)->schema([
                     DatePicker::make('filter_start_date')
-                        ->label('Start Date')
+                        ->label('Tanggal Mulai')
                         ->live()
                         ->required(),
                     DatePicker::make('filter_end_date')
-                        ->label('End Date')
+                        ->label('Tanggal Akhir')
                         ->live()
                         ->afterOrEqual('filter_start_date')
                         ->required(),
-                    Select::make('filter_department_id')
-                        ->label('Department')
-                        ->options(\App\Models\Department::pluck('name', 'id'))
+                    Select::make('filter_branch_id')
+                        ->label('Region / Area')
+                        ->options(Branch::orderBy('name')->pluck('name', 'id'))
+                        ->placeholder('Semua Region')
+                        ->searchable()
+                        ->live(),
+                    Select::make('filter_principal_id')
+                        ->label('Prinsiple')
+                        ->options(Principal::orderBy('name')->pluck('name', 'id'))
+                        ->placeholder('Semua Prinsiple')
                         ->searchable()
                         ->live(),
                     Select::make('filter_employee_id')
-                        ->label('Employee')
-                        ->options(function (callable $get) {
-                            $deptId = $get('filter_department_id');
-                            if ($deptId) {
-                                return \App\Models\Employee::where('department_id', $deptId)->pluck('full_name', 'id');
-                            }
-                            return \App\Models\Employee::pluck('full_name', 'id');
-                        })
+                        ->label('Karyawan Spesifik')
+                        ->options(Employee::where('is_active', 1)->orderBy('full_name')->pluck('full_name', 'id'))
+                        ->placeholder('Semua Karyawan')
                         ->searchable()
                         ->live(),
-                ])->columnSpan(1)
+                ])
             ])
             ->statePath('filterData');
     }
@@ -78,35 +123,37 @@ class EmployeeScheduleRoster extends Page implements HasForms
     {
         return [
             Action::make('generate_schedule')
-                ->label('Generate Schedule')
+                ->label('Generate Schedule Roster')
                 ->icon('heroicon-o-calendar-days')
                 ->color('success')
                 ->form([
                     Select::make('department_id')
-                        ->label('Department (Optional)')
+                        ->label('Departemen (Opsional)')
                         ->options(Department::pluck('name', 'id'))
                         ->searchable()
-                        ->placeholder('Select Department to generate for all its employees'),
+                        ->placeholder('Pilih departemen untuk generate seluruh karyawannya'),
                     Select::make('employee_ids')
-                        ->label('Employees (Optional)')
+                        ->label('Karyawan Tertentu (Opsional)')
                         ->multiple()
-                        ->options(Employee::where('is_active', 1)->pluck('full_name', 'id'))
+                        ->options(Employee::where('is_active', 1)->orderBy('full_name')->pluck('full_name', 'id'))
                         ->searchable()
-                        ->placeholder('Or select specific employees'),
+                        ->placeholder('Atau pilih karyawan spesifik'),
                     DatePicker::make('start_date')
-                        ->label('Start Date')
+                        ->label('Tanggal Mulai')
+                        ->default(Carbon::now()->startOfMonth()->toDateString())
                         ->required(),
                     DatePicker::make('end_date')
-                        ->label('End Date')
+                        ->label('Tanggal Akhir')
+                        ->default(Carbon::now()->endOfMonth()->toDateString())
                         ->required()
                         ->afterOrEqual('start_date'),
                     Select::make('shift_id')
-                        ->label('Shift')
+                        ->label('Shift Kerja')
                         ->options(Shift::where('is_active', 1)->pluck('name', 'id'))
                         ->searchable()
                         ->required(),
                     Select::make('work_location_id')
-                        ->label('Work Location')
+                        ->label('Lokasi Kerja')
                         ->options(WorkLocation::pluck('name', 'id'))
                         ->searchable()
                         ->required(),
@@ -114,64 +161,68 @@ class EmployeeScheduleRoster extends Page implements HasForms
                 ->action(function (array $data): void {
                     if (empty($data['department_id']) && empty($data['employee_ids'])) {
                         Notification::make()
-                            ->title('Validation Error')
-                            ->body('Please select a Department or specific Employees.')
+                            ->title('Validasi Gagal')
+                            ->body('Pilih Departemen atau Karyawan spesifik terlebih dahulu.')
                             ->danger()
                             ->send();
                         return;
                     }
-                    
+
                     $employees = collect();
-                    
+
                     if (!empty($data['department_id'])) {
                         $deptEmployees = Employee::where('department_id', $data['department_id'])->where('is_active', 1)->get();
                         $employees = $employees->merge($deptEmployees);
                     }
-                    
+
                     if (!empty($data['employee_ids'])) {
                         $specificEmployees = Employee::whereIn('id', $data['employee_ids'])->where('is_active', 1)->get();
                         $employees = $employees->merge($specificEmployees);
                     }
-                    
+
                     $employees = $employees->unique('id');
-                    
+
                     if ($employees->isEmpty()) {
                         Notification::make()
-                            ->title('No active employees found.')
+                            ->title('Tidak ada karyawan aktif ditemukan.')
                             ->warning()
                             ->send();
                         return;
                     }
-                    
+
                     $startDate = Carbon::parse($data['start_date']);
                     $endDate = Carbon::parse($data['end_date']);
                     $shift = Shift::find($data['shift_id']);
-                    
+
                     foreach ($employees as $employee) {
                         $currentDate = $startDate->copy();
-                        
+
                         $workingDays = [];
-                        if ($employee->department && is_array($employee->department->working_days)) {
-                            $workingDays = $employee->department->working_days;
+                        if ($employee->department && !empty($employee->department->working_days)) {
+                            $wd = $employee->department->working_days;
+                            $workingDays = is_array($wd) ? $wd : (json_decode($wd, true) ?: [1, 2, 3, 4, 5]);
                         } else {
-                            $workingDays = [1, 2, 3, 4, 5, 6, 7];
+                            $workingDays = [1, 2, 3, 4, 5]; // Default Mon-Fri
                         }
-                        
+                        $normalizedWd = array_map('strval', $workingDays);
+
                         while ($currentDate->lte($endDate)) {
                             $plannedStart = null;
                             $plannedEnd = null;
                             $scheduleType = 'dayoff';
                             $shiftIdToUse = null;
-                            
-                            $isoDay = $currentDate->dayOfWeekIso;
-                            if (in_array($isoDay, $workingDays)) {
+
+                            $dow = strval($currentDate->dayOfWeek);
+                            $iso = strval($currentDate->dayOfWeekIso);
+
+                            if (in_array($dow, $normalizedWd) || in_array($iso, $normalizedWd)) {
                                 $scheduleType = 'workday';
                                 $shiftIdToUse = $data['shift_id'];
-                                
+
                                 if ($shift && $shift->start_time && $shift->end_time) {
                                     $plannedStart = Carbon::parse($currentDate->toDateString() . ' ' . $shift->start_time);
                                     $plannedEnd = Carbon::parse($currentDate->toDateString() . ' ' . $shift->end_time);
-                                    
+
                                     if ($shift->is_cross_day ?? false) {
                                         $plannedEnd->addDay();
                                     } elseif ($plannedEnd->lt($plannedStart)) {
@@ -179,7 +230,7 @@ class EmployeeScheduleRoster extends Page implements HasForms
                                     }
                                 }
                             }
-                            
+
                             EmployeeSchedule::updateOrCreate(
                                 [
                                     'employee_id' => $employee->id,
@@ -194,89 +245,249 @@ class EmployeeScheduleRoster extends Page implements HasForms
                                     'created_by' => Auth::id(),
                                 ]
                             );
-                            
+
                             $currentDate->addDay();
                         }
                     }
-                    
+
                     $this->form->fill([
                         'filter_start_date' => $data['start_date'],
                         'filter_end_date' => $data['end_date'],
                     ]);
-                    
+
                     Notification::make()
-                        ->title('Schedules generated successfully')
+                        ->title('Jadwal roster berhasil digenerate!')
                         ->success()
                         ->send();
                 }),
         ];
     }
-    
+
     protected function getViewData(): array
     {
-        $startDate = \Carbon\Carbon::parse($this->filterData['filter_start_date'])->startOfDay();
-        $endDate = \Carbon\Carbon::parse($this->filterData['filter_end_date'])->endOfDay();
-        
+        @ini_set('memory_limit', '512M');
+
+        $startDate = Carbon::parse($this->filterData['filter_start_date'] ?? Carbon::now()->startOfMonth()->toDateString())->startOfDay();
+        $endDate = Carbon::parse($this->filterData['filter_end_date'] ?? Carbon::now()->endOfMonth()->toDateString())->endOfDay();
+
         $daysInPeriod = $startDate->diffInDays($endDate) + 1;
         if ($daysInPeriod > 31) {
             $endDate = $startDate->copy()->addDays(30)->endOfDay();
             $daysInPeriod = 31;
         }
-        
-        $schedules = \App\Models\EmployeeSchedule::whereBetween('schedule_date', [$startDate->toDateString(), $endDate->toDateString()])
-            ->with('shift')
-            ->get()
-            ->groupBy('employee_id');
-            
-        $scheduledEmployeeIds = $schedules->keys()->toArray();
-        
-        $employeeQuery = \App\Models\Employee::where('is_active', 1)
-            ->whereIn('id', $scheduledEmployeeIds)
-            ->with(['position', 'department', 'branch']);
-        
-        if (!empty($this->filterData['filter_department_id'])) {
-            $employeeQuery->where('department_id', $this->filterData['filter_department_id']);
+
+        $startDateStr = $startDate->toDateString();
+        $endDateStr = $endDate->toDateString();
+
+        // Load holidays
+        $holidays = DB::table('holidays')
+            ->whereBetween('holiday_date', [$startDateStr, $endDateStr])
+            ->pluck('holiday_date')
+            ->map(fn($d) => Carbon::parse($d)->toDateString())
+            ->toArray();
+        $holidayMap = array_flip($holidays);
+
+        // Find employees who have schedule in this period
+        $scheduledEmpIds = DB::table('employee_schedules')
+            ->whereBetween('schedule_date', [$startDateStr, $endDateStr])
+            ->distinct()
+            ->pluck('employee_id')
+            ->toArray();
+
+        if (empty($scheduledEmpIds)) {
+            return [
+                'employees' => collect(),
+                'totalEmployees' => 0,
+                'schedules' => collect(),
+                'holidayMap' => $holidayMap,
+                'daysInPeriod' => $daysInPeriod,
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+                'summary' => [
+                    'total_scheduled' => 0,
+                    'total_workday' => 0,
+                    'total_dayoff' => 0,
+                    'unique_shifts' => 0,
+                ],
+                'pagination' => [
+                    'page' => 1,
+                    'per_page' => $this->perPage,
+                    'total_pages' => 1,
+                    'from' => 0,
+                    'to' => 0,
+                ]
+            ];
         }
-        
+
+        // Query employees with relationships
+        $employeeQuery = DB::table('employees')
+            ->leftJoin('positions', 'employees.position_id', '=', 'positions.id')
+            ->leftJoin('branches', 'employees.branch_id', '=', 'branches.id')
+            ->leftJoin('principals', 'employees.principal_id', '=', 'principals.id')
+            ->whereIn('employees.id', $scheduledEmpIds)
+            ->where('employees.is_active', true)
+            ->whereNull('employees.deleted_at');
+
+        if (!empty($this->filterData['filter_branch_id'])) {
+            $employeeQuery->where('employees.branch_id', $this->filterData['filter_branch_id']);
+        }
+
+        if (!empty($this->filterData['filter_principal_id'])) {
+            $employeeQuery->where('employees.principal_id', $this->filterData['filter_principal_id']);
+        }
+
         if (!empty($this->filterData['filter_employee_id'])) {
-            $employeeQuery->where('id', $this->filterData['filter_employee_id']);
+            $employeeQuery->where('employees.id', $this->filterData['filter_employee_id']);
         }
-        
-        $employees = $employeeQuery->get();
-        
+
+        $allEmployees = $employeeQuery->select([
+            'employees.id',
+            'employees.employee_no',
+            'employees.full_name',
+            'employees.photo',
+            'positions.name as position_name',
+            'branches.name as branch_name',
+            'principals.name as principal_name',
+        ])->orderBy('employees.full_name')->get();
+
+        // Search filtering
+        if (!empty(trim($this->search ?? ''))) {
+            $q = strtolower(trim($this->search));
+            $allEmployees = $allEmployees->filter(function ($emp) use ($q) {
+                return str_contains(strtolower($emp->full_name), $q)
+                    || str_contains(strtolower($emp->employee_no ?? ''), $q)
+                    || str_contains(strtolower($emp->branch_name ?? ''), $q)
+                    || str_contains(strtolower($emp->principal_name ?? ''), $q);
+            })->values();
+        }
+
+        $totalEmployeesCount = $allEmployees->count();
+        $totalPages = max(1, (int)ceil($totalEmployeesCount / $this->perPage));
+
+        if ($this->page > $totalPages) {
+            $this->page = $totalPages;
+        }
+        if ($this->page < 1) {
+            $this->page = 1;
+        }
+
+        $offset = ($this->page - 1) * $this->perPage;
+        $pagedEmployees = $allEmployees->slice($offset, $this->perPage)->values();
+
+        $pagedEmployeeIds = $pagedEmployees->pluck('id')->toArray();
+
+        // Fetch schedules for paged employees
+        $schedules = collect();
+        if (!empty($pagedEmployeeIds)) {
+            $schedules = DB::table('employee_schedules')
+                ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
+                ->leftJoin('work_locations', 'employee_schedules.work_location_id', '=', 'work_locations.id')
+                ->whereIn('employee_schedules.employee_id', $pagedEmployeeIds)
+                ->whereBetween('employee_schedules.schedule_date', [$startDateStr, $endDateStr])
+                ->select([
+                    'employee_schedules.id',
+                    'employee_schedules.employee_id',
+                    'employee_schedules.schedule_date',
+                    'employee_schedules.schedule_type',
+                    'employee_schedules.planned_start_at',
+                    'employee_schedules.planned_end_at',
+                    'shifts.name as shift_name',
+                    'shifts.start_time as shift_start_time',
+                    'shifts.end_time as shift_end_time',
+                    'work_locations.name as work_location_name',
+                ])
+                ->get()
+                ->groupBy('employee_id');
+        }
+
+        // Summary stats across all filtered employees
+        $allEmpIds = $allEmployees->pluck('id')->toArray();
+        $summary = [
+            'total_scheduled' => $totalEmployeesCount,
+            'total_workday' => 0,
+            'total_dayoff' => 0,
+            'unique_shifts' => 0,
+        ];
+
+        if (!empty($allEmpIds)) {
+            $allScheds = DB::table('employee_schedules')
+                ->whereIn('employee_id', $allEmpIds)
+                ->whereBetween('schedule_date', [$startDateStr, $endDateStr])
+                ->select(['schedule_type', 'shift_id'])
+                ->get();
+
+            $summary['total_workday'] = $allScheds->whereIn('schedule_type', ['workday', 'remote', 'field'])->count();
+            $summary['total_dayoff'] = $allScheds->whereIn('schedule_type', ['dayoff', 'holiday'])->count();
+            $summary['unique_shifts'] = $allScheds->pluck('shift_id')->filter()->unique()->count();
+        }
+
         return [
-            'employees' => $employees,
+            'employees' => $pagedEmployees,
+            'totalEmployees' => $totalEmployeesCount,
             'schedules' => $schedules,
+            'holidayMap' => $holidayMap,
             'daysInPeriod' => $daysInPeriod,
             'startDate' => $startDate,
+            'endDate' => $endDate,
+            'summary' => $summary,
+            'pagination' => [
+                'page' => $this->page,
+                'per_page' => $this->perPage,
+                'total_pages' => $totalPages,
+                'from' => $totalEmployeesCount > 0 ? $offset + 1 : 0,
+                'to' => min($offset + $this->perPage, $totalEmployeesCount),
+            ]
         ];
+    }
+
+    public function setPage(int $page): void
+    {
+        $this->page = max(1, $page);
+    }
+
+    public function nextPage(int $maxPage): void
+    {
+        if ($this->page < $maxPage) {
+            $this->page++;
+        }
+    }
+
+    public function previousPage(): void
+    {
+        if ($this->page > 1) {
+            $this->page--;
+        }
     }
 
     public function editScheduleAction(): Action
     {
         return Action::make('editSchedule')
             ->hiddenLabel()
-            ->modalHeading('Edit Employee Schedule')
+            ->modalHeading(fn (array $arguments) => 'Edit Jadwal Karyawan - ' . Carbon::parse($arguments['schedule_date'])->translatedFormat('d F Y'))
+            ->modalWidth('lg')
             ->form([
                 \Filament\Forms\Components\Hidden::make('employee_id'),
                 \Filament\Forms\Components\Hidden::make('schedule_date'),
-                \Filament\Forms\Components\Select::make('schedule_type')
+                Select::make('schedule_type')
+                    ->label('Tipe Jadwal')
                     ->options([
-                        'workday' => 'Workday',
-                        'dayoff' => 'Dayoff',
+                        'workday' => 'Hari Kerja (Workday)',
+                        'dayoff' => 'Hari Libur (Dayoff)',
+                        'remote' => 'Kerja Remote (WFH)',
+                        'field' => 'Kerja Lapangan (Field)',
                     ])
                     ->required()
                     ->live(),
-                \Filament\Forms\Components\Select::make('shift_id')
-                    ->label('Shift')
+                Select::make('shift_id')
+                    ->label('Shift Kerja')
                     ->options(Shift::where('is_active', 1)->pluck('name', 'id'))
                     ->searchable()
-                    ->required(fn ($get) => $get('schedule_type') === 'workday'),
-                \Filament\Forms\Components\Select::make('work_location_id')
-                    ->label('Work Location')
+                    ->required(fn ($get) => in_array($get('schedule_type'), ['workday', 'remote', 'field'])),
+                Select::make('work_location_id')
+                    ->label('Lokasi Kerja')
                     ->options(WorkLocation::pluck('name', 'id'))
                     ->searchable()
-                    ->required(fn ($get) => $get('schedule_type') === 'workday'),
+                    ->required(fn ($get) => in_array($get('schedule_type'), ['workday', 'remote', 'field'])),
             ])
             ->fillForm(function (array $arguments): array {
                 $schedule = EmployeeSchedule::where('employee_id', $arguments['employee_id'])
@@ -285,7 +496,7 @@ class EmployeeScheduleRoster extends Page implements HasForms
                 return [
                     'employee_id' => $arguments['employee_id'],
                     'schedule_date' => $arguments['schedule_date'],
-                    'schedule_type' => $schedule ? $schedule->schedule_type : 'dayoff',
+                    'schedule_type' => $schedule ? $schedule->schedule_type : 'workday',
                     'shift_id' => $schedule ? $schedule->shift_id : null,
                     'work_location_id' => $schedule ? $schedule->work_location_id : null,
                 ];
@@ -297,10 +508,10 @@ class EmployeeScheduleRoster extends Page implements HasForms
                 ]);
 
                 $schedule->schedule_type = $data['schedule_type'];
-                $schedule->shift_id = $data['shift_id'] ?: null;
-                $schedule->work_location_id = $data['work_location_id'] ?: null;
+                $schedule->shift_id = in_array($data['schedule_type'], ['workday', 'remote', 'field']) ? ($data['shift_id'] ?: null) : null;
+                $schedule->work_location_id = in_array($data['schedule_type'], ['workday', 'remote', 'field']) ? ($data['work_location_id'] ?: null) : null;
 
-                if ($data['schedule_type'] === 'workday' && $data['shift_id']) {
+                if (in_array($data['schedule_type'], ['workday', 'remote', 'field']) && $data['shift_id']) {
                     $shift = Shift::find($data['shift_id']);
                     if ($shift && $shift->start_time && $shift->end_time) {
                         $plannedStart = Carbon::parse($data['schedule_date'] . ' ' . $shift->start_time);
@@ -324,7 +535,7 @@ class EmployeeScheduleRoster extends Page implements HasForms
                 $schedule->save();
 
                 Notification::make()
-                    ->title('Schedule updated')
+                    ->title('Jadwal berhasil diperbarui')
                     ->success()
                     ->send();
             });
