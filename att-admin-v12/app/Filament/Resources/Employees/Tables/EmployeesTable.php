@@ -34,14 +34,21 @@ class EmployeesTable
                 TextColumn::make('full_name')
                     ->label('Nama Karyawan')
                     ->searchable(),
+                TextColumn::make('company.name')
+                    ->label('Company')
+                    ->sortable()
+                    ->searchable()
+                    ->default('-'),
                 TextColumn::make('principal.name')
                     ->label('Prinsiple')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->default('-'),
                 TextColumn::make('branch.name')
                     ->label('Area')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->default('-'),
                 TextColumn::make('department.name')
                     ->label('Department')
                     ->sortable()
@@ -100,16 +107,11 @@ class EmployeesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                \Filament\Tables\Filters\SelectFilter::make('branch_id')
-                    ->label('Filter Area')
+                \Filament\Tables\Filters\SelectFilter::make('company_id')
+                    ->label('Filter Company')
                     ->searchable()
                     ->preload()
-                    ->relationship('branch', 'name', function (\Illuminate\Database\Eloquent\Builder $query) {
-                        if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
-                            $query->whereIn('id', auth()->user()->getAccessibleBranchIds());
-                        }
-                        return $query->orderBy('name');
-                    }),
+                    ->relationship('company', 'name'),
                 \Filament\Tables\Filters\SelectFilter::make('principal_id')
                     ->label('Filter Prinsiple')
                     ->searchable()
@@ -117,6 +119,16 @@ class EmployeesTable
                     ->relationship('principal', 'name', function (\Illuminate\Database\Eloquent\Builder $query) {
                         if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
                             $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
+                        }
+                        return $query->orderBy('name');
+                    }),
+                \Filament\Tables\Filters\SelectFilter::make('branch_id')
+                    ->label('Filter Area')
+                    ->searchable()
+                    ->preload()
+                    ->relationship('branch', 'name', function (\Illuminate\Database\Eloquent\Builder $query) {
+                        if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+                            $query->whereIn('id', auth()->user()->getAccessibleBranchIds());
                         }
                         return $query->orderBy('name');
                     }),
