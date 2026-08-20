@@ -22,6 +22,7 @@ class PermissionMatrix extends Field
             }
         });
 
+        $this->columnSpanFull();
         $this->dehydrated(true);
     }
 
