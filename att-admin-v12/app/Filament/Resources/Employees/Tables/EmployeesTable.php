@@ -67,8 +67,17 @@ class EmployeesTable
                     ->sortable()
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('device_name')
+                    ->label('Device')
+                    ->placeholder('Belum Terhubung')
+                    ->icon(fn ($state, $record) => !empty($record->device_id) ? 'heroicon-m-device-phone-mobile' : null)
+                    ->color(fn ($state, $record) => !empty($record->device_id) ? 'primary' : 'gray')
+                    ->tooltip(fn ($record) => !empty($record->device_id) ? "Device ID: {$record->device_id}" : 'Belum ada perangkat yang terhubung')
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('employment_status')
-                    ->badge(),
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('gender')
                     ->badge()
                     ->toggleable(isToggledHiddenByDefault: true),
