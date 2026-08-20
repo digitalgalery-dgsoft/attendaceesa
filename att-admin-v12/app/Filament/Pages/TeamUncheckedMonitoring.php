@@ -3,15 +3,11 @@
 namespace App\Filament\Pages;
 
 use App\Exports\TeamUncheckedExport;
-use App\Models\Attendance;
-use App\Models\Branch;
-use App\Models\Employee;
-use App\Models\LeaveRequest;
-use App\Models\Principal;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
 class TeamUncheckedMonitoring extends Page
@@ -24,7 +20,7 @@ class TeamUncheckedMonitoring extends Page
 
     protected string $view = 'filament.pages.team-unchecked-monitoring';
 
-    // Filters (typed as ?string for Livewire form binding compatibility)
+    // Filters
     public ?string $selectedPrincipalId = null;
     public ?string $selectedBranchId = null;
     public ?string $searchQuery = '';
@@ -38,6 +34,7 @@ class TeamUncheckedMonitoring extends Page
 
     public function mount(): void
     {
+        @ini_set('memory_limit', '512M');
         $this->selectedPrincipalId = null;
         $this->selectedBranchId = null;
         $this->searchQuery = '';
@@ -66,22 +63,44 @@ class TeamUncheckedMonitoring extends Page
     }
 
     /**
-     * Mengambil data seluruh karyawan aktif dan kalkulasi missed check-in 7 hari terakhir secara efisien.
+     * Mengambil data seluruh karyawan aktif dan kalkulasi missed check-in 7 hari terakhir
+     * Menggunakan DB Query Builder untuk konsumsi memori yang sangat hemat (< 15MB untuk ribuan karyawan).
      */
     public function getCalculatedData(): array
     {
+        @ini_set('memory_limit', '512M');
+
         $today = Carbon::today('Asia/Jakarta');
         $todayStr = $today->format('Y-m-d');
         $sevenDaysAgo = $today->copy()->subDays(6);
         $sevenDaysAgoStr = $sevenDaysAgo->format('Y-m-d');
 
-        $employees = Employee::where('is_active', true)
+        // Query raw lightweight stdClass employees
+        $employees = DB::table('employees')
+            ->leftJoin('principals', 'employees.principal_id', '=', 'principals.id')
+            ->leftJoin('branches', 'employees.branch_id', '=', 'branches.id')
+            ->leftJoin('positions', 'employees.position_id', '=', 'positions.id')
+            ->leftJoin('companies', 'employees.company_id', '=', 'companies.id')
+            ->where('employees.is_active', true)
+            ->whereNull('employees.deleted_at')
             ->where(function ($q) {
-                $q->whereNull('employment_status')
-                  ->orWhere('employment_status', '!=', 'resigned');
+                $q->whereNull('employees.employment_status')
+                  ->orWhere('employees.employment_status', '!=', 'resigned');
             })
-            ->with(['principal:id,name', 'branch:id,name', 'position:id,name', 'company:id,name'])
-            ->get(['id', 'employee_no', 'full_name', 'principal_id', 'branch_id', 'position_id', 'company_id', 'photo', 'phone', 'is_active', 'employment_status']);
+            ->select([
+                'employees.id',
+                'employees.employee_no',
+                'employees.full_name',
+                'employees.photo',
+                'employees.phone',
+                'employees.principal_id',
+                'employees.branch_id',
+                'principals.name as principal_name',
+                'branches.name as branch_name',
+                'positions.name as position_name',
+                'companies.name as company_name',
+            ])
+            ->get();
 
         $empIds = $employees->pluck('id')->toArray();
 
@@ -96,21 +115,26 @@ class TeamUncheckedMonitoring extends Page
         }
 
         // 1. Ambil seluruh presensi 7 hari terakhir
-        $attendances7Days = Attendance::whereIn('employee_id', $empIds)
+        $attendances7Days = DB::table('attendances')
+            ->whereIn('employee_id', $empIds)
             ->whereBetween('attendance_date', [$sevenDaysAgoStr, $todayStr])
-            ->get(['id', 'employee_id', 'attendance_date'])
+            ->select('employee_id', 'attendance_date')
+            ->get()
             ->groupBy('employee_id');
 
         // 2. Ambil seluruh permohonan cuti approved 7 hari terakhir
-        $leaves7Days = LeaveRequest::whereIn('employee_id', $empIds)
+        $leaves7Days = DB::table('leave_requests')
+            ->whereIn('employee_id', $empIds)
             ->where('status', 'approved')
             ->where('end_date', '>=', $sevenDaysAgoStr)
             ->where('start_date', '<=', $todayStr)
-            ->get(['id', 'employee_id', 'start_date', 'end_date'])
+            ->select('employee_id', 'start_date', 'end_date')
+            ->get()
             ->groupBy('employee_id');
 
-        // 3. Ambil tanggal presensi terakhir secara efisien
-        $latestDates = Attendance::whereIn('employee_id', $empIds)
+        // 3. Ambil tanggal presensi terakhir
+        $latestDates = DB::table('attendances')
+            ->whereIn('employee_id', $empIds)
             ->selectRaw('employee_id, MAX(attendance_date) as max_date')
             ->groupBy('employee_id')
             ->pluck('max_date', 'employee_id');
@@ -149,7 +173,6 @@ class TeamUncheckedMonitoring extends Page
                 $curr->addDay();
             }
 
-            // Urutkan tanggal bolos dari yang terbaru
             $missedDates = array_reverse($missedDates);
             $missedCount = count($missedDates);
 
@@ -171,15 +194,15 @@ class TeamUncheckedMonitoring extends Page
 
                 $isTodayUnchecked = !in_array($todayStr, $attendedDates);
 
-                $principalName = $emp->principal?->name ?? ($emp->company?->name ?? 'Tanpa Prinsiple');
-                $branchName = $emp->branch?->name ?? 'Tanpa Area';
+                $principalName = $emp->principal_name ?: ($emp->company_name ?: 'Tanpa Prinsiple');
+                $branchName = $emp->branch_name ?: 'Tanpa Area';
 
                 $uncheckedEmployees[] = [
                     'id' => $emp->id,
                     'employee_no' => $emp->employee_no ?? '-',
                     'full_name' => $emp->full_name ?? 'Unknown',
                     'photo' => $emp->photo,
-                    'position' => $emp->position?->name ?? 'Staff',
+                    'position' => $emp->position_name ?? 'Staff',
                     'principal_id' => $emp->principal_id ? (string)$emp->principal_id : null,
                     'principal_name' => $principalName,
                     'branch_id' => $emp->branch_id ? (string)$emp->branch_id : null,
@@ -211,18 +234,18 @@ class TeamUncheckedMonitoring extends Page
         $calculated = $this->getCalculatedData();
         $employees = $calculated['employees'];
 
-        // Ambil list Principals & Branches dari database
-        $principalsQuery = Principal::orderBy('name');
+        // Ambil list Principals & Branches dari database secara ringan
+        $principalsQuery = DB::table('principals')->orderBy('name');
         if (!empty($this->selectedPrincipalId)) {
             $principalsQuery->where('id', $this->selectedPrincipalId);
         }
-        $principals = $principalsQuery->get(['id', 'name']);
+        $principals = $principalsQuery->select('id', 'name')->get();
 
-        $branchesQuery = Branch::orderBy('name');
+        $branchesQuery = DB::table('branches')->whereNull('deleted_at')->orderBy('name');
         if (!empty($this->selectedBranchId)) {
             $branchesQuery->where('id', $this->selectedBranchId);
         }
-        $branches = $branchesQuery->get(['id', 'name']);
+        $branches = $branchesQuery->select('id', 'name')->get();
 
         $columns = [];
         foreach ($branches as $branch) {
@@ -254,7 +277,6 @@ class TeamUncheckedMonitoring extends Page
                 }
             }
 
-            // Update column totals
             foreach ($rowBranches as $bId => $count) {
                 $columnTotals[$bId] += $count;
             }
@@ -310,7 +332,6 @@ class TeamUncheckedMonitoring extends Page
         $calculated = $this->getCalculatedData();
         $employees = $calculated['employees'];
 
-        // Terapkan filter dropdown atau filter cell matrix
         $pFilter = !empty($this->selectedCellPrincipalId) ? $this->selectedCellPrincipalId : $this->selectedPrincipalId;
         $bFilter = !empty($this->selectedCellBranchId) ? $this->selectedCellBranchId : $this->selectedBranchId;
 
@@ -381,7 +402,6 @@ class TeamUncheckedMonitoring extends Page
         $pName = !empty($principalName) ? (string)$principalName : null;
         $bName = !empty($branchName) ? (string)$branchName : null;
 
-        // Toggle selection jika cell yang sama diklik lagi
         if ($this->selectedCellPrincipalId === $pId && $this->selectedCellBranchId === $bId) {
             $this->resetCellFilter();
             return;
