@@ -11,7 +11,6 @@ use App\Models\Itinerary;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
 class ItineraryResource extends Resource
@@ -22,6 +21,9 @@ class ItineraryResource extends Resource
     protected static string|\UnitEnum|null $navigationGroup = 'Field Operations & Sales';
     protected static ?int $navigationSort = 1;
     protected static ?string $navigationLabel = 'Visit Schedule';
+    protected static ?string $modelLabel = 'Visit Schedule';
+    protected static ?string $pluralModelLabel = 'Visit Schedules';
+    protected static ?string $breadcrumb = 'Visit Schedule';
 
     public static function form(Schema $schema): Schema
     {
@@ -60,4 +62,3 @@ class ItineraryResource extends Resource
         return auth()->user()->hasRole('Super Admin') || auth()->user()->can('view_itineraries');
     }
 }
-

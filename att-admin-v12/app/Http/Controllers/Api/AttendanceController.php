@@ -59,7 +59,15 @@ class AttendanceController extends Controller
             ->with(['shift', 'workLocation.company'])
             ->first();
 
+        // Cek fallback Visit Schedule (Itinerary) jika belum ada roster reguler
+        $itineraryCheckinItem = null;
         if (!$schedule) {
+            $itineraryCheckinItem = \App\Models\ItineraryItem::whereHas('itinerary', function($q) use ($employee, $today) {
+                $q->where('employee_id', $employee->id)->where('date', $today);
+            })->where('is_checkin_location', true)->with('workLocation')->first();
+        }
+
+        if (!$schedule && !$itineraryCheckinItem) {
             return response()->json([
                 'status'      => 'error',
                 'can_checkin' => false,
@@ -68,7 +76,7 @@ class AttendanceController extends Controller
             ], 403);
         }
 
-        if (in_array($schedule->schedule_type, ['dayoff', 'holiday'])) {
+        if ($schedule && in_array($schedule->schedule_type, ['dayoff', 'holiday'])) {
             return response()->json([
                 'status'      => 'error',
                 'can_checkin' => false,
@@ -88,18 +96,11 @@ class AttendanceController extends Controller
             $visitedLocationIds = \App\Models\AttendanceLog::where('employee_id', $employee->id)
                 ->where('log_type', 'visit_in')
                 ->whereDate('logged_at', $today)
-                ->get()
-                ->map(function ($log) {
-                    $meta = is_array($log->metadata) ? $log->metadata : (is_string($log->metadata) ? json_decode($log->metadata, true) : []);
-                    $id = is_array($meta) ? ($meta['visit_location_id'] ?? null) : null;
-                    return $id !== null ? (int) $id : null;
-                })
-                ->filter()
-                ->unique()
+                ->pluck('work_location_id')
                 ->toArray();
             
             $unvisitedCount = $itinerary->items->filter(function($item) use ($visitedLocationIds) {
-                return !in_array((int)$item->work_location_id, $visitedLocationIds);
+                return !in_array($item->work_location_id, $visitedLocationIds);
             })->count();
             
             if ($unvisitedCount > 0) {
@@ -110,13 +111,22 @@ class AttendanceController extends Controller
         return response()->json([
             'status'      => 'success',
             'can_checkin' => true,
-            'has_itinerary' => $itinerary ? true : false,
-            'has_unfinished_itinerary' => $hasUnfinishedItinerary,
-            'can_visit'   => $hasUnfinishedItinerary,
-            'has_active_permit' => false,
+            'message'     => 'Jadwal hari ini berhasil dimuat.',
             'data'        => [
-                'schedule'  => $schedule,
-                'itinerary' => $itinerary,
+                'schedule'  => $schedule ?: [
+                    'id' => null,
+                    'schedule_date' => $today,
+                    'schedule_type' => 'workday',
+                    'work_location' => $itineraryCheckinItem?->workLocation,
+                    'shift' => null,
+                ],
+                'has_itinerary' => $itinerary ? true : false,
+                'has_unfinished_itinerary' => $hasUnfinishedItinerary,
+                'can_visit'   => $hasUnfinishedItinerary,
+                'meta' => [
+                    'is_from_visit_schedule' => $schedule ? false : true,
+                    'itinerary' => $itinerary,
+                ]
             ],
         ]);
     }
@@ -153,14 +163,22 @@ class AttendanceController extends Controller
                 ->with('workLocation')
                 ->first();
 
+            // Cek fallback Visit Schedule (Itinerary) jika belum ada jadwal reguler
+            $itineraryCheckinItem = null;
             if (!$schedule) {
+                $itineraryCheckinItem = \App\Models\ItineraryItem::whereHas('itinerary', function($q) use ($employeeId, $today) {
+                    $q->where('employee_id', $employeeId)->where('date', $today);
+                })->where('is_checkin_location', true)->with('workLocation')->first();
+            }
+
+            if (!$schedule && !$itineraryCheckinItem) {
                 return response()->json([
                     'message' => 'Check-in ditolak: Anda tidak memiliki jadwal untuk hari ini. Silakan hubungi Admin.'
                 ], 403);
             }
 
             // Tidak bisa check-in di hari libur / day-off
-            if (in_array($schedule->schedule_type, ['dayoff', 'holiday'])) {
+            if ($schedule && in_array($schedule->schedule_type, ['dayoff', 'holiday'])) {
                 return response()->json([
                     'message' => 'Check-in ditolak: Hari ini adalah ' . ucfirst($schedule->schedule_type) . '.'
                 ], 403);
@@ -182,7 +200,7 @@ class AttendanceController extends Controller
             // ─── HITUNG JARAK (GEOFENCE) ──────────────────────────────────────
             $isInsideGeofence = false;
             $distance         = 0;
-            $refLocation      = $schedule->workLocation ?? null;
+            $refLocation      = $schedule?->workLocation ?? ($itineraryCheckinItem?->workLocation ?? null);
 
             // fallback ke branch jika work_location di schedule kosong
             if (!$refLocation) {

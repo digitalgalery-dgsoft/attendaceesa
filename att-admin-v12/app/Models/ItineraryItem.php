@@ -9,7 +9,21 @@ class ItineraryItem extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['itinerary_id', 'work_location_id', 'sequence', 'notes', 'principal_id', 'visit_type', 'meeting_type', 'agenda'];
+    protected $fillable = [
+        'itinerary_id',
+        'work_location_id',
+        'sequence',
+        'is_checkin_location',
+        'notes',
+        'principal_id',
+        'visit_type',
+        'meeting_type',
+        'agenda',
+    ];
+
+    protected $casts = [
+        'is_checkin_location' => 'boolean',
+    ];
 
     public function principal()
     {

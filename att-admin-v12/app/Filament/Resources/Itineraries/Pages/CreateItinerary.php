@@ -3,17 +3,36 @@
 namespace App\Filament\Resources\Itineraries\Pages;
 
 use App\Filament\Resources\Itineraries\ItineraryResource;
-use Filament\Resources\Pages\CreateRecord;
 use App\Models\Employee;
 use App\Models\Holiday;
 use App\Models\Itinerary;
 use App\Models\ItineraryItem;
 use Carbon\Carbon;
+use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 
 class CreateItinerary extends CreateRecord
 {
     protected static string $resource = ItineraryResource::class;
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        $dateParam = request()->query('date');
+        if ($dateParam) {
+            $this->form->fill([
+                'date' => $dateParam,
+                'creation_type' => 'single',
+                'status' => 'approved',
+            ]);
+        }
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 
     protected function handleRecordCreation(array $data): Model
     {
@@ -23,7 +42,7 @@ class CreateItinerary extends CreateRecord
 
         // Whole Month Logic
         $employee = Employee::with('department')->find($data['employee_id']);
-        $workingDays = $employee->department->working_days ?? ['1', '2', '3', '4', '5'];
+        $workingDays = $employee?->department?->working_days ?? ['1', '2', '3', '4', '5'];
         $year = (int) $data['year'];
         $month = (int) $data['month'];
         $daysInMonth = Carbon::create($year, $month, 1)->daysInMonth;
@@ -50,7 +69,7 @@ class CreateItinerary extends CreateRecord
             $itinerary = Itinerary::create([
                 'employee_id' => $employee->id,
                 'date' => $currentDate->format('Y-m-d'),
-                'status' => $data['status'] ?? 'draft',
+                'status' => $data['status'] ?? 'approved',
                 'notes' => $data['notes'] ?? null,
             ]);
 
@@ -59,7 +78,10 @@ class CreateItinerary extends CreateRecord
                     ItineraryItem::create([
                         'itinerary_id' => $itinerary->id,
                         'work_location_id' => $item['work_location_id'],
-                        'sequence' => $item['sequence'],
+                        'sequence' => $item['sequence'] ?? 1,
+                        'principal_id' => $item['principal_id'] ?? $employee->principal_id,
+                        'visit_type' => $item['visit_type'] ?? 'store',
+                        'is_checkin_location' => (bool)($item['is_checkin_location'] ?? false),
                         'notes' => $item['notes'] ?? null,
                     ]);
                 }
@@ -70,7 +92,6 @@ class CreateItinerary extends CreateRecord
             }
         }
 
-        // Return first model so Filament can redirect to it (if empty return dummy)
         return $firstModel ?? Itinerary::make();
     }
 }
