@@ -252,9 +252,12 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Pembuatan template resmi `Template_Import_Attendance.xlsx`.
 
 4. **Optimasi & Diagnostik Sinkronisasi Odoo ERP:**
+   - **Pencocokan NIK + Prinsiple & Proteksi Lintas Entitas (*Cross-Entity Active Protection*):**
+     - Pencocokan pembaruan data karyawan kini diprioritaskan menggunakan kombinasi **NIK (`employee_no`) + Prinsiple (`principal_id`)**.
+     - **Aturan Proteksi Akun Aktif:** Jika seorang karyawan saat ini **aktif di entitas/prinsiple lain (misal: PT ATB)**, data arsip / riwayat *resign* lama dari entitas lain (misal: PT AMK) **TIDAK AKAN menimpa (*overwrite*) akun aktifnya menjadi resign**.
    - **Auto-Trim Parameter:** Membersihkan spasi tak kasat mata dari URL, Database Name, Username/Email, dan API Key Odoo.
    - **Diagnostik Database Odoo:** Menambahkan pendeteksi otomatis daftar database yang aktif di server Odoo jika terjadi `KeyError` saat autentikasi XML-RPC.
-   - **Deteksi Karyawan Resign / Archived:** Mengaktifkan parameter konteks `'context' => ['active_test' => false]` dan pembacaan `departure_date` pada Odoo XML-RPC `search_read` sehingga data karyawan yang diarsipkan/resign di Odoo otomatis masuk ke kategori **Data Employee Resign**.
+   - **Deteksi Karyawan Resign / Archived:** Mengaktifkan parameter konteks `'context' => ['active_test' => false]` dan pembacaan `departure_date` pada Odoo XML-RPC `search_read` sehingga data karyawan yang benar-benar resign di entitasnya otomatis masuk ke kategori **Data Employee Resign**.
    - **Sinkronisasi Grand Total Real-Time:** Menyelaraskan angka grand total karyawan di Dashboard utama (24.190 Aktif • 2.810 Resign/Non-Aktif) dengan Halaman Laporan Odoo Sync secara real-time.
 
 5. **Penyempurnaan Manajemen Karyawan (Employees Resource):**
