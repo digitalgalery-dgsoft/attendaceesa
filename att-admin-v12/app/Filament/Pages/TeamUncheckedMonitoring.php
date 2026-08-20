@@ -24,15 +24,15 @@ class TeamUncheckedMonitoring extends Page
 
     protected string $view = 'filament.pages.team-unchecked-monitoring';
 
-    // Filters
-    public ?int $selectedPrincipalId = null;
-    public ?int $selectedBranchId = null;
+    // Filters (typed as ?string for Livewire form binding compatibility)
+    public ?string $selectedPrincipalId = null;
+    public ?string $selectedBranchId = null;
     public ?string $searchQuery = '';
     public string $quickFilter = 'all'; // 'all', 'today', 'ge3', 'never'
 
     // Interactive Cell Filter from Matrix (Gambar 1)
-    public ?int $selectedCellPrincipalId = null;
-    public ?int $selectedCellBranchId = null;
+    public ?string $selectedCellPrincipalId = null;
+    public ?string $selectedCellBranchId = null;
     public ?string $selectedCellPrincipalName = null;
     public ?string $selectedCellBranchName = null;
 
@@ -95,7 +95,7 @@ class TeamUncheckedMonitoring extends Page
             ];
         }
 
-        // 1. Ambil seluruh presensi 7 hari terakhir (hanya kolom yang diperlukan)
+        // 1. Ambil seluruh presensi 7 hari terakhir
         $attendances7Days = Attendance::whereIn('employee_id', $empIds)
             ->whereBetween('attendance_date', [$sevenDaysAgoStr, $todayStr])
             ->get(['id', 'employee_id', 'attendance_date'])
@@ -109,7 +109,7 @@ class TeamUncheckedMonitoring extends Page
             ->get(['id', 'employee_id', 'start_date', 'end_date'])
             ->groupBy('employee_id');
 
-        // 3. Ambil tanggal presensi terakhir secara efisien (menggunakan MAX query, bukan memuat ribuan row)
+        // 3. Ambil tanggal presensi terakhir secara efisien
         $latestDates = Attendance::whereIn('employee_id', $empIds)
             ->selectRaw('employee_id, MAX(attendance_date) as max_date')
             ->groupBy('employee_id')
@@ -180,9 +180,9 @@ class TeamUncheckedMonitoring extends Page
                     'full_name' => $emp->full_name ?? 'Unknown',
                     'photo' => $emp->photo,
                     'position' => $emp->position?->name ?? 'Staff',
-                    'principal_id' => $emp->principal_id ? (int)$emp->principal_id : null,
+                    'principal_id' => $emp->principal_id ? (string)$emp->principal_id : null,
                     'principal_name' => $principalName,
-                    'branch_id' => $emp->branch_id ? (int)$emp->branch_id : null,
+                    'branch_id' => $emp->branch_id ? (string)$emp->branch_id : null,
                     'branch_name' => $branchName,
                     'phone' => $emp->phone ?? '-',
                     'is_today_unchecked' => $isTodayUnchecked,
@@ -213,25 +213,25 @@ class TeamUncheckedMonitoring extends Page
 
         // Ambil list Principals & Branches dari database
         $principalsQuery = Principal::orderBy('name');
-        if ($this->selectedPrincipalId) {
+        if (!empty($this->selectedPrincipalId)) {
             $principalsQuery->where('id', $this->selectedPrincipalId);
         }
         $principals = $principalsQuery->get(['id', 'name']);
 
         $branchesQuery = Branch::orderBy('name');
-        if ($this->selectedBranchId) {
+        if (!empty($this->selectedBranchId)) {
             $branchesQuery->where('id', $this->selectedBranchId);
         }
         $branches = $branchesQuery->get(['id', 'name']);
 
         $columns = [];
         foreach ($branches as $branch) {
-            $columns[$branch->id] = $branch->name;
+            $columns[(string)$branch->id] = $branch->name;
         }
 
         // Tambahkan jika ada branch di data yang tidak ada di master
         foreach ($employees as $emp) {
-            if ($emp['branch_id'] && !isset($columns[$emp['branch_id']]) && !$this->selectedBranchId) {
+            if ($emp['branch_id'] && !isset($columns[$emp['branch_id']]) && empty($this->selectedBranchId)) {
                 $columns[$emp['branch_id']] = $emp['branch_name'];
             }
         }
@@ -246,7 +246,7 @@ class TeamUncheckedMonitoring extends Page
 
             foreach ($employees as $emp) {
                 if ($emp['principal_id'] == $p->id) {
-                    $bId = $emp['branch_id'];
+                    $bId = (string)$emp['branch_id'];
                     if ($bId && isset($rowBranches[$bId])) {
                         $rowBranches[$bId]++;
                         $totalRow++;
@@ -261,7 +261,7 @@ class TeamUncheckedMonitoring extends Page
             $grandTotal += $totalRow;
 
             $rows[] = [
-                'principal_id' => $p->id,
+                'principal_id' => (string)$p->id,
                 'principal_name' => $p->name,
                 'branches' => $rowBranches,
                 'total_row' => $totalRow,
@@ -270,11 +270,11 @@ class TeamUncheckedMonitoring extends Page
 
         // Handle employees without principal if any
         $noPrincipalEmployees = array_filter($employees, fn($e) => empty($e['principal_id']));
-        if (!empty($noPrincipalEmployees) && !$this->selectedPrincipalId) {
+        if (!empty($noPrincipalEmployees) && empty($this->selectedPrincipalId)) {
             $rowBranches = array_fill_keys(array_keys($columns), 0);
             $totalRow = 0;
             foreach ($noPrincipalEmployees as $emp) {
-                $bId = $emp['branch_id'];
+                $bId = (string)$emp['branch_id'];
                 if ($bId && isset($rowBranches[$bId])) {
                     $rowBranches[$bId]++;
                     $totalRow++;
@@ -286,7 +286,7 @@ class TeamUncheckedMonitoring extends Page
             $grandTotal += $totalRow;
 
             $rows[] = [
-                'principal_id' => 0,
+                'principal_id' => '0',
                 'principal_name' => 'Lainnya / Tanpa Prinsiple',
                 'branches' => $rowBranches,
                 'total_row' => $totalRow,
@@ -311,22 +311,22 @@ class TeamUncheckedMonitoring extends Page
         $employees = $calculated['employees'];
 
         // Terapkan filter dropdown atau filter cell matrix
-        $pFilter = $this->selectedCellPrincipalId ?? $this->selectedPrincipalId;
-        $bFilter = $this->selectedCellBranchId ?? $this->selectedBranchId;
+        $pFilter = !empty($this->selectedCellPrincipalId) ? $this->selectedCellPrincipalId : $this->selectedPrincipalId;
+        $bFilter = !empty($this->selectedCellBranchId) ? $this->selectedCellBranchId : $this->selectedBranchId;
 
         $filtered = array_filter($employees, function ($emp) use ($pFilter, $bFilter) {
             // Filter Principal
-            if ($pFilter !== null) {
-                if ($pFilter === 0 && !empty($emp['principal_id'])) {
+            if (!empty($pFilter)) {
+                if ($pFilter === '0' && !empty($emp['principal_id'])) {
                     return false;
                 }
-                if ($pFilter > 0 && $emp['principal_id'] != $pFilter) {
+                if ($pFilter !== '0' && $emp['principal_id'] != $pFilter) {
                     return false;
                 }
             }
 
             // Filter Branch / Area
-            if ($bFilter !== null) {
+            if (!empty($bFilter)) {
                 if ($emp['branch_id'] != $bFilter) {
                     return false;
                 }
@@ -374,10 +374,10 @@ class TeamUncheckedMonitoring extends Page
     /**
      * Memilih Cell Matriks untuk filtering langsung tabel detail
      */
-    public function selectMatrixCell($principalId = 0, $branchId = 0, $principalName = '', $branchName = ''): void
+    public function selectMatrixCell($principalId = null, $branchId = null, $principalName = null, $branchName = null): void
     {
-        $pId = !empty($principalId) ? (int)$principalId : null;
-        $bId = !empty($branchId) ? (int)$branchId : null;
+        $pId = (!is_null($principalId) && $principalId !== '' && $principalId !== '0') ? (string)$principalId : null;
+        $bId = (!is_null($branchId) && $branchId !== '' && $branchId !== '0') ? (string)$branchId : null;
         $pName = !empty($principalName) ? (string)$principalName : null;
         $bName = !empty($branchName) ? (string)$branchName : null;
 

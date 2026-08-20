@@ -106,7 +106,7 @@
                         <x-filament::input.select wire:model.live="selectedPrincipalId">
                             <option value="">-- Semua Prinsiple --</option>
                             @foreach ($allPrincipals as $p)
-                                <option value="{{ $p->id }}">{{ $p->name }}</option>
+                                <option value="{{ (string)$p->id }}">{{ $p->name }}</option>
                             @endforeach
                         </x-filament::input.select>
                     </x-filament::input.wrapper>
@@ -119,7 +119,7 @@
                         <x-filament::input.select wire:model.live="selectedBranchId">
                             <option value="">-- Semua Area / Cabang --</option>
                             @foreach ($allBranches as $b)
-                                <option value="{{ $b->id }}">{{ $b->name }}</option>
+                                <option value="{{ (string)$b->id }}">{{ $b->name }}</option>
                             @endforeach
                         </x-filament::input.select>
                     </x-filament::input.wrapper>
@@ -222,7 +222,7 @@
                     @forelse ($matrix['rows'] as $index => $row)
                         @php
                             $isEven = ($index % 2 === 0);
-                            $rowPId = (int)($row['principal_id'] ?? 0);
+                            $rowPId = (string)($row['principal_id'] ?? '0');
                             $isRowSelected = ($selectedCellPrincipalId === $rowPId);
                         @endphp
                         <tr class="{{ $isEven ? 'bg-white dark:bg-gray-900' : 'bg-gray-50/60 dark:bg-white/[0.02]' }} hover:bg-gray-100/70 dark:hover:bg-white/5 transition">
@@ -232,7 +232,7 @@
                                     <span>{{ $row['principal_name'] }}</span>
                                     <button
                                         type="button"
-                                        wire:click="selectMatrixCell({{ $rowPId }}, 0, '{{ addslashes($row['principal_name']) }}', '')"
+                                        wire:click="selectMatrixCell('{{ $rowPId }}', '', '{{ addslashes($row['principal_name']) }}', '')"
                                         title="Filter seluruh area untuk {{ $row['principal_name'] }}"
                                         class="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 underline font-normal ml-2"
                                     >
@@ -244,7 +244,7 @@
                             {{-- Branch Values --}}
                             @foreach ($matrix['columns'] as $colId => $colName)
                                 @php
-                                    $colBId = (int)$colId;
+                                    $colBId = (string)$colId;
                                     $val = $row['branches'][$colId] ?? 0;
                                     $isCellActive = ($selectedCellPrincipalId === $rowPId && $selectedCellBranchId === $colBId);
                                 @endphp
@@ -252,7 +252,7 @@
                                     @if ($val > 0)
                                         <button
                                             type="button"
-                                            wire:click="selectMatrixCell({{ $rowPId }}, {{ $colBId }}, '{{ addslashes($row['principal_name']) }}', '{{ addslashes($colName) }}')"
+                                            wire:click="selectMatrixCell('{{ $rowPId }}', '{{ $colBId }}', '{{ addslashes($row['principal_name']) }}', '{{ addslashes($colName) }}')"
                                             class="matrix-cell-clickable inline-flex items-center justify-center px-2.5 py-1 text-xs font-bold rounded-lg {{ $val >= 3 ? 'bg-danger-100 text-danger-800 dark:bg-danger-950/50 dark:text-danger-300' : 'bg-warning-100 text-warning-800 dark:bg-warning-950/50 dark:text-warning-300' }}"
                                             title="Klik untuk melihat {{ $val }} karyawan"
                                         >
@@ -269,7 +269,7 @@
                                 @if ($row['total_row'] > 0)
                                     <button
                                         type="button"
-                                        wire:click="selectMatrixCell({{ $rowPId }}, 0, '{{ addslashes($row['principal_name']) }}', '')"
+                                        wire:click="selectMatrixCell('{{ $rowPId }}', '', '{{ addslashes($row['principal_name']) }}', '')"
                                         class="matrix-cell-clickable text-xs font-extrabold text-primary-600 dark:text-primary-400 hover:underline"
                                     >
                                         {{ $row['total_row'] }}
@@ -297,7 +297,7 @@
                             </td>
                             @foreach ($matrix['columns'] as $colId => $colName)
                                 @php
-                                    $colBId = (int)$colId;
+                                    $colBId = (string)$colId;
                                     $colTotal = $matrix['column_totals'][$colId] ?? 0;
                                     $isColActive = ($selectedCellBranchId === $colBId && $selectedCellPrincipalId === null);
                                 @endphp
@@ -305,7 +305,7 @@
                                     @if ($colTotal > 0)
                                         <button
                                             type="button"
-                                            wire:click="selectMatrixCell(0, {{ $colBId }}, '', '{{ addslashes($colName) }}')"
+                                            wire:click="selectMatrixCell('', '{{ $colBId }}', '', '{{ addslashes($colName) }}')"
                                             class="matrix-cell-clickable text-xs font-bold text-gray-900 dark:text-white hover:text-primary-600 hover:underline"
                                             title="Filter seluruh prinsiple di {{ $colName }}"
                                         >
@@ -327,7 +327,7 @@
     </x-filament::section>
 
     {{-- ACTIVE FILTER BANNER (Jika Cell Matriks Diklik) --}}
-    @if ($selectedCellPrincipalId !== null || $selectedCellBranchId !== null)
+    @if (!empty($selectedCellPrincipalId) || !empty($selectedCellBranchId))
         <div class="flex items-center justify-between p-3.5 rounded-xl bg-primary-50 border border-primary-200 text-primary-900 dark:bg-primary-950/40 dark:border-primary-800 dark:text-primary-200 shadow-sm">
             <div class="flex items-center gap-2">
                 <x-filament::icon icon="heroicon-o-funnel" class="w-5 h-5 text-primary-600 dark:text-primary-400" />

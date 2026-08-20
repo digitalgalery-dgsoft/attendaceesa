@@ -45,12 +45,17 @@ Route::get('/cron/odoo-sync', function () {
 
 // Debug endpoint to check latest error logs
 Route::get('/debug-log', function () {
-    $logPath = storage_path('logs/laravel.log');
-    if (!file_exists($logPath)) {
-        return "No log file found.";
+    try {
+        $logPath = storage_path('logs/laravel.log');
+        if (!file_exists($logPath)) {
+            return "No laravel.log file found at: " . $logPath;
+        }
+        $content = file_get_contents($logPath);
+        $lines = explode("\n", $content);
+        $lastLines = array_slice($lines, -200);
+        return response('<pre style="font-family: monospace; font-size: 12px; background: #1e1e1e; color: #fff; padding: 16px;">' . htmlspecialchars(implode("\n", $lastLines)) . '</pre>');
+    } catch (\Throwable $e) {
+        return "Error reading log: " . $e->getMessage();
     }
-    $lines = file($logPath);
-    $lastLines = array_slice($lines, -150);
-    return response('<pre>' . htmlspecialchars(implode('', $lastLines)) . '</pre>');
 });
 
