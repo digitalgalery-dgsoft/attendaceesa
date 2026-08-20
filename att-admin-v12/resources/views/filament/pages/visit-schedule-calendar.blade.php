@@ -1,74 +1,181 @@
 <x-filament-panels::page>
     <style>
-        .vcal-container {
+        .vcal-wrapper {
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 18px;
+            gap: 20px;
+            font-family: inherit;
         }
 
-        .vcal-filter-card {
+        /* --- Filter Card & Controls --- */
+        .vcal-header-card {
             background: #ffffff;
-            border: 1px solid #cbd5e1;
-            border-radius: 12px;
-            padding: 16px 20px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
-        .dark .vcal-filter-card {
+        .dark .vcal-header-card {
             background: #1e293b;
             border-color: #334155;
         }
 
-        .vcal-nav-bar {
+        .vcal-top-bar {
             display: flex;
             flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 14px;
+            gap: 16px;
         }
 
-        .vcal-nav-controls {
-            display: flex;
+        .vcal-nav-group {
+            display: inline-flex;
             align-items: center;
-            gap: 8px;
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+        .dark .vcal-nav-group {
+            background: #0f172a;
+            border-color: #334155;
         }
 
-        .vcal-month-title {
-            font-size: 1.25rem;
-            font-weight: 700;
+        .vcal-nav-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+            background: transparent;
+            border: none;
+            border-radius: 7px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .vcal-nav-btn:hover {
+            color: #0f172a;
+            background: #ffffff;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .dark .vcal-nav-btn {
+            color: #94a3b8;
+        }
+        .dark .vcal-nav-btn:hover {
+            color: #ffffff;
+            background: #1e293b;
+        }
+
+        .vcal-current-title {
+            font-size: 1.35rem;
+            font-weight: 800;
             color: #0f172a;
             letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        .dark .vcal-month-title {
+        .dark .vcal-current-title {
             color: #f8fafc;
         }
 
-        .vcal-btn {
+        .vcal-counter-pill {
             display: inline-flex;
             align-items: center;
-            justify-content: center;
-            padding: 6px 12px;
+            padding: 6px 14px;
+            background: #eff6ff;
+            border: 1px solid #dbeafe;
+            color: #1d4ed8;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 9999px;
+        }
+        .dark .vcal-counter-pill {
+            background: #1e3a8a33;
+            border-color: #1e40af;
+            color: #93c5fd;
+        }
+
+        /* --- Filter Grid --- */
+        .vcal-filter-grid {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 12px;
+            padding-top: 14px;
+            border-top: 1px solid #f1f5f9;
+        }
+        @media (min-width: 640px) {
+            .vcal-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (min-width: 1024px) {
+            .vcal-filter-grid { grid-template-columns: 1.4fr 1fr 1fr 1.2fr 1.4fr; }
+        }
+        .dark .vcal-filter-grid {
+            border-top-color: #334155;
+        }
+
+        .vcal-field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .vcal-field-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+        }
+        .dark .vcal-field-label {
+            color: #94a3b8;
+        }
+
+        .vcal-select, .vcal-input {
+            width: 100%;
+            height: 38px;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 500;
             border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.15s ease;
             border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #1e293b;
+            outline: none;
+            transition: all 0.15s ease;
+        }
+        .vcal-select:focus, .vcal-input:focus {
+            border-color: #3b82f6;
             background: #ffffff;
-            color: #334155;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
         }
-        .vcal-btn:hover {
-            background: #f1f5f9;
-            border-color: #94a3b8;
-        }
-        .dark .vcal-btn {
-            background: #334155;
-            border-color: #475569;
+        .dark .vcal-select, .dark .vcal-input {
+            background: #0f172a;
+            border-color: #334155;
             color: #f1f5f9;
         }
-        .dark .vcal-btn:hover {
-            background: #475569;
+        .dark .vcal-select:focus, .dark .vcal-input:focus {
+            border-color: #60a5fa;
+            background: #1e293b;
+        }
+
+        /* --- Calendar Grid --- */
+        .vcal-calendar-box {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        .dark .vcal-calendar-box {
+            background: #1e293b;
+            border-color: #334155;
         }
 
         .vcal-grid {
@@ -76,23 +183,18 @@
             grid-template-columns: repeat(7, minmax(0, 1fr));
             gap: 1px;
             background: #cbd5e1;
-            border: 1px solid #cbd5e1;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
         .dark .vcal-grid {
             background: #334155;
-            border-color: #334155;
         }
 
         .vcal-day-header {
             background: #f8fafc;
-            padding: 10px 8px;
+            padding: 12px 8px;
             text-align: center;
             font-size: 12px;
-            font-weight: 700;
-            color: #475569;
+            font-weight: 800;
+            color: #334155;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
@@ -111,12 +213,11 @@
 
         .vcal-cell {
             background: #ffffff;
-            min-height: 120px;
+            min-height: 130px;
             padding: 8px;
             display: flex;
             flex-direction: column;
             gap: 6px;
-            transition: background 0.15s ease;
             position: relative;
         }
         .dark .vcal-cell {
@@ -124,226 +225,446 @@
         }
         .vcal-cell.other-month {
             background: #f8fafc;
-            opacity: 0.45;
+            opacity: 0.4;
         }
         .dark .vcal-cell.other-month {
             background: #0f172a;
-            opacity: 0.35;
+            opacity: 0.3;
         }
         .vcal-cell.today {
-            background: #eff6ff;
-            border: 2px solid #3b82f6 !important;
+            background: #f0f7ff;
+            box-shadow: inset 0 0 0 2px #3b82f6;
         }
         .dark .vcal-cell.today {
-            background: #1e3a8a33;
-            border: 2px solid #60a5fa !important;
+            background: #1e3a8a26;
+            box-shadow: inset 0 0 0 2px #60a5fa;
         }
 
-        .vcal-cell-header {
+        .vcal-cell-top {
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
-        .vcal-date-number {
-            font-size: 13px;
-            font-weight: 700;
-            color: #1e293b;
+        .vcal-date-badge {
+            font-size: 12px;
+            font-weight: 800;
             width: 26px;
             height: 26px;
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 50%;
+            color: #1e293b;
         }
-        .dark .vcal-date-number {
+        .dark .vcal-date-badge {
             color: #f1f5f9;
         }
-        .vcal-cell.today .vcal-date-number {
+        .vcal-cell.today .vcal-date-badge {
             background: #2563eb;
             color: #ffffff;
         }
 
-        .vcal-add-btn {
+        .vcal-quick-add {
             opacity: 0;
-            width: 22px;
-            height: 22px;
-            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            background: #e2e8f0;
+            color: #1e293b;
+            font-size: 14px;
+            font-weight: 800;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #e2e8f0;
-            color: #0f172a;
-            font-size: 14px;
-            font-weight: bold;
+            border: none;
             cursor: pointer;
             transition: all 0.15s ease;
-            border: none;
         }
-        .vcal-cell:hover .vcal-add-btn {
+        .vcal-cell:hover .vcal-quick-add {
             opacity: 1;
         }
-        .vcal-add-btn:hover {
+        .vcal-quick-add:hover {
             background: #2563eb;
             color: #ffffff;
+            transform: scale(1.08);
         }
-        .dark .vcal-add-btn {
+        .dark .vcal-quick-add {
             background: #334155;
             color: #f8fafc;
         }
-        .dark .vcal-add-btn:hover {
+        .dark .vcal-quick-add:hover {
             background: #3b82f6;
         }
 
-        .vcal-cards-list {
+        .vcal-cards-container {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 5px;
             overflow-y: auto;
-            max-height: 140px;
+            max-height: 150px;
         }
 
-        .vcal-item-card {
-            background: #f0fdf4;
+        .vcal-card-item {
+            background: #ffffff;
             border: 1px solid #bbf7d0;
-            border-left: 3px solid #16a34a;
-            border-radius: 6px;
-            padding: 5px 8px;
+            border-left: 3.5px solid #16a34a;
+            border-radius: 7px;
+            padding: 6px 8px;
             font-size: 11px;
-            line-height: 1.3;
             cursor: pointer;
             transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 3px;
         }
-        .vcal-item-card:hover {
-            background: #dcfce7;
+        .vcal-card-item:hover {
+            background: #f0fdf4;
+            border-color: #86efac;
             transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.06);
         }
-        .dark .vcal-item-card {
-            background: #064e3b33;
+        .dark .vcal-card-item {
+            background: #064e3b22;
             border-color: #065f46;
             border-left-color: #10b981;
         }
-        .dark .vcal-item-card:hover {
-            background: #064e3b66;
+        .dark .vcal-card-item:hover {
+            background: #064e3b44;
         }
 
-        .vcal-item-card.draft {
-            background: #fefce8;
+        .vcal-card-item.draft {
             border-color: #fef08a;
-            border-left-color: #ca8a04;
+            border-left-color: #eab308;
+            background: #fffbeb;
         }
-        .dark .vcal-item-card.draft {
-            background: #713f1233;
+        .dark .vcal-card-item.draft {
+            background: #713f1222;
             border-color: #854d0e;
             border-left-color: #eab308;
         }
 
-        .vcal-item-card.cancelled {
-            background: #fef2f2;
+        .vcal-card-item.cancelled {
             border-color: #fecaca;
-            border-left-color: #dc2626;
-            opacity: 0.75;
+            border-left-color: #ef4444;
+            background: #fef2f2;
+            opacity: 0.7;
         }
-        .dark .vcal-item-card.cancelled {
-            background: #7f1d1d33;
+        .dark .vcal-card-item.cancelled {
+            background: #7f1d1d22;
             border-color: #991b1b;
             border-left-color: #ef4444;
         }
 
-        .vcal-item-title {
+        .vcal-card-name {
             font-weight: 700;
             color: #0f172a;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            line-height: 1.25;
         }
-        .dark .vcal-item-title {
+        .dark .vcal-card-name {
             color: #f8fafc;
         }
 
-        .vcal-item-meta {
+        .vcal-card-sub {
             font-size: 10px;
-            color: #475569;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .dark .vcal-card-sub {
+            color: #94a3b8;
+        }
+
+        .vcal-card-footer {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 4px;
+            font-size: 10px;
+            color: #475569;
+            padding-top: 2px;
+            border-top: 1px dashed #e2e8f0;
         }
-        .dark .vcal-item-meta {
-            color: #94a3b8;
+        .dark .vcal-card-footer {
+            color: #cbd5e1;
+            border-top-color: #334155;
         }
 
-        .vcal-badge-checkin {
+        .vcal-checkin-badge {
             display: inline-flex;
             align-items: center;
             gap: 2px;
             background: #2563eb;
             color: #ffffff;
             font-size: 9px;
-            font-weight: 600;
-            padding: 1px 4px;
+            font-weight: 700;
+            padding: 1px 5px;
             border-radius: 4px;
+            letter-spacing: 0.02em;
         }
 
-        /* Modal Styles */
-        .vcal-modal-overlay {
+        /* --- Polished Detail Modal --- */
+        .vcal-modal-backdrop {
             position: fixed;
             inset: 0;
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(4px);
-            z-index: 50;
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(6px);
+            z-index: 9999;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 16px;
+            padding: 20px;
         }
 
-        .vcal-modal-box {
+        .vcal-modal-panel {
             background: #ffffff;
-            border-radius: 16px;
-            width: 100%;
-            max-width: 680px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
             border: 1px solid #cbd5e1;
+            border-radius: 18px;
+            width: 100%;
+            max-width: 720px;
+            max-height: 88vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
             display: flex;
             flex-direction: column;
+            animation: vcalModalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .dark .vcal-modal-box {
+        @keyframes vcalModalIn {
+            from { opacity: 0; transform: scale(0.96) translateY(8px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .dark .vcal-modal-panel {
             background: #1e293b;
             border-color: #334155;
             color: #f8fafc;
         }
 
         .vcal-modal-header {
-            padding: 16px 20px;
+            padding: 18px 24px;
             border-bottom: 1px solid #e2e8f0;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            background: #f8fafc;
+            border-top-left-radius: 18px;
+            border-top-right-radius: 18px;
         }
         .dark .vcal-modal-header {
+            background: #0f172a;
             border-bottom-color: #334155;
         }
 
-        .vcal-modal-body {
-            padding: 20px;
+        .vcal-modal-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0;
+        }
+        .dark .vcal-modal-title {
+            color: #f8fafc;
+        }
+
+        .vcal-modal-subtitle {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        .dark .vcal-modal-subtitle {
+            color: #94a3b8;
+        }
+
+        .vcal-modal-close {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            border-radius: 8px;
+            padding: 6px;
+            transition: all 0.15s ease;
+        }
+        .vcal-modal-close:hover {
+            color: #0f172a;
+            background: #e2e8f0;
+        }
+        .dark .vcal-modal-close:hover {
+            color: #ffffff;
+            background: #334155;
+        }
+
+        .vcal-modal-content {
+            padding: 24px;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 18px;
+        }
+
+        /* Profile Summary Card */
+        .vcal-emp-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+        }
+        .dark .vcal-emp-card {
+            background: #0f172a;
+            border-color: #334155;
+        }
+
+        .vcal-emp-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .vcal-avatar-circle {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: #2563eb;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+        }
+
+        .vcal-tag-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #e2e8f0;
+            color: #334155;
+        }
+        .dark .vcal-tag-pill {
+            background: #334155;
+            color: #cbd5e1;
+        }
+
+        .vcal-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .vcal-status-badge.approved {
+            background: #dcfce7;
+            color: #15803d;
+        }
+        .dark .vcal-status-badge.approved {
+            background: #14532d;
+            color: #86efac;
+        }
+        .vcal-status-badge.draft {
+            background: #fef9c3;
+            color: #a16207;
+        }
+        .dark .vcal-status-badge.draft {
+            background: #713f12;
+            color: #fef08a;
+        }
+        .vcal-status-badge.cancelled {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .dark .vcal-status-badge.cancelled {
+            background: #7f1d1d;
+            color: #fca5a5;
+        }
+
+        /* Locations Table */
+        .vcal-table-box {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .dark .vcal-table-box {
+            border-color: #334155;
+        }
+
+        .vcal-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            text-align: left;
+        }
+        .vcal-table th {
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: 700;
+            padding: 10px 14px;
+            border-bottom: 1px solid #cbd5e1;
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 0.05em;
+        }
+        .dark .vcal-table th {
+            background: #0f172a;
+            color: #94a3b8;
+            border-bottom-color: #334155;
+        }
+        .vcal-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #1e293b;
+            vertical-align: top;
+        }
+        .dark .vcal-table td {
+            border-bottom-color: #334155;
+            color: #f1f5f9;
+        }
+        .vcal-table tr:last-child td {
+            border-bottom: none;
+        }
+        .vcal-table tr:hover td {
+            background: #f8fafc;
+        }
+        .dark .vcal-table tr:hover td {
+            background: #0f172a44;
+        }
+
+        .vcal-seq-badge {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            color: #0f172a;
+            font-weight: 800;
+            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .dark .vcal-seq-badge {
+            background: #334155;
+            color: #ffffff;
         }
 
         .vcal-modal-footer {
-            padding: 14px 20px;
+            padding: 16px 24px;
             border-top: 1px solid #e2e8f0;
             background: #f8fafc;
-            border-bottom-left-radius: 16px;
-            border-bottom-right-radius: 16px;
+            border-bottom-left-radius: 18px;
+            border-bottom-right-radius: 18px;
             display: flex;
             align-items: center;
             justify-content: flex-end;
@@ -354,71 +675,119 @@
             border-top-color: #334155;
         }
 
-        .vcal-detail-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
-        .vcal-detail-table th {
-            background: #f1f5f9;
-            color: #334155;
-            text-align: left;
-            padding: 8px 10px;
+        .vcal-btn-danger {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            font-size: 13px;
             font-weight: 700;
-            border-bottom: 1px solid #cbd5e1;
+            color: #dc2626;
+            background: #ffffff;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
         }
-        .dark .vcal-detail-table th {
-            background: #0f172a;
-            color: #94a3b8;
-            border-bottom-color: #334155;
+        .vcal-btn-danger:hover {
+            background: #fee2e2;
+            border-color: #f87171;
         }
-        .vcal-detail-table td {
-            padding: 8px 10px;
-            border-bottom: 1px solid #e2e8f0;
-            color: #1e293b;
+        .dark .vcal-btn-danger {
+            background: #7f1d1d22;
+            border-color: #991b1b;
+            color: #fca5a5;
         }
-        .dark .vcal-detail-table td {
-            border-bottom-color: #334155;
+        .dark .vcal-btn-danger:hover {
+            background: #7f1d1d44;
+        }
+
+        .vcal-btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 18px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #ffffff;
+            background: #2563eb;
+            border: 1px solid #2563eb;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.2);
+        }
+        .vcal-btn-primary:hover {
+            background: #1d4ed8;
+            border-color: #1d4ed8;
+            color: #ffffff;
+        }
+
+        .vcal-btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .vcal-btn-secondary:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+        .dark .vcal-btn-secondary {
+            background: #1e293b;
+            border-color: #334155;
             color: #f1f5f9;
+        }
+        .dark .vcal-btn-secondary:hover {
+            background: #334155;
         }
     </style>
 
-    <div class="vcal-container">
-        <!-- Filter Card & Month Navigation -->
-        <div class="vcal-filter-card">
-            <div class="vcal-nav-bar">
-                <div class="vcal-nav-controls">
-                    <button type="button" wire:click="prevMonth" class="vcal-btn">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+    <div class="vcal-wrapper">
+        <!-- Top Controls & Filter Card -->
+        <div class="vcal-header-card">
+            <div class="vcal-top-bar">
+                <div class="vcal-nav-group">
+                    <button type="button" wire:click="prevMonth" class="vcal-nav-btn">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                         Bulan Lalu
                     </button>
-                    <button type="button" wire:click="today" class="vcal-btn">Hari Ini</button>
-                    <button type="button" wire:click="nextMonth" class="vcal-btn">
+                    <button type="button" wire:click="today" class="vcal-nav-btn" style="border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1;">Hari Ini</button>
+                    <button type="button" wire:click="nextMonth" class="vcal-nav-btn">
                         Bulan Depan
-                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                     </button>
                 </div>
 
-                <div class="vcal-month-title">
-                    {{ Carbon\Carbon::create($this->year, $this->month, 1)->translatedFormat('F Y') }}
+                <div class="vcal-current-title">
+                    <span>{{ Carbon\Carbon::create($this->year, $this->month, 1)->translatedFormat('F Y') }}</span>
                 </div>
 
-                <div style="font-size: 13px; color: #64748b;" class="dark:text-gray-400 font-medium">
-                    Total: <strong class="text-primary-600 dark:text-primary-400">{{ $this->totalSchedulesInMonth }}</strong> Visit Terjadwal
+                <div class="vcal-counter-pill">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    Total: {{ $this->totalSchedulesInMonth }} Jadwal Visit
                 </div>
             </div>
 
             <!-- Filters Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Pilih Bulan & Tahun</label>
-                    <div class="flex gap-1">
-                        <select wire:model.live="month" class="w-full text-xs rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white py-1.5 px-2">
+            <div class="vcal-filter-grid">
+                <div class="vcal-field-group">
+                    <label class="vcal-field-label">Pilih Periode</label>
+                    <div style="display: flex; gap: 6px;">
+                        <select wire:model.live="month" class="vcal-select" style="flex: 1.5;">
                             @for ($m = 1; $m <= 12; $m++)
                                 <option value="{{ $m }}">{{ Carbon\Carbon::create(2026, $m, 1)->translatedFormat('F') }}</option>
                             @endfor
                         </select>
-                        <select wire:model.live="year" class="w-24 text-xs rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white py-1.5 px-2">
+                        <select wire:model.live="year" class="vcal-select" style="flex: 1;">
                             @for ($y = now()->year - 2; $y <= now()->year + 2; $y++)
                                 <option value="{{ $y }}">{{ $y }}</option>
                             @endfor
@@ -426,9 +795,9 @@
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Region / Area</label>
-                    <select wire:model.live="branch_id" class="w-full text-xs rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white py-1.5 px-2">
+                <div class="vcal-field-group">
+                    <label class="vcal-field-label">Region / Area</label>
+                    <select wire:model.live="branch_id" class="vcal-select">
                         <option value="">Semua Area</option>
                         @foreach ($this->branchOptions as $id => $name)
                             <option value="{{ $id }}">{{ $name }}</option>
@@ -436,9 +805,9 @@
                     </select>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Prinsiple</label>
-                    <select wire:model.live="principal_id" class="w-full text-xs rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white py-1.5 px-2">
+                <div class="vcal-field-group">
+                    <label class="vcal-field-label">Prinsiple</label>
+                    <select wire:model.live="principal_id" class="vcal-select">
                         <option value="">Semua Prinsiple</option>
                         @foreach ($this->principalOptions as $id => $name)
                             <option value="{{ $id }}">{{ $name }}</option>
@@ -446,9 +815,9 @@
                     </select>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Karyawan</label>
-                    <select wire:model.live="employee_id" class="w-full text-xs rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white py-1.5 px-2">
+                <div class="vcal-field-group">
+                    <label class="vcal-field-label">Karyawan</label>
+                    <select wire:model.live="employee_id" class="vcal-select">
                         <option value="">Semua Karyawan</option>
                         @foreach ($this->employeeOptions as $id => $name)
                             <option value="{{ $id }}">{{ $name }}</option>
@@ -456,141 +825,162 @@
                     </select>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Pencarian</label>
-                    <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari nama karyawan / toko..." class="w-full text-xs rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white py-1.5 px-2">
+                <div class="vcal-field-group">
+                    <label class="vcal-field-label">Pencarian Cepat</label>
+                    <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari nama karyawan / toko..." class="vcal-input">
                 </div>
             </div>
         </div>
 
         <!-- Monthly Calendar Grid -->
-        <div class="vcal-grid">
-            <!-- Day of Week Headers (Senin - Minggu) -->
-            <div class="vcal-day-header">Senin</div>
-            <div class="vcal-day-header">Selasa</div>
-            <div class="vcal-day-header">Rabu</div>
-            <div class="vcal-day-header">Kamis</div>
-            <div class="vcal-day-header">Jumat</div>
-            <div class="vcal-day-header weekend">Sabtu</div>
-            <div class="vcal-day-header weekend">Minggu</div>
+        <div class="vcal-calendar-box">
+            <div class="vcal-grid">
+                <!-- Day Headers -->
+                <div class="vcal-day-header">Senin</div>
+                <div class="vcal-day-header">Selasa</div>
+                <div class="vcal-day-header">Rabu</div>
+                <div class="vcal-day-header">Kamis</div>
+                <div class="vcal-day-header">Jumat</div>
+                <div class="vcal-day-header weekend">Sabtu</div>
+                <div class="vcal-day-header weekend">Minggu</div>
 
-            <!-- Day Cells -->
-            @foreach ($this->calendarDays as $day)
-                <div class="vcal-cell {{ $day['is_current_month'] ? '' : 'other-month' }} {{ $day['is_today'] ? 'today' : '' }}">
-                    <div class="vcal-cell-header">
-                        <span class="vcal-date-number">{{ $day['day_number'] }}</span>
-                        @if ($day['is_current_month'])
-                            <button type="button" wire:click="openAddModal('{{ $day['date_string'] }}')" class="vcal-add-btn" title="Tambah Jadwal Visit pada tanggal {{ $day['date_string'] }}">+</button>
-                        @endif
-                    </div>
+                <!-- Calendar Day Cells -->
+                @foreach ($this->calendarDays as $day)
+                    <div class="vcal-cell {{ $day['is_current_month'] ? '' : 'other-month' }} {{ $day['is_today'] ? 'today' : '' }}">
+                        <div class="vcal-cell-top">
+                            <span class="vcal-date-badge">{{ $day['day_number'] }}</span>
+                            @if ($day['is_current_month'])
+                                <button type="button" wire:click="openAddModal('{{ $day['date_string'] }}')" class="vcal-quick-add" title="Tambah Jadwal Visit pada tanggal {{ $day['date_string'] }}">+</button>
+                            @endif
+                        </div>
 
-                    <!-- List of Visit Schedule Cards -->
-                    <div class="vcal-cards-list">
-                        @foreach ($day['schedules'] as $sch)
-                            <div wire:click="openDetailModal({{ $sch['id'] }})" class="vcal-item-card {{ $sch['status'] }}" title="Klik untuk melihat detail kunjungan">
-                                <div class="vcal-item-title">
-                                    {{ $sch['employee_name'] }} <span class="font-normal text-gray-500 dark:text-gray-400">({{ $sch['position'] }} - {{ $sch['area'] }})</span>
+                        <!-- Schedules List inside Day -->
+                        <div class="vcal-cards-container">
+                            @foreach ($day['schedules'] as $sch)
+                                <div wire:click="openDetailModal({{ $sch['id'] }})" class="vcal-card-item {{ $sch['status'] }}" title="Klik untuk membuka detail jadwal visit">
+                                    <div class="vcal-card-name">
+                                        {{ $sch['employee_name'] }}
+                                    </div>
+                                    <div class="vcal-card-sub">
+                                        {{ $sch['position'] }} • {{ $sch['area'] }}
+                                    </div>
+                                    <div class="vcal-card-footer">
+                                        <span>📍 {{ $sch['location_count'] }} Titik Toko</span>
+                                        @if ($sch['has_checkin'])
+                                            <span class="vcal-checkin-badge" title="Titik ini difungsikan sebagai lokasi check-in absensi">✓ Check-in</span>
+                                        @endif
+                                    </div>
                                 </div>
-                                <div class="vcal-item-meta">
-                                    <span>📍 {{ $sch['location_count'] }} Lokasi</span>
-                                    @if ($sch['has_checkin'])
-                                        <span class="vcal-badge-checkin" title="Lokasi ini dijadikan titik check-in absensi">✓ Check-in</span>
-                                    @endif
-                                </div>
-                            </div>
-                        @endforeach
+                            @endforeach
+                        </div>
                     </div>
-                </div>
-            @endforeach
+                @endforeach
+            </div>
         </div>
     </div>
 
-    <!-- Modal Detail Schedule Visit -->
+    <!-- Polished Detail Modal -->
     @if ($showDetailModal && $selectedItinerary)
-        <div class="vcal-modal-overlay" wire:click.self="closeDetailModal">
-            <div class="vcal-modal-box animate-scale-up">
+        <div class="vcal-modal-backdrop" wire:click.self="closeDetailModal">
+            <div class="vcal-modal-panel">
                 <div class="vcal-modal-header">
                     <div>
-                        <h3 class="text-base font-bold text-gray-900 dark:text-white">Detail Jadwal Visit (Visit Schedule)</h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ Carbon\Carbon::parse($selectedItinerary['date'])->translatedFormat('l, d F Y') }}</p>
+                        <h3 class="vcal-modal-title">Detail Jadwal Visit (Visit Schedule)</h3>
+                        <div class="vcal-modal-subtitle">
+                            📅 {{ Carbon\Carbon::parse($selectedItinerary['date'])->translatedFormat('l, d F Y') }}
+                        </div>
                     </div>
-                    <button type="button" wire:click="closeDetailModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    <button type="button" wire:click="closeDetailModal" class="vcal-modal-close" title="Tutup">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
 
-                <div class="vcal-modal-body">
-                    <!-- Employee Profile Summary -->
-                    <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3 text-xs">
-                        <div>
-                            <span class="text-gray-500 dark:text-gray-400">Nama Karyawan:</span>
-                            <div class="font-bold text-sm text-gray-900 dark:text-white">{{ $selectedItinerary['employee_name'] }}</div>
-                            <div class="text-gray-600 dark:text-gray-300">NIK: {{ $selectedItinerary['employee_no'] }}</div>
-                        </div>
-                        <div>
-                            <span class="text-gray-500 dark:text-gray-400">Jabatan & Area:</span>
-                            <div class="font-semibold text-gray-800 dark:text-gray-200">{{ $selectedItinerary['position'] }} - {{ $selectedItinerary['area'] }}</div>
-                            <div class="text-gray-600 dark:text-gray-300">Prinsiple: {{ $selectedItinerary['principal'] }}</div>
-                        </div>
-                        <div>
-                            <span class="text-gray-500 dark:text-gray-400">Status Visit:</span>
-                            <div>
-                                <span class="inline-flex px-2 py-0.5 rounded text-xs font-semibold uppercase {{ $selectedItinerary['status'] === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' : ($selectedItinerary['status'] === 'draft' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800') }}">
-                                    {{ $selectedItinerary['status'] }}
-                                </span>
+                <div class="vcal-modal-content">
+                    <!-- Employee Profile Box -->
+                    <div class="vcal-emp-card">
+                        <div class="vcal-emp-info">
+                            <div class="vcal-avatar-circle">
+                                {{ strtoupper(substr($selectedItinerary['employee_name'], 0, 2)) }}
                             </div>
+                            <div>
+                                <div style="font-size: 15px; font-weight: 800; color: #0f172a;" class="dark:text-white">
+                                    {{ $selectedItinerary['employee_name'] }}
+                                </div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+                                    <span class="vcal-tag-pill">NIK: {{ $selectedItinerary['employee_no'] }}</span>
+                                    <span class="vcal-tag-pill" style="background: #e0e7ff; color: #3730a3;" class="dark:bg-indigo-900/50 dark:text-indigo-300">{{ $selectedItinerary['position'] }}</span>
+                                    <span class="vcal-tag-pill" style="background: #f0fdf4; color: #166534;" class="dark:bg-emerald-900/50 dark:text-emerald-300">Area: {{ $selectedItinerary['area'] }}</span>
+                                    <span class="vcal-tag-pill">Prinsiple: {{ $selectedItinerary['principal'] }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="vcal-status-badge {{ $selectedItinerary['status'] }}">
+                                ● {{ $selectedItinerary['status'] }}
+                            </span>
                         </div>
                     </div>
 
                     @if (!empty($selectedItinerary['notes']))
-                        <div class="text-xs text-gray-600 dark:text-gray-400 p-2.5 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-                            <strong>Catatan:</strong> {{ $selectedItinerary['notes'] }}
+                        <div style="padding: 12px 14px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; font-size: 12px; color: #0369a1;" class="dark:bg-sky-900/30 dark:border-sky-800 dark:text-sky-300">
+                            <strong>Catatan Kunjungan:</strong> {{ $selectedItinerary['notes'] }}
                         </div>
                     @endif
 
-                    <!-- List of Visit Locations -->
+                    <!-- Locations Table -->
                     <div>
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-2">Daftar Titik / Toko Kunjungan</h4>
-                        <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-                            <table class="vcal-detail-table">
+                        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; margin-bottom: 8px;" class="dark:text-gray-300">
+                            Daftar Titik / Toko Kunjungan ({{ count($selectedItinerary['items']) }} Lokasi)
+                        </div>
+                        <div class="vcal-table-box">
+                            <table class="vcal-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 40px; text-align: center;">#</th>
+                                        <th style="width: 44px; text-align: center;">Urutan</th>
                                         <th>Lokasi / Toko</th>
                                         <th>Prinsiple</th>
                                         <th>Tipe Kunjungan</th>
-                                        <th style="text-align: center;">Lokasi Check-in</th>
-                                        <th>Agenda / Catatan</th>
+                                        <th style="text-align: center;">Titik Check-in</th>
+                                        <th>Catatan / Agenda</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @forelse ($selectedItinerary['items'] as $item)
                                         <tr>
-                                            <td style="text-align: center; font-weight: bold;">{{ $item['sequence'] }}</td>
-                                            <td>
-                                                <div class="font-bold text-gray-900 dark:text-white">{{ $item['location_name'] }}</div>
-                                                <div class="text-[11px] text-gray-500">{{ $item['location_address'] }}</div>
+                                            <td style="text-align: center;">
+                                                <span class="vcal-seq-badge">{{ $item['sequence'] }}</span>
                                             </td>
-                                            <td>{{ $item['principal_name'] ?: '-' }}</td>
                                             <td>
-                                                <span class="inline-block px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-[11px] capitalize">
+                                                <div style="font-weight: 700; color: #0f172a;" class="dark:text-white">{{ $item['location_name'] }}</div>
+                                                @if (!empty($item['location_address']))
+                                                    <div style="font-size: 11px; color: #64748b;" class="dark:text-gray-400">{{ $item['location_address'] }}</div>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <span style="font-weight: 600;">{{ $item['principal_name'] ?: '-' }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="vcal-tag-pill" style="text-transform: capitalize;">
                                                     {{ $item['visit_type'] }}
                                                 </span>
                                             </td>
                                             <td style="text-align: center;">
                                                 @if ($item['is_checkin_location'])
-                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                                                    <span class="vcal-checkin-badge" style="padding: 3px 8px; font-size: 10px;">
                                                         ✓ Ya (Check-in)
                                                     </span>
                                                 @else
-                                                    <span class="text-gray-400">-</span>
+                                                    <span style="color: #94a3b8;">-</span>
                                                 @endif
                                             </td>
-                                            <td class="text-gray-600 dark:text-gray-300">{{ $item['notes'] ?: '-' }}</td>
+                                            <td style="color: #475569;" class="dark:text-gray-300">{{ $item['notes'] ?: '-' }}</td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="text-center py-4 text-gray-500">Belum ada lokasi kunjungan yang ditambahkan.</td>
+                                            <td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8;">
+                                                Belum ada lokasi kunjungan yang didaftarkan.
+                                            </td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -600,15 +990,15 @@
                 </div>
 
                 <div class="vcal-modal-footer">
-                    <button type="button" wire:click="deleteItinerary({{ $selectedItinerary['id'] }})" wire:confirm="Apakah Anda yakin ingin menghapus jadwal visit ini?" class="vcal-btn" style="color: #dc2626; border-color: #fca5a5;">
-                        <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    <button type="button" wire:click="deleteItinerary({{ $selectedItinerary['id'] }})" wire:confirm="Apakah Anda yakin ingin menghapus jadwal visit ini?" class="vcal-btn-danger">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         Hapus Jadwal
                     </button>
-                    <a href="{{ App\Filament\Resources\Itineraries\ItineraryResource::getUrl('edit', ['record' => $selectedItinerary['id']]) }}" class="vcal-btn" style="background: #2563eb; color: #ffffff; border-color: #2563eb;">
-                        <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    <a href="{{ App\Filament\Resources\Itineraries\ItineraryResource::getUrl('edit', ['record' => $selectedItinerary['id']]) }}" class="vcal-btn-primary">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                         Edit Jadwal Visit
                     </a>
-                    <button type="button" wire:click="closeDetailModal" class="vcal-btn">Tutup</button>
+                    <button type="button" wire:click="closeDetailModal" class="vcal-btn-secondary">Tutup</button>
                 </div>
             </div>
         </div>

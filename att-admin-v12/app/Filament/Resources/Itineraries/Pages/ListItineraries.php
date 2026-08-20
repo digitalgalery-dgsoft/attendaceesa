@@ -15,7 +15,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Filament\Support\Enums\Width;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -23,6 +23,8 @@ class ListItineraries extends Page
 {
     protected static string $resource = ItineraryResource::class;
     protected string $view = 'filament.pages.visit-schedule-calendar';
+
+    protected static ?string $title = 'Visit Schedule';
 
     public int $month;
     public int $year;
@@ -33,6 +35,23 @@ class ListItineraries extends Page
 
     public bool $showDetailModal = false;
     public ?array $selectedItinerary = null;
+
+    public function getTitle(): string | Htmlable
+    {
+        return 'Visit Schedule';
+    }
+
+    public function getHeading(): string | Htmlable
+    {
+        return 'Visit Schedule';
+    }
+
+    public function getBreadcrumbs(): array
+    {
+        return [
+            ItineraryResource::getUrl('index') => 'Visit Schedule',
+        ];
+    }
 
     public function getMaxContentWidth(): Width | string | null
     {
@@ -204,13 +223,11 @@ class ListItineraries extends Page
         $daysInMonth = $firstOfMonth->daysInMonth;
         $todayStr = Carbon::today('Asia/Jakarta')->toDateString();
 
-        // Cari tanggal awal grid (Senin terdekat)
+        // Start grid on Monday
         $startOfGrid = $firstOfMonth->copy()->startOfWeek(Carbon::MONDAY);
-        // Cari tanggal akhir grid (Minggu terdekat setelah akhir bulan)
         $lastOfMonth = Carbon::create($this->year, $this->month, $daysInMonth);
         $endOfGrid = $lastOfMonth->copy()->endOfWeek(Carbon::SUNDAY);
 
-        // Preload seluruh itineraries dalam rentang kalender grid
         $itineraryQuery = Itinerary::whereBetween('date', [$startOfGrid->toDateString(), $endOfGrid->toDateString()])
             ->with([
                 'employee.position',
