@@ -58,10 +58,11 @@ class EmployeesTable
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('supervisor.full_name')
-                    ->label('Supervisor')
+                    ->label('Supervisor / Leader')
+                    ->placeholder('-')
                     ->sortable()
                     ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: false),
                 TextColumn::make('user.name')
                     ->label('User Account')
                     ->sortable()
@@ -202,6 +203,84 @@ class EmployeesTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    \Filament\Actions\BulkAction::make('assign_supervisor')
+                        ->label('Atur SPV / Leader Massal')
+                        ->icon('heroicon-o-user-plus')
+                        ->color('primary')
+                        ->modalHeading('Tetapkan Supervisor / Leader Massal')
+                        ->modalDescription('Pilih Supervisor / Leader yang akan ditugaskan untuk seluruh karyawan yang dicentang.')
+                        ->modalSubmitActionLabel('Simpan SPV')
+                        ->form([
+                            \Filament\Forms\Components\Select::make('supervisor_id')
+                                ->label('Pilih Supervisor / Leader')
+                                ->placeholder('-- Cari Nama / NIK SPV --')
+                                ->searchable()
+                                ->getSearchResultsUsing(function (string $search) {
+                                    return \App\Models\Employee::where('is_active', true)
+                                        ->where(function ($q) use ($search) {
+                                            $q->where('full_name', 'ilike', "%{$search}%")
+                                              ->orWhere('employee_no', 'ilike', "%{$search}%");
+                                        })
+                                        ->limit(50)
+                                        ->get()
+                                        ->mapWithKeys(function ($emp) {
+                                            $pos = $emp->position ? " ({$emp->position->name})" : '';
+                                            return [$emp->id => "{$emp->full_name} [NIK: {$emp->employee_no}]{$pos}"];
+                                        })
+                                        ->toArray();
+                                })
+                                ->getOptionLabelUsing(function ($value) {
+                                    $emp = \App\Models\Employee::find($value);
+                                    if (!$emp) return null;
+                                    $pos = $emp->position ? " ({$emp->position->name})" : '';
+                                    return "{$emp->full_name} [NIK: {$emp->employee_no}]{$pos}";
+                                })
+                                ->required(),
+                        ])
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records, array $data) {
+                            $supervisor = \App\Models\Employee::find($data['supervisor_id']);
+                            if (!$supervisor) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Gagal: Supervisor tidak ditemukan')
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            $count = 0;
+                            foreach ($records as $record) {
+                                if ($record->id !== $supervisor->id) {
+                                    $record->update(['supervisor_id' => $supervisor->id]);
+                                    $count++;
+                                }
+                            }
+
+                            \Filament\Notifications\Notification::make()
+                                ->title('Supervisor Berhasil Ditetapkan')
+                                ->body("Berhasil menetapkan **{$supervisor->full_name}** sebagai Supervisor untuk **{$count} karyawan**.")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    \Filament\Actions\BulkAction::make('clear_supervisor')
+                        ->label('Hapus SPV / Leader Massal')
+                        ->icon('heroicon-o-user-minus')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Hapus Penugasan Supervisor')
+                        ->modalDescription('Apakah Anda yakin ingin mengosongkan nama supervisor untuk seluruh karyawan yang dipilih?')
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                            $count = $records->count();
+                            foreach ($records as $record) {
+                                $record->update(['supervisor_id' => null]);
+                            }
+                            \Filament\Notifications\Notification::make()
+                                ->title('Supervisor Berhasil Dikosongkan')
+                                ->body("Berhasil menghapus supervisor untuk **{$count} karyawan**.")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make(),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
