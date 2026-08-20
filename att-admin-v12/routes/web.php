@@ -43,3 +43,14 @@ Route::get('/cron/odoo-sync', function () {
     }
 });
 
+// Debug endpoint to check latest error logs
+Route::get('/debug-log', function () {
+    $logPath = storage_path('logs/laravel.log');
+    if (!file_exists($logPath)) {
+        return "No log file found.";
+    }
+    $lines = file($logPath);
+    $lastLines = array_slice($lines, -150);
+    return response('<pre>' . htmlspecialchars(implode('', $lastLines)) . '</pre>');
+});
+
