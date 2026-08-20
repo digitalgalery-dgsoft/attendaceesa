@@ -59,22 +59,30 @@ class OdooSyncReport extends Page
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
                 ->requiresConfirmation()
-                ->modalHeading('Jalankan Sinkronisasi Otomatis Sekarang')
-                ->modalDescription('Sistem akan mengeksekusi sinkronisasi seluruh company yang memiliki konfigurasi Odoo secara berurutan.')
+                ->modalHeading('Jalankan Sinkronisasi Semua Company')
+                ->modalDescription('Proses sinkronisasi 23.000+ data karyawan akan berjalan di background server secara aman agar tidak terkena timeout browser. Halaman akan otomatis terupdate saat proses berjalan.')
                 ->action(function () {
                     try {
-                        $results = OdooSyncService::syncAllConfiguredCompanies('manual');
-                        $this->selectedBatchId = $results['batch_id'];
+                        $artisan = base_path('artisan');
+                        $phpBinary = file_exists('/www/server/php/83/bin/php') ? '/www/server/php/83/bin/php' : (PHP_BINARY ?: 'php');
+                        
+                        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                            @pclose(@popen("start /B \"\" \"{$phpBinary}\" \"{$artisan}\" odoo:sync --trigger=manual", "r"));
+                        } else {
+                            @exec("nohup {$phpBinary} {$artisan} odoo:sync --trigger=manual > /dev/null 2>&1 &");
+                        }
+
                         $this->filterDate = Carbon::today('Asia/Jakarta')->toDateString();
 
                         Notification::make()
-                            ->title('Sinkronisasi Selesai')
-                            ->body("Berhasil sinkronisasi {$results['companies_count']} company. Baru: {$results['total_created']} | Update: {$results['total_updated']} | Resign: {$results['total_resigned']}")
-                            ->success()
+                            ->title('Sinkronisasi Dimulai di Background')
+                            ->body('Proses sinkronisasi sedang berjalan di server. Data & log akan otomatis muncul di tabel dalam 1–2 menit.')
+                            ->info()
+                            ->duration(10000)
                             ->send();
                     } catch (\Exception $e) {
                         Notification::make()
-                            ->title('Sinkronisasi Gagal')
+                            ->title('Gagal Memulai Sinkronisasi')
                             ->body($e->getMessage())
                             ->danger()
                             ->send();

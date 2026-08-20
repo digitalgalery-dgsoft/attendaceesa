@@ -34,6 +34,8 @@
         $historyLogs = $this->getHistoryLogs();
     @endphp
 
+    <div wire:poll.15s>
+
     {{-- Filter & Control Header --}}
     <x-filament::section>
         <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
@@ -402,4 +404,5 @@
             </div>
         </div>
     @endif
+    </div>
 </x-filament-panels::page>
