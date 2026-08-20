@@ -191,6 +191,32 @@ class AttendanceRoster extends Page implements HasForms
         ];
     }
 
+    public static function isWorkingDay(Carbon $date, $deptWorkingDays): bool
+    {
+        $workingDays = null;
+        if (!empty($deptWorkingDays)) {
+            if (is_array($deptWorkingDays)) {
+                $workingDays = $deptWorkingDays;
+            } elseif (is_string($deptWorkingDays)) {
+                $decoded = json_decode($deptWorkingDays, true);
+                if (is_array($decoded)) {
+                    $workingDays = $decoded;
+                }
+            }
+        }
+
+        $dow = $date->dayOfWeek; // 0 = Sun, 1 = Mon, ..., 6 = Sat
+        $iso = $date->dayOfWeekIso; // 1 = Mon, ..., 7 = Sun
+
+        if (!empty($workingDays)) {
+            $normalized = array_map('strval', $workingDays);
+            return in_array(strval($dow), $normalized) || in_array(strval($iso), $normalized);
+        }
+
+        // Default Mon-Fri (1, 2, 3, 4, 5)
+        return in_array($dow, [1, 2, 3, 4, 5]);
+    }
+
     protected function getViewData(): array
     {
         @ini_set('memory_limit', '512M');
@@ -207,6 +233,14 @@ class AttendanceRoster extends Page implements HasForms
         $startDateStr = $startDate->toDateString();
         $endDateStr = $endDate->toDateString();
         $todayStr = Carbon::today('Asia/Jakarta')->toDateString();
+
+        // Load holidays in period
+        $holidays = DB::table('holidays')
+            ->whereBetween('holiday_date', [$startDateStr, $endDateStr])
+            ->pluck('holiday_date')
+            ->map(fn($d) => Carbon::parse($d)->toDateString())
+            ->toArray();
+        $holidayMap = array_flip($holidays);
 
         // 1. Karyawan yang memiliki record absensi, jadwal roster, atau izin/cuti yang disetujui di periode ini
         $attEmpIds = DB::table('attendances')
@@ -238,6 +272,7 @@ class AttendanceRoster extends Page implements HasForms
                 'attendances' => collect(),
                 'schedules' => collect(),
                 'leaves' => collect(),
+                'holidayMap' => $holidayMap,
                 'daysInPeriod' => $daysInPeriod,
                 'startDate' => $startDate,
                 'endDate' => $endDate,
@@ -257,11 +292,12 @@ class AttendanceRoster extends Page implements HasForms
             ];
         }
 
-        // Query employees
+        // Query employees with department working days
         $employeeQuery = DB::table('employees')
             ->leftJoin('positions', 'employees.position_id', '=', 'positions.id')
             ->leftJoin('branches', 'employees.branch_id', '=', 'branches.id')
             ->leftJoin('principals', 'employees.principal_id', '=', 'principals.id')
+            ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
             ->whereIn('employees.id', $activeEmpIds)
             ->where('employees.is_active', true)
             ->whereNull('employees.deleted_at');
@@ -283,6 +319,8 @@ class AttendanceRoster extends Page implements HasForms
             'employees.employee_no',
             'employees.full_name',
             'employees.photo',
+            'employees.department_id',
+            'departments.working_days as dept_working_days',
             'positions.name as position_name',
             'branches.name as branch_name',
             'principals.name as principal_name',
@@ -490,10 +528,26 @@ class AttendanceRoster extends Page implements HasForms
                 }
             }
 
+            // Map employees dept_working_days
+            $empWorkingDaysMap = $allEmployees->pluck('dept_working_days', 'id')->toArray();
+
             // Count scheduled workdays that have passed (<= today) without checkin and without approved leave (Alpha)
+            // ONLY if the day is an actual working day for the employee and NOT a holiday!
             foreach ($allScheds as $sched) {
                 if (in_array($sched->schedule_type, ['workday', 'remote', 'field'])) {
                     if ($sched->schedule_date <= $todayStr) {
+                        // Check if national holiday
+                        if (isset($holidayMap[$sched->schedule_date])) {
+                            continue;
+                        }
+
+                        // Check if employee working day
+                        $schedDate = Carbon::parse($sched->schedule_date);
+                        $deptWd = $empWorkingDaysMap[$sched->employee_id] ?? null;
+                        if (!self::isWorkingDay($schedDate, $deptWd)) {
+                            continue;
+                        }
+
                         $key = $sched->employee_id . '_' . $sched->schedule_date;
                         if (!isset($attMap[$key]) && !isset($leaveMap[$key])) {
                             $summary['total_absent']++;
@@ -509,6 +563,7 @@ class AttendanceRoster extends Page implements HasForms
             'attendances' => $attendances,
             'schedules' => $schedules,
             'leaves' => $leaves,
+            'holidayMap' => $holidayMap,
             'daysInPeriod' => $daysInPeriod,
             'startDate' => $startDate,
             'endDate' => $endDate,

@@ -238,6 +238,7 @@
         $attendances = $viewData['attendances'];
         $schedules = $viewData['schedules'];
         $leaves = $viewData['leaves'];
+        $holidayMap = $viewData['holidayMap'] ?? [];
         $daysInPeriod = $viewData['daysInPeriod'];
         $startDate = $viewData['startDate'];
         $endDate = $viewData['endDate'];
@@ -304,7 +305,7 @@
             </form>
             <div style="margin-top: 8px; font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 6px;">
                 <x-filament::icon icon="heroicon-o-information-circle" style="width: 16px; height: 16px;" />
-                <span>Rentang kalender roster menampilkan maksimal <strong>31 hari</strong>. Klik pada sel kehadiran untuk melihat rincian aktivitas & rute live tracking.</span>
+                <span>Rentang kalender roster menampilkan maksimal <strong>31 hari</strong>. Hari libur (weekend / tanggal merah) otomatis diselaraskan dengan jam kerja departemen.</span>
             </div>
         </div>
 
@@ -339,8 +340,9 @@
                                 @php
                                     $date = $startDate->copy()->addDays($d - 1);
                                     $isWeekend = in_array($date->dayOfWeek, [0, 6]); // Sun or Sat
+                                    $isNatHoliday = isset($holidayMap[$date->toDateString()]);
                                 @endphp
-                                <th class="{{ $isWeekend ? 'weekend-header' : '' }}" style="text-align: center; min-width: 125px;">
+                                <th class="{{ ($isWeekend || $isNatHoliday) ? 'weekend-header' : '' }}" style="text-align: center; min-width: 125px;">
                                     <div style="font-weight: 800; font-size: 12px;">{{ $date->format('d M') }}</div>
                                     <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; opacity: 0.85;">
                                         {{ $date->translatedFormat('l') }}
@@ -390,7 +392,9 @@
                                         $dateStr = $startDate->copy()->addDays($d - 1)->toDateString();
                                         $dateObj = $startDate->copy()->addDays($d - 1);
                                         $isWeekend = in_array($dateObj->dayOfWeek, [0, 6]);
-                                        
+                                        $isNatHoliday = isset($holidayMap[$dateStr]);
+                                        $isDeptWorkDay = \App\Filament\Resources\Attendances\Pages\AttendanceRoster::isWorkingDay($dateObj, $employee->dept_working_days);
+
                                         $empAtts = $attendances->get($employee->id);
                                         $att = $empAtts ? $empAtts->firstWhere('attendance_date', $dateStr) : null;
 
@@ -440,7 +444,7 @@
                                             }
                                         }
                                     @endphp
-                                    <td style="text-align: center; background: {{ $isLate ? '#fffbeb' : ($isWeekend ? '#fdf2f2' : 'inherit') }};">
+                                    <td style="text-align: center; background: {{ $isLate ? '#fffbeb' : (($isWeekend || $isNatHoliday || !$isDeptWorkDay) ? '#fdf2f2' : 'inherit') }};">
                                         @if ($activeLeave)
                                             <div style="min-height: 48px; display: flex; align-items: center; justify-content: center;" title="{{ $activeLeave->notes ?? 'Izin Disetujui' }}">
                                                 @php
@@ -493,6 +497,11 @@
                                                     </div>
                                                 @endif
                                             </div>
+                                        @elseif ($isNatHoliday || !$isDeptWorkDay || ($sched && in_array($sched->schedule_type, ['dayoff', 'holiday'])))
+                                            {{-- Hari Libur Nasional / Libur Akhir Pekan Departemen / Dayoff Schedule --}}
+                                            <div style="min-height: 48px; display: flex; align-items: center; justify-content: center;" title="{{ $isNatHoliday ? 'Hari Libur Nasional' : 'Hari Libur / Weekend' }}">
+                                                <span class="att-badge att-badge-off">Libur</span>
+                                            </div>
                                         @elseif ($sched && in_array($sched->schedule_type, ['workday', 'remote', 'field']))
                                             @if ($dateStr <= $todayStr)
                                                 <div style="min-height: 48px; display: flex; align-items: center; justify-content: center;" title="Jadwal kerja aktif namun tidak melakukan absensi">
@@ -503,10 +512,6 @@
                                                     -
                                                 </div>
                                             @endif
-                                        @elseif ($sched && in_array($sched->schedule_type, ['dayoff', 'holiday']))
-                                            <div style="min-height: 48px; display: flex; align-items: center; justify-content: center;" title="Hari Libur Berjadwal">
-                                                <span class="att-badge att-badge-off">Libur</span>
-                                            </div>
                                         @else
                                             <div style="min-height: 48px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 13px;">
                                                 -
