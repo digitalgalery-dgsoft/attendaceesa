@@ -258,9 +258,13 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - **Auto-Trim Parameter:** Membersihkan spasi tak kasat mata dari URL, Database Name, Username/Email, dan API Key Odoo.
    - **Diagnostik Database Odoo:** Menambahkan pendeteksi otomatis daftar database yang aktif di server Odoo jika terjadi `KeyError` saat autentikasi XML-RPC.
    - **Deteksi Karyawan Resign / Archived:** Mengaktifkan parameter konteks `'context' => ['active_test' => false]` dan pembacaan `departure_date` pada Odoo XML-RPC `search_read` sehingga data karyawan yang benar-benar resign di entitasnya otomatis masuk ke kategori **Data Employee Resign**.
+   - **Refleksi Data Resign Real-Time:** Menampilkan jumlah dan detail daftar nama karyawan resign per entitas secara dinamis pada halaman Laporan Odoo Sync.
    - **Sinkronisasi Grand Total Real-Time:** Menyelaraskan angka grand total karyawan di Dashboard utama (24.190 Aktif • 2.810 Resign/Non-Aktif) dengan Halaman Laporan Odoo Sync secara real-time.
 
 5. **Penyempurnaan Manajemen Karyawan (Employees Resource):**
+   - **Filter Status Karyawan & Isolasi Pencarian (*Search Isolation*):**
+     - Menambahkan filter dropdown **Status Karyawan** dengan pilihan: `Aktif (Default)`, `Resign / Non-Aktif`, dan `Semua Status`.
+     - Mode pencarian (*Search Bar*) terisolasi: Saat filter Aktif dipilih, pencarian hanya memproses karyawan aktif (tidak tercampur dengan data karyawan resign). Untuk mencari karyawan resign, user cukup memilih filter `Resign / Non-Aktif`.
    - **Kolom Device Terhubung:** Mengganti kolom *Employment Status* dengan kolom **Device** yang menampilkan model handphone yang terhubung ke akun karyawan (dengan icon status dan tooltip Device ID).
    - **Atur SPV / Leader Massal (*Bulk Action*):** Fitur bagi Admin untuk mencentang banyak karyawan sekaligus dan menetapkan nama Supervisor / Leader secara serentak via modal pemilihan SPV.
    - **Hapus SPV Massal (*Bulk Action*):** Fitur untuk mengosongkan supervisor pada banyak karyawan yang dipilih sekaligus.
