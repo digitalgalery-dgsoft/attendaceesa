@@ -397,12 +397,12 @@
                                                     <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 2px; align-items: center;">
                                                         <div class="time-pill">
                                                             <span style="color: #059669; font-weight: 700;">In:</span>
-                                                            <span>{{ Carbon::parse($att->checkin_at)->timezone('Asia/Jakarta')->format('H:i') }}</span>
+                                                            <span>{{ \Carbon\Carbon::parse($att->checkin_at)->timezone('Asia/Jakarta')->format('H:i') }}</span>
                                                         </div>
                                                         @if (!empty($att->checkout_at))
                                                             <div class="time-pill">
                                                                 <span style="color: #dc2626; font-weight: 700;">Out:</span>
-                                                                <span>{{ Carbon::parse($att->checkout_at)->timezone('Asia/Jakarta')->format('H:i') }}</span>
+                                                                <span>{{ \Carbon\Carbon::parse($att->checkout_at)->timezone('Asia/Jakarta')->format('H:i') }}</span>
                                                             </div>
                                                         @endif
                                                     </div>
