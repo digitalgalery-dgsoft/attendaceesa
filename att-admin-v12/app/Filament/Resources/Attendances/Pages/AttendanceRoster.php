@@ -6,7 +6,6 @@ use App\Filament\Resources\Attendances\AttendanceResource;
 use App\Models\Attendance;
 use App\Models\AttendanceLog;
 use App\Models\Branch;
-use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Principal;
 use Carbon\Carbon;
@@ -53,7 +52,6 @@ class AttendanceRoster extends Page implements HasForms
             'filter_end_date' => Carbon::now()->endOfMonth()->toDateString(),
             'filter_branch_id' => null,
             'filter_principal_id' => null,
-            'filter_department_id' => null,
             'filter_employee_id' => null,
         ]);
         $this->search = '';
@@ -85,7 +83,7 @@ class AttendanceRoster extends Page implements HasForms
     {
         return $form
             ->schema([
-                Grid::make(6)->schema([
+                Grid::make(5)->schema([
                     DatePicker::make('filter_start_date')
                         ->label('Tanggal Mulai')
                         ->live()
@@ -105,12 +103,6 @@ class AttendanceRoster extends Page implements HasForms
                         ->label('Prinsiple')
                         ->options(Principal::orderBy('name')->pluck('name', 'id'))
                         ->placeholder('Semua Prinsiple')
-                        ->searchable()
-                        ->live(),
-                    Select::make('filter_department_id')
-                        ->label('Departemen')
-                        ->options(Department::orderBy('name')->pluck('name', 'id'))
-                        ->placeholder('Semua Dept')
                         ->searchable()
                         ->live(),
                     Select::make('filter_employee_id')
@@ -144,9 +136,6 @@ class AttendanceRoster extends Page implements HasForms
                             }
                             if (!empty($livewire->filterData['filter_principal_id'])) {
                                 $query->whereHas('employee', fn($q) => $q->where('principal_id', $livewire->filterData['filter_principal_id']));
-                            }
-                            if (!empty($livewire->filterData['filter_department_id'])) {
-                                $query->whereHas('employee', fn($q) => $q->where('department_id', $livewire->filterData['filter_department_id']));
                             }
                             if (!empty($livewire->filterData['filter_employee_id'])) {
                                 $query->where('employee_id', $livewire->filterData['filter_employee_id']);
@@ -185,9 +174,6 @@ class AttendanceRoster extends Page implements HasForms
                     }
                     if (!empty($this->filterData['filter_principal_id'])) {
                         $query->whereHas('employee', fn($q) => $q->where('principal_id', $this->filterData['filter_principal_id']));
-                    }
-                    if (!empty($this->filterData['filter_department_id'])) {
-                        $query->whereHas('employee', fn($q) => $q->where('department_id', $this->filterData['filter_department_id']));
                     }
                     if (!empty($this->filterData['filter_employee_id'])) {
                         $query->where('employee_id', $this->filterData['filter_employee_id']);
@@ -264,10 +250,6 @@ class AttendanceRoster extends Page implements HasForms
 
         if (!empty($this->filterData['filter_principal_id'])) {
             $employeeQuery->where('employees.principal_id', $this->filterData['filter_principal_id']);
-        }
-
-        if (!empty($this->filterData['filter_department_id'])) {
-            $employeeQuery->where('employees.department_id', $this->filterData['filter_department_id']);
         }
 
         if (!empty($this->filterData['filter_employee_id'])) {
