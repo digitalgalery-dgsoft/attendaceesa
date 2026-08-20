@@ -78,10 +78,10 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                 continue; // Lewati baris kosong
             }
 
-            // Cari Karyawan: Acuan Utama adalah NIK (employee_no / nik)
+            // Cari Karyawan: Acuan Utama adalah NIK (employee_no)
             $employee = null;
             if (!empty($nik)) {
-                $employee = Employee::where('employee_no', $nik)->orWhere('nik', $nik)->first();
+                $employee = Employee::where('employee_no', $nik)->first();
             }
 
             // Fallback: Jika NIK tidak ditemukan / kosong, cari berdasarkan nama karyawan

@@ -11,8 +11,9 @@ class WorkTargetImport implements ToModel, WithHeadingRow
 {
     public function model(array $row)
     {
-        // Cari karyawan berdasarkan NIK
-        $employee = Employee::where('nik', $row['nik'])->first();
+        // Cari karyawan berdasarkan NIK (employee_no)
+        $nik = trim((string)($row['nik'] ?? ''));
+        $employee = Employee::where('employee_no', $nik)->first();
 
         if ($employee) {
             // Update atau create berdasarkan employee_id dan month_year
