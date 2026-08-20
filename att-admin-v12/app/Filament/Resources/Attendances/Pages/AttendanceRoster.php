@@ -204,18 +204,40 @@ class AttendanceRoster extends Page implements HasForms
             $daysInPeriod = 31;
         }
 
-        // Cari hanya karyawan yang MEMILIKI record attendance / checkin di periode terpilih
-        $activeAttendanceEmpIds = DB::table('attendances')
-            ->whereBetween('attendance_date', [$startDate->toDateString(), $endDate->toDateString()])
-            ->distinct()
-            ->pluck('employee_id')
-            ->toArray();
+        $startDateStr = $startDate->toDateString();
+        $endDateStr = $endDate->toDateString();
+        $todayStr = Carbon::today('Asia/Jakarta')->toDateString();
 
-        if (empty($activeAttendanceEmpIds)) {
+        // 1. Karyawan yang memiliki record absensi, jadwal roster, atau izin/cuti yang disetujui di periode ini
+        $attEmpIds = DB::table('attendances')
+            ->whereBetween('attendance_date', [$startDateStr, $endDateStr])
+            ->pluck('employee_id');
+
+        $schedEmpIds = DB::table('employee_schedules')
+            ->whereBetween('schedule_date', [$startDateStr, $endDateStr])
+            ->pluck('employee_id');
+
+        $leaveEmpIds = DB::table('leave_requests')
+            ->where('status', 'approved')
+            ->where(function ($q) use ($startDateStr, $endDateStr) {
+                $q->whereBetween('start_date', [$startDateStr, $endDateStr])
+                  ->orWhereBetween('end_date', [$startDateStr, $endDateStr])
+                  ->orWhere(function ($sq) use ($startDateStr, $endDateStr) {
+                      $sq->where('start_date', '<=', $startDateStr)
+                         ->where('end_date', '>=', $endDateStr);
+                  });
+            })
+            ->pluck('employee_id');
+
+        $activeEmpIds = $attEmpIds->merge($schedEmpIds)->merge($leaveEmpIds)->unique()->filter()->toArray();
+
+        if (empty($activeEmpIds)) {
             return [
                 'employees' => collect(),
                 'totalEmployees' => 0,
                 'attendances' => collect(),
+                'schedules' => collect(),
+                'leaves' => collect(),
                 'daysInPeriod' => $daysInPeriod,
                 'startDate' => $startDate,
                 'endDate' => $endDate,
@@ -235,12 +257,12 @@ class AttendanceRoster extends Page implements HasForms
             ];
         }
 
-        // Query employees lightweight hanya untuk karyawan yang punya data absensi
+        // Query employees
         $employeeQuery = DB::table('employees')
             ->leftJoin('positions', 'employees.position_id', '=', 'positions.id')
             ->leftJoin('branches', 'employees.branch_id', '=', 'branches.id')
             ->leftJoin('principals', 'employees.principal_id', '=', 'principals.id')
-            ->whereIn('employees.id', $activeAttendanceEmpIds)
+            ->whereIn('employees.id', $activeEmpIds)
             ->where('employees.is_active', true)
             ->whereNull('employees.deleted_at');
 
@@ -292,14 +314,17 @@ class AttendanceRoster extends Page implements HasForms
 
         $pagedEmployeeIds = $pagedEmployees->pluck('id')->toArray();
 
-        // Fetch attendances for currently paged employees with schedule & shift data
+        // 2. Fetch attendances, schedules, and leaves for currently paged employees
         $attendances = collect();
+        $schedules = collect();
+        $leaves = collect();
+
         if (!empty($pagedEmployeeIds)) {
             $attendances = DB::table('attendances')
                 ->leftJoin('employee_schedules', 'attendances.employee_schedule_id', '=', 'employee_schedules.id')
                 ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
                 ->whereIn('attendances.employee_id', $pagedEmployeeIds)
-                ->whereBetween('attendances.attendance_date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->whereBetween('attendances.attendance_date', [$startDateStr, $endDateStr])
                 ->select([
                     'attendances.id',
                     'attendances.employee_id',
@@ -314,9 +339,41 @@ class AttendanceRoster extends Page implements HasForms
                 ])
                 ->get()
                 ->groupBy('employee_id');
+
+            $schedules = DB::table('employee_schedules')
+                ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
+                ->whereIn('employee_schedules.employee_id', $pagedEmployeeIds)
+                ->whereBetween('employee_schedules.schedule_date', [$startDateStr, $endDateStr])
+                ->select([
+                    'employee_schedules.id',
+                    'employee_schedules.employee_id',
+                    'employee_schedules.schedule_date',
+                    'employee_schedules.schedule_type',
+                    'employee_schedules.planned_start_at',
+                    'shifts.name as shift_name',
+                    'shifts.start_time as shift_start_time',
+                    'shifts.grace_checkin_minutes',
+                ])
+                ->get()
+                ->groupBy('employee_id');
+
+            $leaves = DB::table('leave_requests')
+                ->whereIn('employee_id', $pagedEmployeeIds)
+                ->where('status', 'approved')
+                ->where(function ($q) use ($startDateStr, $endDateStr) {
+                    $q->whereBetween('start_date', [$startDateStr, $endDateStr])
+                      ->orWhereBetween('end_date', [$startDateStr, $endDateStr])
+                      ->orWhere(function ($sq) use ($startDateStr, $endDateStr) {
+                          $sq->where('start_date', '<=', $startDateStr)
+                             ->where('end_date', '>=', $endDateStr);
+                      });
+                })
+                ->select(['id', 'employee_id', 'start_date', 'end_date', 'type', 'notes'])
+                ->get()
+                ->groupBy('employee_id');
         }
 
-        // Calculate KPI summaries across entire filtered dataset
+        // 3. Calculate KPI summaries across entire filtered dataset (all filtered employees)
         $allEmpIds = $allEmployees->pluck('id')->toArray();
         $summary = [
             'total_present' => 0,
@@ -326,13 +383,15 @@ class AttendanceRoster extends Page implements HasForms
         ];
 
         if (!empty($allEmpIds)) {
-            $allFilteredAtts = DB::table('attendances')
+            // Load attendances
+            $allAtts = DB::table('attendances')
                 ->leftJoin('employee_schedules', 'attendances.employee_schedule_id', '=', 'employee_schedules.id')
                 ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
                 ->whereIn('attendances.employee_id', $allEmpIds)
-                ->whereBetween('attendances.attendance_date', [$startDate->toDateString(), $endDate->toDateString()])
+                ->whereBetween('attendances.attendance_date', [$startDateStr, $endDateStr])
                 ->select([
                     'attendances.id',
+                    'attendances.employee_id',
                     'attendances.status',
                     'attendances.checkin_at',
                     'attendances.attendance_date',
@@ -343,7 +402,33 @@ class AttendanceRoster extends Page implements HasForms
                 ])
                 ->get();
 
-            foreach ($allFilteredAtts as $row) {
+            // Load schedules
+            $allScheds = DB::table('employee_schedules')
+                ->whereIn('employee_id', $allEmpIds)
+                ->whereBetween('schedule_date', [$startDateStr, $endDateStr])
+                ->select(['employee_id', 'schedule_date', 'schedule_type'])
+                ->get();
+
+            // Load approved leaves
+            $allLeaves = DB::table('leave_requests')
+                ->whereIn('employee_id', $allEmpIds)
+                ->where('status', 'approved')
+                ->where(function ($q) use ($startDateStr, $endDateStr) {
+                    $q->whereBetween('start_date', [$startDateStr, $endDateStr])
+                      ->orWhereBetween('end_date', [$startDateStr, $endDateStr])
+                      ->orWhere(function ($sq) use ($startDateStr, $endDateStr) {
+                          $sq->where('start_date', '<=', $startDateStr)
+                             ->where('end_date', '>=', $endDateStr);
+                      });
+                })
+                ->select(['employee_id', 'start_date', 'end_date', 'type'])
+                ->get();
+
+            // Count attendances (Present & Late & Explicit Leave/Absent)
+            $attMap = [];
+            foreach ($allAtts as $row) {
+                $attMap[$row->employee_id . '_' . $row->attendance_date] = true;
+
                 if ($row->status === 'absent') {
                     $summary['total_absent']++;
                     continue;
@@ -371,7 +456,6 @@ class AttendanceRoster extends Page implements HasForms
                             $isLate = true;
                         }
                     } else {
-                        // Standard default shift 08:30:00
                         $defaultStart = Carbon::parse($row->attendance_date . ' 08:30:00');
                         if ($checkin->greaterThan($defaultStart)) {
                             $isLate = true;
@@ -385,12 +469,46 @@ class AttendanceRoster extends Page implements HasForms
                     $summary['total_present']++;
                 }
             }
+
+            // Count approved leaves by date
+            $leaveMap = [];
+            foreach ($allLeaves as $l) {
+                $lStart = Carbon::parse($l->start_date);
+                $lEnd = Carbon::parse($l->end_date);
+                
+                $cur = $lStart->copy();
+                while ($cur->lessThanOrEqualTo($lEnd)) {
+                    $curStr = $cur->toDateString();
+                    if ($curStr >= $startDateStr && $curStr <= $endDateStr) {
+                        $key = $l->employee_id . '_' . $curStr;
+                        if (!isset($leaveMap[$key])) {
+                            $leaveMap[$key] = true;
+                            $summary['total_leave']++;
+                        }
+                    }
+                    $cur->addDay();
+                }
+            }
+
+            // Count scheduled workdays that have passed (<= today) without checkin and without approved leave (Alpha)
+            foreach ($allScheds as $sched) {
+                if (in_array($sched->schedule_type, ['workday', 'remote', 'field'])) {
+                    if ($sched->schedule_date <= $todayStr) {
+                        $key = $sched->employee_id . '_' . $sched->schedule_date;
+                        if (!isset($attMap[$key]) && !isset($leaveMap[$key])) {
+                            $summary['total_absent']++;
+                        }
+                    }
+                }
+            }
         }
 
         return [
             'employees' => $pagedEmployees,
             'totalEmployees' => $totalEmployeesCount,
             'attendances' => $attendances,
+            'schedules' => $schedules,
+            'leaves' => $leaves,
             'daysInPeriod' => $daysInPeriod,
             'startDate' => $startDate,
             'endDate' => $endDate,

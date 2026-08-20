@@ -102,7 +102,7 @@
             padding: 8px 10px;
             border-right: 1px solid #e2e8f0;
             border-bottom: 1px solid #e2e8f0;
-            vertical-align: top;
+            vertical-align: middle;
         }
         .dark .roster-bordered-table td {
             border-right-color: #334155;
@@ -154,10 +154,11 @@
             border-radius: 6px;
             padding: 4px;
             transition: all 0.15s ease-in-out;
-            min-height: 52px;
+            min-height: 48px;
             display: flex;
             flex-direction: column;
             justify-content: center;
+            align-items: center;
         }
         .roster-cell-clickable:hover {
             background: #e0e7ff;
@@ -171,12 +172,14 @@
         .att-badge {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.3px;
+            white-space: nowrap;
         }
         .att-badge-present {
             background: #d1fae5;
@@ -204,6 +207,16 @@
             color: #5b21b6;
             border: 1px solid #ddd6fe;
         }
+        .att-badge-sick {
+            background: #e0f2fe;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+        }
+        .att-badge-off {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #cbd5e1;
+        }
 
         .time-pill {
             display: flex;
@@ -223,11 +236,15 @@
         $viewData = $this->getViewData();
         $employees = $viewData['employees'];
         $attendances = $viewData['attendances'];
+        $schedules = $viewData['schedules'];
+        $leaves = $viewData['leaves'];
         $daysInPeriod = $viewData['daysInPeriod'];
         $startDate = $viewData['startDate'];
         $endDate = $viewData['endDate'];
         $summary = $viewData['summary'];
         $pagination = $viewData['pagination'];
+        $todayStr = \Carbon\Carbon::today('Asia/Jakarta')->toDateString();
+        $totalPermitsAndAbsent = $summary['total_leave'] + $summary['total_absent'];
     @endphp
 
     <div class="roster-page-wrapper">
@@ -237,7 +254,7 @@
                 <div>
                     <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Karyawan</div>
                     <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-top: 4px;">{{ number_format($viewData['totalEmployees']) }}</div>
-                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Aktif absen periode ini</div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Berjadwal / Aktif Periode Ini</div>
                 </div>
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0e7ff; color: #4338ca; display: flex; align-items: center; justify-content: center;">
                     <x-filament::icon icon="heroicon-o-users" style="width: 24px; height: 24px;" />
@@ -268,9 +285,11 @@
 
             <div class="kpi-card">
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #7c3aed; text-transform: uppercase;">Izin / Cuti / Lainnya</div>
-                    <div style="font-size: 26px; font-weight: 800; color: #7c3aed; margin-top: 4px;">{{ number_format($summary['total_leave']) }}</div>
-                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Alpha: {{ number_format($summary['total_absent']) }}</div>
+                    <div style="font-size: 11px; font-weight: 700; color: #7c3aed; text-transform: uppercase;">Izin / Cuti / Alpha</div>
+                    <div style="font-size: 26px; font-weight: 800; color: #7c3aed; margin-top: 4px;">{{ number_format($totalPermitsAndAbsent) }}</div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+                        Izin/Cuti: <strong>{{ number_format($summary['total_leave']) }}</strong> &bull; Alpha: <strong>{{ number_format($summary['total_absent']) }}</strong>
+                    </div>
                 </div>
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: #ede9fe; color: #7c3aed; display: flex; align-items: center; justify-content: center;">
                     <x-filament::icon icon="heroicon-o-document-text" style="width: 24px; height: 24px;" />
@@ -375,6 +394,17 @@
                                         $empAtts = $attendances->get($employee->id);
                                         $att = $empAtts ? $empAtts->firstWhere('attendance_date', $dateStr) : null;
 
+                                        $empScheds = $schedules->get($employee->id);
+                                        $sched = $empScheds ? $empScheds->firstWhere('schedule_date', $dateStr) : null;
+
+                                        $empLeaves = $leaves->get($employee->id);
+                                        $activeLeave = null;
+                                        if ($empLeaves) {
+                                            $activeLeave = $empLeaves->first(function($l) use ($dateStr) {
+                                                return $dateStr >= $l->start_date && $dateStr <= $l->end_date;
+                                            });
+                                        }
+
                                         $isLate = false;
                                         $lateText = '';
 
@@ -411,7 +441,20 @@
                                         }
                                     @endphp
                                     <td style="text-align: center; background: {{ $isLate ? '#fffbeb' : ($isWeekend ? '#fdf2f2' : 'inherit') }};">
-                                        @if ($att)
+                                        @if ($activeLeave)
+                                            <div style="min-height: 48px; display: flex; align-items: center; justify-content: center;" title="{{ $activeLeave->notes ?? 'Izin Disetujui' }}">
+                                                @php
+                                                    $lType = strtolower($activeLeave->type);
+                                                @endphp
+                                                @if (in_array($lType, ['sakit', 'medical_leave']))
+                                                    <span class="att-badge att-badge-sick">Sakit</span>
+                                                @elseif (in_array($lType, ['cuti', 'annual_leave', 'cuti_peraturan']))
+                                                    <span class="att-badge att-badge-leave">Cuti</span>
+                                                @else
+                                                    <span class="att-badge att-badge-permit">Izin</span>
+                                                @endif
+                                            </div>
+                                        @elseif ($att)
                                             <div class="roster-cell-clickable" wire:click="mountAction('viewDetails', { employee_id: {{ $employee->id }}, date: '{{ $dateStr }}' })" title="Klik untuk rincian absensi">
                                                 <div>
                                                     @if ($isLate)
@@ -426,6 +469,8 @@
                                                         <span class="att-badge att-badge-leave">Cuti</span>
                                                     @elseif ($att->status === 'permit')
                                                         <span class="att-badge att-badge-permit">Izin</span>
+                                                    @elseif ($att->status === 'sick')
+                                                        <span class="att-badge att-badge-sick">Sakit</span>
                                                     @else
                                                         <span class="att-badge att-badge-permit">{{ ucfirst($att->status) }}</span>
                                                     @endif
@@ -447,6 +492,20 @@
                                                         @endif
                                                     </div>
                                                 @endif
+                                            </div>
+                                        @elseif ($sched && in_array($sched->schedule_type, ['workday', 'remote', 'field']))
+                                            @if ($dateStr <= $todayStr)
+                                                <div style="min-height: 48px; display: flex; align-items: center; justify-content: center;" title="Jadwal kerja aktif namun tidak melakukan absensi">
+                                                    <span class="att-badge att-badge-absent">Alpha</span>
+                                                </div>
+                                            @else
+                                                <div style="min-height: 48px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 11px;">
+                                                    -
+                                                </div>
+                                            @endif
+                                        @elseif ($sched && in_array($sched->schedule_type, ['dayoff', 'holiday']))
+                                            <div style="min-height: 48px; display: flex; align-items: center; justify-content: center;" title="Hari Libur Berjadwal">
+                                                <span class="att-badge att-badge-off">Libur</span>
                                             </div>
                                         @else
                                             <div style="min-height: 48px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 13px;">
