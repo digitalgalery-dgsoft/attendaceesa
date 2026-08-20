@@ -32,6 +32,10 @@ class TeamUncheckedMonitoring extends Page
     public ?string $selectedCellPrincipalName = null;
     public ?string $selectedCellBranchName = null;
 
+    // Pagination
+    public int $page = 1;
+    public int $perPage = 25;
+
     public function mount(): void
     {
         @ini_set('memory_limit', '512M');
@@ -39,7 +43,15 @@ class TeamUncheckedMonitoring extends Page
         $this->selectedBranchId = null;
         $this->searchQuery = '';
         $this->quickFilter = 'all';
+        $this->page = 1;
+        $this->perPage = 25;
     }
+
+    public function updatedSelectedPrincipalId(): void { $this->page = 1; }
+    public function updatedSelectedBranchId(): void { $this->page = 1; }
+    public function updatedSearchQuery(): void { $this->page = 1; }
+    public function updatedQuickFilter(): void { $this->page = 1; }
+    public function updatedPerPage(): void { $this->page = 1; }
 
     public static function canAccess(): bool
     {
@@ -64,7 +76,7 @@ class TeamUncheckedMonitoring extends Page
 
     /**
      * Mengambil data seluruh karyawan aktif dan kalkulasi missed check-in 7 hari terakhir
-     * Menggunakan DB Query Builder untuk konsumsi memori yang sangat hemat (< 15MB untuk ribuan karyawan).
+     * Menggunakan DB Query Builder untuk konsumsi memori yang sangat hemat.
      */
     public function getCalculatedData(): array
     {
@@ -325,9 +337,9 @@ class TeamUncheckedMonitoring extends Page
     }
 
     /**
-     * Mengambil Detail Karyawan (Gambar 2) yang sudah terfilter
+     * Mengambil Detail Karyawan lengkap terfilter (semua item untuk export atau kalkulasi total)
      */
-    public function getFilteredDetailData(): array
+    public function getAllFilteredDetailData(): array
     {
         $calculated = $this->getCalculatedData();
         $employees = $calculated['employees'];
@@ -393,6 +405,57 @@ class TeamUncheckedMonitoring extends Page
     }
 
     /**
+     * Mengambil Detail Karyawan (Gambar 2) yang sudah terfilter dan DIPAGINASI
+     * Menghindari render ribuan row HTML sekaligus yang menyebabkan kehabisan RAM.
+     */
+    public function getFilteredDetailData(): array
+    {
+        $allFiltered = $this->getAllFilteredDetailData();
+        $totalCount = count($allFiltered);
+        $totalPages = max(1, (int)ceil($totalCount / $this->perPage));
+
+        // Pastikan page valid
+        if ($this->page > $totalPages) {
+            $this->page = $totalPages;
+        }
+        if ($this->page < 1) {
+            $this->page = 1;
+        }
+
+        $offset = ($this->page - 1) * $this->perPage;
+        $items = array_slice($allFiltered, $offset, $this->perPage);
+
+        return [
+            'items' => $items,
+            'total_count' => $totalCount,
+            'page' => $this->page,
+            'per_page' => $this->perPage,
+            'total_pages' => $totalPages,
+            'from' => $totalCount > 0 ? $offset + 1 : 0,
+            'to' => min($offset + $this->perPage, $totalCount),
+        ];
+    }
+
+    public function setPage(int $page): void
+    {
+        $this->page = max(1, $page);
+    }
+
+    public function nextPage(int $maxPage): void
+    {
+        if ($this->page < $maxPage) {
+            $this->page++;
+        }
+    }
+
+    public function previousPage(): void
+    {
+        if ($this->page > 1) {
+            $this->page--;
+        }
+    }
+
+    /**
      * Memilih Cell Matriks untuk filtering langsung tabel detail
      */
     public function selectMatrixCell($principalId = null, $branchId = null, $principalName = null, $branchName = null): void
@@ -401,6 +464,8 @@ class TeamUncheckedMonitoring extends Page
         $bId = (!is_null($branchId) && $branchId !== '' && $branchId !== '0') ? (string)$branchId : null;
         $pName = !empty($principalName) ? (string)$principalName : null;
         $bName = !empty($branchName) ? (string)$branchName : null;
+
+        $this->page = 1;
 
         if ($this->selectedCellPrincipalId === $pId && $this->selectedCellBranchId === $bId) {
             $this->resetCellFilter();
@@ -428,6 +493,7 @@ class TeamUncheckedMonitoring extends Page
         $this->selectedCellBranchId = null;
         $this->selectedCellPrincipalName = null;
         $this->selectedCellBranchName = null;
+        $this->page = 1;
     }
 
     /**
@@ -439,6 +505,7 @@ class TeamUncheckedMonitoring extends Page
         $this->selectedBranchId = null;
         $this->searchQuery = '';
         $this->quickFilter = 'all';
+        $this->page = 1;
         $this->resetCellFilter();
 
         Notification::make()
@@ -449,11 +516,11 @@ class TeamUncheckedMonitoring extends Page
     }
 
     /**
-     * Export hasil monitoring ke Excel
+     * Export hasil monitoring ke Excel (mengambil seluruh data terfilter)
      */
     public function exportExcel()
     {
-        $details = $this->getFilteredDetailData();
+        $details = $this->getAllFilteredDetailData();
         $today = Carbon::today('Asia/Jakarta')->translatedFormat('d F Y');
 
         $rows = [];

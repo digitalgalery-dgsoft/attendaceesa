@@ -25,7 +25,8 @@
 
     @php
         $matrix = $this->getMatrixData();
-        $details = $this->getFilteredDetailData();
+        $detailPagination = $this->getFilteredDetailData();
+        $details = $detailPagination['items'];
         $summary = $matrix['summary_info'];
         $allPrincipals = \App\Models\Principal::orderBy('name')->get(['id', 'name']);
         $allBranches = \App\Models\Branch::orderBy('name')->get(['id', 'name']);
@@ -336,7 +337,7 @@
                     <strong>{{ $selectedCellPrincipalName ?: 'Semua Prinsiple' }}</strong>
                     &bull;
                     <strong>{{ $selectedCellBranchName ?: 'Semua Area' }}</strong>
-                    <span class="ml-1 text-xs opacity-80">({{ count($details) }} Karyawan Ditemukan)</span>
+                    <span class="ml-1 text-xs opacity-80">({{ number_format($detailPagination['total_count']) }} Karyawan Ditemukan)</span>
                 </span>
             </div>
             <x-filament::button wire:click="resetCellFilter" color="danger" size="xs" icon="heroicon-o-x-mark">
@@ -353,7 +354,7 @@
                     <x-filament::icon icon="heroicon-o-list-bullet" class="w-5 h-5 text-primary-600 dark:text-primary-400" />
                     <span class="text-base font-bold text-gray-900 dark:text-white">Rincian Data Karyawan Belum Check-In</span>
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary-100 text-primary-800 dark:bg-primary-950 dark:text-primary-300">
-                        {{ count($details) }} Karyawan
+                        {{ number_format($detailPagination['total_count']) }} Karyawan
                     </span>
                 </div>
                 <span class="text-xs text-gray-500 dark:text-gray-400">
@@ -407,6 +408,7 @@
                                         src="{{ $photoUrl }}"
                                         alt="{{ $emp['full_name'] }}"
                                         class="w-9 h-9 rounded-full object-cover ring-1 ring-gray-200 dark:ring-white/10 shrink-0"
+                                        loading="lazy"
                                     />
                                     <div>
                                         <div class="font-bold text-gray-900 dark:text-white">{{ $emp['full_name'] }}</div>
@@ -467,5 +469,52 @@
                 </tbody>
             </table>
         </div>
+
+        {{-- PAGINATION BAR --}}
+        @if ($detailPagination['total_count'] > 0)
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-4 pt-4 border-t border-gray-100 dark:border-white/5 text-xs text-gray-600 dark:text-gray-300">
+                {{-- Info Showing --}}
+                <div>
+                    Menampilkan <strong class="font-bold text-gray-900 dark:text-white">{{ $detailPagination['from'] }}</strong> - <strong class="font-bold text-gray-900 dark:text-white">{{ $detailPagination['to'] }}</strong> dari <strong class="font-bold text-gray-900 dark:text-white">{{ number_format($detailPagination['total_count']) }}</strong> data
+                </div>
+
+                {{-- Per Page Selector & Buttons --}}
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-1.5">
+                        <span>Per halaman:</span>
+                        <select wire:model.live="perPage" class="py-1 px-2 text-xs rounded border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+
+                    {{-- Prev / Next Buttons --}}
+                    <div class="flex items-center gap-1">
+                        <button
+                            type="button"
+                            wire:click="previousPage"
+                            @if ($detailPagination['page'] <= 1) disabled @endif
+                            class="px-2.5 py-1 rounded border border-gray-300 dark:border-gray-700 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                        >
+                            &laquo; Sebelumnya
+                        </button>
+
+                        <span class="px-2 font-semibold">
+                            Halaman {{ $detailPagination['page'] }} / {{ $detailPagination['total_pages'] }}
+                        </span>
+
+                        <button
+                            type="button"
+                            wire:click="nextPage({{ $detailPagination['total_pages'] }})"
+                            @if ($detailPagination['page'] >= $detailPagination['total_pages']) disabled @endif
+                            class="px-2.5 py-1 rounded border border-gray-300 dark:border-gray-700 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                        >
+                            Selanjutnya &raquo;
+                        </button>
+                    </div>
+                </div>
+            </div>
+        @endif
     </x-filament::section>
 </x-filament-panels::page>
