@@ -194,14 +194,14 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 
 ---
 
-## ✅ Tahap 8: Monitoring Tim Belum Check-In & Stabilisasi History (SELESAI 19 Agustus 2026, APK v1.0.93)
+## ✅ Tahap 8: Monitoring Tim Belum Check-In & Stabilisasi History (SELESAI 19 - 20 Agustus 2026, APK v1.0.93)
 1. **Stabilisasi Endpoint Riwayat Absensi (`/api/attendance/history`)**:
    - Memperbaiki error handling dan parsing metadata JSON pada log aktivitas meeting & presensi.
    - Mencegah error 500 jika terjadi kegagalan pembacaan tanggal cutoff departemen atau null relationship.
    - Memastikan Dashboard dan Halaman Riwayat di aplikasi mobile selalu menampilkan data jam check-in/out dan timeline aktivitas dengan stabil.
 2. **Perubahan Judul Card Dashboard ("Tim Belum Check-In")**:
    - Mengubah label card grid pada widget Team Overview dari `Vacant (Kosong)` menjadi **`Tim Belum Check-In`**.
-3. **Halaman Khusus Monitoring Tim Belum Check-In (`TeamUncheckedScreen`)**:
+3. **Halaman Khusus Monitoring Tim Belum Check-In Mobile (`TeamUncheckedScreen`)**:
    - Menampilkan daftar anggota tim yang tidak melakukan check-in dalam 7 hari terakhir secara lengkap:
      - Nama Lengkap & NIK
      - Jabatan
@@ -214,3 +214,9 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Menambahkan endpoint `GET /api/dashboard/team-unchecked` dengan eager loading relasi lengkap dan agregasi presensi 7 hari terakhir.
 5. **Rilis APK Versi 1.0.93**:
    - Sukses build APK release `app-release-1.0.93.apk`.
+6. **Halaman Monitoring Tim Belum Check-In Web Admin (`/admin/team-unchecked-monitoring`)**:
+   - **Tampilan 1 (Matriks Prinsiple vs Area)**: Matriks pivot tabel interaktif dengan baris Prinsiple dan kolom Area/Cabang. Cell menampilkan jumlah karyawan belum check-in dan dapat diklik untuk mem-filter rincian data karyawan secara instan.
+   - **Tampilan 2 (Rincian Data Karyawan)**: Tabel detail lengkap dengan kolom `Nama Karyawan`, `Jabatan`, `Prinsiple`, `Area`, dan kumpulan chip `Tgl Tidak Check-in (7 Hari Terakhir)`.
+   - **Filter & Kontrol Lengkap**: Filter dropdown Prinsiple, filter dropdown Area/Cabang, Filter Cepat Status, Pencarian Real-Time (Live Search), dan Export ke Excel (`.xlsx`).
+   - **Penyelarasan Tema**: Menggunakan palette warna dan styling native Filament (Light Mode & Dark Mode).
+
