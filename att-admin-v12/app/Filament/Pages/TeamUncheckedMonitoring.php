@@ -37,9 +37,17 @@ class TeamUncheckedMonitoring extends Page
     public int $page = 1;
     public int $perPage = 25;
 
+    // Request-level memory cache
+    protected ?array $memoizedCalculated = null;
+
     public function getMaxContentWidth(): Width | string | null
     {
         return Width::Full;
+    }
+
+    public function boot(): void
+    {
+        @ini_set('memory_limit', '512M');
     }
 
     public function mount(): void
@@ -51,6 +59,11 @@ class TeamUncheckedMonitoring extends Page
         $this->quickFilter = 'all';
         $this->page = 1;
         $this->perPage = 25;
+    }
+
+    public function rendering(): void
+    {
+        @ini_set('memory_limit', '512M');
     }
 
     public function updatedSelectedPrincipalId(): void { $this->page = 1; }
@@ -81,10 +94,15 @@ class TeamUncheckedMonitoring extends Page
     }
 
     /**
-     * Mengambil data seluruh karyawan aktif dan kalkulasi missed check-in 7 hari terakhir
+     * Mengambil data seluruh karyawan aktif dan kalkulasi missed check-in 7 hari terakhir.
+     * Menggunakan query builder hemat memori & memoized agar dieksekusi 1 kali saja per request.
      */
     public function getCalculatedData(): array
     {
+        if ($this->memoizedCalculated !== null) {
+            return $this->memoizedCalculated;
+        }
+
         @ini_set('memory_limit', '512M');
 
         $today = Carbon::today('Asia/Jakarta');
@@ -92,7 +110,7 @@ class TeamUncheckedMonitoring extends Page
         $sevenDaysAgo = $today->copy()->subDays(6);
         $sevenDaysAgoStr = $sevenDaysAgo->format('Y-m-d');
 
-        // Query raw lightweight stdClass employees
+        // Query raw lightweight employees
         $employees = DB::table('employees')
             ->leftJoin('principals', 'employees.principal_id', '=', 'principals.id')
             ->leftJoin('branches', 'employees.branch_id', '=', 'branches.id')
@@ -109,7 +127,6 @@ class TeamUncheckedMonitoring extends Page
                 'employees.employee_no',
                 'employees.full_name',
                 'employees.photo',
-                'employees.phone',
                 'employees.principal_id',
                 'employees.branch_id',
                 'principals.name as principal_name',
@@ -119,10 +136,9 @@ class TeamUncheckedMonitoring extends Page
             ])
             ->get();
 
-        $empIds = $employees->pluck('id')->toArray();
-
-        if (empty($empIds)) {
-            return [
+        $totalActive = $employees->count();
+        if ($totalActive === 0) {
+            return $this->memoizedCalculated = [
                 'today_formatted' => $today->translatedFormat('d F Y'),
                 'seven_days_range' => $sevenDaysAgo->translatedFormat('d M') . ' - ' . $today->translatedFormat('d M Y'),
                 'total_active_employees' => 0,
@@ -131,17 +147,15 @@ class TeamUncheckedMonitoring extends Page
             ];
         }
 
-        // 1. Ambil seluruh presensi 7 hari terakhir
+        // 1. Ambil seluruh presensi 7 hari terakhir (hanya kolom employee_id dan tanggal)
         $attendances7Days = DB::table('attendances')
-            ->whereIn('employee_id', $empIds)
             ->whereBetween('attendance_date', [$sevenDaysAgoStr, $todayStr])
-            ->select('employee_id', 'attendance_date')
+            ->select('employee_id', DB::raw('SUBSTRING(attendance_date, 1, 10) as att_date'))
             ->get()
             ->groupBy('employee_id');
 
-        // 2. Ambil seluruh permohonan cuti approved 7 hari terakhir
+        // 2. Ambil seluruh cuti approved 7 hari terakhir
         $leaves7Days = DB::table('leave_requests')
-            ->whereIn('employee_id', $empIds)
             ->where('status', 'approved')
             ->where('end_date', '>=', $sevenDaysAgoStr)
             ->where('start_date', '<=', $todayStr)
@@ -151,65 +165,62 @@ class TeamUncheckedMonitoring extends Page
 
         // 3. Ambil tanggal presensi terakhir
         $latestDates = DB::table('attendances')
-            ->whereIn('employee_id', $empIds)
-            ->selectRaw('employee_id, MAX(attendance_date) as max_date')
+            ->select('employee_id', DB::raw('MAX(SUBSTRING(attendance_date, 1, 10)) as max_date'))
             ->groupBy('employee_id')
             ->pluck('max_date', 'employee_id');
+
+        // Daftar 7 hari terakhir (Y-m-d)
+        $sevenDaysList = [];
+        $curr = $sevenDaysAgo->copy();
+        while ($curr <= $today) {
+            $sevenDaysList[] = $curr->toDateString();
+            $curr->addDay();
+        }
 
         $uncheckedEmployees = [];
 
         foreach ($employees as $emp) {
-            $empAttendances = $attendances7Days->get($emp->id, collect());
-            $empLeaves = $leaves7Days->get($emp->id, collect());
+            $empAtt = $attendances7Days->get($emp->id);
+            $attendedDates = $empAtt ? $empAtt->pluck('att_date')->toArray() : [];
+            $empLeaves = $leaves7Days->get($emp->id);
 
-            $attendedDates = $empAttendances->pluck('attendance_date')
-                ->map(fn ($d) => is_string($d) ? substr($d, 0, 10) : Carbon::parse($d)->toDateString())
-                ->toArray();
-
-            // Hitung tanggal tidak hadir dalam 7 hari terakhir
-            $missedDates = [];
-            $curr = $sevenDaysAgo->copy();
-            while ($curr <= $today) {
-                $cStr = $curr->toDateString();
-                $isAttended = in_array($cStr, $attendedDates);
-                $isOnLeave = $empLeaves->first(function ($leave) use ($cStr) {
-                    $s = is_string($leave->start_date) ? substr($leave->start_date, 0, 10) : Carbon::parse($leave->start_date)->toDateString();
-                    $e = is_string($leave->end_date) ? substr($leave->end_date, 0, 10) : Carbon::parse($leave->end_date)->toDateString();
-                    return $cStr >= $s && $cStr <= $e;
-                }) !== null;
-
-                if (!$isAttended && !$isOnLeave) {
-                    $missedDates[] = [
-                        'date' => $cStr,
-                        'formatted_date' => $curr->translatedFormat('d M'),
-                        'full_date' => $curr->translatedFormat('d M Y'),
-                        'day_name' => $curr->translatedFormat('l'),
-                        'is_today' => ($cStr === $todayStr),
-                    ];
+            // Hitung tanggal tidak hadir (raw strings)
+            $missedDatesRaw = [];
+            foreach ($sevenDaysList as $cStr) {
+                if (in_array($cStr, $attendedDates)) {
+                    continue;
                 }
-                $curr->addDay();
+
+                $isOnLeave = false;
+                if ($empLeaves) {
+                    foreach ($empLeaves as $leave) {
+                        $s = substr((string)$leave->start_date, 0, 10);
+                        $e = substr((string)$leave->end_date, 0, 10);
+                        if ($cStr >= $s && $cStr <= $e) {
+                            $isOnLeave = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!$isOnLeave) {
+                    $missedDatesRaw[] = $cStr;
+                }
             }
 
-            $missedDates = array_reverse($missedDates);
-            $missedCount = count($missedDates);
+            $missedCount = count($missedDatesRaw);
 
-            // Hanya proses karyawan yang memiliki setidaknya 1 hari bolos/belum absen dalam 7 hari
             if ($missedCount > 0) {
                 $lastAttDate = $latestDates->get($emp->id);
                 $daysSinceLast = -1;
                 $formattedLastAtt = 'Belum Pernah Hadir';
-                
+
                 if ($lastAttDate) {
-                    try {
-                        $parsedLast = Carbon::parse($lastAttDate);
-                        $daysSinceLast = $parsedLast->diffInDays($today);
-                        $formattedLastAtt = $parsedLast->translatedFormat('d M Y');
-                    } catch (\Exception $e) {
-                        $formattedLastAtt = (string)$lastAttDate;
-                    }
+                    $daysSinceLast = (int)Carbon::parse($lastAttDate)->diffInDays($today);
+                    $formattedLastAtt = Carbon::parse($lastAttDate)->translatedFormat('d M Y');
                 }
 
-                $isTodayUnchecked = !in_array($todayStr, $attendedDates);
+                $isTodayUnchecked = in_array($todayStr, $missedDatesRaw);
 
                 $principalName = $emp->principal_name ?: ($emp->company_name ?: 'Tanpa Prinsiple');
                 $branchName = $emp->branch_name ?: 'Tanpa Area';
@@ -224,20 +235,19 @@ class TeamUncheckedMonitoring extends Page
                     'principal_name' => $principalName,
                     'branch_id' => $emp->branch_id ? (string)$emp->branch_id : null,
                     'branch_name' => $branchName,
-                    'phone' => $emp->phone ?? '-',
                     'is_today_unchecked' => $isTodayUnchecked,
                     'days_since_last' => $daysSinceLast,
                     'last_attendance_date' => $formattedLastAtt,
                     'missed_count_7days' => $missedCount,
-                    'missed_dates' => $missedDates,
+                    'missed_dates_raw' => array_reverse($missedDatesRaw), // Terbaru duluan
                 ];
             }
         }
 
-        return [
+        return $this->memoizedCalculated = [
             'today_formatted' => $today->translatedFormat('d F Y'),
             'seven_days_range' => $sevenDaysAgo->translatedFormat('d M') . ' - ' . $today->translatedFormat('d M Y'),
-            'total_active_employees' => $employees->count(),
+            'total_active_employees' => $totalActive,
             'total_unchecked_employees' => count($uncheckedEmployees),
             'employees' => $uncheckedEmployees,
         ];
@@ -411,6 +421,7 @@ class TeamUncheckedMonitoring extends Page
 
     /**
      * Mengambil Detail Karyawan (Gambar 2) yang sudah terfilter dan DIPAGINASI
+     * Hanya memformat tanggal (Carbon) untuk 25 baris yang aktif agar sangat hemat memori.
      */
     public function getFilteredDetailData(): array
     {
@@ -418,7 +429,6 @@ class TeamUncheckedMonitoring extends Page
         $totalCount = count($allFiltered);
         $totalPages = max(1, (int)ceil($totalCount / $this->perPage));
 
-        // Pastikan page valid
         if ($this->page > $totalPages) {
             $this->page = $totalPages;
         }
@@ -427,10 +437,32 @@ class TeamUncheckedMonitoring extends Page
         }
 
         $offset = ($this->page - 1) * $this->perPage;
-        $items = array_slice($allFiltered, $offset, $this->perPage);
+        $rawSlice = array_slice($allFiltered, $offset, $this->perPage);
+
+        $todayStr = Carbon::today('Asia/Jakarta')->toDateString();
+
+        // Format tanggal hanya untuk halaman yang aktif
+        $formattedItems = [];
+        foreach ($rawSlice as $emp) {
+            $formattedDates = [];
+            foreach ($emp['missed_dates_raw'] as $rawDate) {
+                $c = Carbon::parse($rawDate);
+                $formattedDates[] = [
+                    'date' => $rawDate,
+                    'formatted_date' => $c->translatedFormat('d M'),
+                    'full_date' => $c->translatedFormat('d M Y'),
+                    'day_name' => $c->translatedFormat('l'),
+                    'is_today' => ($rawDate === $todayStr),
+                ];
+            }
+
+            $empCopy = $emp;
+            $empCopy['missed_dates'] = $formattedDates;
+            $formattedItems[] = $empCopy;
+        }
 
         return [
-            'items' => $items,
+            'items' => $formattedItems,
             'total_count' => $totalCount,
             'page' => $this->page,
             'per_page' => $this->perPage,
@@ -530,7 +562,9 @@ class TeamUncheckedMonitoring extends Page
         $rows = [];
         $no = 1;
         foreach ($details as $row) {
-            $missedDatesStr = collect($row['missed_dates'])->pluck('formatted_date')->implode(', ');
+            $missedDatesFormatted = array_map(function ($d) {
+                return Carbon::parse($d)->translatedFormat('d M');
+            }, $row['missed_dates_raw']);
 
             $rows[] = [
                 $no++,
@@ -540,7 +574,7 @@ class TeamUncheckedMonitoring extends Page
                 $row['principal_name'],
                 $row['branch_name'],
                 $row['missed_count_7days'] . ' Hari',
-                $missedDatesStr,
+                implode(', ', $missedDatesFormatted),
                 $row['last_attendance_date'],
             ];
         }
