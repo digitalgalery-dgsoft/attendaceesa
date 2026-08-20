@@ -18,6 +18,11 @@ class LiveChat extends Page
     protected static ?string $slug = 'live-chat';
     protected static ?int $navigationSort = 1;
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && (auth()->user()->isSuperAdmin() || auth()->user()->can('view_live_chat'));
+    }
+
     public function getMaxContentWidth(): \Filament\Support\Enums\Width | string | null
     {
         return \Filament\Support\Enums\Width::Full;

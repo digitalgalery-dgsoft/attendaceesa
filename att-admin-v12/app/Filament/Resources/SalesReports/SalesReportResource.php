@@ -28,6 +28,11 @@ class SalesReportResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'client_name';
 
+    public static function canViewAny(): bool
+    {
+        return auth()->check() && (auth()->user()->isSuperAdmin() || auth()->user()->can('view_sales_reports'));
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();

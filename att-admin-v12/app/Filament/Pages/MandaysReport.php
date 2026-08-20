@@ -30,6 +30,11 @@ class MandaysReport extends Page implements HasForms
 
     protected string $view = 'filament.pages.mandays-report';
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && (auth()->user()->isSuperAdmin() || auth()->user()->can('view_mandays_report'));
+    }
+
     public ?string $month = null;
     public ?string $year = null;
     public ?string $branch_id = null;

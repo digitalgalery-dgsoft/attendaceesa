@@ -29,6 +29,11 @@ class TurnOverReport extends Page implements HasForms
 
     protected string $view = 'filament.pages.turn-over-report';
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && (auth()->user()->isSuperAdmin() || auth()->user()->can('view_turnover_report'));
+    }
+
     public ?string $year = null;
     public ?string $principal_id = null;
 

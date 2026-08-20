@@ -20,6 +20,11 @@ class OdooSync extends Page
     protected static ?string $navigationLabel = 'Odoo Sync';
     protected string $view = 'filament.pages.odoo-sync';
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && (auth()->user()->isSuperAdmin() || auth()->user()->can('manage_settings') || auth()->user()->can('view_odoo_sync'));
+    }
+
     public ?int $selectedCompanyId = null;
 
     public function mount(): void

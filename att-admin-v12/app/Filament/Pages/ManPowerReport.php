@@ -30,6 +30,11 @@ class ManPowerReport extends Page implements HasForms
 
     protected string $view = 'filament.pages.man-power-report';
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && (auth()->user()->isSuperAdmin() || auth()->user()->can('view_manpower_report'));
+    }
+
     public ?string $year = null;
     public ?string $principal_id = null;
     public ?string $branch_id = null;

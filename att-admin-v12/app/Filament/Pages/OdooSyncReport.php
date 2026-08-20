@@ -21,6 +21,11 @@ class OdooSyncReport extends Page
     protected static ?string $navigationLabel = 'Laporan Odoo Sync';
     protected string $view = 'filament.pages.odoo-sync-report';
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && (auth()->user()->isSuperAdmin() || auth()->user()->can('manage_settings') || auth()->user()->can('view_odoo_sync'));
+    }
+
     public ?string $filterDate = null;
     public ?string $selectedBatchId = 'all_today';
     public ?int $selectedCompanyId = null;

@@ -25,6 +25,11 @@ class MeetingResource extends Resource
     protected static ?string $modelLabel = 'Jadwal Meeting';
     protected static ?string $pluralModelLabel = 'Jadwal Meeting';
 
+    public static function canViewAny(): bool
+    {
+        return auth()->check() && (auth()->user()->isSuperAdmin() || auth()->user()->can('view_itineraries') || auth()->user()->can('view_visit_reports'));
+    }
+
     public static function form(Schema $schema): Schema
     {
         return MeetingForm::configure($schema);

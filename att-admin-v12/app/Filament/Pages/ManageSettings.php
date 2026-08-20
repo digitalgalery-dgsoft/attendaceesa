@@ -25,6 +25,11 @@ class ManageSettings extends Page implements HasForms
     protected static ?string $navigationLabel = 'General Settings';
     protected string $view = 'filament.pages.manage-settings';
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && (auth()->user()->isSuperAdmin() || auth()->user()->can('manage_settings') || auth()->user()->can('view_settings'));
+    }
+
     public ?array $data = [];
 
     public function mount(): void

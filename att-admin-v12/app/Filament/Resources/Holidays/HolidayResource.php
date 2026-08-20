@@ -34,6 +34,11 @@ class HolidayResource extends Resource
 
     protected static ?int $navigationSort = 8;
 
+    public static function canViewAny(): bool
+    {
+        return auth()->check() && (auth()->user()->isSuperAdmin() || auth()->user()->can('view_holidays'));
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

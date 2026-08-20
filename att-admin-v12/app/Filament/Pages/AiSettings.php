@@ -24,6 +24,11 @@ class AiSettings extends Page implements HasForms
     protected static ?string $navigationLabel = 'AI Configuration';
     protected string $view = 'filament.pages.ai-settings';
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && (auth()->user()->isSuperAdmin() || auth()->user()->can('manage_settings') || auth()->user()->can('view_settings'));
+    }
+
     public ?array $data = [];
 
     public function mount(): void
