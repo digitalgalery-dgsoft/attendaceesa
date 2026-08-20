@@ -49,28 +49,23 @@ Route::get('/cron/odoo-sync', function () {
 });
 
 // User Impersonation Routes for Super Admin
-Route::middleware(['web', 'auth'])->group(function () {
+Route::middleware(['web'])->group(function () {
     // Start Impersonation
     Route::get('/admin/impersonate/{user}', function (\App\Models\User $user) {
         $currentUser = \Illuminate\Support\Facades\Auth::user();
-        $isAuthorized = $currentUser->isSuperAdmin() || session()->has('impersonated_by');
+        $isAuthorized = ($currentUser && $currentUser->isSuperAdmin()) || session()->has('impersonated_by');
 
         if (!$isAuthorized) {
             abort(403, 'Hanya Super Admin yang diizinkan untuk beralih akun.');
         }
 
-        $originalSuperAdminId = session()->get('impersonated_by', $currentUser->id);
+        $originalSuperAdminId = session()->get('impersonated_by', $currentUser?->id);
 
-        \Filament\Facades\Filament::auth()->login($user);
-        request()->session()->regenerate();
+        \Illuminate\Support\Facades\Auth::guard('web')->login($user, true);
+        \Filament\Facades\Filament::auth()->login($user, true);
         session()->put('impersonated_by', $originalSuperAdminId);
+        session()->put('password_hash_web', $user->getAuthPassword());
         session()->save();
-
-        \Filament\Notifications\Notification::make()
-            ->title('Berhasil Beralih Akun')
-            ->body("Anda sekarang login dan melihat sistem sebagai {$user->name} ({$user->email}).")
-            ->success()
-            ->send();
 
         return redirect()->to('/admin');
     })->name('impersonation.start');
@@ -81,15 +76,10 @@ Route::middleware(['web', 'auth'])->group(function () {
             $superAdminId = session()->pull('impersonated_by');
             $superAdmin = \App\Models\User::find($superAdminId);
             if ($superAdmin) {
-                \Filament\Facades\Filament::auth()->login($superAdmin);
-                request()->session()->regenerate();
+                \Illuminate\Support\Facades\Auth::guard('web')->login($superAdmin, true);
+                \Filament\Facades\Filament::auth()->login($superAdmin, true);
+                session()->put('password_hash_web', $superAdmin->getAuthPassword());
                 session()->save();
-
-                \Filament\Notifications\Notification::make()
-                    ->title('Kembali ke Akun Utama')
-                    ->body('Anda telah kembali login sebagai Super Admin.')
-                    ->success()
-                    ->send();
             }
         }
         return redirect()->to('/admin');
