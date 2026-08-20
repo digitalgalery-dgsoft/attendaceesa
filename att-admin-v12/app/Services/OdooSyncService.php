@@ -21,10 +21,25 @@ class OdooSyncService
 
     public function __construct(string $url, string $db, string $username, string $apiKey)
     {
-        $this->url      = rtrim($url, '/');
-        $this->db       = $db;
-        $this->username = $username;
-        $this->apiKey   = $apiKey;
+        $this->url      = rtrim(trim($url), '/');
+        $this->db       = trim($db);
+        $this->username = trim($username);
+        $this->apiKey   = trim($apiKey);
+    }
+
+    /**
+     * List all database names available on the Odoo server.
+     */
+    public static function listDatabases(string $url): array
+    {
+        $cleanUrl = rtrim(trim($url), '/');
+        $service = new self($cleanUrl, '', '', '');
+        try {
+            $result = $service->xmlRpcCall('/xmlrpc/2/db', 'list', []);
+            return is_array($result) ? $result : [];
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     /**
@@ -47,15 +62,27 @@ class OdooSyncService
             return $this->uid;
         }
 
-        $response = $this->xmlRpcCall('/xmlrpc/2/common', 'authenticate', [
-            $this->db,
-            $this->username,
-            $this->apiKey,
-            [],
-        ]);
+        try {
+            $response = $this->xmlRpcCall('/xmlrpc/2/common', 'authenticate', [
+                $this->db,
+                $this->username,
+                $this->apiKey,
+                [],
+            ]);
+        } catch (\Throwable $e) {
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'KeyError') || str_contains($msg, 'registry') || str_contains($msg, 'Fault [1]')) {
+                $availableDbs = self::listDatabases($this->url);
+                $dbListText = !empty($availableDbs) 
+                    ? (" Database yang terdeteksi aktif di server ini: [" . implode(', ', $availableDbs) . "].") 
+                    : "";
+                throw new \Exception("Database '{$this->db}' tidak ditemukan di instance server Odoo ({$this->url})." . $dbListText . " Pastikan nama database sesuai atau cek apakah perusahaan ini menggunakan database bersama (Multi-Company).");
+            }
+            throw $e;
+        }
 
         if (!$response || !is_int($response)) {
-            throw new \Exception("Odoo authentication failed. Check URL, DB, Username, and API Key.");
+            throw new \Exception("Autentikasi Odoo gagal. Pastikan Username/Email dan API Key benar.");
         }
 
         $this->uid = $response;
