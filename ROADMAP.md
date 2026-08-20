@@ -220,3 +220,56 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - **Filter & Kontrol Lengkap**: Filter dropdown Prinsiple, filter dropdown Area/Cabang, Filter Cepat Status, Pencarian Real-Time (Live Search), dan Export ke Excel (`.xlsx`).
    - **Penyelarasan Tema**: Menggunakan palette warna dan styling native Filament (Light Mode & Dark Mode).
 
+---
+
+## ✅ Tahap 9: Visit Schedule Kalender, Import Attendance, Diagnostik Odoo & Bulk SPV (SELESAI 20 Agustus 2026)
+*Tahap ini berfokus pada perombakan modul Visit Schedule, penyesuaian data absensi massal, sinkronisasi metrik Odoo, dan manajemen data karyawan.*
+
+1. **Perhitungan Work Targets (Target HK) Berdasarkan Periode Cut-Off:**
+   - Perhitungan pencapaian Target HK karyawan kini dihitung secara akurat berdasarkan rentang tanggal periode cut-off aktif departemen (bukan sekadar awal dan akhir bulan kalender).
+
+2. **Perombakan Modul Visit Schedule (Jadwal Kunjungan Lapangan):**
+   - **Penyelarasan Label:** Mengganti semua label *Itineraries* di seluruh sistem Web Admin menjadi **Visit Schedule**.
+   - **Tampilan Kalender Interaktif (Calendar View):**
+     - Mengubah halaman Visit Schedule menjadi kalender bulanan interaktif.
+     - Mengklik tanggal kosong akan langsung membuka modal *Form Add Visit Schedule*.
+     - Menampilkan chip jadwal kunjungan dengan format: `Nama Karyawan (Jabatan - Area)`.
+     - Mengklik nama karyawan membuka Modal Detail Schedule Visit berukuran lebar (980px) dengan daftar lokasi, status, dan penanda check-in.
+   - **Pembersihan Tombol Lama:** Menghapus tombol *Create For Department* dan *Create For Working Groups*.
+   - **Fitur Jadikan Lokasi Check-In (`is_checkin_location`):**
+     - Menambahkan opsi penanda pada Form Tambah Jadwal Visit dan Import Excel agar lokasi visit dapat berfungsi sebagai lokasi check-in otomatis jika karyawan belum memiliki jadwal kerja di tanggal tersebut.
+   - **Import Excel Visit Schedule:**
+     - Pembuatan template resmi `Template_Import_Visit_Schedule.xlsx` dengan header NIK, multi-tanggal, master lokasi, dan penanda lokasi check-in.
+
+3. **Fitur Import Data Attendance (Penyesuaian Absensi / Safe Adjustment):**
+   - Menyediakan fitur import file Excel untuk mengisi atau me-replace data kehadiran karyawan yang tercatat tidak check-in / ALPHA / kosong.
+   - Mendukung input multi-tanggal (`tanggal_mulai` s/d `tanggal_akhir`), jam masuk, jam keluar, status, dan catatan alasan penyesuaian.
+   - **Proteksi Data Asli Mobile (*Safe Guard*):** Sistem secara otomatis mendeteksi dan **TIDAK AKAN menimpa/me-replace** data karyawan yang sudah memiliki jam check-in asli dari aplikasi mobile.
+   - **Penanda Khusus (*Distinct Badge*):**
+     - Menampilkan badge ungu **`⚡ IMPORT`** pada sel matriks Attendance Roster.
+     - Menampilkan banner alert info penyesuaian manual pada Modal Detail Absensi.
+     - Menampilkan icon petir ungu (`⚡`) pada tabel data Attendances.
+   - Pembuatan template resmi `Template_Import_Attendance.xlsx`.
+
+4. **Optimasi & Diagnostik Sinkronisasi Odoo ERP:**
+   - **Auto-Trim Parameter:** Membersihkan spasi tak kasat mata dari URL, Database Name, Username/Email, dan API Key Odoo.
+   - **Diagnostik Database Odoo:** Menambahkan pendeteksi otomatis daftar database yang aktif di server Odoo jika terjadi `KeyError` saat autentikasi XML-RPC.
+   - **Deteksi Karyawan Resign / Archived:** Mengaktifkan parameter konteks `'context' => ['active_test' => false]` dan pembacaan `departure_date` pada Odoo XML-RPC `search_read` sehingga data karyawan yang diarsipkan/resign di Odoo otomatis masuk ke kategori **Data Employee Resign**.
+   - **Sinkronisasi Grand Total Real-Time:** Menyelaraskan angka grand total karyawan di Dashboard utama (24.190 Aktif • 2.810 Resign/Non-Aktif) dengan Halaman Laporan Odoo Sync secara real-time.
+
+5. **Penyempurnaan Manajemen Karyawan (Employees Resource):**
+   - **Kolom Device Terhubung:** Mengganti kolom *Employment Status* dengan kolom **Device** yang menampilkan model handphone yang terhubung ke akun karyawan (dengan icon status dan tooltip Device ID).
+   - **Atur SPV / Leader Massal (*Bulk Action*):** Fitur bagi Admin untuk mencentang banyak karyawan sekaligus dan menetapkan nama Supervisor / Leader secara serentak via modal pemilihan SPV.
+   - **Hapus SPV Massal (*Bulk Action*):** Fitur untuk mengosongkan supervisor pada banyak karyawan yang dipilih sekaligus.
+   - **Kolom Supervisor Aktif:** Mengaktifkan tampilan kolom *Supervisor / Leader* pada tabel utama Employees agar langsung terlihat.
+
+---
+
+## 📌 Rencana Lanjutan Berikutnya (Next Milestones)
+1. **Lanjutan Monitoring & Rekap Operasional:**
+   - Evaluasi integrasi data jadwal visit schedule dan kehadiran di mobile app saat karyawan check-in via lokasi terjadwal visit.
+   - Penambahan filter lanjutan pada laporan presensi dan ekspor data audit penyesuaian manual/import.
+2. **Peningkatan Skalabilitas & Media Storage:**
+   - Integrasi penyimpanan awan (*Cloud Storage S3 / Spaces / GCS*) untuk media foto presensi dan laporan visit.
+
+
