@@ -202,6 +202,20 @@ class OdooSyncService
 
             foreach ($records as $rec) {
             try {
+                // List of all internal company names
+                $allInternalCompanyNames = [
+                    'pt arina multi karya',
+                    'pt alva karya perkasa',
+                    'pt anugrah talenta berkarya',
+                    'pt anugrah terpercaya kerja',
+                    'pt abadi berkat odelia',
+                    'arina multi karya',
+                    'alva karya perkasa',
+                    'anugrah talenta berkarya',
+                    'anugrah terpercaya kerja',
+                    'abadi berkat odelia',
+                ];
+
                 // Resolve Principal
                 $principalId = null;
                 $principalName = '';
@@ -221,16 +235,28 @@ class OdooSyncService
                     }
                 }
 
-                // Resolve Department — jika prinsiple = company -> Inhouse, else -> Ratecard
-                $companyName = strtolower(trim($localCompany->name ?? ''));
-                $odooCompanyName = !empty($rec['company_id']) && is_array($rec['company_id']) ? strtolower(trim($rec['company_id'][1])) : '';
-                
+                // Resolve Department & Inhouse status — jika prinsiple kosong atau sama dengan company -> Inhouse, else -> Ratecard
+                $companyNameLower = strtolower(trim($localCompany->name ?? ''));
+                $odooCompanyNameLower = !empty($rec['company_id']) && is_array($rec['company_id']) ? strtolower(trim($rec['company_id'][1])) : '';
+                $pNameLower = strtolower(trim($principalName));
+
                 $isInhouse = false;
-                if ($principalName !== '') {
-                    $pNameLower = strtolower($principalName);
-                    if ($pNameLower === $companyName || $pNameLower === $odooCompanyName) {
-                        $isInhouse = true;
-                    }
+                if (empty($principalName) || $pNameLower === $companyNameLower || $pNameLower === $odooCompanyNameLower || in_array($pNameLower, $allInternalCompanyNames)) {
+                    $isInhouse = true;
+                }
+
+                // If inhouse: company and principal MUST BE IDENTICAL (Principal = Company's own principal)
+                if ($isInhouse) {
+                    $companyPrincipal = Principal::firstOrCreate(
+                        ['name' => $localCompany->name],
+                        [
+                            'code' => 'PRIN-' . ($localCompany->code ?: $companyId),
+                            'company_id' => $companyId,
+                            'is_active' => true,
+                        ]
+                    );
+                    $principalId = $companyPrincipal->id;
+                    $principalName = $companyPrincipal->name;
                 }
 
                 $deptName = $isInhouse ? 'Inhouse' : 'Ratecard';
