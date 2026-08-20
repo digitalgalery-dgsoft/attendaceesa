@@ -9,10 +9,10 @@ use Illuminate\Support\Facades\DB;
 class ManPowerChartWidget extends ChartWidget
 {
     protected static bool $isDiscovered = false;
-    protected ?string $heading = 'Tren Manpower per Bulan';
+    protected ?string $heading = 'Tren Manpower per Prinsiple';
     
     public ?string $year = null;
-    public ?string $company_id = null;
+    public ?string $principal_id = null;
     public ?string $branch_id = null;
 
     protected function getData(): array
@@ -23,23 +23,23 @@ class ManPowerChartWidget extends ChartWidget
         $startOfYear = "{$year}-01-01";
         $endOfYear = "{$year}-12-31";
 
-        $companiesQuery = DB::table('companies')->orderBy('name');
-        if (!empty($this->company_id)) {
-            $companiesQuery->where('id', $this->company_id);
+        $principalsQuery = DB::table('principals')->orderBy('name');
+        if (!empty($this->principal_id)) {
+            $principalsQuery->where('id', $this->principal_id);
         }
-        $companies = $companiesQuery->select('id', 'name')->get();
+        $principals = $principalsQuery->select('id', 'name')->get();
 
-        if ($companies->isEmpty()) {
+        if ($principals->isEmpty()) {
             return [
                 'datasets' => [],
                 'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
             ];
         }
 
-        $companyIds = $companies->pluck('id')->toArray();
+        $principalIds = $principals->pluck('id')->toArray();
 
         $employeesQuery = DB::table('employees')
-            ->whereIn('company_id', $companyIds)
+            ->whereIn('principal_id', $principalIds)
             ->whereNull('deleted_at');
 
         if (!empty($this->branch_id)) {
@@ -57,7 +57,7 @@ class ManPowerChartWidget extends ChartWidget
             })
             ->select([
                 'id',
-                'company_id',
+                'principal_id',
                 DB::raw("SUBSTRING(CAST(join_date AS VARCHAR), 1, 10) as join_date_str"),
                 DB::raw("SUBSTRING(CAST(resign_date AS VARCHAR), 1, 10) as resign_date_str"),
                 'employment_status',
@@ -69,7 +69,7 @@ class ManPowerChartWidget extends ChartWidget
             $endOfMonths[$month] = Carbon::createFromDate((int)$year, $month, 1)->endOfMonth()->toDateString();
         }
 
-        $employeesByCompany = $employees->groupBy('company_id');
+        $employeesByPrincipal = $employees->groupBy('principal_id');
         $datasets = [];
         $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
@@ -83,15 +83,15 @@ class ManPowerChartWidget extends ChartWidget
             ['border' => '#ea580c', 'bg' => 'rgba(234, 88, 12, 0.08)'],
         ];
 
-        foreach ($companies as $index => $company) {
+        foreach ($principals as $index => $principal) {
             $monthlyData = [];
-            $companyEmps = $employeesByCompany->get($company->id, collect());
+            $principalEmps = $employeesByPrincipal->get($principal->id, collect());
 
             for ($month = 1; $month <= 12; $month++) {
                 $endOfMonth = $endOfMonths[$month];
                 $count = 0;
 
-                foreach ($companyEmps as $emp) {
+                foreach ($principalEmps as $emp) {
                     $joinDate = $emp->join_date_str;
                     $resignDate = $emp->resign_date_str;
 
@@ -110,7 +110,7 @@ class ManPowerChartWidget extends ChartWidget
             $theme = $palette[$index % count($palette)];
 
             $datasets[] = [
-                'label' => $company->name,
+                'label' => $principal->name,
                 'data' => $monthlyData,
                 'borderColor' => $theme['border'],
                 'backgroundColor' => $theme['bg'],

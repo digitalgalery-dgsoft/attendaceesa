@@ -11,7 +11,7 @@ class TurnOverChartWidget extends ChartWidget
     protected ?string $heading = 'Tren Karyawan Masuk vs Keluar';
     
     public ?string $year = null;
-    public ?string $company_id = null;
+    public ?string $principal_id = null;
 
     protected function getData(): array
     {
@@ -24,8 +24,8 @@ class TurnOverChartWidget extends ChartWidget
 
         $employees = DB::table('employees')
             ->whereNull('deleted_at')
-            ->when(!empty($this->company_id), function ($q) {
-                return $q->where('company_id', $this->company_id);
+            ->when(!empty($this->principal_id), function ($q) {
+                return $q->where('principal_id', $this->principal_id);
             })
             ->where(function ($q) use ($startDate, $endDate) {
                 $q->whereBetween('join_date', [$startDate, $endDate])
@@ -38,7 +38,7 @@ class TurnOverChartWidget extends ChartWidget
             })
             ->select([
                 'id',
-                'company_id',
+                'principal_id',
                 DB::raw("SUBSTRING(CAST(join_date AS VARCHAR), 1, 10) as join_date_str"),
                 DB::raw("SUBSTRING(CAST(resign_date AS VARCHAR), 1, 10) as resign_date_str"),
                 DB::raw("SUBSTRING(CAST(updated_at AS VARCHAR), 1, 10) as updated_at_str"),

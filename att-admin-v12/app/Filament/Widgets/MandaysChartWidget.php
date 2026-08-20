@@ -14,7 +14,7 @@ class MandaysChartWidget extends ChartWidget
     public ?string $month = null;
     public ?string $year = null;
     public ?string $branch_id = null;
-    public ?string $company_id = null;
+    public ?string $principal_id = null;
 
     protected function getData(): array
     {
@@ -33,8 +33,8 @@ class MandaysChartWidget extends ChartWidget
             ->when(!empty($this->branch_id), function ($q) {
                 return $q->where('branch_id', $this->branch_id);
             })
-            ->when(!empty($this->company_id), function ($q) {
-                return $q->where('company_id', $this->company_id);
+            ->when(!empty($this->principal_id), function ($q) {
+                return $q->where('principal_id', $this->principal_id);
             })
             ->select(['id', 'full_name'])
             ->get();

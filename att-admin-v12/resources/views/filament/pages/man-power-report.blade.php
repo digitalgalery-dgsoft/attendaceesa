@@ -175,9 +175,9 @@
 
     @php
         $tableData = $this->getManPowerData();
-        $totalCompanies = count($tableData);
+        $totalPrincipals = count($tableData);
         $totalSumAvg = collect($tableData)->sum(fn($r) => $r['months'][12] ?? 0);
-        $avgPerCompany = $totalCompanies > 0 ? round($totalSumAvg / $totalCompanies) : 0;
+        $avgPerPrincipal = $totalPrincipals > 0 ? round($totalSumAvg / $totalPrincipals) : 0;
         
         // Hitung total manpower per bulan untuk baris footer
         $monthlyTotals = array_fill(0, 13, 0);
@@ -193,8 +193,8 @@
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Perusahaan</div>
-                    <div style="font-size: 24px; font-weight: 800; color: #0f172a; margin-top: 4px;">{{ number_format($totalCompanies) }}</div>
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Prinsiple</div>
+                    <div style="font-size: 24px; font-weight: 800; color: #0f172a; margin-top: 4px;">{{ number_format($totalPrincipals) }}</div>
                     <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Tahun {{ $year ?: date('Y') }}</div>
                 </div>
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0e7ff; color: #4338ca; display: flex; align-items: center; justify-content: center;">
@@ -215,9 +215,9 @@
 
             <div class="kpi-card">
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #d97706; text-transform: uppercase;">Rata-rata per Entitas</div>
-                    <div style="font-size: 24px; font-weight: 800; color: #d97706; margin-top: 4px;">{{ number_format($avgPerCompany) }}</div>
-                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Karyawan per perusahaan</div>
+                    <div style="font-size: 11px; font-weight: 700; color: #d97706; text-transform: uppercase;">Rata-rata per Prinsiple</div>
+                    <div style="font-size: 24px; font-weight: 800; color: #d97706; margin-top: 4px;">{{ number_format($avgPerPrincipal) }}</div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Karyawan per prinsiple</div>
                 </div>
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center;">
                     <x-filament::icon icon="heroicon-o-chart-bar" style="width: 24px; height: 24px;" />
@@ -250,9 +250,9 @@
             </div>
             @livewire(\App\Filament\Widgets\ManPowerChartWidget::class, [
                 'year' => $year,
-                'company_id' => $company_id,
+                'principal_id' => $principal_id,
                 'branch_id' => $branch_id
-            ], key('manpower-chart-'.$year.'-'.$company_id.'-'.$branch_id))
+            ], key('manpower-chart-'.$year.'-'.$principal_id.'-'.$branch_id))
         </div>
 
         {{-- DATA TABLE SECTION --}}
@@ -260,9 +260,9 @@
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <x-filament::icon icon="heroicon-o-table-cells" style="width: 20px; height: 20px; color: #4f46e5;" />
-                    <span style="font-size: 16px; font-weight: 800; color: #0f172a;">Tabel Rekapitulasi Manpower per Bulan</span>
+                    <span style="font-size: 16px; font-weight: 800; color: #0f172a;">Tabel Rekapitulasi Manpower per Prinsiple</span>
                     <span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 700; background: #e0e7ff; color: #3730a3;">
-                        {{ $totalCompanies }} Perusahaan
+                        {{ $totalPrincipals }} Prinsiple
                     </span>
                 </div>
                 <span style="font-size: 12px; color: #64748b;">
@@ -274,7 +274,7 @@
                 <table class="report-bordered-table">
                     <thead>
                         <tr>
-                            <th class="sticky-col" style="text-align: left;">Perusahaan</th>
+                            <th class="sticky-col" style="text-align: left;">Prinsiple</th>
                             <th style="text-align: center;">Jan</th>
                             <th style="text-align: center;">Feb</th>
                             <th style="text-align: center;">Mar</th>
@@ -293,7 +293,7 @@
                     <tbody>
                         @forelse($tableData as $row)
                             <tr>
-                                <td class="sticky-col">{{ $row['company'] }}</td>
+                                <td class="sticky-col">{{ $row['principal'] }}</td>
                                 @foreach($row['months'] as $index => $val)
                                     @if($index < 12)
                                         <td style="text-align: center; color: #334155; font-weight: {{ $val > 0 ? '600' : 'normal' }};">

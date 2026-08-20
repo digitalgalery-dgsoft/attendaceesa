@@ -28,7 +28,7 @@ class MandaysExport implements FromArray, WithHeadings, ShouldAutoSize, WithStyl
     {
         return [
             ['Mandays Report - ' . $this->period],
-            ['Nama Karyawan', 'Region / Cabang', 'Perusahaan', 'Target HK', 'Aktual HK', 'Pencapaian (%)']
+            ['Nama Karyawan', 'Region / Cabang', 'Prinsiple', 'Target HK', 'Aktual HK', 'Pencapaian (%)']
         ];
     }
 

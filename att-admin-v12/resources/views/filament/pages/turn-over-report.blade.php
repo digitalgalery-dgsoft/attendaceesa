@@ -237,8 +237,8 @@
             </div>
             @livewire(\App\Filament\Widgets\TurnOverChartWidget::class, [
                 'year' => $year,
-                'company_id' => $company_id
-            ], key('turnover-chart-'.$year.'-'.$company_id))
+                'principal_id' => $principal_id
+            ], key('turnover-chart-'.$year.'-'.$principal_id))
         </div>
 
         {{-- DATA TABLE SECTION --}}

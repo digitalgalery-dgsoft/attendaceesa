@@ -4,7 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Exports\ManPowerExport;
 use App\Models\Branch;
-use App\Models\Company;
+use App\Models\Principal;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -31,7 +31,7 @@ class ManPowerReport extends Page implements HasForms
     protected string $view = 'filament.pages.man-power-report';
 
     public ?string $year = null;
-    public ?string $company_id = null;
+    public ?string $principal_id = null;
     public ?string $branch_id = null;
 
     protected ?array $memoizedData = null;
@@ -50,11 +50,11 @@ class ManPowerReport extends Page implements HasForms
     {
         @ini_set('memory_limit', '512M');
         $this->year = date('Y');
-        $this->company_id = null;
+        $this->principal_id = null;
         $this->branch_id = null;
         $this->form->fill([
             'year' => $this->year,
-            'company_id' => null,
+            'principal_id' => null,
             'branch_id' => null,
         ]);
     }
@@ -80,10 +80,10 @@ class ManPowerReport extends Page implements HasForms
                         ->default((string)date('Y'))
                         ->required()
                         ->live(),
-                    Select::make('company_id')
-                        ->label('Perusahaan')
-                        ->options(Company::orderBy('name')->pluck('name', 'id'))
-                        ->placeholder('Semua Perusahaan')
+                    Select::make('principal_id')
+                        ->label('Prinsiple')
+                        ->options(Principal::orderBy('name')->pluck('name', 'id'))
+                        ->placeholder('Semua Prinsiple')
                         ->live(),
                     Select::make('branch_id')
                         ->label('Region / Area')
@@ -112,7 +112,7 @@ class ManPowerReport extends Page implements HasForms
     }
 
     /**
-     * Mengambil data Manpower per perusahaan dan per bulan secara cepat dan hemat RAM
+     * Mengambil data Manpower per Prinsiple dan per bulan secara cepat dan hemat RAM
      */
     public function getManPowerData(): array
     {
@@ -126,22 +126,22 @@ class ManPowerReport extends Page implements HasForms
         $startOfYear = "{$year}-01-01";
         $endOfYear = "{$year}-12-31";
 
-        // Query companies
-        $companiesQuery = DB::table('companies')->orderBy('name');
-        if (!empty($this->company_id)) {
-            $companiesQuery->where('id', $this->company_id);
+        // Query principals
+        $principalsQuery = DB::table('principals')->orderBy('name');
+        if (!empty($this->principal_id)) {
+            $principalsQuery->where('id', $this->principal_id);
         }
-        $companies = $companiesQuery->select('id', 'name')->get();
+        $principals = $principalsQuery->select('id', 'name')->get();
 
-        if ($companies->isEmpty()) {
+        if ($principals->isEmpty()) {
             return $this->memoizedData = [];
         }
 
-        $companyIds = $companies->pluck('id')->toArray();
+        $principalIds = $principals->pluck('id')->toArray();
 
         // Query employees lightweight
         $employeesQuery = DB::table('employees')
-            ->whereIn('company_id', $companyIds)
+            ->whereIn('principal_id', $principalIds)
             ->whereNull('deleted_at');
 
         if (!empty($this->branch_id)) {
@@ -159,7 +159,7 @@ class ManPowerReport extends Page implements HasForms
             })
             ->select([
                 'id',
-                'company_id',
+                'principal_id',
                 DB::raw("SUBSTRING(CAST(join_date AS VARCHAR), 1, 10) as join_date_str"),
                 DB::raw("SUBSTRING(CAST(resign_date AS VARCHAR), 1, 10) as resign_date_str"),
                 'employment_status',
@@ -173,18 +173,18 @@ class ManPowerReport extends Page implements HasForms
         }
 
         $data = [];
-        $employeesByCompany = $employees->groupBy('company_id');
+        $employeesByPrincipal = $employees->groupBy('principal_id');
 
-        foreach ($companies as $company) {
+        foreach ($principals as $principal) {
             $monthlyData = [];
             $totalActive = 0;
-            $companyEmps = $employeesByCompany->get($company->id, collect());
+            $principalEmps = $employeesByPrincipal->get($principal->id, collect());
 
             for ($month = 1; $month <= 12; $month++) {
                 $endOfMonth = $endOfMonths[$month];
                 $count = 0;
 
-                foreach ($companyEmps as $emp) {
+                foreach ($principalEmps as $emp) {
                     $joinDate = $emp->join_date_str;
                     $resignDate = $emp->resign_date_str;
 
@@ -205,7 +205,7 @@ class ManPowerReport extends Page implements HasForms
             $monthlyData[] = $avg;
 
             $data[] = [
-                'company' => $company->name,
+                'principal' => $principal->name,
                 'months' => $monthlyData,
             ];
         }
@@ -219,7 +219,7 @@ class ManPowerReport extends Page implements HasForms
         $exportData = [];
 
         foreach ($rawData as $row) {
-            $exportRow = [$row['company']];
+            $exportRow = [$row['principal']];
             foreach ($row['months'] as $val) {
                 $exportRow[] = $val;
             }

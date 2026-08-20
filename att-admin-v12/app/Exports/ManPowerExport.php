@@ -28,7 +28,7 @@ class ManPowerExport implements FromArray, WithHeadings, ShouldAutoSize, WithSty
     {
         return [
             ['Man Power Report - ' . $this->year],
-            ['Perusahaan', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Total (Avg)']
+            ['Prinsiple', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Total (Avg)']
         ];
     }
 

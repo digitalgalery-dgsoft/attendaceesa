@@ -3,7 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Exports\TurnOverExport;
-use App\Models\Company;
+use App\Models\Principal;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -30,7 +30,7 @@ class TurnOverReport extends Page implements HasForms
     protected string $view = 'filament.pages.turn-over-report';
 
     public ?string $year = null;
-    public ?string $company_id = null;
+    public ?string $principal_id = null;
 
     protected ?array $memoizedData = null;
 
@@ -48,10 +48,10 @@ class TurnOverReport extends Page implements HasForms
     {
         @ini_set('memory_limit', '512M');
         $this->year = date('Y');
-        $this->company_id = null;
+        $this->principal_id = null;
         $this->form->fill([
             'year' => $this->year,
-            'company_id' => null,
+            'principal_id' => null,
         ]);
     }
 
@@ -76,10 +76,10 @@ class TurnOverReport extends Page implements HasForms
                         ->default((string)date('Y'))
                         ->required()
                         ->live(),
-                    Select::make('company_id')
-                        ->label('Perusahaan')
-                        ->options(Company::orderBy('name')->pluck('name', 'id'))
-                        ->placeholder('Semua Perusahaan')
+                    Select::make('principal_id')
+                        ->label('Prinsiple')
+                        ->options(Principal::orderBy('name')->pluck('name', 'id'))
+                        ->placeholder('Semua Prinsiple')
                         ->live(),
                 ])
             ])
@@ -103,7 +103,7 @@ class TurnOverReport extends Page implements HasForms
     }
 
     /**
-     * Mengambil data Turnover bulanan (Join, Resign, Net) secara cepat dan aman
+     * Mengambil data Turnover bulanan (Join, Resign, Net) per Prinsiple secara cepat dan aman
      */
     public function getTurnOverData(): array
     {
@@ -120,10 +120,10 @@ class TurnOverReport extends Page implements HasForms
 
         $employees = DB::table('employees')
             ->whereNull('deleted_at')
-            ->when(!empty($this->company_id), function ($q) {
-                return $q->where('company_id', $this->company_id);
+            ->when(!empty($this->principal_id), function ($q) {
+                return $q->where('principal_id', $this->principal_id);
             })
-            ->where(function ($q) use ($startDate, $endDate, $year) {
+            ->where(function ($q) use ($startDate, $endDate) {
                 $q->whereBetween('join_date', [$startDate, $endDate])
                   ->orWhereBetween('resign_date', [$startDate, $endDate])
                   ->orWhere(function ($sq) use ($startDate, $endDate) {
@@ -134,7 +134,7 @@ class TurnOverReport extends Page implements HasForms
             })
             ->select([
                 'id',
-                'company_id',
+                'principal_id',
                 DB::raw("SUBSTRING(CAST(join_date AS VARCHAR), 1, 10) as join_date_str"),
                 DB::raw("SUBSTRING(CAST(resign_date AS VARCHAR), 1, 10) as resign_date_str"),
                 DB::raw("SUBSTRING(CAST(updated_at AS VARCHAR), 1, 10) as updated_at_str"),

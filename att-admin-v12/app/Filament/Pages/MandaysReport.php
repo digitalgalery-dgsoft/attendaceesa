@@ -4,7 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Exports\MandaysExport;
 use App\Models\Branch;
-use App\Models\Company;
+use App\Models\Principal;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -33,7 +33,7 @@ class MandaysReport extends Page implements HasForms
     public ?string $month = null;
     public ?string $year = null;
     public ?string $branch_id = null;
-    public ?string $company_id = null;
+    public ?string $principal_id = null;
     public ?string $search = '';
 
     // Pagination
@@ -58,7 +58,7 @@ class MandaysReport extends Page implements HasForms
         $this->month = date('m');
         $this->year = date('Y');
         $this->branch_id = null;
-        $this->company_id = null;
+        $this->principal_id = null;
         $this->search = '';
         $this->page = 1;
         $this->perPage = 25;
@@ -67,7 +67,7 @@ class MandaysReport extends Page implements HasForms
             'month' => $this->month,
             'year' => $this->year,
             'branch_id' => null,
-            'company_id' => null,
+            'principal_id' => null,
         ]);
     }
 
@@ -79,7 +79,7 @@ class MandaysReport extends Page implements HasForms
     public function updatedMonth(): void { $this->page = 1; }
     public function updatedYear(): void { $this->page = 1; }
     public function updatedBranchId(): void { $this->page = 1; }
-    public function updatedCompanyId(): void { $this->page = 1; }
+    public function updatedPrincipalId(): void { $this->page = 1; }
     public function updatedSearch(): void { $this->page = 1; }
     public function updatedPerPage(): void { $this->page = 1; }
 
@@ -116,10 +116,10 @@ class MandaysReport extends Page implements HasForms
                         ->options(Branch::orderBy('name')->pluck('name', 'id'))
                         ->placeholder('Semua Region / Area')
                         ->live(),
-                    Select::make('company_id')
-                        ->label('Perusahaan')
-                        ->options(Company::orderBy('name')->pluck('name', 'id'))
-                        ->placeholder('Semua Perusahaan')
+                    Select::make('principal_id')
+                        ->label('Prinsiple')
+                        ->options(Principal::orderBy('name')->pluck('name', 'id'))
+                        ->placeholder('Semua Prinsiple')
                         ->live(),
                 ])
             ])
@@ -143,7 +143,7 @@ class MandaysReport extends Page implements HasForms
     }
 
     /**
-     * Mengambil seluruh data Mandays (Target vs Aktual HK) secara cepat dan aman
+     * Mengambil seluruh data Mandays (Target vs Aktual HK) per Prinsiple secara cepat dan aman
      */
     public function getAllMandaysData(): array
     {
@@ -162,14 +162,15 @@ class MandaysReport extends Page implements HasForms
 
         $employees = DB::table('employees')
             ->leftJoin('branches', 'employees.branch_id', '=', 'branches.id')
+            ->leftJoin('principals', 'employees.principal_id', '=', 'principals.id')
             ->leftJoin('companies', 'employees.company_id', '=', 'companies.id')
             ->where('employees.is_active', true)
             ->whereNull('employees.deleted_at')
             ->when(!empty($this->branch_id), function ($q) {
                 return $q->where('employees.branch_id', $this->branch_id);
             })
-            ->when(!empty($this->company_id), function ($q) {
-                return $q->where('employees.company_id', $this->company_id);
+            ->when(!empty($this->principal_id), function ($q) {
+                return $q->where('employees.principal_id', $this->principal_id);
             })
             ->select([
                 'employees.id',
@@ -177,6 +178,7 @@ class MandaysReport extends Page implements HasForms
                 'employees.full_name',
                 'employees.photo',
                 'branches.name as branch_name',
+                'principals.name as principal_name',
                 'companies.name as company_name',
             ])
             ->get();
@@ -209,13 +211,15 @@ class MandaysReport extends Page implements HasForms
             $aktualHK = (int)($attendances[$emp->id] ?? 0);
             $percentage = $targetHK > 0 ? round(($aktualHK / $targetHK) * 100, 1) : 0;
 
+            $principalDisplay = $emp->principal_name ?: ($emp->company_name ?: '-');
+
             $data[] = [
                 'id' => $emp->id,
                 'employee_no' => $emp->employee_no ?? '-',
                 'employee' => $emp->full_name ?? 'Unknown',
                 'photo' => $emp->photo,
                 'branch' => $emp->branch_name ?? '-',
-                'company' => $emp->company_name ?? '-',
+                'principal' => $principalDisplay,
                 'target' => $targetHK,
                 'aktual' => $aktualHK,
                 'percentage' => $percentage,
@@ -238,7 +242,7 @@ class MandaysReport extends Page implements HasForms
                 return str_contains(strtolower($row['employee']), $q)
                     || str_contains(strtolower($row['employee_no']), $q)
                     || str_contains(strtolower($row['branch']), $q)
-                    || str_contains(strtolower($row['company']), $q);
+                    || str_contains(strtolower($row['principal']), $q);
             });
             $all = array_values($all);
         }
@@ -295,7 +299,7 @@ class MandaysReport extends Page implements HasForms
             $exportData[] = [
                 $row['employee'],
                 $row['branch'],
-                $row['company'],
+                $row['principal'],
                 $row['target'],
                 $row['aktual'],
                 $row['percentage'],

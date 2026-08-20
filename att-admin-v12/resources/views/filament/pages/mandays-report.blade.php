@@ -228,8 +228,8 @@
                 'month' => $month,
                 'year' => $year,
                 'branch_id' => $branch_id,
-                'company_id' => $company_id
-            ], key('mandays-chart-'.$month.'-'.$year.'-'.$branch_id.'-'.$company_id))
+                'principal_id' => $principal_id
+            ], key('mandays-chart-'.$month.'-'.$year.'-'.$branch_id.'-'.$principal_id))
         </div>
 
         {{-- DATA TABLE SECTION --}}
@@ -248,7 +248,7 @@
                     <input
                         type="text"
                         wire:model.live.debounce.300ms="search"
-                        placeholder="Cari nama, NIK, cabang..."
+                        placeholder="Cari nama, NIK, cabang, prinsiple..."
                         style="width: 100%; padding: 6px 12px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; color: #0f172a;"
                     />
                 </div>
@@ -261,7 +261,7 @@
                             <th style="width: 50px; text-align: center;">No</th>
                             <th style="text-align: left; min-width: 220px;">Nama Karyawan</th>
                             <th style="text-align: left; min-width: 140px;">Region / Area</th>
-                            <th style="text-align: left; min-width: 160px;">Perusahaan</th>
+                            <th style="text-align: left; min-width: 160px;">Prinsiple</th>
                             <th style="text-align: center; min-width: 110px;">Target HK</th>
                             <th style="text-align: center; min-width: 110px;">Aktual HK</th>
                             <th style="text-align: center; min-width: 130px;">Pencapaian (%)</th>
@@ -301,7 +301,7 @@
                                         {{ $row['branch'] }}
                                     </span>
                                 </td>
-                                <td style="color: #334155; font-weight: 500;">{{ $row['company'] }}</td>
+                                <td style="color: #0f172a; font-weight: 600;">{{ $row['principal'] }}</td>
                                 <td style="text-align: center; font-weight: 700; color: #4f46e5;">{{ $row['target'] }} HK</td>
                                 <td style="text-align: center; font-weight: 700; color: #059669;">{{ $row['aktual'] }} HK</td>
                                 <td style="text-align: center;">
