@@ -37,13 +37,15 @@ class DashboardStatsWidget extends BaseWidget
         }
 
         $totalEmployees = $employeeQuery->count();
+        $totalAllEmployees = Employee::count();
+        $inactiveEmployees = max(0, $totalAllEmployees - $totalEmployees);
         $presentToday = $attendanceTodayQuery->count();
         $totalPrincipals = $principalQuery->count();
         $totalAreas = $branchQuery->count();
 
         return [
-            Stat::make('Total Employees', number_format($totalEmployees))
-                ->description('Jumlah karyawan terdaftar')
+            Stat::make('Total Employees', number_format($totalAllEmployees))
+                ->description(number_format($totalEmployees) . ' Aktif • ' . number_format($inactiveEmployees) . ' Resign/Non-Aktif')
                 ->descriptionIcon('heroicon-m-users')
                 ->color('success'),
             Stat::make('Present Today', number_format($presentToday))

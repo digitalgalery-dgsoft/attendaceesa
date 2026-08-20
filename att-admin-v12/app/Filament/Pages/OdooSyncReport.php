@@ -143,11 +143,8 @@ class OdooSyncReport extends Page
             $updateCount = (int) ($latestCompanyLog ? $latestCompanyLog->update_count : $companyLogs->sum('update_count'));
             $resignCount = (int) $companyLogs->sum('resign_count');
 
-            // Live count or latest sync count of active employees in company
+            // Always get live count of active employees in database
             $totalActive = Employee::where('company_id', $company->id)->where('is_active', true)->count();
-            if ($latestCompanyLog && $latestCompanyLog->total_employee_count > 0) {
-                $totalActive = $latestCompanyLog->total_employee_count;
-            }
 
             // Collect details if available
             $newEmpDetails = [];

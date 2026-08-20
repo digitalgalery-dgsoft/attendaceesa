@@ -220,8 +220,9 @@ class OdooSyncService
                         'id', 'name', 'registration_number', 'identification_id',
                         'mobile_phone', 'work_email', 'private_email', 'gender', 'birthday',
                         'department_id', 'job_id', 'principle_id', 'first_contract_date',
-                        'area_id', 'company_id', 'active',
+                        'area_id', 'company_id', 'active', 'departure_date',
                     ],
+                    'context' => ['active_test' => false],
                     'limit' => $limit,
                     'offset' => $offset,
                 ],
@@ -322,8 +323,11 @@ class OdooSyncService
                     $positionId = $position->id;
                 }
 
-                // Map employment status
+                // Map employment status & active status
                 $isActiveInOdoo = isset($rec['active']) ? (bool) $rec['active'] : true;
+                if (!empty($rec['departure_date'])) {
+                    $isActiveInOdoo = false;
+                }
                 $employmentStatus = $isActiveInOdoo ? 'contract' : 'resigned';
 
                 // Map gender
