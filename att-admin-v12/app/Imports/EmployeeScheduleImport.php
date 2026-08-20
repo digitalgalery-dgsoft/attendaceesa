@@ -72,21 +72,27 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
             $shiftName = trim((string)($row['shift'] ?? ($row['shift_name'] ?? ($row['nama_shift'] ?? ''))));
             $locationName = trim((string)($row['lokasi_kerja'] ?? ($row['lokasi'] ?? ($row['work_location'] ?? ''))));
 
-            if (empty($nik) && empty($rawStartDate)) {
+            $namaKaryawan = trim((string)($row['nama_karyawan'] ?? ($row['nama'] ?? ($row['name'] ?? ($row['employee_name'] ?? '')))));
+
+            if (empty($nik) && empty($namaKaryawan) && empty($rawStartDate)) {
                 continue; // Lewati baris kosong
             }
 
-            if (empty($nik)) {
-                $this->skippedCount++;
-                $this->errors[] = "Baris {$rowIndex}: NIK Karyawan kosong.";
-                continue;
+            // Cari Karyawan: Acuan Utama adalah NIK (employee_no / nik)
+            $employee = null;
+            if (!empty($nik)) {
+                $employee = Employee::where('employee_no', $nik)->orWhere('nik', $nik)->first();
             }
 
-            // Cari Karyawan
-            $employee = Employee::where('employee_no', $nik)->orWhere('nik', $nik)->first();
+            // Fallback: Jika NIK tidak ditemukan / kosong, cari berdasarkan nama karyawan
+            if (!$employee && !empty($namaKaryawan)) {
+                $employee = Employee::where('full_name', $namaKaryawan)->first();
+            }
+
             if (!$employee) {
                 $this->skippedCount++;
-                $this->errors[] = "Baris {$rowIndex}: Karyawan dengan NIK '{$nik}' tidak ditemukan.";
+                $identifier = !empty($nik) ? "NIK '{$nik}'" : "Nama '{$namaKaryawan}'";
+                $this->errors[] = "Baris {$rowIndex}: Karyawan dengan {$identifier} tidak ditemukan.";
                 continue;
             }
 
