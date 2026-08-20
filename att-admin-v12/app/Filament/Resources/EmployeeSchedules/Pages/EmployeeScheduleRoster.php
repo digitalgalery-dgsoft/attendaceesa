@@ -204,7 +204,7 @@ class EmployeeScheduleRoster extends Page implements HasForms
                     Select::make('employee_ids')
                         ->label('Karyawan Tertentu (Opsional)')
                         ->multiple()
-                        ->options(function (Get $get) {
+                        ->options(function ($get) {
                             $query = Employee::where('is_active', 1);
                             if (auth()->check()) {
                                 $query = \App\Traits\ScopesUserData::applyUserAccessScope($query);
