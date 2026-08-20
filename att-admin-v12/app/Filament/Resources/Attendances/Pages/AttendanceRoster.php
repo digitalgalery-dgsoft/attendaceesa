@@ -473,6 +473,8 @@ class AttendanceRoster extends Page implements HasForms
                     'attendances.checkin_at',
                     'attendances.checkout_at',
                     'attendances.late_minutes',
+                    'attendances.is_manual_correction',
+                    'attendances.correction_note',
                     'shifts.start_time as shift_start_time',
                     'shifts.grace_checkin_minutes',
                     'employee_schedules.planned_start_at',

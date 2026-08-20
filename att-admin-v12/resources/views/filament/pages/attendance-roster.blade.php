@@ -491,7 +491,7 @@
                                                      @endif
                                                  </div>
 
-                                                 @if ($att->is_manual_correction)
+                                                 @if (!empty($att->is_manual_correction))
                                                      <div style="margin-top: 3px;">
                                                          <span class="att-badge att-badge-import" style="font-size: 8.5px; font-weight: 800; padding: 1px 4px; letter-spacing: 0.03em;" title="{{ $att->correction_note ?? 'Data Hasil Penyesuaian / Import Excel' }}">⚡ IMPORT</span>
                                                      </div>
