@@ -160,10 +160,9 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                 $scheduleType = 'dayoff';
                 $shiftIdToUse = null;
 
-                $dow = strval($currentDate->dayOfWeek);
-                $iso = strval($currentDate->dayOfWeekIso);
+                $isSingleDay = $startDate->equalTo($endDate);
 
-                if (!$isOff && (in_array($dow, $normalizedWd) || in_array($iso, $normalizedWd))) {
+                if (!$isOff && ($isSingleDay || in_array($dow, $normalizedWd) || in_array($iso, $normalizedWd))) {
                     $scheduleType = 'workday';
                     $shiftIdToUse = $shift?->id;
 
