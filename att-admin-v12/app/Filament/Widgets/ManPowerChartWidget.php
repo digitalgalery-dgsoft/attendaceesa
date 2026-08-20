@@ -19,9 +19,19 @@ class ManPowerChartWidget extends ChartWidget
     {
         @ini_set('memory_limit', '512M');
 
-        $year = $this->year ?: date('Y');
-        $startOfYear = "{$year}-01-01";
-        $endOfYear = "{$year}-12-31";
+        $currentYear = (int)date('Y');
+        $currentMonth = (int)date('n');
+        $selectedYear = (int)($this->year ?: date('Y'));
+
+        $maxValidMonth = 12;
+        if ($selectedYear === $currentYear) {
+            $maxValidMonth = $currentMonth;
+        } elseif ($selectedYear > $currentYear) {
+            $maxValidMonth = 0;
+        }
+
+        $startOfYear = "{$selectedYear}-01-01";
+        $endOfYear = "{$selectedYear}-12-31";
 
         $principalsQuery = DB::table('principals')->orderBy('name');
         if (!empty($this->principal_id)) {
@@ -66,7 +76,7 @@ class ManPowerChartWidget extends ChartWidget
 
         $endOfMonths = [];
         for ($month = 1; $month <= 12; $month++) {
-            $endOfMonths[$month] = Carbon::createFromDate((int)$year, $month, 1)->endOfMonth()->toDateString();
+            $endOfMonths[$month] = Carbon::createFromDate($selectedYear, $month, 1)->endOfMonth()->toDateString();
         }
 
         $employeesByPrincipal = $employees->groupBy('principal_id');
@@ -88,6 +98,11 @@ class ManPowerChartWidget extends ChartWidget
             $principalEmps = $employeesByPrincipal->get($principal->id, collect());
 
             for ($month = 1; $month <= 12; $month++) {
+                if ($month > $maxValidMonth) {
+                    $monthlyData[] = null;
+                    continue;
+                }
+
                 $endOfMonth = $endOfMonths[$month];
                 $count = 0;
 
@@ -119,6 +134,7 @@ class ManPowerChartWidget extends ChartWidget
                 'borderWidth' => 2.5,
                 'pointRadius' => 4,
                 'pointHoverRadius' => 6,
+                'spanGaps' => false,
             ];
         }
 

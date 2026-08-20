@@ -179,13 +179,29 @@
         $totalSumAvg = collect($tableData)->sum(fn($r) => $r['months'][12] ?? 0);
         $avgPerPrincipal = $totalPrincipals > 0 ? round($totalSumAvg / $totalPrincipals) : 0;
         
-        // Hitung total manpower per bulan untuk baris footer
+        // Hitung total manpower per bulan untuk baris footer & cek ketersediaan data tiap bulan
         $monthlyTotals = array_fill(0, 13, 0);
+        $monthlyHasData = array_fill(0, 13, false);
+
         foreach ($tableData as $row) {
             foreach ($row['months'] as $mIdx => $mVal) {
-                $monthlyTotals[$mIdx] += $mVal;
+                if ($mVal !== null) {
+                    $monthlyTotals[$mIdx] += $mVal;
+                    $monthlyHasData[$mIdx] = true;
+                }
             }
         }
+
+        $currentYear = (int)date('Y');
+        $selectedYear = (int)($year ?: date('Y'));
+        $monthNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $periodSubtitle = $selectedYear === $currentYear
+            ? 'Januari - ' . ($monthNames[(int)date('n')] ?? 'Bulan Ini')
+            : 'Januari - Desember';
     @endphp
 
     <div class="report-page-wrapper">
@@ -206,7 +222,7 @@
                 <div>
                     <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase;">Total Manpower (Rata-rata)</div>
                     <div style="font-size: 24px; font-weight: 800; color: #059669; margin-top: 4px;">{{ number_format($totalSumAvg) }}</div>
-                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Akumulasi seluruh unit</div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Bulan berjalan</div>
                 </div>
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: #d1fae5; color: #059669; display: flex; align-items: center; justify-content: center;">
                     <x-filament::icon icon="heroicon-o-users" style="width: 24px; height: 24px;" />
@@ -228,7 +244,7 @@
                 <div>
                     <div style="font-size: 11px; font-weight: 700; color: #7c3aed; text-transform: uppercase;">Periode Laporan</div>
                     <div style="font-size: 24px; font-weight: 800; color: #7c3aed; margin-top: 4px;">{{ $year ?: date('Y') }}</div>
-                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Januari - Desember</div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">{{ $periodSubtitle }}</div>
                 </div>
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: #ede9fe; color: #7c3aed; display: flex; align-items: center; justify-content: center;">
                     <x-filament::icon icon="heroicon-o-calendar" style="width: 24px; height: 24px;" />
@@ -296,12 +312,12 @@
                                 <td class="sticky-col">{{ $row['principal'] }}</td>
                                 @foreach($row['months'] as $index => $val)
                                     @if($index < 12)
-                                        <td style="text-align: center; color: #334155; font-weight: {{ $val > 0 ? '600' : 'normal' }};">
-                                            {{ $val > 0 ? number_format($val) : '-' }}
+                                        <td style="text-align: center; color: #334155; font-weight: {{ ($val !== null && $val > 0) ? '600' : 'normal' }};">
+                                            {{ ($val !== null && $val > 0) ? number_format($val) : '-' }}
                                         </td>
                                     @else
                                         <td class="avg-col">
-                                            {{ number_format($val) }}
+                                            {{ ($val !== null && $val > 0) ? number_format($val) : '0' }}
                                         </td>
                                     @endif
                                 @endforeach
@@ -323,7 +339,7 @@
                                 @foreach($monthlyTotals as $index => $totalVal)
                                     @if($index < 12)
                                         <td style="text-align: center; font-weight: 800; color: #0f172a;">
-                                            {{ number_format($totalVal) }}
+                                            {{ $monthlyHasData[$index] ? number_format($totalVal) : '-' }}
                                         </td>
                                     @else
                                         <td class="avg-col" style="font-size: 14px; font-weight: 900; background: #4f46e5 !important; color: #ffffff !important;">

@@ -112,7 +112,8 @@ class ManPowerReport extends Page implements HasForms
     }
 
     /**
-     * Mengambil data Manpower per Prinsiple dan per bulan secara cepat dan hemat RAM
+     * Mengambil data Manpower per Prinsiple dan per bulan secara cepat dan hemat RAM.
+     * Bulan yang belum berjalan pada tahun berjalan tidak dihitung (null / 0).
      */
     public function getManPowerData(): array
     {
@@ -122,9 +123,20 @@ class ManPowerReport extends Page implements HasForms
 
         @ini_set('memory_limit', '512M');
 
-        $year = $this->year ?: date('Y');
-        $startOfYear = "{$year}-01-01";
-        $endOfYear = "{$year}-12-31";
+        $currentYear = (int)date('Y');
+        $currentMonth = (int)date('n'); // 1 to 12
+        $selectedYear = (int)($this->year ?: date('Y'));
+
+        // Menentukan bulan maksimal yang sudah berjalan
+        $maxValidMonth = 12;
+        if ($selectedYear === $currentYear) {
+            $maxValidMonth = $currentMonth;
+        } elseif ($selectedYear > $currentYear) {
+            $maxValidMonth = 0;
+        }
+
+        $startOfYear = "{$selectedYear}-01-01";
+        $endOfYear = "{$selectedYear}-12-31";
 
         // Query principals
         $principalsQuery = DB::table('principals')->orderBy('name');
@@ -169,7 +181,7 @@ class ManPowerReport extends Page implements HasForms
         // Precalculate end of month dates
         $endOfMonths = [];
         for ($month = 1; $month <= 12; $month++) {
-            $endOfMonths[$month] = Carbon::createFromDate((int)$year, $month, 1)->endOfMonth()->toDateString();
+            $endOfMonths[$month] = Carbon::createFromDate($selectedYear, $month, 1)->endOfMonth()->toDateString();
         }
 
         $data = [];
@@ -178,9 +190,16 @@ class ManPowerReport extends Page implements HasForms
         foreach ($principals as $principal) {
             $monthlyData = [];
             $totalActive = 0;
+            $validMonthsCount = 0;
             $principalEmps = $employeesByPrincipal->get($principal->id, collect());
 
             for ($month = 1; $month <= 12; $month++) {
+                // Jika bulan belum berjalan pada tahun ini, set null (jangan tampilkan)
+                if ($month > $maxValidMonth) {
+                    $monthlyData[] = null;
+                    continue;
+                }
+
                 $endOfMonth = $endOfMonths[$month];
                 $count = 0;
 
@@ -199,9 +218,11 @@ class ManPowerReport extends Page implements HasForms
 
                 $monthlyData[] = $count;
                 $totalActive += $count;
+                $validMonthsCount++;
             }
 
-            $avg = (int)round($totalActive / 12);
+            // Rata-rata hanya dihitung dari bulan yang sudah berjalan
+            $avg = $validMonthsCount > 0 ? (int)round($totalActive / $validMonthsCount) : 0;
             $monthlyData[] = $avg;
 
             $data[] = [
@@ -221,7 +242,7 @@ class ManPowerReport extends Page implements HasForms
         foreach ($rawData as $row) {
             $exportRow = [$row['principal']];
             foreach ($row['months'] as $val) {
-                $exportRow[] = $val;
+                $exportRow[] = $val !== null ? $val : '-';
             }
             $exportData[] = $exportRow;
         }
