@@ -198,7 +198,7 @@ class ListEmployeeSchedules extends ListRecords
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('primary')
                 ->modalHeading('Import Jadwal Roster (Excel)')
-                ->modalDescription('Unggah file Excel (.xlsx / .csv) berisi jadwal kerja. Kolom wajib: nik, nama_karyawan, tanggal, shift, lokasi_kerja, tipe_jadwal.')
+                ->modalDescription('Unggah file Excel (.xlsx / .csv) berisi jadwal kerja karyawan. Kolom template: nik, nama_karyawan, tanggal_mulai, tanggal_akhir, shift, lokasi_kerja.')
                 ->form([
                     FileUpload::make('attachment')
                         ->label('File Excel (.xlsx / .csv)')

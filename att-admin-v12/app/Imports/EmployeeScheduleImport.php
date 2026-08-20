@@ -61,13 +61,19 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
             $rowIndex++;
 
             $nik = trim((string)($row['nik'] ?? ($row['nik_karyawan'] ?? ($row['no_karyawan'] ?? ($row['employee_no'] ?? '')))));
-            $rawDate = $row['tanggal'] ?? ($row['date'] ?? ($row['schedule_date'] ?? null));
+            
+            // Format NIK dari string angka eksponensial jika ada
+            if (stripos($nik, 'E+') !== false && is_numeric($nik)) {
+                $nik = number_format((float)$nik, 0, '', '');
+            }
+
+            $rawStartDate = $row['tanggal_mulai'] ?? ($row['start_date'] ?? ($row['tgl_mulai'] ?? ($row['tanggal'] ?? ($row['date'] ?? null))));
+            $rawEndDate = $row['tanggal_akhir'] ?? ($row['end_date'] ?? ($row['tgl_akhir'] ?? ($row['tanggal'] ?? ($row['date'] ?? null))));
             $shiftName = trim((string)($row['shift'] ?? ($row['shift_name'] ?? ($row['nama_shift'] ?? ''))));
             $locationName = trim((string)($row['lokasi_kerja'] ?? ($row['lokasi'] ?? ($row['work_location'] ?? ''))));
-            $scheduleTypeRaw = strtolower(trim((string)($row['tipe_jadwal'] ?? ($row['schedule_type'] ?? ''))));
 
-            if (empty($nik) && empty($rawDate)) {
-                continue; // Skip blank rows
+            if (empty($nik) && empty($rawStartDate)) {
+                continue; // Lewati baris kosong
             }
 
             if (empty($nik)) {
@@ -76,7 +82,7 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                 continue;
             }
 
-            // Find Employee
+            // Cari Karyawan
             $employee = Employee::where('employee_no', $nik)->orWhere('nik', $nik)->first();
             if (!$employee) {
                 $this->skippedCount++;
@@ -84,62 +90,47 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                 continue;
             }
 
-            // Check User Access Scope
+            // Validasi Hak Akses User
             if (!$isSuperAdmin) {
                 if ($accessibleBranchIds !== null && !in_array($employee->branch_id, $accessibleBranchIds)) {
                     $this->skippedCount++;
-                    $this->errors[] = "Baris {$rowIndex}: Karyawan '{$employee->full_name}' berada di luar Area akses Anda.";
+                    $this->errors[] = "Baris {$rowIndex}: Karyawan '{$employee->full_name}' di luar wewenang Area Anda.";
                     continue;
                 }
                 if ($accessiblePrincipalIds !== null && !in_array($employee->principal_id, $accessiblePrincipalIds)) {
                     $this->skippedCount++;
-                    $this->errors[] = "Baris {$rowIndex}: Karyawan '{$employee->full_name}' berada di luar Prinsiple akses Anda.";
+                    $this->errors[] = "Baris {$rowIndex}: Karyawan '{$employee->full_name}' di luar wewenang Prinsiple Anda.";
                     continue;
                 }
             }
 
-            // Parse Date
-            $scheduleDate = $this->parseDate($rawDate);
-            if (!$scheduleDate) {
+            // Parse Rentang Tanggal
+            $startDateStr = $this->parseDate($rawStartDate);
+            $endDateStr = $this->parseDate($rawEndDate) ?: $startDateStr;
+
+            if (!$startDateStr) {
                 $this->skippedCount++;
-                $this->errors[] = "Baris {$rowIndex}: Format tanggal '{$rawDate}' tidak valid.";
+                $this->errors[] = "Baris {$rowIndex}: Format tanggal mulai '{$rawStartDate}' tidak valid.";
                 continue;
             }
 
-            // Resolve Shift & Schedule Type
+            $startDate = Carbon::parse($startDateStr);
+            $endDate = Carbon::parse($endDateStr);
+
+            if ($endDate->lt($startDate)) {
+                $endDate = $startDate->copy();
+            }
+
+            // Resolusi Shift
             $shiftKey = strtolower($shiftName);
             $isOff = empty($shiftName) || in_array($shiftKey, ['off', 'libur', 'dayoff', 'day off', 'cuti', '-']);
             
-            $shiftId = null;
-            $plannedStart = null;
-            $plannedEnd = null;
-            $scheduleType = $isOff ? 'dayoff' : 'workday';
-
-            if (!empty($scheduleTypeRaw) && in_array($scheduleTypeRaw, ['workday', 'dayoff', 'holiday', 'remote', 'field'])) {
-                $scheduleType = $scheduleTypeRaw;
-            }
-
+            $shift = null;
             if (!$isOff) {
                 $shift = $this->shiftsMap[$shiftKey] ?? null;
-                if ($shift) {
-                    $shiftId = $shift->id;
-                    if ($shift->start_time && $shift->end_time) {
-                        $plannedStart = Carbon::parse($scheduleDate . ' ' . $shift->start_time);
-                        $plannedEnd = Carbon::parse($scheduleDate . ' ' . $shift->end_time);
-
-                        if ($shift->is_cross_day ?? false) {
-                            $plannedEnd->addDay();
-                        } elseif ($plannedEnd->lt($plannedStart)) {
-                            $plannedEnd->addDay();
-                        }
-                    }
-                } else {
-                    // Shift not found, treat as workday without specific shift or dayoff
-                    $scheduleType = 'workday';
-                }
             }
 
-            // Resolve Location
+            // Resolusi Lokasi Kerja
             $locationId = null;
             if (!empty($locationName)) {
                 $locKey = strtolower($locationName);
@@ -149,21 +140,63 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                 $locationId = $this->defaultLocationId;
             }
 
-            // Update or Create Schedule
-            EmployeeSchedule::updateOrCreate(
-                [
-                    'employee_id' => $employee->id,
-                    'schedule_date' => $scheduleDate,
-                ],
-                [
-                    'shift_id' => $shiftId,
-                    'work_location_id' => $locationId,
-                    'schedule_type' => $scheduleType,
-                    'planned_start_at' => $plannedStart,
-                    'planned_end_at' => $plannedEnd,
-                    'created_by' => $currentUser?->id,
-                ]
-            );
+            // Ambil Hari Kerja Departemen
+            $workingDays = [];
+            if ($employee->department && !empty($employee->department->working_days)) {
+                $wd = $employee->department->working_days;
+                $workingDays = is_array($wd) ? $wd : (json_decode($wd, true) ?: [1, 2, 3, 4, 5]);
+            } else {
+                $workingDays = [1, 2, 3, 4, 5]; // Default Mon-Fri
+            }
+            $normalizedWd = array_map('strval', $workingDays);
+
+            // Generate Setiap Tanggal dalam Rentang
+            $currentDate = $startDate->copy();
+            $recordsCreated = 0;
+
+            while ($currentDate->lte($endDate)) {
+                $plannedStart = null;
+                $plannedEnd = null;
+                $scheduleType = 'dayoff';
+                $shiftIdToUse = null;
+
+                $dow = strval($currentDate->dayOfWeek);
+                $iso = strval($currentDate->dayOfWeekIso);
+
+                if (!$isOff && (in_array($dow, $normalizedWd) || in_array($iso, $normalizedWd))) {
+                    $scheduleType = 'workday';
+                    $shiftIdToUse = $shift?->id;
+
+                    if ($shift && $shift->start_time && $shift->end_time) {
+                        $plannedStart = Carbon::parse($currentDate->toDateString() . ' ' . $shift->start_time);
+                        $plannedEnd = Carbon::parse($currentDate->toDateString() . ' ' . $shift->end_time);
+
+                        if ($shift->is_cross_day ?? false) {
+                            $plannedEnd->addDay();
+                        } elseif ($plannedEnd->lt($plannedStart)) {
+                            $plannedEnd->addDay();
+                        }
+                    }
+                }
+
+                EmployeeSchedule::updateOrCreate(
+                    [
+                        'employee_id' => $employee->id,
+                        'schedule_date' => $currentDate->toDateString(),
+                    ],
+                    [
+                        'shift_id' => $shiftIdToUse,
+                        'work_location_id' => $locationId,
+                        'schedule_type' => $scheduleType,
+                        'planned_start_at' => $plannedStart,
+                        'planned_end_at' => $plannedEnd,
+                        'created_by' => $currentUser?->id,
+                    ]
+                );
+
+                $recordsCreated++;
+                $currentDate->addDay();
+            }
 
             $this->importedCount++;
         }
@@ -178,7 +211,7 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                 $dateTime = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($rawDate);
                 return Carbon::instance($dateTime)->toDateString();
             } catch (\Throwable $e) {
-                // Ignore and try string parse
+                // Abaikan dan coba parsing string
             }
         }
 
