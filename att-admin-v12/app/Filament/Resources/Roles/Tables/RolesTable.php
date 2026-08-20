@@ -15,10 +15,17 @@ class RolesTable
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->searchable(),
+                    ->label('Nama Role')
+                    ->searchable()
+                    ->weight('bold'),
                 TextColumn::make('permissions.name')
+                    ->label('Hak Akses Fitur')
                     ->badge()
-                    ->searchable(),
+                    ->color('info')
+                    ->wrap()
+                    ->limitList(6)
+                    ->expandableLimitedList()
+                    ->default(fn ($record) => $record->name === 'Super Admin' ? 'Semua Hak Akses (Full Access)' : '-'),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
