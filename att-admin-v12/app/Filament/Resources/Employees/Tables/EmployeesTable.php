@@ -117,6 +117,22 @@ class EmployeesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                \Filament\Tables\Filters\SelectFilter::make('status_karyawan')
+                    ->label('Status Karyawan')
+                    ->options([
+                        'active' => 'Aktif (Default)',
+                        'resigned' => 'Resign / Non-Aktif',
+                        'all' => 'Semua Status',
+                    ])
+                    ->default('active')
+                    ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data) {
+                        $value = $data['value'] ?? 'active';
+                        if ($value === 'active') {
+                            $query->where('is_active', true);
+                        } elseif ($value === 'resigned') {
+                            $query->where('is_active', false);
+                        }
+                    }),
                 \Filament\Tables\Filters\SelectFilter::make('company_id')
                     ->label('Filter Company')
                     ->searchable()

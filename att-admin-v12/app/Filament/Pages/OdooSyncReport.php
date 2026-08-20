@@ -145,6 +145,7 @@ class OdooSyncReport extends Page
 
             // Always get live count of active employees in database
             $totalActive = Employee::where('company_id', $company->id)->where('is_active', true)->count();
+            $liveResignCount = Employee::where('company_id', $company->id)->where('is_active', false)->count();
 
             // Collect details if available
             $newEmpDetails = [];
@@ -159,6 +160,18 @@ class OdooSyncReport extends Page
                 }
                 if (!empty($cl->details['resigned_employees'])) {
                     $rsgEmpDetails = array_merge($rsgEmpDetails, (array)$cl->details['resigned_employees']);
+                }
+            }
+
+            // Jika di log hari ini resign masih 0 tetapi di database sudah ada data karyawan resign
+            if ($resignCount === 0 && $liveResignCount > 0) {
+                $resignCount = $liveResignCount;
+                if (empty($rsgEmpDetails)) {
+                    $rsgEmpDetails = Employee::where('company_id', $company->id)
+                        ->where('is_active', false)
+                        ->limit(100)
+                        ->get(['full_name as name', 'employee_no as nik'])
+                        ->toArray();
                 }
             }
 
