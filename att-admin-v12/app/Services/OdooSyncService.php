@@ -343,14 +343,27 @@ class OdooSyncService
                 $employeeNo = $rawNik ?: ($rawRegNo ?: ('OD-' . $rec['id']));
 
                 // Look up existing employee:
-                // 1. Check by NIK / No. KTP (employee_no) or Odoo ID
+                // Prioritas 1: Pencocokan by (NIK + Principal ID) ATAU odoo_id sama
+                $existingEmployees = collect();
                 if ($rawNik) {
                     $existingEmployees = Employee::withTrashed()
-                        ->where(function ($q) use ($rawNik, $rec) {
-                            $q->where('employee_no', $rawNik)
-                              ->orWhere('odoo_id', $rec['id']);
+                        ->where(function ($q) use ($rawNik, $principalId, $rec) {
+                            $q->where('odoo_id', $rec['id'])
+                              ->orWhere(function ($sq) use ($rawNik, $principalId) {
+                                  $sq->where('employee_no', $rawNik);
+                                  if ($principalId) {
+                                      $sq->where('principal_id', $principalId);
+                                  }
+                              });
                         })
                         ->get();
+
+                    // Prioritas 2 (Fallback): Cari berdasarkan NIK saja (misal karyawan mutasi / pindah prinsiple)
+                    if ($existingEmployees->isEmpty()) {
+                        $existingEmployees = Employee::withTrashed()
+                            ->where('employee_no', $rawNik)
+                            ->get();
+                    }
                 } else {
                     $existingEmployees = Employee::withTrashed()
                         ->where('odoo_id', $rec['id'])
@@ -364,8 +377,19 @@ class OdooSyncService
                         ?: ($existingEmployees->first(fn ($e) => !empty($e->photo) || !empty($e->password))
                         ?: $existingEmployees->first());
 
-                    // If there are duplicate records with this same NIK/employee_no, merge and remove the redundant ones
-                    $duplicateIds = $existingEmployees->where('id', '!=', $primary->id)->pluck('id')->toArray();
+                    // PROTEKSI AKUN AKTIF LINTAS ENTITAS:
+                    // Jika data Odoo yang sedang diproses ini NON-AKTIF / RESIGN ($isActiveInOdoo == false),
+                    // TETAPI karyawan ini di database saat ini berstatus AKTIF ($primary->is_active == true)
+                    // dan berada di Principal/Company LAIN ($primary->principal_id != $principalId || $primary->company_id != $companyId):
+                    // MAKA: JANGAN ubah record aktifnya menjadi resign! (Abaikan data arsip/resign dari entitas lamanya).
+                    if (!$isActiveInOdoo && $primary->is_active && ($primary->principal_id != $principalId || $primary->company_id != $companyId)) {
+                        continue;
+                    }
+
+                    // If there are duplicate records with this same NIK and same principal, merge and remove the redundant ones
+                    $duplicateIds = $existingEmployees->where('id', '!=', $primary->id)
+                        ->where('principal_id', $principalId)
+                        ->pluck('id')->toArray();
                     if (!empty($duplicateIds)) {
                         $this->mergeDuplicates($primary, $duplicateIds);
                     }
