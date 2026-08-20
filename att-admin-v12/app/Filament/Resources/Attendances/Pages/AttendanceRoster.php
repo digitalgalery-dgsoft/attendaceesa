@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Attendances\Pages;
 
+use App\Exports\AttendanceImportTemplateExport;
 use App\Filament\Resources\Attendances\AttendanceResource;
+use App\Imports\AttendanceImport;
 use App\Models\Attendance;
 use App\Models\AttendanceLog;
 use App\Models\Branch;
@@ -11,6 +13,7 @@ use App\Models\Principal;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -20,7 +23,9 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\View;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AttendanceRoster extends Page implements HasForms
 {
@@ -100,10 +105,9 @@ class AttendanceRoster extends Page implements HasForms
                             if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
                                 $query->whereIn('id', auth()->user()->getAccessibleBranchIds());
                             }
-                            return $query->pluck('name', 'id');
+                            return $query->pluck('name', 'id')->toArray();
                         })
                         ->placeholder('Semua Region')
-                        ->searchable()
                         ->live(),
                     Select::make('filter_principal_id')
                         ->label('Prinsiple')
@@ -112,19 +116,22 @@ class AttendanceRoster extends Page implements HasForms
                             if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
                                 $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
                             }
-                            return $query->pluck('name', 'id');
+                            return $query->pluck('name', 'id')->toArray();
                         })
                         ->placeholder('Semua Prinsiple')
-                        ->searchable()
                         ->live(),
                     Select::make('filter_employee_id')
                         ->label('Karyawan Spesifik')
                         ->options(function () {
-                            $query = Employee::where('is_active', 1);
+                            $query = Employee::where('is_active', 1)->with(['position', 'branch']);
                             if (auth()->check()) {
                                 $query = \App\Traits\ScopesUserData::applyUserAccessScope($query);
                             }
-                            return $query->orderBy('full_name')->pluck('full_name', 'id');
+                            return $query->orderBy('full_name')->get()->mapWithKeys(function ($emp) {
+                                $pos = $emp->position?->name ?? 'Staff';
+                                $area = $emp->branch?->name ?? '-';
+                                return [$emp->id => "{$emp->full_name} ({$pos} - {$area})"];
+                            })->toArray();
                         })
                         ->placeholder('Semua Karyawan')
                         ->searchable()
@@ -137,6 +144,79 @@ class AttendanceRoster extends Page implements HasForms
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('import_attendance')
+                ->label('Import Attendance (Excel)')
+                ->icon('heroicon-o-arrow-up-tray')
+                ->color('primary')
+                ->modalHeading('Import Data Attendance (Penyesuaian Absensi)')
+                ->modalDescription('Unggah file Excel absensi untuk mengisi check-in/out karyawan yang tidak check-in / ALPHA / kosong. Data check-in asli aplikasi tidak akan tertimpa.')
+                ->form([
+                    FileUpload::make('file')
+                        ->label('Pilih File Excel (.xlsx / .xls)')
+                        ->disk('local')
+                        ->directory('temp-imports')
+                        ->acceptedFileTypes([
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            'application/vnd.ms-excel',
+                            'application/octet-stream',
+                        ])
+                        ->required()
+                        ->helperText('Gunakan template resmi untuk format kolom NIK, tanggal, dan jam.'),
+                ])
+                ->action(function (array $data) {
+                    try {
+                        $filePath = Storage::disk('local')->path($data['file']);
+
+                        $import = new AttendanceImport();
+                        Excel::import($import, $filePath);
+
+                        if (file_exists($filePath)) {
+                            @unlink($filePath);
+                        }
+
+                        $msg = "Berhasil mengimpor/menyesuaikan {$import->importedCount} data absensi.";
+                        if ($import->protectedCount > 0) {
+                            $msg .= " ({$import->protectedCount} tanggal dilewati karena sudah ada check-in asli).";
+                        }
+                        if ($import->skippedCount > $import->protectedCount) {
+                            $msg .= " (" . ($import->skippedCount - $import->protectedCount) . " baris dilewati karena NIK/akses tidak sesuai).";
+                        }
+
+                        if (!empty($import->errors)) {
+                            $errorSummary = implode("<br>", array_slice($import->errors, 0, 5));
+                            if (count($import->errors) > 5) {
+                                $errorSummary .= "<br>...dan " . (count($import->errors) - 5) . " kendala/info lainnya.";
+                            }
+                            Notification::make()
+                                ->title('Import Absensi Selesai dengan Catatan')
+                                ->warning()
+                                ->body($msg . '<br><br><strong>Detail:</strong><br>' . $errorSummary)
+                                ->persistent()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('Import Absensi Berhasil')
+                                ->success()
+                                ->body($msg)
+                                ->send();
+                        }
+                    } catch (\Throwable $e) {
+                        Notification::make()
+                            ->title('Gagal Import Absensi')
+                            ->danger()
+                            ->body($e->getMessage())
+                            ->send();
+                    }
+                }),
+
+            Action::make('download_attendance_template')
+                ->label('Download Template Excel')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->action(function () {
+                    return Excel::download(new AttendanceImportTemplateExport(), 'Template_Import_Attendance.xlsx');
+                }),
+
             \pxlrbt\FilamentExcel\Actions\Pages\ExportAction::make('export_excel')
                 ->label('Export Excel')
                 ->icon('heroicon-o-document-arrow-down')

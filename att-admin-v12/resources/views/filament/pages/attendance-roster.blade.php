@@ -217,6 +217,17 @@
             color: #64748b;
             border: 1px solid #cbd5e1;
         }
+        .att-badge-import {
+            background: #f3e8ff;
+            color: #7e22ce;
+            border: 1px solid #d8b4fe;
+            box-shadow: 0 1px 2px rgba(126, 34, 206, 0.12);
+        }
+        .dark .att-badge-import {
+            background: #581c8744;
+            color: #d8b4fe;
+            border-color: #7e22ce;
+        }
 
         .time-pill {
             display: flex;
@@ -462,40 +473,46 @@
                                             <div class="roster-cell-clickable" wire:click="mountAction('viewDetails', { employee_id: {{ $employee->id }}, date: '{{ $dateStr }}' })" title="Klik untuk rincian absensi">
                                                 <div>
                                                     @if ($isLate)
-                                                        <span class="att-badge att-badge-late">
-                                                            Telat {{ $lateText }}
-                                                        </span>
-                                                    @elseif ($att->status === 'present')
-                                                        <span class="att-badge att-badge-present">Hadir</span>
-                                                    @elseif ($att->status === 'absent')
-                                                        <span class="att-badge att-badge-absent">Alpha</span>
-                                                    @elseif ($att->status === 'leave')
-                                                        <span class="att-badge att-badge-leave">Cuti</span>
-                                                    @elseif ($att->status === 'permit')
-                                                        <span class="att-badge att-badge-permit">Izin</span>
-                                                    @elseif ($att->status === 'sick')
-                                                        <span class="att-badge att-badge-sick">Sakit</span>
-                                                    @else
-                                                        <span class="att-badge att-badge-permit">{{ ucfirst($att->status) }}</span>
-                                                    @endif
-                                                </div>
+                                                         <span class="att-badge att-badge-late">
+                                                             Telat {{ $lateText }}
+                                                         </span>
+                                                     @elseif ($att->status === 'present')
+                                                         <span class="att-badge att-badge-present">Hadir</span>
+                                                     @elseif ($att->status === 'absent')
+                                                         <span class="att-badge att-badge-absent">Alpha</span>
+                                                     @elseif ($att->status === 'leave')
+                                                         <span class="att-badge att-badge-leave">Cuti</span>
+                                                     @elseif ($att->status === 'permit')
+                                                         <span class="att-badge att-badge-permit">Izin</span>
+                                                     @elseif ($att->status === 'sick')
+                                                         <span class="att-badge att-badge-sick">Sakit</span>
+                                                     @else
+                                                         <span class="att-badge att-badge-permit">{{ ucfirst($att->status) }}</span>
+                                                     @endif
+                                                 </div>
 
-                                                @if (!empty($att->checkin_at))
-                                                    <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 2px; align-items: center;">
-                                                        <div class="time-pill">
-                                                            <span style="color: {{ $isLate ? '#d97706' : '#059669' }}; font-weight: 700;">In:</span>
-                                                            <span style="color: {{ $isLate ? '#b45309' : 'inherit' }}; font-weight: {{ $isLate ? '800' : '600' }};">
-                                                                {{ \Carbon\Carbon::parse($att->checkin_at)->timezone('Asia/Jakarta')->format('H:i') }}
-                                                            </span>
-                                                        </div>
-                                                        @if (!empty($att->checkout_at))
-                                                            <div class="time-pill">
-                                                                <span style="color: #dc2626; font-weight: 700;">Out:</span>
-                                                                <span>{{ \Carbon\Carbon::parse($att->checkout_at)->timezone('Asia/Jakarta')->format('H:i') }}</span>
-                                                            </div>
-                                                        @endif
-                                                    </div>
-                                                @endif
+                                                 @if ($att->is_manual_correction)
+                                                     <div style="margin-top: 3px;">
+                                                         <span class="att-badge att-badge-import" style="font-size: 8.5px; font-weight: 800; padding: 1px 4px; letter-spacing: 0.03em;" title="{{ $att->correction_note ?? 'Data Hasil Penyesuaian / Import Excel' }}">⚡ IMPORT</span>
+                                                     </div>
+                                                 @endif
+
+                                                 @if (!empty($att->checkin_at))
+                                                     <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 2px; align-items: center;">
+                                                         <div class="time-pill">
+                                                             <span style="color: {{ $isLate ? '#d97706' : '#059669' }}; font-weight: 700;">In:</span>
+                                                             <span style="color: {{ $isLate ? '#b45309' : 'inherit' }}; font-weight: {{ $isLate ? '800' : '600' }};">
+                                                                 {{ \Carbon\Carbon::parse($att->checkin_at)->timezone('Asia/Jakarta')->format('H:i') }}
+                                                             </span>
+                                                         </div>
+                                                         @if (!empty($att->checkout_at))
+                                                             <div class="time-pill">
+                                                                 <span style="color: #dc2626; font-weight: 700;">Out:</span>
+                                                                 <span>{{ \Carbon\Carbon::parse($att->checkout_at)->timezone('Asia/Jakarta')->format('H:i') }}</span>
+                                                             </div>
+                                                         @endif
+                                                     </div>
+                                                 @endif
                                             </div>
                                         @elseif ($isNatHoliday || !$isDeptWorkDay || ($sched && in_array($sched->schedule_type, ['dayoff', 'holiday'])))
                                             {{-- Hari Libur Nasional / Libur Akhir Pekan Departemen / Dayoff Schedule --}}

@@ -61,7 +61,13 @@ class AttendancesTable
                     ->numeric()
                     ->sortable(),
                 IconColumn::make('is_manual_correction')
-                    ->boolean(),
+                    ->label('Import / Adj')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-bolt')
+                    ->falseIcon('heroicon-o-device-phone-mobile')
+                    ->trueColor('purple')
+                    ->falseColor('gray')
+                    ->tooltip(fn (\App\Models\Attendance $record): string => $record->is_manual_correction ? ('Hasil Import: ' . ($record->correction_note ?? 'Manual')) : 'Check-in Aplikasi Mobile'),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -111,6 +117,79 @@ class AttendancesTable
                 EditAction::make(),
             ])
             ->headerActions([
+                Action::make('import_attendance')
+                    ->label('Import Attendance (Excel)')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('primary')
+                    ->modalHeading('Import Data Attendance (Penyesuaian Absensi)')
+                    ->modalDescription('Unggah file Excel absensi untuk mengisi check-in/out karyawan yang tidak check-in / ALPHA / kosong. Data check-in asli aplikasi tidak akan tertimpa.')
+                    ->form([
+                        \Filament\Forms\Components\FileUpload::make('file')
+                            ->label('Pilih File Excel (.xlsx / .xls)')
+                            ->disk('local')
+                            ->directory('temp-imports')
+                            ->acceptedFileTypes([
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                'application/vnd.ms-excel',
+                                'application/octet-stream',
+                            ])
+                            ->required()
+                            ->helperText('Gunakan template resmi untuk format kolom NIK, tanggal, dan jam.'),
+                    ])
+                    ->action(function (array $data) {
+                        try {
+                            $filePath = \Illuminate\Support\Facades\Storage::disk('local')->path($data['file']);
+
+                            $import = new \App\Imports\AttendanceImport();
+                            \Maatwebsite\Excel\Facades\Excel::import($import, $filePath);
+
+                            if (file_exists($filePath)) {
+                                @unlink($filePath);
+                            }
+
+                            $msg = "Berhasil mengimpor/menyesuaikan {$import->importedCount} data absensi.";
+                            if ($import->protectedCount > 0) {
+                                $msg .= " ({$import->protectedCount} tanggal dilewati karena sudah ada check-in asli).";
+                            }
+                            if ($import->skippedCount > $import->protectedCount) {
+                                $msg .= " (" . ($import->skippedCount - $import->protectedCount) . " baris dilewati karena NIK/akses tidak sesuai).";
+                            }
+
+                            if (!empty($import->errors)) {
+                                $errorSummary = implode("<br>", array_slice($import->errors, 0, 5));
+                                if (count($import->errors) > 5) {
+                                    $errorSummary .= "<br>...dan " . (count($import->errors) - 5) . " kendala/info lainnya.";
+                                }
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Import Absensi Selesai dengan Catatan')
+                                    ->warning()
+                                    ->body($msg . '<br><br><strong>Detail:</strong><br>' . $errorSummary)
+                                    ->persistent()
+                                    ->send();
+                            } else {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Import Absensi Berhasil')
+                                    ->success()
+                                    ->body($msg)
+                                    ->send();
+                            }
+                        } catch (\Throwable $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Gagal Import Absensi')
+                                ->danger()
+                                ->body($e->getMessage())
+                                ->send();
+                        }
+                    }),
+
+                Action::make('download_attendance_template')
+                    ->label('Download Template Excel')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->action(function () {
+                        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\AttendanceImportTemplateExport(), 'Template_Import_Attendance.xlsx');
+                    }),
+
                 // Excel Export
                 ExcelExportAction::make('export_excel')
                     ->label('Export Excel')

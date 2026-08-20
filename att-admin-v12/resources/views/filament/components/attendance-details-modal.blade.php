@@ -23,6 +23,18 @@
         </div>
     </div>
 
+    @if($attendance && $attendance->is_manual_correction)
+        <div class="p-3 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-lg flex items-start gap-3">
+            <span class="text-lg">⚡</span>
+            <div>
+                <div class="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300">Data Hasil Penyesuaian / Import Excel</div>
+                <div class="text-sm text-purple-900 dark:text-purple-200 mt-0.5">
+                    <strong>Catatan:</strong> {{ $attendance->correction_note ?: 'Disinkronkan melalui Import Excel' }}
+                </div>
+            </div>
+        </div>
+    @endif
+
     @if($attendance)
         <div class="mt-2">
             <x-filament::button
