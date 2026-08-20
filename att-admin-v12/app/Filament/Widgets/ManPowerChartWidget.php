@@ -36,13 +36,15 @@ class ManPowerChartWidget extends ChartWidget
         $principalsQuery = DB::table('principals')->orderBy('name');
         if (!empty($this->principal_id)) {
             $principalsQuery->where('id', $this->principal_id);
+        } elseif (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+            $principalsQuery->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
         }
         $principals = $principalsQuery->select('id', 'name')->get();
 
         if ($principals->isEmpty()) {
             return [
                 'datasets' => [],
-                'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'],
             ];
         }
 
@@ -54,6 +56,8 @@ class ManPowerChartWidget extends ChartWidget
 
         if (!empty($this->branch_id)) {
             $employeesQuery->where('branch_id', $this->branch_id);
+        } elseif (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+            $employeesQuery->whereIn('branch_id', auth()->user()->getAccessibleBranchIds());
         }
 
         $employees = $employeesQuery

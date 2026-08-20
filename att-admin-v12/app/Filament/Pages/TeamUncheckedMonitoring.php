@@ -271,29 +271,26 @@ class TeamUncheckedMonitoring extends Page
         $calculated = $this->getCalculatedData();
         $employees = $calculated['employees'];
 
-        // Ambil list Principals & Branches dari database secara ringan
+        // Ambil list Principals & Branches dari database secara terfilter hak akses
         $principalsQuery = DB::table('principals')->orderBy('name');
         if (!empty($this->selectedPrincipalId)) {
             $principalsQuery->where('id', $this->selectedPrincipalId);
+        } elseif (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+            $principalsQuery->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
         }
         $principals = $principalsQuery->select('id', 'name')->get();
 
         $branchesQuery = DB::table('branches')->whereNull('deleted_at')->orderBy('name');
         if (!empty($this->selectedBranchId)) {
             $branchesQuery->where('id', $this->selectedBranchId);
+        } elseif (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+            $branchesQuery->whereIn('id', auth()->user()->getAccessibleBranchIds());
         }
         $branches = $branchesQuery->select('id', 'name')->get();
 
         $columns = [];
         foreach ($branches as $branch) {
             $columns[(string)$branch->id] = $branch->name;
-        }
-
-        // Tambahkan jika ada branch di data yang tidak ada di master
-        foreach ($employees as $emp) {
-            if ($emp['branch_id'] && !isset($columns[$emp['branch_id']]) && empty($this->selectedBranchId)) {
-                $columns[$emp['branch_id']] = $emp['branch_name'];
-            }
         }
 
         $rows = [];
@@ -329,7 +326,8 @@ class TeamUncheckedMonitoring extends Page
 
         // Handle employees without principal if any
         $noPrincipalEmployees = array_filter($employees, fn($e) => empty($e['principal_id']));
-        if (!empty($noPrincipalEmployees) && empty($this->selectedPrincipalId)) {
+        $canViewNoPrincipal = auth()->check() && (auth()->user()->isSuperAdmin() || !auth()->user()->hasPrincipalRestriction());
+        if (!empty($noPrincipalEmployees) && empty($this->selectedPrincipalId) && $canViewNoPrincipal) {
             $rowBranches = array_fill_keys(array_keys($columns), 0);
             $totalRow = 0;
             foreach ($noPrincipalEmployees as $emp) {

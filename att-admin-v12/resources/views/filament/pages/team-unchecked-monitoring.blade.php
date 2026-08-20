@@ -303,8 +303,19 @@
         $detailPagination = $this->getFilteredDetailData();
         $details = $detailPagination['items'];
         $summary = $matrix['summary_info'];
-        $allPrincipals = \App\Models\Principal::orderBy('name')->get(['id', 'name']);
-        $allBranches = \App\Models\Branch::orderBy('name')->get(['id', 'name']);
+        $allPrincipals = \App\Models\Principal::query()
+            ->when(auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction(), function($q) {
+                $q->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $allBranches = \App\Models\Branch::query()
+            ->when(auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction(), function($q) {
+                $q->whereIn('id', auth()->user()->getAccessibleBranchIds());
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         // Hitung metrik ringkasan
         $todayUncheckedCount = collect($summary['employees'])->where('is_today_unchecked', true)->count();

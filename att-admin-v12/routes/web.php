@@ -48,17 +48,51 @@ Route::get('/cron/odoo-sync', function () {
     }
 });
 
-// Stop User Impersonation and return to Super Admin
-Route::middleware(['web', 'auth'])->get('/admin/stop-impersonation', function () {
-    if (session()->has('impersonated_by')) {
-        $superAdminId = session()->pull('impersonated_by');
-        \Illuminate\Support\Facades\Auth::loginUsingId($superAdminId);
+// User Impersonation Routes for Super Admin
+Route::middleware(['web', 'auth'])->group(function () {
+    // Start Impersonation
+    Route::get('/admin/impersonate/{user}', function (\App\Models\User $user) {
+        $currentUser = \Illuminate\Support\Facades\Auth::user();
+        $isAuthorized = $currentUser->isSuperAdmin() || session()->has('impersonated_by');
+
+        if (!$isAuthorized) {
+            abort(403, 'Hanya Super Admin yang diizinkan untuk beralih akun.');
+        }
+
+        $originalSuperAdminId = session()->get('impersonated_by', $currentUser->id);
+
+        \Filament\Facades\Filament::auth()->login($user);
+        request()->session()->regenerate();
+        session()->put('impersonated_by', $originalSuperAdminId);
+        session()->save();
+
         \Filament\Notifications\Notification::make()
-            ->title('Kembali ke Akun Utama')
-            ->body('Anda telah kembali login sebagai Super Admin.')
+            ->title('Berhasil Beralih Akun')
+            ->body("Anda sekarang login dan melihat sistem sebagai {$user->name} ({$user->email}).")
             ->success()
             ->send();
-    }
-    return redirect()->to('/admin');
-})->name('impersonation.stop');
+
+        return redirect()->to('/admin');
+    })->name('impersonation.start');
+
+    // Stop Impersonation
+    Route::get('/admin/stop-impersonation', function () {
+        if (session()->has('impersonated_by')) {
+            $superAdminId = session()->pull('impersonated_by');
+            $superAdmin = \App\Models\User::find($superAdminId);
+            if ($superAdmin) {
+                \Filament\Facades\Filament::auth()->login($superAdmin);
+                request()->session()->regenerate();
+                session()->save();
+
+                \Filament\Notifications\Notification::make()
+                    ->title('Kembali ke Akun Utama')
+                    ->body('Anda telah kembali login sebagai Super Admin.')
+                    ->success()
+                    ->send();
+            }
+        }
+        return redirect()->to('/admin');
+    })->name('impersonation.stop');
+});
 
