@@ -11,9 +11,9 @@ Artisan::command('inspire', function () {
 
 Schedule::command('notify:missed-checkin')->dailyAt('08:30');
 
-// Automated Odoo Synchronization (runs daily at 02:00 AM)
+// Automated Odoo Synchronization (runs every 30 minutes)
 Schedule::command('odoo:sync --trigger=cron')
-    ->dailyAt('02:00')
+    ->everyThirtyMinutes()
     ->withoutOverlapping()
     ->runInBackground();
 
