@@ -2,16 +2,14 @@
 
 namespace App\Filament\Widgets;
 
+use Carbon\Carbon;
 use Filament\Widgets\ChartWidget;
-use App\Models\Employee;
-use App\Models\WorkTarget;
-use App\Models\Attendance;
 use Illuminate\Support\Facades\DB;
 
 class MandaysChartWidget extends ChartWidget
 {
     protected static bool $isDiscovered = false;
-    protected ?string $heading = 'Target vs Aktual HK (Top 10)';
+    protected ?string $heading = 'Target vs Aktual Mandays (Top 10)';
     
     public ?string $month = null;
     public ?string $year = null;
@@ -20,57 +18,77 @@ class MandaysChartWidget extends ChartWidget
 
     protected function getData(): array
     {
-        $month = $this->month ?: date('m');
-        $year = $this->year ?: date('Y');
-        $monthYear = $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT);
+        @ini_set('memory_limit', '512M');
 
-        $employees = Employee::with(['branch', 'company'])
-            ->when($this->branch_id, function ($q) {
+        $month = str_pad($this->month ?: date('m'), 2, '0', STR_PAD_LEFT);
+        $year = $this->year ?: date('Y');
+        $monthYear = "{$year}-{$month}";
+
+        $startDateStr = Carbon::createFromDate((int)$year, (int)$month, 1)->startOfMonth()->toDateString();
+        $endDateStr = Carbon::createFromDate((int)$year, (int)$month, 1)->endOfMonth()->toDateString();
+
+        $employees = DB::table('employees')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->when(!empty($this->branch_id), function ($q) {
                 return $q->where('branch_id', $this->branch_id);
             })
-            ->when($this->company_id, function ($q) {
+            ->when(!empty($this->company_id), function ($q) {
                 return $q->where('company_id', $this->company_id);
             })
-            ->where('is_active', true)
+            ->select(['id', 'full_name'])
             ->get();
-            
+
         $employeeIds = $employees->pluck('id')->toArray();
-        
-        $targets = WorkTarget::whereIn('employee_id', $employeeIds)
+
+        if (empty($employeeIds)) {
+            return [
+                'datasets' => [],
+                'labels' => [],
+            ];
+        }
+
+        $targets = DB::table('work_targets')
+            ->whereIn('employee_id', $employeeIds)
             ->where('month_year', $monthYear)
             ->pluck('target_hk', 'employee_id');
 
-        $attendances = Attendance::select('employee_id', DB::raw('count(*) as total'))
+        $attendances = DB::table('attendances')
             ->whereIn('employee_id', $employeeIds)
-            ->whereYear('attendance_date', $year)
-            ->whereMonth('attendance_date', $month)
+            ->whereBetween('attendance_date', [$startDateStr, $endDateStr])
             ->whereIn('status', ['present', 'late', 'permit'])
+            ->select('employee_id', DB::raw('count(*) as total'))
             ->groupBy('employee_id')
             ->pluck('total', 'employee_id');
 
         $chartData = [];
 
         foreach ($employees as $emp) {
-            $targetHK = $targets[$emp->id] ?? 0;
-            $aktualHK = $attendances[$emp->id] ?? 0;
+            $targetHK = (int)($targets[$emp->id] ?? 0);
+            $aktualHK = (int)($attendances[$emp->id] ?? 0);
 
             if ($targetHK > 0 || $aktualHK > 0) {
+                $name = $emp->full_name;
+                if (strlen($name) > 16) {
+                    $name = substr($name, 0, 14) . '..';
+                }
+
                 $chartData[] = [
-                    'name' => substr($emp->full_name, 0, 15) . (strlen($emp->full_name) > 15 ? '...' : ''),
+                    'name' => $name,
                     'target' => $targetHK,
                     'aktual' => $aktualHK,
                 ];
             }
         }
-        
-        // Sort by aktual desc, target desc
-        usort($chartData, function($a, $b) {
+
+        // Sort by aktual desc, then target desc
+        usort($chartData, function ($a, $b) {
             if ($a['aktual'] === $b['aktual']) {
                 return $b['target'] <=> $a['target'];
             }
             return $b['aktual'] <=> $a['aktual'];
         });
-        
+
         $chartData = array_slice($chartData, 0, 10);
 
         return [
@@ -78,14 +96,18 @@ class MandaysChartWidget extends ChartWidget
                 [
                     'label' => 'Target HK',
                     'data' => array_column($chartData, 'target'),
-                    'backgroundColor' => 'rgb(59, 130, 246)',
-                    'borderColor' => 'rgb(59, 130, 246)',
+                    'backgroundColor' => 'rgba(99, 102, 241, 0.85)',
+                    'borderColor' => '#4f46e5',
+                    'borderRadius' => 6,
+                    'borderWidth' => 1,
                 ],
                 [
                     'label' => 'Aktual HK',
                     'data' => array_column($chartData, 'aktual'),
-                    'backgroundColor' => 'rgb(16, 185, 129)',
-                    'borderColor' => 'rgb(16, 185, 129)',
+                    'backgroundColor' => 'rgba(16, 185, 129, 0.85)',
+                    'borderColor' => '#059669',
+                    'borderRadius' => 6,
+                    'borderWidth' => 1,
                 ],
             ],
             'labels' => array_column($chartData, 'name'),
