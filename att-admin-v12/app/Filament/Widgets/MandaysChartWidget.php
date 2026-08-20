@@ -32,9 +32,17 @@ class MandaysChartWidget extends ChartWidget
             ->whereNull('deleted_at')
             ->when(!empty($this->branch_id), function ($q) {
                 return $q->where('branch_id', $this->branch_id);
+            }, function ($q) {
+                if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+                    return $q->whereIn('branch_id', auth()->user()->getAccessibleBranchIds());
+                }
             })
             ->when(!empty($this->principal_id), function ($q) {
                 return $q->where('principal_id', $this->principal_id);
+            }, function ($q) {
+                if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+                    return $q->whereIn('principal_id', auth()->user()->getAccessiblePrincipalIds());
+                }
             })
             ->select(['id', 'full_name'])
             ->get();

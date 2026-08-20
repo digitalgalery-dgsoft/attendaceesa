@@ -16,20 +16,45 @@ class DashboardStatsWidget extends BaseWidget
 
     protected function getStats(): array
     {
+        $employeeQuery = Employee::query()->where('is_active', true);
+        $attendanceTodayQuery = Attendance::where('attendance_date', Carbon::today()->toDateString());
+        $principalQuery = \App\Models\Principal::query();
+        $branchQuery = \App\Models\Branch::query();
+
+        if (auth()->check() && !auth()->user()->isSuperAdmin()) {
+            if (auth()->user()->hasBranchRestriction()) {
+                $accessibleBranches = auth()->user()->getAccessibleBranchIds();
+                $employeeQuery->whereIn('branch_id', $accessibleBranches);
+                $attendanceTodayQuery->whereHas('employee', fn($q) => $q->whereIn('branch_id', $accessibleBranches));
+                $branchQuery->whereIn('id', $accessibleBranches);
+            }
+            if (auth()->user()->hasPrincipalRestriction()) {
+                $accessiblePrincipals = auth()->user()->getAccessiblePrincipalIds();
+                $employeeQuery->whereIn('principal_id', $accessiblePrincipals);
+                $attendanceTodayQuery->whereHas('employee', fn($q) => $q->whereIn('principal_id', $accessiblePrincipals));
+                $principalQuery->whereIn('id', $accessiblePrincipals);
+            }
+        }
+
+        $totalEmployees = $employeeQuery->count();
+        $presentToday = $attendanceTodayQuery->count();
+        $totalPrincipals = $principalQuery->count();
+        $totalAreas = $branchQuery->count();
+
         return [
-            Stat::make('Total Employees', Employee::count())
+            Stat::make('Total Employees', number_format($totalEmployees))
                 ->description('Jumlah karyawan terdaftar')
                 ->descriptionIcon('heroicon-m-users')
                 ->color('success'),
-            Stat::make('Present Today', Attendance::where('created_at', '>=', Carbon::today())->count())
+            Stat::make('Present Today', number_format($presentToday))
                 ->description('Total check-in hari ini')
                 ->descriptionIcon('heroicon-m-check-badge')
                 ->color('primary'),
-            Stat::make('Total Principals', \App\Models\Principal::count())
+            Stat::make('Total Principals', number_format($totalPrincipals))
                 ->description('Jumlah principal/klien')
                 ->descriptionIcon('heroicon-m-building-office-2')
                 ->color('info'),
-            Stat::make('Total Areas', \App\Models\Branch::count())
+            Stat::make('Total Areas', number_format($totalAreas))
                 ->description('Jumlah area/cabang terdaftar')
                 ->descriptionIcon('heroicon-m-map-pin')
                 ->color('warning'),

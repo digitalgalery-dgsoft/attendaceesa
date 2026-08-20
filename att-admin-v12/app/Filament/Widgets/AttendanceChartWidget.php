@@ -21,7 +21,12 @@ class AttendanceChartWidget extends ChartWidget
         $startDate = Carbon::today()->subDays(6);
         $endDate = Carbon::today()->endOfDay();
 
-        $attendances = Attendance::select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as aggregate'))
+        $attQuery = Attendance::query();
+        if (auth()->check() && !auth()->user()->isSuperAdmin()) {
+            $attQuery = \App\Traits\ScopesUserData::applyUserAccessScope($attQuery);
+        }
+
+        $attendances = $attQuery->select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as aggregate'))
             ->whereBetween('created_at', [$startDate, $endDate])
             ->groupBy('date')
             ->pluck('aggregate', 'date');

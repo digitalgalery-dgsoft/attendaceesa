@@ -18,11 +18,14 @@ class RecentAttendancesWidget extends TableWidget
 
     public function table(Table $table): Table
     {
+        $query = Attendance::with(['employee', 'employeeSchedule.shift'])->latest();
+        if (auth()->check() && !auth()->user()->isSuperAdmin()) {
+            $query = \App\Traits\ScopesUserData::applyUserAccessScope($query);
+        }
+
         return $table
             ->heading('Recent Attendances')
-            ->query(
-                Attendance::with(['employee', 'employeeSchedule.shift'])->latest()->limit(5)
-            )
+            ->query($query->limit(5))
             ->columns([
                 TextColumn::make('employee.full_name')
                     ->label('Employee')
