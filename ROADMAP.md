@@ -280,7 +280,8 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Penyesuaian `cleanupAllDuplicateEmployees` agar hanya membersihkan duplikat yang memiliki NIK dan Prinsiple yang sama persis.
 
 2. **Konsolidasi Akun & Pengalihan Riwayat Presensi ke NIK Asli (`3528042504850003`):**
-   - Mengalihkan seluruh data riwayat presensi (`attendances`, `attendance_logs`), jadwal kerja (`employee_schedules`), izin, visit, foto profil, dan perangkat aktif (`TECNO TECNO KM7`) ke akun asli **Abdurrahman Jamil** dengan NIK **`3528042504850003`** (PT ANUGRAH TALENTA BERKARYA - IT Surabaya).
+   - Menetapkan akun **Abdurrahman Jamil** pada **PT ANUGRAH TALENTA BERKARYA (IT Surabaya)** sebagai akun **AKTIF TUNGGAL** yang terhubung ke perangkat `TECNO TECNO KM7`, foto profil, dan seluruh riwayat presensi/aktivitas.
+   - Mengubah status akun lama di **PT ARINA MULTI KARYA** menjadi **Non-Aktif / Resign** serta melepas binding perangkatnya.
    - Menghapus record sementara (`EMP-JAMIL-001`) dan memastikan data **Eka Septiani** (NIK `7402256409960001`) tetap terdaftar bersih pada entitas aslinya (PT ALVA KARYA PERKASA - ELINA Makassar).
 
 ---
