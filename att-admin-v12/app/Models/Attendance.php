@@ -37,4 +37,16 @@ class Attendance extends Model
     public function employeeSchedule() {
         return $this->belongsTo(EmployeeSchedule::class);
     }
+
+    public function checkinLog() {
+        return $this->belongsTo(AttendanceLog::class, 'checkin_log_id');
+    }
+
+    public function checkoutLog() {
+        return $this->belongsTo(AttendanceLog::class, 'checkout_log_id');
+    }
+
+    public function logs() {
+        return $this->hasMany(AttendanceLog::class, 'attendance_id');
+    }
 }
