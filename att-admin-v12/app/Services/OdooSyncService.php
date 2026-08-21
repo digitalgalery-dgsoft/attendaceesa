@@ -343,38 +343,35 @@ class OdooSyncService
                 $employeeNo = $rawNik ?: ($rawRegNo ?: ('OD-' . $rec['id']));
 
                 // Look up existing employee:
-                // Prioritas 1: Pencocokan by (NIK + Principal ID) ATAU odoo_id sama
+                // Parameter Pencocokan: WAJIB HANYA jika NIK (employee_no) DAN Principal (principal_id) KEDUANYA SAMA!
                 $existingEmployees = collect();
                 if ($rawNik) {
-                    $existingEmployees = Employee::withTrashed()
-                        ->where(function ($q) use ($rawNik, $principalId, $rec) {
-                            $q->where('odoo_id', $rec['id'])
-                              ->orWhere(function ($sq) use ($rawNik, $principalId) {
-                                  $sq->where('employee_no', $rawNik);
-                                  if ($principalId) {
-                                      $sq->where('principal_id', $principalId);
-                                  }
-                              });
-                        })
-                        ->get();
-
-                    // Prioritas 2 (Fallback): Cari berdasarkan NIK saja (misal karyawan mutasi / pindah prinsiple)
-                    if ($existingEmployees->isEmpty()) {
-                        $existingEmployees = Employee::withTrashed()
-                            ->where('employee_no', $rawNik)
-                            ->get();
+                    $query = Employee::withTrashed()->where('employee_no', $rawNik);
+                    if ($principalId) {
+                        $query->where('principal_id', $principalId);
                     }
+                    $existingEmployees = $query->get();
+                } elseif ($rawRegNo) {
+                    $query = Employee::withTrashed()->where('employee_no', $rawRegNo);
+                    if ($principalId) {
+                        $query->where('principal_id', $principalId);
+                    }
+                    $existingEmployees = $query->get();
                 } else {
-                    $existingEmployees = Employee::withTrashed()
+                    // Fallback jika tidak ada NIK dan NIP di Odoo: gunakan kombinasi ketat odoo_id + company_id + principal_id
+                    $query = Employee::withTrashed()
                         ->where('odoo_id', $rec['id'])
-                        ->orWhere('employee_no', $employeeNo)
-                        ->get();
+                        ->where('company_id', $companyId);
+                    if ($principalId) {
+                        $query->where('principal_id', $principalId);
+                    }
+                    $existingEmployees = $query->get();
                 }
 
                 if ($existingEmployees->isNotEmpty()) {
-                    // Pick the best primary record to keep & update
-                    $primary = $existingEmployees->firstWhere('odoo_id', $rec['id'])
-                        ?: ($existingEmployees->first(fn ($e) => !empty($e->photo) || !empty($e->password))
+                    // Pick the best primary record to keep & update (prioritaskan yang memiliki foto/device/password)
+                    $primary = $existingEmployees->first(fn ($e) => !empty($e->photo) || !empty($e->device_id) || !empty($e->password))
+                        ?: ($existingEmployees->firstWhere('odoo_id', $rec['id'])
                         ?: $existingEmployees->first());
 
                     // PROTEKSI AKUN AKTIF LINTAS ENTITAS:
@@ -670,23 +667,30 @@ class OdooSyncService
     }
 
     /**
-     * Clean up all duplicate employees in database based on NIK / employee_no.
+     * Clean up all duplicate employees in database based on NIK (employee_no) and Principal (principal_id).
      */
     public static function cleanupAllDuplicateEmployees(): int
     {
-        $duplicateNiks = Employee::withTrashed()
-            ->select('employee_no')
-            ->groupBy('employee_no')
+        $duplicateGroups = Employee::withTrashed()
+            ->select('employee_no', 'principal_id')
+            ->whereNotNull('employee_no')
+            ->where('employee_no', '!=', '')
+            ->where('employee_no', 'not like', 'OD-%')
+            ->whereNotNull('principal_id')
+            ->groupBy('employee_no', 'principal_id')
             ->havingRaw('COUNT(*) > 1')
-            ->pluck('employee_no');
+            ->get();
 
         $totalCleaned = 0;
-        foreach ($duplicateNiks as $nik) {
-            $records = Employee::withTrashed()->where('employee_no', $nik)->get();
+        foreach ($duplicateGroups as $group) {
+            $records = Employee::withTrashed()
+                ->where('employee_no', $group->employee_no)
+                ->where('principal_id', $group->principal_id)
+                ->get();
+
             if ($records->count() > 1) {
-                $primary = $records->firstWhere('odoo_id', '!=', null)
-                    ?: ($records->first(fn ($e) => !empty($e->photo) || !empty($e->password))
-                    ?: $records->first());
+                $primary = $records->first(fn ($e) => !empty($e->photo) || !empty($e->device_id) || !empty($e->password))
+                    ?: ($records->firstWhere('odoo_id', '!=', null) ?: $records->first());
 
                 $dupIds = $records->where('id', '!=', $primary->id)->pluck('id')->toArray();
                 if (!empty($dupIds)) {
