@@ -14,12 +14,28 @@
         default     => $status ? ucfirst($status) : ($leaveRequest ? ucfirst($leaveRequest->type) : 'Belum Ada Data'),
     };
     
+    $statusBg = match($status) {
+        'present'   => '#ecfdf5',
+        'late'      => '#fffbeb',
+        'absent'    => '#fff1f2',
+        'leave', 'sick', 'permit' => '#eef2ff',
+        default     => '#f1f5f9',
+    };
+
     $statusColor = match($status) {
-        'present'   => 'emerald',
-        'late'      => 'amber',
-        'absent'    => 'rose',
-        'leave', 'sick', 'permit' => 'indigo',
-        default     => 'gray',
+        'present'   => '#059669',
+        'late'      => '#d97706',
+        'absent'    => '#e11d48',
+        'leave', 'sick', 'permit' => '#4f46e5',
+        default     => '#64748b',
+    };
+
+    $statusBorder = match($status) {
+        'present'   => '#a7f3d0',
+        'late'      => '#fde68a',
+        'absent'    => '#fecdd3',
+        'leave', 'sick', 'permit' => '#c7d2fe',
+        default     => '#cbd5e1',
     };
 
     // Jam Check-in & Check-out
@@ -61,124 +77,95 @@
     $companyName = $schedule?->workLocation?->company?->name 
         ?? $employee?->principal?->name 
         ?? $employee?->company?->name;
+
+    $initials = $employee ? strtoupper(substr($employee->full_name, 0, 2)) : 'PR';
 @endphp
 
-<div class="space-y-6 text-gray-800 dark:text-gray-200">
-    {{-- Header Profile Karyawan & Tanggal --}}
-    <div class="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-md relative overflow-hidden border border-indigo-900/50">
-        <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-            <div class="flex items-center gap-4">
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-500 flex items-center justify-center text-white text-xl font-black shadow-lg shadow-indigo-600/30 ring-2 ring-white/20 flex-shrink-0">
-                    @if($employee)
-                        {{ strtoupper(substr($employee->full_name, 0, 2)) }}
-                    @else
-                        Presensi
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; line-height: 1.5;">
+    
+    {{-- Header Banner Karyawan & Tanggal --}}
+    <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%); color: #ffffff; border-radius: 14px; padding: 18px 22px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; color: #ffffff; box-shadow: 0 4px 10px rgba(99, 102, 241, 0.4); flex-shrink: 0;">
+                {{ $initials }}
+            </div>
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="font-size: 18px; font-weight: 700; color: #ffffff; letter-spacing: -0.02em;">
+                        {{ $employee?->full_name ?? 'Karyawan' }}
+                    </span>
+                    @if($employee?->employee_no)
+                        <span style="font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.15); color: #e0e7ff; padding: 2px 8px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2);">
+                            NIK: {{ $employee->employee_no }}
+                        </span>
                     @endif
                 </div>
-                <div>
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <h2 class="text-xl font-bold text-white tracking-tight">
-                            {{ $employee?->full_name ?? 'Karyawan' }}
-                        </h2>
-                        @if($employee?->employee_no)
-                            <span class="px-2.5 py-0.5 text-xs font-semibold bg-white/10 text-indigo-200 rounded-full border border-white/15">
-                                NIK: {{ $employee->employee_no }}
-                            </span>
-                        @endif
-                    </div>
-                    <div class="flex items-center gap-2 mt-1.5 text-xs text-indigo-200/90 flex-wrap">
-                        @if($employee?->department?->name)
-                            <span class="font-medium text-white/90">{{ $employee->department->name }}</span>
-                            <span class="text-indigo-400">•</span>
-                        @endif
-                        @if($employee?->position?->name)
-                            <span>{{ $employee->position->name }}</span>
-                            <span class="text-indigo-400">•</span>
-                        @endif
-                        @if($employee?->branch?->name)
-                            <span>{{ $employee->branch->name }}</span>
-                        @endif
-                        @if($companyName)
-                            <span class="text-indigo-400">•</span>
-                            <span class="text-amber-300 font-medium">{{ $companyName }}</span>
-                        @endif
-                    </div>
+                <div style="font-size: 12px; color: #c7d2fe; margin-top: 4px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    @if($employee?->department?->name)
+                        <span>{{ $employee->department->name }}</span>
+                        <span style="opacity: 0.5;">•</span>
+                    @endif
+                    @if($employee?->position?->name)
+                        <span>{{ $employee->position->name }}</span>
+                        <span style="opacity: 0.5;">•</span>
+                    @endif
+                    @if($employee?->branch?->name)
+                        <span>{{ $employee->branch->name }}</span>
+                    @endif
+                    @if($companyName)
+                        <span style="opacity: 0.5;">•</span>
+                        <span style="color: #fde047; font-weight: 600;">{{ $companyName }}</span>
+                    @endif
                 </div>
             </div>
+        </div>
 
-            <div class="sm:text-right flex-shrink-0 bg-white/10 sm:bg-transparent p-3 sm:p-0 rounded-xl backdrop-blur-sm sm:backdrop-blur-none border border-white/10 sm:border-0">
-                <div class="text-xs uppercase tracking-wider text-indigo-300 font-semibold">Tanggal Absensi</div>
-                <div class="text-base font-bold text-white mt-0.5">{{ $formattedDate }}</div>
-            </div>
+        <div style="text-align: right; background: rgba(255,255,255,0.08); padding: 8px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12);">
+            <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #a5b4fc; font-weight: 700;">Tanggal Presensi</div>
+            <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-top: 2px;">{{ $formattedDate }}</div>
         </div>
     </div>
 
-    {{-- Notifikasi Penyesuaian Manual / Import Excel --}}
+    {{-- Penyesuaian Manual / Import Alert --}}
     @if($attendance && $attendance->is_manual_correction)
-        <div class="p-4 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/80 rounded-2xl flex items-start gap-3.5 shadow-sm">
-            <div class="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-900/60 flex items-center justify-center text-purple-600 dark:text-purple-300 text-base flex-shrink-0">
-                ⚡
-            </div>
-            <div class="flex-1 min-w-0">
-                <div class="text-xs font-bold uppercase tracking-wider text-purple-800 dark:text-purple-300">Data Hasil Penyesuaian / Import Excel</div>
-                <div class="text-sm text-purple-900 dark:text-purple-200 mt-0.5">
+        <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 12px; padding: 12px 16px; margin-top: 14px; display: flex; align-items: flex-start; gap: 10px;">
+            <span style="font-size: 16px;">⚡</span>
+            <div>
+                <div style="font-size: 11px; font-weight: 700; color: #7e22ce; text-transform: uppercase; letter-spacing: 0.04em;">Data Hasil Penyesuaian / Import Excel</div>
+                <div style="font-size: 12px; color: #581c87; margin-top: 2px;">
                     <strong>Catatan:</strong> {{ $attendance->correction_note ?: 'Disinkronkan melalui Import Excel oleh Admin' }}
                 </div>
             </div>
         </div>
     @endif
 
-    {{-- 3 Kartu Ringkasan Informasi (Status Presensi, Jadwal Shift, GPS & Live Tracking) --}}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {{-- Card 1: Status Presensi & Jam --}}
-        <div class="p-5 rounded-2xl bg-white dark:bg-gray-800/90 border border-gray-200/80 dark:border-gray-700/80 shadow-sm flex flex-col justify-between">
+    {{-- 3 Kartu Ringkasan Status, Shift & GPS Tracking --}}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-top: 16px;">
+        
+        {{-- Card 1: Status Kehadiran --}}
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between;">
             <div>
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status Kehadiran</span>
-                    @if($status === 'present')
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            {{ $statusLabel }}
-                        </span>
-                    @elseif($status === 'late')
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                            {{ $statusLabel }}
-                            @if($attendance?->late_minutes > 0)
-                                (+{{ $attendance->late_minutes }}m)
-                            @endif
-                        </span>
-                    @elseif($status === 'absent')
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-                            {{ $statusLabel }}
-                        </span>
-                    @else
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">
-                            <span class="w-2 h-2 rounded-full bg-gray-400"></span>
-                            {{ $statusLabel }}
-                        </span>
-                    @endif
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Status Presensi</span>
+                    <span style="display: inline-flex; align-items: center; gap: 5px; background: {{ $statusBg }}; color: {{ $statusColor }}; border: 1px solid {{ $statusBorder }}; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;">
+                        <span style="width: 6px; height: 6px; border-radius: 50%; background: {{ $statusColor }};"></span>
+                        {{ $statusLabel }}
+                        @if($status === 'late' && $attendance?->late_minutes > 0)
+                            (+{{ $attendance->late_minutes }}m)
+                        @endif
+                    </span>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3 mt-4">
-                    <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800">
-                        <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                            <x-filament::icon icon="heroicon-o-arrow-right-end-on-rectangle" class="w-4 h-4 text-emerald-500" />
-                            <span>Check-In</span>
-                        </div>
-                        <div class="text-base font-bold text-gray-900 dark:text-white mt-1 font-mono">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div style="background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 8px; padding: 8px 10px;">
+                        <div style="font-size: 10px; color: #64748b; font-weight: 600;">CHECK-IN</div>
+                        <div style="font-size: 14px; font-weight: 700; color: #0f172a; margin-top: 2px; font-family: monospace;">
                             {{ $checkinTime ?? '--:--:--' }}
                         </div>
                     </div>
-
-                    <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800">
-                        <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                            <x-filament::icon icon="heroicon-o-arrow-left-start-on-rectangle" class="w-4 h-4 text-amber-500" />
-                            <span>Check-Out</span>
-                        </div>
-                        <div class="text-base font-bold text-gray-900 dark:text-white mt-1 font-mono">
+                    <div style="background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 8px; padding: 8px 10px;">
+                        <div style="font-size: 10px; color: #64748b; font-weight: 600;">CHECK-OUT</div>
+                        <div style="font-size: 14px; font-weight: 700; color: #0f172a; margin-top: 2px; font-family: monospace;">
                             {{ $checkoutTime ?? '--:--:--' }}
                         </div>
                     </div>
@@ -186,184 +173,173 @@
             </div>
 
             @if($workDuration)
-                <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between text-xs">
-                    <span class="text-gray-500 dark:text-gray-400">Durasi Kerja:</span>
-                    <span class="font-bold text-indigo-600 dark:text-indigo-400">{{ $workDuration }}</span>
+                <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+                    <span style="color: #64748b;">Durasi Kerja:</span>
+                    <span style="font-weight: 700; color: #4f46e5;">{{ $workDuration }}</span>
                 </div>
             @endif
         </div>
 
-        {{-- Card 2: Jadwal & Shift Roster --}}
-        <div class="p-5 rounded-2xl bg-white dark:bg-gray-800/90 border border-gray-200/80 dark:border-gray-700/80 shadow-sm flex flex-col justify-between">
+        {{-- Card 2: Shift Roster & Lokasi --}}
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between;">
             <div>
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Jadwal Shift Roster</span>
-                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Jadwal Shift Roster</span>
+                    <span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700;">
                         {{ $schedule?->schedule_type ? ucfirst($schedule->schedule_type) : 'Workday' }}
                     </span>
                 </div>
 
-                <div class="space-y-3 mt-4">
-                    <div class="flex items-start gap-2.5">
-                        <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5">
-                            <x-filament::icon icon="heroicon-o-clock" class="w-4 h-4" />
-                        </div>
-                        <div>
-                            <div class="text-xs text-gray-500 dark:text-gray-400">Shift Kerja</div>
-                            <div class="text-sm font-bold text-gray-900 dark:text-white">
-                                {{ $shiftName }} 
-                                @if($shiftTime)
-                                    <span class="text-xs font-normal text-gray-500 dark:text-gray-400">({{ $shiftTime }})</span>
-                                @endif
-                            </div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div>
+                        <div style="font-size: 10px; color: #64748b; font-weight: 600;">SHIFT KERJA</div>
+                        <div style="font-size: 13px; font-weight: 700; color: #0f172a;">
+                            {{ $shiftName }}
+                            @if($shiftTime)
+                                <span style="font-size: 11px; font-weight: 500; color: #64748b;">({{ $shiftTime }})</span>
+                            @endif
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2.5">
-                        <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5">
-                            <x-filament::icon icon="heroicon-o-building-office-2" class="w-4 h-4" />
-                        </div>
-                        <div class="min-w-0">
-                            <div class="text-xs text-gray-500 dark:text-gray-400">Lokasi Penempatan</div>
-                            <div class="text-sm font-bold text-gray-900 dark:text-white truncate" title="{{ $scheduledLocation }}">
-                                {{ $scheduledLocation }}
-                            </div>
+                    <div>
+                        <div style="font-size: 10px; color: #64748b; font-weight: 600;">LOKASI PENEMPATAN</div>
+                        <div style="font-size: 12px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ $scheduledLocation }}">
+                            📍 {{ $scheduledLocation }}
                         </div>
                     </div>
                 </div>
             </div>
 
             @if($schedule?->planned_start_at)
-                <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <span>Target Jam Masuk:</span>
-                    <span class="font-mono font-medium text-gray-700 dark:text-gray-300">{{ \Carbon\Carbon::parse($schedule->planned_start_at)->format('H:i') }} WIB</span>
+                <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+                    <span style="color: #64748b;">Target Masuk:</span>
+                    <span style="font-family: monospace; font-weight: 600; color: #334155;">{{ \Carbon\Carbon::parse($schedule->planned_start_at)->format('H:i') }} WIB</span>
                 </div>
             @endif
         </div>
 
-        {{-- Card 3: GPS & Live Tracking --}}
-        <div class="p-5 rounded-2xl bg-white dark:bg-gray-800/90 border border-gray-200/80 dark:border-gray-700/80 shadow-sm flex flex-col justify-between">
+        {{-- Card 3: Live Tracking GPS --}}
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between;">
             <div>
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">GPS & Live Tracking</span>
-                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">Live Tracking (GPS)</span>
+                    <span style="background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700;">
                         {{ $trackingCount ?? 0 }} Titik GPS
                     </span>
                 </div>
 
-                <p class="text-xs text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">
-                    Sistem merekam pergerakan posisi karyawan secara otomatis saat aplikasi aktif dan berada dalam jam kerja.
-                </p>
+                <div style="font-size: 11px; color: #64748b; line-height: 1.4;">
+                    Riwayat perpindahan posisi karyawan selama jam kerja otomatis direkam oleh sistem.
+                </div>
             </div>
 
-            <div class="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700/60">
+            <div style="margin-top: 12px;">
                 @if($attendance)
                     <a
                         href="{{ \App\Filament\Resources\Attendances\AttendanceResource::getUrl('view-route', ['record' => $attendance->id]) }}"
                         target="_blank"
-                        class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-bold shadow-md shadow-sky-500/20 transition-all transform active:scale-98"
+                        style="display: block; text-align: center; background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%); color: #ffffff; font-size: 11px; font-weight: 700; padding: 8px 12px; border-radius: 8px; text-decoration: none; box-shadow: 0 2px 6px rgba(37,99,235,0.25);"
                     >
-                        <x-filament::icon icon="heroicon-o-map" class="w-4 h-4" />
-                        <span>Lihat Rute Live Tracking (Peta Lengkap)</span>
+                        🗺️ Lihat Rute Live Tracking (Peta)
                     </a>
                 @else
-                    <button disabled class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-400 text-xs font-bold cursor-not-allowed border border-gray-200 dark:border-gray-700">
-                        <x-filament::icon icon="heroicon-o-map" class="w-4 h-4" />
-                        <span>Tracking Tidak Tersedia</span>
-                    </button>
+                    <div style="text-align: center; background: #f1f5f9; color: #94a3b8; font-size: 11px; font-weight: 600; padding: 8px 12px; border-radius: 8px;">
+                        Tracking Tidak Tersedia
+                    </div>
                 @endif
             </div>
         </div>
     </div>
 
-    {{-- Bagian Log Aktivitas & Bukti Presensi (Activity Logs) --}}
-    <div class="border-t border-gray-200/80 dark:border-gray-700/80 pt-6">
-        <div class="flex items-center justify-between mb-5">
-            <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                    <x-filament::icon icon="heroicon-o-clock" class="w-5 h-5" />
-                </div>
-                <div>
-                    <h3 class="text-base font-bold text-gray-900 dark:text-white">Riwayat Log Aktivitas & Bukti Lokasi</h3>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Detail seluruh interaksi check-in, visit, dan checkout pada hari ini.</p>
-                </div>
+    {{-- Bagian Riwayat Log Aktivitas & Bukti Lokasi (Activity Logs) --}}
+    <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid #e2e8f0;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+            <div>
+                <div style="font-size: 14px; font-weight: 700; color: #0f172a;">📋 Riwayat Log Presensi & Lokasi (Activity Logs)</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 1px;">Daftar aktivitas check-in, checkout, dan kunjungan pada tanggal ini.</div>
             </div>
-            <span class="px-3 py-1 text-xs font-bold rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
+            <span style="font-size: 11px; font-weight: 700; background: #f1f5f9; color: #475569; padding: 3px 10px; border-radius: 12px; border: 1px solid #e2e8f0;">
                 Total: {{ count($logs ?? []) }} Log
             </span>
         </div>
-        
+
         @if (empty($logs) || count($logs) === 0)
-            <div class="p-8 bg-gray-50/70 dark:bg-gray-800/40 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 text-center">
-                <div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-3 text-gray-400">
-                    <x-filament::icon icon="heroicon-o-calendar-days" class="w-6 h-6" />
-                </div>
-                <div class="text-sm font-bold text-gray-700 dark:text-gray-300">Tidak Ada Log Aktivitas</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-sm mx-auto">
-                    Karyawan tidak memiliki catatan aktivitas check-in, check-out, ataupun kunjungan pada tanggal {{ $formattedDate }}.
-                </div>
+            <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 28px; text-align: center; color: #64748b;">
+                <div style="font-size: 28px; margin-bottom: 6px;">📅</div>
+                <div style="font-size: 13px; font-weight: 700; color: #334155;">Belum Ada Log Aktivitas</div>
+                <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Tidak ada log check-in atau aktivitas yang terekam pada hari ini.</div>
             </div>
         @else
-            <div class="space-y-4">
-                @foreach ($logs as $index => $log)
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                @foreach ($logs as $log)
                     @php
                         $logTypeLabel = match($log->log_type) {
-                            'checkin'       => 'Check In Presensi',
-                            'checkout'      => 'Check Out Presensi',
-                            'visit_in'      => 'Visit In (Mulai Kunjungan)',
-                            'visit_out'     => 'Visit Out (Selesai Kunjungan)',
-                            'visit_report'  => 'Laporan Kunjungan (Visit Report)',
+                            'checkin'       => 'Check In',
+                            'checkout'      => 'Check Out',
+                            'visit_in'      => 'Visit In (Kunjungan Masuk)',
+                            'visit_out'     => 'Visit Out (Kunjungan Selesai)',
+                            'visit_report'  => 'Laporan Kunjungan',
                             default         => str_replace('_', ' ', ucfirst($log->log_type)),
                         };
-                        
-                        $isCheckin = in_array($log->log_type, ['checkin', 'visit_in']);
-                        $isCheckout = in_array($log->log_type, ['checkout', 'visit_out']);
-                        $isReport  = $log->log_type === 'visit_report';
 
-                        $badgeColorClass = match(true) {
-                            $log->log_type === 'checkin'  => 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-                            $log->log_type === 'checkout' => 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-                            $log->log_type === 'visit_in' => 'bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border-sky-200 dark:border-sky-800',
-                            $log->log_type === 'visit_out'=> 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
-                            default                       => 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+                        $logBg = match($log->log_type) {
+                            'checkin'  => '#ecfdf5',
+                            'checkout' => '#fffbeb',
+                            'visit_in' => '#f0f9ff',
+                            'visit_out'=> '#f5f3ff',
+                            default    => '#faf5ff',
+                        };
+
+                        $logColor = match($log->log_type) {
+                            'checkin'  => '#047857',
+                            'checkout' => '#b45309',
+                            'visit_in' => '#0369a1',
+                            'visit_out'=> '#6d28d9',
+                            default    => '#7e22ce',
+                        };
+
+                        $logBorder = match($log->log_type) {
+                            'checkin'  => '#a7f3d0',
+                            'checkout' => '#fde68a',
+                            'visit_in' => '#bae6fd',
+                            'visit_out'=> '#ddd6fe',
+                            default    => '#e9d5ff',
                         };
 
                         $itItem = $log->itinerary_item_id ? \App\Models\ItineraryItem::with('workLocation')->find($log->itinerary_item_id) : null;
                         $locationName = $log->address_text 
                             ?: ($itItem?->workLocation?->name 
                             ?: ($log->latitude && $log->longitude ? number_format($log->latitude, 6) . ', ' . number_format($log->longitude, 6) : 'Lokasi tidak terekam'));
+                        
+                        $photoUrl = $log->photo_path ? \Illuminate\Support\Facades\Storage::url($log->photo_path) : null;
                     @endphp
 
-                    <div class="p-5 bg-white dark:bg-gray-800/95 rounded-2xl border border-gray-200/90 dark:border-gray-700/80 shadow-sm transition-all hover:shadow-md">
-                        {{-- Top Header Row of the Log --}}
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 mb-4 border-b border-gray-100 dark:border-gray-700/60 gap-2">
-                            <div class="flex items-center gap-2.5 flex-wrap">
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase border {{ $badgeColorClass }}">
+                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+                        {{-- Bar Atas: Tipe Log, Jam & Status Geofence --}}
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px solid #f1f5f9;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="background: {{ $logBg }}; color: {{ $logColor }}; border: 1px solid {{ $logBorder }}; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase;">
                                     {{ $logTypeLabel }}
                                 </span>
-                                <span class="inline-flex items-center gap-1 text-sm font-bold text-gray-900 dark:text-white font-mono">
-                                    <x-filament::icon icon="heroicon-o-clock" class="w-4 h-4 text-gray-400" />
-                                    {{ \Carbon\Carbon::parse($log->logged_at)->timezone('Asia/Jakarta')->format('H:i:s') }} WIB
+                                <span style="font-size: 13px; font-weight: 700; color: #0f172a; font-family: monospace;">
+                                    🕒 {{ \Carbon\Carbon::parse($log->logged_at)->timezone('Asia/Jakarta')->format('H:i:s') }} WIB
                                 </span>
                             </div>
 
-                            {{-- Geofence Status Pill --}}
                             @if(!is_null($log->is_inside_geofence))
                                 <div>
                                     @if($log->is_inside_geofence)
-                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                            <x-filament::icon icon="heroicon-s-check-circle" class="w-3.5 h-3.5 text-emerald-500" />
-                                            <span>Dalam Radius Kantor</span>
+                                        <span style="background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;">
+                                            ✓ Dalam Radius Kantor
                                             @if($log->distance_from_location_meter)
-                                                <span class="font-bold">({{ round($log->distance_from_location_meter) }}m)</span>
+                                                ({{ round($log->distance_from_location_meter) }}m)
                                             @endif
                                         </span>
                                     @else
-                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                                            <x-filament::icon icon="heroicon-s-exclamation-triangle" class="w-3.5 h-3.5 text-rose-500" />
-                                            <span>Di Luar Radius Kantor</span>
+                                        <span style="background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;">
+                                            ⚠️ Di Luar Radius
                                             @if($log->distance_from_location_meter)
-                                                <span class="font-bold">({{ round($log->distance_from_location_meter) }}m)</span>
+                                                ({{ round($log->distance_from_location_meter) }}m)
                                             @endif
                                         </span>
                                     @endif
@@ -371,99 +347,86 @@
                             @endif
                         </div>
 
-                        {{-- 2-Column Content Layout (Left: Info & Foto, Right: Embedded Map) --}}
-                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                            {{-- Left Side: Details, Photo, Notes (7 cols) --}}
-                            <div class="lg:col-span-6 space-y-3.5">
-                                {{-- Alamat & Koordinat --}}
-                                <div class="p-3.5 rounded-xl bg-gray-50/80 dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800">
-                                    <div class="flex items-start gap-2 text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                                        <x-filament::icon icon="heroicon-o-map-pin" class="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
-                                        <span>Lokasi Presensi:</span>
-                                    </div>
-                                    <div class="text-sm font-medium text-gray-900 dark:text-white pl-6 leading-snug">
-                                        {{ $locationName }}
+                        {{-- Layout 2 Kolom (Kiri: Alamat, Foto Thumbnail Kecil, Catatan | Kanan: Peta Embed) --}}
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start;">
+                            
+                            {{-- Kolom Kiri: Alamat, Koordinat, Catatan & Foto Thumbnail --}}
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                
+                                {{-- Box Alamat & Koordinat --}}
+                                <div style="background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px; padding: 10px 12px;">
+                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Lokasi Presensi</div>
+                                    <div style="font-size: 12px; font-weight: 600; color: #1e293b; margin-top: 2px;">
+                                        📍 {{ $locationName }}
                                     </div>
 
                                     @if($log->latitude && $log->longitude)
-                                        <div class="mt-2.5 pt-2 border-t border-gray-200/50 dark:border-gray-700/50 pl-6 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                                            <span class="font-mono">
+                                        <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+                                            <span style="font-family: monospace; color: #64748b;">
                                                 {{ number_format($log->latitude, 6) }}, {{ number_format($log->longitude, 6) }}
                                                 @if($log->accuracy_meter)
-                                                    <span class="text-gray-400">(±{{ round($log->accuracy_meter) }}m)</span>
+                                                    <span style="color: #94a3b8;">(±{{ round($log->accuracy_meter) }}m)</span>
                                                 @endif
                                             </span>
                                             <a 
                                                 href="https://maps.google.com/maps?q={{ $log->latitude }},{{ $log->longitude }}" 
                                                 target="_blank" 
-                                                class="text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 font-semibold"
+                                                style="color: #2563eb; font-weight: 600; text-decoration: none;"
                                             >
-                                                <span>Buka Maps</span>
-                                                <x-filament::icon icon="heroicon-o-arrow-top-right-on-square" class="w-3 h-3" />
+                                                Buka Maps ↗
                                             </a>
                                         </div>
                                     @endif
                                 </div>
 
-                                {{-- Catatan Log / Keterangan --}}
+                                {{-- Catatan Jika Ada --}}
                                 @if($log->note)
-                                    <div class="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200">
-                                        <div class="font-bold flex items-center gap-1 mb-1">
-                                            <x-filament::icon icon="heroicon-o-chat-bubble-left-ellipsis" class="w-3.5 h-3.5" />
-                                            <span>Catatan:</span>
-                                        </div>
-                                        <div class="italic">"{{ $log->note }}"</div>
+                                    <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 8px 10px; font-size: 11px; color: #92400e;">
+                                        <strong>💬 Catatan:</strong> "{{ $log->note }}"
                                     </div>
                                 @endif
 
-                                {{-- Foto Selfie / Lampiran --}}
-                                @if($log->photo_path)
-                                    @php
-                                        $photoUrl = \Illuminate\Support\Facades\Storage::url($log->photo_path);
-                                    @endphp
-                                    <div class="flex items-center gap-3 p-3 rounded-xl bg-gray-50/80 dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800">
-                                        <a href="{{ $photoUrl }}" target="_blank" class="block flex-shrink-0 group relative overflow-hidden rounded-xl shadow ring-1 ring-gray-200 dark:ring-gray-700">
+                                {{-- Foto Selfie Thumbnail Kecil (70x70 px) --}}
+                                @if($photoUrl)
+                                    <div style="display: flex; align-items: center; gap: 12px; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px; padding: 8px 12px;">
+                                        <a href="{{ $photoUrl }}" target="_blank" title="Klik untuk memperbesar foto" style="display: block; flex-shrink: 0; position: relative;">
                                             <img 
                                                 src="{{ $photoUrl }}" 
                                                 alt="Foto Presensi" 
-                                                class="w-20 h-20 object-cover group-hover:scale-105 transition-transform duration-300"
+                                                style="width: 65px; height: 65px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd5e1; display: block; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
                                             >
-                                            <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                                                <x-filament::icon icon="heroicon-o-magnifying-glass-plus" class="w-5 h-5" />
-                                            </div>
                                         </a>
                                         <div>
-                                            <div class="text-xs font-bold text-gray-900 dark:text-white">Foto Bukti Presensi</div>
-                                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Selfie kamera aktif saat verifikasi lokasi</div>
-                                            <a href="{{ $photoUrl }}" target="_blank" class="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-                                                <span>Lihat Resolusi Penuh</span>
-                                                <x-filament::icon icon="heroicon-o-arrow-top-right-on-square" class="w-3 h-3" />
+                                            <div style="font-size: 11px; font-weight: 700; color: #0f172a;">Foto Selfie Presensi</div>
+                                            <div style="font-size: 10px; color: #64748b; margin-top: 1px;">Kamera aktif saat verifikasi lokasi</div>
+                                            <a href="{{ $photoUrl }}" target="_blank" style="display: inline-block; margin-top: 4px; font-size: 11px; font-weight: 600; color: #2563eb; text-decoration: none;">
+                                                🔍 Lihat Foto Penuh ↗
                                             </a>
                                         </div>
                                     </div>
                                 @endif
                             </div>
 
-                            {{-- Right Side: Embedded Google Map (6 cols) --}}
-                            <div class="lg:col-span-6">
+                            {{-- Kolom Kanan: Peta Google Maps Embed --}}
+                            <div>
                                 @if ($log->latitude && $log->longitude)
-                                    <div class="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 shadow-inner bg-gray-100 dark:bg-gray-900 h-56">
+                                    <div style="overflow: hidden; border-radius: 10px; border: 1px solid #e2e8f0; height: 165px; background: #f1f5f9;">
                                         <iframe 
                                             width="100%" 
                                             height="100%" 
-                                            style="border:0;" 
+                                            style="border: 0; display: block;" 
                                             loading="lazy" 
                                             allowfullscreen 
                                             src="https://maps.google.com/maps?q={{ $log->latitude }},{{ $log->longitude }}&z=15&output=embed">
                                         </iframe>
                                     </div>
                                 @else
-                                    <div class="h-56 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 flex flex-col items-center justify-center text-gray-400 text-xs">
-                                        <x-filament::icon icon="heroicon-o-map-pin" class="w-8 h-8 mb-1.5 opacity-50" />
-                                        <span>Koordinat GPS tidak tersedia</span>
+                                    <div style="height: 165px; border-radius: 10px; border: 1px dashed #cbd5e1; background: #f8fafc; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8;">
+                                        Peta tidak tersedia
                                     </div>
                                 @endif
                             </div>
+
                         </div>
                     </div>
                 @endforeach
