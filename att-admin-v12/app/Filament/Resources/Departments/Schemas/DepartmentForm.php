@@ -14,9 +14,11 @@ class DepartmentForm
     {
         return $schema
             ->components([
-                Select::make('companies')
-                    ->relationship('companies', 'name')
-                    ->multiple()
+                Select::make('principal_id')
+                    ->relationship('principal', 'name')
+                    ->label('Prinsiple')
+                    ->searchable()
+                    ->preload()
                     ->required(),
                 TextInput::make('name')
                     ->required(),

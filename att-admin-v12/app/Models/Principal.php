@@ -19,4 +19,14 @@ class Principal extends Model
     {
         return $this->belongsTo(Company::class);
     }
+
+    public function departments()
+    {
+        return $this->hasMany(Department::class);
+    }
+
+    public function positions()
+    {
+        return $this->hasMany(Position::class);
+    }
 }

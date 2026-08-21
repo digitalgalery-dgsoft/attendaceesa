@@ -286,6 +286,21 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 
 ---
 
+## ✅ Tahap 11: Pengikatan Department ke Prinsiple & Auto-Create via Odoo Sync (SELESAI 21 Agustus 2026)
+*Tahap ini mengubah relasi Department agar terikat langsung ke Prinsiple dan dibuat otomatis saat sync data karyawan Odoo.*
+
+1. **Relasi Department ke Prinsiple:**
+   - Menambahkan kolom `principal_id` pada tabel `departments` dan membuat relasi `principal()` pada model `Department` serta `departments()` pada model `Principal`.
+   - Mengganti kolom tampilan dan form pemilihan dari `Company` menjadi **Prinsiple** pada menu Master Data **Departments**.
+   - Menambahkan filter pencarian berdasarkan Prinsiple pada tabel Departments.
+   - Menambahkan filter dinamis pada form Employee agar pilihan Department dan Position menyesuaikan Prinsiple yang dipilih.
+
+2. **Auto-Create Department via Odoo Sync:**
+   - Menyesuaikan `OdooSyncService` agar secara otomatis membuat (*firstOrCreate*) record Department berdasarkan data department dari Odoo (`rec['department_id']`) yang terikat ke `principal_id` karyawan terkait.
+   - Migrasi data untuk melengkapi seluruh `principal_id` pada record department yang sebelumnya kosong dan menautkan ulang `department_id` karyawan ke departemen yang sesuai dengan Prinsiple masing-masing.
+
+---
+
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)
 1. **Lanjutan Monitoring & Rekap Operasional:**
    - Evaluasi integrasi data jadwal visit schedule dan kehadiran di mobile app saat karyawan check-in via lokasi terjadwal visit.

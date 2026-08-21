@@ -7,6 +7,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class DepartmentsTable
@@ -15,9 +16,10 @@ class DepartmentsTable
     {
         return $table
             ->columns([
-                TextColumn::make('companies.name')
-                    ->label('Companies')
-                    ->badge(),
+                TextColumn::make('principal.name')
+                    ->label('Prinsiple')
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('name')
                     ->searchable(),
                 TextColumn::make('code')
@@ -44,7 +46,11 @@ class DepartmentsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('principal_id')
+                    ->relationship('principal', 'name')
+                    ->label('Prinsiple')
+                    ->searchable()
+                    ->preload(),
             ])
             ->recordActions([
                 EditAction::make(),

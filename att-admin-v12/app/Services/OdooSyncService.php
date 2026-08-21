@@ -288,10 +288,35 @@ class OdooSyncService
                 }
 
                 $deptName = $isInhouse ? 'Inhouse' : 'Ratecard';
+                if (!empty($rec['department_id']) && is_array($rec['department_id'])) {
+                    $rawDeptName = trim((string) $rec['department_id'][1]);
+                    if (!empty($rawDeptName)) {
+                        $deptName = $rawDeptName;
+                    }
+                }
+
                 $department = Department::firstOrCreate(
-                    ['name' => $deptName, 'company_id' => $companyId],
-                    ['is_active' => true]
+                    [
+                        'name'         => $deptName,
+                        'principal_id' => $principalId,
+                    ],
+                    [
+                        'company_id'          => $companyId,
+                        'code'                => 'DEP-' . strtoupper(\Illuminate\Support\Str::random(5)),
+                        'is_active'           => true,
+                        'has_sales_reporting' => (strtoupper($deptName) === 'SALES'),
+                        'cutoff_start_date'   => 26,
+                        'working_days'        => ['1', '2', '3', '4', '5'],
+                    ]
                 );
+
+                if ((!$department->principal_id && $principalId) || (!$department->company_id && $companyId)) {
+                    $department->update([
+                        'principal_id' => $department->principal_id ?: $principalId,
+                        'company_id'   => $department->company_id ?: $companyId,
+                    ]);
+                }
+
                 $departmentId = $department->id;
 
                 // Resolve Area (Branch in local db) — auto-create if not found

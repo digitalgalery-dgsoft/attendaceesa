@@ -11,6 +11,7 @@ class Department extends Model
 
     protected $fillable = [
         'company_id',
+        'principal_id',
         'name',
         'code',
         'parent_id',
@@ -25,6 +26,11 @@ class Department extends Model
         'working_days' => 'array',
         'has_sales_reporting' => 'boolean',
     ];
+
+    public function principal()
+    {
+        return $this->belongsTo(Principal::class);
+    }
 
     public function company()
     {

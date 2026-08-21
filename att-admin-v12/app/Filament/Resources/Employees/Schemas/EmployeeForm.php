@@ -38,21 +38,35 @@ class EmployeeForm
                     ]),
                 Select::make('principal_id')
                     ->relationship('principal', 'name')
-                    ->label('Company')
+                    ->label('Prinsiple')
                     ->searchable()
+                    ->preload()
                     ->required()
                     ->live(),
                 Select::make('branch_id')
                     ->relationship('branch', 'name')
                     ->searchable()
+                    ->preload()
                     ->label('Area'),
                 Select::make('department_id')
-                    ->relationship('department', 'name')
+                    ->relationship('department', 'name', modifyQueryUsing: function ($query, $get) {
+                        $principalId = $get('principal_id');
+                        if ($principalId) {
+                            $query->where('principal_id', $principalId);
+                        }
+                    })
                     ->searchable()
+                    ->preload()
                     ->label('Department'),
                 Select::make('position_id')
-                    ->relationship('position', 'name')
+                    ->relationship('position', 'name', modifyQueryUsing: function ($query, $get) {
+                        $principalId = $get('principal_id');
+                        if ($principalId) {
+                            $query->where('principal_id', $principalId);
+                        }
+                    })
                     ->searchable()
+                    ->preload()
                     ->label('Position'),
                 Select::make('supervisor_id')
                     ->relationship('supervisor', 'full_name')

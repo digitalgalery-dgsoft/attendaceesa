@@ -15,7 +15,7 @@ class DepartmentImporter extends Importer
     public static function getColumns(): array
     {
         return [
-            ImportColumn::make('company')
+            ImportColumn::make('principal')
                 ->relationship(resolveUsing: 'name')
                 ->requiredMapping()
                 ->rules(['required']),
