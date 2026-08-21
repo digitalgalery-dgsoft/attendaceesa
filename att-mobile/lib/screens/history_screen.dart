@@ -5,6 +5,7 @@ import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/utils/constants.dart';
 import 'package:att_mobile/screens/tracking_history_screen.dart';
+import 'package:att_mobile/widgets/skeleton_loading.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -128,8 +129,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ],
       ),
-      body: attProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
+      body: attProvider.isLoading && attProvider.monthlyHistory.isEmpty
+          ? const HistorySkeleton()
           : RefreshIndicator(
               onRefresh: () async => _fetchData(),
               child: SingleChildScrollView(

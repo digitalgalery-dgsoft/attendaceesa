@@ -31,6 +31,8 @@ import 'package:att_mobile/screens/meeting_detail_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:toastification/toastification.dart';
+import 'package:att_mobile/widgets/skeleton_loading.dart';
+import 'package:att_mobile/services/offline_sync_service.dart';
 
 
 class DashboardScreen extends StatefulWidget {
@@ -115,7 +117,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final dashboardProvider = Provider.of<DashboardProvider>(context);
 
     if (authProvider.employeeData == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: backgroundColor,
+        body: const SafeArea(child: DashboardSkeleton()),
+      );
     }
 
     final employeeName = authProvider.employeeData?['full_name'] ?? 'User';
@@ -164,13 +169,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       scheduleLocationAddress = attProvider.todaySchedule!['work_location']['address'] ?? '-';
     }
 
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
-    final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
-    final textColor = isDarkMode ? Colors.white : const Color(0xFF0E1830);
-    final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
-    final elevatedColor = isDarkMode ? Colors.grey.shade800 : const Color(0xFFEDF1F8);
-
     return Scaffold(
       backgroundColor: backgroundColor,
       body: SafeArea(
@@ -180,6 +178,77 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Offline Pending Sync Notification Banner
+                if (attProvider.pendingOfflineCount > 0)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.amber.withOpacity(0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cloud_sync_rounded, color: Color(0xFFD97706), size: 22),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${attProvider.pendingOfflineCount} presensi tersimpan di HP (Offline). Mengirim otomatis saat online...',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF92400E),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: () async {
+                            final token = authProvider.token;
+                            if (token != null) {
+                              final count = await OfflineSyncService.syncAllPendingActions(token);
+                              if (context.mounted) {
+                                await attProvider.refreshPendingOfflineCount();
+                                await attProvider.loadDashboardData();
+                                if (count > 0) {
+                                  toastification.show(
+                                    context: context,
+                                    title: Text('$count data offline berhasil disinkronkan ke server'),
+                                    autoCloseDuration: const Duration(seconds: 3),
+                                    type: ToastificationType.success,
+                                  );
+                                }
+                              }
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD97706),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'Sync',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // Header (home-head)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,

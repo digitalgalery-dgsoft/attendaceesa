@@ -84,19 +84,74 @@ class AttendanceProvider with ChangeNotifier {
   DateTime? _meetingStartTime;
   DateTime? get meetingStartTime => _meetingStartTime;
 
-  // ─── Load jadwal hari ini + status absensi ────────────────────────────────
+  int _pendingOfflineCount = 0;
+  int get pendingOfflineCount => _pendingOfflineCount;
+
+  Future<void> refreshPendingOfflineCount() async {
+    _pendingOfflineCount = await OfflineSyncService.getPendingQueueCount();
+    notifyListeners();
+  }
+
+  // ─── Load jadwal hari ini + status absensi (Cache-First) ───────────────────
   Future<void> loadDashboardData() async {
-    _isLoading = true;
-    notifyListeners();
+    // 1. Coba muat data dari Cache Lokal terlebih dahulu agar layar tidak blank/loading lama
+    await _loadFromLocalCache();
+    await refreshPendingOfflineCount();
 
-    await Future.wait([
-      _fetchTodaySchedule(),
-      checkAttendanceStatus(),
-      fetchTodayMeetings(),
-    ]);
+    if (_todaySchedule == null && _monthlyHistory.isEmpty) {
+      _isLoading = true;
+      notifyListeners();
+    }
 
-    _isLoading = false;
-    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      // 2. Jika ada token, coba sinkronisasikan antrean offline secara otomatis
+      if (token != null && token.isNotEmpty) {
+        final synced = await OfflineSyncService.syncAllPendingActions(token);
+        if (synced > 0) {
+          await refreshPendingOfflineCount();
+        }
+      }
+
+      // 3. Ambil data terbaru dari server
+      await Future.wait([
+        _fetchTodaySchedule(),
+        checkAttendanceStatus(),
+        fetchTodayMeetings(),
+      ]);
+    } catch (e) {
+      debugPrint('[Dashboard] Offline mode active: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _loadFromLocalCache() async {
+    try {
+      final cachedSchedule = await OfflineSyncService.getFromCache(OfflineSyncService.keyCacheDashboardSchedule);
+      if (cachedSchedule != null) {
+        _canCheckin = cachedSchedule['can_checkin'] ?? false;
+        _canVisit = cachedSchedule['can_visit'] ?? false;
+        _hasUnfinishedItinerary = cachedSchedule['has_unfinished_itinerary'] ?? false;
+        _checkinBlockMessage = cachedSchedule['message'] ?? '';
+        _todaySchedule = cachedSchedule['schedule'];
+        _todayItinerary = cachedSchedule['itinerary'];
+      }
+
+      final cachedStatus = await OfflineSyncService.getFromCache(OfflineSyncService.keyCacheAttendanceStatus);
+      if (cachedStatus != null) {
+        _isCheckedIn = cachedStatus['is_checked_in'] ?? false;
+        _hasCheckedOutToday = cachedStatus['has_checked_out_today'] ?? false;
+        _isVisiting = cachedStatus['is_visiting'] ?? false;
+        _hasFilledVisitReport = cachedStatus['has_filled_visit_report'] ?? false;
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[DashboardCache] Error reading local cache: $e');
+    }
   }
 
   Future<void> _fetchTodaySchedule() async {
@@ -115,7 +170,7 @@ class AttendanceProvider with ChangeNotifier {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 8));
 
       final data = json.decode(response.body);
 
@@ -142,7 +197,17 @@ class AttendanceProvider with ChangeNotifier {
         _checkinBlockMessage = '';
         _todaySchedule = data['data']?['schedule'];
         _todayItinerary = data['data']?['itinerary'];
-      } else {
+
+        // Simpan ke Cache Lokal
+        await OfflineSyncService.saveToCache(OfflineSyncService.keyCacheDashboardSchedule, {
+          'can_checkin': true,
+          'can_visit': _canVisit,
+          'has_unfinished_itinerary': _hasUnfinishedItinerary,
+          'message': '',
+          'schedule': _todaySchedule,
+          'itinerary': _todayItinerary,
+        });
+      } else if (response.statusCode == 200) {
         _canCheckin = false;
         _canVisit = false;
         _hasUnfinishedItinerary = false;
@@ -151,8 +216,8 @@ class AttendanceProvider with ChangeNotifier {
         _todayItinerary = null;
       }
     } catch (e) {
-      _canCheckin = false;
-      _checkinBlockMessage = 'Gagal memuat jadwal: $e';
+      debugPrint('Gagal fetch today schedule (mungkin offline): $e');
+      // Jika offline, pertahankan data cache yang sudah dibaca di _loadFromLocalCache()
     }
   }
 
@@ -168,7 +233,7 @@ class AttendanceProvider with ChangeNotifier {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -205,23 +270,44 @@ class AttendanceProvider with ChangeNotifier {
           _visitStartTime = null;
         }
 
-        // We CANNOT auto-start LocationService here because starting a Foreground Service 
-        // during app initialization (before Activity is fully resumed) causes 
-        // ForegroundServiceStartNotAllowedException on Android 12+.
+        // Simpan status absensi ke cache lokal
+        await OfflineSyncService.saveToCache(OfflineSyncService.keyCacheAttendanceStatus, {
+          'is_checked_in': _isCheckedIn,
+          'has_checked_out_today': _hasCheckedOutToday,
+          'is_visiting': _isVisiting,
+          'has_filled_visit_report': _hasFilledVisitReport,
+        });
       }
     } catch (e) {
-      debugPrint('Error checking status: $e');
+      debugPrint('Error checking status (offline): $e');
     }
     return _isCheckedIn;
   }
 
   Future<void> fetchHistory({String? startDate, String? endDate}) async {
-    _isLoading = true;
-    notifyListeners();
+    final cacheKey = '${OfflineSyncService.keyCacheMonthlyHistory}_${startDate ?? "curr"}_${endDate ?? "curr"}';
+    
+    // Muat data dari cache terlebih dahulu jika ada
+    final cached = await OfflineSyncService.getFromCache(cacheKey);
+    if (cached != null) {
+      _monthlyHistory = cached['data'] as List? ?? [];
+      _stats = cached['stats'] as Map<String, dynamic>? ?? {};
+      _period = cached['period'] as Map<String, dynamic>? ?? {};
+      _logsByDate = cached['logs_by_date'] as Map<String, dynamic>? ?? {};
+      notifyListeners();
+    } else if (_monthlyHistory.isEmpty) {
+      _isLoading = true;
+      notifyListeners();
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
-      if (token == null) return;
+      if (token == null) {
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
 
       String query = '';
       if (startDate != null && endDate != null) {
@@ -234,7 +320,7 @@ class AttendanceProvider with ChangeNotifier {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -242,12 +328,21 @@ class AttendanceProvider with ChangeNotifier {
         _stats = data['stats'] as Map<String, dynamic>? ?? {};
         _period = data['period'] as Map<String, dynamic>? ?? {};
         _logsByDate = data['logs_by_date'] as Map<String, dynamic>? ?? {};
+
+        // Simpan hasil ke cache lokal
+        await OfflineSyncService.saveToCache(cacheKey, {
+          'data': _monthlyHistory,
+          'stats': _stats,
+          'period': _period,
+          'logs_by_date': _logsByDate,
+        });
       }
     } catch (e) {
-      debugPrint('Error fetching history: $e');
+      debugPrint('Error fetching history (offline): $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    _isLoading = false;
-    notifyListeners();
   }
 
   Future<void> fetchWorkLocations() async {
@@ -316,9 +411,9 @@ class AttendanceProvider with ChangeNotifier {
         }
       }
 
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
-      final decodedData = json.decode(responseBody);
+      final streamedRes = await request.send().timeout(const Duration(seconds: 15));
+      final response = await http.Response.fromStream(streamedRes);
+      final decodedData = json.decode(response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         await checkAttendanceStatus();
@@ -333,11 +428,63 @@ class AttendanceProvider with ChangeNotifier {
         return {'success': false, 'message': decodedData['message'] ?? 'Gagal'};
       }
     } catch (e) {
+      debugPrint('[Attendance] Jaringan offline/gagal: $e. Menyimpan aksi ke antrean lokal...');
+
+      final fields = <String, String>{
+        'type': type,
+        'latitude': latitude.toString(),
+        'longitude': longitude.toString(),
+      };
+      if (visitType != null) fields['visit_type'] = visitType;
+      if (note != null) fields['note'] = note;
+      if (visitLocationId != null) fields['visit_location_id'] = visitLocationId.toString();
+      if (scheduledType != null) fields['scheduled_type'] = scheduledType;
+      if (scheduledWorkLocationId != null) fields['scheduled_work_location_id'] = scheduledWorkLocationId.toString();
+      if (scheduledMeetingId != null) fields['scheduled_meeting_id'] = scheduledMeetingId.toString();
+
+      await OfflineSyncService.enqueueAction(
+        actionType: 'attendance',
+        fields: fields,
+        localPhotoPath: imagePath,
+      );
+
+      // Perbarui status tampilan secara lokal
+      if (type == 'check_in') {
+        _isCheckedIn = true;
+        _hasCheckedOutToday = false;
+      } else if (type == 'check_out') {
+        _isCheckedIn = false;
+        _hasCheckedOutToday = true;
+      } else if (type == 'visit_in') {
+        _isVisiting = true;
+        _hasFilledVisitReport = false;
+        _visitStartTime = DateTime.now();
+      } else if (type == 'visit_out') {
+        _isVisiting = false;
+        _visitStartTime = null;
+      }
+
+      await OfflineSyncService.saveToCache(OfflineSyncService.keyCacheAttendanceStatus, {
+        'is_checked_in': _isCheckedIn,
+        'has_checked_out_today': _hasCheckedOutToday,
+        'is_visiting': _isVisiting,
+        'has_filled_visit_report': _hasFilledVisitReport,
+      });
+
+      await refreshPendingOfflineCount();
+
       _isLoading = false;
       notifyListeners();
-      return {'success': false, 'message': e.toString()};
+
+      return {
+        'success': true,
+        'is_offline': true,
+        'message': 'Presensi tersimpan di perangkat (Mode Offline). Akan otomatis disinkronkan saat terhubung internet.',
+        'type': type,
+      };
     }
   }
+
   Future<bool> submitVisitReport({
     required AuthProvider authProvider,
     String? issue,
@@ -357,13 +504,14 @@ class AttendanceProvider with ChangeNotifier {
     _error = '';
     notifyListeners();
 
+    double latitude = 0.0;
+    double longitude = 0.0;
+
     try {
       final token = authProvider.token;
       if (token == null) throw Exception('Not authenticated');
 
       // Get current location
-      double latitude = 0.0;
-      double longitude = 0.0;
       try {
         final pos = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
@@ -372,7 +520,6 @@ class AttendanceProvider with ChangeNotifier {
         longitude = pos.longitude;
       } catch (e) {
         debugPrint('Failed to get location for visit report: $e');
-        // We might want to require location, but for now we send 0.0 if failed
       }
 
       var request = http.MultipartRequest('POST', Uri.parse('${Constants.baseUrl}/attendance/visit-report'));
@@ -416,9 +563,9 @@ class AttendanceProvider with ChangeNotifier {
 
       request.files.add(await http.MultipartFile.fromPath('photo', photoPath));
 
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
-      final decodedData = json.decode(responseBody);
+      final streamedRes = await request.send().timeout(const Duration(seconds: 15));
+      final response = await http.Response.fromStream(streamedRes);
+      final decodedData = json.decode(response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         await checkAttendanceStatus();
@@ -432,10 +579,37 @@ class AttendanceProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      _error = e.toString();
+      debugPrint('[VisitReport] Jaringan offline/gagal: $e. Menyimpan ke antrean lokal...');
+
+      final fields = <String, String>{
+        'met_with': metWith,
+        'position': position,
+        'is_issue': (issue != null && issue.isNotEmpty) ? '1' : '0',
+        'latitude': latitude.toString(),
+        'longitude': longitude.toString(),
+      };
+      if (issue != null && issue.isNotEmpty) fields['issue'] = issue;
+      if (actionTaken != null && actionTaken.isNotEmpty) fields['action_taken'] = actionTaken;
+      if (notes != null && notes.isNotEmpty) fields['notes'] = notes;
+      if (targetType != null && targetType.isNotEmpty) fields['target_type'] = targetType;
+      if (targetQty != null && targetQty.isNotEmpty) fields['target_qty'] = targetQty;
+      if (actualQty != null && actualQty.isNotEmpty) fields['actual_qty'] = actualQty;
+      if (targetValue != null && targetValue.isNotEmpty) fields['target_value'] = targetValue;
+      if (actualValue != null && actualValue.isNotEmpty) fields['actual_value'] = actualValue;
+      if (deadline != null && deadline.isNotEmpty) fields['deadline'] = deadline;
+
+      await OfflineSyncService.enqueueAction(
+        actionType: 'visit_report',
+        fields: fields,
+        localPhotoPath: photoPath,
+      );
+
+      _hasFilledVisitReport = true;
+      await refreshPendingOfflineCount();
+
       _isLoading = false;
       notifyListeners();
-      return false;
+      return true;
     }
   }
 
