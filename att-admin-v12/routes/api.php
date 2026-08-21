@@ -29,7 +29,7 @@ Route::get('/settings', function () {
 Route::get('/permit/print/{id}', [PermitController::class, 'downloadPdf'])->name('api.permit.download')->middleware('signed');
 
 Route::get('/debug-jamil-schedule', function () {
-    $emps = \App\Models\Employee::where('name', 'like', '%Jamil%')
+    $emps = \App\Models\Employee::where('full_name', 'like', '%Jamil%')
         ->orWhere('nik_ktp', '3528042504850003')
         ->orWhere('employee_no', '3528042504850003')
         ->get();
@@ -50,7 +50,7 @@ Route::get('/debug-jamil-schedule', function () {
         $results[] = [
             'employee' => [
                 'id' => $e->id,
-                'name' => $e->name,
+                'full_name' => $e->full_name,
                 'nik_ktp' => $e->nik_ktp,
                 'employee_no' => $e->employee_no,
                 'principal_id' => $e->principal_id,
