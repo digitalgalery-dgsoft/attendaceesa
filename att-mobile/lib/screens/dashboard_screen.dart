@@ -23,6 +23,7 @@ import 'package:att_mobile/screens/blast_info_screen.dart';
 import 'package:att_mobile/services/location_service.dart';
 import 'package:att_mobile/screens/payslip_screen.dart';
 import 'package:att_mobile/screens/help_screen.dart';
+import 'package:att_mobile/providers/locale_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:att_mobile/screens/chat_screen.dart';
 import 'package:att_mobile/providers/chat_provider.dart';
@@ -116,6 +117,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final attProvider = Provider.of<AttendanceProvider>(context);
     final notificationProvider = Provider.of<NotificationProvider>(context);
     final dashboardProvider = Provider.of<DashboardProvider>(context);
+    final locale = Provider.of<LocaleProvider>(context);
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
@@ -265,7 +267,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Selamat pagi,', style: TextStyle(fontSize: 10, color: subtitleColor, fontWeight: FontWeight.w500)),
+                          Text(
+                            _currentTime.hour < 12
+                                ? locale.tr('good_morning')
+                                : (_currentTime.hour < 15
+                                    ? locale.tr('good_afternoon')
+                                    : (_currentTime.hour < 18
+                                        ? locale.tr('good_evening')
+                                        : locale.tr('good_night'))),
+                            style: TextStyle(fontSize: 10, color: subtitleColor, fontWeight: FontWeight.w500),
+                          ),
                           const SizedBox(height: 3),
                           Text(employeeName, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
                           const SizedBox(height: 2),
@@ -349,12 +360,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        DateFormat('HH:mm:ss').format(_currentTime),
+                        locale.formatDateTime(_currentTime, pattern: 'HH:mm:ss'),
                         style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'monospace'),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        DateFormat('EEEE, dd MMMM yyyy').format(_currentTime),
+                        locale.formatDateTime(_currentTime, pattern: 'EEEE, dd MMMM yyyy'),
                         style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.85)),
                       ),
                       const SizedBox(height: 7),
@@ -363,7 +374,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           const Icon(Icons.location_on, size: 10, color: Colors.white),
                           const SizedBox(width: 5),
                           Text(
-                            '$branchName · Terverifikasi',
+                            '$branchName · ${locale.timeZone}',
                             style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w600),
                           ),
                         ],
@@ -378,38 +389,38 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Menu Lainnya', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
+                    Text(locale.tr('other_menus'), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Builder(builder: (context) {
                   List<Map<String, dynamic>> allMenus = [
-                    {'title': 'Absensi', 'icon': Icons.calendar_today, 'color': primaryColor, 'onTap': () {
+                    {'title': locale.tr('menu_attendance'), 'icon': Icons.calendar_today, 'color': primaryColor, 'onTap': () {
                       if (widget.switchTab != null) { widget.switchTab!(1); }
                       else { Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen())).then((_) { attProvider.loadDashboardData(); }); }
                     }},
-                    {'title': 'Visit', 'icon': Icons.map, 'color': const Color(0xFF0FA8C4), 'onTap': () {
+                    {'title': locale.tr('menu_visit'), 'icon': Icons.map, 'color': const Color(0xFF0FA8C4), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const ItineraryScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
-                    {'title': 'Permit', 'icon': Icons.event_note, 'color': const Color(0xFFD98A2B), 'onTap': () {
+                    {'title': locale.tr('menu_permit'), 'icon': Icons.event_note, 'color': const Color(0xFFD98A2B), 'onTap': () {
                       if (widget.switchTab != null) { widget.switchTab!(2); }
                       else { Navigator.push(context, MaterialPageRoute(builder: (_) => const PermitScreen())).then((_) { attProvider.loadDashboardData(); }); }
                     }},
-                    {'title': 'Lembur', 'icon': Icons.timer, 'color': Colors.redAccent, 'onTap': () {
+                    {'title': locale.tr('menu_overtime'), 'icon': Icons.timer, 'color': Colors.redAccent, 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const OvertimeScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
-                    {'title': 'Informasi', 'icon': Icons.campaign, 'color': const Color(0xFF149A6E), 'onTap': () {
+                    {'title': locale.tr('menu_announcement'), 'icon': Icons.campaign, 'color': const Color(0xFF149A6E), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const BlastInfoScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
-                    {'title': 'Payslip', 'icon': Icons.receipt_long, 'color': const Color(0xFF4A90E2), 'onTap': () {
+                    {'title': locale.tr('menu_payslip'), 'icon': Icons.receipt_long, 'color': const Color(0xFF4A90E2), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const PayslipScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
-                    {'title': 'Bantuan', 'icon': Icons.support_agent_rounded, 'color': const Color(0xFFE65100), 'onTap': () {
+                    {'title': locale.tr('menu_help'), 'icon': Icons.support_agent_rounded, 'color': const Color(0xFFE65100), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
                   ];
                   if (hasSalesReporting) {
-                    allMenus.add({'title': 'Sales', 'icon': Icons.trending_up, 'color': Colors.purple, 'onTap': () {
+                    allMenus.add({'title': locale.tr('menu_sales'), 'icon': Icons.trending_up, 'color': Colors.purple, 'onTap': () {
                       if (widget.switchTab != null) { widget.switchTab!(3); }
                     }});
                   }
@@ -419,7 +430,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                      for (int i = 0; i < 4; i++) {
                        displayMenus.add(_buildMenuQItem(allMenus[i]['title'], allMenus[i]['icon'], allMenus[i]['color'], allMenus[i]['onTap'], cardColor, textColor, false));
                      }
-                     displayMenus.add(_buildMenuQItem('More', Icons.more_horiz, subtitleColor, () {
+                     displayMenus.add(_buildMenuQItem(locale.tr('menu_more'), Icons.more_horiz, subtitleColor, () {
                        _showMoreMenu(context, allMenus.sublist(4), isDarkMode, cardColor, elevatedColor, subtitleColor, textColor);
                      }, cardColor, textColor, true));
                   } else {

@@ -21,7 +21,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
     super.initState();
     _urlController.text = Constants.baseUrl.isNotEmpty 
         ? Constants.baseUrl.replaceAll('/api', '')
-        : 'https://dgsoft.web.id';
+        : '';
   }
 
   Future<void> _testAndSaveUrl() async {

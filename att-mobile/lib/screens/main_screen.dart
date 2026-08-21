@@ -14,6 +14,7 @@ import 'package:att_mobile/screens/visit_report_screen.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'package:att_mobile/providers/blast_info_provider.dart';
+import 'package:att_mobile/providers/locale_provider.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -153,6 +154,8 @@ class _MainScreenState extends State<MainScreen> {
     final navBgColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
     final unselectedColor = isDarkMode ? Colors.grey.shade500 : const Color(0xFF6E6B7B);
 
+    final locale = Provider.of<LocaleProvider>(context);
+
     return Scaffold(
       body: screens[_currentIndex],
       
@@ -200,7 +203,7 @@ class _MainScreenState extends State<MainScreen> {
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),
@@ -220,31 +223,31 @@ class _MainScreenState extends State<MainScreen> {
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
           items: [
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_outlined),
-              activeIcon: Icon(Icons.dashboard),
-              label: 'Dashboard',
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.dashboard_outlined),
+              activeIcon: const Icon(Icons.dashboard),
+              label: locale.tr('nav_home'),
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.history_outlined),
-              activeIcon: Icon(Icons.history),
-              label: 'History',
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.history_outlined),
+              activeIcon: const Icon(Icons.history),
+              label: locale.tr('nav_history'),
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.event_note_outlined),
-              activeIcon: Icon(Icons.event_note),
-              label: 'Permit',
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.event_note_outlined),
+              activeIcon: const Icon(Icons.event_note),
+              label: locale.tr('nav_permit'),
             ),
             if (hasSalesReporting)
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.trending_up_outlined),
-                activeIcon: Icon(Icons.trending_up),
-                label: 'Sales',
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.trending_up_outlined),
+                activeIcon: const Icon(Icons.trending_up),
+                label: locale.tr('nav_sales'),
               ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profile',
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.person_outline),
+              activeIcon: const Icon(Icons.person),
+              label: locale.tr('nav_profile'),
             ),
           ],
         ),

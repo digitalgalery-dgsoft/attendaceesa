@@ -50,6 +50,7 @@ dependencies:
   firebase_messaging: ^15.2.0
   pusher_channels_flutter: ^2.6.0
   laravel_echo: ^1.0.0-beta.1
+  local_auth: ^2.3.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
