@@ -46,6 +46,11 @@ Route::get('/debug-jamil-schedule', function () {
             ->where('tokenable_type', 'App\\Models\\Employee')
             ->get();
 
+        $req = Request::create('/api/today-schedule', 'GET');
+        $req->setUserResolver(fn() => $e);
+        $attCtrl = app(\App\Http\Controllers\Api\AttendanceController::class);
+        $todayScheduleResponse = $attCtrl->todaySchedule($req)->getData(true);
+
         $results[] = [
             'employee' => [
                 'id' => $e->id,
@@ -57,7 +62,7 @@ Route::get('/debug-jamil-schedule', function () {
                 'device_id' => $e->device_id,
             ],
             'total_schedules' => $scheds->count(),
-            'today_schedule' => $todaySched,
+            'today_schedule_simulated_api' => $todayScheduleResponse,
             'tokens' => $tokens,
         ];
     }
