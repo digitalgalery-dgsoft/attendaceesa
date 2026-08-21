@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../utils/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/location_service.dart';
+import '../services/offline_sync_service.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/meeting_model.dart';
