@@ -28,53 +28,6 @@ Route::get('/settings', function () {
 
 Route::get('/permit/print/{id}', [PermitController::class, 'downloadPdf'])->name('api.permit.download')->middleware('signed');
 
-Route::get('/debug-jamil-schedule', function () {
-    $emps = \App\Models\Employee::where('full_name', 'like', '%Jamil%')
-        ->orWhere('employee_no', 'like', '%3528042504850003%')
-        ->get();
-
-    $results = [];
-    foreach ($emps as $e) {
-        $scheds = \App\Models\EmployeeSchedule::where('employee_id', $e->id)->get();
-        $todaySched = \App\Models\EmployeeSchedule::where('employee_id', $e->id)
-            ->where('schedule_date', '2026-08-21')
-            ->with(['shift', 'workLocation.company'])
-            ->first();
-
-        $tokens = \DB::table('personal_access_tokens')
-            ->where('tokenable_id', $e->id)
-            ->where('tokenable_type', 'App\\Models\\Employee')
-            ->get();
-
-        $req = Request::create('/api/today-schedule', 'GET');
-        $req->setUserResolver(fn() => $e);
-        $attCtrl = app(\App\Http\Controllers\Api\AttendanceController::class);
-        $todayScheduleResponse = $attCtrl->todaySchedule($req)->getData(true);
-
-        $results[] = [
-            'employee' => [
-                'id' => $e->id,
-                'full_name' => $e->full_name,
-                'employee_no' => $e->employee_no,
-                'principal_id' => $e->principal_id,
-                'company_id' => $e->company_id,
-                'is_active' => $e->is_active,
-                'device_id' => $e->device_id,
-            ],
-            'total_schedules' => $scheds->count(),
-            'today_schedule_simulated_api' => $todayScheduleResponse,
-            'tokens' => $tokens,
-        ];
-    }
-
-    return response()->json([
-        'server_time' => now()->toDateTimeString(),
-        'server_date' => \Carbon\Carbon::today('Asia/Jakarta')->toDateString(),
-        'all_schedules_today_count' => \App\Models\EmployeeSchedule::where('schedule_date', '2026-08-21')->count(),
-        'employees' => $results,
-    ]);
-});
-
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
