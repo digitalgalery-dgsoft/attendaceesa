@@ -9,7 +9,10 @@ use App\Models\Attendance;
 use App\Models\AttendanceLog;
 use App\Models\Branch;
 use App\Models\Employee;
+use App\Models\EmployeeSchedule;
+use App\Models\LeaveRequest;
 use App\Models\Principal;
+use App\Models\TrackingHistory;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -704,28 +707,60 @@ class AttendanceRoster extends Page implements HasForms
     public function viewDetailsAction(): Action
     {
         return Action::make('viewDetails')
-            ->modalHeading(fn (array $arguments) => 'Attendance Details - ' . $arguments['date'])
+            ->modalHeading(fn (array $arguments) => 'Rincian Presensi & Aktivitas - ' . Carbon::parse($arguments['date'])->translatedFormat('d F Y'))
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Tutup')
-            ->modalWidth('2xl')
+            ->modalWidth(Width::FiveExtraLarge)
             ->modalContent(function (array $arguments) {
+                $employee = Employee::with(['company', 'principal', 'branch', 'department', 'position'])
+                    ->find($arguments['employee_id']);
+
                 $attendance = Attendance::where('employee_id', $arguments['employee_id'])
                     ->where('attendance_date', $arguments['date'])
-                    ->with('employeeSchedule.workLocation')
+                    ->with(['employeeSchedule.workLocation.company', 'employeeSchedule.shift', 'checkinLog', 'checkoutLog'])
+                    ->first();
+
+                $schedule = EmployeeSchedule::where('employee_id', $arguments['employee_id'])
+                    ->where('schedule_date', $arguments['date'])
+                    ->with(['workLocation.company', 'shift'])
+                    ->first();
+
+                $leaveRequest = LeaveRequest::where('employee_id', $arguments['employee_id'])
+                    ->where('status', 'approved')
+                    ->whereDate('start_date', '<=', $arguments['date'])
+                    ->whereDate('end_date', '>=', $arguments['date'])
                     ->first();
 
                 $logs = [];
                 if ($attendance) {
                     $logs = AttendanceLog::where('attendance_id', $attendance->id)
+                        ->orWhere(function($q) use ($arguments) {
+                            $q->where('employee_id', $arguments['employee_id'])
+                              ->whereDate('logged_at', $arguments['date']);
+                        })
+                        ->with(['itineraryItem.workLocation'])
+                        ->orderBy('logged_at', 'asc')
+                        ->get();
+                } else {
+                    $logs = AttendanceLog::where('employee_id', $arguments['employee_id'])
+                        ->whereDate('logged_at', $arguments['date'])
                         ->with(['itineraryItem.workLocation'])
                         ->orderBy('logged_at', 'asc')
                         ->get();
                 }
 
+                $trackingCount = TrackingHistory::where('employee_id', $arguments['employee_id'])
+                    ->whereDate('created_at', $arguments['date'])
+                    ->count();
+
                 return View::make('filament.components.attendance-details-modal', [
-                    'attendance' => $attendance,
-                    'logs' => $logs,
-                    'date' => $arguments['date'],
+                    'employee'      => $employee,
+                    'attendance'    => $attendance,
+                    'schedule'      => $schedule,
+                    'leaveRequest'  => $leaveRequest,
+                    'logs'          => $logs,
+                    'trackingCount' => $trackingCount,
+                    'date'          => $arguments['date'],
                 ]);
             });
     }

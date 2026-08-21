@@ -109,6 +109,52 @@ class AttendancesTable
                     ])
             ])
             ->recordActions([
+                Action::make('view_details')
+                    ->label('Rincian')
+                    ->icon('heroicon-o-eye')
+                    ->color('primary')
+                    ->modalHeading(fn (\App\Models\Attendance $record) => 'Rincian Presensi & Aktivitas - ' . \Carbon\Carbon::parse($record->attendance_date)->translatedFormat('d F Y'))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup')
+                    ->modalWidth(\Filament\Support\Enums\Width::FiveExtraLarge)
+                    ->modalContent(function (\App\Models\Attendance $record) {
+                        $employee = \App\Models\Employee::with(['company', 'principal', 'branch', 'department', 'position'])
+                            ->find($record->employee_id);
+
+                        $schedule = \App\Models\EmployeeSchedule::where('employee_id', $record->employee_id)
+                            ->where('schedule_date', $record->attendance_date)
+                            ->with(['workLocation.company', 'shift'])
+                            ->first();
+
+                        $logs = \App\Models\AttendanceLog::where('attendance_id', $record->id)
+                            ->orWhere(function($q) use ($record) {
+                                $q->where('employee_id', $record->employee_id)
+                                  ->whereDate('logged_at', $record->attendance_date);
+                            })
+                            ->with(['itineraryItem.workLocation'])
+                            ->orderBy('logged_at', 'asc')
+                            ->get();
+
+                        $leaveRequest = \App\Models\LeaveRequest::where('employee_id', $record->employee_id)
+                            ->where('status', 'approved')
+                            ->whereDate('start_date', '<=', $record->attendance_date)
+                            ->whereDate('end_date', '>=', $record->attendance_date)
+                            ->first();
+
+                        $trackingCount = \App\Models\TrackingHistory::where('employee_id', $record->employee_id)
+                            ->whereDate('created_at', $record->attendance_date)
+                            ->count();
+
+                        return \Illuminate\Support\Facades\View::make('filament.components.attendance-details-modal', [
+                            'employee'      => $employee,
+                            'attendance'    => $record,
+                            'schedule'      => $schedule,
+                            'leaveRequest'  => $leaveRequest,
+                            'logs'          => $logs,
+                            'trackingCount' => $trackingCount,
+                            'date'          => $record->attendance_date,
+                        ]);
+                    }),
                 Action::make('view_route')
                     ->label('Lihat Rute')
                     ->icon('heroicon-o-map')
