@@ -96,11 +96,17 @@ class AttendanceController extends Controller
             $visitedLocationIds = \App\Models\AttendanceLog::where('employee_id', $employee->id)
                 ->where('log_type', 'visit_in')
                 ->whereDate('logged_at', $today)
-                ->pluck('work_location_id')
+                ->get()
+                ->map(function ($log) {
+                    $meta = is_array($log->metadata) ? $log->metadata : (is_string($log->metadata) ? json_decode($log->metadata, true) : []);
+                    return is_array($meta) ? ($meta['visit_location_id'] ?? null) : null;
+                })
+                ->filter()
+                ->map(fn($id) => (int)$id)
                 ->toArray();
             
             $unvisitedCount = $itinerary->items->filter(function($item) use ($visitedLocationIds) {
-                return !in_array($item->work_location_id, $visitedLocationIds);
+                return !in_array((int)$item->work_location_id, $visitedLocationIds);
             })->count();
             
             if ($unvisitedCount > 0) {
