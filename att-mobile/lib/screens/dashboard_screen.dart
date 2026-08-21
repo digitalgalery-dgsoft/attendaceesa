@@ -22,6 +22,7 @@ import 'package:att_mobile/screens/blast_info_screen.dart';
 
 import 'package:att_mobile/services/location_service.dart';
 import 'package:att_mobile/screens/payslip_screen.dart';
+import 'package:att_mobile/screens/help_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:att_mobile/screens/chat_screen.dart';
 import 'package:att_mobile/providers/chat_provider.dart';
@@ -402,6 +403,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     }},
                     {'title': 'Payslip', 'icon': Icons.receipt_long, 'color': const Color(0xFF4A90E2), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const PayslipScreen())).then((_) { attProvider.loadDashboardData(); });
+                    }},
+                    {'title': 'Bantuan', 'icon': Icons.support_agent_rounded, 'color': const Color(0xFFE65100), 'onTap': () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
                   ];
                   if (hasSalesReporting) {

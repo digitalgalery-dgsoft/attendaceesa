@@ -133,6 +133,28 @@ class ManageSettings extends Page implements HasForms
                             ->default(50)
                             ->required(),
                     ])->columns(3),
+                Section::make('Pusat Bantuan & Kebijakan Privasi (Helpdesk & Policy)')
+                    ->description('Pengaturan kontak layanan bantuan HR / IT Helpdesk dan link kebijakan privasi untuk aplikasi mobile.')
+                    ->components([
+                        TextInput::make('help_phone')
+                            ->label('Nomor Telepon Helpdesk')
+                            ->tel()
+                            ->placeholder('e.g. 021-12345678 / 081234567890'),
+                        TextInput::make('help_whatsapp')
+                            ->label('Nomor WhatsApp Helpdesk (Format: 628xxx)')
+                            ->placeholder('e.g. 6281234567890'),
+                        TextInput::make('help_email')
+                            ->label('Email Layanan Bantuan / Support')
+                            ->email()
+                            ->placeholder('support@company.com'),
+                        TextInput::make('help_hours')
+                            ->label('Jam Operasional Layanan')
+                            ->placeholder('e.g. Senin - Jumat, 08:00 - 17:00 WIB'),
+                        TextInput::make('privacy_policy_url')
+                            ->label('Link Kebijakan Privasi Kustom (Opsional)')
+                            ->url()
+                            ->placeholder('https://company.com/privacy-policy'),
+                    ])->columns(2),
                 Section::make('SMTP / Email Settings')
                     ->components([
                         TextInput::make('smtp_host')->label('SMTP Host')->placeholder('smtp.mailtrap.io'),

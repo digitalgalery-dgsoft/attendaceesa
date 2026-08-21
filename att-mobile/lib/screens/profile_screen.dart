@@ -6,6 +6,9 @@ import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/theme_provider.dart';
 import 'login_screen.dart';
 import 'payslip_screen.dart';
+import 'help_screen.dart';
+import 'privacy_policy_screen.dart';
+import 'onboarding_screen.dart';
 import '../utils/constants.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -457,6 +460,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _buildDropdownSetting('Language', language, textColor, subtitleColor, isDarkMode, onTap: _showLanguageSheet),
                 _buildDropdownSetting('Time Zone', timezone, textColor, subtitleColor, isDarkMode, onTap: _showTimeZoneSheet),
                 _buildThemeToggleSetting(textColor, subtitleColor, primaryColor),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            _buildSettingsSection(
+              icon: Icons.help_outline_rounded,
+              title: 'Bantuan & Kebijakan',
+              cardColor: cardColor,
+              textColor: textColor,
+              isDarkMode: isDarkMode,
+              primaryColor: primaryColor,
+              children: [
+                _buildActionSetting(
+                  Icons.menu_book_rounded,
+                  'Panduan Penggunaan (Onboarding)',
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const OnboardingScreen(isFromSettings: true),
+                      ),
+                    );
+                  },
+                ),
+                _buildActionSetting(
+                  Icons.support_agent_rounded,
+                  'Pusat Bantuan & Kontak',
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const HelpScreen()),
+                    );
+                  },
+                ),
+                _buildActionSetting(
+                  Icons.privacy_tip_outlined,
+                  'Kebijakan Privasi',
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
+                    );
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 32),
