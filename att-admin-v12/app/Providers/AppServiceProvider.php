@@ -19,6 +19,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Illuminate\Support\Facades\RateLimiter::for('api', function (\Illuminate\Http\Request $request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(5000)->by($request->user()?->id ?: $request->ip());
+        });
+
         \App\Models\LeaveRequest::observe(\App\Observers\LeaveRequestObserver::class);
         \App\Models\EmployeeSchedule::observe(\App\Observers\EmployeeScheduleObserver::class);
 
