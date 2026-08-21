@@ -86,6 +86,37 @@ class AuthProvider with ChangeNotifier {
     return false;
   }
 
+  Future<bool> loginWithSavedToken(String savedToken) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final response = await http.get(
+        Uri.parse('${Constants.baseUrl}/me'),
+        headers: {
+          'Authorization': 'Bearer $savedToken',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _token = savedToken;
+        _user = data['data']['user'];
+        _employeeData = data['data']['employee_data'];
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', savedToken);
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Biometric token login error: $e');
+    }
+    _isLoading = false;
+    notifyListeners();
+    return false;
+  }
+
   Future<Map<String, String?>> _getDeviceInfo() async {
     final DeviceInfoPlugin deviceInfoPlugin = DeviceInfoPlugin();
     String? deviceId;

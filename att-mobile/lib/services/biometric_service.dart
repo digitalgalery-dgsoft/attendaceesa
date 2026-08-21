@@ -8,15 +8,15 @@ class BiometricService {
   static const String _keyBiometricEnabled = 'biometric_login_enabled';
   static const String _keyBiometricEmail = 'biometric_saved_email';
   static const String _keyBiometricPassword = 'biometric_saved_password';
+  static const String _keyBiometricToken = 'biometric_saved_token';
 
   /// Check if device hardware supports biometrics and has enrolled fingerprints/face
   static Future<bool> isBiometricAvailable() async {
     try {
       final bool canAuthenticateWithBiometrics = await _auth.canCheckBiometrics;
       final bool isDeviceSupported = await _auth.isDeviceSupported();
-      return canAuthenticateWithBiometrics && isDeviceSupported;
-    } on PlatformException catch (e) {
-      print('Biometric availability error: $e');
+      return canAuthenticateWithBiometrics || isDeviceSupported;
+    } on PlatformException {
       return false;
     }
   }
@@ -44,8 +44,7 @@ class BiometricService {
           useErrorDialogs: true,
         ),
       );
-    } on PlatformException catch (e) {
-      print('Biometric authentication failed: $e');
+    } on PlatformException {
       return false;
     }
   }
@@ -57,16 +56,39 @@ class BiometricService {
   }
 
   /// Save biometric login state
-  static Future<void> setBiometricEnabled(bool enabled) async {
+  static Future<void> setBiometricEnabled(bool enabled, {String? email, String? token, String? password}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyBiometricEnabled, enabled);
+    if (enabled) {
+      if (email != null && email.isNotEmpty) await prefs.setString(_keyBiometricEmail, email);
+      if (token != null && token.isNotEmpty) await prefs.setString(_keyBiometricToken, token);
+      if (password != null && password.isNotEmpty) await prefs.setString(_keyBiometricPassword, password);
+    } else {
+      await prefs.remove(_keyBiometricToken);
+      await prefs.remove(_keyBiometricPassword);
+    }
   }
 
   /// Save credentials for quick biometric login
-  static Future<void> saveCredentials(String email, String password) async {
+  static Future<void> saveCredentials(String email, String password, {String? token}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyBiometricEmail, email);
     await prefs.setString(_keyBiometricPassword, password);
+    if (token != null && token.isNotEmpty) {
+      await prefs.setString(_keyBiometricToken, token);
+    }
+  }
+
+  /// Retrieve saved email
+  static Future<String?> getSavedEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyBiometricEmail);
+  }
+
+  /// Retrieve saved token
+  static Future<String?> getSavedToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyBiometricToken);
   }
 
   /// Retrieve saved credentials
@@ -85,6 +107,7 @@ class BiometricService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyBiometricEmail);
     await prefs.remove(_keyBiometricPassword);
+    await prefs.remove(_keyBiometricToken);
     await prefs.remove(_keyBiometricEnabled);
   }
 }

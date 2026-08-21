@@ -28,13 +28,16 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _checkBiometricLogin() async {
+    final isAvailable = await BiometricService.isBiometricAvailable();
     final isEnabled = await BiometricService.isBiometricEnabled();
-    final saved = await BiometricService.getSavedCredentials();
-    if (isEnabled && saved != null) {
+    final savedEmail = await BiometricService.getSavedEmail();
+    if (isAvailable && isEnabled) {
       if (mounted) {
         setState(() {
           _hasBiometricSaved = true;
-          _emailController.text = saved['email'] ?? '';
+          if (savedEmail != null && savedEmail.isNotEmpty && _emailController.text.isEmpty) {
+            _emailController.text = savedEmail;
+          }
         });
       }
     }
@@ -42,38 +45,67 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _loginWithBiometrics() async {
     final locale = Provider.of<LocaleProvider>(context, listen: false);
-    final saved = await BiometricService.getSavedCredentials();
-    if (saved == null) return;
+    final auth = Provider.of<AuthProvider>(context, listen: false);
 
     final authenticated = await BiometricService.authenticate(
       localizedReason: locale.tr('biometric_prompt_login'),
     );
 
     if (authenticated && mounted) {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final result = await auth.login(saved['email']!, saved['password']!);
-      if (!mounted) return;
-      if (result['success']) {
-        toastification.show(
-          context: context,
-          title: Text(locale.tr('success')),
-          description: Text(locale.tr('attendance_success')),
-          type: ToastificationType.success,
-          autoCloseDuration: const Duration(seconds: 2),
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MainScreen()),
-        );
-      } else {
-        toastification.show(
-          context: context,
-          title: Text(locale.tr('error')),
-          description: Text(result['message'] ?? 'Login failed'),
-          type: ToastificationType.error,
-          autoCloseDuration: const Duration(seconds: 3),
-        );
+      // 1. Try with saved token first
+      final savedToken = await BiometricService.getSavedToken();
+      if (savedToken != null && savedToken.isNotEmpty) {
+        final success = await auth.loginWithSavedToken(savedToken);
+        if (!mounted) return;
+        if (success) {
+          toastification.show(
+            context: context,
+            title: Text(locale.tr('success')),
+            description: const Text('Login Successful'),
+            type: ToastificationType.success,
+            autoCloseDuration: const Duration(seconds: 2),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MainScreen()),
+          );
+          return;
+        }
       }
+
+      // 2. Try with saved credentials (email + password)
+      final savedCreds = await BiometricService.getSavedCredentials();
+      if (savedCreds != null && savedCreds['password'] != null) {
+        final result = await auth.login(savedCreds['email']!, savedCreds['password']!);
+        if (!mounted) return;
+        if (result['success']) {
+          await BiometricService.saveCredentials(savedCreds['email']!, savedCreds['password']!, token: auth.token);
+          toastification.show(
+            context: context,
+            title: Text(locale.tr('success')),
+            description: const Text('Login Successful'),
+            type: ToastificationType.success,
+            autoCloseDuration: const Duration(seconds: 2),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MainScreen()),
+          );
+          return;
+        }
+      }
+
+      // 3. If password or session wasn't saved yet, notify user to enter password once
+      if (!mounted) return;
+      toastification.show(
+        context: context,
+        title: Text(locale.tr('info')),
+        description: Text(locale.isEnglish
+            ? 'Please enter your password once to complete biometric linking.'
+            : 'Silakan masukkan kata sandi sekali untuk menautkan login biometrik.'),
+        type: ToastificationType.info,
+        autoCloseDuration: const Duration(seconds: 3),
+      );
     }
   }
 
@@ -90,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Save credentials if biometric enabled
         final isBioEnabled = await BiometricService.isBiometricEnabled();
         if (isBioEnabled) {
-          await BiometricService.saveCredentials(email, password);
+          await BiometricService.saveCredentials(email, password, token: auth.token);
         }
 
         if (!mounted) return;
@@ -263,17 +295,31 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   if (_hasBiometricSaved) ...[
                     const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _loginWithBiometrics,
-                      icon: Icon(Icons.fingerprint, color: primaryColor, size: 22),
-                      label: Text(
-                        locale.tr('login_with_biometrics'),
-                        style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: BorderSide(color: primaryColor.withValues(alpha: 0.5)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    InkWell(
+                      onTap: _loginWithBiometrics,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.fingerprint_rounded, color: primaryColor, size: 22),
+                            const SizedBox(width: 8),
+                            Text(
+                              locale.tr('login_with_biometrics'),
+                              style: TextStyle(
+                                color: primaryColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

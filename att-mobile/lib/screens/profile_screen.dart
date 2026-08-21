@@ -48,7 +48,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         localizedReason: locale.tr('biometric_prompt_enable'),
       );
       if (authenticated) {
-        await BiometricService.setBiometricEnabled(true);
+        final auth = Provider.of<AuthProvider>(context, listen: false);
+        final email = auth.user?['email'] ?? auth.employeeData?['email'] ?? '';
+        final token = auth.token;
+        await BiometricService.setBiometricEnabled(true, email: email, token: token);
         if (mounted) {
           setState(() {
             _isBiometricEnabled = true;
