@@ -270,6 +270,19 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - **Hapus SPV Massal (*Bulk Action*):** Fitur untuk mengosongkan supervisor pada banyak karyawan yang dipilih sekaligus.
    - **Kolom Supervisor Aktif:** Mengaktifkan tampilan kolom *Supervisor / Leader* pada tabel utama Employees agar langsung terlihat.
 
+## ✅ Tahap 10: Penguncian Parameter Odoo Sync (NIK + Prinsiple) & Restorasi Akun (SELESAI 21 Agustus 2026)
+*Tahap ini memastikan tidak ada data karyawan yang tertimpa secara keliru akibat nomor urut Odoo.*
+
+1. **Penguncian Parameter Pencocokan Odoo Sync (NIK + Prinsiple Wajib Sama):**
+   - Mengubah mekanisme pencarian akun karyawan pada `OdooSyncService` agar **WAJIB HANYA** mencocokkan jika **NIK (`employee_no`)** DAN **Prinsiple (`principal_id`)** keduanya sama persis.
+   - Menghapus pencocokan bebas `OR where('odoo_id', ...)` lintas entitas/NIK yang sebelumnya dapat menimpa akun lokal yang memiliki nomor urut Odoo sama.
+   - Jika kombinasi NIK + Prinsiple belum ada, sistem secara otomatis membuat record baru (`Employee::create`).
+   - Penyesuaian `cleanupAllDuplicateEmployees` agar hanya membersihkan duplikat yang memiliki NIK dan Prinsiple yang sama persis.
+
+2. **Restorasi Akun & Pemisahan Data (Migration Data Fix):**
+   - Memulihkan record akun **Abdurrahman Jamil** (beserta perangkat terikat TECNO KM7, foto profil, dan riwayat presensinya).
+   - Memisahkan data **Eka Septiani** (NIK `7402256409960001`) ke baris record tersendiri yang bersih.
+
 ---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)
