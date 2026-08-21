@@ -656,7 +656,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 const SizedBox(height: 15),
 
                 // Kunjungan Lapangan
-                if (attProvider.canVisit) ...[
+                if (attProvider.canVisit || attProvider.isVisiting || attProvider.hasUnfinishedItinerary || (attProvider.todayItinerary != null && (attProvider.todayItinerary?['items'] as List? ?? []).isNotEmpty)) ...[
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [

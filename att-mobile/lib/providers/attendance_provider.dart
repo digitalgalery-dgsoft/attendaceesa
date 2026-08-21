@@ -193,11 +193,16 @@ class AttendanceProvider with ChangeNotifier {
 
       if (response.statusCode == 200 && data['can_checkin'] == true) {
         _canCheckin = true;
-        _canVisit = data['can_visit'] ?? false;
-        _hasUnfinishedItinerary = data['has_unfinished_itinerary'] ?? false;
+        _canVisit = data['can_visit'] ?? data['data']?['can_visit'] ?? false;
+        _hasUnfinishedItinerary = data['has_unfinished_itinerary'] ?? data['data']?['has_unfinished_itinerary'] ?? false;
         _checkinBlockMessage = '';
         _todaySchedule = data['data']?['schedule'];
-        _todayItinerary = data['data']?['itinerary'];
+        _todayItinerary = data['data']?['itinerary'] ?? data['data']?['meta']?['itinerary'];
+
+        // Jika terdapat jadwal kunjungan hari ini, pastikan canVisit aktif
+        if (_todayItinerary != null && (_todayItinerary?['items'] as List? ?? []).isNotEmpty) {
+          _canVisit = true;
+        }
 
         // Simpan ke Cache Lokal
         await OfflineSyncService.saveToCache(OfflineSyncService.keyCacheDashboardSchedule, {

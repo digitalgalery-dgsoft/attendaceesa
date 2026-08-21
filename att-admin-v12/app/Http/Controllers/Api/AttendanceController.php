@@ -115,23 +115,26 @@ class AttendanceController extends Controller
         }
 
         return response()->json([
-            'status'      => 'success',
-            'can_checkin' => true,
-            'message'     => 'Jadwal hari ini berhasil dimuat.',
-            'data'        => [
-                'schedule'  => $schedule ?: [
-                    'id' => null,
+            'status'                   => 'success',
+            'can_checkin'              => true,
+            'can_visit'                => $hasUnfinishedItinerary,
+            'has_unfinished_itinerary' => $hasUnfinishedItinerary,
+            'message'                  => 'Jadwal hari ini berhasil dimuat.',
+            'data'                     => [
+                'schedule'                 => $schedule ?: [
+                    'id'            => null,
                     'schedule_date' => $today,
                     'schedule_type' => 'workday',
                     'work_location' => $itineraryCheckinItem?->workLocation,
-                    'shift' => null,
+                    'shift'         => null,
                 ],
-                'has_itinerary' => $itinerary ? true : false,
+                'has_itinerary'            => $itinerary ? true : false,
                 'has_unfinished_itinerary' => $hasUnfinishedItinerary,
-                'can_visit'   => $hasUnfinishedItinerary,
-                'meta' => [
+                'can_visit'                => $hasUnfinishedItinerary,
+                'itinerary'                => $itinerary,
+                'meta'                     => [
                     'is_from_visit_schedule' => $schedule ? false : true,
-                    'itinerary' => $itinerary,
+                    'itinerary'              => $itinerary,
                 ]
             ],
         ]);
