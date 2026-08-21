@@ -6,6 +6,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Str;
 
 class PositionForm
 {
@@ -15,14 +16,15 @@ class PositionForm
             ->components([
                 Select::make('principal_id')
                     ->relationship('principal', 'name')
-                    ->label('Company')
+                    ->label('Prinsiple')
+                    ->searchable()
+                    ->preload()
                     ->required(),
                 TextInput::make('name')
                     ->required(),
                 TextInput::make('code')
-                    ->default(fn () => 'POS-' . strtoupper(\Illuminate\Support\Str::random(5)))
-                    ->disabled()
-                    ->dehydrated()
+                    ->default(fn () => 'POS-' . strtoupper(Str::random(5)))
+                    ->afterStateHydrated(fn (TextInput $component, ?string $state) => empty($state) ? $component->state('POS-' . strtoupper(Str::random(5))) : null)
                     ->required()
                     ->unique(ignoreRecord: true),
                 Toggle::make('allow_offline_mode')

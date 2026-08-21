@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Position extends Model
 {
@@ -25,6 +26,21 @@ class Position extends Model
         'distance_lock_override' => 'integer',
         'is_active' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function ($position) {
+            if (empty($position->code)) {
+                $position->code = 'POS-' . strtoupper(Str::random(5));
+            }
+        });
+
+        static::saving(function ($position) {
+            if (empty($position->code)) {
+                $position->code = 'POS-' . strtoupper(Str::random(5));
+            }
+        });
+    }
 
     public function company()
     {

@@ -7,6 +7,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Str;
 
 class DepartmentForm
 {
@@ -23,9 +24,8 @@ class DepartmentForm
                 TextInput::make('name')
                     ->required(),
                 TextInput::make('code')
-                    ->default(fn () => 'DEP-' . strtoupper(\Illuminate\Support\Str::random(5)))
-                    ->disabled()
-                    ->dehydrated()
+                    ->default(fn () => 'DEP-' . strtoupper(Str::random(5)))
+                    ->afterStateHydrated(fn (TextInput $component, ?string $state) => empty($state) ? $component->state('DEP-' . strtoupper(Str::random(5))) : null)
                     ->required()
                     ->unique(ignoreRecord: true),
                 Select::make('parent_id')

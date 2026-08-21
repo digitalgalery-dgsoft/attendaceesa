@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Http;
 use Dotswan\MapPicker\Fields\Map;
 use Filament\Forms\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Str;
 
 class BranchForm
 {
@@ -21,9 +22,8 @@ class BranchForm
                 TextInput::make('name')
                     ->required(),
                 TextInput::make('code')
-                    ->default(fn () => 'BRN-' . strtoupper(\Illuminate\Support\Str::random(5)))
-                    ->disabled()
-                    ->dehydrated()
+                    ->default(fn () => 'BRN-' . strtoupper(Str::random(5)))
+                    ->afterStateHydrated(fn (TextInput $component, ?string $state) => empty($state) ? $component->state('BRN-' . strtoupper(Str::random(5))) : null)
                     ->required()
                     ->unique(ignoreRecord: true),
                 Select::make('region')

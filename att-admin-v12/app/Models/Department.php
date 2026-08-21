@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Department extends Model
 {
@@ -26,6 +27,21 @@ class Department extends Model
         'working_days' => 'array',
         'has_sales_reporting' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function ($department) {
+            if (empty($department->code)) {
+                $department->code = 'DEP-' . strtoupper(Str::random(5));
+            }
+        });
+
+        static::saving(function ($department) {
+            if (empty($department->code)) {
+                $department->code = 'DEP-' . strtoupper(Str::random(5));
+            }
+        });
+    }
 
     public function principal()
     {

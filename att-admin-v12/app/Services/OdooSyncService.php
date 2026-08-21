@@ -310,10 +310,11 @@ class OdooSyncService
                     ]
                 );
 
-                if ((!$department->principal_id && $principalId) || (!$department->company_id && $companyId)) {
+                if ((!$department->principal_id && $principalId) || (!$department->company_id && $companyId) || empty($department->code)) {
                     $department->update([
                         'principal_id' => $department->principal_id ?: $principalId,
                         'company_id'   => $department->company_id ?: $companyId,
+                        'code'         => $department->code ?: ('DEP-' . strtoupper(\Illuminate\Support\Str::random(5))),
                     ]);
                 }
 
@@ -327,22 +328,33 @@ class OdooSyncService
                         ['name' => $areaName],
                         ['code' => 'OD-AREA-' . $rec['area_id'][0], 'is_active' => true]
                     );
+                    if (empty($branch->code)) {
+                        $branch->update(['code' => 'OD-AREA-' . $rec['area_id'][0]]);
+                    }
                     $localBranchId = $branch->id;
                 }
 
-                // Resolve Position — auto-create if not found, assign principal_id
+                // Resolve Position — auto-create if not found, assign principal_id & code
                 $positionId = null;
                 $posName = '';
                 if (!empty($rec['job_id']) && is_array($rec['job_id'])) {
                     $posName    = $rec['job_id'][1];
                     $position   = Position::firstOrCreate(
-                        ['name' => $posName, 'company_id' => $companyId],
-                        ['is_active' => true, 'principal_id' => $principalId]
+                        ['name' => $posName, 'principal_id' => $principalId],
+                        [
+                            'company_id' => $companyId,
+                            'code'       => 'POS-' . strtoupper(\Illuminate\Support\Str::random(5)),
+                            'is_active'  => true,
+                        ]
                     );
                     
-                    // Update principal_id if it was previously empty
-                    if (!$position->principal_id && $principalId) {
-                        $position->update(['principal_id' => $principalId]);
+                    // Update principal_id, company_id or code if empty
+                    if (!$position->principal_id || !$position->company_id || empty($position->code)) {
+                        $position->update([
+                            'principal_id' => $position->principal_id ?: $principalId,
+                            'company_id'   => $position->company_id ?: $companyId,
+                            'code'         => $position->code ?: ('POS-' . strtoupper(\Illuminate\Support\Str::random(5))),
+                        ]);
                     }
                     
                     $positionId = $position->id;
