@@ -34,7 +34,7 @@
         $historyLogs = $this->getHistoryLogs();
     @endphp
 
-    <div wire:poll.15s>
+    <div>
 
     {{-- Filter & Control Header --}}
     <x-filament::section>
@@ -274,10 +274,10 @@
         </div>
     </x-filament::section>
 
-    {{-- Tabel Riwayat Sinkronisasi (Sync History) Per Hari Berjalan --}}
+    {{-- Tabel Riwayat 5 Log Sinkronisasi Terakhir --}}
     <x-filament::section
-        title="Riwayat Sinkronisasi Tanggal {{ $report['target_date_formatted'] }}"
-        description="Catatan log eksekusi otomatis maupun manual dari cron Odoo Sync pada hari berjalan."
+        title="Riwayat 5 Log Sinkronisasi Terakhir"
+        description="Menampilkan 5 catatan log sinkronisasi terbaru. Log yang lebih lama otomatis dibersihkan oleh sistem."
     >
         <div style="overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">

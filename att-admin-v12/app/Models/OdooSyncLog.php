@@ -19,6 +19,21 @@ class OdooSyncLog extends Model
         'total_employee_count' => 'integer',
     ];
 
+    public static function pruneOlderLogs(int $keep = 5): void
+    {
+        $keepIds = static::orderBy('created_at', 'desc')->limit($keep)->pluck('id')->toArray();
+        if (!empty($keepIds)) {
+            static::whereNotIn('id', $keepIds)->delete();
+        }
+    }
+
+    protected static function booted(): void
+    {
+        static::created(function ($log) {
+            static::pruneOlderLogs(5);
+        });
+    }
+
     public function company()
     {
         return $this->belongsTo(Company::class);

@@ -40,6 +40,7 @@ class OdooSyncReport extends Page
     public function mount(): void
     {
         @ini_set('memory_limit', '512M');
+        OdooSyncLog::pruneOlderLogs(5);
         $this->filterDate = Carbon::today('Asia/Jakarta')->toDateString();
         $this->selectedBatchId = 'all_today';
         $this->selectedCompanyId = null;
@@ -252,19 +253,15 @@ class OdooSyncReport extends Page
     }
 
     /**
-     * Get history log list for the bottom table strictly filtered for the selected day.
+     * Get history log list for the bottom table (max 5 latest logs).
      */
     public function getHistoryLogs()
     {
-        $targetDate = $this->filterDate ?: Carbon::today('Asia/Jakarta')->toDateString();
+        OdooSyncLog::pruneOlderLogs(5);
 
         $query = OdooSyncLog::with('company')
-            ->whereDate('created_at', $targetDate)
-            ->orderBy('created_at', 'desc');
-
-        if ($this->selectedBatchId && $this->selectedBatchId !== 'all_today' && $this->selectedBatchId !== 'latest') {
-            $query->where('batch_id', $this->selectedBatchId);
-        }
+            ->orderBy('created_at', 'desc')
+            ->limit(5);
 
         if ($this->selectedCompanyId) {
             $query->where('company_id', $this->selectedCompanyId);

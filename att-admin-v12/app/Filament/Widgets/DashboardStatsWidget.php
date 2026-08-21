@@ -17,6 +17,7 @@ class DashboardStatsWidget extends BaseWidget
     protected function getStats(): array
     {
         $employeeQuery = Employee::query()->where('is_active', true);
+        $inactiveQuery = Employee::query()->where('is_active', false);
         $attendanceTodayQuery = Attendance::where('attendance_date', Carbon::today()->toDateString());
         $principalQuery = \App\Models\Principal::query();
         $branchQuery = \App\Models\Branch::query();
@@ -25,27 +26,28 @@ class DashboardStatsWidget extends BaseWidget
             if (auth()->user()->hasBranchRestriction()) {
                 $accessibleBranches = auth()->user()->getAccessibleBranchIds();
                 $employeeQuery->whereIn('branch_id', $accessibleBranches);
+                $inactiveQuery->whereIn('branch_id', $accessibleBranches);
                 $attendanceTodayQuery->whereHas('employee', fn($q) => $q->whereIn('branch_id', $accessibleBranches));
                 $branchQuery->whereIn('id', $accessibleBranches);
             }
             if (auth()->user()->hasPrincipalRestriction()) {
                 $accessiblePrincipals = auth()->user()->getAccessiblePrincipalIds();
                 $employeeQuery->whereIn('principal_id', $accessiblePrincipals);
+                $inactiveQuery->whereIn('principal_id', $accessiblePrincipals);
                 $attendanceTodayQuery->whereHas('employee', fn($q) => $q->whereIn('principal_id', $accessiblePrincipals));
                 $principalQuery->whereIn('id', $accessiblePrincipals);
             }
         }
 
-        $totalEmployees = $employeeQuery->count();
-        $totalAllEmployees = Employee::count();
-        $inactiveEmployees = max(0, $totalAllEmployees - $totalEmployees);
+        $activeEmployees = $employeeQuery->count();
+        $inactiveEmployees = $inactiveQuery->count();
         $presentToday = $attendanceTodayQuery->count();
         $totalPrincipals = $principalQuery->count();
         $totalAreas = $branchQuery->count();
 
         return [
-            Stat::make('Total Employees', number_format($totalAllEmployees))
-                ->description(number_format($totalEmployees) . ' Aktif • ' . number_format($inactiveEmployees) . ' Resign/Non-Aktif')
+            Stat::make('Total Employees', number_format($activeEmployees))
+                ->description(number_format($inactiveEmployees) . ' Resign/Non-Aktif')
                 ->descriptionIcon('heroicon-m-users')
                 ->color('success'),
             Stat::make('Present Today', number_format($presentToday))
