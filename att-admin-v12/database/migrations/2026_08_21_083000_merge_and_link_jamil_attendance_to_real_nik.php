@@ -4,7 +4,6 @@ use App\Models\Employee;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Hash;
 
 return new class extends Migration
 {
@@ -46,7 +45,7 @@ return new class extends Migration
             $realJamil->is_active = true;
             $realJamil->save();
 
-            // B. Pindahkan data attendances dengan aman (hindari unique constraint per date)
+            // B. Pindahkan data attendances dengan aman (hindari duplicate per employee_id + attendance_date)
             if (Schema::hasTable('attendances')) {
                 $fromAtts = DB::table('attendances')->where('employee_id', $fromId)->get();
                 foreach ($fromAtts as $att) {
@@ -56,7 +55,7 @@ return new class extends Migration
                         ->first();
 
                     if ($existingOnTo) {
-                        // Update field attendance jika di temp record memiliki jam masuk
+                        // Update jika di record temp memiliki jam checkin
                         if (!empty($att->checkin_at)) {
                             DB::table('attendances')->where('id', $existingOnTo->id)->update([
                                 'status' => $att->status,
@@ -72,7 +71,6 @@ return new class extends Migration
                                 'correction_note' => $att->correction_note,
                             ]);
                         }
-                        // Update logs yang merujuk ke temp att id ke target att id
                         if (Schema::hasTable('attendance_logs')) {
                             DB::table('attendance_logs')
                                 ->where('attendance_id', $att->id)
@@ -81,19 +79,32 @@ return new class extends Migration
                                     'employee_id' => $toId,
                                 ]);
                         }
-                        // Hapus record lama temp agar tidak duplicate
                         DB::table('attendances')->where('id', $att->id)->delete();
                     } else {
-                        // Pindahkan langsung
                         DB::table('attendances')->where('id', $att->id)->update(['employee_id' => $toId]);
                     }
                 }
             }
 
-            // C. Pindahkan tabel-tabel aktivitas lainnya
-            $otherTables = [
+            // C. Pindahkan employee_schedules dengan aman (unique on employee_id, schedule_date)
+            if (Schema::hasTable('employee_schedules')) {
+                $fromScheds = DB::table('employee_schedules')->where('employee_id', $fromId)->get();
+                foreach ($fromScheds as $sched) {
+                    $exists = DB::table('employee_schedules')
+                        ->where('employee_id', $toId)
+                        ->where('schedule_date', $sched->schedule_date)
+                        ->exists();
+                    if ($exists) {
+                        DB::table('employee_schedules')->where('id', $sched->id)->delete();
+                    } else {
+                        DB::table('employee_schedules')->where('id', $sched->id)->update(['employee_id' => $toId]);
+                    }
+                }
+            }
+
+            // D. Pindahkan tabel-tabel aktivitas lainnya secara aman dengan Schema::hasColumn
+            $tables = [
                 'attendance_logs',
-                'employee_schedules',
                 'itineraries',
                 'leave_requests',
                 'extra_hours',
@@ -110,26 +121,28 @@ return new class extends Migration
                 'chat_messages',
             ];
 
-            foreach ($otherTables as $table) {
-                if (Schema::hasTable($table)) {
-                    try {
-                        DB::table($table)->where('employee_id', $fromId)->update(['employee_id' => $toId]);
-                    } catch (\Throwable $e) {
-                        // Skip if collision
-                    }
+            foreach ($tables as $table) {
+                if (Schema::hasTable($table) && Schema::hasColumn($table, 'employee_id')) {
+                    DB::table($table)->where('employee_id', $fromId)->update(['employee_id' => $toId]);
                 }
             }
 
-            // D. Kembalikan Record $tempJamil menjadi Eka Septiani yang Asli
-            $tempJamil->update([
-                'employee_no'       => '7402256409960001',
-                'full_name'         => 'Eka Septiani',
-                'photo'             => null,
-                'device_id'         => null,
-                'device_name'       => null,
-                'password'          => Hash::make('123456'),
-                'is_active'         => true,
-            ]);
+            // E. Penanganan Eka Septiani & Pembersihan Temp Record
+            $existingEka = Employee::withTrashed()->where('employee_no', '7402256409960001')->first();
+            if ($existingEka && $existingEka->id !== $fromId) {
+                // Eka sudah ada di baris record terpisah, hapus record dummy/temp
+                DB::table('employees')->where('id', $fromId)->delete();
+            } else {
+                // Kembalikan record ini ke Eka Septiani
+                DB::table('employees')->where('id', $fromId)->update([
+                    'employee_no' => '7402256409960001',
+                    'full_name'   => 'Eka Septiani',
+                    'photo'       => null,
+                    'device_id'   => null,
+                    'device_name' => null,
+                    'is_active'   => true,
+                ]);
+            }
         }
     }
 
