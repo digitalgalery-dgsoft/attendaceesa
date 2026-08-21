@@ -301,11 +301,50 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 
 ---
 
+## 🚀 Tahap 12: Fitur Reporting Khusus Prinsiple (Dynamic Form Builder ala Google Forms & Multi-Tenant Subdomain Dashboard) (PLANNED)
+*Tahap ini merupakan pembaruan arsitektur besar untuk menyediakan fitur reporting yang dapat dikustomisasi per prinsiple secara fleksibel seperti Google Form, lengkap dengan portal admin mandiri berbasis Subdomain untuk masing-masing prinsiple.*
+
+### 1. Arsitektur & Gambaran Solusi
+- **Super Admin Panel (`/admin`)**:
+  - Manajemen Prinsiple & Konfigurasi Subdomain (`subdomain`, `theme_color`, `logo_path`, `banner_path`, `portal_title`).
+  - **Dynamic Form Builder (ala Google Forms)**: Super Admin dapat mendesain form pelaporan fleksibel (tambah pertanyaan/field dinamis, opsi pilihan, validasi, dan preview form).
+  - Penugasan template form ke prinsiple tertentu atau multi-prinsiple.
+- **Portal Admin Khusus Prinsiple (`{subdomain}.appsend.my.id` atau `/portal/{subdomain}`)**:
+  - Subdomain & data isolation multi-tenant (Admin Prinsiple A hanya bisa melihat data dan laporan milik Prinsiple A).
+  - **Branding Dinamis**: Logo, nama brand portal, dan tema warna dashboard otomatis mengikuti identitas prinsiple yang sedang login.
+  - **Dashboard Ringkasan & KPI**: Total laporan masuk, outlet aktif terkunjungi, performa karyawan.
+  - **Tabel Laporan Masuk Dinamis**: Menampilkan rekap jawaban form dinamis, filter tanggal/outlet/karyawan, modal rincian bukti foto, tanda tangan, dan peta koordinat GPS.
+  - **Validasi & Approval Laporan**: Fitur verifikasi (Approve / Reject dengan catatan verifikator).
+  - **Ekspor Excel & PDF Fleksibel**: Kolom Excel otomatis menyesuaikan field-field yang dibuat pada Form Builder.
+- **Flutter Mobile App (Dynamic Form Engine)**:
+  - Mengambil skema field form aktif dari API secara dinamis berdasarkan prinsiple/assignment karyawan.
+  - Merender UI input secara *on-the-fly* (Teks, Angka, Dropdown, Multi-Foto Kamera, Tanda Tangan Digital, Titik GPS, Barcode Scanner, dll.).
+  - **Offline Storage & Auto-Sync**: Form tetap dapat diisi saat tanpa sinyal dan tersinkronisasi otomatis saat online.
+
+### 2. Struktur Database & Model Baru
+- **Penambahan kolom pada `principals`**: `subdomain`, `custom_domain`, `theme_color`, `logo_path`, `banner_path`, `portal_title`, `is_active`.
+- **Tabel `report_templates`**: Master template form pelaporan (relasi ke `principal_id`, judul, kategori, permission GPS/Foto/Tanda Tangan, dll.).
+- **Tabel `report_form_fields`**: Elemen input dinamis form (`field_label`, `field_name`, `field_type`: text/textarea/number/currency/dropdown/radio/checkbox/date/time/camera_photo/multi_photo/signature/gps_location/barcode_scanner/rating_star, `options`, `is_required`, `placeholder`, `order_index`, `validation_rules`).
+- **Tabel `report_submissions`**: Header hasil laporan karyawan (`submission_code`, `principal_id`, `employee_id`, `work_location_id`, `latitude`, `longitude`, `status`, `verified_by`, dll.).
+- **Tabel `report_submission_values`**: Nilai detail isian form dinamis (`report_submission_id`, `report_form_field_id`, `field_name`, `field_type`, `field_value`).
+
+### 3. Tahapan Eksekusi (Milestones)
+- [ ] **Fase 1**: Migrasi database (`principals` branding columns, `report_templates`, `report_form_fields`, `report_submissions`, `report_submission_values`) & Eloquent Models.
+- [ ] **Fase 2**: Google Form Style Builder di Super Admin Panel Filament (manajemen template, repeater builder, validasi, preview).
+- [ ] **Fase 3**: Konfigurasi Multi-Tenant Subdomain Panel Prinsiple (`PrincipalPanelProvider`, dynamic theme & logo, scoped queries).
+- [ ] **Fase 4**: Halaman Laporan, Galeri Bukti Foto, Peta GPS, dan Ekspor Excel/PDF Dinamis di portal prinsiple.
+- [ ] **Fase 5**: REST API Endpoint untuk sinkronisasi schema form dan submission data.
+- [ ] **Fase 6**: Dynamic Form Renderer di Flutter Mobile App (render field dinamis, kamera, tanda tangan, GPS, offline storage & sync).
+- [ ] **Fase 7**: Pengujian komprehensif, verifikasi subdomain di live server, build & deploy.
+
+---
+
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)
 1. **Lanjutan Monitoring & Rekap Operasional:**
    - Evaluasi integrasi data jadwal visit schedule dan kehadiran di mobile app saat karyawan check-in via lokasi terjadwal visit.
    - Penambahan filter lanjutan pada laporan presensi dan ekspor data audit penyesuaian manual/import.
 2. **Peningkatan Skalabilitas & Media Storage:**
    - Integrasi penyimpanan awan (*Cloud Storage S3 / Spaces / GCS*) untuk media foto presensi dan laporan visit.
+
 
 
