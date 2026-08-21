@@ -279,9 +279,9 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Jika kombinasi NIK + Prinsiple belum ada, sistem secara otomatis membuat record baru (`Employee::create`).
    - Penyesuaian `cleanupAllDuplicateEmployees` agar hanya membersihkan duplikat yang memiliki NIK dan Prinsiple yang sama persis.
 
-2. **Restorasi Akun & Pemisahan Data (Migration Data Fix):**
-   - Memulihkan record akun **Abdurrahman Jamil** (beserta perangkat terikat TECNO KM7, foto profil, dan riwayat presensinya).
-   - Memisahkan data **Eka Septiani** (NIK `7402256409960001`) ke baris record tersendiri yang bersih.
+2. **Konsolidasi Akun & Pengalihan Riwayat Presensi ke NIK Asli (`3528042504850003`):**
+   - Mengalihkan seluruh data riwayat presensi (`attendances`, `attendance_logs`), jadwal kerja (`employee_schedules`), izin, visit, foto profil, dan perangkat aktif (`TECNO TECNO KM7`) ke akun asli **Abdurrahman Jamil** dengan NIK **`3528042504850003`** (PT ANUGRAH TALENTA BERKARYA - IT Surabaya).
+   - Menghapus record sementara (`EMP-JAMIL-001`) dan memastikan data **Eka Septiani** (NIK `7402256409960001`) tetap terdaftar bersih pada entitas aslinya (PT ALVA KARYA PERKASA - ELINA Makassar).
 
 ---
 
