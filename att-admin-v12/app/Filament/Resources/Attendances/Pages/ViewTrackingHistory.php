@@ -117,7 +117,7 @@ class ViewTrackingHistory extends Page
             $prevLat = $lat;
             $prevLng = $lng;
 
-            $time = \Carbon\Carbon::parse($item->created_at, 'UTC')->setTimezone($timezone);
+            $time = \Carbon\Carbon::parse($item->created_at)->timezone($timezone);
 
             return [
                 'latitude'   => $lat,
