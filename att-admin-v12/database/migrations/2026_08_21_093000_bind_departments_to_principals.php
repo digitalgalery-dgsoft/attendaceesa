@@ -14,6 +14,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        @ini_set('memory_limit', '512M');
+
         // 1. Tambah kolom principal_id ke tabel departments jika belum ada
         Schema::table('departments', function (Blueprint $table) {
             if (!Schema::hasColumn('departments', 'principal_id')) {
@@ -29,7 +31,6 @@ return new class extends Migration
 
         foreach ($departments as $dept) {
             if (empty($dept->principal_id)) {
-                // Cari principal dari karyawan yang terhubung ke department ini
                 $employeePrincipalId = DB::table('employees')
                     ->where('department_id', $dept->id)
                     ->whereNotNull('principal_id')
@@ -40,23 +41,19 @@ return new class extends Migration
                         'principal_id' => $employeePrincipalId,
                     ]);
                 } elseif (!empty($dept->company_id)) {
-                    // Cari principal inhouse yang sesuai dengan company_id
-                    $principal = DB::table('principals')->where('company_id', $dept->company_id)->first();
-                    if ($principal) {
+                    $principalId = DB::table('principals')->where('company_id', $dept->company_id)->value('id');
+                    if ($principalId) {
                         DB::table('departments')->where('id', $dept->id)->update([
-                            'principal_id' => $principal->id,
+                            'principal_id' => $principalId,
                         ]);
                     }
                 }
             }
         }
 
-        // 3. Pastikan setiap karyawan memiliki department yang terikat ke principal karyawan tersebut
-        $employees = DB::table('employees')->whereNotNull('principal_id')->get();
-
-        // Cache department mapping: "deptName_principalId" => deptId
+        // 3. Cache department mapping: "deptName_principalId" => deptId
         $deptCache = [];
-        $allDepts = DB::table('departments')->get();
+        $allDepts = DB::table('departments')->select('id', 'name', 'principal_id')->get();
         foreach ($allDepts as $d) {
             if ($d->principal_id) {
                 $key = strtolower(trim($d->name)) . '_' . $d->principal_id;
@@ -64,53 +61,59 @@ return new class extends Migration
             }
         }
 
-        foreach ($employees as $emp) {
-            $principalId = $emp->principal_id;
-            $principal = DB::table('principals')->where('id', $principalId)->first();
-            $companyId = $emp->company_id ?: ($principal ? $principal->company_id : null);
+        // 4. Cache principal to company mapping
+        $principalCompanyMap = DB::table('principals')->pluck('company_id', 'id')->toArray();
+        $deptNameMap = DB::table('departments')->pluck('name', 'id')->toArray();
 
-            // Dapatkan nama department yang diinginkan
-            $currentDept = $emp->department_id ? DB::table('departments')->where('id', $emp->department_id)->first() : null;
-            $deptName = $currentDept ? trim($currentDept->name) : 'Inhouse';
+        // 5. Update employees in memory-efficient chunks
+        DB::table('employees')
+            ->whereNotNull('principal_id')
+            ->select('id', 'principal_id', 'department_id', 'company_id')
+            ->chunkById(300, function ($employees) use (&$deptCache, $principalCompanyMap, $deptNameMap) {
+                foreach ($employees as $emp) {
+                    $principalId = $emp->principal_id;
+                    $companyId   = $emp->company_id ?: ($principalCompanyMap[$principalId] ?? null);
 
-            $cacheKey = strtolower($deptName) . '_' . $principalId;
+                    $currentDeptName = $emp->department_id && isset($deptNameMap[$emp->department_id]) 
+                        ? trim($deptNameMap[$emp->department_id]) 
+                        : 'Inhouse';
 
-            if (isset($deptCache[$cacheKey])) {
-                $targetDeptId = $deptCache[$cacheKey];
-            } else {
-                // Buat department baru yang terikat ke principal_id ini
-                $code = 'DEP-' . strtoupper(Str::random(5));
-                $targetDeptId = DB::table('departments')->insertGetId([
-                    'principal_id'        => $principalId,
-                    'company_id'          => $companyId,
-                    'name'                => $deptName,
-                    'code'                => $code,
-                    'is_active'           => true,
-                    'has_sales_reporting' => ($deptName === 'SALES' || ($currentDept && $currentDept->has_sales_reporting)),
-                    'working_days'        => json_encode(['1', '2', '3', '4', '5']),
-                    'cutoff_start_date'   => $currentDept ? $currentDept->cutoff_start_date : 26,
-                    'created_at'          => now(),
-                    'updated_at'          => now(),
-                ]);
-                $deptCache[$cacheKey] = $targetDeptId;
-            }
+                    $cacheKey = strtolower($currentDeptName) . '_' . $principalId;
 
-            // Update department_id pada employee jika berbeda
-            if ($emp->department_id !== $targetDeptId) {
-                DB::table('employees')->where('id', $emp->id)->update([
-                    'department_id' => $targetDeptId,
-                ]);
-            }
-        }
+                    if (isset($deptCache[$cacheKey])) {
+                        $targetDeptId = $deptCache[$cacheKey];
+                    } else {
+                        $code = 'DEP-' . strtoupper(Str::random(5));
+                        $targetDeptId = DB::table('departments')->insertGetId([
+                            'principal_id'        => $principalId,
+                            'company_id'          => $companyId,
+                            'name'                => $currentDeptName,
+                            'code'                => $code,
+                            'is_active'           => true,
+                            'has_sales_reporting' => (strtoupper($currentDeptName) === 'SALES'),
+                            'working_days'        => json_encode(['1', '2', '3', '4', '5']),
+                            'cutoff_start_date'   => 26,
+                            'created_at'          => now(),
+                            'updated_at'          => now(),
+                        ]);
+                        $deptCache[$cacheKey] = $targetDeptId;
+                    }
 
-        // 4. Bersihkan department yatim yang tidak punya principal_id dan tidak punya karyawan
+                    if ($emp->department_id !== $targetDeptId) {
+                        DB::table('employees')->where('id', $emp->id)->update([
+                            'department_id' => $targetDeptId,
+                        ]);
+                    }
+                }
+            });
+
+        // 6. Bersihkan department yatim yang tidak punya principal_id dan tidak punya karyawan
         $orphanDepts = DB::table('departments')->whereNull('principal_id')->get();
         foreach ($orphanDepts as $orphan) {
             $hasEmployees = DB::table('employees')->where('department_id', $orphan->id)->exists();
             if (!$hasEmployees) {
                 DB::table('departments')->where('id', $orphan->id)->delete();
             } else {
-                // Berikan fallback principal pertama yang ada jika masih ada employee
                 $firstPrincipalId = DB::table('principals')->value('id');
                 if ($firstPrincipalId) {
                     DB::table('departments')->where('id', $orphan->id)->update(['principal_id' => $firstPrincipalId]);
