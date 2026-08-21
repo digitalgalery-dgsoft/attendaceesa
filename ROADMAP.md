@@ -297,7 +297,36 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 
 2. **Auto-Create Department via Odoo Sync:**
    - Menyesuaikan `OdooSyncService` agar secara otomatis membuat (*firstOrCreate*) record Department berdasarkan data department dari Odoo (`rec['department_id']`) yang terikat ke `principal_id` karyawan terkait.
-   - Migrasi data untuk melengkapi seluruh `principal_id` pada record department yang sebelumnya kosong dan menautkan ulang `department_id` karyawan ke departemen yang sesuai dengan Prinsiple masing-masing.
+
+---
+
+## ✅ Tahap 11.2: UI/UX Maskot 3D Superhero Time Card Dashboard, Sizing Server 23.511 Karyawan & Presentasi PPTX (SELESAI 21 Agustus 2026)
+*Tahap ini mencakup pembaruan visual kartu jam dashboard aplikasi mobile dengan maskot 3D Superhero, analisis kapasitas & spesifikasi server untuk kuota 23.511 karyawan, serta pembuatan file presentasi PowerPoint eksekutif.*
+
+1. **Pembaruan UI/UX Kartu Jam (Time Card) Dashboard Mobile:**
+   - Menambahkan grafis maskot 3D ESA bertema superhero dengan pose **tersenyum & mengedipkan mata (*winking*) sambil mengarahkan tangan (*pointing*) ke arah jam digital**.
+   - Maskot diekstrak dengan transparansi halus (*alpha channel*) beresolusi tinggi sehingga menyatu sempurna dengan gradien warna kartu yang dinamis mengikuti tema General Setting.
+   - **Informasi Real-Time Dinamis**: Jam digital format `HH:mm:ss` monospaced tebal warna putih (berdetik setiap detik), hari & tanggal bilingual (`EEEE, dd MMMM yyyy`), serta lokasi cabang dan zona waktu (`📍 [Cabang] · [WIB / WITA / WIT]`).
+   - Kompilasi build rilis APK versi 1.0.95 dan deploy live ke `https://appsend.my.id/app-release.apk`.
+
+2. **Analisis Sizing Infrastruktur Server untuk Kuota 23.511 Karyawan (3 Group Company):**
+   - **Group 1: PT ARINA MULTI KARYA (11.687 Karyawan — 49.7% populasi)**:
+     - *Peak Traffic*: ~250 - 400 Request/detik.
+     - *Spesifikasi IDEAL*: **16 vCPU (EPYC/Xeon Gold), 32 GB RAM** (16GB DB Buffer + 8GB Redis + 8GB App), **500 GB NVMe SSD**, 1 Gbps Port.
+   - **Group 2: GABUNGAN 3 PT [ATB + ATK + ABO] (7.424 Karyawan — 31.6% populasi)**:
+     - Rincian: PT Anugrah Talenta Berkarya (2.915) + PT Anugrah Terpercaya Kerja (2.804) + PT Abadi Berkat Odelia (1.705).
+     - *Peak Traffic*: ~160 - 250 Request/detik.
+     - *Spesifikasi IDEAL*: **10 - 12 vCPU, 24 - 32 GB RAM**, **350 - 500 GB NVMe SSD**, 1 Gbps Port.
+   - **Group 3: PT ALVA KARYA PERKASA (4.400 Karyawan — 18.7% populasi)**:
+     - *Peak Traffic*: ~100 - 150 Request/detik.
+     - *Spesifikasi IDEAL*: **8 vCPU, 16 GB RAM**, **250 GB NVMe SSD**, 1 Gbps Port.
+   - **Opsi Alternatif 1 Dedicated Server Fisik (Bare Metal All-in-One)**:
+     - **32 Core / 64 Thread (AMD EPYC / Dual Xeon), 64 - 128 GB RAM ECC, 2x 1TB NVMe RAID-1**. Jauh lebih hemat biaya dan praktis dikelola terpusat via 1 dashboard aaPanel/CloudPanel.
+   - **Optimasi Software Stack**: Laravel Octane (FrankenPHP/Swoole) untuk throughput 5x–10x lebih cepat, Redis in-memory cache & queue, MySQL 8.0 InnoDB buffer pool 50%–60% RAM, serta Cloud Object Storage (S3/Wasabi/Spaces) untuk menampung ~1,1 juta foto absen/bulan.
+
+3. **Dokumen Presentasi PowerPoint Eksekutif (`Spesifikasi_Server_Absensi_ESA.pptx`):**
+   - Dibuat dalam format modern widescreen 16:9 siap presentasi ke stakeholder/manajemen.
+   - Tersimpan di direktori lokal `Spesifikasi_Server_Absensi_ESA.pptx` dan di-deploy ke server live di `https://appsend.my.id/Spesifikasi_Server_Absensi_ESA.pptx`.
 
 ---
 
