@@ -116,6 +116,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final notificationProvider = Provider.of<NotificationProvider>(context);
     final dashboardProvider = Provider.of<DashboardProvider>(context);
 
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
+    final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF0E1830);
+    final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
+    final elevatedColor = isDarkMode ? Colors.grey.shade800 : const Color(0xFFEDF1F8);
+
     if (authProvider.employeeData == null) {
       return Scaffold(
         backgroundColor: backgroundColor,
