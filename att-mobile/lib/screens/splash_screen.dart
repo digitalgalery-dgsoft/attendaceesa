@@ -146,9 +146,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       Expanded(
                         child: Center(
                           child: Image.asset(
-                            'assets/images/mascot_splash.png',
+                            'assets/images/maskot_esa.png',
                             fit: BoxFit.contain,
-                            height: MediaQuery.of(context).size.height * 0.42,
+                            height: MediaQuery.of(context).size.height * 0.44,
                             errorBuilder: (_, __, ___) => const Icon(
                               Icons.fingerprint,
                               color: Colors.white,
