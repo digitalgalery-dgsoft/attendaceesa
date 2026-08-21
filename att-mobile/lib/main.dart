@@ -22,6 +22,8 @@ import 'package:toastification/toastification.dart';
 import 'package:safe_device/safe_device.dart';
 import 'package:att_mobile/screens/security_warning_screen.dart';
 import 'package:att_mobile/screens/splash_screen.dart';
+import 'package:att_mobile/screens/onboarding_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:att_mobile/services/push_notification_service.dart';
@@ -173,6 +175,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   late Future<bool> _initFuture;
   bool _isSecure = true;
   String _securityMessage = '';
+  bool _hasSeenOnboarding = false;
 
   @override
   void initState() {
@@ -197,8 +200,14 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   }
 
   Future<bool> _initialize() async {
-    // 0. Artificial Delay for Splash Screen (2 seconds)
-    await Future.delayed(const Duration(seconds: 2));
+    // 0. Delay for Splash Screen branding animation
+    await Future.delayed(const Duration(milliseconds: 2500));
+
+    // Check Onboarding status
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+    } catch (_) {}
 
     // 1. Security Checks
     try {
@@ -267,6 +276,9 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
           builder: (context, auth, _) {
             if (auth.isAuthenticated) {
               return const MainScreen();
+            }
+            if (!_hasSeenOnboarding) {
+              return const OnboardingScreen();
             }
             return const LoginScreen();
           },

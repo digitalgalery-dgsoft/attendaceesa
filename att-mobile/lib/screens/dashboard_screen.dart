@@ -321,16 +321,28 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 
                 const SizedBox(height: 11),
 
-                // Time Card
+                // Time Card (Mengikuti warna General Setting)
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Color(0xFF132247), Color(0xFF0E1830)],
+                      colors: [
+                        primaryColor,
+                        HSLColor.fromColor(primaryColor)
+                            .withLightness((HSLColor.fromColor(primaryColor).lightness * 0.72).clamp(0.0, 1.0))
+                            .toColor(),
+                      ],
                     ),
                     borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryColor.withValues(alpha: 0.28),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,16 +354,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       const SizedBox(height: 2),
                       Text(
                         DateFormat('EEEE, dd MMMM yyyy').format(_currentTime),
-                        style: const TextStyle(fontSize: 10, color: Color(0xFFB9C3DD)),
+                        style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.85)),
                       ),
                       const SizedBox(height: 7),
                       Row(
                         children: [
-                          const Icon(Icons.location_on, size: 10, color: Color(0xFF8FE3F5)),
+                          const Icon(Icons.location_on, size: 10, color: Colors.white),
                           const SizedBox(width: 5),
                           Text(
                             '$branchName · Terverifikasi',
-                            style: const TextStyle(fontSize: 9, color: Color(0xFF8FE3F5), fontWeight: FontWeight.w600),
+                            style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w600),
                           ),
                         ],
                       )
