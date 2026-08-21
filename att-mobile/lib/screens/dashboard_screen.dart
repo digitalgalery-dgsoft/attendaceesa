@@ -333,9 +333,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 
                 const SizedBox(height: 11),
 
-                // Time Card (Mengikuti warna General Setting)
+                // Time Card (Dengan Maskot 3D Superhero Sesuai Desain)
                 Container(
-                  padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
+                  height: 125,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -343,42 +343,85 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       colors: [
                         primaryColor,
                         HSLColor.fromColor(primaryColor)
-                            .withLightness((HSLColor.fromColor(primaryColor).lightness * 0.72).clamp(0.0, 1.0))
+                            .withLightness((HSLColor.fromColor(primaryColor).lightness * 0.65).clamp(0.0, 1.0))
                             .toColor(),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(18),
                     boxShadow: [
                       BoxShadow(
-                        color: primaryColor.withValues(alpha: 0.28),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                        color: primaryColor.withValues(alpha: 0.35),
+                        blurRadius: 14,
+                        offset: const Offset(0, 5),
                       ),
                     ],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
                     children: [
-                      Text(
-                        locale.formatDateTime(_currentTime, pattern: 'HH:mm:ss'),
-                        style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'monospace'),
+                      // Mascot Graphic Positioned on the Right
+                      Positioned(
+                        right: -4,
+                        top: 0,
+                        bottom: 0,
+                        child: Image.asset(
+                          'assets/images/time_card_mascot.png',
+                          fit: BoxFit.contain,
+                          alignment: Alignment.bottomRight,
+                          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                        ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        locale.formatDateTime(_currentTime, pattern: 'EEEE, dd MMMM yyyy'),
-                        style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.85)),
-                      ),
-                      const SizedBox(height: 7),
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on, size: 10, color: Colors.white),
-                          const SizedBox(width: 5),
-                          Text(
-                            '$branchName · ${locale.timeZone}',
-                            style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w600),
+
+                      // Left Information (Live Clock, Date, Location)
+                      Positioned.fill(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                locale.formatDateTime(_currentTime, pattern: 'HH:mm:ss'),
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  fontFamily: 'monospace',
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                locale.formatDateTime(_currentTime, pattern: 'EEEE, dd MMMM yyyy'),
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.location_on, size: 12, color: Colors.white),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      '$branchName · ${locale.timeZone}',
+                                      style: const TextStyle(
+                                        fontSize: 9.5,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ],
-                      )
+                        ),
+                      ),
                     ],
                   ),
                 ),
