@@ -28,6 +28,50 @@ Route::get('/settings', function () {
 
 Route::get('/permit/print/{id}', [PermitController::class, 'downloadPdf'])->name('api.permit.download')->middleware('signed');
 
+Route::get('/debug-jamil-schedule', function () {
+    $emps = \App\Models\Employee::where('name', 'like', '%Jamil%')
+        ->orWhere('nik_ktp', '3528042504850003')
+        ->orWhere('employee_no', '3528042504850003')
+        ->get();
+
+    $results = [];
+    foreach ($emps as $e) {
+        $scheds = \App\Models\EmployeeSchedule::where('employee_id', $e->id)->get();
+        $todaySched = \App\Models\EmployeeSchedule::where('employee_id', $e->id)
+            ->where('schedule_date', '2026-08-21')
+            ->with(['shift', 'workLocation.company'])
+            ->first();
+
+        $tokens = \DB::table('personal_access_tokens')
+            ->where('tokenable_id', $e->id)
+            ->where('tokenable_type', 'App\\Models\\Employee')
+            ->get();
+
+        $results[] = [
+            'employee' => [
+                'id' => $e->id,
+                'name' => $e->name,
+                'nik_ktp' => $e->nik_ktp,
+                'employee_no' => $e->employee_no,
+                'principal_id' => $e->principal_id,
+                'company_id' => $e->company_id,
+                'is_active' => $e->is_active,
+                'device_id' => $e->device_id,
+            ],
+            'total_schedules' => $scheds->count(),
+            'today_schedule' => $todaySched,
+            'tokens' => $tokens,
+        ];
+    }
+
+    return response()->json([
+        'server_time' => now()->toDateTimeString(),
+        'server_date' => \Carbon\Carbon::today('Asia/Jakarta')->toDateString(),
+        'all_schedules_today_count' => \App\Models\EmployeeSchedule::where('schedule_date', '2026-08-21')->count(),
+        'employees' => $results,
+    ]);
+});
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
