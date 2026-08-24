@@ -185,6 +185,14 @@ class AttendanceProvider with ChangeNotifier {
         _checkinBlockMessage = data['message'] ?? 'Anda memiliki izin yang disetujui hari ini.';
         _todaySchedule = null;
         _todayItinerary = null;
+        await OfflineSyncService.saveToCache(OfflineSyncService.keyCacheDashboardSchedule, {
+          'can_checkin': false,
+          'can_visit': false,
+          'has_unfinished_itinerary': false,
+          'message': _checkinBlockMessage,
+          'schedule': null,
+          'itinerary': null,
+        });
         return;
       }
 
@@ -193,16 +201,13 @@ class AttendanceProvider with ChangeNotifier {
 
       if (response.statusCode == 200 && data['can_checkin'] == true) {
         _canCheckin = true;
-        _canVisit = data['can_visit'] ?? data['data']?['can_visit'] ?? false;
-        _hasUnfinishedItinerary = data['has_unfinished_itinerary'] ?? data['data']?['has_unfinished_itinerary'] ?? false;
-        _checkinBlockMessage = '';
         _todaySchedule = data['data']?['schedule'];
         _todayItinerary = data['data']?['itinerary'] ?? data['data']?['meta']?['itinerary'];
-
-        // Jika terdapat jadwal kunjungan hari ini, pastikan canVisit aktif
-        if (_todayItinerary != null && (_todayItinerary?['items'] as List? ?? []).isNotEmpty) {
-          _canVisit = true;
-        }
+        _hasUnfinishedItinerary = data['has_unfinished_itinerary'] ?? data['data']?['has_unfinished_itinerary'] ?? false;
+        
+        // canVisit HANYA true jika karyawan memang memiliki itinerary hari ini dan masih ada yang belum selesai dikunjungi
+        _canVisit = _hasUnfinishedItinerary && _todayItinerary != null && (_todayItinerary?['items'] as List? ?? []).isNotEmpty;
+        _checkinBlockMessage = '';
 
         // Simpan ke Cache Lokal
         await OfflineSyncService.saveToCache(OfflineSyncService.keyCacheDashboardSchedule, {
@@ -213,13 +218,23 @@ class AttendanceProvider with ChangeNotifier {
           'schedule': _todaySchedule,
           'itinerary': _todayItinerary,
         });
-      } else if (response.statusCode == 200) {
+      } else {
+        // Status code 403, 400, 422, atau response tidak memiliki jadwal
         _canCheckin = false;
         _canVisit = false;
         _hasUnfinishedItinerary = false;
-        _checkinBlockMessage = data['message'] ?? 'Tidak bisa melakukan Check-In hari ini.';
+        _checkinBlockMessage = data['message'] ?? 'Anda tidak memiliki jadwal kerja untuk hari ini. Silakan hubungi Admin.';
         _todaySchedule = null;
         _todayItinerary = null;
+
+        await OfflineSyncService.saveToCache(OfflineSyncService.keyCacheDashboardSchedule, {
+          'can_checkin': false,
+          'can_visit': false,
+          'has_unfinished_itinerary': false,
+          'message': _checkinBlockMessage,
+          'schedule': null,
+          'itinerary': null,
+        });
       }
     } catch (e) {
       debugPrint('Gagal fetch today schedule (mungkin offline): $e');

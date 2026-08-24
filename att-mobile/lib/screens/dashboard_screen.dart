@@ -136,6 +136,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final employeeName = authProvider.employeeData?['full_name'] ?? 'User';
     final positionName = authProvider.employeeData?['position']?['name'] ?? '-';
     final branchName = authProvider.employeeData?['branch']?['name'] ?? '-';
+    final principalName = authProvider.employeeData?['principal']?['name']?.toString().trim() ?? '';
     final primaryColor = authProvider.appColor ?? const Color(0xFF0F52BA);
     final hasSalesReporting = authProvider.employeeData?['department']?['has_sales_reporting'] == 1 || authProvider.employeeData?['department']?['has_sales_reporting'] == true;
 
@@ -280,7 +281,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           const SizedBox(height: 3),
                           Text(employeeName, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
                           const SizedBox(height: 2),
-                          Text('$positionName · $branchName', style: TextStyle(fontSize: 10.5, color: subtitleColor, fontWeight: FontWeight.w500)),
+                          Text(
+                            [
+                              if (positionName.isNotEmpty && positionName != '-') positionName,
+                              if (branchName.isNotEmpty && branchName != '-') branchName,
+                              if (principalName.isNotEmpty && principalName != '-') principalName,
+                            ].join(' · '),
+                            style: TextStyle(fontSize: 10.5, color: subtitleColor, fontWeight: FontWeight.w500),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ],
                       ),
                     ),
@@ -656,7 +666,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             if (attProvider.hasCheckedOutToday) return;
                             if (!attProvider.canCheckin && !attProvider.isCheckedIn) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(attProvider.checkinBlockMessage), backgroundColor: Colors.red),
+                                SnackBar(
+                                  content: Text(attProvider.checkinBlockMessage.isNotEmpty
+                                      ? attProvider.checkinBlockMessage
+                                      : 'Anda tidak memiliki jadwal kerja untuk hari ini. Silakan hubungi Admin.'),
+                                  backgroundColor: Colors.red,
+                                ),
                               );
                               return;
                             }
@@ -679,7 +694,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               gradient: attProvider.hasCheckedOutToday
                                   ? const LinearGradient(colors: [Colors.grey, Colors.grey])
                                   : (!attProvider.canCheckin && !attProvider.isCheckedIn)
-                                      ? const LinearGradient(colors: [Colors.grey, Colors.grey])
+                                      ? LinearGradient(colors: [Colors.grey.shade500, Colors.grey.shade600])
                                       : (attProvider.isCheckedIn && attProvider.isVisiting)
                                           ? const LinearGradient(colors: [Colors.grey, Colors.grey])
                                           : LinearGradient(
@@ -694,12 +709,21 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
-                                  attProvider.hasCheckedOutToday ? Icons.done_all : (attProvider.isCheckedIn ? Icons.logout : Icons.login),
-                                  color: Colors.white, size: 14
+                                  attProvider.hasCheckedOutToday
+                                      ? Icons.done_all
+                                      : (attProvider.isCheckedIn
+                                          ? Icons.logout
+                                          : (attProvider.canCheckin ? Icons.login : Icons.event_busy)),
+                                  color: Colors.white,
+                                  size: 14,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  attProvider.hasCheckedOutToday ? 'Selesai Bekerja' : (attProvider.isCheckedIn ? 'Check-out Sekarang' : 'Check-in Sekarang'),
+                                  attProvider.hasCheckedOutToday
+                                      ? 'Selesai Bekerja'
+                                      : (attProvider.isCheckedIn
+                                          ? 'Check-out Sekarang'
+                                          : (attProvider.canCheckin ? 'Check-in Sekarang' : 'Tidak Ada Jadwal Kerja')),
                                   style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold)
                                 ),
                               ],
@@ -713,7 +737,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             Icon(Icons.info_outline, size: 10, color: subtitleColor),
                             const SizedBox(width: 5),
                             Text(
-                              attProvider.isCheckedIn ? 'Sedang bekerja sejak $checkinTime • Durasi: $duration' : (attProvider.hasCheckedOutToday ? 'Selesai bekerja • Durasi: $duration' : 'Belum check-in'),
+                              attProvider.isCheckedIn
+                                  ? 'Sedang bekerja sejak $checkinTime • Durasi: $duration'
+                                  : (attProvider.hasCheckedOutToday
+                                      ? 'Selesai bekerja • Durasi: $duration'
+                                      : (attProvider.canCheckin ? 'Belum check-in' : 'Tidak ada jadwal hari ini')),
                               style: TextStyle(fontSize: 9, color: subtitleColor, fontWeight: FontWeight.bold)
                             ),
                           ],
@@ -725,8 +753,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 
                 const SizedBox(height: 15),
 
-                // Kunjungan Lapangan
-                if (attProvider.canVisit || attProvider.isVisiting || attProvider.hasUnfinishedItinerary || (attProvider.todayItinerary != null && (attProvider.todayItinerary?['items'] as List? ?? []).isNotEmpty)) ...[
+                // Kunjungan Lapangan (HANYA tampil jika sedang visit atau memiliki jadwal visit hari ini yang belum selesai)
+                if (attProvider.isVisiting || (attProvider.canVisit && attProvider.todayItinerary != null && (attProvider.todayItinerary?['items'] as List? ?? []).isNotEmpty)) ...[
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [

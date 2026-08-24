@@ -3,9 +3,12 @@
 namespace App\Filament\Resources\Employees\Tables;
 
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -162,6 +165,9 @@ class EmployeesTable
             ])
             ->recordActions([
                 EditAction::make(),
+                DeleteAction::make(),
+                ForceDeleteAction::make(),
+                RestoreAction::make(),
                 \Filament\Actions\Action::make('reset_device')
                     ->label('Reset Device')
                     ->icon('heroicon-o-device-phone-mobile')
@@ -295,6 +301,65 @@ class EmployeesTable
                                 ->body("Berhasil menghapus supervisor untuk **{$count} karyawan**.")
                                 ->success()
                                 ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    \Filament\Actions\BulkAction::make('delete_resigned_selected')
+                        ->label('Hapus Karyawan Resign Terpilih')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger')
+                        ->modalHeading('Hapus Data Karyawan Resign Terpilih')
+                        ->modalDescription('Sistem akan memproses penghapusan HANYA untuk karyawan yang berstatus Resign / Non-Aktif (is_active = false) di antara baris yang dicentang. Karyawan aktif akan otomatis dilewati & aman terlindungi.')
+                        ->modalSubmitActionLabel('Hapus Data Resign Terpilih')
+                        ->form([
+                            \Filament\Forms\Components\Radio::make('deletion_type')
+                                ->label('Metode Penghapusan')
+                                ->options([
+                                    'soft' => 'Soft Delete (Pindahkan ke Sampah) - Aman & masih dapat dipulihkan melalui filter Trash',
+                                    'force' => 'Permanent / Force Delete - Hapus bersih total dari database',
+                                ])
+                                ->default('soft')
+                                ->required(),
+                        ])
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records, array $data) {
+                            $resignedRecords = $records->filter(fn ($r) => !$r->is_active);
+                            $resignedCount = $resignedRecords->count();
+
+                            if ($resignedCount === 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Tidak Ada Karyawan Resign')
+                                    ->body('Tidak ada karyawan berstatus Resign di antara data yang Anda centang. Karyawan aktif dilindungi.')
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            $isForce = ($data['deletion_type'] ?? 'soft') === 'force';
+                            $ids = $resignedRecords->pluck('id')->toArray();
+
+                            try {
+                                if ($isForce) {
+                                    \App\Models\Employee::whereIn('supervisor_id', $ids)->update(['supervisor_id' => null]);
+                                    foreach (array_chunk($ids, 500) as $chunkIds) {
+                                        \App\Models\Employee::withTrashed()->whereIn('id', $chunkIds)->forceDelete();
+                                    }
+                                } else {
+                                    foreach (array_chunk($ids, 500) as $chunkIds) {
+                                        \App\Models\Employee::whereIn('id', $chunkIds)->delete();
+                                    }
+                                }
+
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Karyawan Resign Berhasil Dihapus')
+                                    ->body("Berhasil menghapus **{$resignedCount} karyawan resign** (dari total {$records->count()} data terpilih) secara " . ($isForce ? 'Permanen (Force Delete)' : 'Soft Delete (Masuk Sampah)') . ".")
+                                    ->success()
+                                    ->send();
+                            } catch (\Exception $e) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Gagal Menghapus')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
                         })
                         ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make(),

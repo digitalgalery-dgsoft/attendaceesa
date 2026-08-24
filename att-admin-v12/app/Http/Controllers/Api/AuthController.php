@@ -24,7 +24,7 @@ class AuthController extends Controller
                       ->orWhere('employee_no', $loginId);
             })
             ->where('is_active', true)
-            ->with(['company', 'branch', 'department', 'position'])
+            ->with(['company', 'principal', 'branch', 'department', 'position'])
             ->first();
 
         if (!$employee || !Hash::check($request->password, $employee->password)) {
@@ -71,7 +71,7 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $employee = $request->user();
-        $employee->load(['company', 'branch', 'department', 'position']);
+        $employee->load(['company', 'principal', 'branch', 'department', 'position']);
 
         return response()->json([
             'status' => 'success',
@@ -132,7 +132,7 @@ class AuthController extends Controller
         }
 
         $employee->save();
-        $employee->load(['company', 'branch', 'department', 'position']);
+        $employee->load(['company', 'principal', 'branch', 'department', 'position']);
 
         return response()->json([
             'status' => 'success',

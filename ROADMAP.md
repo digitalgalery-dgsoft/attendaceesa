@@ -269,6 +269,10 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - **Atur SPV / Leader Massal (*Bulk Action*):** Fitur bagi Admin untuk mencentang banyak karyawan sekaligus dan menetapkan nama Supervisor / Leader secara serentak via modal pemilihan SPV.
    - **Hapus SPV Massal (*Bulk Action*):** Fitur untuk mengosongkan supervisor pada banyak karyawan yang dipilih sekaligus.
    - **Kolom Supervisor Aktif:** Mengaktifkan tampilan kolom *Supervisor / Leader* pada tabel utama Employees agar langsung terlihat.
+   - **Fitur Hapus Data Karyawan Resign (Header Action & Bulk Action):**
+      - Header Action `Hapus Karyawan Resign` dengan modal filter lengkap (Prinsiple, Company, Area, Tanggal Resign), preview jumlah karyawan resign vs aktif, opsi *Soft Delete* (Trash) atau *Permanent / Force Delete*, serta konfirmasi proteksi data.
+      - Bulk Action `Hapus Karyawan Resign Terpilih` untuk menghapus data resign dari baris tabel yang dicentang (otomatis melewati karyawan aktif).
+      - Row Actions `DeleteAction`, `ForceDeleteAction`, dan `RestoreAction` pada setiap baris data tabel.
 
 ## ✅ Tahap 10: Penguncian Parameter Odoo Sync (NIK + Prinsiple) & Restorasi Akun (SELESAI 21 Agustus 2026)
 *Tahap ini memastikan tidak ada data karyawan yang tertimpa secara keliru akibat nomor urut Odoo.*
@@ -327,6 +331,25 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 3. **Dokumen Presentasi PowerPoint Eksekutif (`Spesifikasi_Server_Absensi_ESA.pptx`):**
    - Dibuat dalam format modern widescreen 16:9 siap presentasi ke stakeholder/manajemen.
    - Tersimpan di direktori lokal `Spesifikasi_Server_Absensi_ESA.pptx` dan di-deploy ke server live di `https://appsend.my.id/Spesifikasi_Server_Absensi_ESA.pptx`.
+
+---
+
+## ✅ Tahap 11.3: Penambahan Nama Prinsiple di Header, Desain Proporsional Team Overview, & Pengetatan Validasi Roster/Visit (SELESAI 24 Agustus 2026, APK v1.0.96)
+*Tahap ini menyempurnakan informasi profil karyawan di dashboard mobile, merapikan proporsi grid Team Overview, dan memperbaiki penanganan jadwal roster & visit.*
+
+1. **Penambahan Nama Prinsiple di Header Profil Dashboard:**
+   - Menyempurnakan API `AuthController` (`login`, `me`, `updateProfile`) agar selalu melakukan eager loading relasi `principal`.
+   - Menambahkan tampilan nama prinsiple di baris kedua profil karyawan di bawah nama lengkap: `[Jabatan] · [Area/Cabang] · [Nama Prinsiple]` (contoh: `TL · Surabaya · PT ANUGRAH TALENTA BERKARYA`).
+
+2. **Perapian Tata Letak Grid Team Overview:**
+   - Memperbaiki proporsi kartu pada `TeamStatsWidget` (`childAspectRatio: 1.85`).
+   - Menghapus jarak renggang berlebih (`Spacer`) dan menggantinya dengan layout kartu metrik yang rapi, padat, dan proporsional.
+   - Menambahkan badge icon modern, label jelas, dan tipografi angka tebal yang seimbang.
+
+3. **Pengetatan Validasi Tombol Check-In & Bagian Kunjungan Lapangan:**
+   - **Tombol Check-In**: Jika karyawan tidak memiliki jadwal roster aktif hari ini (misal status libur/off atau tidak ada jadwal sama sekali), tombol secara tegas berubah status menjadi **"Tidak Ada Jadwal Kerja"** dalam warna abu-abu (disabled) dengan icon `Icons.event_busy`, dan mencegah akses check-in.
+   - **Bagian Kunjungan Lapangan**: Bagian card Kunjungan Lapangan beserta tombol `Visit-in`, `Laporan`, dan `Visit-out` **HANYA TAMPIL** jika karyawan memiliki jadwal kunjungan (itinerary) aktif pada hari tersebut yang belum selesai (atau sedang dalam sesi kunjungan). Jika tidak ada jadwal visit atau seluruh kunjungan hari ini sudah selesai, card kunjungan otomatis disembunyikan.
+   - **Perbaikan Cache**: Memperbaiki logika penanganan response HTTP 403 (tidak ada jadwal) pada `AttendanceProvider` agar otomatis menimpa cache usang.
 
 ---
 
