@@ -19,9 +19,12 @@ class ReportTemplateForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->columns(1)
             ->components([
                 Section::make('Informasi Dasar Template Form')
                     ->description('Tentukan nama form, prinsiple pemilik, dan aturan umum pelaporan.')
+                    ->collapsible()
+                    ->columnSpanFull()
                     ->schema([
                         Grid::make(3)->schema([
                             Select::make('principal_id')
@@ -83,8 +86,11 @@ class ReportTemplateForm
 
                 Section::make('Visual Dynamic Form Builder (Google Form Style)')
                     ->description('Tambahkan daftar pertanyaan dan elemen input dinamis yang akan tampil di aplikasi mobile.')
+                    ->collapsible()
+                    ->columnSpanFull()
                     ->schema([
                         Repeater::make('fields')
+                            ->label('Daftar Pertanyaan / Form Fields')
                             ->relationship('fields')
                             ->orderColumn('order_index')
                             ->collapsible()
@@ -140,17 +146,20 @@ class ReportTemplateForm
                                         ->placeholder('Contoh: Wajib foto tampak depan toko'),
                                     Toggle::make('is_required')
                                         ->label('Wajib Diisi (Mandatory)')
-                                        ->default(false),
+                                        ->default(false)
+                                        ->inline(false),
                                 ]),
                                 TagsInput::make('options')
                                     ->label('Opsi Pilihan (Ketik dan Tekan Enter untuk Setiap Opsi)')
                                     ->placeholder('Tambah opsi baru...')
                                     ->helperText('Hanya berlaku untuk tipe Dropdown, Radio Button, Checkbox, atau Daftar SKU Produk')
-                                    ->visible(fn ($get) => in_array($get('field_type'), ['dropdown', 'radio', 'checkbox'])),
+                                    ->visible(fn ($get) => in_array($get('field_type'), ['dropdown', 'radio', 'checkbox']))
+                                    ->columnSpanFull(),
                                 KeyValue::make('validation_rules')
                                     ->label('Aturan Validasi Tambahan (Opsional)')
                                     ->keyLabel('Kunci Aturan (min, max, regex, step)')
-                                    ->valueLabel('Nilai Aturan'),
+                                    ->valueLabel('Nilai Aturan')
+                                    ->columnSpanFull(),
                             ])
                             ->defaultItems(1)
                             ->addActionLabel('➕ Tambah Pertanyaan / Field Baru')
@@ -159,8 +168,11 @@ class ReportTemplateForm
 
                 Section::make('Penugasan Form Template (Form Assignment)')
                     ->description('Tentukan karyawan mana yang wajib mengisi form ini saat kunjungan lapangan.')
+                    ->collapsible()
+                    ->columnSpanFull()
                     ->schema([
                         Repeater::make('assignments')
+                            ->label('Daftar Aturan Penugasan Form')
                             ->relationship('assignments')
                             ->schema([
                                 Grid::make(3)->schema([
