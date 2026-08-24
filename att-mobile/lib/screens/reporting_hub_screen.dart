@@ -75,7 +75,29 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
       case 'chart-pie':
       case 'chart-bar':
       case 'market':
+      case 'competitor':
         return Icons.pie_chart_rounded;
+      case 'briefcase':
+        return Icons.business_center_rounded;
+      case 'calendar-days':
+      case 'calendar':
+        return Icons.calendar_month_rounded;
+      case 'view-columns':
+      case 'display':
+        return Icons.view_column_rounded;
+      case 'tag':
+      case 'promo':
+        return Icons.local_offer_rounded;
+      case 'currency-dollar':
+      case 'price':
+        return Icons.monetization_on_rounded;
+      case 'sparkles':
+        return Icons.auto_awesome_rounded;
+      case 'photo':
+      case 'posm':
+        return Icons.photo_library_rounded;
+      case 'squares-plus':
+        return Icons.dashboard_customize_rounded;
       case 'color-swatch':
       case 'paint':
       case 'tinting':
@@ -83,6 +105,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
       case 'building-storefront':
       case 'store':
       case 'visit':
+      case 'survey':
         return Icons.storefront_rounded;
       default:
         return Icons.assignment_rounded;
