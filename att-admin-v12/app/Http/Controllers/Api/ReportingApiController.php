@@ -130,7 +130,6 @@ class ReportingApiController extends Controller
             'report_template_id' => 'required|exists:report_templates,id',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
-            'store_name' => 'nullable|string',
             'work_location_id' => 'nullable|integer',
         ]);
 
@@ -152,12 +151,10 @@ class ReportingApiController extends Controller
                 'work_location_id' => $request->work_location_id,
                 'itinerary_item_id' => $request->itinerary_item_id,
                 'submission_code' => $submissionCode,
-                'store_name' => $request->store_name ?? $request->work_location_name ?? 'Kunjungan Toko',
                 'latitude' => $request->latitude,
                 'longitude' => $request->longitude,
-                'address' => $request->address,
                 'is_within_radius' => $request->boolean('is_within_radius', true),
-                'status' => 'submitted',
+                'status' => 'pending',
                 'submitted_at' => now(),
             ]);
 
@@ -177,7 +174,6 @@ class ReportingApiController extends Controller
                 
                 // Cari value dari input
                 $rawValue = $valuesInput[$fieldId] ?? $valuesInput[$fieldName] ?? $request->input("val_{$fieldId}") ?? null;
-                $watermarkText = $request->input("wm_{$fieldId}") ?? "{$submission->store_name} | {$employee->full_name} | " . now()->format('d/m/Y H:i');
                 
                 $valueText = null;
                 $valueNumber = null;
@@ -201,6 +197,7 @@ class ReportingApiController extends Controller
                     if (is_numeric($rawValue)) {
                         $valueNumber = (float) $rawValue;
                     } elseif (is_string($rawValue)) {
+                        // Bersihkan karakter non-digit jika currency (misal: "Rp 1.500.000" -> 1500000)
                         $cleanNum = preg_replace('/[^0-9.]/', '', $rawValue);
                         $valueNumber = is_numeric($cleanNum) ? (float) $cleanNum : null;
                     }
@@ -212,18 +209,20 @@ class ReportingApiController extends Controller
                     $valueText = is_string($rawValue) ? $rawValue : ($rawValue !== null ? json_encode($rawValue) : null);
                 }
 
+                // Jika berupa media / foto dan ada watermark, bisa disimpan pathnya
+                if ($photoPath) {
+                    $valueText = $photoPath;
+                }
+
                 ReportSubmissionValue::create([
                     'report_submission_id' => $submission->id,
                     'report_form_field_id' => $field->id,
-                    'field_label' => $field->field_label,
+                    'field_name' => $field->field_name,
                     'field_type' => $field->field_type,
                     'value_text' => $valueText,
                     'value_number' => $valueNumber,
                     'value_json' => $valueJson,
-                    'photo_url' => $photoPath,
-                    'latitude' => $request->latitude,
-                    'longitude' => $request->longitude,
-                    'watermark_text' => $watermarkText,
+                    'media_url' => $photoPath,
                 ]);
             }
 
@@ -236,7 +235,6 @@ class ReportingApiController extends Controller
                     'id' => $submission->id,
                     'submission_code' => $submission->submission_code,
                     'template_title' => $template->title,
-                    'store_name' => $submission->store_name,
                     'submitted_at' => $submission->submitted_at->toDateTimeString(),
                     'status' => $submission->status,
                 ],
