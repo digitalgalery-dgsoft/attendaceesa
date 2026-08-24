@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:toastification/toastification.dart';
 import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
+import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/screens/main_screen.dart';
 import 'package:att_mobile/screens/reporting_hub_screen.dart';
 import 'package:intl/intl.dart';
@@ -208,7 +209,12 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
     final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
     final textColor = isDarkMode ? Colors.white : const Color(0xFF111C2D);
     final subtitleColor = isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600;
-    final primaryColor = Provider.of<AuthProvider>(context, listen: false).appColor ?? const Color(0xFF0F52BA);
+    final auth = Provider.of<AuthProvider>(context);
+    final repProvider = Provider.of<DynamicReportingProvider>(context);
+    final primaryColor = auth.appColor ?? const Color(0xFF0F52BA);
+    final hasCustomReporting = (auth.employeeData?['has_reporting_templates'] == 1 ||
+        auth.employeeData?['has_reporting_templates'] == true) ||
+        (auth.employeeData?['principal_id'] != null && repProvider.templates.isNotEmpty);
 
     final inputDecoration = InputDecoration(
       filled: true,
@@ -285,67 +291,69 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                   ),
                 ),
                 
-                const SizedBox(height: 16),
+                if (hasCustomReporting) ...[
+                  const SizedBox(height: 16),
 
-                // Banner Buka Form Pelaporan Prinsiple (Dulux)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: primaryColor.withOpacity(0.25)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(8),
+                  // Banner Buka Form Pelaporan Prinsiple (Dulux)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: primaryColor.withOpacity(0.25)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(Icons.assignment_rounded, color: primaryColor, size: 22),
                         ),
-                        child: Icon(Icons.assignment_rounded, color: primaryColor, size: 22),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Form Pelaporan Prinsiple',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
-                            ),
-                            Text(
-                              'Isi laporan Offtake, Cek Stok/OOS, Market Share, dll',
-                              style: TextStyle(fontSize: 11, color: subtitleColor),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          final att = Provider.of<AttendanceProvider>(context, listen: false);
-                          final destinationName = att.todayItinerary?['name']?.toString() ?? att.todayItinerary?['destination']?.toString();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ReportingHubScreen(
-                                storeName: destinationName,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Form Pelaporan Prinsiple',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
                               ),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryColor,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          elevation: 0,
+                              Text(
+                                'Isi laporan Offtake, Cek Stok/OOS, Market Share, dll',
+                                style: TextStyle(fontSize: 11, color: subtitleColor),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: const Text('Buka Form', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
+                        ElevatedButton(
+                          onPressed: () {
+                            final att = Provider.of<AttendanceProvider>(context, listen: false);
+                            final destinationName = att.todayItinerary?['name']?.toString() ?? att.todayItinerary?['destination']?.toString();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ReportingHubScreen(
+                                  storeName: destinationName,
+                                ),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            elevation: 0,
+                          ),
+                          child: const Text('Buka Form', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
 
                 const SizedBox(height: 16),
                 

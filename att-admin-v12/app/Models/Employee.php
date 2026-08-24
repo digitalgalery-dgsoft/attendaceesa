@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Models\Principal;
+use App\Models\ReportTemplate;
 
 class Employee extends Authenticatable
 {
@@ -18,6 +20,30 @@ class Employee extends Authenticatable
     protected $casts = [
         'odoo_id' => 'integer',
     ];
+
+    protected $appends = ['has_reporting_templates'];
+
+    public function getHasReportingTemplatesAttribute(): bool
+    {
+        if (!$this->principal_id) {
+            return false;
+        }
+
+        $principal = $this->principal;
+        $allMatchingPrincipalIds = [$this->principal_id];
+        if ($principal && !empty($principal->subdomain)) {
+            $allMatchingPrincipalIds = Principal::where('subdomain', $principal->subdomain)->pluck('id')->toArray();
+        }
+
+        return ReportTemplate::where('is_active', true)
+            ->where(function ($q) use ($allMatchingPrincipalIds) {
+                $q->whereHas('principals', function ($pq) use ($allMatchingPrincipalIds) {
+                    $pq->whereIn('principals.id', $allMatchingPrincipalIds);
+                })
+                ->orWhereIn('principal_id', $allMatchingPrincipalIds);
+            })
+            ->exists();
+    }
 
     public function user()
     {

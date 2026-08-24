@@ -35,6 +35,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:toastification/toastification.dart';
 import 'package:att_mobile/widgets/skeleton_loading.dart';
 import 'package:att_mobile/screens/reporting_hub_screen.dart';
+import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/services/offline_sync_service.dart';
 
 
@@ -66,6 +67,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       await dashboardProvider.fetchDashboardStats();
       final positionName = authProvider.employeeData?['position']?['name']?.toString().toUpperCase() ?? '';
       dashboardProvider.fetchTeamStats();
+      if (authProvider.token != null) {
+        Provider.of<DynamicReportingProvider>(context, listen: false).fetchTemplates(authProvider.token!);
+      }
       _syncLocationService(attProvider);
     });
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -139,7 +143,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final branchName = authProvider.employeeData?['branch']?['name'] ?? '-';
     final principalName = authProvider.employeeData?['principal']?['name']?.toString().trim() ?? '';
     final primaryColor = authProvider.appColor ?? const Color(0xFF0F52BA);
+    final repProvider = Provider.of<DynamicReportingProvider>(context);
     final hasSalesReporting = authProvider.employeeData?['department']?['has_sales_reporting'] == 1 || authProvider.employeeData?['department']?['has_sales_reporting'] == true;
+    final hasCustomReporting = (authProvider.employeeData?['has_reporting_templates'] == 1 ||
+        authProvider.employeeData?['has_reporting_templates'] == true) ||
+        (authProvider.employeeData?['principal_id'] != null && repProvider.templates.isNotEmpty);
 
     String checkinTime = '--:--';
     String checkoutTime = '--:--';
@@ -456,9 +464,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     {'title': locale.tr('menu_visit'), 'icon': Icons.map, 'color': const Color(0xFF0FA8C4), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const ItineraryScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
-                    {'title': locale.tr('menu_reporting'), 'icon': Icons.assignment_rounded, 'color': const Color(0xFF0F52BA), 'onTap': () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportingHubScreen()));
-                    }},
+                  ];
+
+                  if (hasCustomReporting) {
+                    allMenus.add({
+                      'title': locale.tr('menu_reporting'),
+                      'icon': Icons.assignment_rounded,
+                      'color': const Color(0xFF0F52BA),
+                      'onTap': () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportingHubScreen()));
+                      },
+                    });
+                  }
+
+                  allMenus.addAll([
                     {'title': locale.tr('menu_permit'), 'icon': Icons.event_note, 'color': const Color(0xFFD98A2B), 'onTap': () {
                       if (widget.switchTab != null) { widget.switchTab!(2); }
                       else { Navigator.push(context, MaterialPageRoute(builder: (_) => const PermitScreen())).then((_) { attProvider.loadDashboardData(); }); }
@@ -475,7 +494,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     {'title': locale.tr('menu_help'), 'icon': Icons.support_agent_rounded, 'color': const Color(0xFFE65100), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
-                  ];
+                  ]);
+
                   if (hasSalesReporting) {
                     allMenus.add({'title': locale.tr('menu_sales'), 'icon': Icons.trending_up, 'color': Colors.purple, 'onTap': () {
                       if (widget.switchTab != null) { widget.switchTab!(3); }
