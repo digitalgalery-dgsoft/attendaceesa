@@ -6,6 +6,27 @@ use App\Models\Area;
 use App\Models\Principal;
 use App\Models\Employee;
 
+Route::get('/.well-known/acme-challenge/{token}', function ($token) {
+    $possiblePaths = [
+        public_path(".well-known/acme-challenge/{$token}"),
+        base_path(".well-known/acme-challenge/{$token}"),
+        "/www/wwwroot/appsend.my.id/.well-known/acme-challenge/{$token}",
+        "/www/wwwroot/appsend.my.id/public/.well-known/acme-challenge/{$token}",
+        "/www/server/stop/.well-known/acme-challenge/{$token}",
+        "/www/server/total/.well-known/acme-challenge/{$token}",
+    ];
+
+    foreach ($possiblePaths as $path) {
+        if (file_exists($path)) {
+            return response(file_get_contents($path), 200, [
+                'Content-Type' => 'text/plain',
+            ]);
+        }
+    }
+
+    return response('acme challenge handler active', 404);
+});
+
 Route::get('/', function () {
     $setting = Setting::first();
     $stats = [
