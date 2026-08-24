@@ -456,7 +456,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     {'title': locale.tr('menu_visit'), 'icon': Icons.map, 'color': const Color(0xFF0FA8C4), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const ItineraryScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
-                    {'title': 'Pelaporan', 'icon': Icons.assignment_rounded, 'color': const Color(0xFF0F52BA), 'onTap': () {
+                    {'title': locale.tr('menu_reporting'), 'icon': Icons.assignment_rounded, 'color': const Color(0xFF0F52BA), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportingHubScreen()));
                     }},
                     {'title': locale.tr('menu_permit'), 'icon': Icons.event_note, 'color': const Color(0xFFD98A2B), 'onTap': () {

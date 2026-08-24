@@ -15,10 +15,14 @@ class WorkLocationImporter extends Importer
     public static function getColumns(): array
     {
         return [
-            ImportColumn::make('company')
+            ImportColumn::make('principal')
                 ->relationship(resolveUsing: 'name')
+                ->label('Prinsiple')
                 ->requiredMapping()
                 ->rules(['required']),
+            ImportColumn::make('company')
+                ->relationship(resolveUsing: 'name')
+                ->label('Company'),
             ImportColumn::make('branch')
                 ->relationship(resolveUsing: 'name'),
             ImportColumn::make('name')

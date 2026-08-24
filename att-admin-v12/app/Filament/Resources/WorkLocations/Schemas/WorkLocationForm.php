@@ -20,22 +20,27 @@ class WorkLocationForm
     {
         return $schema
             ->components([
+                Select::make('principal_id')
+                    ->relationship('principal', 'name')
+                    ->label('Prinsiple')
+                    ->searchable()
+                    ->preload()
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(function ($set, ?string $state) {
+                        if ($state) {
+                            $principal = \App\Models\Principal::find($state);
+                            if ($principal && $principal->company_id) {
+                                $set('company_id', $principal->company_id);
+                            }
+                        }
+                    }),
                 Select::make('company_id')
                     ->relationship('company', 'name')
                     ->label('Company')
-                    ->live()
                     ->searchable()
-                    ->required(),
-                Select::make('principal_id')
-                    ->options(function ($get) {
-                        $companyId = $get('company_id');
-                        if (!$companyId) {
-                            return \App\Models\Principal::pluck('name', 'id');
-                        }
-                        return \App\Models\Principal::where('company_id', $companyId)->pluck('name', 'id');
-                    })
-                    ->searchable()
-                    ->label('Prinsiple'),
+                    ->preload()
+                    ->nullable(),
                 Select::make('branch_id')
                     ->relationship('branch', 'name')
                     ->label('Area')

@@ -6,6 +6,7 @@ import 'package:att_mobile/models/report_template_model.dart';
 import 'package:att_mobile/models/report_submission_model.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
+import 'package:att_mobile/providers/locale_provider.dart';
 import 'package:att_mobile/screens/dynamic_form_screen.dart';
 
 class ReportingHubScreen extends StatefulWidget {
@@ -51,6 +52,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
     if (auth.token != null) {
       repProvider.fetchTemplates(auth.token!, forceRefresh: force);
       repProvider.fetchHistory(auth.token!);
+      repProvider.fetchStores(auth.token!, forceRefresh: force);
     }
   }
 
@@ -91,6 +93,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final repProvider = Provider.of<DynamicReportingProvider>(context);
+    final locale = Provider.of<LocaleProvider>(context);
     final primaryColor = auth.appColor ?? const Color(0xFF0F52BA);
     
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -106,7 +109,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
       backgroundColor: backgroundColor,
       appBar: AppBar(
         title: Text(
-          'Pelaporan Lapangan',
+          locale.tr('reporting_hub_title'),
           style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         backgroundColor: backgroundColor,
@@ -165,7 +168,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'Formulir (${repProvider.templates.length})',
+                              '${locale.tr('tab_templates')} (${repProvider.templates.length})',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: _selectedTabIndex == 0 ? FontWeight.bold : FontWeight.w500,
@@ -208,7 +211,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'Riwayat (${repProvider.history.length})',
+                              '${locale.tr('tab_history')} (${repProvider.history.length})',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: _selectedTabIndex == 1 ? FontWeight.bold : FontWeight.w500,
@@ -234,6 +237,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                 _buildTemplatesList(
                   repProvider,
                   auth,
+                  locale,
                   primaryColor,
                   cardColor,
                   textColor,
@@ -264,6 +268,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
   Widget _buildTemplatesList(
     DynamicReportingProvider provider,
     AuthProvider auth,
+    LocaleProvider locale,
     Color primaryColor,
     Color cardColor,
     Color textColor,
@@ -303,7 +308,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      '${provider.pendingOfflineCount} laporan tersimpan di HP (Offline).',
+                      locale.tr('offline_queue_banner', params: {'count': '${provider.pendingOfflineCount}'}),
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF92400E)),
                     ),
                   ),
@@ -328,7 +333,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       elevation: 0,
                     ),
-                    child: const Text('Sync', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    child: Text(locale.tr('btn_sync_now'), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),

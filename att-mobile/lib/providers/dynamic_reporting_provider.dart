@@ -11,12 +11,16 @@ import 'package:att_mobile/utils/constants.dart';
 class DynamicReportingProvider with ChangeNotifier {
   List<ReportTemplateModel> _templates = [];
   List<ReportSubmissionModel> _history = [];
+  List<dynamic> _stores = [];
+  String? _defaultArea;
   bool _isLoading = false;
   int _pendingOfflineCount = 0;
   String? _errorMessage;
 
   List<ReportTemplateModel> get templates => _templates;
   List<ReportSubmissionModel> get history => _history;
+  List<dynamic> get stores => _stores;
+  String? get defaultArea => _defaultArea;
   bool get isLoading => _isLoading;
   int get pendingOfflineCount => _pendingOfflineCount;
   String? get errorMessage => _errorMessage;
@@ -95,6 +99,51 @@ class DynamicReportingProvider with ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error fetching report history: $e');
+    }
+  }
+
+  /**
+   * Fetch active reporting stores/locations for the employee's principal.
+   */
+  Future<void> fetchStores(String token, {bool forceRefresh = false}) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Baca cache offline jika ada
+    final cached = prefs.getString('cached_reporting_stores');
+    final cachedArea = prefs.getString('cached_reporting_default_area');
+    if (cachedArea != null) {
+      _defaultArea = cachedArea;
+    }
+    if (cached != null && !forceRefresh) {
+      try {
+        _stores = jsonDecode(cached) as List;
+        notifyListeners();
+      } catch (_) {}
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('${Constants.baseUrl}/reporting/stores'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          _stores = data['data'] ?? [];
+          _defaultArea = data['default_area']?.toString();
+          await prefs.setString('cached_reporting_stores', jsonEncode(_stores));
+          if (_defaultArea != null) {
+            await prefs.setString('cached_reporting_default_area', _defaultArea!);
+          }
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching reporting stores: $e');
     }
   }
 

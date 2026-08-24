@@ -15,10 +15,16 @@ class WorkLocationsTable
     {
         return $table
             ->columns([
+                TextColumn::make('principal.name')
+                    ->label('Prinsiple')
+                    ->searchable()
+                    ->sortable()
+                    ->default('-'),
                 TextColumn::make('company.name')
                     ->label('Company')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('branch.name')
                     ->label('Area')
                     ->searchable()
@@ -68,7 +74,21 @@ class WorkLocationsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('principal_id')
+                    ->relationship('principal', 'name')
+                    ->label('Prinsiple')
+                    ->searchable()
+                    ->preload(),
+                \Filament\Tables\Filters\SelectFilter::make('company_id')
+                    ->relationship('company', 'name')
+                    ->label('Company')
+                    ->searchable()
+                    ->preload(),
+                \Filament\Tables\Filters\SelectFilter::make('branch_id')
+                    ->relationship('branch', 'name')
+                    ->label('Area')
+                    ->searchable()
+                    ->preload(),
             ])
             ->recordActions([
                 EditAction::make(),

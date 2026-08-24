@@ -104,6 +104,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Dynamic Principal Reporting routes
     Route::get('/reporting/templates', [\App\Http\Controllers\Api\ReportingApiController::class, 'templates']);
+    Route::get('/reporting/stores', [\App\Http\Controllers\Api\ReportingApiController::class, 'stores']);
     Route::post('/reporting/submit', [\App\Http\Controllers\Api\ReportingApiController::class, 'submit']);
     Route::get('/reporting/history', [\App\Http\Controllers\Api\ReportingApiController::class, 'history']);
 });

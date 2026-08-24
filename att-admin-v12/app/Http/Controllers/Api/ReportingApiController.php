@@ -18,15 +18,31 @@ use Illuminate\Support\Str;
 class ReportingApiController extends Controller
 {
     /**
+     * Helper to safely resolve authenticated Employee instance.
+     */
+    private function getAuthenticatedEmployee(Request $request): ?Employee
+    {
+        $user = $request->user();
+        if (!$user) {
+            return null;
+        }
+
+        if ($user instanceof Employee) {
+            return $user;
+        }
+
+        return Employee::where('user_id', $user->id)
+            ->orWhere('id', $user->employee_id ?? null)
+            ->orWhere('email', $user->email ?? null)
+            ->first();
+    }
+
+    /**
      * Get active report templates assigned to the authenticated employee's principal.
      */
     public function templates(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $employee = Employee::where('user_id', $user->id)
-            ->orWhere('id', $user->employee_id)
-            ->orWhere('email', $user->email)
-            ->first();
+        $employee = $this->getAuthenticatedEmployee($request);
 
         if (!$employee) {
             return response()->json([
@@ -113,11 +129,7 @@ class ReportingApiController extends Controller
      */
     public function submit(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $employee = Employee::where('user_id', $user->id)
-            ->orWhere('id', $user->employee_id)
-            ->orWhere('email', $user->email)
-            ->first();
+        $employee = $this->getAuthenticatedEmployee($request);
 
         if (!$employee) {
             return response()->json([
@@ -253,15 +265,69 @@ class ReportingApiController extends Controller
     }
 
     /**
+     * Get active work locations/stores for reporting, filtered by employee's principal.
+     */
+    public function stores(Request $request): JsonResponse
+    {
+        $employee = $this->getAuthenticatedEmployee($request);
+
+        if (!$employee) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data karyawan tidak ditemukan.',
+            ], 404);
+        }
+
+        $employee->load(['branch', 'principal', 'company']);
+        $employeeArea = $employee->branch?->name ?? ($employee->area ?: null);
+        $today = \Carbon\Carbon::today('Asia/Jakarta')->toDateString();
+
+        // Cari ID lokasi yang ada di itinerary hari ini
+        $itineraryLocationIds = [];
+        $itinerary = \App\Models\Itinerary::where('employee_id', $employee->id)
+            ->where('date', $today)
+            ->with(['items'])
+            ->first();
+
+        if ($itinerary) {
+            $itineraryLocationIds = $itinerary->items->pluck('work_location_id')->map(fn($id) => (int)$id)->toArray();
+        }
+
+        // Ambil semua work location aktif (sama seperti form visit / availableWorkLocations)
+        $locations = \App\Models\WorkLocation::with(['branch', 'principal', 'company'])
+            ->where('is_active', true)
+            ->orderBy('name', 'asc')
+            ->get()
+            ->map(function ($loc) use ($itineraryLocationIds) {
+                $data = $loc->toArray();
+                $areaName = $loc->branch ? $loc->branch->name : ($loc->area ?: ($loc->region ?: 'Lainnya'));
+                $data['area'] = $areaName;
+                $data['is_today_itinerary'] = in_array((int)$loc->id, $itineraryLocationIds);
+                return $data;
+            });
+
+        return response()->json([
+            'status' => 'success',
+            'default_area' => $employeeArea,
+            'employee' => [
+                'id' => $employee->id,
+                'name' => $employee->full_name,
+                'area' => $employeeArea,
+                'principal_id' => $employee->principal_id,
+                'branch_id' => $employee->branch_id,
+                'company_id' => $employee->company_id,
+            ],
+            'count' => $locations->count(),
+            'data' => $locations->values(),
+        ]);
+    }
+
+    /**
      * Get submission history for the authenticated employee.
      */
     public function history(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $employee = Employee::where('user_id', $user->id)
-            ->orWhere('id', $user->employee_id)
-            ->orWhere('email', $user->email)
-            ->first();
+        $employee = $this->getAuthenticatedEmployee($request);
 
         if (!$employee) {
             return response()->json([
