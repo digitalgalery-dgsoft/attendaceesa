@@ -178,7 +178,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         _formValues[fieldKey] = field.defaultValue;
       }
 
-      if (['text', 'textarea', 'number', 'integer', 'currency', 'percentage'].contains(field.fieldType)) {
+      if (['text', 'textarea', 'number', 'integer', 'currency', 'percentage', 'date', 'datepicker', 'time', 'timepicker', 'datetime'].contains(field.fieldType)) {
         final ctrl = TextEditingController(text: field.defaultValue ?? '');
         _controllers[fieldKey] = ctrl;
       } else if (field.fieldType == 'checkbox') {
@@ -218,6 +218,122 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       ctrl.dispose();
     }
     super.dispose();
+  }
+
+  // Format tanggal display (dd MMM yyyy)
+  String _formatDateDisplay(String dateVal) {
+    if (dateVal.isEmpty) return '';
+    try {
+      final parsed = DateTime.parse(dateVal);
+      return DateFormat('dd MMMM yyyy').format(parsed);
+    } catch (_) {
+      return dateVal;
+    }
+  }
+
+  // Pemilih Tanggal Interaktif
+  Future<void> _pickDate(String fieldKey, ReportFormFieldModel field) async {
+    DateTime initialDate = DateTime.now();
+    final currentVal = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
+    if (currentVal.isNotEmpty) {
+      try {
+        initialDate = DateTime.parse(currentVal);
+      } catch (_) {}
+    }
+
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Provider.of<AuthProvider>(context, listen: false).appColor ?? const Color(0xFF0F52BA);
+    final themeColor = Color(int.tryParse(widget.template.color.replaceAll('#', '0xFF')) ?? primaryColor.value);
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: isDarkMode
+              ? ThemeData.dark().copyWith(
+                  colorScheme: ColorScheme.dark(
+                    primary: themeColor,
+                    onPrimary: Colors.white,
+                    surface: const Color(0xFF1E1E2C),
+                    onSurface: Colors.white,
+                  ),
+                )
+              : ThemeData.light().copyWith(
+                  colorScheme: ColorScheme.light(
+                    primary: themeColor,
+                    onPrimary: Colors.white,
+                    surface: Colors.white,
+                    onSurface: const Color(0xFF0E1830),
+                  ),
+                ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      final formatted = DateFormat('yyyy-MM-dd').format(picked);
+      setState(() {
+        _formValues[fieldKey] = formatted;
+        _controllers[fieldKey]?.text = formatted;
+      });
+    }
+  }
+
+  // Pemilih Waktu / Jam
+  Future<void> _pickTime(String fieldKey, ReportFormFieldModel field) async {
+    TimeOfDay initialTime = TimeOfDay.now();
+    final currentVal = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
+    if (currentVal.isNotEmpty && currentVal.contains(':')) {
+      final parts = currentVal.split(':');
+      final h = int.tryParse(parts[0]);
+      final m = int.tryParse(parts[1]);
+      if (h != null && m != null) {
+        initialTime = TimeOfDay(hour: h, minute: m);
+      }
+    }
+
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Provider.of<AuthProvider>(context, listen: false).appColor ?? const Color(0xFF0F52BA);
+    final themeColor = Color(int.tryParse(widget.template.color.replaceAll('#', '0xFF')) ?? primaryColor.value);
+
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+      builder: (context, child) {
+        return Theme(
+          data: isDarkMode
+              ? ThemeData.dark().copyWith(
+                  colorScheme: ColorScheme.dark(
+                    primary: themeColor,
+                    onPrimary: Colors.white,
+                    surface: const Color(0xFF1E1E2C),
+                    onSurface: Colors.white,
+                  ),
+                )
+              : ThemeData.light().copyWith(
+                  colorScheme: ColorScheme.light(
+                    primary: themeColor,
+                    onPrimary: Colors.white,
+                    surface: Colors.white,
+                    onSurface: const Color(0xFF0E1830),
+                  ),
+                ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      final formatted = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      setState(() {
+        _formValues[fieldKey] = formatted;
+        _controllers[fieldKey]?.text = formatted;
+      });
+    }
   }
 
   // Format currency otomatis (Rp 1.500.000)
@@ -1368,6 +1484,276 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               ),
             ),
           ],
+        );
+        break;
+
+      case 'date':
+      case 'datepicker':
+        inputWidget = FormField<String>(
+          initialValue: _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text,
+          validator: (v) {
+            final val = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
+            if (field.isRequired && val.trim().isEmpty) {
+              return locale.tr('required_field');
+            }
+            return null;
+          },
+          builder: (state) {
+            final dateVal = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
+            final displayDateText = _formatDateDisplay(dateVal);
+            final hasError = state.hasError;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: () async {
+                    await _pickDate(fieldKey, field);
+                    state.didChange(_formValues[fieldKey]?.toString());
+                  },
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: elevatedColor,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: hasError
+                            ? Colors.red
+                            : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                        width: hasError ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.calendar_month_rounded, color: themeColor, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            displayDateText.isNotEmpty
+                                ? displayDateText
+                                : (field.placeholder ?? 'Pilih tanggal...'),
+                            style: TextStyle(
+                              color: displayDateText.isNotEmpty
+                                  ? textColor
+                                  : (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400),
+                              fontSize: 13,
+                              fontWeight: displayDateText.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                        if (displayDateText.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            color: subtitleColor,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              setState(() {
+                                _formValues.remove(fieldKey);
+                                _controllers[fieldKey]?.clear();
+                              });
+                              state.didChange('');
+                            },
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: themeColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Pilih',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: themeColor),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (hasError) ...[
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      state.errorText ?? '',
+                      style: const TextStyle(color: Colors.red, fontSize: 11.5),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        );
+        break;
+
+      case 'time':
+      case 'timepicker':
+        inputWidget = FormField<String>(
+          initialValue: _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text,
+          validator: (v) {
+            final val = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
+            if (field.isRequired && val.trim().isEmpty) {
+              return locale.tr('required_field');
+            }
+            return null;
+          },
+          builder: (state) {
+            final timeVal = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
+            final hasError = state.hasError;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: () async {
+                    await _pickTime(fieldKey, field);
+                    state.didChange(_formValues[fieldKey]?.toString());
+                  },
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: elevatedColor,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: hasError
+                            ? Colors.red
+                            : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                        width: hasError ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.access_time_rounded, color: themeColor, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            timeVal.isNotEmpty ? timeVal : (field.placeholder ?? 'Pilih jam...'),
+                            style: TextStyle(
+                              color: timeVal.isNotEmpty
+                                  ? textColor
+                                  : (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400),
+                              fontSize: 13,
+                              fontWeight: timeVal.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                        if (timeVal.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            color: subtitleColor,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              setState(() {
+                                _formValues.remove(fieldKey);
+                                _controllers[fieldKey]?.clear();
+                              });
+                              state.didChange('');
+                            },
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: themeColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Pilih',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: themeColor),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (hasError) ...[
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      state.errorText ?? '',
+                      style: const TextStyle(color: Colors.red, fontSize: 11.5),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        );
+        break;
+
+      case 'datetime':
+        inputWidget = FormField<String>(
+          initialValue: _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text,
+          validator: (v) {
+            final val = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
+            if (field.isRequired && val.trim().isEmpty) {
+              return locale.tr('required_field');
+            }
+            return null;
+          },
+          builder: (state) {
+            final dtVal = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
+            final hasError = state.hasError;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: () async {
+                    await _pickDate(fieldKey, field);
+                    state.didChange(_formValues[fieldKey]?.toString());
+                  },
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: elevatedColor,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: hasError
+                            ? Colors.red
+                            : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                        width: hasError ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.calendar_today_rounded, color: themeColor, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            dtVal.isNotEmpty ? dtVal : (field.placeholder ?? 'Pilih tanggal & waktu...'),
+                            style: TextStyle(
+                              color: dtVal.isNotEmpty
+                                  ? textColor
+                                  : (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400),
+                              fontSize: 13,
+                              fontWeight: dtVal.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (hasError) ...[
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      state.errorText ?? '',
+                      style: const TextStyle(color: Colors.red, fontSize: 11.5),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
         );
         break;
 
