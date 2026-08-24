@@ -39,14 +39,16 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
     if ($tenantPrincipal) {
         $scopedPrincipalIds = !empty($tenantPrincipalIds) ? $tenantPrincipalIds : [$tenantPrincipal->id];
         
-        $stats = [
-            'employees' => Employee::whereIn('principal_id', $scopedPrincipalIds)->count(),
-            'areas' => Employee::whereIn('principal_id', $scopedPrincipalIds)->whereNotNull('area_id')->distinct('area_id')->count('area_id'),
-            'templates' => \App\Models\ReportTemplate::whereHas('principals', function($q) use ($scopedPrincipalIds) {
-                $q->whereIn('principals.id', $scopedPrincipalIds);
-            })->where('is_active', true)->count(),
-            'submissions' => \App\Models\ReportSubmission::whereIn('principal_id', $scopedPrincipalIds)->count(),
-        ];
+        $stats = \Illuminate\Support\Facades\Cache::remember("tenant_stats_{$tenantPrincipal->id}", 120, function () use ($scopedPrincipalIds) {
+            return [
+                'employees' => Employee::whereIn('principal_id', $scopedPrincipalIds)->count(),
+                'areas' => Employee::whereIn('principal_id', $scopedPrincipalIds)->whereNotNull('area_id')->distinct()->count('area_id'),
+                'templates' => \App\Models\ReportTemplate::whereHas('principals', function($q) use ($scopedPrincipalIds) {
+                    $q->whereIn('principals.id', $scopedPrincipalIds);
+                })->where('is_active', true)->count(),
+                'submissions' => \App\Models\ReportSubmission::whereIn('principal_id', $scopedPrincipalIds)->count(),
+            ];
+        });
 
         $activeTemplates = \App\Models\ReportTemplate::whereHas('principals', function($q) use ($scopedPrincipalIds) {
             $q->whereIn('principals.id', $scopedPrincipalIds);
@@ -55,11 +57,14 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
         return view('landing_tenant', compact('setting', 'stats', 'tenantPrincipal', 'activeTemplates'));
     }
 
-    $stats = [
-        'areas' => Area::count(),
-        'principals' => Principal::count(),
-        'employees' => Employee::count(),
-    ];
+    $stats = \Illuminate\Support\Facades\Cache::remember('global_landing_stats', 120, function () {
+        return [
+            'areas' => Area::count(),
+            'principals' => Principal::count(),
+            'employees' => Employee::count(),
+        ];
+    });
+
     return view('landing', compact('setting', 'stats'));
 });
 

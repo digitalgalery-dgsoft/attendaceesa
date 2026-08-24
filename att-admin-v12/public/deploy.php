@@ -36,13 +36,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'cd /www/wwwroot/appsend.my.id && git reset --hard origin/main',
         'cd /www/wwwroot/appsend.my.id && git pull origin main',
         'cp -a /www/wwwroot/appsend.my.id/att-admin-v12/. /www/wwwroot/appsend.my.id/',
-        'cd /www/wwwroot/appsend.my.id && curl -sS https://getcomposer.org/installer | /www/server/php/83/bin/php',
-        '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/composer.phar install --working-dir=/www/wwwroot/appsend.my.id --no-dev --optimize-autoloader',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan storage:link',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan migrate --force',
-        '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan db:seed --class=ReportTemplatePresetsSeeder --force',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan optimize:clear',
     ];
+
+    if (isset($_GET['composer']) && $_GET['composer'] === '1') {
+        array_splice($commands, 6, 0, [
+            'cd /www/wwwroot/appsend.my.id && curl -sS https://getcomposer.org/installer | /www/server/php/83/bin/php',
+            '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/composer.phar install --working-dir=/www/wwwroot/appsend.my.id --no-dev --optimize-autoloader',
+        ]);
+    }
 
     foreach($commands as $cmd){
         // Format command agar terlihat seperti di terminal asli (tanpa menampilkan path cd yang panjang)
