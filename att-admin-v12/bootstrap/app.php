@@ -15,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(\App\Http\Middleware\CheckIfInstalled::class);
+        $middleware->append(\App\Http\Middleware\IdentifyTenantSubdomain::class);
+        $middleware->alias([
+            'tenant.subdomain' => \App\Http\Middleware\IdentifyTenantSubdomain::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
