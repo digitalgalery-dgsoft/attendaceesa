@@ -20,7 +20,7 @@ class ReportTemplateResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
     protected static string|\UnitEnum|null $navigationGroup = 'Reporting & Kunjungan';
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
     protected static ?string $navigationLabel = 'Form Builder (Template Laporan)';
     protected static ?string $modelLabel = 'Template Form Pelaporan';
     protected static ?string $pluralModelLabel = 'Template Form Pelaporan';
@@ -29,7 +29,7 @@ class ReportTemplateResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->hasRole('Super Admin') || auth()->user()->can('view_report_templates');
+        return true;
     }
 
     public static function form(Schema $schema): Schema

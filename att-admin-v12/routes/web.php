@@ -82,6 +82,9 @@ Route::get('/seed-templates-now', function () {
     try {
         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
         
+        $permSeeder = new \Database\Seeders\PermissionsSeeder();
+        $permSeeder->run();
+
         $seeder = new \Database\Seeders\ReportTemplatePresetsSeeder();
         $seeder->run();
 
