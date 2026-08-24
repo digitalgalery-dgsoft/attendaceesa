@@ -156,6 +156,11 @@ Route::middleware(['web'])->group(function () {
         return redirect('/admin');
     })->name('admin.impersonate');
 
+    // Route alias for impersonation.start
+    Route::get('/admin/impersonate-start/{user}', function (\App\Models\User $user) {
+        return redirect()->route('admin.impersonate', ['user' => $user->id]);
+    })->name('impersonation.start');
+
     // Stop Impersonation
     Route::get('/admin/impersonate-leave', function () {
         if (!session()->has('impersonated_by')) {
@@ -171,4 +176,9 @@ Route::middleware(['web'])->group(function () {
 
         return redirect('/admin');
     })->name('admin.impersonate.leave');
+
+    // Route alias for impersonation.leave
+    Route::get('/admin/impersonate-stop', function () {
+        return redirect()->route('admin.impersonate.leave');
+    })->name('impersonation.leave');
 });

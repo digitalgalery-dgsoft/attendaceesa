@@ -64,7 +64,7 @@ class UsersTable
                     ->modalDescription(fn ($record) => "Anda akan login dan melihat sistem sebagai {$record->name} ({$record->email}). Anda dapat kembali ke akun Super Admin kapan saja.")
                     ->modalSubmitActionLabel('Ya, Switch Sekarang')
                     ->visible(fn ($record) => auth()->check() && auth()->user()->isSuperAdmin() && auth()->id() !== $record->id && !session()->has('impersonated_by'))
-                    ->url(fn ($record) => route('impersonation.start', ['user' => $record->id])),
+                    ->url(fn ($record) => route('admin.impersonate', ['user' => $record->id])),
                 EditAction::make(),
             ])
             ->toolbarActions([
