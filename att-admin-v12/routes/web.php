@@ -27,8 +27,34 @@ Route::get('/.well-known/acme-challenge/{token}', function ($token) {
     return response('acme challenge handler active', 404);
 });
 
-Route::get('/', function () {
+Route::get('/', function (\Illuminate\Http\Request $request) {
     $setting = Setting::first();
+    
+    // Cek apakah ada tenant principal dari subdomain (misal: dulux.appsend.my.id)
+    $tenantPrincipal = $request->attributes->get('tenant_principal') 
+                    ?? (app()->bound('current_tenant_principal') ? app('current_tenant_principal') : null);
+    $tenantPrincipalIds = $request->attributes->get('tenant_principal_ids') 
+                       ?? (app()->bound('current_tenant_principal_ids') ? app('current_tenant_principal_ids') : []);
+
+    if ($tenantPrincipal) {
+        $scopedPrincipalIds = !empty($tenantPrincipalIds) ? $tenantPrincipalIds : [$tenantPrincipal->id];
+        
+        $stats = [
+            'employees' => Employee::whereIn('principal_id', $scopedPrincipalIds)->count(),
+            'areas' => Employee::whereIn('principal_id', $scopedPrincipalIds)->whereNotNull('area_id')->distinct('area_id')->count('area_id'),
+            'templates' => \App\Models\ReportTemplate::whereHas('principals', function($q) use ($scopedPrincipalIds) {
+                $q->whereIn('principals.id', $scopedPrincipalIds);
+            })->where('is_active', true)->count(),
+            'submissions' => \App\Models\ReportSubmission::whereIn('principal_id', $scopedPrincipalIds)->count(),
+        ];
+
+        $activeTemplates = \App\Models\ReportTemplate::whereHas('principals', function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('sort_order')->get();
+
+        return view('landing_tenant', compact('setting', 'stats', 'tenantPrincipal', 'activeTemplates'));
+    }
+
     $stats = [
         'areas' => Area::count(),
         'principals' => Principal::count(),
