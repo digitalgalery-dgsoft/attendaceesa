@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:toastification/toastification.dart';
 import 'package:att_mobile/models/report_template_model.dart';
+import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/services/watermark_camera_service.dart';
@@ -31,6 +32,10 @@ class DynamicFormScreen extends StatefulWidget {
 class _DynamicFormScreenState extends State<DynamicFormScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  // Toko / Lokasi Pelaporan
+  late TextEditingController _storeNameController;
+  int? _selectedWorkLocationId;
+
   // State nilai form dinamis
   final Map<String, dynamic> _formValues = {};
   final Map<String, File> _photoFiles = {};
@@ -49,8 +54,27 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   @override
   void initState() {
     super.initState();
+    _storeNameController = TextEditingController(text: widget.storeName ?? '');
+    _selectedWorkLocationId = widget.workLocationId;
+
     _initializeForm();
     _fetchCurrentLocation();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+      if (attProvider.workLocations.isEmpty) {
+        attProvider.fetchWorkLocations();
+      } else if (_storeNameController.text.isEmpty && attProvider.workLocations.isNotEmpty) {
+        // Auto default ke lokasi kerja pertama jika belum diisi
+        final firstLoc = attProvider.workLocations.first;
+        if (firstLoc is Map && firstLoc['name'] != null) {
+          setState(() {
+            _storeNameController.text = firstLoc['name'].toString();
+            _selectedWorkLocationId = int.tryParse(firstLoc['id'].toString());
+          });
+        }
+      }
+    });
   }
 
   void _initializeForm() {
@@ -97,6 +121,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
   @override
   void dispose() {
+    _storeNameController.dispose();
     for (final ctrl in _controllers.values) {
       ctrl.dispose();
     }
@@ -124,16 +149,19 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     );
   }
 
-  // Ambil foto dengan Geotag Watermark
+  // Ambil foto dengan Geotag Watermark Permanen
   Future<void> _takeWatermarkedPhoto(ReportFormFieldModel field) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final employeeName = auth.employeeData?['full_name'] ?? 'Promotor';
     final employeeNik = auth.employeeData?['nik'] ?? '';
+    final currentStore = _storeNameController.text.trim().isNotEmpty
+        ? _storeNameController.text.trim()
+        : 'Kunjungan Toko Dulux';
 
     final result = await WatermarkCameraService.captureWithWatermark(
       employeeName: employeeName,
       employeeNik: employeeNik,
-      storeName: widget.storeName,
+      storeName: currentStore,
       latitude: _latitude,
       longitude: _longitude,
     );
@@ -148,20 +176,24 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       toastification.show(
         context: context,
         type: ToastificationType.success,
-        title: const Text('Foto Berhasil Diambil'),
-        description: const Text('Geotag & Watermark lokasi berhasil dibubuhkan.'),
-        autoCloseDuration: const Duration(seconds: 2),
+        title: const Text('Foto Berhasil Diambil & Diberi Watermark'),
+        description: Text('Stempel Geotag $currentStore berhasil dibubuhkan permanen.'),
+        autoCloseDuration: const Duration(seconds: 3),
       );
     }
   }
 
   // Buka Dialog Tanda Tangan
   Future<void> _openSignaturePad(ReportFormFieldModel field) async {
+    final currentStore = _storeNameController.text.trim().isNotEmpty
+        ? _storeNameController.text.trim()
+        : 'Tanda Tangan PIC / Toko';
+
     final File? signatureFile = await showDialog<File>(
       context: context,
       builder: (context) => SignaturePadDialog(
         title: field.fieldLabel,
-        signerRole: widget.storeName ?? 'Validasi Lapangan',
+        signerRole: currentStore,
       ),
     );
 
@@ -180,8 +212,132 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
   }
 
+  // Modal Dialog Pilih Toko dari Master Lokasi Kerja
+  void _showStorePickerModal(List<dynamic> locations, Color themeColor, bool isDarkMode) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
+      builder: (context) {
+        String searchQuery = '';
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = locations.where((loc) {
+              final name = loc['name']?.toString().toLowerCase() ?? '';
+              final addr = loc['address']?.toString().toLowerCase() ?? '';
+              return name.contains(searchQuery.toLowerCase()) || addr.contains(searchQuery.toLowerCase());
+            }).toList();
+
+            return Container(
+              padding: const EdgeInsets.all(20),
+              height: MediaQuery.of(context).size.height * 0.7,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Pilih Toko / Lokasi Pelaporan',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Cari nama toko / alamat...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      filled: true,
+                      fillColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF1F5F9),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                    ),
+                    onChanged: (val) {
+                      setModalState(() {
+                        searchQuery = val;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.storefront_outlined, size: 44, color: Colors.grey.shade400),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Toko tidak ditemukan.\nAnda juga dapat mengetik nama toko secara langsung.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (context, idx) {
+                              final loc = filtered[idx];
+                              final storeName = loc['name']?.toString() ?? 'Toko';
+                              final address = loc['address']?.toString() ?? '';
+                              final locId = int.tryParse(loc['id']?.toString() ?? '');
+
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: themeColor.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(Icons.storefront_rounded, color: themeColor, size: 20),
+                                ),
+                                title: Text(storeName, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
+                                subtitle: address.isNotEmpty ? Text(address, style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500), maxLines: 1, overflow: TextOverflow.ellipsis) : null,
+                                onTap: () {
+                                  setState(() {
+                                    _storeNameController.text = storeName;
+                                    _selectedWorkLocationId = locId;
+                                  });
+                                  Navigator.pop(context);
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // Submit Form
   Future<void> _submitForm() async {
+    final currentStore = _storeNameController.text.trim();
+    if (currentStore.isEmpty) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Nama Toko Wajib Diisi'),
+        description: const Text('Silakan pilih atau ketik nama toko lokasi pelaporan.'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       toastification.show(
         context: context,
@@ -234,8 +390,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       token: token,
       templateId: widget.template.id,
       templateTitle: widget.template.title,
-      storeName: widget.storeName,
-      workLocationId: widget.workLocationId,
+      storeName: currentStore,
+      workLocationId: _selectedWorkLocationId ?? widget.workLocationId,
       itineraryItemId: widget.itineraryItemId,
       latitude: _latitude,
       longitude: _longitude,
@@ -262,6 +418,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
+    final attProvider = Provider.of<AttendanceProvider>(context);
     final primaryColor = auth.appColor ?? const Color(0xFF0F52BA);
     final themeColor = Color(int.tryParse(widget.template.color.replaceAll('#', '0xFF')) ?? primaryColor.value);
 
@@ -288,7 +445,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           children: [
-            // Header Info Laporan & Toko
+            // ─── Header Info Toko / Lokasi Pelaporan (Bisa Dipilih / Diketik) ───
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -322,18 +479,54 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.storeName ?? 'Laporan Operasional Toko',
-                              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: textColor),
+                              'Lokasi Toko / Outlet *',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: subtitleColor),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               widget.template.code,
-                              style: TextStyle(fontSize: 11, color: subtitleColor, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                              style: TextStyle(fontSize: 10.5, color: themeColor, fontFamily: 'monospace', fontWeight: FontWeight.w600),
                             ),
                           ],
                         ),
                       ),
+                      if (attProvider.workLocations.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () => _showStorePickerModal(attProvider.workLocations, themeColor, isDarkMode),
+                          icon: const Icon(Icons.list_alt_rounded, size: 16),
+                          label: const Text('Pilih Toko', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: TextButton.styleFrom(
+                            foregroundColor: themeColor,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          ),
+                        ),
                     ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: _storeNameController,
+                    style: TextStyle(color: textColor, fontSize: 13.5, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      hintText: 'Ketik atau pilih nama toko (contoh: Toko Cat Dulux Berkat)',
+                      hintStyle: TextStyle(color: subtitleColor, fontSize: 12),
+                      filled: true,
+                      fillColor: elevatedColor,
+                      prefixIcon: Icon(Icons.location_city_rounded, color: themeColor, size: 18),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: themeColor, width: 1.5),
+                      ),
+                    ),
+                    validator: (v) => v == null || v.trim().isEmpty ? 'Nama toko wajib diisi' : null,
                   ),
                   if (widget.template.description != null && widget.template.description!.isNotEmpty) ...[
                     const SizedBox(height: 10),
@@ -347,11 +540,13 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     children: [
                       Icon(Icons.location_on, size: 14, color: _latitude != null ? Colors.green : Colors.orange),
                       const SizedBox(width: 5),
-                      Text(
-                        _latitude != null
-                            ? 'GPS Terhubung (${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)})'
-                            : 'Mencari sinyal GPS...',
-                        style: TextStyle(fontSize: 11, color: _latitude != null ? Colors.green : Colors.orange, fontWeight: FontWeight.w600),
+                      Expanded(
+                        child: Text(
+                          _latitude != null
+                              ? 'GPS Terhubung (${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)})'
+                              : 'Mencari sinyal GPS...',
+                          style: TextStyle(fontSize: 11, color: _latitude != null ? Colors.green : Colors.orange, fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ],
                   ),
@@ -568,25 +763,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             if (photoFile != null) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Stack(
-                  children: [
-                    Image.file(photoFile, height: 180, width: double.infinity, fit: BoxFit.cover),
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        color: Colors.black.withOpacity(0.7),
-                        child: Text(
-                          _watermarkTexts[fieldKey] ?? 'Watermark GPS Validated',
-                          style: const TextStyle(color: Colors.white, fontSize: 10, height: 1.3),
-                          maxLines: 2,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                child: Image.file(photoFile, height: 220, width: double.infinity, fit: BoxFit.cover),
               ),
               const SizedBox(height: 10),
             ],
