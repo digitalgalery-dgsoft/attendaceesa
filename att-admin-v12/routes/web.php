@@ -27,26 +27,35 @@ Route::get('/migrate-now', function () {
 });
 
 Route::get('/seed-templates-now', function () {
-    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-    \Illuminate\Support\Facades\Artisan::call('db:seed', [
-        '--class' => 'Database\\Seeders\\ReportTemplatePresetsSeeder',
-        '--force' => true,
-    ]);
-    $output = \Illuminate\Support\Facades\Artisan::output();
-    $templates = \App\Models\ReportTemplate::with('principals')->get()->map(function ($t) {
-        return [
-            'id' => $t->id,
-            'title' => $t->title,
-            'code' => $t->code,
-            'principals' => $t->principals->pluck('name'),
-            'fields_count' => $t->fields()->count(),
-        ];
-    });
-    return response()->json([
-        'status' => 'success',
-        'output' => $output,
-        'templates' => $templates,
-    ]);
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        
+        $seeder = new \Database\Seeders\ReportTemplatePresetsSeeder();
+        $seeder->run();
+
+        $templates = \App\Models\ReportTemplate::with('principals')->get()->map(function ($t) {
+            return [
+                'id' => $t->id,
+                'title' => $t->title,
+                'code' => $t->code,
+                'principals' => $t->principals->pluck('name'),
+                'fields_count' => $t->fields()->count(),
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'count' => $templates->count(),
+            'templates' => $templates,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ], 500);
+    }
 });
 
 // Web Cron Endpoint for Odoo Sync
@@ -82,30 +91,32 @@ Route::middleware(['web'])->group(function () {
             abort(403, 'Hanya Super Admin yang diizinkan untuk beralih akun.');
         }
 
-        $originalSuperAdminId = session()->get('impersonated_by', $currentUser?->id);
+        if ($currentUser && $currentUser->id === $user->id) {
+            return redirect()->back();
+        }
 
-        \Illuminate\Support\Facades\Auth::guard('web')->login($user, true);
-        \Filament\Facades\Filament::auth()->login($user, true);
-        session()->put('impersonated_by', $originalSuperAdminId);
-        session()->put('password_hash_web', $user->getAuthPassword());
-        session()->save();
+        if (!session()->has('impersonated_by') && $currentUser) {
+            session()->put('impersonated_by', $currentUser->id);
+        }
 
-        return redirect()->to('/admin');
-    })->name('impersonation.start');
+        \Illuminate\Support\Facades\Auth::login($user);
+
+        return redirect('/admin');
+    })->name('admin.impersonate');
 
     // Stop Impersonation
-    Route::get('/admin/stop-impersonation', function () {
-        if (session()->has('impersonated_by')) {
-            $superAdminId = session()->pull('impersonated_by');
-            $superAdmin = \App\Models\User::find($superAdminId);
-            if ($superAdmin) {
-                \Illuminate\Support\Facades\Auth::guard('web')->login($superAdmin, true);
-                \Filament\Facades\Filament::auth()->login($superAdmin, true);
-                session()->put('password_hash_web', $superAdmin->getAuthPassword());
-                session()->save();
-            }
+    Route::get('/admin/impersonate-leave', function () {
+        if (!session()->has('impersonated_by')) {
+            return redirect('/admin');
         }
-        return redirect()->to('/admin');
-    })->name('impersonation.stop');
-});
 
+        $originalUserId = session()->pull('impersonated_by');
+        $originalUser = \App\Models\User::find($originalUserId);
+
+        if ($originalUser) {
+            \Illuminate\Support\Facades\Auth::login($originalUser);
+        }
+
+        return redirect('/admin');
+    })->name('admin.impersonate.leave');
+});
