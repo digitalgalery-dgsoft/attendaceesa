@@ -26,6 +26,29 @@ Route::get('/migrate-now', function () {
     return \Illuminate\Support\Facades\Artisan::output();
 });
 
+Route::get('/seed-templates-now', function () {
+    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+    \Illuminate\Support\Facades\Artisan::call('db:seed', [
+        '--class' => 'Database\\Seeders\\ReportTemplatePresetsSeeder',
+        '--force' => true,
+    ]);
+    $output = \Illuminate\Support\Facades\Artisan::output();
+    $templates = \App\Models\ReportTemplate::with('principals')->get()->map(function ($t) {
+        return [
+            'id' => $t->id,
+            'title' => $t->title,
+            'code' => $t->code,
+            'principals' => $t->principals->pluck('name'),
+            'fields_count' => $t->fields()->count(),
+        ];
+    });
+    return response()->json([
+        'status' => 'success',
+        'output' => $output,
+        'templates' => $templates,
+    ]);
+});
+
 // Web Cron Endpoint for Odoo Sync
 Route::get('/cron/odoo-sync', function () {
     @ignore_user_abort(true);

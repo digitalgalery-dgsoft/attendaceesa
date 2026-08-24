@@ -50,6 +50,10 @@ trait ScopesUserData
                 $query->whereIn("{$tableName}.{$principalColumn}", $principalIds);
             } elseif (Schema::hasColumn($tableName, 'principal_id')) {
                 $query->whereIn("{$tableName}.principal_id", $principalIds);
+            } elseif (method_exists($query->getModel(), 'principals')) {
+                $query->whereHas('principals', function (Builder $q) use ($principalIds) {
+                    $q->whereIn('principals.id', $principalIds);
+                });
             } elseif (method_exists($query->getModel(), $employeeRelation)) {
                 $query->whereHas($employeeRelation, function (Builder $q) use ($principalIds) {
                     $q->whereIn('employees.principal_id', $principalIds);
