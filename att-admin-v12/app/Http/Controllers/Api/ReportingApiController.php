@@ -151,6 +151,8 @@ class ReportingApiController extends Controller
                 'work_location_id' => $request->work_location_id,
                 'itinerary_item_id' => $request->itinerary_item_id,
                 'submission_code' => $submissionCode,
+                'store_name' => $request->store_name ?? 'Kunjungan Toko',
+                'address' => $request->address,
                 'latitude' => $request->latitude,
                 'longitude' => $request->longitude,
                 'is_within_radius' => $request->boolean('is_within_radius', true),

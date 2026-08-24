@@ -50,6 +50,7 @@ class ReportSubmissionsTable
 
                 TextColumn::make('store_name')
                     ->label('Nama Toko / Outlet')
+                    ->formatStateUsing(fn ($record) => $record->store_name ?? $record->workLocation?->name ?? $record->itineraryItem?->destination ?? 'Kunjungan Toko')
                     ->searchable()
                     ->sortable()
                     ->wrap(),
@@ -64,14 +65,14 @@ class ReportSubmissionsTable
                     ->label('Status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => match($state) {
-                        'submitted' => 'Menunggu Verifikasi',
-                        'verified' => 'Terverifikasi',
+                        'pending', 'submitted' => 'Menunggu Verifikasi',
+                        'approved', 'verified' => 'Terverifikasi',
                         'rejected' => 'Ditolak',
                         default => $state,
                     })
                     ->color(fn ($state) => match($state) {
-                        'submitted' => 'warning',
-                        'verified' => 'success',
+                        'pending', 'submitted' => 'warning',
+                        'approved', 'verified' => 'success',
                         'rejected' => 'danger',
                         default => 'gray',
                     }),

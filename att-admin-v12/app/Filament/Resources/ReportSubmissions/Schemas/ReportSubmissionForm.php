@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ReportSubmissions\Schemas;
 
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -12,6 +13,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 
 class ReportSubmissionForm
 {
@@ -33,7 +35,9 @@ class ReportSubmissionForm
                             Select::make('status')
                                 ->label('Status Verifikasi')
                                 ->options([
+                                    'pending' => 'Menunggu Verifikasi',
                                     'submitted' => 'Menunggu Verifikasi',
+                                    'approved' => 'Terverifikasi (Valid)',
                                     'verified' => 'Terverifikasi (Valid)',
                                     'rejected' => 'Ditolak (Tidak Sesuai)',
                                 ])
@@ -56,57 +60,81 @@ class ReportSubmissionForm
                         Grid::make(3)->schema([
                             TextInput::make('store_name')
                                 ->label('Nama Toko / Outlet')
+                                ->formatStateUsing(fn ($record) => $record?->workLocation?->name ?? $record?->itineraryItem?->destination ?? $record?->store_name ?? 'Kunjungan Toko')
                                 ->disabled(),
                             TextInput::make('coordinates')
                                 ->label('Koordinat GPS')
-                                ->formatStateUsing(fn ($record) => $record ? "{$record->latitude}, {$record->longitude}" : '-')
+                                ->formatStateUsing(fn ($record) => ($record && $record->latitude) ? "{$record->latitude}, {$record->longitude}" : '-')
                                 ->disabled(),
                             Toggle::make('is_within_radius')
-                                ->label('Validasi Dalam Radius Toko')
+                                ->label('Validasi Radius Toko')
                                 ->disabled(),
                         ]),
                         Textarea::make('address')
                             ->label('Alamat / Lokasi Geocoding')
                             ->rows(2)
                             ->disabled()
-                            ->columnSpanFull(),
+                            ->columnSpanFull()
+                            ->visible(fn ($record) => !empty($record?->address)),
                     ]),
 
                 Section::make('Isian Form & Foto Hasil Pelaporan')
-                    ->description('Jawaban dari setiap parameter pertanyaan beserta bukti foto ber-watermark.')
+                    ->description('Jawaban dari setiap parameter pertanyaan beserta bukti foto terlampir.')
                     ->schema([
                         Repeater::make('values')
                             ->relationship('values')
                             ->label('Daftar Parameter Input')
                             ->schema([
-                                Grid::make(3)->schema([
-                                    TextInput::make('field_label')
+                                Grid::make(2)->schema([
+                                    TextInput::make('field_name')
                                         ->label('Parameter / Pertanyaan')
+                                        ->formatStateUsing(function ($state, $record) {
+                                            return $record?->formField?->field_label ?? ucwords(str_replace('_', ' ', (string) $state));
+                                        })
                                         ->disabled(),
                                     TextInput::make('display_value')
                                         ->label('Jawaban / Nilai Input')
-                                        ->formatStateUsing(function ($record) {
+                                        ->formatStateUsing(function ($state, $record) {
                                             if (!$record) return '-';
-                                            if (!empty($record->value_text)) return $record->value_text;
-                                            if (!empty($record->value_number)) return number_format($record->value_number);
+                                            if (!empty($record->media_url)) {
+                                                return '📷 Bukti Foto / Tanda Tangan Terlampir';
+                                            }
+                                            if ($record->field_type === 'currency' && $record->value_number !== null) {
+                                                return 'Rp ' . number_format((float) $record->value_number, 0, ',', '.');
+                                            }
+                                            if ($record->value_number !== null) {
+                                                return (string) $record->value_number;
+                                            }
                                             if (!empty($record->value_json)) {
                                                 return is_array($record->value_json) ? implode(', ', $record->value_json) : json_encode($record->value_json);
+                                            }
+                                            if (!empty($record->value_text)) {
+                                                return (string) $record->value_text;
                                             }
                                             return '-';
                                         })
                                         ->disabled(),
-                                    TextInput::make('watermark_text')
-                                        ->label('Info Stempel / Watermark')
-                                        ->disabled(),
                                 ]),
-                                FileUpload::make('photo_url')
-                                    ->label('Bukti Foto')
-                                    ->image()
-                                    ->disk('public')
-                                    ->visibility('public')
-                                    ->disabled()
-                                    ->columnSpanFull()
-                                    ->visible(fn ($record) => !empty($record?->photo_url)),
+                                Placeholder::make('media_preview')
+                                    ->label('Preview Foto Bukti / Tanda Tangan')
+                                    ->content(function ($record) {
+                                        if (empty($record?->media_url)) return null;
+                                        $url = asset('storage/' . $record->media_url);
+                                        return new HtmlString("
+                                            <div style='margin-top: 4px; padding: 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;'>
+                                                <div style='display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap;'>
+                                                    <a href='{$url}' target='_blank' style='display: inline-block;'>
+                                                        <img src='{$url}' style='max-height: 260px; max-width: 100%; border-radius: 8px; border: 1px solid #cbd5e1; object-fit: contain; background: #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.06);' />
+                                                    </a>
+                                                </div>
+                                                <div style='font-size: 11.5px; color: #64748b; margin-top: 6px; font-weight: 500;'>
+                                                    🔗 <a href='{$url}' target='_blank' style='color: #0284c7; text-decoration: underline;'>Klik foto untuk melihat / mengunduh resolusi asli</a>
+                                                </div>
+                                            </div>
+                                        ");
+                                    })
+                                    ->visible(fn ($record) => !empty($record?->media_url))
+                                    ->columnSpanFull(),
                             ])
                             ->addable(false)
                             ->deletable(false)
