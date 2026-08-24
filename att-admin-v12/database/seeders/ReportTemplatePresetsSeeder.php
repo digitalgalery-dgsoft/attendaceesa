@@ -40,8 +40,12 @@ class ReportTemplatePresetsSeeder extends Seeder
         } else {
             foreach ($duluxPrincipals as $dp) {
                 if (empty($dp->subdomain)) {
+                    $slug = Str::slug($dp->name);
+                    if (Principal::where('subdomain', $slug)->where('id', '!=', $dp->id)->exists()) {
+                        $slug = "{$slug}-{$dp->id}";
+                    }
                     $dp->update([
-                        'subdomain' => Str::slug($dp->name),
+                        'subdomain' => $slug,
                         'theme_color' => '#0F52BA',
                         'portal_title' => "Portal Pelaporan {$dp->name}",
                         'is_active' => true,
