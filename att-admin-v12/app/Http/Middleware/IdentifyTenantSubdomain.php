@@ -34,14 +34,19 @@ class IdentifyTenantSubdomain
         }
 
         if ($subdomain) {
-            $principal = Principal::where(function ($q) use ($subdomain, $host) {
+            $principals = Principal::where(function ($q) use ($subdomain, $host) {
                 $q->where('subdomain', $subdomain)
                   ->orWhere('custom_domain', $host);
-            })->where('is_active', true)->first();
+            })->where('is_active', true)->get();
 
-            if ($principal) {
-                app()->instance('current_tenant_principal', $principal);
-                $request->attributes->set('tenant_principal', $principal);
+            if ($principals->isNotEmpty()) {
+                $primaryTenant = $principals->first();
+                $tenantIds = $principals->pluck('id')->toArray();
+
+                app()->instance('current_tenant_principal', $primaryTenant);
+                app()->instance('current_tenant_principal_ids', $tenantIds);
+                $request->attributes->set('tenant_principal', $primaryTenant);
+                $request->attributes->set('tenant_principal_ids', $tenantIds);
             }
         }
 

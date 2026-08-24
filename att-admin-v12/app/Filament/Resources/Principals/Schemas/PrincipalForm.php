@@ -48,8 +48,7 @@ class PrincipalForm
                                 ->prefix('https://')
                                 ->suffix('.appsend.my.id')
                                 ->placeholder('dulux')
-                                ->unique(ignoreRecord: true)
-                                ->helperText('Subdomain eksklusif untuk portal login manajemen prinsiple.')
+                                ->helperText('Subdomain portal login manajemen prinsiple (bisa sama untuk entitas brand yang sama, misal: dulux).')
                                 ->required(),
                         ]),
                         Textarea::make('description')
