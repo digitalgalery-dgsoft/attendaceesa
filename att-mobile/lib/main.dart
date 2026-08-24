@@ -27,6 +27,7 @@ import 'package:att_mobile/screens/onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/services/push_notification_service.dart';
 
 void main() async {
@@ -56,6 +57,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => OvertimeProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => LocaleProvider()),
+        ChangeNotifierProvider(create: (_) => DynamicReportingProvider()),
       ],
       child: const AttendanceApp(),
     ),

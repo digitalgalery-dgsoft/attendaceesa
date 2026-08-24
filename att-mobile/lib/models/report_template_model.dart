@@ -1,0 +1,129 @@
+class ReportTemplateModel {
+  final int id;
+  final String code;
+  final String title;
+  final String? description;
+  final String icon;
+  final String color;
+  final bool requireGps;
+  final bool requirePhoto;
+  final bool requireSignature;
+  final int fieldsCount;
+  final List<ReportFormFieldModel> fields;
+
+  ReportTemplateModel({
+    required this.id,
+    required this.code,
+    required this.title,
+    this.description,
+    this.icon = 'document-text',
+    this.color = '#0F52BA',
+    this.requireGps = true,
+    this.requirePhoto = false,
+    this.requireSignature = false,
+    this.fieldsCount = 0,
+    required this.fields,
+  });
+
+  factory ReportTemplateModel.fromJson(Map<String, dynamic> json) {
+    var rawFields = json['fields'] as List? ?? [];
+    List<ReportFormFieldModel> fieldsList = rawFields
+        .map((f) => ReportFormFieldModel.fromJson(f as Map<String, dynamic>))
+        .toList();
+
+    return ReportTemplateModel(
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
+      code: json['code'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'],
+      icon: json['icon'] ?? 'document-text',
+      color: json['color'] ?? '#0F52BA',
+      requireGps: json['require_gps'] == true || json['require_gps'] == 1,
+      requirePhoto: json['require_photo'] == true || json['require_photo'] == 1,
+      requireSignature: json['require_signature'] == true || json['require_signature'] == 1,
+      fieldsCount: json['fields_count'] is int ? json['fields_count'] : (fieldsList.length),
+      fields: fieldsList,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'code': code,
+      'title': title,
+      'description': description,
+      'icon': icon,
+      'color': color,
+      'require_gps': requireGps,
+      'require_photo': requirePhoto,
+      'require_signature': requireSignature,
+      'fields_count': fieldsCount,
+      'fields': fields.map((f) => f.toJson()).toList(),
+    };
+  }
+}
+
+class ReportFormFieldModel {
+  final int id;
+  final String fieldName;
+  final String fieldLabel;
+  final String fieldType;
+  final bool isRequired;
+  final List<String> options;
+  final String? placeholder;
+  final String? defaultValue;
+  final Map<String, dynamic> validationRules;
+  final int sortOrder;
+
+  ReportFormFieldModel({
+    required this.id,
+    required this.fieldName,
+    required this.fieldLabel,
+    required this.fieldType,
+    this.isRequired = false,
+    this.options = const [],
+    this.placeholder,
+    this.defaultValue,
+    this.validationRules = const {},
+    this.sortOrder = 0,
+  });
+
+  factory ReportFormFieldModel.fromJson(Map<String, dynamic> json) {
+    List<String> parsedOptions = [];
+    if (json['options'] != null) {
+      if (json['options'] is List) {
+        parsedOptions = (json['options'] as List).map((e) => e.toString()).toList();
+      } else if (json['options'] is Map) {
+        parsedOptions = (json['options'] as Map).values.map((e) => e.toString()).toList();
+      }
+    }
+
+    return ReportFormFieldModel(
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
+      fieldName: json['field_name'] ?? '',
+      fieldLabel: json['field_label'] ?? '',
+      fieldType: json['field_type'] ?? 'text',
+      isRequired: json['is_required'] == true || json['is_required'] == 1,
+      options: parsedOptions,
+      placeholder: json['placeholder'],
+      defaultValue: json['default_value']?.toString(),
+      validationRules: json['validation_rules'] is Map<String, dynamic> ? json['validation_rules'] : {},
+      sortOrder: json['sort_order'] is int ? json['sort_order'] : int.tryParse(json['sort_order']?.toString() ?? '0') ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'field_name': fieldName,
+      'field_label': fieldLabel,
+      'field_type': fieldType,
+      'is_required': isRequired,
+      'options': options,
+      'placeholder': placeholder,
+      'default_value': defaultValue,
+      'validation_rules': validationRules,
+      'sort_order': sortOrder,
+    };
+  }
+}
