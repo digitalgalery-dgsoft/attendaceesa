@@ -67,9 +67,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         _controllers[fieldKey] = ctrl;
       } else if (field.fieldType == 'checkbox') {
         _formValues[fieldKey] = field.defaultValue == 'true' || field.defaultValue == '1';
-      } else if (field.fieldType == 'rating') {
+      } else if (field.fieldType == 'rating' || field.fieldType == 'rating_star') {
         _formValues[fieldKey] = int.tryParse(field.defaultValue ?? '5') ?? 5;
-      } else if (field.fieldType == 'multi_select') {
+      } else if (field.fieldType == 'multi_select' || field.fieldType == 'checkbox_group') {
         _formValues[fieldKey] = <String>[];
       }
     }
@@ -197,7 +197,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     for (final field in widget.template.fields) {
       if (field.isRequired) {
         final fieldKey = field.id.toString();
-        if (['photo', 'multi_photo', 'signature'].contains(field.fieldType)) {
+        if (['photo', 'camera_photo', 'multi_photo', 'signature'].contains(field.fieldType)) {
           if (!_photoFiles.containsKey(fieldKey) || _photoFiles[fieldKey] == null) {
             toastification.show(
               context: context,
@@ -262,33 +262,44 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
-    final primaryColor = Color(int.tryParse(widget.template.color.replaceAll('#', '0xFF')) ?? 0xFF0F52BA);
+    final primaryColor = auth.appColor ?? const Color(0xFF0F52BA);
+    final themeColor = Color(int.tryParse(widget.template.color.replaceAll('#', '0xFF')) ?? primaryColor.value);
+
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
+    final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF0E1830);
+    final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
+    final elevatedColor = isDarkMode ? Colors.grey.shade800 : const Color(0xFFEDF1F8);
 
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text(widget.template.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        title: Text(
+          widget.template.title,
+          style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: backgroundColor,
         elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           children: [
-            // Header Toko / Info Laporan
+            // Header Info Laporan & Toko
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isDarkMode ? const Color(0xFF1E293B) : Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: primaryColor.withOpacity(0.3)),
+                color: cardColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
                 boxShadow: [
                   BoxShadow(
-                    color: primaryColor.withOpacity(0.06),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
@@ -298,25 +309,26 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(9),
                         decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(8),
+                          color: themeColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(Icons.storefront_rounded, color: primaryColor, size: 20),
+                        child: Icon(Icons.storefront_rounded, color: themeColor, size: 22),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               widget.storeName ?? 'Laporan Operasional Toko',
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: textColor),
                             ),
+                            const SizedBox(height: 2),
                             Text(
                               widget.template.code,
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontFamily: 'monospace'),
+                              style: TextStyle(fontSize: 11, color: subtitleColor, fontFamily: 'monospace', fontWeight: FontWeight.w600),
                             ),
                           ],
                         ),
@@ -327,16 +339,18 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     const SizedBox(height: 10),
                     Text(
                       widget.template.description!,
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.4),
+                      style: TextStyle(fontSize: 12, color: subtitleColor, height: 1.35),
                     ),
                   ],
                   const Divider(height: 20),
                   Row(
                     children: [
                       Icon(Icons.location_on, size: 14, color: _latitude != null ? Colors.green : Colors.orange),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 5),
                       Text(
-                        _latitude != null ? 'GPS Terhubung (${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)})' : 'Mencari sinyal GPS...',
+                        _latitude != null
+                            ? 'GPS Terhubung (${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)})'
+                            : 'Mencari sinyal GPS...',
                         style: TextStyle(fontSize: 11, color: _latitude != null ? Colors.green : Colors.orange, fontWeight: FontWeight.w600),
                       ),
                     ],
@@ -348,25 +362,33 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             const SizedBox(height: 16),
 
             // Dynamic Form Fields List
-            ...widget.template.fields.map((field) => _buildFieldWidget(field, primaryColor, isDarkMode)),
+            ...widget.template.fields.map((field) => _buildFieldWidget(
+                  field,
+                  themeColor,
+                  cardColor,
+                  textColor,
+                  subtitleColor,
+                  elevatedColor,
+                  isDarkMode,
+                )),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
             // Submit Button
             ElevatedButton.icon(
               onPressed: _isSubmitting ? null : _submitForm,
               icon: _isSubmitting
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.send_rounded, color: Colors.white),
+                  : const Icon(Icons.send_rounded, color: Colors.white, size: 18),
               label: Text(
                 _isSubmitting ? 'Mengirim Laporan...' : 'Kirim Laporan Sekarang',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 3,
+                backgroundColor: themeColor,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 2,
               ),
             ),
             const SizedBox(height: 30),
@@ -376,7 +398,15 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     );
   }
 
-  Widget _buildFieldWidget(ReportFormFieldModel field, Color primaryColor, bool isDarkMode) {
+  Widget _buildFieldWidget(
+    ReportFormFieldModel field,
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    bool isDarkMode,
+  ) {
     final fieldKey = field.id.toString();
 
     Widget inputWidget;
@@ -386,7 +416,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         inputWidget = TextFormField(
           controller: _controllers[fieldKey],
           maxLines: 3,
-          decoration: _inputDecoration(field.placeholder ?? 'Tuliskan keterangan lengkap...', isDarkMode),
+          style: TextStyle(color: textColor, fontSize: 13),
+          decoration: _inputDecoration(field.placeholder ?? 'Tuliskan keterangan lengkap...', elevatedColor, isDarkMode),
           validator: (v) => field.isRequired && (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
           onChanged: (v) => _formValues[fieldKey] = v,
         );
@@ -397,7 +428,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         inputWidget = TextFormField(
           controller: _controllers[fieldKey],
           keyboardType: TextInputType.number,
-          decoration: _inputDecoration(field.placeholder ?? '0', isDarkMode),
+          style: TextStyle(color: textColor, fontSize: 13),
+          decoration: _inputDecoration(field.placeholder ?? '0', elevatedColor, isDarkMode),
           validator: (v) => field.isRequired && (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
           onChanged: (v) => _formValues[fieldKey] = num.tryParse(v),
         );
@@ -407,7 +439,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         inputWidget = TextFormField(
           controller: _controllers[fieldKey],
           keyboardType: TextInputType.number,
-          decoration: _inputDecoration('Rp 0', isDarkMode),
+          style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.w600),
+          decoration: _inputDecoration('Rp 0', elevatedColor, isDarkMode),
           validator: (v) => field.isRequired && (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
           onChanged: (v) => _formatCurrency(fieldKey, v),
         );
@@ -417,14 +450,23 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       case 'dropdown':
         inputWidget = DropdownButtonFormField<String>(
           value: _formValues[fieldKey],
-          decoration: _inputDecoration('Pilih salah satu', isDarkMode),
-          items: field.options.map((opt) => DropdownMenuItem(value: opt, child: Text(opt, style: const TextStyle(fontSize: 13)))).toList(),
+          decoration: _inputDecoration('Pilih salah satu opsi', elevatedColor, isDarkMode),
+          dropdownColor: cardColor,
+          style: TextStyle(color: textColor, fontSize: 13),
+          items: field.options
+              .map((opt) => DropdownMenuItem(
+                    value: opt,
+                    child: Text(opt, style: TextStyle(fontSize: 12.5, color: textColor)),
+                  ))
+              .toList(),
           validator: (v) => field.isRequired && v == null ? 'Wajib dipilih' : null,
           onChanged: (v) => setState(() => _formValues[fieldKey] = v),
         );
         break;
 
       case 'multi_select':
+      case 'checkbox_group':
+      case 'sku_list':
         final List<String> currentSelected = List<String>.from(_formValues[fieldKey] ?? []);
         inputWidget = Wrap(
           spacing: 8,
@@ -432,9 +474,18 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           children: field.options.map((opt) {
             final isSelected = currentSelected.contains(opt);
             return FilterChip(
-              label: Text(opt, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.black87)),
+              label: Text(
+                opt,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? Colors.white : textColor,
+                ),
+              ),
               selected: isSelected,
-              selectedColor: primaryColor,
+              selectedColor: themeColor,
+              backgroundColor: elevatedColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               onSelected: (selected) {
                 setState(() {
                   if (selected) {
@@ -450,18 +501,47 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         );
         break;
 
+      case 'radio':
+        final currentRadioVal = _formValues[fieldKey];
+        inputWidget = Column(
+          children: field.options.map((opt) {
+            final isSelected = currentRadioVal == opt;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? themeColor.withOpacity(0.08) : elevatedColor,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isSelected ? themeColor : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                ),
+              ),
+              child: RadioListTile<String>(
+                title: Text(opt, style: TextStyle(fontSize: 12.5, color: textColor, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                value: opt,
+                groupValue: currentRadioVal,
+                activeColor: themeColor,
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                onChanged: (val) => setState(() => _formValues[fieldKey] = val),
+              ),
+            );
+          }).toList(),
+        );
+        break;
+
       case 'checkbox':
         final bool isChecked = _formValues[fieldKey] == true;
         inputWidget = SwitchListTile(
-          title: Text(field.placeholder ?? 'Aktifkan jika sesuai', style: const TextStyle(fontSize: 13)),
+          title: Text(field.placeholder ?? 'Aktifkan jika sesuai', style: TextStyle(fontSize: 13, color: textColor)),
           value: isChecked,
-          activeColor: primaryColor,
+          activeColor: themeColor,
           contentPadding: EdgeInsets.zero,
           onChanged: (val) => setState(() => _formValues[fieldKey] = val),
         );
         break;
 
       case 'rating':
+      case 'rating_star':
         final int currentRating = _formValues[fieldKey] ?? 5;
         inputWidget = Row(
           children: List.generate(5, (index) {
@@ -479,6 +559,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         break;
 
       case 'photo':
+      case 'camera_photo':
       case 'multi_photo':
         final photoFile = _photoFiles[fieldKey];
         inputWidget = Column(
@@ -486,7 +567,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           children: [
             if (photoFile != null) ...[
               ClipRRect(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 child: Stack(
                   children: [
                     Image.file(photoFile, height: 180, width: double.infinity, fit: BoxFit.cover),
@@ -495,11 +576,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       left: 0,
                       right: 0,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        color: Colors.black.withOpacity(0.65),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        color: Colors.black.withOpacity(0.7),
                         child: Text(
                           _watermarkTexts[fieldKey] ?? 'Watermark GPS Validated',
-                          style: const TextStyle(color: Colors.white, fontSize: 10),
+                          style: const TextStyle(color: Colors.white, fontSize: 10, height: 1.3),
                           maxLines: 2,
                         ),
                       ),
@@ -507,17 +588,17 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
             ],
             OutlinedButton.icon(
               onPressed: () => _takeWatermarkedPhoto(field),
               icon: const Icon(Icons.camera_alt_rounded, size: 18),
-              label: Text(photoFile == null ? 'Ambil Foto Ber-Watermark' : 'Ambil Ulang Foto'),
+              label: Text(photoFile == null ? 'Ambil Foto Bukti (Watermark Geotag)' : 'Ambil Ulang Foto'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: primaryColor,
-                side: BorderSide(color: primaryColor),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                foregroundColor: themeColor,
+                side: BorderSide(color: themeColor),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ],
@@ -535,22 +616,22 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: Colors.grey.shade300),
                 ),
                 child: Image.file(sigFile, fit: BoxFit.contain),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
             ],
             OutlinedButton.icon(
               onPressed: () => _openSignaturePad(field),
               icon: const Icon(Icons.draw_rounded, size: 18),
-              label: Text(sigFile == null ? 'Buat Tanda Tangan Digital' : 'Tanda Tangan Ulang'),
+              label: Text(sigFile == null ? 'Buat Tanda Tangan PIC / Toko' : 'Tanda Tangan Ulang'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: primaryColor,
-                side: BorderSide(color: primaryColor),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                foregroundColor: themeColor,
+                side: BorderSide(color: themeColor),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ],
@@ -561,7 +642,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       default:
         inputWidget = TextFormField(
           controller: _controllers[fieldKey],
-          decoration: _inputDecoration(field.placeholder ?? 'Masukkan ${field.fieldLabel.toLowerCase()}', isDarkMode),
+          style: TextStyle(color: textColor, fontSize: 13),
+          decoration: _inputDecoration(field.placeholder ?? 'Masukkan ${field.fieldLabel.toLowerCase()}', elevatedColor, isDarkMode),
           validator: (v) => field.isRequired && (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
           onChanged: (v) => _formValues[fieldKey] = v,
         );
@@ -569,43 +651,61 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDarkMode ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(
-                field.fieldLabel,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              Expanded(
+                child: Text(
+                  field.fieldLabel,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                ),
               ),
               if (field.isRequired)
-                const Text(' *', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                const Text(' *', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 14)),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           inputWidget,
         ],
       ),
     );
   }
 
-  InputDecoration _inputDecoration(String hint, bool isDarkMode) {
+  InputDecoration _inputDecoration(String hint, Color fillColor, bool isDarkMode) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+      hintStyle: TextStyle(color: isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400, fontSize: 12.5),
       filled: true,
-      fillColor: isDarkMode ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      fillColor: fillColor,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDarkMode ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF0F52BA), width: 1.5)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFF0F52BA), width: 1.5),
+      ),
     );
   }
 }
