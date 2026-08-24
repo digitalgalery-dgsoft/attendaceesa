@@ -33,6 +33,7 @@ import 'package:att_mobile/screens/meeting_detail_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:toastification/toastification.dart';
+import 'package:att_mobile/widgets/skeleton_loading.dart';
 import 'package:att_mobile/screens/reporting_hub_screen.dart';
 import 'package:att_mobile/services/offline_sync_service.dart';
 

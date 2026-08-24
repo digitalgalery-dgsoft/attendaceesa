@@ -325,12 +325,12 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                       ElevatedButton(
                         onPressed: () {
                           final att = Provider.of<AttendanceProvider>(context, listen: false);
+                          final destinationName = att.todayItinerary?['name']?.toString() ?? att.todayItinerary?['destination']?.toString();
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => ReportingHubScreen(
-                                storeName: att.activeLocationName,
-                                workLocationId: att.activeLocationId,
+                                storeName: destinationName,
                               ),
                             ),
                           );
