@@ -39,7 +39,7 @@ class ReportingApiController extends Controller
         
         // Cari semua template yang ditugaskan ke prinsiple karyawan ini
         $templatesQuery = ReportTemplate::with(['fields' => function ($q) {
-            $q->orderBy('sort_order', 'asc');
+            $q->orderBy('order_index', 'asc');
         }])->where('is_active', true);
 
         if ($principalId) {
@@ -50,10 +50,13 @@ class ReportingApiController extends Controller
                 $allMatchingPrincipalIds = Principal::where('subdomain', $principal->subdomain)->pluck('id')->toArray();
             }
 
-            $templatesQuery->where(function ($q) use ($allMatchingPrincipalIds) {
+            $templatesQuery->where(function ($q) use ($allMatchingPrincipalIds, $principalId) {
                 $q->whereHas('principals', function ($pq) use ($allMatchingPrincipalIds) {
                     $pq->whereIn('principals.id', $allMatchingPrincipalIds);
-                })->orWhereIn('principal_id', $allMatchingPrincipalIds);
+                })
+                ->orWhereIn('principal_id', $allMatchingPrincipalIds)
+                ->orWhere('principal_id', $principalId)
+                ->orWhereNull('principal_id');
             });
         }
 
@@ -66,6 +69,7 @@ class ReportingApiController extends Controller
                 'code' => $t->code,
                 'title' => $t->title,
                 'description' => $t->description,
+                'category' => $t->category ?? 'general',
                 'icon' => $t->icon ?? 'document-text',
                 'color' => $t->color ?? '#0F52BA',
                 'require_gps' => (bool) $t->require_gps,
@@ -81,9 +85,10 @@ class ReportingApiController extends Controller
                         'is_required' => (bool) $f->is_required,
                         'options' => $f->options ?? [],
                         'placeholder' => $f->placeholder,
-                        'default_value' => $f->default_value,
+                        'help_text' => $f->help_text,
+                        'default_value' => $f->default_value ?? null,
                         'validation_rules' => $f->validation_rules ?? [],
-                        'sort_order' => $f->sort_order,
+                        'order_index' => $f->order_index ?? 0,
                     ];
                 }),
             ];
@@ -192,16 +197,15 @@ class ReportingApiController extends Controller
                 }
 
                 // Handle format data berdasarkan field_type
-                if (in_array($field->field_type, ['number', 'integer', 'currency', 'percentage', 'rating'])) {
+                if (in_array($field->field_type, ['number', 'integer', 'currency', 'percentage', 'rating', 'rating_star', 'slider'])) {
                     if (is_numeric($rawValue)) {
                         $valueNumber = (float) $rawValue;
                     } elseif (is_string($rawValue)) {
-                        // Bersihkan karakter non-digit jika currency (misal: "Rp 1.500.000" -> 1500000)
                         $cleanNum = preg_replace('/[^0-9.]/', '', $rawValue);
                         $valueNumber = is_numeric($cleanNum) ? (float) $cleanNum : null;
                     }
                     $valueText = $rawValue !== null ? (string) $rawValue : null;
-                } elseif (in_array($field->field_type, ['multi_select', 'checkbox_group']) || is_array($rawValue)) {
+                } elseif (in_array($field->field_type, ['multi_select', 'checkbox_group', 'sku_list']) || is_array($rawValue)) {
                     $valueJson = is_array($rawValue) ? $rawValue : [$rawValue];
                     $valueText = is_array($rawValue) ? implode(', ', $rawValue) : (string) $rawValue;
                 } else {
