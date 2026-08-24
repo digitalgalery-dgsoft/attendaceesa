@@ -14,7 +14,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // 1. Dapatkan atau Buat Principal Fonterra
+        // 1. Pastikan kolom icon dan color tersedia di tabel report_templates
+        if (Schema::hasTable('report_templates')) {
+            Schema::table('report_templates', function (Blueprint $table) {
+                if (!Schema::hasColumn('report_templates', 'icon')) {
+                    $table->string('icon')->nullable()->after('category');
+                }
+                if (!Schema::hasColumn('report_templates', 'color')) {
+                    $table->string('color')->nullable()->after('icon');
+                }
+            });
+        }
+
+        // 2. Dapatkan atau Buat Principal Fonterra
         $fonterraPrincipals = Principal::where(function ($q) {
             $q->where('name', 'LIKE', '%FONTERRA%')
               ->orWhere('code', 'LIKE', '%FONTERRA%')
@@ -47,7 +59,7 @@ return new class extends Migration
         $primaryFonterra = $fonterraPrincipals->first();
         $allFonterraIds = $fonterraPrincipals->pluck('id')->toArray();
 
-        // 2. Buat / Perbarui 11 Form Template Pelaporan Fonterra
+        // 3. Buat / Perbarui 11 Form Template Pelaporan Fonterra
         $this->seedAllFonterraTemplates($primaryFonterra, $allFonterraIds);
     }
 
@@ -75,6 +87,9 @@ return new class extends Migration
 
     private function seedAllFonterraTemplates(Principal $primaryFonterra, array $allFonterraIds): void
     {
+        $hasIconCol = Schema::hasColumn('report_templates', 'icon');
+        $hasColorCol = Schema::hasColumn('report_templates', 'color');
+
         $templatesData = [
             // 1. Offtake SPG
             [
@@ -376,6 +391,13 @@ return new class extends Migration
         foreach ($templatesData as $tpl) {
             $fields = $tpl['fields'];
             unset($tpl['fields']);
+
+            if (!$hasIconCol) {
+                unset($tpl['icon']);
+            }
+            if (!$hasColorCol) {
+                unset($tpl['color']);
+            }
 
             $template = ReportTemplate::updateOrCreate(
                 ['code' => $tpl['code']],

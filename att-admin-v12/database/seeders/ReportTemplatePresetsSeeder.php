@@ -607,9 +607,19 @@ class ReportTemplatePresetsSeeder extends Seeder
             ],
         ];
 
+        $hasIconCol = \Illuminate\Support\Facades\Schema::hasColumn('report_templates', 'icon');
+        $hasColorCol = \Illuminate\Support\Facades\Schema::hasColumn('report_templates', 'color');
+
         foreach ($templatesData as $tpl) {
             $fields = $tpl['fields'];
             unset($tpl['fields']);
+
+            if (!$hasIconCol) {
+                unset($tpl['icon']);
+            }
+            if (!$hasColorCol) {
+                unset($tpl['color']);
+            }
 
             $template = ReportTemplate::updateOrCreate(
                 ['code' => $tpl['code']],
