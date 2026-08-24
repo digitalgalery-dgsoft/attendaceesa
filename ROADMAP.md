@@ -380,14 +380,17 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 - **Tabel `report_submissions`**: Header hasil laporan karyawan (`submission_code`, `principal_id`, `employee_id`, `work_location_id`, `latitude`, `longitude`, `status`, `verified_by`, dll.).
 - **Tabel `report_submission_values`**: Nilai detail isian form dinamis (`report_submission_id`, `report_form_field_id`, `field_name`, `field_type`, `field_value`).
 
-### 3. Tahapan Eksekusi (Milestones)
-- [ ] **Fase 1**: Migrasi database (`principals` branding columns, `report_templates`, `report_form_fields`, `report_submissions`, `report_submission_values`) & Eloquent Models.
-- [ ] **Fase 2**: Google Form Style Builder di Super Admin Panel Filament (manajemen template, repeater builder, validasi, preview).
-- [ ] **Fase 3**: Konfigurasi Multi-Tenant Subdomain Panel Prinsiple (`PrincipalPanelProvider`, dynamic theme & logo, scoped queries).
-- [ ] **Fase 4**: Halaman Laporan, Galeri Bukti Foto, Peta GPS, dan Ekspor Excel/PDF Dinamis di portal prinsiple.
-- [ ] **Fase 5**: REST API Endpoint untuk sinkronisasi schema form dan submission data.
-- [ ] **Fase 6**: Dynamic Form Renderer di Flutter Mobile App (render field dinamis, kamera, tanda tangan, GPS, offline storage & sync).
-- [ ] **Fase 7**: Pengujian komprehensif, verifikasi subdomain di live server, build & deploy.
+### 3. Tahapan Eksekusi & Timeline Development (Roadmap 5 Minggu / 20 - 25 Hari Kerja)
+- [ ] **Fase 1 (Minggu 1 / Hari 1 - 4)**: Migrasi Database (`principals` branding columns, `report_templates`, `report_form_fields`, `report_submissions`, `report_submission_values`, `report_template_assignments`), Eloquent Models, Subdomain Routing Middleware, & Tenant Scoping Enforcer.
+- [ ] **Fase 2 (Minggu 1 - 2 / Hari 5 - 9)**: Google Form Style Visual Builder di Super Admin Panel Filament 5 (manajemen template, 15+ input types repeater builder, validation rules, assignment rules, instant live preview).
+- [ ] **Fase 3 (Minggu 2 - 3 / Hari 10 - 14)**: Mobile Dynamic Form Engine di Flutter (Dynamic JSON Form Schema Renderer, Geotagging GPS & Watermark Camera, Digital Signature, Barcode Scanner, Local SQLite/Hive Offline Storage & Auto-Sync).
+- [ ] **Fase 4 (Minggu 3 - 4 / Hari 15 - 19)**: Portal Khusus Multi-Tenant Subdomain Prinsiple (`{subdomain}.appsend.my.id`), Dynamic Theme & Whitelabel Branding, Tabel Laporan Masuk Dinamis, Detail GPS/Foto, Approval & Verification Flow, serta Dynamic Excel/PDF Export with Queue.
+- [ ] **Fase 5 (Minggu 4 - 5 / Hari 20 - 22)**: Pengujian Menyeluruh (End-to-End Testing), Audit Keamanan Isolasi Data Tenant, Load Testing Query & Ekspor Laporan, serta UAT bersama Tim Prinsiple.
+- [ ] **Fase 6 (Minggu 5 / Hari 23 - 25)**: Konfigurasi Wildcard Subdomain DNS (*.appsend.my.id) & SSL di aaPanel, Deployment Production Live, Rilis Update Mobile App, serta Penyusunan User Manual & Handover.
+
+### 4. Dokumen Presentasi PowerPoint Eksekutif
+- File presentasi resmi format Widescreen 16:9 siap presentasi ke stakeholder/manajemen:  
+  **`Plan_Reporting_Custom_Prinsiple_ESA.pptx`** (tersedia di direktori root dan publik web server: `https://appsend.my.id/Plan_Reporting_Custom_Prinsiple_ESA.pptx`).
 
 ---
 
