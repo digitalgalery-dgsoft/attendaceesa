@@ -382,15 +382,46 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 
 ### 3. Tahapan Eksekusi & Timeline Development (Roadmap 5 Minggu / 20 - 25 Hari Kerja)
 - [x] **Fase 1 (Minggu 1 / Hari 1 - 4)**: Migrasi Database (`principals` branding columns, `report_templates`, `report_form_fields`, `report_submissions`, `report_submission_values`, `report_template_assignments`), Eloquent Models, Subdomain Routing Middleware, & Tenant Scoping Enforcer. (SELESAI 24 Agustus 2026)
-- [x] **Fase 2 (Minggu 1 - 2 / Hari 5 - 9)**: Google Form Style Visual Builder di Super Admin Panel Filament 5 (manajemen template, 15+ input types repeater builder, validation rules, assignment rules, instant live preview). (SELESAI 24 Agustus 2026)
-- [ ] **Fase 3 (Minggu 2 - 3 / Hari 10 - 14)**: Mobile Dynamic Form Engine di Flutter (Dynamic JSON Form Schema Renderer, Geotagging GPS & Watermark Camera, Digital Signature, Barcode Scanner, Local SQLite/Hive Offline Storage & Auto-Sync).
+- [x] **Fase 2 (Minggu 1 - 2 / Hari 5 - 9)**: Google Form Style Visual Builder di Super Admin Panel Filament (manajemen template, 15+ input types repeater builder, validation rules, assignment rules, instant live preview). (SELESAI 24 Agustus 2026)
+- [x] **Fase 3 (Minggu 2 - 3 / Hari 10 - 14)**: Mobile Dynamic Form Engine di Flutter:
+  - [x] Dynamic Form Schema Renderer (Teks, Angka, Rupiah, Dropdown, Radio, Checkbox, Rating).
+  - [x] **Interactive Date Picker & Time Picker**: Widget kalender interaktif dengan format lokal Indonesia (`dd MMMM yyyy`) dan jam (`HH:mm`) lengkap dengan validasi field wajib (*).
+  - [x] **Geotag Watermark Camera**: Otomatis membubuhkan watermark permanen (Nama, NIK, Nama Toko Terpilih, Timestamp, Koordinat GPS, dan Status Radius) pada foto struk, rak, POSM, dan display.
+  - [x] **Pemilih Store Berjenjang per Area**: Toko terikat ke prinsiple, filter bertingkat Area -> Toko dengan kalkulasi jarak radius GPS otomatis.
+  - [x] **Restriksi Akses Menu Reporting**: Menu Pelaporan hanya tampil untuk karyawan di bawah prinsiple yang memiliki template aktif di Form Builder.
+  - [x] **11 Template Form Fonterra**: Offtake SPG, Offtake SPT, Stok & OOS, Expired Date FEFO, SOS, Promo Fonterra, Promo Competitor, Price Monitoring, Kemasan & Sticker, POSM, dan Additional Display. (SELESAI 24 Agustus 2026)
 - [ ] **Fase 4 (Minggu 3 - 4 / Hari 15 - 19)**: Portal Khusus Multi-Tenant Subdomain Prinsiple (`{subdomain}.appsend.my.id`), Dynamic Theme & Whitelabel Branding, Tabel Laporan Masuk Dinamis, Detail GPS/Foto, Approval & Verification Flow, serta Dynamic Excel/PDF Export with Queue.
 - [ ] **Fase 5 (Minggu 4 - 5 / Hari 20 - 22)**: Pengujian Menyeluruh (End-to-End Testing), Audit Keamanan Isolasi Data Tenant, Load Testing Query & Ekspor Laporan, serta UAT bersama Tim Prinsiple.
 - [ ] **Fase 6 (Minggu 5 / Hari 23 - 25)**: Konfigurasi Wildcard Subdomain DNS (*.appsend.my.id) & SSL di aaPanel, Deployment Production Live, Rilis Update Mobile App, serta Penyusunan User Manual & Handover.
 
-### 4. Dokumen Presentasi PowerPoint Eksekutif
-- File presentasi resmi format Widescreen 16:9 siap presentasi ke stakeholder/manajemen:  
-  **`Plan_Reporting_Custom_Prinsiple_ESA.pptx`** (tersedia di direktori root dan publik web server: `https://appsend.my.id/Plan_Reporting_Custom_Prinsiple_ESA.pptx`).
+### 4. Log Progress Harian (24 Agustus 2026)
+1. **Restriksi Menu Reporting di Mobile**:
+   - Menambahkan accessor `has_reporting_templates` pada model `Employee.php`.
+   - Mengubah `dashboard_screen.dart` dan `visit_report_screen.dart` agar menu dan banner Form Pelaporan disembunyikan untuk karyawan non-prinsiple / prinsiple tanpa form builder.
+2. **Pemilihan Lokasi Toko & Area Berjenjang**:
+   - Memperbaiki `work_locations` agar terikat ke data prinsiple karyawan.
+   - Mengimplementasikan alur pemilihan: Pilih Area (default area karyawan atau ganti area lain) -> Muncul toko terdaftar -> Hitung otomatis jarak radius GPS terhadap titik toko.
+3. **Kamera Watermark Geotag Real-Time**:
+   - Menampilkan info Toko Terpilih, GPS, Nama, NIK, dan Waktu permanen di atas hasil foto laporan.
+4. **11 Form Pelaporan Lengkap Prinsiple Fonterra**:
+   - Menganalisis dokumen Excel & PPTX Fonterra (Anlene, Boneeto, Anchor).
+   - Membuat migration `2026_08_24_172000_seed_all_fonterra_reporting_templates.php` dan memperbarui `ReportTemplatePresetsSeeder.php` untuk memasukkan 11 jenis laporan lengkap dengan seluruh opsi pilihan dan validasi.
+5. **Interactive Date Picker & Time Picker di Mobile**:
+   - Memperbaiki field bertipe `date`, `datepicker`, `time`, `timepicker`, dan `datetime` pada `dynamic_form_screen.dart` dari yang semula text biasa menjadi widget pemilih tanggal/jam interaktif.
+6. **Kompilasi APK & Deployment Server**:
+   - Kompilasi rilis APK terbaru (`app-release.apk`, 90.2 MB).
+   - Seluruh perubahan di-push ke GitHub repository `origin/main`.
+   - Berhasil dieksekusi deployment langsung ke server via webhook `deploy.php`.
+
+### 5. Rencana Kerja untuk Dilanjutkan Besok (25 Agustus 2026)
+1. **Portal Subdomain Prinsiple (Fase 4)**:
+   - Pengujian login dan isolasi data tenant pada subdomain portal prinsiple (`fonterra.appsend.my.id`, `dulux.appsend.my.id`).
+   - Penyempurnaan tabel data Laporan Masuk Dinamis di Web Admin & Portal Prinsiple agar kolom tabel dan detail view otomatis menampilkan isian field dinamis sesuai template.
+   - Pembuatan filter lanjutan (filter tanggal range, outlet, promotor, status verifikasi) dan ekspor laporan ke format Excel / CSV per jenis form.
+2. **Offline Mode & SQLite Sync**:
+   - Pengujian pengisian laporan saat kondisi offline (tanpa internet) dan mekanisme auto-sync ketika perangkat kembali terhubung online.
+3. **UAT & Penyesuaian Form Prinsiple Lainnya**:
+   - Verifikasi form builder untuk prinsiple lain jika ada penambahan template laporan baru.
 
 ---
 
