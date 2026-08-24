@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -62,9 +63,9 @@ class Principal extends Model
         return $this->hasMany(WorkLocation::class);
     }
 
-    public function reportTemplates(): HasMany
+    public function reportTemplates(): BelongsToMany
     {
-        return $this->hasMany(ReportTemplate::class);
+        return $this->belongsToMany(ReportTemplate::class, 'report_template_principal')->withTimestamps();
     }
 
     public function reportSubmissions(): HasMany

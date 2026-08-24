@@ -40,6 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/composer.phar install --working-dir=/www/wwwroot/appsend.my.id --no-dev --optimize-autoloader',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan storage:link',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan migrate --force',
+        '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan db:seed --class=ReportTemplatePresetsSeeder --force',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan optimize:clear',
     ];
 

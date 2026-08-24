@@ -8,7 +8,6 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -28,12 +27,12 @@ class ReportTemplatesTable
                     ->sortable()
                     ->weight('bold')
                     ->description(fn (ReportTemplate $record) => $record->code),
-                TextColumn::make('principal.name')
-                    ->label('Prinsiple')
+                TextColumn::make('principals.name')
+                    ->label('Prinsiple Klien')
                     ->badge()
                     ->color('primary')
-                    ->searchable()
-                    ->sortable(),
+                    ->separator(',')
+                    ->searchable(),
                 TextColumn::make('category')
                     ->label('Kategori')
                     ->badge()
@@ -88,8 +87,8 @@ class ReportTemplatesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('principal_id')
-                    ->relationship('principal', 'name')
+                SelectFilter::make('principals')
+                    ->relationship('principals', 'name')
                     ->label('Filter Prinsiple')
                     ->searchable()
                     ->preload(),
@@ -124,6 +123,9 @@ class ReportTemplatesTable
                         $newTemplate->title = "{$record->title} (Salinan)";
                         $newTemplate->code = "{$record->code}-COPY-" . rand(100, 999);
                         $newTemplate->save();
+
+                        // Sync principals
+                        $newTemplate->principals()->sync($record->principals->pluck('id'));
 
                         // Copy fields
                         foreach ($record->fields as $field) {

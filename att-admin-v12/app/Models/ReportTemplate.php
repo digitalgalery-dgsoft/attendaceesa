@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ReportTemplate extends Model
@@ -22,9 +23,27 @@ class ReportTemplate extends Model
         'version' => 'integer',
     ];
 
+    protected static function booted()
+    {
+        static::saving(function ($template) {
+            // Jika principal_id kosong tapi ada relasi principals di request
+            if (empty($template->principal_id) && request()->has('principals')) {
+                $principals = request()->input('principals', []);
+                if (is_array($principals) && !empty($principals)) {
+                    $template->principal_id = $principals[0];
+                }
+            }
+        });
+    }
+
     public function principal(): BelongsTo
     {
         return $this->belongsTo(Principal::class);
+    }
+
+    public function principals(): BelongsToMany
+    {
+        return $this->belongsToMany(Principal::class, 'report_template_principal')->withTimestamps();
     }
 
     public function fields(): HasMany

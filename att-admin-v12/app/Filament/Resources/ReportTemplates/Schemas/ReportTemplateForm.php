@@ -22,16 +22,18 @@ class ReportTemplateForm
             ->columns(1)
             ->components([
                 Section::make('Informasi Dasar Template Form')
-                    ->description('Tentukan nama form, prinsiple pemilik, dan aturan umum pelaporan.')
+                    ->description('Tentukan nama form, prinsiple pemilik (bisa multipel), dan aturan umum pelaporan.')
                     ->collapsible()
                     ->columnSpanFull()
                     ->schema([
                         Grid::make(3)->schema([
-                            Select::make('principal_id')
-                                ->relationship('principal', 'name')
-                                ->label('Prinsiple Klien')
+                            Select::make('principals')
+                                ->relationship('principals', 'name')
+                                ->label('Prinsiple Klien (Pilihan Multipel)')
+                                ->multiple()
                                 ->searchable()
                                 ->preload()
+                                ->helperText('Pilih satu atau lebih entitas prinsiple (misal: semua entitas ICI PAINTS / DULUX)')
                                 ->required(),
                             TextInput::make('title')
                                 ->label('Judul Form Pelaporan')
