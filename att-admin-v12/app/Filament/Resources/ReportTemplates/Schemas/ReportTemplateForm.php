@@ -87,7 +87,6 @@ class ReportTemplateForm
                         Repeater::make('fields')
                             ->relationship('fields')
                             ->orderColumn('order_index')
-                            ->reorderableWithDragAndDrop()
                             ->collapsible()
                             ->itemLabel(fn (array $state): ?string => ($state['field_label'] ?? null) 
                                 ? "📋 {$state['field_label']} (" . strtoupper($state['field_type'] ?? 'TEXT') . ")" 
@@ -151,8 +150,7 @@ class ReportTemplateForm
                                 KeyValue::make('validation_rules')
                                     ->label('Aturan Validasi Tambahan (Opsional)')
                                     ->keyLabel('Kunci Aturan (min, max, regex, step)')
-                                    ->valueLabel('Nilai Aturan')
-                                    ->collapsed(),
+                                    ->valueLabel('Nilai Aturan'),
                             ])
                             ->defaultItems(1)
                             ->addActionLabel('➕ Tambah Pertanyaan / Field Baru')
