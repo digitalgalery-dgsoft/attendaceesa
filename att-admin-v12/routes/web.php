@@ -52,7 +52,7 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
 
         $activeTemplates = \App\Models\ReportTemplate::whereHas('principals', function($q) use ($scopedPrincipalIds) {
             $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('sort_order')->get();
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
 
         return view('landing_tenant', compact('setting', 'stats', 'tenantPrincipal', 'activeTemplates'));
     }
