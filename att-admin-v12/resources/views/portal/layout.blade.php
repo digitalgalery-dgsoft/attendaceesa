@@ -429,18 +429,24 @@
         <div class="sidebar-footer">
             <div class="user-profile-row">
                 <div class="user-avatar">
-                    {{ strtoupper(substr(Auth::user()->name ?? 'P', 0, 1)) }}
+                    {{ strtoupper(substr(Auth::user()?->name ?? 'P', 0, 1)) }}
                 </div>
                 <div class="user-info">
-                    <div class="user-name">{{ Auth::user()->name ?? 'Principal Client' }}</div>
-                    <div class="user-role">{{ Auth::user()->email ?? $tenantPrincipal->name }}</div>
+                    <div class="user-name">{{ Auth::user()?->name ?? ($tenantPrincipal->name . ' Admin') }}</div>
+                    <div class="user-role">{{ Auth::user()?->email ?? 'Auditor / Client' }}</div>
                 </div>
+                @if(Auth::check())
                 <form action="{{ route('tenant.logout') }}" method="POST" style="margin: 0;">
                     @csrf
                     <button type="submit" class="btn-logout" title="Keluar dari Portal">
                         <i class="fa-solid fa-right-from-bracket"></i>
                     </button>
                 </form>
+                @else
+                <a href="{{ route('tenant.login') }}" class="btn-logout" style="background: var(--brand-light); color: var(--brand-primary);" title="Login ke Akun">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                </a>
+                @endif
             </div>
         </div>
     </aside>
