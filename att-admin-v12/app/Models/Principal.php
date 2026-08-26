@@ -20,24 +20,6 @@ class Principal extends Model
         'is_active' => 'boolean',
     ];
 
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($principal) {
-            if (empty($principal->subdomain) && !empty($principal->name)) {
-                $slug = Str::slug($principal->name);
-                $originalSlug = $slug;
-                $count = 1;
-                while (static::where('subdomain', $slug)->exists()) {
-                    $slug = "{$originalSlug}-{$count}";
-                    $count++;
-                }
-                $principal->subdomain = $slug;
-            }
-        });
-    }
-
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);

@@ -36,20 +36,14 @@ class PrincipalForm
                             TextInput::make('name')
                                 ->label('Nama Prinsiple')
                                 ->placeholder('Contoh: PT AKZONOBEL COATINGS INDONESIA (DULUX)')
-                                ->live(onBlur: true)
-                                ->afterStateUpdated(function (string $operation, $state, callable $set, $get) {
-                                    if ($operation === 'create' && empty($get('subdomain')) && !empty($state)) {
-                                        $set('subdomain', Str::slug($state));
-                                    }
-                                })
                                 ->required(),
                             TextInput::make('subdomain')
                                 ->label('Subdomain Portal')
                                 ->prefix('https://')
                                 ->suffix('.appsend.my.id')
                                 ->placeholder('dulux')
-                                ->helperText('Subdomain portal login manajemen prinsiple (bisa sama untuk entitas brand yang sama, misal: dulux).')
-                                ->required(),
+                                ->helperText('Subdomain portal login prinsiple (opsional, bisa dikosongkan jika tidak menggunakan portal subdomain).')
+                                ->nullable(),
                         ]),
                         Textarea::make('description')
                             ->label('Deskripsi / Catatan')
