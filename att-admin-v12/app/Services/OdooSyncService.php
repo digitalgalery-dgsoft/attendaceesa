@@ -138,6 +138,13 @@ class OdooSyncService
             $domain[] = ['company_id', '=', $odooCompanyId];
         }
 
+        try {
+            if (\Illuminate\Support\Facades\DB::getDriverName() === 'pgsql') {
+                \Illuminate\Support\Facades\DB::statement("ALTER TABLE principals DROP CONSTRAINT IF EXISTS principals_odoo_id_unique;");
+                \Illuminate\Support\Facades\DB::statement("DROP INDEX IF EXISTS principals_odoo_id_unique;");
+            }
+        } catch (\Throwable $e) {}
+
         $created  = 0;
         $updated  = 0;
         $errors   = [];
@@ -241,6 +248,20 @@ class OdooSyncService
         $domain = [];
         if ($odooCompanyId) {
             $domain[] = ['company_id', '=', $odooCompanyId];
+        }
+
+        // Ensure database constraints allow multi-company/multi-principal records and non-unique odoo_id
+        try {
+            if (\Illuminate\Support\Facades\DB::getDriverName() === 'pgsql') {
+                \Illuminate\Support\Facades\DB::statement("ALTER TABLE employees DROP CONSTRAINT IF EXISTS employees_odoo_id_unique;");
+                \Illuminate\Support\Facades\DB::statement("DROP INDEX IF EXISTS employees_odoo_id_unique;");
+                \Illuminate\Support\Facades\DB::statement("ALTER TABLE principals DROP CONSTRAINT IF EXISTS principals_odoo_id_unique;");
+                \Illuminate\Support\Facades\DB::statement("DROP INDEX IF EXISTS principals_odoo_id_unique;");
+                \Illuminate\Support\Facades\DB::statement("ALTER TABLE employees DROP CONSTRAINT IF EXISTS employees_company_id_employee_no_unique;");
+                \Illuminate\Support\Facades\DB::statement("DROP INDEX IF EXISTS employees_company_id_employee_no_unique;");
+            }
+        } catch (\Throwable $e) {
+            // Ignore if already dropped
         }
 
         $localCompany = Company::find($companyId);
