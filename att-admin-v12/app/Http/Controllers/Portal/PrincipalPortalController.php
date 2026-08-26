@@ -221,9 +221,11 @@ class PrincipalPortalController extends Controller
         $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)->orderBy('employees.full_name')->get();
         $workLocations = WorkLocation::whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id')->orderBy('work_locations.name')->get();
         $setting = Setting::first();
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
 
         return view('portal.dashboard', compact(
             'tenantPrincipal',
+            'brandColor',
             'activeTemplates',
             'month',
             'year',

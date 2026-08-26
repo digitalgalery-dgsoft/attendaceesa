@@ -1,5 +1,9 @@
 @extends('portal.layout')
 
+@php
+    $brandColor = $brandColor ?? ($tenantPrincipal->theme_color ?? '#0F52BA');
+@endphp
+
 @section('title', 'Sales Summary Dashboard - ' . ($tenantPrincipal->portal_title ?? $tenantPrincipal->name))
 @section('page_title', 'Sales Summary Dashboard')
 @section('breadcrumb_active', 'Executive Overview')
