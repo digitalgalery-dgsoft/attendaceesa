@@ -390,6 +390,23 @@
         </div>
 
         <div class="sidebar-menu">
+            @php
+                $user = Auth::user();
+                $isSuperAdmin = $user && ($user->isSuperAdmin() || $user->hasRole('super_admin') || $user->hasRole('Super Admin') || $user->hasRole('admin'));
+                $hasPerm = function($perm) use ($user, $isSuperAdmin) {
+                    if (!$user) return false;
+                    if ($isSuperAdmin) return true;
+                    return $user->can($perm);
+                };
+
+                $hasMasterData = $hasPerm('view_employees') || $hasPerm('view_areas') || $hasPerm('view_principals') || $hasPerm('view_companies') || $hasPerm('view_departments') || $hasPerm('view_positions') || $hasPerm('view_work_locations') || $hasPerm('view_shifts') || $hasPerm('view_holidays');
+                $hasAttendance = $hasPerm('view_attendance') || $hasPerm('manage_roster') || $hasPerm('view_leave_requests') || $hasPerm('view_extra_hours') || $hasPerm('view_working_groups') || $hasPerm('view_unchecked_monitoring');
+                $hasFieldOps = $hasPerm('view_itineraries') || $hasPerm('view_visit_reports') || $hasPerm('view_sales_reports') || $hasPerm('view_work_targets') || $hasPerm('view_payslips');
+                $hasAnalytics = $hasPerm('view_manpower_report') || $hasPerm('view_mandays_report') || $hasPerm('view_turnover_report') || $hasPerm('view_odoo_sync');
+                $hasSystem = $hasPerm('manage_users') || $hasPerm('manage_roles') || $hasPerm('manage_settings') || $hasPerm('view_blast_info') || $hasPerm('view_live_chat');
+            @endphp
+
+            <!-- 1. Ringkasan Eksekutif -->
             <div class="menu-category-label">Ringkasan Eksekutif</div>
             
             <a href="{{ route('portal.dashboard', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.dashboard') ? 'active' : '' }}">
@@ -402,8 +419,144 @@
                 <span class="nav-text">Katalog Produk (SKU)</span>
             </a>
 
+            <!-- 2. Master Data (Role Permission Based) -->
+            @if($hasMasterData)
+                <div class="menu-category-label">Master Data</div>
+                @if($hasPerm('view_employees'))
+                    <a href="/admin/employees" class="sidebar-nav-item">
+                        <i class="fa-solid fa-users nav-icon"></i>
+                        <span class="nav-text">Employees (Karyawan)</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_areas'))
+                    <a href="/admin/branches" class="sidebar-nav-item">
+                        <i class="fa-solid fa-map-location-dot nav-icon"></i>
+                        <span class="nav-text">Areas / Cabang</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_work_locations'))
+                    <a href="/admin/work-locations" class="sidebar-nav-item">
+                        <i class="fa-solid fa-store nav-icon"></i>
+                        <span class="nav-text">Work Locations (Lokasi Kerja)</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_shifts'))
+                    <a href="/admin/shifts" class="sidebar-nav-item">
+                        <i class="fa-solid fa-business-time nav-icon"></i>
+                        <span class="nav-text">Shifts (Shift Kerja)</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_principals'))
+                    <a href="/admin/principals" class="sidebar-nav-item">
+                        <i class="fa-solid fa-building-shield nav-icon"></i>
+                        <span class="nav-text">Principals (Prinsiple)</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_companies'))
+                    <a href="/admin/companies" class="sidebar-nav-item">
+                        <i class="fa-solid fa-building nav-icon"></i>
+                        <span class="nav-text">Companies (Perusahaan)</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_departments'))
+                    <a href="/admin/departments" class="sidebar-nav-item">
+                        <i class="fa-solid fa-sitemap nav-icon"></i>
+                        <span class="nav-text">Departments (Departemen)</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_positions'))
+                    <a href="/admin/positions" class="sidebar-nav-item">
+                        <i class="fa-solid fa-id-badge nav-icon"></i>
+                        <span class="nav-text">Positions (Jabatan)</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_holidays'))
+                    <a href="/admin/holidays" class="sidebar-nav-item">
+                        <i class="fa-regular fa-calendar-days nav-icon"></i>
+                        <span class="nav-text">Holidays (Hari Libur)</span>
+                    </a>
+                @endif
+            @endif
+
+            <!-- 3. Attendance & Time Management (Role Permission Based) -->
+            @if($hasAttendance)
+                <div class="menu-category-label">Attendance & Kehadiran</div>
+                @if($hasPerm('view_attendance'))
+                    <a href="/admin/attendances" class="sidebar-nav-item">
+                        <i class="fa-solid fa-clipboard-user nav-icon"></i>
+                        <span class="nav-text">Presensi / Absensi</span>
+                    </a>
+                @endif
+                @if($hasPerm('manage_roster'))
+                    <a href="/admin/employee-schedules" class="sidebar-nav-item">
+                        <i class="fa-solid fa-calendar-week nav-icon"></i>
+                        <span class="nav-text">Roster & Jadwal Kerja</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_leave_requests'))
+                    <a href="/admin/leave-requests" class="sidebar-nav-item">
+                        <i class="fa-solid fa-envelope-open-text nav-icon"></i>
+                        <span class="nav-text">Izin / Cuti</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_extra_hours'))
+                    <a href="/admin/extra-hours" class="sidebar-nav-item">
+                        <i class="fa-solid fa-user-clock nav-icon"></i>
+                        <span class="nav-text">Lembur (Extra Hours)</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_working_groups'))
+                    <a href="/admin/working-groups" class="sidebar-nav-item">
+                        <i class="fa-solid fa-users-gear nav-icon"></i>
+                        <span class="nav-text">Pola Kerja (Working Groups)</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_unchecked_monitoring'))
+                    <a href="/admin/team-unchecked-monitoring" class="sidebar-nav-item">
+                        <i class="fa-solid fa-user-slash nav-icon"></i>
+                        <span class="nav-text">Monitoring Belum Check-in</span>
+                    </a>
+                @endif
+            @endif
+
+            <!-- 4. Field Operations & Sales (Role Permission Based) -->
+            @if($hasFieldOps)
+                <div class="menu-category-label">Operasional & Sales</div>
+                @if($hasPerm('view_itineraries'))
+                    <a href="/admin/itineraries" class="sidebar-nav-item">
+                        <i class="fa-solid fa-route nav-icon"></i>
+                        <span class="nav-text">Visit Schedule (Itinerari)</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_visit_reports'))
+                    <a href="/admin/visit-reports" class="sidebar-nav-item">
+                        <i class="fa-solid fa-file-waveform nav-icon"></i>
+                        <span class="nav-text">Laporan Kunjungan</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_sales_reports'))
+                    <a href="/admin/sales-reports" class="sidebar-nav-item">
+                        <i class="fa-solid fa-file-invoice-dollar nav-icon"></i>
+                        <span class="nav-text">Laporan Penjualan</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_work_targets'))
+                    <a href="/admin/work-targets" class="sidebar-nav-item">
+                        <i class="fa-solid fa-bullseye nav-icon"></i>
+                        <span class="nav-text">Target Kerja</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_payslips'))
+                    <a href="/admin/payslips" class="sidebar-nav-item">
+                        <i class="fa-solid fa-money-check-dollar nav-icon"></i>
+                        <span class="nav-text">Slip Gaji (Payslips)</span>
+                    </a>
+                @endif
+            @endif
+
+            <!-- 5. Modul Pelaporan SOP -->
             @if(isset($activeTemplates) && $activeTemplates->isNotEmpty())
-                <div class="menu-category-label">Modul Pelaporan ({{ $activeTemplates->count() }})</div>
+                <div class="menu-category-label">Modul Pelaporan SOP ({{ $activeTemplates->count() }})</div>
 
                 @foreach($activeTemplates as $tpl)
                     @php
@@ -433,6 +586,71 @@
                 @endforeach
             @endif
 
+            <!-- 6. Reports & Analytics (Role Permission Based) -->
+            @if($hasAnalytics)
+                <div class="menu-category-label">Laporan & Analitik</div>
+                @if($hasPerm('view_manpower_report'))
+                    <a href="/admin/man-power-report" class="sidebar-nav-item">
+                        <i class="fa-solid fa-chart-column nav-icon"></i>
+                        <span class="nav-text">Manpower Report</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_mandays_report'))
+                    <a href="/admin/mandays-report" class="sidebar-nav-item">
+                        <i class="fa-solid fa-chart-line nav-icon"></i>
+                        <span class="nav-text">Mandays Report</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_turnover_report'))
+                    <a href="/admin/turn-over-report" class="sidebar-nav-item">
+                        <i class="fa-solid fa-arrow-right-arrow-left nav-icon"></i>
+                        <span class="nav-text">Turnover Report</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_odoo_sync'))
+                    <a href="/admin/odoo-sync-report" class="sidebar-nav-item">
+                        <i class="fa-solid fa-arrows-rotate nav-icon"></i>
+                        <span class="nav-text">Odoo Sync Report</span>
+                    </a>
+                @endif
+            @endif
+
+            <!-- 7. System & Settings (Role Permission Based) -->
+            @if($hasSystem)
+                <div class="menu-category-label">Sistem & Konfigurasi</div>
+                @if($hasPerm('manage_users'))
+                    <a href="/admin/users" class="sidebar-nav-item">
+                        <i class="fa-solid fa-user-gear nav-icon"></i>
+                        <span class="nav-text">Manajemen User</span>
+                    </a>
+                @endif
+                @if($hasPerm('manage_roles'))
+                    <a href="/admin/roles" class="sidebar-nav-item">
+                        <i class="fa-solid fa-shield-halved nav-icon"></i>
+                        <span class="nav-text">Roles & Permissions</span>
+                    </a>
+                @endif
+                @if($hasPerm('manage_settings'))
+                    <a href="/admin/manage-settings" class="sidebar-nav-item">
+                        <i class="fa-solid fa-gear nav-icon"></i>
+                        <span class="nav-text">Pengaturan Sistem</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_blast_info'))
+                    <a href="/admin/blast-infos" class="sidebar-nav-item">
+                        <i class="fa-solid fa-bullhorn nav-icon"></i>
+                        <span class="nav-text">Blast Info (Broadcast)</span>
+                    </a>
+                @endif
+                @if($hasPerm('view_live_chat'))
+                    <a href="/admin/live-chat" class="sidebar-nav-item">
+                        <i class="fa-solid fa-comments nav-icon"></i>
+                        <span class="nav-text">Live Chat Support</span>
+                    </a>
+                @endif
+            @endif
+
+            <!-- 8. Akses Cepat -->
             <div class="menu-category-label">Akses Cepat</div>
             <a href="/?p={{ $tenantPrincipal->id }}" class="sidebar-nav-item" target="_blank">
                 <i class="fa-solid fa-globe nav-icon"></i>
@@ -447,7 +665,7 @@
                 </div>
                 <div class="user-info">
                     <div class="user-name">{{ Auth::user()?->name ?? ($tenantPrincipal->name . ' Admin') }}</div>
-                    <div class="user-role">{{ Auth::user()?->email ?? 'Auditor / Client' }}</div>
+                    <div class="user-role">{{ Auth::user()?->roles?->pluck('name')->first() ?? (Auth::user()?->email ?? 'Auditor / Client') }}</div>
                 </div>
                 @if(Auth::check())
                 <form action="{{ route('tenant.logout') }}" method="POST" style="margin: 0;">

@@ -144,7 +144,16 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
+            ->navigationItems([
+                \Filament\Navigation\NavigationItem::make('Portal Pelaporan Prinsiple')
+                    ->url('/portal', shouldOpenInNewTab: false)
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->group('Ringkasan & Portal')
+                    ->sort(-1),
+            ])
             ->navigationGroups([
+                \Filament\Navigation\NavigationGroup::make()
+                     ->label('Ringkasan & Portal'),
                 \Filament\Navigation\NavigationGroup::make()
                      ->label('Master Data'),
                 \Filament\Navigation\NavigationGroup::make()
