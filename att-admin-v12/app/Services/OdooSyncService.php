@@ -264,6 +264,11 @@ class OdooSyncService
             // Ignore if already dropped
         }
 
+        \Illuminate\Support\Facades\DB::disableQueryLog();
+        @set_time_limit(0);
+        @ini_set('max_execution_time', '0');
+        @ini_set('memory_limit', '1024M');
+
         $localCompany = Company::find($companyId);
         $created  = 0;
         $updated  = 0;
@@ -273,34 +278,76 @@ class OdooSyncService
         $updatedEmployees = [];
         $resignedEmployees = [];
         $offset   = 0;
-        $limit    = 100; // Small fast batch for smooth real-time stream
+        $limit    = 250; // Optimized batch size for maximum throughput and stability
         $batchNum = 0;
 
-        $log('info', "👥 Menginisialisasi pengambilan data karyawan (Batch size: {$limit})...");
+        // Detect total count in Odoo upfront
+        $totalOdooEmployees = 0;
+        try {
+            $countRes = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
+                $this->db, $uid, $this->apiKey,
+                'hr.employee', 'search_count',
+                [$domain],
+                ['context' => ['active_test' => false]],
+            ]);
+            if (is_int($countRes)) {
+                $totalOdooEmployees = $countRes;
+            }
+        } catch (\Throwable $e) {
+            // Non-critical if count fails
+        }
+
+        if ($totalOdooEmployees > 0) {
+            $totalBatches = ceil($totalOdooEmployees / $limit);
+            $log('info', "👥 Terdeteksi total {$totalOdooEmployees} data karyawan di Odoo. Memproses dalam {$totalBatches} batch (Ukuran per batch: {$limit})...");
+        } else {
+            $log('info', "👥 Menginisialisasi pengambilan data karyawan dari Odoo (Batch size: {$limit})...");
+        }
 
         do {
+            @set_time_limit(0);
             $batchNum++;
-            $log('batch', "📦 Mengambil Data Karyawan Batch #{$batchNum} (Offset: {$offset}, Limit: {$limit})...");
+            $batchLabel = $totalOdooEmployees > 0 ? "Batch #{$batchNum}/" . ceil($totalOdooEmployees / $limit) : "Batch #{$batchNum}";
+            $log('batch', "📦 Mengambil Data Karyawan {$batchLabel} (Offset: {$offset}, Limit: {$limit})...");
 
-            $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
-                $this->db, $uid, $this->apiKey,
-                'hr.employee', 'search_read',
-                [$domain],
-                [
-                    'fields' => [
-                        'id', 'name', 'registration_number', 'identification_id',
-                        'mobile_phone', 'work_email', 'private_email', 'gender', 'birthday',
-                        'department_id', 'job_id', 'principle_id', 'first_contract_date',
-                        'area_id', 'company_id', 'active', 'departure_date',
-                    ],
-                    'context' => ['active_test' => false],
-                    'limit' => $limit,
-                    'offset' => $offset,
-                ],
-            ]);
+            $records = [];
+            $attempts = 0;
+            $maxAttempts = 3;
+
+            while ($attempts < $maxAttempts) {
+                $attempts++;
+                try {
+                    $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
+                        $this->db, $uid, $this->apiKey,
+                        'hr.employee', 'search_read',
+                        [$domain],
+                        [
+                            'fields' => [
+                                'id', 'name', 'registration_number', 'identification_id',
+                                'mobile_phone', 'work_email', 'private_email', 'gender', 'birthday',
+                                'department_id', 'job_id', 'principle_id', 'first_contract_date',
+                                'area_id', 'company_id', 'active', 'departure_date',
+                            ],
+                            'context' => ['active_test' => false],
+                            'limit' => $limit,
+                            'offset' => $offset,
+                        ],
+                    ]);
+                    break;
+                } catch (\Throwable $e) {
+                    if ($attempts >= $maxAttempts) {
+                        $log('error', "❌ Gagal mengambil {$batchLabel} setelah {$maxAttempts} kali percobaan: " . $e->getMessage());
+                        throw $e;
+                    }
+                    $log('warning', "⚠️ Percobaan {$attempts} gagal mengambil {$batchLabel} ({$e->getMessage()}). Mencoba ulang dalam 2 detik...");
+                    sleep(2);
+                }
+            }
 
             $recCount = count($records);
-            $log('info', "📥 Diterima {$recCount} data karyawan dari Odoo (Total terambil: " . ($offset + $recCount) . ")...");
+            $totalProcessedSoFar = $offset + $recCount;
+            $percentText = $totalOdooEmployees > 0 ? " (" . round(($totalProcessedSoFar / $totalOdooEmployees) * 100) . "%)" : "";
+            $log('info', "📥 Diterima {$recCount} data karyawan dari Odoo. Total terambil: {$totalProcessedSoFar}" . ($totalOdooEmployees > 0 ? " / {$totalOdooEmployees}" : "") . "{$percentText}...");
 
             foreach ($records as $rec) {
             try {
@@ -624,13 +671,23 @@ class OdooSyncService
             }
         }
             $offset += $limit;
-            $log('progress', "📊 Status Progres: " . min($offset, $offset - $limit + $recCount) . " karyawan diproses (Baru: {$created}, Update: {$updated}, Resign: {$resigned})", [
-                'processed' => min($offset, $offset - $limit + $recCount),
+            $currentTotalProcessed = min($offset, $offset - $limit + $recCount);
+            $progressPercent = $totalOdooEmployees > 0 ? min(100, round(($currentTotalProcessed / $totalOdooEmployees) * 100)) : 50;
+
+            $log('progress', "📊 Status Progres: {$currentTotalProcessed}" . ($totalOdooEmployees > 0 ? " / {$totalOdooEmployees} ({$progressPercent}%)" : "") . " (Baru: {$created}, Update: {$updated}, Resign: {$resigned})", [
+                'processed' => $currentTotalProcessed,
+                'total' => $totalOdooEmployees,
+                'progress' => $progressPercent,
                 'created' => $created,
                 'updated' => $updated,
                 'resigned' => $resigned
             ]);
-        } while (count($records) == $limit);
+
+            unset($records);
+            if (function_exists('gc_collect_cycles')) {
+                gc_collect_cycles();
+            }
+        } while ($recCount == $limit);
 
         $log('summary', "👥 Selesai Sync Employees! Total Baru: {$created} | Diperbarui: {$updated} | Resign: {$resigned}" . (count($errors) > 0 ? " | Error: " . count($errors) : ""), [
             'created' => $created,

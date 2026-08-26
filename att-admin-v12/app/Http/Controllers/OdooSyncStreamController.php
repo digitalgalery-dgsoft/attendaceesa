@@ -27,6 +27,11 @@ class OdooSyncStreamController extends Controller
         $action = $request->get('action', 'all'); // 'test_connection', 'cleanup_duplicates', 'principals', 'employees', 'all', 'all_companies'
 
         return new StreamedResponse(function () use ($companyId, $action) {
+            @ignore_user_abort(true);
+            @set_time_limit(0);
+            @ini_set('max_execution_time', '0');
+            @ini_set('memory_limit', '1024M');
+
             // Disable gzip and server output buffering
             if (function_exists('apache_setenv')) {
                 @apache_setenv('no-gzip', '1');
