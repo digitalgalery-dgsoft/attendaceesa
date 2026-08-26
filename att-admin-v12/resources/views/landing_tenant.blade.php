@@ -7,7 +7,7 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     @php
@@ -21,16 +21,16 @@
             --brand-secondary: {{ $brandSecondary }};
             --brand-gradient: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
             --brand-light: {{ $brandColor }}15;
-            --brand-glow: {{ $brandColor }}33;
+            --brand-glow: {{ $brandColor }}25;
             --bg-main: #f8fafc;
             --text-heading: #0f172a;
-            --text-body: #475569;
+            --text-body: #334155;
             --text-muted: #64748b;
             --card-bg: #ffffff;
             --card-border: #e2e8f0;
             --card-border-hover: #cbd5e1;
             --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
-            --shadow-md: 0 4px 20px -2px rgba(0,0,0,0.06), 0 2px 6px -1px rgba(0,0,0,0.03);
+            --shadow-md: 0 4px 20px -2px rgba(0,0,0,0.05), 0 2px 6px -1px rgba(0,0,0,0.03);
             --shadow-lg: 0 12px 32px -4px rgba(0,0,0,0.08), 0 4px 12px -2px rgba(0,0,0,0.04);
         }
 
@@ -38,7 +38,7 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Plus Jakarta Sans', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
         body {
@@ -49,9 +49,9 @@
             flex-direction: column;
             overflow-x: hidden;
             background-image: 
-                radial-gradient(circle at 15% 10%, {{ $brandColor }}10 0%, transparent 40%),
-                radial-gradient(circle at 85% 60%, {{ $brandColor }}08 0%, transparent 35%),
-                radial-gradient(circle at 50% 90%, #6366f108 0%, transparent 40%);
+                radial-gradient(circle at 15% 10%, rgba(15, 23, 42, 0.03) 0%, transparent 40%),
+                radial-gradient(circle at 85% 60%, rgba(15, 23, 42, 0.02) 0%, transparent 35%),
+                radial-gradient(circle at 50% 90%, #6366f105 0%, transparent 40%);
             background-attachment: fixed;
         }
 
@@ -60,97 +60,110 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1.1rem 6%;
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+            padding: 1rem 6%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid #e2e8f0;
             position: sticky;
             top: 0;
             z-index: 100;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.02);
         }
 
-        .nav-brand {
-            display: flex;
+        .brand-container {
+            display: inline-flex;
             align-items: center;
-            gap: 0.9rem;
+            gap: 0.85rem;
             text-decoration: none;
+            flex-shrink: 0;
+            white-space: nowrap;
         }
 
-        .brand-logo-container {
-            display: flex;
+        .brand-logo-wrapper {
+            display: inline-flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
         }
 
         .brand-logo-img {
-            max-height: 44px;
+            max-height: 42px;
             max-width: 140px;
             object-fit: contain;
+            display: block;
         }
 
         .brand-badge-icon {
-            width: 44px;
-            height: 44px;
+            width: 42px;
+            height: 42px;
             border-radius: 12px;
-            background: var(--brand-gradient);
+            background: #0f172a;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.25rem;
+            font-size: 1.2rem;
             color: #ffffff;
+            flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
         }
 
         .brand-info {
-            display: flex;
+            display: inline-flex;
             flex-direction: column;
+            justify-content: center;
+            white-space: nowrap;
         }
 
         .brand-title {
-            font-size: 1.2rem;
-            font-weight: 800;
-            color: var(--text-heading);
-            letter-spacing: -0.5px;
+            font-size: 1.12rem;
+            font-weight: 900;
+            color: #0f172a;
+            letter-spacing: -0.4px;
             line-height: 1.2;
+            white-space: nowrap;
         }
 
         .brand-subtitle {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            letter-spacing: 0.5px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #64748b;
+            letter-spacing: 0.6px;
             text-transform: uppercase;
+            white-space: nowrap;
         }
 
         .nav-actions {
             display: flex;
             align-items: center;
             gap: 1rem;
+            flex-shrink: 0;
         }
 
         .btn-portal-login {
-            background: var(--brand-gradient);
+            background: #0f172a;
             color: #ffffff;
             padding: 0.65rem 1.4rem;
             border-radius: 9999px;
-            font-weight: 600;
+            font-weight: 800;
             font-size: 0.88rem;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .btn-portal-login:hover {
             transform: translateY(-2px);
-            filter: brightness(1.08);
-            box-shadow: 0 6px 18px var(--brand-glow);
+            background: #1e293b;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25);
         }
 
         /* Hero Section */
         .hero {
-            padding: 4.5rem 6% 3.5rem;
+            padding: 4.5rem 6% 3rem;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -160,47 +173,48 @@
             width: 100%;
         }
 
-        .hero-pill {
+        .tenant-pill {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.45rem 1.1rem;
-            background: var(--brand-light);
-            color: var(--brand-primary);
-            border: 1px solid var(--brand-glow);
+            padding: 0.45rem 1.15rem;
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #e2e8f0;
             border-radius: 9999px;
-            font-size: 0.85rem;
-            font-weight: 700;
+            font-size: 0.82rem;
+            font-weight: 800;
             margin-bottom: 1.5rem;
-            letter-spacing: 0.3px;
+            letter-spacing: 0.5px;
         }
 
-        .hero-pill i {
-            font-size: 0.9rem;
+        .tenant-pill i {
+            font-size: 0.85rem;
+            color: #0f172a;
         }
 
-        .hero-title {
-            font-size: 2.85rem;
+        .hero h1 {
+            font-size: 3.25rem;
             font-weight: 900;
-            color: var(--text-heading);
-            line-height: 1.18;
-            letter-spacing: -1.2px;
+            color: #0f172a;
+            line-height: 1.15;
+            letter-spacing: -1.5px;
             margin-bottom: 1.25rem;
-            max-width: 900px;
+            max-width: 950px;
         }
 
-        .hero-title span {
-            color: var(--brand-primary);
-            position: relative;
+        .hero h1 span.highlight {
+            color: #1e3a8a;
+            font-weight: 900;
         }
 
-        .hero-subtitle {
-            font-size: 1.12rem;
-            color: var(--text-body);
-            max-width: 720px;
+        .hero p {
+            font-size: 1.1rem;
+            color: #475569;
+            max-width: 760px;
             line-height: 1.7;
             margin-bottom: 2.25rem;
-            font-weight: 400;
+            font-weight: 500;
         }
 
         .hero-cta-group {
@@ -211,44 +225,44 @@
         }
 
         .btn-primary-glow {
-            background: var(--brand-gradient);
+            background: #0f172a;
             color: #ffffff;
             padding: 0.85rem 2rem;
             border-radius: 12px;
-            font-weight: 700;
-            font-size: 0.98rem;
+            font-weight: 800;
+            font-size: 0.95rem;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 0.6rem;
-            box-shadow: 0 6px 20px var(--brand-glow);
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2);
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .btn-primary-glow:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 28px var(--brand-glow);
-            filter: brightness(1.08);
+            transform: translateY(-2px);
+            background: #1e293b;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.3);
         }
 
         .btn-secondary-glass {
             background: #ffffff;
-            color: var(--text-heading);
+            color: #0f172a;
             padding: 0.85rem 1.8rem;
             border-radius: 12px;
-            font-weight: 600;
-            font-size: 0.98rem;
+            font-weight: 800;
+            font-size: 0.95rem;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 0.6rem;
-            border: 1px solid var(--card-border);
+            border: 1px solid #e2e8f0;
             box-shadow: var(--shadow-sm);
             transition: all 0.25s ease;
         }
 
         .btn-secondary-glass:hover {
-            background: #f1f5f9;
+            background: #f8fafc;
             border-color: #cbd5e1;
             transform: translateY(-2px);
         }
@@ -265,8 +279,8 @@
 
         .brand-switcher-title {
             font-size: 0.78rem;
-            font-weight: 700;
-            color: var(--text-muted);
+            font-weight: 800;
+            color: #64748b;
             text-transform: uppercase;
             letter-spacing: 0.8px;
             display: flex;
@@ -286,30 +300,30 @@
             display: inline-flex;
             align-items: center;
             gap: 0.45rem;
-            padding: 0.45rem 1.1rem;
+            padding: 0.45rem 1.15rem;
             border-radius: 9999px;
-            font-size: 0.84rem;
-            font-weight: 600;
+            font-size: 0.82rem;
+            font-weight: 800;
             text-decoration: none;
-            color: var(--text-body);
+            color: #475569;
             background: #ffffff;
-            border: 1px solid var(--card-border);
-            box-shadow: var(--shadow-sm);
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            transition: all 0.2s ease;
         }
 
         .brand-pill:hover {
-            color: var(--brand-primary);
-            border-color: var(--brand-primary);
-            background: var(--brand-light);
-            transform: translateY(-2px);
+            color: #0f172a;
+            border-color: #cbd5e1;
+            background: #f8fafc;
+            transform: translateY(-1px);
         }
 
         .brand-pill.active {
             color: #ffffff;
-            background: var(--brand-gradient);
-            border-color: transparent;
-            box-shadow: 0 4px 14px var(--brand-glow);
+            background: #0f172a;
+            border-color: #0f172a;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
         }
 
         /* Stats Grid */
@@ -324,51 +338,49 @@
         }
 
         .stat-card {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
             border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: var(--shadow-md);
+            padding: 1.6rem;
+            box-shadow: 0 4px 20px -2px rgba(0,0,0,0.04);
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            position: relative;
-            overflow: hidden;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .stat-card:hover {
             transform: translateY(-4px);
-            border-color: var(--card-border-hover);
+            border-color: #cbd5e1;
             box-shadow: var(--shadow-lg);
         }
 
         .stat-icon {
-            font-size: 1.4rem;
-            color: var(--brand-primary);
-            margin-bottom: 1rem;
+            font-size: 1.35rem;
+            color: #0f172a;
+            margin-bottom: 1.15rem;
             width: 44px;
             height: 44px;
             border-radius: 12px;
-            background: var(--brand-light);
+            background: #f1f5f9;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
         .stat-value {
-            font-size: 2.1rem;
-            font-weight: 800;
-            color: var(--text-heading);
+            font-size: 2.25rem;
+            font-weight: 900;
+            color: #0f172a;
             line-height: 1.1;
             margin-bottom: 0.35rem;
-            letter-spacing: -0.5px;
+            letter-spacing: -0.8px;
         }
 
         .stat-label {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            font-weight: 600;
+            font-size: 0.84rem;
+            color: #64748b;
+            font-weight: 700;
         }
 
         /* Templates Section */
