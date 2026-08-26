@@ -66,6 +66,6 @@ class Principal extends Model
             return "https://{$this->custom_domain}";
         }
         $sub = $this->subdomain ?: Str::slug($this->name);
-        return "https://{$sub}.appsend.my.id";
+        return "https://{$sub}.appsend.my.id?p={$this->id}";
     }
 }

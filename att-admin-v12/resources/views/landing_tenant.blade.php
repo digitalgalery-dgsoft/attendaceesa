@@ -258,7 +258,65 @@
             gap: 1.25rem;
             flex-wrap: wrap;
             justify-content: center;
-            margin-bottom: 4rem;
+        }
+
+        /* Brand Switcher */
+        .brand-switcher-wrapper {
+            margin-top: 2.25rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        .brand-switcher-title {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .brand-switcher-pills {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.6rem;
+            max-width: 900px;
+        }
+
+        .brand-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.15rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(8px);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .brand-pill:hover {
+            color: #ffffff;
+            border-color: var(--brand-primary);
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .brand-pill.active {
+            color: #ffffff;
+            background: linear-gradient(135deg, var(--brand-primary), #1e293b);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 15px var(--brand-glow);
         }
 
         .btn-primary-glow {
@@ -637,8 +695,8 @@
                 @endif
             </div>
             <div class="brand-info">
-                <span class="brand-title">{{ $tenantPrincipal->name }}</span>
-                <span class="brand-subtitle">Enterprise Reporting Portal</span>
+                <span class="brand-title">{{ $tenantPrincipal->portal_title ?? $tenantPrincipal->name }}</span>
+                <span class="brand-subtitle">Enterprise Reporting Portal &bull; {{ $tenantPrincipal->name }}</span>
             </div>
         </a>
 
@@ -678,6 +736,23 @@
                     Unduh Aplikasi Mobile (SPG)
                 </a>
             </div>
+
+            @php
+                $uniqueEntities = isset($tenantPrincipalsAll) ? $tenantPrincipalsAll->unique('name') : collect([$tenantPrincipal]);
+            @endphp
+            @if($uniqueEntities->count() > 1)
+            <div class="brand-switcher-wrapper">
+                <span class="brand-switcher-title"><i class="fa-solid fa-layer-group"></i> Pilih Entitas Prinsiple Terkait:</span>
+                <div class="brand-switcher-pills">
+                    @foreach($uniqueEntities as $entity)
+                        <a href="?p={{ $entity->id }}" class="brand-pill {{ $tenantPrincipal->name === $entity->name ? 'active' : '' }}">
+                            <i class="fa-solid {{ $tenantPrincipal->name === $entity->name ? 'fa-circle-check' : 'fa-building' }}"></i>
+                            {{ $entity->name }}
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+            @endif
         </section>
 
         <!-- Dynamic Scoped Stats -->

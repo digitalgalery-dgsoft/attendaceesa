@@ -40,13 +40,26 @@ class IdentifyTenantSubdomain
             })->where('is_active', true)->get();
 
             if ($principals->isNotEmpty()) {
-                $primaryTenant = $principals->first();
+                $requestedId = $request->query('p') ?? $request->query('principal_id');
+                $primaryTenant = $requestedId ? $principals->firstWhere('id', (int) $requestedId) : null;
+                
+                if (!$primaryTenant && $request->has('name')) {
+                    $requestedName = $request->query('name');
+                    $primaryTenant = $principals->first(fn ($p) => stripos($p->name, $requestedName) !== false);
+                }
+
+                if (!$primaryTenant) {
+                    $primaryTenant = $principals->first();
+                }
+
                 $tenantIds = $principals->pluck('id')->toArray();
 
                 app()->instance('current_tenant_principal', $primaryTenant);
                 app()->instance('current_tenant_principal_ids', $tenantIds);
+                app()->instance('current_tenant_principals_all', $principals);
                 $request->attributes->set('tenant_principal', $primaryTenant);
                 $request->attributes->set('tenant_principal_ids', $tenantIds);
+                $request->attributes->set('tenant_principals_all', $principals);
             }
         }
 

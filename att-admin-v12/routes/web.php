@@ -35,6 +35,8 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
                     ?? (app()->bound('current_tenant_principal') ? app('current_tenant_principal') : null);
     $tenantPrincipalIds = $request->attributes->get('tenant_principal_ids') 
                        ?? (app()->bound('current_tenant_principal_ids') ? app('current_tenant_principal_ids') : []);
+    $tenantPrincipalsAll = $request->attributes->get('tenant_principals_all') 
+                        ?? (app()->bound('current_tenant_principals_all') ? app('current_tenant_principals_all') : collect());
 
     if ($tenantPrincipal) {
         $scopedPrincipalIds = !empty($tenantPrincipalIds) ? $tenantPrincipalIds : [$tenantPrincipal->id];
@@ -54,7 +56,7 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
             $q->whereIn('principals.id', $scopedPrincipalIds);
         })->where('is_active', true)->with('fields')->orderBy('id')->get();
 
-        return view('landing_tenant', compact('setting', 'stats', 'tenantPrincipal', 'activeTemplates'));
+        return view('landing_tenant', compact('setting', 'stats', 'tenantPrincipal', 'activeTemplates', 'tenantPrincipalsAll'));
     }
 
     $stats = \Illuminate\Support\Facades\Cache::remember('global_landing_stats', 120, function () {
