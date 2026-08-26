@@ -98,14 +98,14 @@
             width: 42px;
             height: 42px;
             border-radius: 12px;
-            background: #0f172a;
+            background: var(--brand-gradient);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.2rem;
             color: #ffffff;
             flex-shrink: 0;
-            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
+            box-shadow: 0 4px 12px var(--brand-glow);
         }
 
         .brand-info {
@@ -116,8 +116,8 @@
         }
 
         .brand-title {
-            font-size: 1.12rem;
-            font-weight: 900;
+            font-size: 1.15rem;
+            font-weight: 800;
             color: #0f172a;
             letter-spacing: -0.4px;
             line-height: 1.2;
@@ -126,7 +126,7 @@
 
         .brand-subtitle {
             font-size: 0.72rem;
-            font-weight: 800;
+            font-weight: 700;
             color: #64748b;
             letter-spacing: 0.6px;
             text-transform: uppercase;
@@ -141,7 +141,7 @@
         }
 
         .btn-portal-login {
-            background: #0f172a;
+            background: var(--brand-gradient);
             color: #ffffff;
             padding: 0.65rem 1.4rem;
             border-radius: 9999px;
@@ -151,14 +151,14 @@
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+            box-shadow: 0 4px 14px var(--brand-glow);
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .btn-portal-login:hover {
             transform: translateY(-2px);
-            background: #1e293b;
-            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25);
+            filter: brightness(1.08);
+            box-shadow: 0 6px 20px var(--brand-glow);
         }
 
         /* Hero Section */
@@ -178,9 +178,9 @@
             align-items: center;
             gap: 0.5rem;
             padding: 0.45rem 1.15rem;
-            background: #f1f5f9;
-            color: #334155;
-            border: 1px solid #e2e8f0;
+            background: var(--brand-light);
+            color: var(--brand-primary);
+            border: 1px solid var(--brand-glow);
             border-radius: 9999px;
             font-size: 0.82rem;
             font-weight: 800;
@@ -190,7 +190,7 @@
 
         .tenant-pill i {
             font-size: 0.85rem;
-            color: #0f172a;
+            color: var(--brand-primary);
         }
 
         .hero h1 {
@@ -204,7 +204,7 @@
         }
 
         .hero h1 span.highlight {
-            color: #1e3a8a;
+            color: var(--brand-primary);
             font-weight: 900;
         }
 
@@ -225,7 +225,7 @@
         }
 
         .btn-primary-glow {
-            background: #0f172a;
+            background: var(--brand-gradient);
             color: #ffffff;
             padding: 0.85rem 2rem;
             border-radius: 12px;
@@ -235,14 +235,14 @@
             display: inline-flex;
             align-items: center;
             gap: 0.6rem;
-            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2);
+            box-shadow: 0 6px 20px var(--brand-glow);
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .btn-primary-glow:hover {
             transform: translateY(-2px);
-            background: #1e293b;
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.3);
+            filter: brightness(1.08);
+            box-shadow: 0 8px 26px var(--brand-glow);
         }
 
         .btn-secondary-glass {
@@ -313,17 +313,17 @@
         }
 
         .brand-pill:hover {
-            color: #0f172a;
-            border-color: #cbd5e1;
-            background: #f8fafc;
+            color: var(--brand-primary);
+            border-color: var(--brand-primary);
+            background: var(--brand-light);
             transform: translateY(-1px);
         }
 
         .brand-pill.active {
             color: #ffffff;
-            background: #0f172a;
-            border-color: #0f172a;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+            background: var(--brand-gradient);
+            border-color: transparent;
+            box-shadow: 0 4px 14px var(--brand-glow);
         }
 
         /* Stats Grid */
@@ -357,12 +357,12 @@
 
         .stat-icon {
             font-size: 1.35rem;
-            color: #0f172a;
+            color: var(--brand-primary);
             margin-bottom: 1.15rem;
             width: 44px;
             height: 44px;
             border-radius: 12px;
-            background: #f1f5f9;
+            background: var(--brand-light);
             display: flex;
             align-items: center;
             justify-content: center;
