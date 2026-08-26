@@ -160,7 +160,12 @@ class OdooSyncService
                 $this->db, $uid, $this->apiKey,
                 'res.partner', 'search_read',
                 [$domain],
-                ['fields' => ['id', 'name', 'code_principal', 'ref', 'active'], 'limit' => $limit, 'offset' => $offset],
+                [
+                    'fields' => ['id', 'name', 'code_principal', 'ref', 'active'],
+                    'order'  => 'write_date desc, id desc',
+                    'limit'  => $limit,
+                    'offset' => $offset,
+                ],
             ]);
 
             $recCount = count($records);
@@ -332,10 +337,12 @@ class OdooSyncService
                             'mobile_phone', 'work_email', 'private_email', 'gender', 'birthday',
                             'department_id', 'job_id', 'principle_id', 'first_contract_date',
                             'area_id', 'company_id', 'active', 'departure_date',
+                            'write_date', 'create_date',
                         ],
                         'context' => ['active_test' => false],
-                        'limit' => $limit,
-                        'offset' => $offset,
+                        'order'   => 'write_date desc, id desc',
+                        'limit'   => $limit,
+                        'offset'  => $offset,
                     ],
                 ]);
                 break;

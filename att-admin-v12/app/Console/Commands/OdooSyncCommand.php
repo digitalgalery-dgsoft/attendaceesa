@@ -16,14 +16,16 @@ class OdooSyncCommand extends Command
      */
     protected $signature = 'odoo:sync 
                             {--company= : Sync specific Company ID} 
-                            {--trigger=cron : Trigger type (cron or manual)}';
+                            {--trigger=cron : Trigger type (cron or manual)}
+                            {--chunk=250 : Batch chunk size}
+                            {--silent : Run without verbose itemized output}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Automated synchronization of Principals and Employees from Odoo XML-RPC';
+    protected $description = 'Automated synchronization of Principals and Employees from Odoo XML-RPC (Newest First)';
 
     /**
      * Execute the console command.
@@ -32,35 +34,78 @@ class OdooSyncCommand extends Command
     {
         $companyId = $this->option('company');
         $trigger = $this->option('trigger') ?: 'cron';
+        $isSilent = (bool) $this->option('silent');
         $batchId = 'SYNC-' . date('Ymd-His') . '-' . Str::random(6);
 
-        $this->info("🚀 Starting Odoo Synchronization [Batch: {$batchId}, Trigger: {$trigger}]");
+        $this->info("================================================================================");
+        $this->info("🚀 MEMULAI SINKRONISASI ODOO [Batch: {$batchId}, Trigger: {$trigger}]");
+        $this->info("📅 Waktu Eksekusi: " . date('Y-m-d H:i:s T') . " (Urutan: Data Terbaru / Write Date Desc)");
+        $this->info("================================================================================");
+
+        // Progress callback to format output identically to manual stream sync
+        $progressCallback = function (string $type, string $message, ?array $meta = null) use ($isSilent) {
+            if ($isSilent && in_array($type, ['created', 'updated', 'resigned', 'info'])) {
+                return;
+            }
+
+            $time = date('H:i:s');
+            switch ($type) {
+                case 'created':
+                    $this->line("<fg=green>[{$time}] {$message}</>");
+                    break;
+                case 'updated':
+                    $this->line("<fg=yellow>[{$time}] {$message}</>");
+                    break;
+                case 'resigned':
+                    $this->line("<fg=magenta>[{$time}] {$message}</>");
+                    break;
+                case 'batch':
+                case 'company_start':
+                    $this->line("<fg=cyan;options=bold>[{$time}] {$message}</>");
+                    break;
+                case 'progress':
+                case 'summary':
+                    $this->line("<fg=blue;options=bold>[{$time}] {$message}</>");
+                    break;
+                case 'error':
+                    $this->line("<fg=red;options=bold>[{$time}] {$message}</>");
+                    break;
+                case 'warning':
+                    $this->line("<fg=yellow;options=bold>[{$time}] {$message}</>");
+                    break;
+                default:
+                    $this->line("[{$time}] {$message}");
+                    break;
+            }
+        };
 
         if ($companyId) {
             $company = Company::find($companyId);
             if (!$company) {
-                $this->error("❌ Company ID {$companyId} not found.");
+                $this->error("❌ Company ID {$companyId} tidak ditemukan di database lokal.");
                 return self::FAILURE;
             }
 
             $service = OdooSyncService::fromCompany($company);
             if (!$service) {
-                $this->warn("⚠️ Company [{$company->name}] does not have complete Odoo configuration. Skipping.");
+                $this->warn("⚠️ Company [{$company->name}] belum memiliki konfigurasi Odoo lengkap. Dilewati.");
                 return self::SUCCESS;
             }
 
-            $this->line("Processing Company: {$company->name}...");
-            $pResult = $service->syncPrincipals($company->id);
-            $eResult = $service->syncEmployees($company->id);
+            $this->info("🏢 Memproses Perusahaan Tunggal: {$company->name} (DB: {$company->odoo_db})...");
+            $pResult = $service->syncPrincipals($company->id, null, $progressCallback);
+            $eResult = $service->syncEmployees($company->id, null, $progressCallback);
 
+            $this->newLine();
             $this->table(
-                ['Metric', 'Count'],
+                ['Metrik Sinkronisasi', 'Jumlah Data'],
                 [
-                    ['Principals Created', $pResult['created'] ?? 0],
-                    ['Principals Updated', $pResult['updated'] ?? 0],
-                    ['Employees New', $eResult['created'] ?? 0],
-                    ['Employees Updated', $eResult['updated'] ?? 0],
-                    ['Employees Resigned', $eResult['resigned'] ?? 0],
+                    ['Principals Baru', $pResult['created'] ?? 0],
+                    ['Principals Diperbarui', $pResult['updated'] ?? 0],
+                    ['Karyawan Baru (Aktif)', $eResult['created'] ?? 0],
+                    ['Karyawan Diperbarui', $eResult['updated'] ?? 0],
+                    ['Karyawan Resign', $eResult['resigned'] ?? 0],
+                    ['Error / Peringatan', count(array_merge($pResult['errors'] ?? [], $eResult['errors'] ?? []))],
                 ]
             );
 
@@ -68,9 +113,12 @@ class OdooSyncCommand extends Command
         }
 
         // Sync all configured companies
-        $results = OdooSyncService::syncAllConfiguredCompanies($trigger, $batchId);
+        $results = OdooSyncService::syncAllConfiguredCompanies($trigger, $batchId, $progressCallback);
 
-        $this->info("✅ Synchronization completed for {$results['companies_count']} company/companies.");
+        $this->newLine();
+        $this->info("================================================================================");
+        $this->info("✅ SINKRONISASI SELESAI UNTUK {$results['companies_count']} PERUSAHAAN");
+        $this->info("================================================================================");
 
         $tableRows = [];
         foreach ($results['companies'] as $c) {
@@ -87,7 +135,7 @@ class OdooSyncCommand extends Command
 
         $tableRows[] = [
             'TOTAL',
-            'All Companies',
+            'Seluruh Perusahaan',
             $results['total_created'],
             $results['total_updated'],
             $results['total_resigned'],
@@ -96,12 +144,12 @@ class OdooSyncCommand extends Command
         ];
 
         $this->table(
-            ['Code', 'Company', 'New', 'Update', 'Resign', 'Total Employees', 'Status'],
+            ['Kode', 'Perusahaan', 'Baru', 'Update', 'Resign', 'Total Karyawan Aktif', 'Status'],
             $tableRows
         );
 
         if (!empty($results['errors'])) {
-            $this->warn("⚠️ Warnings/Errors occurred during sync:");
+            $this->warn("⚠️ Catatan / Peringatan selama proses sinkronisasi:");
             foreach ($results['errors'] as $err) {
                 $this->line(" - $err");
             }
