@@ -44,8 +44,15 @@ class PrincipalPortalController extends Controller
             $tenantPrincipal = Principal::where('is_active', true)->first();
         }
 
-        // Strictly scope data (Employees, Products, Submissions) to active selected entity
-        $tenantPrincipalIds = [$tenantPrincipal->id];
+        // Strictly scope data (Employees, Products, Submissions) to all division/branch codes of active entity
+        $tenantPrincipalIds = Principal::where('name', $tenantPrincipal->name)
+                                       ->where('is_active', true)
+                                       ->pluck('id')
+                                       ->toArray();
+
+        if (empty($tenantPrincipalIds)) {
+            $tenantPrincipalIds = [$tenantPrincipal->id];
+        }
 
         $tenantPrincipalsAll = $request->attributes->get('tenant_principals_all')
                             ?? (app()->bound('current_tenant_principals_all') ? app('current_tenant_principals_all') : collect([$tenantPrincipal]));
