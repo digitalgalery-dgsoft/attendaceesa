@@ -27,12 +27,15 @@ class TenantAuthController extends Controller
         }
 
         if (Auth::check()) {
-            return redirect()->route('portal.dashboard');
+            return redirect()->route('portal.dashboard', $request->query('p') ? ['p' => $request->query('p')] : []);
         }
+
+        $tenantPrincipalsAll = $request->attributes->get('tenant_principals_all')
+                            ?? (app()->bound('current_tenant_principals_all') ? app('current_tenant_principals_all') : collect([$tenantPrincipal]));
 
         $setting = Setting::first();
 
-        return view('auth.tenant_login', compact('tenantPrincipal', 'setting'));
+        return view('auth.tenant_login', compact('tenantPrincipal', 'tenantPrincipalsAll', 'setting'));
     }
 
     public function login(Request $request)
@@ -45,9 +48,15 @@ class TenantAuthController extends Controller
         $remember = $request->boolean('remember');
 
         if (Auth::attempt($credentials, $remember)) {
+            $p = $request->input('p') ?? $request->query('p');
             $request->session()->regenerate();
+            if ($p) {
+                $parts = explode('.', $request->getHost());
+                $subdomain = count($parts) >= 3 ? $parts[0] : 'wings';
+                $request->session()->put('tenant_principal_id_' . $subdomain, (int) $p);
+            }
 
-            return redirect()->intended(route('portal.dashboard'));
+            return redirect()->intended(route('portal.dashboard', $p ? ['p' => $p] : []));
         }
 
         return back()->withErrors([

@@ -44,22 +44,13 @@ class PrincipalPortalController extends Controller
             $tenantPrincipal = Principal::where('is_active', true)->first();
         }
 
-        $tenantPrincipalIds = $request->attributes->get('tenant_principal_ids')
-                           ?? (app()->bound('current_tenant_principal_ids') ? app('current_tenant_principal_ids') : []);
+        // Strictly scope data (Employees, Products, Submissions) to active selected entity
+        $tenantPrincipalIds = [$tenantPrincipal->id];
 
-        if (empty($tenantPrincipalIds) && $tenantPrincipal) {
-            // Find all sister principals sharing the same subdomain/group
-            if (!empty($tenantPrincipal->subdomain)) {
-                $tenantPrincipalIds = Principal::where('subdomain', $tenantPrincipal->subdomain)
-                                               ->where('is_active', true)
-                                               ->pluck('id')
-                                               ->toArray();
-            } else {
-                $tenantPrincipalIds = [$tenantPrincipal->id];
-            }
-        }
+        $tenantPrincipalsAll = $request->attributes->get('tenant_principals_all')
+                            ?? (app()->bound('current_tenant_principals_all') ? app('current_tenant_principals_all') : collect([$tenantPrincipal]));
 
-        return [$tenantPrincipal, $tenantPrincipalIds];
+        return [$tenantPrincipal, $tenantPrincipalIds, $tenantPrincipalsAll];
     }
 
     /**
@@ -67,7 +58,7 @@ class PrincipalPortalController extends Controller
      */
     public function dashboard(Request $request)
     {
-        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
 
         if (!$tenantPrincipal) {
             return redirect('/');
@@ -229,6 +220,7 @@ class PrincipalPortalController extends Controller
 
         return view('portal.dashboard', compact(
             'tenantPrincipal',
+            'tenantPrincipalsAll',
             'brandColor',
             'activeTemplates',
             'month',
@@ -266,7 +258,7 @@ class PrincipalPortalController extends Controller
      */
     public function reportDetail(Request $request, string $code)
     {
-        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
 
         if (!$tenantPrincipal) {
             return redirect('/');
@@ -315,28 +307,21 @@ class PrincipalPortalController extends Controller
         }
 
         $submissions = $query->latest('report_submissions.submitted_at')->paginate(20);
-        $totalTemplateSubmissions = ReportSubmission::where('report_submissions.report_template_id', $template->id)
-            ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
-            ->count();
-
-        $uniqueStores = ReportSubmission::where('report_submissions.report_template_id', $template->id)
-            ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
-            ->distinct('report_submissions.work_location_id')
-            ->count('report_submissions.work_location_id');
+        $totalCount = (clone $query)->count();
 
         $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)->orderBy('employees.full_name')->get();
         $workLocations = WorkLocation::whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id')->orderBy('work_locations.name')->get();
-        $setting = Setting::first();
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
 
         return view('portal.report_detail', compact(
             'tenantPrincipal',
+            'tenantPrincipalsAll',
             'brandColor',
             'activeTemplates',
             'template',
             'submissions',
-            'totalTemplateSubmissions',
-            'uniqueStores',
+            'totalCount',
             'month',
             'year',
             'search',
@@ -429,7 +414,7 @@ class PrincipalPortalController extends Controller
      */
     public function productsList(Request $request)
     {
-        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
 
         if (!$tenantPrincipal) {
             return redirect('/');
@@ -483,6 +468,7 @@ class PrincipalPortalController extends Controller
 
         return view('portal.products', compact(
             'tenantPrincipal',
+            'tenantPrincipalsAll',
             'brandColor',
             'activeTemplates',
             'products',

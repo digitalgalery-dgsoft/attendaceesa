@@ -41,6 +41,13 @@ class IdentifyTenantSubdomain
 
             if ($principals->isNotEmpty()) {
                 $requestedId = $request->query('p') ?? $request->query('principal_id');
+
+                if ($requestedId && $request->hasSession()) {
+                    $request->session()->put('tenant_principal_id_' . $subdomain, (int) $requestedId);
+                } elseif (!$requestedId && $request->hasSession()) {
+                    $requestedId = $request->session()->get('tenant_principal_id_' . $subdomain);
+                }
+
                 $primaryTenant = $requestedId ? $principals->firstWhere('id', (int) $requestedId) : null;
                 
                 if (!$primaryTenant && $request->has('name')) {

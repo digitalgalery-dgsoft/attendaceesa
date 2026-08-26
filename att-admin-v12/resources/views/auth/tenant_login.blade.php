@@ -297,11 +297,22 @@
                 @endif
             </div>
 
+            @if(isset($tenantPrincipalsAll) && $tenantPrincipalsAll->count() > 1)
+            <div style="display: flex; justify-content: center; gap: 0.4rem; margin: 0.75rem 0 1.25rem; flex-wrap: wrap;">
+                @foreach($tenantPrincipalsAll->unique('name') as $ent)
+                    <a href="?p={{ $ent->id }}" style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.76rem; font-weight: 700; text-decoration: none; border: 1px solid {{ $tenantPrincipal->id == $ent->id ? ($ent->theme_color ?? '#0F52BA') : '#e2e8f0' }}; background: {{ $tenantPrincipal->id == $ent->id ? ($ent->theme_color ?? '#0F52BA') : '#ffffff' }}; color: {{ $tenantPrincipal->id == $ent->id ? '#ffffff' : '#64748b' }};">
+                        <i class="fa-solid {{ $tenantPrincipal->id == $ent->id ? 'fa-circle-check' : 'fa-building' }}"></i>
+                        {{ $ent->name }}
+                    </a>
+                @endforeach
+            </div>
+            @else
             <div class="portal-brand-badge">
                 <i class="fa-solid fa-shield-halved"></i> {{ $tenantPrincipal->name }}
             </div>
+            @endif
 
-            <h1 class="login-title">{{ $tenantPrincipal->portal_title ?? 'Portal Pelaporan Terpadu' }}</h1>
+            <h1 class="login-title">{{ $tenantPrincipal->portal_title ?? ($tenantPrincipal->name . ' Portal Pelaporan') }}</h1>
             <p class="login-subtitle">Masuk dengan kredensial akun prinsiple Anda</p>
         </div>
 
@@ -318,9 +329,7 @@
 
         <form action="{{ route('tenant.login.submit') }}" method="POST">
             @csrf
-            @if(request()->has('p'))
-                <input type="hidden" name="p" value="{{ request()->query('p') }}">
-            @endif
+            <input type="hidden" name="p" value="{{ $tenantPrincipal->id }}">
 
             <div class="form-group">
                 <label class="form-label" for="email">
@@ -333,7 +342,7 @@
                         name="email" 
                         id="email" 
                         class="form-input" 
-                        placeholder="contoh: nama@{{ $tenantPrincipal->subdomain ?? 'company' }}.com"
+                        placeholder="Masukkan alamat email Anda"
                         value="{{ old('email') }}" 
                         required 
                         autofocus
@@ -359,21 +368,21 @@
                 </div>
             </div>
 
-            <div class="form-options">
-                <label class="remember-label">
+            <div class="form-actions">
+                <label class="remember-checkbox">
                     <input type="checkbox" name="remember" id="remember" {{ old('remember') ? 'checked' : '' }}>
                     <span>Ingat saya</span>
                 </label>
             </div>
 
             <button type="submit" class="btn-submit">
-                <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                <i class="fa-solid fa-right-to-bracket"></i>
                 Masuk ke Portal
             </button>
         </form>
 
         <div class="login-footer">
-            <a href="/" class="back-link">
+            <a href="/?p={{ $tenantPrincipal->id }}" class="back-link">
                 <i class="fa-solid fa-arrow-left"></i> Kembali ke Halaman Utama
             </a>
             <div>

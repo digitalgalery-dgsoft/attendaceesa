@@ -295,12 +295,12 @@
 
     .portal-modal-card {
         background: #ffffff;
-        border-radius: 18px;
+        border-radius: 20px;
         width: 100%;
-        max-width: 580px;
+        max-width: 620px;
         max-height: 90vh;
         overflow-y: auto;
-        box-shadow: var(--shadow-lg);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
@@ -310,7 +310,7 @@
     }
 
     .portal-modal-header {
-        padding: 1.25rem 1.5rem;
+        padding: 1.35rem 1.6rem;
         border-bottom: 1px solid var(--border-color);
         display: flex;
         align-items: center;
@@ -318,7 +318,7 @@
     }
 
     .portal-modal-title {
-        font-size: 1.15rem;
+        font-size: 1.2rem;
         font-weight: 800;
         color: var(--text-heading);
     }
@@ -343,11 +343,11 @@
     }
 
     .portal-modal-body {
-        padding: 1.5rem;
+        padding: 1.6rem;
     }
 
     .form-group-row {
-        margin-bottom: 1.1rem;
+        margin-bottom: 1.15rem;
     }
 
     .form-label-custom {
@@ -360,7 +360,7 @@
 
     .form-input-custom {
         width: 100%;
-        padding: 0.65rem 0.95rem;
+        padding: 0.7rem 0.95rem;
         border: 1px solid var(--border-color);
         border-radius: 10px;
         font-size: 0.88rem;
@@ -379,6 +379,109 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 0.85rem;
+    }
+
+    /* Professional Photo Dropzone */
+    .pro-upload-dropzone {
+        border: 2px dashed #cbd5e1;
+        background: #f8fafc;
+        border-radius: 14px;
+        padding: 1.5rem 1.25rem;
+        text-align: center;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.25s ease;
+    }
+
+    .pro-upload-dropzone:hover, .pro-upload-dropzone.dragover {
+        border-color: var(--brand-primary);
+        background: var(--brand-light);
+    }
+
+    .pro-upload-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: #ffffff;
+        color: var(--brand-primary);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        margin-bottom: 0.65rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .pro-upload-text-main {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--text-heading);
+        margin-bottom: 0.25rem;
+    }
+
+    .pro-upload-text-sub {
+        font-size: 0.76rem;
+        color: var(--text-muted);
+        line-height: 1.4;
+    }
+
+    .pro-preview-box {
+        display: none;
+        align-items: center;
+        gap: 1rem;
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        margin-top: 0.75rem;
+    }
+
+    .pro-preview-box.show {
+        display: flex;
+    }
+
+    .pro-preview-img {
+        width: 60px;
+        height: 60px;
+        border-radius: 10px;
+        object-fit: cover;
+        border: 1px solid var(--border-color);
+        background: #f8fafc;
+    }
+
+    .pro-preview-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .pro-preview-filename {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--text-heading);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .pro-preview-filesize {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+
+    .pro-preview-remove {
+        background: #fee2e2;
+        color: #ef4444;
+        border: none;
+        border-radius: 8px;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .pro-preview-remove:hover {
+        background: #fecaca;
     }
 
     .alert-banner {
@@ -473,6 +576,10 @@
 
     <!-- Filter Bar -->
     <form action="{{ route('portal.products') }}" method="GET" class="filter-bar">
+        @if(request()->has('p'))
+            <input type="hidden" name="p" value="{{ request()->query('p') }}">
+        @endif
+
         <div class="filter-group-left">
             @if(!empty($categories))
                 <select name="category" class="filter-select-btn" onchange="this.form.submit()">
@@ -504,7 +611,7 @@
                 <i class="fa-solid fa-magnifying-glass"></i> Cari SKU
             </button>
             @if($search || $category || $brand)
-                <a href="{{ route('portal.products') }}" class="filter-select-btn" style="text-decoration: none; color: #64748b; background: #e2e8f0;">
+                <a href="{{ route('portal.products', request()->has('p') ? ['p' => request()->query('p')] : []) }}" class="filter-select-btn" style="text-decoration: none; color: #64748b; background: #e2e8f0;">
                     Reset
                 </a>
             @endif
@@ -584,6 +691,9 @@
                                     <form action="{{ route('portal.products.destroy', $prod->id) }}" method="POST" style="display: inline-block; margin: 0;" onsubmit="return confirm('Yakin ingin menghapus produk ini dari katalog?');">
                                         @csrf
                                         @method('DELETE')
+                                        @if(request()->has('p'))
+                                            <input type="hidden" name="p" value="{{ request()->query('p') }}">
+                                        @endif
                                         <button type="submit" class="btn-action-icon delete" title="Hapus Produk">
                                             <i class="fa-solid fa-trash"></i>
                                         </button>
@@ -596,7 +706,7 @@
             </div>
 
             <div style="margin-top: 1.25rem;">
-                {{ $products->links() }}
+                {{ $products->appends(request()->query())->links() }}
             </div>
         @else
             <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
@@ -628,6 +738,10 @@
             </div>
             <form action="{{ route('portal.products.store') }}" method="POST" enctype="multipart/form-data" class="portal-modal-body">
                 @csrf
+                @if(request()->has('p'))
+                    <input type="hidden" name="p" value="{{ request()->query('p') }}">
+                @endif
+
                 <div class="form-group-row">
                     <label class="form-label-custom">Nama Produk / SKU <span style="color: #ef4444;">*</span></label>
                     <input type="text" name="name" class="form-input-custom" placeholder="Contoh: SoKlin Liquid Detergent Antibac 720ml" required>
@@ -666,9 +780,28 @@
                     </div>
                 </div>
 
+                <!-- Professional Photo Upload Dropzone -->
                 <div class="form-group-row">
                     <label class="form-label-custom">Foto Kemasan Produk</label>
-                    <input type="file" name="image" class="form-input-custom" accept="image/*">
+                    <div class="pro-upload-dropzone" onclick="document.getElementById('add_product_image_input').click()">
+                        <div class="pro-upload-icon">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </div>
+                        <div class="pro-upload-text-main">Klik atau seret file foto ke sini</div>
+                        <div class="pro-upload-text-sub">Format: PNG, JPG, JPEG, atau WebP (Maks. 4MB)</div>
+                        <input type="file" id="add_product_image_input" name="image" accept="image/*" style="display: none;" onchange="handleImagePreview(this, 'add_preview_box', 'add_preview_img', 'add_preview_name', 'add_preview_size')">
+                    </div>
+                    
+                    <div id="add_preview_box" class="pro-preview-box">
+                        <img id="add_preview_img" src="" alt="Preview" class="pro-preview-img">
+                        <div class="pro-preview-info">
+                            <div id="add_preview_name" class="pro-preview-filename">-</div>
+                            <div id="add_preview_size" class="pro-preview-filesize">-</div>
+                        </div>
+                        <button type="button" class="pro-preview-remove" onclick="removeImagePreview('add_product_image_input', 'add_preview_box')">
+                            <i class="fa-solid fa-trash"></i> Hapus
+                        </button>
+                    </div>
                 </div>
 
                 <div class="form-group-row">
@@ -696,6 +829,10 @@
             <form id="formEditProduct" action="" method="POST" enctype="multipart/form-data" class="portal-modal-body">
                 @csrf
                 @method('PUT')
+                @if(request()->has('p'))
+                    <input type="hidden" name="p" value="{{ request()->query('p') }}">
+                @endif
+
                 <div class="form-group-row">
                     <label class="form-label-custom">Nama Produk / SKU <span style="color: #ef4444;">*</span></label>
                     <input type="text" id="edit_name" name="name" class="form-input-custom" required>
@@ -734,9 +871,28 @@
                     </div>
                 </div>
 
+                <!-- Professional Photo Upload Dropzone for Edit -->
                 <div class="form-group-row">
-                    <label class="form-label-custom">Ganti Foto Kemasan (Opsional)</label>
-                    <input type="file" name="image" class="form-input-custom" accept="image/*">
+                    <label class="form-label-custom">Foto Kemasan Produk</label>
+                    <div class="pro-upload-dropzone" onclick="document.getElementById('edit_product_image_input').click()">
+                        <div class="pro-upload-icon">
+                            <i class="fa-solid fa-image"></i>
+                        </div>
+                        <div class="pro-upload-text-main">Klik untuk mengganti foto kemasan</div>
+                        <div class="pro-upload-text-sub">Format: PNG, JPG, JPEG, atau WebP (Maks. 4MB)</div>
+                        <input type="file" id="edit_product_image_input" name="image" accept="image/*" style="display: none;" onchange="handleImagePreview(this, 'edit_preview_box', 'edit_preview_img', 'edit_preview_name', 'edit_preview_size')">
+                    </div>
+                    
+                    <div id="edit_preview_box" class="pro-preview-box">
+                        <img id="edit_preview_img" src="" alt="Preview" class="pro-preview-img">
+                        <div class="pro-preview-info">
+                            <div id="edit_preview_name" class="pro-preview-filename">-</div>
+                            <div id="edit_preview_size" class="pro-preview-filesize">-</div>
+                        </div>
+                        <button type="button" class="pro-preview-remove" onclick="removeImagePreview('edit_product_image_input', 'edit_preview_box')">
+                            <i class="fa-solid fa-trash"></i> Hapus
+                        </button>
+                    </div>
                 </div>
 
                 <div class="form-group-row">
@@ -763,6 +919,10 @@
             </div>
             <form action="{{ route('portal.products.import') }}" method="POST" enctype="multipart/form-data" class="portal-modal-body">
                 @csrf
+                @if(request()->has('p'))
+                    <input type="hidden" name="p" value="{{ request()->query('p') }}">
+                @endif
+
                 <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
                     <div style="font-weight: 700; font-size: 0.88rem; color: var(--text-heading); margin-bottom: 0.35rem;">
                         <i class="fa-solid fa-circle-info" style="color: #2563eb;"></i> Format Kolom File Excel / CSV:
@@ -799,6 +959,7 @@
 @push('scripts')
 <script>
     function openAddModal() {
+        removeImagePreview('add_product_image_input', 'add_preview_box');
         document.getElementById('modalAddProduct').classList.add('active');
     }
 
@@ -816,11 +977,67 @@
         document.getElementById('edit_price').value = prod.price || 0;
         document.getElementById('edit_uom').value = prod.uom || 'Pcs';
         document.getElementById('edit_description').value = prod.description || '';
+
+        // Handle existing image in edit modal
+        var previewBox = document.getElementById('edit_preview_box');
+        var previewImg = document.getElementById('edit_preview_img');
+        var previewName = document.getElementById('edit_preview_name');
+        var previewSize = document.getElementById('edit_preview_size');
+        
+        if (prod.image_path) {
+            previewImg.src = '/storage/' + prod.image_path;
+            previewName.textContent = 'Foto Produk Saat Ini';
+            previewSize.textContent = 'Tersimpan di server';
+            previewBox.classList.add('show');
+        } else {
+            removeImagePreview('edit_product_image_input', 'edit_preview_box');
+        }
+
         document.getElementById('modalEditProduct').classList.add('active');
     }
 
     function closeModal(id) {
         document.getElementById(id).classList.remove('active');
+    }
+
+    // Professional Image Preview Handler
+    function handleImagePreview(input, boxId, imgId, nameId, sizeId) {
+        var box = document.getElementById(boxId);
+        var img = document.getElementById(imgId);
+        var nameElem = document.getElementById(nameId);
+        var sizeElem = document.getElementById(sizeId);
+
+        if (input.files && input.files[0]) {
+            var file = input.files[0];
+            
+            // Check size (max 4MB)
+            if (file.size > 4 * 1024 * 1024) {
+                alert('Ukuran file terlalu besar! Maksimal 4MB.');
+                input.value = '';
+                box.classList.remove('show');
+                return;
+            }
+
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                img.src = e.target.result;
+                nameElem.textContent = file.name;
+                var sizeKB = (file.size / 1024).toFixed(1);
+                var sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                sizeElem.textContent = file.size > 1024 * 1024 ? sizeMB + ' MB' : sizeKB + ' KB';
+                box.classList.add('show');
+            };
+            reader.readAsDataURL(file);
+        } else {
+            box.classList.remove('show');
+        }
+    }
+
+    function removeImagePreview(inputId, boxId) {
+        var input = document.getElementById(inputId);
+        if (input) input.value = '';
+        var box = document.getElementById(boxId);
+        if (box) box.classList.remove('show');
     }
 
     // Close on click outside card

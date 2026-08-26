@@ -625,7 +625,7 @@
 
     <!-- Whitelabel Navbar -->
     <nav>
-        <a href="/" class="brand-container">
+        <a href="/?p={{ $tenantPrincipal->id }}" class="brand-container">
             <div class="brand-logo-wrapper">
                 @if(!empty($tenantPrincipal->logo_path))
                     <img src="{{ asset('storage/' . $tenantPrincipal->logo_path) }}" alt="{{ $tenantPrincipal->name }}" class="brand-logo-img">
@@ -646,7 +646,7 @@
         </a>
 
         <div class="nav-actions">
-            <a href="/login" class="btn-portal-login">
+            <a href="{{ route('tenant.login', ['p' => $tenantPrincipal->id]) }}" class="btn-portal-login">
                 <i class="fa-solid fa-lock"></i>
                 Masuk ke Portal
             </a>
@@ -672,7 +672,7 @@
             </p>
 
             <div class="hero-cta-group">
-                <a href="/login" class="btn-primary-glow">
+                <a href="{{ route('tenant.login', ['p' => $tenantPrincipal->id]) }}" class="btn-primary-glow">
                     <i class="fa-solid fa-shield-halved"></i>
                     Masuk ke Portal Manajemen
                 </a>

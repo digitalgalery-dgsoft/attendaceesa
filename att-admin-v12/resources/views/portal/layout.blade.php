@@ -383,12 +383,12 @@
         <div class="sidebar-menu">
             <div class="menu-category-label">Ringkasan Eksekutif</div>
             
-            <a href="{{ route('portal.dashboard') }}" class="sidebar-nav-item {{ request()->routeIs('portal.dashboard') ? 'active' : '' }}">
+            <a href="{{ route('portal.dashboard', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.dashboard') ? 'active' : '' }}">
                 <i class="fa-solid fa-chart-pie nav-icon"></i>
                 <span class="nav-text">Sales Summary Dashboard</span>
             </a>
 
-            <a href="{{ route('portal.products') }}" class="sidebar-nav-item {{ request()->routeIs('portal.products') ? 'active' : '' }}">
+            <a href="{{ route('portal.products', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.products') ? 'active' : '' }}">
                 <i class="fa-solid fa-boxes-stacked nav-icon"></i>
                 <span class="nav-text">Katalog Produk (SKU)</span>
             </a>
@@ -416,7 +416,7 @@
                         }
                         $isCurrent = request()->routeIs('portal.report.detail') && request()->route('code') === $tpl->code;
                     @endphp
-                    <a href="{{ route('portal.report.detail', $tpl->code) }}" class="sidebar-nav-item {{ $isCurrent ? 'active' : '' }}">
+                    <a href="{{ route('portal.report.detail', ['code' => $tpl->code, 'p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ $isCurrent ? 'active' : '' }}">
                         <i class="{{ $iconClass }} nav-icon"></i>
                         <span class="nav-text">{{ $tpl->title }}</span>
                         <span class="nav-badge-count">{{ $tpl->fields->count() }}f</span>
@@ -425,7 +425,7 @@
             @endif
 
             <div class="menu-category-label">Akses Cepat</div>
-            <a href="/" class="sidebar-nav-item" target="_blank">
+            <a href="/?p={{ $tenantPrincipal->id }}" class="sidebar-nav-item" target="_blank">
                 <i class="fa-solid fa-globe nav-icon"></i>
                 <span class="nav-text">Lihat Landing Page</span>
             </a>
@@ -448,7 +448,7 @@
                     </button>
                 </form>
                 @else
-                <a href="{{ route('tenant.login') }}" class="btn-logout" style="background: var(--brand-light); color: var(--brand-primary);" title="Login ke Akun">
+                <a href="{{ route('tenant.login', ['p' => $tenantPrincipal->id]) }}" class="btn-logout" style="background: var(--brand-light); color: var(--brand-primary);" title="Login ke Akun">
                     <i class="fa-solid fa-arrow-right-to-bracket"></i>
                 </a>
                 @endif
@@ -464,7 +464,7 @@
                 <div>
                     <h1 class="topbar-title">@yield('page_title', 'Sales Summary Dashboard')</h1>
                     <div class="topbar-breadcrumb">
-                        <a href="{{ route('portal.dashboard') }}">Home</a>
+                        <a href="{{ route('portal.dashboard', ['p' => $tenantPrincipal->id]) }}">Home</a>
                         <i class="fa-solid fa-chevron-right" style="font-size: 0.65rem;"></i>
                         <span>@yield('breadcrumb_active', 'Dashboard')</span>
                     </div>
@@ -472,10 +472,24 @@
             </div>
 
             <div class="topbar-right">
-                <div class="tenant-selector-pill">
-                    <i class="fa-solid fa-shield-halved"></i>
-                    {{ $tenantPrincipal->name }}
-                </div>
+                @php
+                    $allEntities = isset($tenantPrincipalsAll) ? $tenantPrincipalsAll->unique('name') : collect([$tenantPrincipal]);
+                @endphp
+                @if($allEntities->count() > 1)
+                    <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+                        @foreach($allEntities as $ent)
+                            <a href="?p={{ $ent->id }}" class="tenant-selector-pill" style="text-decoration: none; cursor: pointer; transition: all 0.2s ease; {{ $tenantPrincipal->id == $ent->id ? 'background: var(--brand-primary); color: #fff; border-color: var(--brand-primary); font-weight: 800;' : 'background: #f1f5f9; color: #64748b; border-color: #cbd5e1;' }}">
+                                <i class="fa-solid {{ $tenantPrincipal->id == $ent->id ? 'fa-circle-check' : 'fa-building' }}"></i>
+                                {{ $ent->name }}
+                            </a>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="tenant-selector-pill">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        {{ $tenantPrincipal->name }}
+                    </div>
+                @endif
 
                 <div class="topbar-timestamp">
                     <i class="fa-regular fa-clock"></i>

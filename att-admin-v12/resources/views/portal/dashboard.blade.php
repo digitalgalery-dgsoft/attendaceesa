@@ -569,7 +569,7 @@
         </div>
 
         <!-- 4. Products / SKU -->
-        <a href="{{ route('portal.products') }}" class="kpi-card" style="text-decoration: none; color: inherit;">
+        <a href="{{ route('portal.products', ['p' => $tenantPrincipal->id]) }}" class="kpi-card" style="text-decoration: none; color: inherit;">
             <div>
                 <div class="kpi-card-header">
                     <span class="kpi-title"><i class="fa-solid fa-boxes-stacked"></i> Products (SKU)</span>

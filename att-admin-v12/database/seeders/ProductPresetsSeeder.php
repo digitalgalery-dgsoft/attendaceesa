@@ -20,12 +20,11 @@ class ProductPresetsSeeder extends Seeder
         // 1. WINGS SURYA & LION WINGS
         $wingsSurya = Principal::where('code', 'PR-WINGS-SURYA')
             ->orWhere('name', 'LIKE', '%WINGS SURYA%')
-            ->orWhere('subdomain', 'wings')
             ->first();
 
         $lionWings = Principal::where('code', 'PR-LION-WINGS')
             ->orWhere('name', 'LIKE', '%LION WINGS%')
-            ->first() ?? $wingsSurya;
+            ->first();
 
         if ($wingsSurya) {
             $wingsProducts = [
