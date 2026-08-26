@@ -124,29 +124,10 @@ Route::get('/seed-templates-now', function () {
             ];
         });
 
-        $allWingsPrincipals = \App\Models\Principal::where(function ($q) {
-            $q->where('name', 'LIKE', '%WINGS%')
-              ->orWhere('name', 'LIKE', '%SURYA%')
-              ->orWhere('name', 'LIKE', '%LION%')
-              ->orWhere('subdomain', 'wings');
-        })->get()->map(function ($p) {
-            return [
-                'id' => $p->id,
-                'name' => $p->name,
-                'code' => $p->code,
-                'subdomain' => $p->subdomain,
-                'products_count' => \App\Models\Product::where('principal_id', $p->id)->count(),
-                'employees_total' => \App\Models\Employee::where('principal_id', $p->id)->count(),
-                'employees_active' => \App\Models\Employee::where('principal_id', $p->id)->where('is_active', true)->count(),
-                'employees_inactive' => \App\Models\Employee::where('principal_id', $p->id)->where('is_active', false)->count(),
-                'templates_attached' => $p->reportTemplates()->pluck('code')->toArray(),
-            ];
-        });
-
         return response()->json([
             'status' => 'success',
-            'wings_principals' => $allWingsPrincipals,
-            'templates_count' => $templates->count(),
+            'count' => $templates->count(),
+            'templates' => $templates,
         ]);
     } catch (\Throwable $e) {
         return response()->json([
