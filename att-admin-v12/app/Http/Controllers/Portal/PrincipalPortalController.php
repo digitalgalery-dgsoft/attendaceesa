@@ -319,12 +319,14 @@ class PrincipalPortalController extends Controller
             ->distinct('report_submissions.work_location_id')
             ->count('report_submissions.work_location_id');
 
-        $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)->orderBy('employees.name')->get();
+        $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)->orderBy('employees.full_name')->get();
         $workLocations = WorkLocation::whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id')->orderBy('work_locations.name')->get();
         $setting = Setting::first();
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
 
         return view('portal.report_detail', compact(
             'tenantPrincipal',
+            'brandColor',
             'activeTemplates',
             'template',
             'submissions',
