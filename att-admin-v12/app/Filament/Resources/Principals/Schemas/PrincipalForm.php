@@ -54,13 +54,21 @@ class PrincipalForm
                 Section::make('Whitelabel Branding & Tampilan Portal')
                     ->description('Kustomisasi tampilan portal mandiri prinsiple ({subdomain}.appsend.my.id).')
                     ->schema([
+                        TextInput::make('portal_title')
+                            ->label('Judul Header Portal')
+                            ->placeholder('Contoh: Portal Pelaporan & Monitoring Dulux')
+                            ->columnSpanFull(),
                         Grid::make(2)->schema([
-                            TextInput::make('portal_title')
-                                ->label('Judul Header Portal')
-                                ->placeholder('Contoh: Portal Pelaporan & Monitoring Dulux'),
                             ColorPicker::make('theme_color')
-                                ->label('Warna Identitas Tema (Hex)')
-                                ->default('#0F52BA'),
+                                ->label('Warna Primer / Gradasi Awal (Hex)')
+                                ->default('#0F52BA')
+                                ->helperText('Warna utama identitas prinsiple.'),
+                            ColorPicker::make('theme_color_secondary')
+                                ->label('Warna Sekunder / Gradasi Akhir (Hex)')
+                                ->placeholder('#1E88E5')
+                                ->helperText('Warna kedua untuk efek gradasi 2 warna pada tombol, header & badge.'),
+                        ]),
+                        Grid::make(2)->schema([
                             FileUpload::make('logo_path')
                                 ->label('Logo Prinsiple (Header/Login)')
                                 ->image()

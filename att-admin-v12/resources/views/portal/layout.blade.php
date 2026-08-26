@@ -13,11 +13,14 @@
 
     @php
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $brandSecondary = $tenantPrincipal->theme_color_secondary ?? ($tenantPrincipal->theme_color ?? '#2563EB');
     @endphp
 
     <style>
         :root {
             --brand-primary: {{ $brandColor }};
+            --brand-secondary: {{ $brandSecondary }};
+            --brand-gradient: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
             --brand-light: {{ $brandColor }}15;
             --brand-glow: {{ $brandColor }}25;
             --bg-body: #f8fafc;
@@ -78,17 +81,17 @@
             object-fit: contain;
         }
 
-        .sidebar-badge-icon {
-            width: 38px;
-            height: 38px;
+        .brand-icon-box {
+            width: 40px;
+            height: 40px;
             border-radius: 10px;
-            background: var(--brand-primary);
+            background: var(--brand-gradient);
             color: #ffffff;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.15rem;
-            box-shadow: 0 2px 8px var(--brand-glow);
+            box-shadow: 0 4px 12px var(--brand-glow);
             flex-shrink: 0;
         }
 
@@ -166,13 +169,19 @@
         }
 
         .sidebar-nav-item.active {
-            background-color: var(--brand-light);
-            color: var(--brand-primary);
+            background: var(--brand-gradient);
+            color: #ffffff;
             font-weight: 700;
+            box-shadow: 0 4px 14px var(--brand-glow);
         }
 
         .sidebar-nav-item.active i.nav-icon {
-            color: var(--brand-primary);
+            color: #ffffff;
+        }
+
+        .sidebar-nav-item.active .nav-badge-count {
+            background: rgba(255, 255, 255, 0.25);
+            color: #ffffff;
         }
 
         .sidebar-nav-item .nav-text {

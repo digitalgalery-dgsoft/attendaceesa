@@ -12,11 +12,14 @@
     
     @php
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $brandSecondary = $tenantPrincipal->theme_color_secondary ?? ($tenantPrincipal->theme_color ?? '#2563EB');
     @endphp
 
     <style>
         :root {
             --brand-primary: {{ $brandColor }};
+            --brand-secondary: {{ $brandSecondary }};
+            --brand-gradient: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
             --brand-light: {{ $brandColor }}15;
             --brand-glow: {{ $brandColor }}33;
             --bg-main: #f8fafc;
@@ -59,23 +62,22 @@
             align-items: center;
             padding: 1.1rem 6%;
             background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-bottom: 1px solid var(--card-border);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
             position: sticky;
             top: 0;
             z-index: 100;
-            box-shadow: var(--shadow-sm);
         }
 
-        .brand-container {
+        .nav-brand {
             display: flex;
             align-items: center;
-            gap: 1.15rem;
+            gap: 0.9rem;
             text-decoration: none;
         }
 
-        .brand-logo-wrapper {
+        .brand-logo-container {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -91,13 +93,12 @@
             width: 44px;
             height: 44px;
             border-radius: 12px;
-            background: linear-gradient(135deg, var(--brand-primary), #1e293b);
+            background: var(--brand-gradient);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.25rem;
             color: #ffffff;
-            box-shadow: 0 4px 12px var(--brand-glow);
         }
 
         .brand-info {
@@ -128,7 +129,7 @@
         }
 
         .btn-portal-login {
-            background: var(--brand-primary);
+            background: var(--brand-gradient);
             color: #ffffff;
             padding: 0.65rem 1.4rem;
             border-radius: 9999px;
@@ -138,65 +139,65 @@
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            box-shadow: 0 4px 14px var(--brand-glow);
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .btn-portal-login:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px var(--brand-glow);
             filter: brightness(1.08);
+            box-shadow: 0 6px 18px var(--brand-glow);
         }
 
         /* Hero Section */
         .hero {
             padding: 4.5rem 6% 3.5rem;
-            text-align: center;
-            max-width: 1100px;
-            margin: 0 auto;
             display: flex;
             flex-direction: column;
             align-items: center;
+            text-align: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
         }
 
-        .tenant-pill {
+        .hero-pill {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.4rem 1.15rem;
+            padding: 0.45rem 1.1rem;
             background: var(--brand-light);
+            color: var(--brand-primary);
             border: 1px solid var(--brand-glow);
             border-radius: 9999px;
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             font-weight: 700;
-            color: var(--brand-primary);
             margin-bottom: 1.5rem;
-            box-shadow: 0 2px 8px var(--brand-glow);
+            letter-spacing: 0.3px;
         }
 
-        .tenant-pill i {
-            font-size: 0.75rem;
+        .hero-pill i {
+            font-size: 0.9rem;
         }
 
-        .hero h1 {
-            font-size: 3.25rem;
+        .hero-title {
+            font-size: 2.85rem;
             font-weight: 900;
-            line-height: 1.18;
-            margin-bottom: 1.25rem;
-            letter-spacing: -1.5px;
             color: var(--text-heading);
+            line-height: 1.18;
+            letter-spacing: -1.2px;
+            margin-bottom: 1.25rem;
+            max-width: 900px;
         }
 
-        .hero h1 span.highlight {
-            background: linear-gradient(135deg, var(--brand-primary) 0%, #4338ca 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .hero-title span {
+            color: var(--brand-primary);
+            position: relative;
         }
 
-        .hero p {
+        .hero-subtitle {
             font-size: 1.12rem;
             color: var(--text-body);
-            max-width: 760px;
+            max-width: 720px;
             line-height: 1.7;
             margin-bottom: 2.25rem;
             font-weight: 400;
@@ -210,7 +211,7 @@
         }
 
         .btn-primary-glow {
-            background: var(--brand-primary);
+            background: var(--brand-gradient);
             color: #ffffff;
             padding: 0.85rem 2rem;
             border-radius: 12px;
@@ -306,9 +307,9 @@
 
         .brand-pill.active {
             color: #ffffff;
-            background: var(--brand-primary);
-            border-color: var(--brand-primary);
-            box-shadow: 0 4px 12px var(--brand-glow);
+            background: var(--brand-gradient);
+            border-color: transparent;
+            box-shadow: 0 4px 14px var(--brand-glow);
         }
 
         /* Stats Grid */

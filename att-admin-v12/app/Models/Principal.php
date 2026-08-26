@@ -73,4 +73,11 @@ class Principal extends Model
         $sub = $this->subdomain ?: Str::slug($this->name);
         return "https://{$sub}.appsend.my.id?p={$this->id}";
     }
+
+    public function getThemeGradientAttribute(): string
+    {
+        $primary = $this->theme_color ?: '#0F52BA';
+        $secondary = $this->theme_color_secondary ?: $primary;
+        return "linear-gradient(135deg, {$primary} 0%, {$secondary} 100%)";
+    }
 }

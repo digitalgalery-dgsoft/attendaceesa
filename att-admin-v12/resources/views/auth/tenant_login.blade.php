@@ -12,11 +12,14 @@
     
     @php
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $brandSecondary = $tenantPrincipal->theme_color_secondary ?? ($tenantPrincipal->theme_color ?? '#2563EB');
     @endphp
 
     <style>
         :root {
             --brand-primary: {{ $brandColor }};
+            --brand-secondary: {{ $brandSecondary }};
+            --brand-gradient: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
             --brand-light: {{ $brandColor }}15;
             --brand-glow: {{ $brandColor }}33;
             --bg-main: #f8fafc;
@@ -89,7 +92,7 @@
             width: 52px;
             height: 52px;
             border-radius: 14px;
-            background: linear-gradient(135deg, var(--brand-primary), #1e293b);
+            background: var(--brand-gradient);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -215,7 +218,7 @@
         .btn-submit {
             width: 100%;
             padding: 0.85rem;
-            background: var(--brand-primary);
+            background: var(--brand-gradient);
             color: #ffffff;
             border: none;
             border-radius: 10px;
@@ -300,7 +303,10 @@
             @if(isset($tenantPrincipalsAll) && $tenantPrincipalsAll->count() > 1)
             <div style="display: flex; justify-content: center; gap: 0.4rem; margin: 0.75rem 0 1.25rem; flex-wrap: wrap;">
                 @foreach($tenantPrincipalsAll->unique('name') as $ent)
-                    <a href="?p={{ $ent->id }}" style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.76rem; font-weight: 700; text-decoration: none; border: 1px solid {{ $tenantPrincipal->id == $ent->id ? ($ent->theme_color ?? '#0F52BA') : '#e2e8f0' }}; background: {{ $tenantPrincipal->id == $ent->id ? ($ent->theme_color ?? '#0F52BA') : '#ffffff' }}; color: {{ $tenantPrincipal->id == $ent->id ? '#ffffff' : '#64748b' }};">
+                    @php
+                        $entGradient = $ent->theme_gradient ?? 'linear-gradient(135deg, #0F52BA, #1E88E5)';
+                    @endphp
+                    <a href="?p={{ $ent->id }}" style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.4rem 0.85rem; border-radius: 9999px; font-size: 0.76rem; font-weight: 700; text-decoration: none; border: 1px solid {{ $tenantPrincipal->id == $ent->id ? 'transparent' : '#e2e8f0' }}; background: {{ $tenantPrincipal->id == $ent->id ? $entGradient : '#ffffff' }}; color: {{ $tenantPrincipal->id == $ent->id ? '#ffffff' : '#64748b' }}; box-shadow: {{ $tenantPrincipal->id == $ent->id ? '0 3px 10px rgba(0,0,0,0.15)' : 'none' }};">
                         <i class="fa-solid {{ $tenantPrincipal->id == $ent->id ? 'fa-circle-check' : 'fa-building' }}"></i>
                         {{ $ent->name }}
                     </a>

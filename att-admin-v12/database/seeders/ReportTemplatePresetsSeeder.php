@@ -32,6 +32,7 @@ class ReportTemplatePresetsSeeder extends Seeder
                     'name' => 'PT ICI PAINTS INDONESIA',
                     'subdomain' => 'dulux',
                     'theme_color' => '#0F52BA',
+                    'theme_color_secondary' => '#0284C7',
                     'portal_title' => 'Portal Pelaporan & Monitoring Dulux (ICI Paints)',
                     'is_active' => true,
                 ]
@@ -42,6 +43,7 @@ class ReportTemplatePresetsSeeder extends Seeder
                 $dp->update([
                     'subdomain' => 'dulux',
                     'theme_color' => '#0F52BA',
+                    'theme_color_secondary' => '#0284C7',
                     'portal_title' => 'Portal Pelaporan & Monitoring Dulux (ICI Paints)',
                     'is_active' => true,
                 ]);
@@ -71,7 +73,8 @@ class ReportTemplatePresetsSeeder extends Seeder
                 [
                     'name' => 'PT FONTERRA BRANDS INDONESIA',
                     'subdomain' => 'fonterra',
-                    'theme_color' => '#1E88E5',
+                    'theme_color' => '#003399',
+                    'theme_color_secondary' => '#0077CC',
                     'portal_title' => 'Portal Pelaporan & Monitoring Fonterra Brands',
                     'is_active' => true,
                 ]
@@ -81,7 +84,8 @@ class ReportTemplatePresetsSeeder extends Seeder
             foreach ($fonterraPrincipals as $fp) {
                 $fp->update([
                     'subdomain' => 'fonterra',
-                    'theme_color' => '#1E88E5',
+                    'theme_color' => '#003399',
+                    'theme_color_secondary' => '#0077CC',
                     'portal_title' => 'Portal Pelaporan & Monitoring Fonterra Brands',
                     'is_active' => true,
                 ]);
@@ -110,7 +114,8 @@ class ReportTemplatePresetsSeeder extends Seeder
                 [
                     'name' => 'PT DAESANG AGUNG INDONESIA (MAMASUKA)',
                     'subdomain' => 'mamasuka',
-                    'theme_color' => '#E53935',
+                    'theme_color' => '#D32F2F',
+                    'theme_color_secondary' => '#F57C00',
                     'portal_title' => 'Portal Pelaporan & Monitoring Daesang (MamaSuka & Miwon)',
                     'is_active' => true,
                 ]
@@ -120,7 +125,8 @@ class ReportTemplatePresetsSeeder extends Seeder
             foreach ($mamasukaPrincipals as $mp) {
                 $mp->update([
                     'subdomain' => 'mamasuka',
-                    'theme_color' => '#E53935',
+                    'theme_color' => '#D32F2F',
+                    'theme_color_secondary' => '#F57C00',
                     'portal_title' => 'Portal Pelaporan & Monitoring Daesang (MamaSuka & Miwon)',
                     'is_active' => true,
                 ]);
@@ -154,6 +160,7 @@ class ReportTemplatePresetsSeeder extends Seeder
                 'name' => 'PT WINGS SURYA',
                 'subdomain' => 'wings',
                 'theme_color' => '#D32F2F',
+                'theme_color_secondary' => '#FF5252',
                 'portal_title' => 'Portal Pelaporan & Monitoring PT Wings Surya',
                 'is_active' => true,
             ]);
@@ -163,6 +170,7 @@ class ReportTemplatePresetsSeeder extends Seeder
                 $ws->update([
                     'subdomain' => 'wings',
                     'theme_color' => '#D32F2F',
+                    'theme_color_secondary' => '#FF5252',
                     'portal_title' => 'Portal Pelaporan & Monitoring PT Wings Surya',
                     'is_active' => true,
                 ]);
@@ -180,6 +188,7 @@ class ReportTemplatePresetsSeeder extends Seeder
                 'name' => 'PT LION WINGS',
                 'subdomain' => 'wings',
                 'theme_color' => '#008848',
+                'theme_color_secondary' => '#00B050',
                 'portal_title' => 'Portal Pelaporan & Monitoring PT Lion Wings',
                 'is_active' => true,
             ]);
@@ -189,6 +198,7 @@ class ReportTemplatePresetsSeeder extends Seeder
                 $lw->update([
                     'subdomain' => 'wings',
                     'theme_color' => '#008848',
+                    'theme_color_secondary' => '#00B050',
                     'portal_title' => 'Portal Pelaporan & Monitoring PT Lion Wings',
                     'is_active' => true,
                 ]);
