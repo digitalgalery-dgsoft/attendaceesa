@@ -491,9 +491,24 @@
                 </div>
             </div>
 
-            {{-- Progress Line Indicator --}}
-            <div style="width: 100%; height: 3px; background: #0f172a; position: relative;">
-                <div style="height: 100%; background: linear-gradient(90deg, #38bdf8, #34d399, #fbbf24); transition: width 0.3s ease;" x-bind:style="'width: ' + progressPercent + '%'"></div>
+            {{-- Prominent Progress Bar Section --}}
+            <div style="background: #090d16; padding: 12px 18px; border-bottom: 1px solid #1e293b;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-family: ui-monospace, monospace; font-size: 11px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: #94a3b8; font-weight: 700;">PROGRES SYNC:</span>
+                        <span style="color: #38bdf8; font-weight: 800;" x-text="metrics.processed + ' / ' + (totalEmployees > 0 ? totalEmployees : '...') + ' Karyawan'">0 / ... Karyawan</span>
+                        <template x-if="currentBatchText">
+                            <span style="color: #a78bfa; font-weight: 600;" x-text="'(' + currentBatchText + ')'"></span>
+                        </template>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="color: #34d399; font-weight: 800; font-size: 12px;" x-text="progressPercent + '%'">0%</span>
+                        <span style="color: #64748b;">SELESAI</span>
+                    </div>
+                </div>
+                <div style="width: 100%; height: 8px; background: #1e293b; border-radius: 9999px; overflow: hidden; position: relative; border: 1px solid #334155;">
+                    <div style="height: 100%; background: linear-gradient(90deg, #38bdf8 0%, #34d399 50%, #10b981 100%); border-radius: 9999px; transition: width 0.4s ease-out; box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);" x-bind:style="'width: ' + progressPercent + '%'"></div>
+                </div>
             </div>
 
             {{-- Terminal Output Log Box --}}
@@ -567,6 +582,8 @@
                 currentAction: '',
                 statusText: 'STANDBY',
                 progressPercent: 0,
+                totalEmployees: 0,
+                currentBatchText: '',
                 autoScroll: true,
                 eventSource: null,
                 logs: [],
@@ -601,7 +618,9 @@
                     this.isFinished = false;
                     this.currentAction = action;
                     this.statusText = 'CONNECTING...';
-                    this.progressPercent = 10;
+                    this.progressPercent = 0;
+                    this.totalEmployees = 0;
+                    this.currentBatchText = '';
                     this.metrics = { processed: 0, created: 0, updated: 0, resigned: 0, errors: 0 };
 
                     // Scroll terminal into view
@@ -611,7 +630,7 @@
                     this.logs.push({
                         time: timeStr,
                         type: 'info',
-                        message: '▶️ Memulai proses [' + action.toUpperCase() + ']... Membuka koneksi stream ke server.'
+                        message: '▶️ Memulai proses [' + action.toUpperCase() + ']... Menghubungkan ke engine Odoo.'
                     });
 
                     // Construct SSE endpoint URL
@@ -624,7 +643,7 @@
                     this.eventSource = new EventSource(url);
 
                     this.eventSource.onopen = () => {
-                        console.log('SSE Stream Connected');
+                        this.statusText = 'STREAM ACTIVE';
                     };
 
                     this.eventSource.onmessage = (event) => {
@@ -637,20 +656,25 @@
                     };
 
                     this.eventSource.onerror = (err) => {
-                        console.warn('SSE EventSource disconnected/finished:', err);
-                        if (this.isRunning) {
+                        if (this.eventSource && this.eventSource.readyState === EventSource.CONNECTING) {
+                            this.statusText = 'MEMPROSES BATCH...';
+                            return;
+                        }
+                        if (this.isRunning && !this.isFinished) {
                             const nowTime = new Date().toLocaleTimeString('id-ID', { hour12: false });
                             this.logs.push({
                                 time: nowTime,
                                 type: 'info',
-                                message: '🏁 Koneksi stream server selesai ditutup.'
+                                message: '🏁 Koneksi stream selesai.'
                             });
+                            this.finishSync();
                         }
-                        this.finishSync();
                     };
                 },
 
                 handleStreamMessage(data) {
+                    if (data.type === 'ping') return;
+
                     const time = data.time || new Date().toLocaleTimeString('id-ID', { hour12: false });
                     const type = data.type || 'info';
                     const message = data.message || '';
@@ -669,15 +693,23 @@
                     if (meta.resigned !== undefined) this.metrics.resigned = meta.resigned;
                     if (meta.processed !== undefined) this.metrics.processed = meta.processed;
                     if (meta.errors !== undefined) this.metrics.errors = meta.errors;
+                    if (meta.total !== undefined && meta.total > 0) this.totalEmployees = meta.total;
+                    if (meta.progress !== undefined) this.progressPercent = meta.progress;
 
-                    // Update Status text
+                    // Update Status text and batch badge
                     if (type === 'company_start') {
                         this.statusText = meta.name ? 'SYNC: ' + meta.name : 'SYNCING...';
                     }
 
+                    if (type === 'batch') {
+                        this.currentBatchText = meta.batch ? 'Batch #' + meta.batch : (message.includes('Batch #') ? message.substring(message.indexOf('Batch #')).split('(')[0].trim() : 'Processing');
+                    }
+
                     if (type === 'progress') {
-                        this.statusText = 'PROGRESS (' + this.metrics.processed + ')';
-                        this.progressPercent = Math.min(95, this.progressPercent + 5);
+                        this.statusText = 'SYNCING (' + (this.totalEmployees > 0 ? this.metrics.processed + '/' + this.totalEmployees : this.metrics.processed) + ')';
+                        if (meta.progress !== undefined) {
+                            this.progressPercent = meta.progress;
+                        }
                     }
 
                     if (type === 'done') {
