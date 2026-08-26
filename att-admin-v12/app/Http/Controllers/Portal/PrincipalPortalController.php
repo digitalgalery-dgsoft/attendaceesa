@@ -314,7 +314,8 @@ class PrincipalPortalController extends Controller
         }
 
         $submissions = $query->latest('report_submissions.submitted_at')->paginate(20);
-        $totalCount = (clone $query)->count();
+        $totalTemplateSubmissions = (clone $query)->count();
+        $uniqueStores = (clone $query)->distinct('report_submissions.work_location_id')->count('report_submissions.work_location_id');
 
         $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)->orderBy('employees.full_name')->get();
         $workLocations = WorkLocation::whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id')->orderBy('work_locations.name')->get();
@@ -328,7 +329,8 @@ class PrincipalPortalController extends Controller
             'activeTemplates',
             'template',
             'submissions',
-            'totalCount',
+            'totalTemplateSubmissions',
+            'uniqueStores',
             'month',
             'year',
             'search',

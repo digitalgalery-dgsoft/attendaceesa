@@ -243,7 +243,7 @@
         </div>
 
         <div>
-            <a href="{{ route('portal.report.export', ['code' => $template->code, 'month' => $month, 'year' => $year]) }}" class="btn-export-excel">
+            <a href="{{ route('portal.report.export', ['code' => $template->code, 'month' => $month, 'year' => $year, 'p' => $tenantPrincipal->id]) }}" class="btn-export-excel">
                 <i class="fa-solid fa-file-excel"></i>
                 Export Rekap CSV / Excel
             </a>
@@ -254,11 +254,11 @@
     <div class="mini-stats-grid">
         <div class="mini-stat-card">
             <div class="mini-stat-label">Total Laporan Periode Ini</div>
-            <div class="mini-stat-value">{{ number_format($totalTemplateSubmissions) }}</div>
+            <div class="mini-stat-value">{{ number_format($totalTemplateSubmissions ?? 0) }}</div>
         </div>
         <div class="mini-stat-card">
             <div class="mini-stat-label">Outlet / Toko Terjangkau</div>
-            <div class="mini-stat-value">{{ number_format($uniqueStores) }}</div>
+            <div class="mini-stat-value">{{ number_format($uniqueStores ?? 0) }}</div>
         </div>
         <div class="mini-stat-card">
             <div class="mini-stat-label">Wajib Titik GPS</div>
@@ -275,7 +275,8 @@
     </div>
 
     <!-- Filter Bar -->
-    <form action="{{ route('portal.report.detail', $template->code) }}" method="GET" class="filter-bar">
+    <form action="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" method="GET" class="filter-bar">
+        <input type="hidden" name="p" value="{{ $tenantPrincipal->id }}">
         <div class="filter-group-left">
             <select name="month" class="filter-select-btn" onchange="this.form.submit()">
                 @for ($m = 1; $m <= 12; $m++)
@@ -310,7 +311,7 @@
         </div>
 
         <div>
-            <button type="submit" class="filter-select-btn" style="background: var(--brand-primary); color: #fff; font-weight: 700;">
+            <button type="submit" class="filter-select-btn" style="background: var(--brand-gradient); color: #fff; font-weight: 700; border: none; box-shadow: 0 2px 8px var(--brand-glow);">
                 <i class="fa-solid fa-magnifying-glass"></i> Filter
             </button>
         </div>
