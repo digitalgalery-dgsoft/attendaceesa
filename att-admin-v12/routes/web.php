@@ -102,7 +102,13 @@ Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function ()
     Route::get('/areas', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'areasList'])->name('areas');
 
     // Field Operations & Sales
+    Route::get('/itineraries', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'itinerariesList'])->name('itineraries');
     Route::get('/visit-reports', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'visitReportsList'])->name('visit_reports');
+
+    // Reports & Analytics
+    Route::get('/manpower-report', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'manpowerReport'])->name('manpower_report');
+    Route::get('/mandays-report', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'mandaysReport'])->name('mandays_report');
+    Route::get('/turnover-report', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'turnoverReport'])->name('turnover_report');
 
     // Dynamic Report Templates
     Route::get('/report/{code}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'reportDetail'])->name('report.detail');

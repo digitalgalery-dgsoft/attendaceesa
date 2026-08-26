@@ -408,13 +408,11 @@
 
             <!-- 1. Ringkasan Eksekutif -->
             <div class="menu-category-label">Ringkasan Eksekutif</div>
-            
             <a href="{{ route('portal.dashboard', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.dashboard') ? 'active' : '' }}">
                 <i class="fa-solid fa-chart-pie nav-icon"></i>
                 <span class="nav-text">Sales Summary Dashboard</span>
             </a>
-
-            <a href="{{ route('portal.products', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.products') ? 'active' : '' }}">
+            <a href="{{ route('portal.products', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.products*') ? 'active' : '' }}">
                 <i class="fa-solid fa-boxes-stacked nav-icon"></i>
                 <span class="nav-text">Katalog Produk (SKU)</span>
             </a>
@@ -523,7 +521,7 @@
             @if($hasFieldOps)
                 <div class="menu-category-label">Operasional & Sales</div>
                 @if($hasPerm('view_itineraries'))
-                    <a href="/admin/itineraries" class="sidebar-nav-item">
+                    <a href="{{ route('portal.itineraries', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.itineraries*') ? 'active' : '' }}">
                         <i class="fa-solid fa-route nav-icon"></i>
                         <span class="nav-text">Visit Schedule (Itinerari)</span>
                     </a>
@@ -590,19 +588,19 @@
             @if($hasAnalytics)
                 <div class="menu-category-label">Laporan & Analitik</div>
                 @if($hasPerm('view_manpower_report'))
-                    <a href="/admin/man-power-report" class="sidebar-nav-item">
+                    <a href="{{ route('portal.manpower_report', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.manpower_report*') ? 'active' : '' }}">
                         <i class="fa-solid fa-chart-column nav-icon"></i>
                         <span class="nav-text">Manpower Report</span>
                     </a>
                 @endif
                 @if($hasPerm('view_mandays_report'))
-                    <a href="/admin/mandays-report" class="sidebar-nav-item">
+                    <a href="{{ route('portal.mandays_report', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.mandays_report*') ? 'active' : '' }}">
                         <i class="fa-solid fa-chart-line nav-icon"></i>
                         <span class="nav-text">Mandays Report</span>
                     </a>
                 @endif
                 @if($hasPerm('view_turnover_report'))
-                    <a href="/admin/turn-over-report" class="sidebar-nav-item">
+                    <a href="{{ route('portal.turnover_report', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.turnover_report*') ? 'active' : '' }}">
                         <i class="fa-solid fa-arrow-right-arrow-left nav-icon"></i>
                         <span class="nav-text">Turnover Report</span>
                     </a>

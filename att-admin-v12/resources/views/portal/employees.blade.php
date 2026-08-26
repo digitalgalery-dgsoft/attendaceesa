@@ -217,6 +217,17 @@
     .badge-active { background: #dcfce7; color: #15803d; }
     .badge-inactive { background: #fee2e2; color: #b91c1c; }
 
+    svg.w-5.h-5,
+    svg.w-6.h-6,
+    .table-container svg,
+    nav[role="navigation"] svg {
+        width: 1.25rem !important;
+        height: 1.25rem !important;
+        max-width: 1.25rem !important;
+        max-height: 1.25rem !important;
+        display: inline-block !important;
+    }
+
     @media (max-width: 992px) {
         .stats-row {
             grid-template-columns: 1fr;

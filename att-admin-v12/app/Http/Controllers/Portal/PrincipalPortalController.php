@@ -9,6 +9,8 @@ use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\EmployeeSchedule;
 use App\Models\ExtraHour;
+use App\Models\Itinerary;
+use App\Models\ItineraryItem;
 use App\Models\LeaveRequest;
 use App\Models\Position;
 use App\Models\Principal;
@@ -941,7 +943,25 @@ class PrincipalPortalController extends Controller
         $search = $request->query('q');
         $branchId = $request->query('branch_id');
 
-        $query = WorkLocation::query();
+        $assignedLocationIds = DB::table('employee_schedules')
+            ->join('employees', 'employees.id', '=', 'employee_schedules.employee_id')
+            ->whereIn('employees.principal_id', $scopedPrincipalIds)
+            ->whereNotNull('employee_schedules.work_location_id')
+            ->pluck('employee_schedules.work_location_id')
+            ->merge(
+                DB::table('itinerary_items')
+                    ->join('employees', 'employees.id', '=', 'itinerary_items.employee_id')
+                    ->whereIn('employees.principal_id', $scopedPrincipalIds)
+                    ->whereNotNull('itinerary_items.work_location_id')
+                    ->pluck('itinerary_items.work_location_id')
+            )->unique()->filter()->values()->toArray();
+
+        $query = WorkLocation::where(function($q) use ($scopedPrincipalIds, $assignedLocationIds) {
+            $q->whereIn('work_locations.principal_id', $scopedPrincipalIds);
+            if (!empty($assignedLocationIds)) {
+                $q->orWhereIn('work_locations.id', $assignedLocationIds);
+            }
+        });
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -957,7 +977,12 @@ class PrincipalPortalController extends Controller
 
         $workLocations = $query->with('branch')->orderBy('name')->paginate(20);
 
-        $branches = Branch::orderBy('name')->get();
+        $branches = Branch::whereIn('id', function($sub) use ($scopedPrincipalIds) {
+            $sub->select('branch_id')->from('employees')
+                ->whereIn('principal_id', $scopedPrincipalIds)
+                ->whereNotNull('branch_id');
+        })->orderBy('name')->get();
+
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();
 
@@ -968,7 +993,7 @@ class PrincipalPortalController extends Controller
     }
 
     /**
-     * Shifts List
+     * Shifts List (Scoped strictly to active principal's schedules)
      */
     public function shiftsList(Request $request)
     {
@@ -979,7 +1004,21 @@ class PrincipalPortalController extends Controller
             $q->whereIn('principals.id', $scopedPrincipalIds);
         })->where('is_active', true)->with('fields')->orderBy('id')->get();
 
-        $shifts = Shift::orderBy('name')->paginate(20);
+        $assignedShiftIds = DB::table('employee_schedules')
+            ->join('employees', 'employees.id', '=', 'employee_schedules.employee_id')
+            ->whereIn('employees.principal_id', $scopedPrincipalIds)
+            ->whereNotNull('employee_schedules.shift_id')
+            ->pluck('employee_schedules.shift_id')
+            ->unique()->filter()->values()->toArray();
+
+        $query = Shift::query();
+        if (!empty($assignedShiftIds)) {
+            $query->whereIn('id', $assignedShiftIds);
+        } else {
+            $query->where('company_id', $tenantPrincipal->company_id);
+        }
+
+        $shifts = $query->orderBy('name')->paginate(20);
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();
 
@@ -990,7 +1029,7 @@ class PrincipalPortalController extends Controller
     }
 
     /**
-     * Areas / Cabang List
+     * Areas / Cabang List (Scoped strictly to branches having employees of active principal)
      */
     public function areasList(Request $request)
     {
@@ -1002,10 +1041,16 @@ class PrincipalPortalController extends Controller
         })->where('is_active', true)->with('fields')->orderBy('id')->get();
 
         $search = $request->query('q');
-        $query = Branch::query();
+        $query = Branch::whereIn('id', function($sub) use ($scopedPrincipalIds) {
+            $sub->select('branch_id')->from('employees')
+                ->whereIn('principal_id', $scopedPrincipalIds)
+                ->whereNotNull('branch_id');
+        });
 
         if ($search) {
-            $query->where('name', 'like', "%{$search}%")->orWhere('address', 'like', "%{$search}%");
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")->orWhere('address', 'like', "%{$search}%");
+            });
         }
 
         $branches = $query->withCount(['employees' => function($eq) use ($scopedPrincipalIds) {
@@ -1226,6 +1271,264 @@ class PrincipalPortalController extends Controller
         return view('portal.visit_reports', compact(
             'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
             'visitReports', 'search', 'setting'
+        ));
+    }
+
+    /**
+     * Visit Schedule (Itinerari)
+     */
+    public function itinerariesList(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $date = $request->query('date') ?? Carbon::today()->format('Y-m-d');
+        $search = $request->query('q');
+
+        $query = Itinerary::whereHas('employee', function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+        });
+
+        if ($date) {
+            $query->where('date', $date);
+        }
+
+        if ($search) {
+            $query->whereHas('employee', function($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+            });
+        }
+
+        $itineraries = $query->with(['employee.branch', 'items.workLocation'])
+            ->orderBy('date', 'desc')
+            ->paginate(20);
+
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.itineraries', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'itineraries', 'date', 'search', 'setting'
+        ));
+    }
+
+    /**
+     * Manpower Report
+     */
+    public function manpowerReport(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $year = (int) ($request->query('year') ?? Carbon::now()->year);
+        $branchId = $request->query('branch_id');
+
+        $branches = Branch::whereIn('id', function($sub) use ($scopedPrincipalIds) {
+            $sub->select('branch_id')->from('employees')
+                ->whereIn('principal_id', $scopedPrincipalIds)
+                ->whereNotNull('branch_id');
+        })->orderBy('name')->get();
+
+        // Calculate manpower per branch & per month (Jan-Dec)
+        $branchData = [];
+        $monthlyTotals = array_fill(1, 12, 0);
+
+        foreach ($branches as $branch) {
+            if ($branchId && $branch->id != $branchId) continue;
+
+            $months = [];
+            for ($m = 1; $m <= 12; $m++) {
+                $start = Carbon::create($year, $m, 1)->startOfMonth();
+                $end = $start->copy()->endOfMonth();
+
+                $count = Employee::whereIn('principal_id', $scopedPrincipalIds)
+                    ->where('branch_id', $branch->id)
+                    ->where('join_date', '<=', $end->format('Y-m-d'))
+                    ->where(function($q) use ($start) {
+                        $q->whereNull('resign_date')
+                          ->orWhere('resign_date', '>=', $start->format('Y-m-d'));
+                    })->count();
+
+                $months[$m] = $count;
+                $monthlyTotals[$m] += $count;
+            }
+
+            $branchData[] = [
+                'branch' => $branch,
+                'months' => $months,
+                'average' => round(array_sum($months) / 12, 1),
+            ];
+        }
+
+        $totalAverage = round(array_sum($monthlyTotals) / 12, 1);
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.manpower_report', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'branchData', 'monthlyTotals', 'totalAverage', 'year', 'branchId', 'branches', 'setting'
+        ));
+    }
+
+    /**
+     * Mandays Report
+     */
+    public function mandaysReport(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $month = (int) ($request->query('month') ?? Carbon::now()->month);
+        $year = (int) ($request->query('year') ?? Carbon::now()->year);
+        $branchId = $request->query('branch_id');
+        $search = $request->query('q');
+
+        $startDate = Carbon::create($year, $month, 1)->startOfMonth();
+        $endDate = $startDate->copy()->endOfMonth();
+
+        $branches = Branch::whereIn('id', function($sub) use ($scopedPrincipalIds) {
+            $sub->select('branch_id')->from('employees')
+                ->whereIn('principal_id', $scopedPrincipalIds)
+                ->whereNotNull('branch_id');
+        })->orderBy('name')->get();
+
+        $query = Employee::whereIn('principal_id', $scopedPrincipalIds)
+            ->where('is_active', true);
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+            });
+        }
+
+        $employees = $query->with('branch')->orderBy('full_name')->paginate(20);
+
+        // Calculate mandays for current page employees
+        $mandaysData = [];
+        $employeeIds = $employees->pluck('id')->toArray();
+
+        $schedulesCount = DB::table('employee_schedules')
+            ->whereIn('employee_id', $employeeIds)
+            ->whereBetween('schedule_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+            ->select('employee_id', DB::raw('count(*) as target_days'))
+            ->groupBy('employee_id')
+            ->pluck('target_days', 'employee_id')->toArray();
+
+        $attendancesCount = DB::table('attendances')
+            ->whereIn('employee_id', $employeeIds)
+            ->whereBetween('attendance_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+            ->whereNotNull('checkin_at')
+            ->select('employee_id', DB::raw('count(*) as present_days'))
+            ->groupBy('employee_id')
+            ->pluck('present_days', 'employee_id')->toArray();
+
+        $leavesCount = DB::table('attendances')
+            ->whereIn('employee_id', $employeeIds)
+            ->whereBetween('attendance_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+            ->whereIn('status', ['leave', 'cuti', 'izin', 'sick', 'sakit'])
+            ->select('employee_id', DB::raw('count(*) as leave_days'))
+            ->groupBy('employee_id')
+            ->pluck('leave_days', 'employee_id')->toArray();
+
+        foreach ($employees as $emp) {
+            $target = $schedulesCount[$emp->id] ?? 26;
+            $present = $attendancesCount[$emp->id] ?? 0;
+            $leave = $leavesCount[$emp->id] ?? 0;
+            $pct = $target > 0 ? round(($present / $target) * 100, 1) : 0;
+
+            $mandaysData[] = [
+                'employee' => $emp,
+                'target_days' => $target,
+                'present_days' => $present,
+                'leave_days' => $leave,
+                'percentage' => $pct,
+            ];
+        }
+
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.mandays_report', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'employees', 'mandaysData', 'month', 'year', 'branchId', 'branches', 'search', 'setting'
+        ));
+    }
+
+    /**
+     * Turnover Report
+     */
+    public function turnoverReport(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $year = (int) ($request->query('year') ?? Carbon::now()->year);
+
+        // Calculate Monthly Turnover (Jan - Dec)
+        $turnoverRows = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $start = Carbon::create($year, $m, 1)->startOfMonth();
+            $end = $start->copy()->endOfMonth();
+
+            // Total employees active at start of month
+            $startCount = Employee::whereIn('principal_id', $scopedPrincipalIds)
+                ->where('join_date', '<', $start->format('Y-m-d'))
+                ->where(function($q) use ($start) {
+                    $q->whereNull('resign_date')
+                      ->orWhere('resign_date', '>=', $start->format('Y-m-d'));
+                })->count();
+
+            // Joined this month
+            $joined = Employee::whereIn('principal_id', $scopedPrincipalIds)
+                ->whereBetween('join_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+                ->count();
+
+            // Resigned this month
+            $resigned = Employee::whereIn('principal_id', $scopedPrincipalIds)
+                ->whereBetween('resign_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+                ->count();
+
+            // End count
+            $endCount = $startCount + $joined - $resigned;
+            $avg = ($startCount + $endCount) > 0 ? ($startCount + $endCount) / 2 : 1;
+            $rate = round(($resigned / $avg) * 100, 2);
+
+            $turnoverRows[] = [
+                'month_num' => $m,
+                'month_name' => $start->translatedFormat('F'),
+                'start_count' => $startCount,
+                'joined' => $joined,
+                'resigned' => $resigned,
+                'end_count' => $endCount,
+                'rate' => $rate,
+            ];
+        }
+
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.turnover_report', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'turnoverRows', 'year', 'setting'
         ));
     }
 }
