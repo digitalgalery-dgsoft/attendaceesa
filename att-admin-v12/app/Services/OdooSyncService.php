@@ -92,15 +92,27 @@ class OdooSyncService
     /**
      * Test connection and return Odoo server version.
      */
-    public function testConnection(): array
+    public function testConnection(?callable $progressCallback = null): array
     {
+        $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
+            if ($progressCallback && is_callable($progressCallback)) {
+                call_user_func($progressCallback, $type, $message, $meta);
+            }
+        };
+
+        $log('info', "📡 Menguji koneksi ke server Odoo ({$this->url})...");
         $version = $this->xmlRpcCall('/xmlrpc/2/common', 'version', []);
-        $uid     = $this->authenticate();
+        $serverVersion = $version['server_version'] ?? 'unknown';
+        $log('info', "ℹ️ Odoo Server terdeteksi versi: {$serverVersion}");
+
+        $log('info', "🔑 Mengautentikasi database '{$this->db}' dengan user '{$this->username}'...");
+        $uid = $this->authenticate();
+        $log('success', "🎉 Autentikasi BERHASIL! Terhubung sebagai UID: {$uid}");
 
         return [
             'success'       => true,
             'uid'           => $uid,
-            'server_version'=> $version['server_version'] ?? 'unknown',
+            'server_version'=> $serverVersion,
         ];
     }
 
@@ -108,9 +120,17 @@ class OdooSyncService
      * Sync Principals (res.partner with is_principal = True) from Odoo.
      * @param int $companyId - Local company ID to associate principals with
      * @param int|null $odooCompanyId - Odoo company_id to filter by (optional)
+     * @param callable|null $progressCallback - Optional callback for live progress streaming
      */
-    public function syncPrincipals(int $companyId, ?int $odooCompanyId = null): array
+    public function syncPrincipals(int $companyId, ?int $odooCompanyId = null, ?callable $progressCallback = null): array
     {
+        $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
+            if ($progressCallback && is_callable($progressCallback)) {
+                call_user_func($progressCallback, $type, $message, $meta);
+            }
+        };
+
+        $log('info', "🔑 Autentikasi ke Odoo untuk sync Principals...");
         $uid = $this->authenticate();
 
         $domain = [['is_principal', '=', true]];
@@ -123,8 +143,12 @@ class OdooSyncService
         $errors   = [];
         $offset   = 0;
         $limit    = 500;
+        $batchNum = 0;
 
         do {
+            $batchNum++;
+            $log('batch', "📦 Mengambil Principal Batch #{$batchNum} (Offset: {$offset}, Limit: {$limit})...");
+
             $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
                 $this->db, $uid, $this->apiKey,
                 'res.partner', 'search_read',
@@ -132,55 +156,67 @@ class OdooSyncService
                 ['fields' => ['id', 'name', 'code_principal', 'ref', 'active'], 'limit' => $limit, 'offset' => $offset],
             ]);
 
+            $recCount = count($records);
+            $log('info', "📥 Diterima {$recCount} data Principal dari Odoo.");
+
             foreach ($records as $rec) {
-            try {
-                $code = $rec['code_principal'] ?? $rec['ref'] ?? null;
-                $finalCode = $code ?: ('OD-' . $rec['id']);
+                try {
+                    $code = $rec['code_principal'] ?? $rec['ref'] ?? null;
+                    $finalCode = $code ?: ('OD-' . $rec['id']);
 
-                // 1. Try to find by odoo_id first
-                $principal = Principal::where('odoo_id', $rec['id'])->first();
+                    // 1. Try to find by odoo_id first
+                    $principal = Principal::where('odoo_id', $rec['id'])->first();
 
-                // 2. If not found, try to find by code
-                if (!$principal) {
-                    $principal = Principal::where('code', $finalCode)->first();
-                }
-
-                if ($principal) {
-                    // Check code conflict before update
-                    $conflict = Principal::where('code', $finalCode)->where('id', '!=', $principal->id)->first();
-                    if ($conflict) {
-                        $finalCode = $finalCode . '-OD' . $rec['id'];
+                    // 2. If not found, try to find by code
+                    if (!$principal) {
+                        $principal = Principal::where('code', $finalCode)->first();
                     }
 
-                    $principal->update([
-                        'odoo_id' => $rec['id'],
-                        'name' => $rec['name'],
-                        'code' => $finalCode,
-                        'company_id' => $companyId,
-                    ]);
-                    $updated++;
-                } else {
-                    // Check code conflict before create
-                    $conflict = Principal::where('code', $finalCode)->first();
-                    if ($conflict) {
-                        $finalCode = $finalCode . '-OD' . $rec['id'];
-                    }
+                    if ($principal) {
+                        // Check code conflict before update
+                        $conflict = Principal::where('code', $finalCode)->where('id', '!=', $principal->id)->first();
+                        if ($conflict) {
+                            $finalCode = $finalCode . '-OD' . $rec['id'];
+                        }
 
-                    Principal::create([
-                        'odoo_id' => $rec['id'],
-                        'name' => $rec['name'],
-                        'code' => $finalCode,
-                        'company_id' => $companyId,
-                    ]);
-                    $created++;
+                        $principal->update([
+                            'odoo_id' => $rec['id'],
+                            'name' => $rec['name'],
+                            'code' => $finalCode,
+                            'company_id' => $companyId,
+                        ]);
+                        $updated++;
+                        $log('updated', "🔄 [UPDATE] Principal: {$rec['name']} (Kode: {$finalCode})");
+                    } else {
+                        // Check code conflict before create
+                        $conflict = Principal::where('code', $finalCode)->first();
+                        if ($conflict) {
+                            $finalCode = $finalCode . '-OD' . $rec['id'];
+                        }
+
+                        Principal::create([
+                            'odoo_id' => $rec['id'],
+                            'name' => $rec['name'],
+                            'code' => $finalCode,
+                            'company_id' => $companyId,
+                        ]);
+                        $created++;
+                        $log('created', "➕ [BARU] Principal: {$rec['name']} (Kode: {$finalCode})");
+                    }
+                } catch (\Exception $e) {
+                    $errors[] = "Principal [{$rec['name']}]: " . $e->getMessage();
+                    $log('error', "⚠️ Error Principal [{$rec['name']}]: " . $e->getMessage());
+                    Log::error('Odoo Sync Principal Error', ['record' => $rec, 'error' => $e->getMessage()]);
                 }
-            } catch (\Exception $e) {
-                $errors[] = "Principal [{$rec['name']}]: " . $e->getMessage();
-                Log::error('Odoo Sync Principal Error', ['record' => $rec, 'error' => $e->getMessage()]);
             }
-        }
             $offset += $limit;
         } while (count($records) == $limit);
+
+        $log('summary', "🏢 Selesai Sync Principals! Total Baru: {$created} | Diperbarui: {$updated}" . (count($errors) > 0 ? " | Error: " . count($errors) : ""), [
+            'created' => $created,
+            'updated' => $updated,
+            'errors' => count($errors),
+        ]);
 
         return compact('created', 'updated', 'errors');
     }
@@ -189,9 +225,17 @@ class OdooSyncService
      * Sync Employees from Odoo hr.employee.
      * @param int $companyId - Local company ID to associate employees with
      * @param int|null $odooCompanyId - Odoo company_id to filter by
+     * @param callable|null $progressCallback - Optional callback for live progress streaming
      */
-    public function syncEmployees(int $companyId, ?int $odooCompanyId = null): array
+    public function syncEmployees(int $companyId, ?int $odooCompanyId = null, ?callable $progressCallback = null): array
     {
+        $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
+            if ($progressCallback && is_callable($progressCallback)) {
+                call_user_func($progressCallback, $type, $message, $meta);
+            }
+        };
+
+        $log('info', "🔑 Autentikasi ke Odoo untuk sync Employees...");
         $uid = $this->authenticate();
 
         $domain = [];
@@ -209,8 +253,12 @@ class OdooSyncService
         $resignedEmployees = [];
         $offset   = 0;
         $limit    = 500;
+        $batchNum = 0;
 
         do {
+            $batchNum++;
+            $log('batch', "📦 Mengambil Data Karyawan Batch #{$batchNum} (Offset: {$offset}, Limit: {$limit})...");
+
             $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
                 $this->db, $uid, $this->apiKey,
                 'hr.employee', 'search_read',
@@ -227,6 +275,9 @@ class OdooSyncService
                     'offset' => $offset,
                 ],
             ]);
+
+            $recCount = count($records);
+            $log('info', "📥 Diterima {$recCount} data karyawan dari Odoo (Total terambil: " . ($offset + $recCount) . ")...");
 
             foreach ($records as $rec) {
             try {
@@ -322,6 +373,7 @@ class OdooSyncService
 
                 // Resolve Area (Branch in local db) — auto-create if not found
                 $localBranchId = null;
+                $areaName = 'Pusat';
                 if (!empty($rec['area_id']) && is_array($rec['area_id'])) {
                     $areaName = $rec['area_id'][1];
                     $branch = \App\Models\Branch::firstOrCreate(
@@ -336,7 +388,7 @@ class OdooSyncService
 
                 // Resolve Position — auto-create if not found, assign principal_id & code
                 $positionId = null;
-                $posName = '';
+                $posName = 'Staff';
                 if (!empty($rec['job_id']) && is_array($rec['job_id'])) {
                     $posName    = $rec['job_id'][1];
                     $position   = Position::firstOrCreate(
@@ -412,10 +464,6 @@ class OdooSyncService
                         ?: $existingEmployees->first());
 
                     // PROTEKSI AKUN AKTIF LINTAS ENTITAS:
-                    // Jika data Odoo yang sedang diproses ini NON-AKTIF / RESIGN ($isActiveInOdoo == false),
-                    // TETAPI karyawan ini di database saat ini berstatus AKTIF ($primary->is_active == true)
-                    // dan berada di Principal/Company LAIN ($primary->principal_id != $principalId || $primary->company_id != $companyId):
-                    // MAKA: JANGAN ubah record aktifnya menjadi resign! (Abaikan data arsip/resign dari entitas lamanya).
                     if (!$isActiveInOdoo && $primary->is_active && ($primary->principal_id != $principalId || $primary->company_id != $companyId)) {
                         continue;
                     }
@@ -467,6 +515,7 @@ class OdooSyncService
                     if (!$isActiveInOdoo && $wasActive) {
                         $resigned++;
                         $resignedEmployees[] = ['name' => $rec['name'], 'nik' => $employeeNo];
+                        $log('resigned', "🚪 [RESIGN] [{$employeeNo}] {$rec['name']} — {$posName} ({$areaName})", ['nik' => $employeeNo, 'name' => $rec['name']]);
                     } elseif ($isDirty) {
                         $updated++;
                         $updatedEmployees[] = [
@@ -475,6 +524,7 @@ class OdooSyncService
                             'position' => $posName,
                             'changes' => array_keys($dirtyAttributes)
                         ];
+                        $log('updated', "🔄 [UPDATE] [{$employeeNo}] {$rec['name']} — " . implode(', ', array_keys($dirtyAttributes)), ['nik' => $employeeNo, 'name' => $rec['name']]);
                     }
                 } else {
                     Employee::create([
@@ -500,19 +550,35 @@ class OdooSyncService
                     if ($isActiveInOdoo) {
                         $created++;
                         $newEmployees[] = ['name' => $rec['name'], 'nik' => $employeeNo, 'position' => $posName];
+                        $log('created', "➕ [BARU] [{$employeeNo}] {$rec['name']} — {$posName} ({$areaName})", ['nik' => $employeeNo, 'name' => $rec['name']]);
                     } else {
                         $resigned++;
                         $resignedEmployees[] = ['name' => $rec['name'], 'nik' => $employeeNo];
+                        $log('resigned', "🚪 [RESIGN BARU] [{$employeeNo}] {$rec['name']} — {$posName} ({$areaName})", ['nik' => $employeeNo, 'name' => $rec['name']]);
                     }
                 }
 
             } catch (\Exception $e) {
                 $errors[] = "Employee [{$rec['name']}]: " . $e->getMessage();
+                $log('error', "⚠️ Error Employee [{$rec['name']}]: " . $e->getMessage());
                 Log::error('Odoo Sync Employee Error', ['record' => $rec, 'error' => $e->getMessage()]);
             }
         }
             $offset += $limit;
+            $log('progress', "📊 Status Progres: " . min($offset, $offset - $limit + $recCount) . " karyawan diproses (Baru: {$created}, Update: {$updated}, Resign: {$resigned})", [
+                'processed' => min($offset, $offset - $limit + $recCount),
+                'created' => $created,
+                'updated' => $updated,
+                'resigned' => $resigned
+            ]);
         } while (count($records) == $limit);
+
+        $log('summary', "👥 Selesai Sync Employees! Total Baru: {$created} | Diperbarui: {$updated} | Resign: {$resigned}" . (count($errors) > 0 ? " | Error: " . count($errors) : ""), [
+            'created' => $created,
+            'updated' => $updated,
+            'resigned' => $resigned,
+            'errors' => count($errors),
+        ]);
 
         return compact(
             'created',
@@ -528,9 +594,18 @@ class OdooSyncService
     /**
      * Run full sync for all companies with valid Odoo configuration.
      * Companies without configuration will be automatically skipped.
+     * @param string $triggerType - 'cron' or 'manual'
+     * @param string|null $batchId - Batch identifier
+     * @param callable|null $progressCallback - Optional callback for live progress streaming
      */
-    public static function syncAllConfiguredCompanies(string $triggerType = 'cron', ?string $batchId = null): array
+    public static function syncAllConfiguredCompanies(string $triggerType = 'cron', ?string $batchId = null, ?callable $progressCallback = null): array
     {
+        $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
+            if ($progressCallback && is_callable($progressCallback)) {
+                call_user_func($progressCallback, $type, $message, $meta);
+            }
+        };
+
         $batchId = $batchId ?: ('SYNC-' . date('Ymd-His') . '-' . \Illuminate\Support\Str::random(6));
 
         $companies = Company::where('is_active', true)
@@ -545,9 +620,12 @@ class OdooSyncService
             ->orderBy('id')
             ->get();
 
+        $totalCompanies = $companies->count();
+        $log('info', "🏢 Ditemukan {$totalCompanies} perusahaan aktif dengan konfigurasi Odoo lengkap.");
+
         $results = [
             'batch_id' => $batchId,
-            'companies_count' => $companies->count(),
+            'companies_count' => $totalCompanies,
             'companies' => [],
             'total_created' => 0,
             'total_updated' => 0,
@@ -556,7 +634,15 @@ class OdooSyncService
             'errors' => [],
         ];
 
+        $companyIndex = 0;
         foreach ($companies as $company) {
+            $companyIndex++;
+            $log('company_start', "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            $log('company_start', "🏢 [{$companyIndex}/{$totalCompanies}] MEMULAI SINKRONISASI: {$company->name} (DB: {$company->odoo_db})", [
+                'company_id' => $company->id,
+                'name' => $company->name
+            ]);
+
             $companyResult = [
                 'company_id' => $company->id,
                 'company_name' => $company->name,
@@ -572,14 +658,17 @@ class OdooSyncService
             try {
                 $service = self::fromCompany($company);
                 if (!$service) {
+                    $log('warning', "⚠️ Konfigurasi Odoo untuk {$company->name} tidak lengkap, dilewati.");
                     continue;
                 }
 
                 // 1. Sync Principals
-                $pResult = $service->syncPrincipals($company->id);
+                $log('info', "--- Sync Principals [{$company->name}] ---");
+                $pResult = $service->syncPrincipals($company->id, null, $progressCallback);
 
                 // 2. Sync Employees
-                $eResult = $service->syncEmployees($company->id);
+                $log('info', "--- Sync Employees [{$company->name}] ---");
+                $eResult = $service->syncEmployees($company->id, null, $progressCallback);
 
                 $companyResult['created'] = $eResult['created'] ?? 0;
                 $companyResult['updated'] = $eResult['updated'] ?? 0;
@@ -618,10 +707,14 @@ class OdooSyncService
                 $results['total_resigned'] += $companyResult['resigned'];
                 $results['total_employees'] += $totalActive;
 
+                $log('company_end', "✅ SELESAI SINKRONISASI: {$company->name} — Baru: {$companyResult['created']} | Update: {$companyResult['updated']} | Resign: {$companyResult['resigned']} | Total Karyawan: {$totalActive}");
+
             } catch (\Exception $e) {
                 $companyResult['status'] = 'failed';
                 $companyResult['errors'][] = $e->getMessage();
                 $results['errors'][] = "Company [{$company->name}]: " . $e->getMessage();
+
+                $log('error', "❌ GAGAL SINKRONISASI: {$company->name} — " . $e->getMessage());
 
                 \App\Models\OdooSyncLog::create([
                     'batch_id' => $batchId,
@@ -639,6 +732,13 @@ class OdooSyncService
 
             $results['companies'][$company->id] = $companyResult;
         }
+
+        $log('summary', "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        $log('summary', "🎉 SELURUH PERUSAHAAN SELESAI DISINKRONISASI ({$totalCompanies} Entitas)!\n" .
+            "   ➕ Total Baru: {$results['total_created']}\n" .
+            "   🔄 Total Update: {$results['total_updated']}\n" .
+            "   🚪 Total Resign: {$results['total_resigned']}\n" .
+            "   👥 Total Karyawan Aktif: {$results['total_employees']}");
 
         return $results;
     }
@@ -706,8 +806,16 @@ class OdooSyncService
     /**
      * Clean up all duplicate employees in database based on NIK (employee_no) and Principal (principal_id).
      */
-    public static function cleanupAllDuplicateEmployees(): int
+    public static function cleanupAllDuplicateEmployees(?callable $progressCallback = null): int
     {
+        $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
+            if ($progressCallback && is_callable($progressCallback)) {
+                call_user_func($progressCallback, $type, $message, $meta);
+            }
+        };
+
+        $log('info', "🔍 Memindai seluruh database untuk mendeteksi NIK ganda pada Prinsiple yang sama...");
+
         $duplicateGroups = Employee::withTrashed()
             ->select('employee_no', 'principal_id')
             ->whereNotNull('employee_no')
@@ -718,8 +826,18 @@ class OdooSyncService
             ->havingRaw('COUNT(*) > 1')
             ->get();
 
+        $groupCount = $duplicateGroups->count();
+        if ($groupCount === 0) {
+            $log('success', "✨ Bersih! Tidak ditemukan kelompok NIK duplikat.");
+            return 0;
+        }
+
+        $log('warning', "⚠️ Ditemukan {$groupCount} kelompok data NIK ganda. Memulai penggabungan data riwayat...");
+
         $totalCleaned = 0;
+        $index = 0;
         foreach ($duplicateGroups as $group) {
+            $index++;
             $records = Employee::withTrashed()
                 ->where('employee_no', $group->employee_no)
                 ->where('principal_id', $group->principal_id)
@@ -731,6 +849,7 @@ class OdooSyncService
 
                 $dupIds = $records->where('id', '!=', $primary->id)->pluck('id')->toArray();
                 if (!empty($dupIds)) {
+                    $log('item', "🧹 [{$index}/{$groupCount}] Menggabungkan {$records->count()} baris data NIK [{$group->employee_no}] {$primary->full_name} -> Akun Utama ID: {$primary->id}");
                     $service = new self('', '', '', '');
                     $service->mergeDuplicates($primary, $dupIds);
                     $totalCleaned += count($dupIds);
@@ -738,6 +857,7 @@ class OdooSyncService
             }
         }
 
+        $log('success', "🎉 Pembersihan selesai! Total {$totalCleaned} baris data duplikat berhasil digabungkan dan dibersihkan.");
         return $totalCleaned;
     }
 

@@ -137,6 +137,9 @@ Route::get('/cron/odoo-sync', function () {
 
 // User Impersonation Routes for Super Admin
 Route::middleware(['web'])->group(function () {
+    // Realtime SSE Terminal Streaming Route for Odoo Sync
+    Route::get('/admin/odoo-sync/stream', [\App\Http\Controllers\OdooSyncStreamController::class, 'stream'])->name('admin.odoo-sync.stream');
+
     // Start Impersonation
     Route::get('/admin/impersonate/{user}', function (\App\Models\User $user) {
         $currentUser = \Illuminate\Support\Facades\Auth::user();
