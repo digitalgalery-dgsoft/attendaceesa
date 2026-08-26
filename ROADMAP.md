@@ -394,7 +394,7 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 - [ ] **Fase 5 (Minggu 4 - 5 / Hari 20 - 22)**: Pengujian Menyeluruh (End-to-End Testing), Audit Keamanan Isolasi Data Tenant, Load Testing Query & Ekspor Laporan, serta UAT bersama Tim Prinsiple.
 - [ ] **Fase 6 (Minggu 5 / Hari 23 - 25)**: Konfigurasi Wildcard Subdomain DNS (*.appsend.my.id) & SSL di aaPanel, Deployment Production Live, Rilis Update Mobile App, serta Penyusunan User Manual & Handover.
 
-### 4. Log Progress Harian (24 Agustus 2026)
+### 4. Log Progress Harian (24 - 26 Agustus 2026)
 1. **Restriksi Menu Reporting di Mobile**:
    - Menambahkan accessor `has_reporting_templates` pada model `Employee.php`.
    - Mengubah `dashboard_screen.dart` dan `visit_report_screen.dart` agar menu dan banner Form Pelaporan disembunyikan untuk karyawan non-prinsiple / prinsiple tanpa form builder.
@@ -408,12 +408,14 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Membuat migration `2026_08_24_172000_seed_all_fonterra_reporting_templates.php` dan memperbarui `ReportTemplatePresetsSeeder.php` untuk memasukkan 11 jenis laporan lengkap dengan seluruh opsi pilihan dan validasi.
 5. **Interactive Date Picker & Time Picker di Mobile**:
    - Memperbaiki field bertipe `date`, `datepicker`, `time`, `timepicker`, dan `datetime` pada `dynamic_form_screen.dart` dari yang semula text biasa menjadi widget pemilih tanggal/jam interaktif.
-6. **Kompilasi APK & Deployment Server**:
-   - Kompilasi rilis APK terbaru (`app-release.apk`, 90.2 MB).
-   - Seluruh perubahan di-push ke GitHub repository `origin/main`.
-   - Berhasil dieksekusi deployment langsung ke server via webhook `deploy.php`.
+6. **Real-Time Terminal Streaming Engine Odoo Sync (SELESAI 26 Agustus 2026)**:
+   - Mengganti arsitektur request sinkronisasi Odoo yang semula AJAX Livewire sinkron (rentan timeout 503 / layar hitam) menjadi **Server-Sent Events (SSE) Real-Time Streaming**.
+   - Pembuatan controller `OdooSyncStreamController.php` dengan endpoint `/admin/odoo-sync/stream`.
+   - Menghubungkan callback progress langsung pada `OdooSyncService` (`syncPrincipals`, `syncEmployees`, `syncAllConfiguredCompanies`, `cleanupAllDuplicateEmployees`, `testConnection`).
+   - Merombak halaman `Odoo Sync` dengan tampilan **Jendela Konsol Terminal Linux** interaktif lengkap dengan kontrol window bar (🔴🟡🟢), status pills, counter metrik dinamis (Diproses, Baru, Update, Resign, Error), progress bar, auto-scroll toggle, salin log, tombol stop, serta tombol **Sync Semua Perusahaan Sekaligus**.
+   - Berhasil di-push ke GitHub dan di-deploy ke server live.
 
-### 5. Rencana Kerja untuk Dilanjutkan Besok (25 Agustus 2026)
+### 5. Rencana Kerja untuk Dilanjutkan (Fase 4 Subdomain Portal Prinsiple)
 1. **Portal Subdomain Prinsiple (Fase 4)**:
    - Pengujian login dan isolasi data tenant pada subdomain portal prinsiple (`fonterra.appsend.my.id`, `dulux.appsend.my.id`).
    - Penyempurnaan tabel data Laporan Masuk Dinamis di Web Admin & Portal Prinsiple agar kolom tabel dan detail view otomatis menampilkan isian field dinamis sesuai template.
@@ -431,6 +433,7 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Penambahan filter lanjutan pada laporan presensi dan ekspor data audit penyesuaian manual/import.
 2. **Peningkatan Skalabilitas & Media Storage:**
    - Integrasi penyimpanan awan (*Cloud Storage S3 / Spaces / GCS*) untuk media foto presensi dan laporan visit.
+
 
 
 
