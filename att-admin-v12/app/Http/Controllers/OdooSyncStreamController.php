@@ -26,7 +26,7 @@ class OdooSyncStreamController extends Controller
         $companyId = $request->get('company_id');
         $action = $request->get('action', 'all'); // 'test_connection', 'cleanup_duplicates', 'principals', 'employees', 'all', 'all_companies'
 
-        return new StreamedResponse(function () use ($companyId, $action) {
+        return new StreamedResponse(function () use ($companyId, $action, $request) {
             @ignore_user_abort(true);
             @set_time_limit(0);
             @ini_set('max_execution_time', '0');
