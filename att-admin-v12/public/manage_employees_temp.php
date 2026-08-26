@@ -48,6 +48,36 @@ if ($action === 'wipe' && isset($_POST['confirm_wipe'])) {
     }
 }
 
+// Diagnostic: Test Sync langsung tanpa SSE
+if ($action === 'test_sync') {
+    header('Content-Type: text/plain; charset=UTF-8');
+    @set_time_limit(0);
+    $companyName = $_GET['company'] ?? 'PT ANUGRAH TALENTA BERKARYA';
+    $company = Company::where('name', 'ilike', "%{$companyName}%")->first();
+    if (!$company) {
+        die("Company not found: {$companyName}\n");
+    }
+    echo "=== TESTING DIRECT SYNC FOR: {$company->name} (ID: {$company->id}) ===\n";
+    $service = \App\Services\OdooSyncService::fromCompany($company);
+    if (!$service) {
+        die("Odoo config incomplete for {$company->name}\n");
+    }
+    $logCallback = function($type, $msg, $meta = null) {
+        echo "[" . date('H:i:s') . "] [{$type}] {$msg}\n";
+        @flush();
+    };
+    try {
+        $res = $service->syncEmployees($company->id, null, $logCallback);
+        echo "\n=== SYNC COMPLETED SUCCESSFULLY ===\n";
+        print_r($res);
+    } catch (\Throwable $e) {
+        echo "\n💥 FATAL EXCEPTION: " . $e->getMessage() . "\n";
+        echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n";
+        echo "Trace:\n" . $e->getTraceAsString() . "\n";
+    }
+    exit;
+}
+
 // Statistik Data
 $totalAll = Employee::withTrashed()->count();
 $totalActive = Employee::where('is_active', true)->count();
