@@ -117,6 +117,61 @@ class OdooSyncStreamController extends Controller
                     return;
                 }
 
+                if ($action === 'init_employees') {
+                    $sendEvent('info', "👥 Menghubungkan ke Odoo & memeriksa total karyawan untuk {$company->name}...");
+                    $total = $service->countOdooEmployees($company->id);
+                    $limit = 250;
+                    $totalBatches = max(1, ceil($total / $limit));
+                    $sendEvent('init_done', "👥 Terdeteksi total {$total} data karyawan di Odoo. Akan diproses dalam {$totalBatches} batch.", [
+                        'total' => $total,
+                        'limit' => $limit,
+                        'total_batches' => $totalBatches,
+                    ]);
+                    return;
+                }
+
+                if ($action === 'batch_employees') {
+                    $offset = (int) $request->get('offset', 0);
+                    $limit  = (int) $request->get('limit', 250);
+                    $batch  = (int) $request->get('batch', 1);
+                    $total  = (int) $request->get('total', 0);
+
+                    $batchRes = $service->syncEmployeesBatch($company->id, $offset, $limit, null, $sendEvent, $batch, $total);
+                    $sendEvent('batch_done', "✅ Batch #{$batch} selesai diproses.", array_merge($batchRes, [
+                        'batch'  => $batch,
+                        'offset' => $offset,
+                    ]));
+                    return;
+                }
+
+                if ($action === 'finish_employees') {
+                    $created = (int) $request->get('created', 0);
+                    $updated = (int) $request->get('updated', 0);
+                    $resigned = (int) $request->get('resigned', 0);
+                    $errorsCount = (int) $request->get('errors', 0);
+
+                    $totalActive = Employee::where('company_id', $company->id)->where('is_active', true)->count();
+                    OdooSyncLog::create([
+                        'batch_id' => $batchId,
+                        'company_id' => $company->id,
+                        'sync_type' => 'employee',
+                        'trigger_type' => 'manual',
+                        'status' => $errorsCount === 0 ? 'success' : 'partial',
+                        'new_count' => $created,
+                        'update_count' => $updated,
+                        'resign_count' => $resigned,
+                        'total_employee_count' => $totalActive,
+                    ]);
+
+                    $sendEvent('done', "🎉 Seluruh proses sinkronisasi karyawan selesai! Total Baru: {$created} | Diperbarui: {$updated} | Resign: {$resigned}", [
+                        'status' => 'success',
+                        'created' => $created,
+                        'updated' => $updated,
+                        'resigned' => $resigned,
+                    ]);
+                    return;
+                }
+
                 if ($action === 'employees') {
                     $sendEvent('info', "👥 Memulai Sync Employees untuk: {$company->name}...");
                     $result = $service->syncEmployees($company->id, null, $sendEvent);

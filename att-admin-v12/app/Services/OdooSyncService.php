@@ -229,28 +229,10 @@ class OdooSyncService
     }
 
     /**
-     * Sync Employees from Odoo hr.employee.
-     * @param int $companyId - Local company ID to associate employees with
-     * @param int|null $odooCompanyId - Odoo company_id to filter by
-     * @param callable|null $progressCallback - Optional callback for live progress streaming
+     * Drop legacy PostgreSQL constraints that prevent multi-company sync.
      */
-    public function syncEmployees(int $companyId, ?int $odooCompanyId = null, ?callable $progressCallback = null): array
+    public static function dropLegacyConstraints(): void
     {
-        $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
-            if ($progressCallback && is_callable($progressCallback)) {
-                call_user_func($progressCallback, $type, $message, $meta);
-            }
-        };
-
-        $log('info', "🔑 Autentikasi ke Odoo untuk sync Employees...");
-        $uid = $this->authenticate();
-
-        $domain = [];
-        if ($odooCompanyId) {
-            $domain[] = ['company_id', '=', $odooCompanyId];
-        }
-
-        // Ensure database constraints allow multi-company/multi-principal records and non-unique odoo_id
         try {
             if (\Illuminate\Support\Facades\DB::getDriverName() === 'pgsql') {
                 \Illuminate\Support\Facades\DB::statement("ALTER TABLE employees DROP CONSTRAINT IF EXISTS employees_odoo_id_unique;");
@@ -263,11 +245,58 @@ class OdooSyncService
         } catch (\Throwable $e) {
             // Ignore if already dropped
         }
+    }
+
+    /**
+     * Query total number of employees in Odoo.
+     */
+    public function countOdooEmployees(int $companyId, ?int $odooCompanyId = null): int
+    {
+        self::dropLegacyConstraints();
+        $uid = $this->authenticate();
+        $domain = [];
+        if ($odooCompanyId) {
+            $domain[] = ['company_id', '=', $odooCompanyId];
+        }
+
+        try {
+            $countRes = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
+                $this->db, $uid, $this->apiKey,
+                'hr.employee', 'search_count',
+                [$domain],
+                ['context' => ['active_test' => false]],
+            ]);
+            if (is_int($countRes)) {
+                return $countRes;
+            }
+        } catch (\Throwable $e) {
+            Log::warning("OdooSync count error: " . $e->getMessage());
+        }
+
+        return 0;
+    }
+
+    /**
+     * Process a single batch of employees from Odoo.
+     */
+    public function syncEmployeesBatch(int $companyId, int $offset, int $limit = 250, ?int $odooCompanyId = null, ?callable $progressCallback = null, int $batchNum = 1, int $totalOdooEmployees = 0): array
+    {
+        $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
+            if ($progressCallback && is_callable($progressCallback)) {
+                call_user_func($progressCallback, $type, $message, $meta);
+            }
+        };
 
         \Illuminate\Support\Facades\DB::disableQueryLog();
         @set_time_limit(0);
         @ini_set('max_execution_time', '0');
         @ini_set('memory_limit', '1024M');
+
+        $uid = $this->authenticate();
+        $domain = [];
+        if ($odooCompanyId) {
+            $domain[] = ['company_id', '=', $odooCompanyId];
+        }
 
         $localCompany = Company::find($companyId);
         $created  = 0;
@@ -277,79 +306,55 @@ class OdooSyncService
         $newEmployees = [];
         $updatedEmployees = [];
         $resignedEmployees = [];
-        $offset   = 0;
-        $limit    = 250; // Optimized batch size for maximum throughput and stability
-        $batchNum = 0;
 
-        // Detect total count in Odoo upfront
-        $totalOdooEmployees = 0;
-        try {
-            $countRes = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
-                $this->db, $uid, $this->apiKey,
-                'hr.employee', 'search_count',
-                [$domain],
-                ['context' => ['active_test' => false]],
-            ]);
-            if (is_int($countRes)) {
-                $totalOdooEmployees = $countRes;
-            }
-        } catch (\Throwable $e) {
-            // Non-critical if count fails
-        }
+        $batchLabel = $totalOdooEmployees > 0 ? "Batch #{$batchNum}/" . ceil($totalOdooEmployees / $limit) : "Batch #{$batchNum}";
+        $log('batch', "📦 Mengambil Data Karyawan {$batchLabel} (Offset: {$offset}, Limit: {$limit})...", [
+            'batch' => $batchNum,
+            'offset' => $offset,
+            'limit' => $limit,
+            'total' => $totalOdooEmployees,
+        ]);
 
-        if ($totalOdooEmployees > 0) {
-            $totalBatches = ceil($totalOdooEmployees / $limit);
-            $log('info', "👥 Terdeteksi total {$totalOdooEmployees} data karyawan di Odoo. Memproses dalam {$totalBatches} batch (Ukuran per batch: {$limit})...");
-        } else {
-            $log('info', "👥 Menginisialisasi pengambilan data karyawan dari Odoo (Batch size: {$limit})...");
-        }
+        $records = [];
+        $attempts = 0;
+        $maxAttempts = 3;
 
-        do {
-            @set_time_limit(0);
-            $batchNum++;
-            $batchLabel = $totalOdooEmployees > 0 ? "Batch #{$batchNum}/" . ceil($totalOdooEmployees / $limit) : "Batch #{$batchNum}";
-            $log('batch', "📦 Mengambil Data Karyawan {$batchLabel} (Offset: {$offset}, Limit: {$limit})...");
-
-            $records = [];
-            $attempts = 0;
-            $maxAttempts = 3;
-
-            while ($attempts < $maxAttempts) {
-                $attempts++;
-                try {
-                    $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
-                        $this->db, $uid, $this->apiKey,
-                        'hr.employee', 'search_read',
-                        [$domain],
-                        [
-                            'fields' => [
-                                'id', 'name', 'registration_number', 'identification_id',
-                                'mobile_phone', 'work_email', 'private_email', 'gender', 'birthday',
-                                'department_id', 'job_id', 'principle_id', 'first_contract_date',
-                                'area_id', 'company_id', 'active', 'departure_date',
-                            ],
-                            'context' => ['active_test' => false],
-                            'limit' => $limit,
-                            'offset' => $offset,
+        while ($attempts < $maxAttempts) {
+            $attempts++;
+            try {
+                $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
+                    $this->db, $uid, $this->apiKey,
+                    'hr.employee', 'search_read',
+                    [$domain],
+                    [
+                        'fields' => [
+                            'id', 'name', 'registration_number', 'identification_id',
+                            'mobile_phone', 'work_email', 'private_email', 'gender', 'birthday',
+                            'department_id', 'job_id', 'principle_id', 'first_contract_date',
+                            'area_id', 'company_id', 'active', 'departure_date',
                         ],
-                    ]);
-                    break;
-                } catch (\Throwable $e) {
-                    if ($attempts >= $maxAttempts) {
-                        $log('error', "❌ Gagal mengambil {$batchLabel} setelah {$maxAttempts} kali percobaan: " . $e->getMessage());
-                        throw $e;
-                    }
-                    $log('warning', "⚠️ Percobaan {$attempts} gagal mengambil {$batchLabel} ({$e->getMessage()}). Mencoba ulang dalam 2 detik...");
-                    sleep(2);
+                        'context' => ['active_test' => false],
+                        'limit' => $limit,
+                        'offset' => $offset,
+                    ],
+                ]);
+                break;
+            } catch (\Throwable $e) {
+                if ($attempts >= $maxAttempts) {
+                    $log('error', "❌ Gagal mengambil {$batchLabel} setelah {$maxAttempts} kali percobaan: " . $e->getMessage());
+                    throw $e;
                 }
+                $log('warning', "⚠️ Percobaan {$attempts} gagal mengambil {$batchLabel} ({$e->getMessage()}). Mencoba ulang dalam 2 detik...");
+                sleep(2);
             }
+        }
 
-            $recCount = count($records);
-            $totalProcessedSoFar = $offset + $recCount;
-            $percentText = $totalOdooEmployees > 0 ? " (" . round(($totalProcessedSoFar / $totalOdooEmployees) * 100) . "%)" : "";
-            $log('info', "📥 Diterima {$recCount} data karyawan dari Odoo. Total terambil: {$totalProcessedSoFar}" . ($totalOdooEmployees > 0 ? " / {$totalOdooEmployees}" : "") . "{$percentText}...");
+        $recCount = count($records);
+        $totalProcessedSoFar = $offset + $recCount;
+        $percentText = $totalOdooEmployees > 0 ? " (" . round(($totalProcessedSoFar / $totalOdooEmployees) * 100) . "%)" : "";
+        $log('info', "📥 Diterima {$recCount} data karyawan dari Odoo. Total terambil: {$totalProcessedSoFar}" . ($totalOdooEmployees > 0 ? " / {$totalOdooEmployees}" : "") . "{$percentText}...");
 
-            foreach ($records as $rec) {
+        foreach ($records as $rec) {
             try {
                 // List of all internal company names
                 $allInternalCompanyNames = [
@@ -520,11 +525,8 @@ class OdooSyncService
                 $email = $cleanStr($rec['private_email'] ?? null) ?: $cleanStr($rec['work_email'] ?? null);
 
                 // Map gender
-                $gender = match ($rec['gender'] ?? '') {
-                    'male'   => 'male',
-                    'female' => 'female',
-                    default  => null,
-                };
+                $rawGender = strtolower(trim((string)($rec['gender'] ?? '')));
+                $gender = ($rawGender === 'male' || $rawGender === 'female') ? $rawGender : null;
 
                 // Employee no — prefer identification_id (NIK / No. KTP)
                 $rawNik = $cleanStr($rec['identification_id'] ?? null);
@@ -670,41 +672,76 @@ class OdooSyncService
                 Log::error('Odoo Sync Employee Error', ['record' => $rec, 'error' => $e->getMessage()]);
             }
         }
+
+        return [
+            'count'    => $recCount,
+            'created'  => $created,
+            'updated'  => $updated,
+            'resigned' => $resigned,
+            'errors'   => $errors,
+        ];
+    }
+
+    /**
+     * Full Sync Employees from Odoo hr.employee (loops through all batches).
+     */
+    public function syncEmployees(int $companyId, ?int $odooCompanyId = null, ?callable $progressCallback = null): array
+    {
+        $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
+            if ($progressCallback && is_callable($progressCallback)) {
+                call_user_func($progressCallback, $type, $message, $meta);
+            }
+        };
+
+        $totalOdooEmployees = $this->countOdooEmployees($companyId, $odooCompanyId);
+        $limit = 250;
+        $offset = 0;
+        $batchNum = 0;
+        $totalCreated = 0;
+        $totalUpdated = 0;
+        $totalResigned = 0;
+        $allErrors = [];
+
+        if ($totalOdooEmployees > 0) {
+            $totalBatches = ceil($totalOdooEmployees / $limit);
+            $log('info', "👥 Terdeteksi total {$totalOdooEmployees} data karyawan di Odoo. Memproses dalam {$totalBatches} batch (Ukuran per batch: {$limit})...");
+        }
+
+        do {
+            $batchNum++;
+            $batchRes = $this->syncEmployeesBatch($companyId, $offset, $limit, $odooCompanyId, $progressCallback, $batchNum, $totalOdooEmployees);
+            $totalCreated += $batchRes['created'];
+            $totalUpdated += $batchRes['updated'];
+            $totalResigned += $batchRes['resigned'];
+            $allErrors = array_merge($allErrors, $batchRes['errors']);
             $offset += $limit;
-            $currentTotalProcessed = min($offset, $offset - $limit + $recCount);
+
+            $currentTotalProcessed = min($offset, $totalOdooEmployees > 0 ? $totalOdooEmployees : $offset);
             $progressPercent = $totalOdooEmployees > 0 ? min(100, round(($currentTotalProcessed / $totalOdooEmployees) * 100)) : 50;
 
-            $log('progress', "📊 Status Progres: {$currentTotalProcessed}" . ($totalOdooEmployees > 0 ? " / {$totalOdooEmployees} ({$progressPercent}%)" : "") . " (Baru: {$created}, Update: {$updated}, Resign: {$resigned})", [
+            $log('progress', "📊 Status Progres: {$currentTotalProcessed}" . ($totalOdooEmployees > 0 ? " / {$totalOdooEmployees} ({$progressPercent}%)" : "") . " (Baru: {$totalCreated}, Update: {$totalUpdated}, Resign: {$totalResigned})", [
                 'processed' => $currentTotalProcessed,
-                'total' => $totalOdooEmployees,
-                'progress' => $progressPercent,
-                'created' => $created,
-                'updated' => $updated,
-                'resigned' => $resigned
+                'total'     => $totalOdooEmployees,
+                'progress'  => $progressPercent,
+                'created'   => $totalCreated,
+                'updated'   => $totalUpdated,
+                'resigned'  => $totalResigned,
             ]);
+        } while ($batchRes['count'] == $limit);
 
-            unset($records);
-            if (function_exists('gc_collect_cycles')) {
-                gc_collect_cycles();
-            }
-        } while ($recCount == $limit);
-
-        $log('summary', "👥 Selesai Sync Employees! Total Baru: {$created} | Diperbarui: {$updated} | Resign: {$resigned}" . (count($errors) > 0 ? " | Error: " . count($errors) : ""), [
-            'created' => $created,
-            'updated' => $updated,
-            'resigned' => $resigned,
-            'errors' => count($errors),
+        $log('summary', "👥 Selesai Sync Employees! Total Baru: {$totalCreated} | Diperbarui: {$totalUpdated} | Resign: {$totalResigned}" . (count($allErrors) > 0 ? " | Error: " . count($allErrors) : ""), [
+            'created'  => $totalCreated,
+            'updated'  => $totalUpdated,
+            'resigned' => $totalResigned,
+            'errors'   => count($allErrors),
         ]);
 
-        return compact(
-            'created',
-            'updated',
-            'resigned',
-            'errors',
-            'newEmployees',
-            'updatedEmployees',
-            'resignedEmployees'
-        );
+        return [
+            'created'  => $totalCreated,
+            'updated'  => $totalUpdated,
+            'resigned' => $totalResigned,
+            'errors'   => $allErrors,
+        ];
     }
 
     /**
@@ -981,12 +1018,15 @@ class OdooSyncService
 
     private function mapEmploymentStatus(string $odooType): string
     {
-        return match ($odooType) {
-            'employee'  => 'permanent',
-            'student'   => 'intern',
-            'freelance' => 'contract',
-            default     => 'contract',
-        };
+        switch ($odooType) {
+            case 'employee':
+                return 'permanent';
+            case 'student':
+                return 'intern';
+            case 'freelance':
+            default:
+                return 'contract';
+        }
     }
 
     /**

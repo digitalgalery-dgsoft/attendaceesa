@@ -492,22 +492,23 @@
             </div>
 
             {{-- Prominent Progress Bar Section --}}
-            <div style="background: #090d16; padding: 12px 18px; border-bottom: 1px solid #1e293b;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-family: ui-monospace, monospace; font-size: 11px;">
+            <div style="background: #090d16; padding: 14px 18px; border-bottom: 1px solid #1e293b;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-family: ui-monospace, monospace; font-size: 11px;">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="color: #94a3b8; font-weight: 700;">PROGRES SYNC:</span>
                         <span style="color: #38bdf8; font-weight: 800;" x-text="metrics.processed + ' / ' + (totalEmployees > 0 ? totalEmployees : '...') + ' Karyawan'">0 / ... Karyawan</span>
                         <template x-if="currentBatchText">
-                            <span style="color: #a78bfa; font-weight: 600;" x-text="'(' + currentBatchText + ')'"></span>
+                            <span style="color: #a78bfa; font-weight: 700; background: rgba(167, 139, 250, 0.15); padding: 1px 6px; border-radius: 4px;" x-text="'(' + currentBatchText + ')'"></span>
                         </template>
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <span style="color: #34d399; font-weight: 800; font-size: 12px;" x-text="progressPercent + '%'">0%</span>
-                        <span style="color: #64748b;">SELESAI</span>
+                        <span style="color: #34d399; font-weight: 900; font-size: 13px;" x-text="progressPercent + '%'">0%</span>
+                        <span style="color: #64748b; font-weight: 700;">SELESAI</span>
                     </div>
                 </div>
-                <div style="width: 100%; height: 8px; background: #1e293b; border-radius: 9999px; overflow: hidden; position: relative; border: 1px solid #334155;">
-                    <div style="height: 100%; background: linear-gradient(90deg, #38bdf8 0%, #34d399 50%, #10b981 100%); border-radius: 9999px; transition: width 0.4s ease-out; box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);" x-bind:style="'width: ' + progressPercent + '%'"></div>
+                {{-- Visible High-Contrast Progress Track & Bar --}}
+                <div style="width: 100%; height: 12px; background: #1e293b; border-radius: 6px; overflow: hidden; position: relative; border: 1px solid #334155; padding: 1px;">
+                    <div style="height: 100%; min-width: 0%; border-radius: 4px; background: linear-gradient(90deg, #38bdf8 0%, #34d399 50%, #10b981 100%); transition: width 0.3s ease-out; box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);" :style="'width: ' + progressPercent + '%'"></div>
                 </div>
             </div>
 
@@ -516,8 +517,8 @@
                 
                 {{-- Welcome / Standby message --}}
                 <div style="color: #64748b; padding-bottom: 8px; border-bottom: 1px solid #1e293b; margin-bottom: 8px; user-select: none;">
-                    <div>ESA Odoo Sync Engine v2.0 [Real-time Stream Edition]</div>
-                    <div>Klik tombol di atas untuk memulai sinkronisasi. Log aktivitas tiap entitas & batch akan tampil di bawah ini secara langsung tanpa jeda atau timeout.</div>
+                    <div>ESA Odoo Sync Engine v2.0 [Real-time Chunked Stream Edition]</div>
+                    <div>Klik tombol di atas untuk memulai sinkronisasi. Log aktivitas tiap entitas & batch akan tampil di bawah ini secara langsung tanpa timeout.</div>
                 </div>
 
                 {{-- Dynamic Stream Logs --}}
@@ -556,24 +557,25 @@
                         <template x-if="log.type === 'warning'">
                             <span style="color: #fbbf24; font-weight: 600;" x-text="log.message"></span>
                         </template>
-                        <template x-if="log.type === 'info' || log.type === 'item'">
-                            <span style="color: #cbd5e1;" x-text="log.message"></span>
+                        <template x-if="log.type === 'info'">
+                            <span style="color: #e2e8f0;" x-text="log.message"></span>
                         </template>
                     </div>
                 </template>
 
-                {{-- Cursor Blinking --}}
-                <div style="display: flex; align-items: center; gap: 4px; padding-top: 4px; color: #38bdf8; font-weight: 800; user-select: none;" x-show="isRunning">
-                    <span>❯</span>
-                    <span style="display: inline-block; width: 8px; height: 14px; background: #38bdf8;"></span>
+                {{-- Blinking terminal prompt --}}
+                <div style="display: flex; align-items: center; gap: 8px; padding: 4px; margin-top: 4px; color: #64748b;">
+                    <span style="color: #34d399; font-weight: 800;">❯</span>
+                    <span style="display: inline-block; width: 8px; height: 14px; background: #38bdf8; animation: odoo-pulse 1s infinite;"></span>
+                    <template x-if="isRunning">
+                        <span style="color: #94a3b8; font-size: 11px;" x-text="'Sedang memproses... ' + (currentBatchText ? '(' + currentBatchText + ')' : '')"></span>
+                    </template>
                 </div>
             </div>
-
         </div>
 
     </div>
 
-    {{-- Script AlpineJS Engine untuk Real-time SSE Terminal --}}
     <script>
         function odooSyncEngine() {
             return {
@@ -583,6 +585,7 @@
                 statusText: 'STANDBY',
                 progressPercent: 0,
                 totalEmployees: 0,
+                totalBatches: 0,
                 currentBatchText: '',
                 autoScroll: true,
                 eventSource: null,
@@ -600,10 +603,50 @@
                 },
 
                 init() {
-                    console.log('Odoo Sync Engine Initialized');
+                    console.log('Odoo Sync Chunked Engine Initialized');
                 },
 
-                startSync(action) {
+                // Helper to stream a single request URL via EventSource returning a Promise
+                streamUrl(url, onMessageCallback) {
+                    return new Promise((resolve) => {
+                        if (!this.isRunning) return resolve(null);
+
+                        if (this.eventSource) {
+                            this.eventSource.close();
+                            this.eventSource = null;
+                        }
+
+                        this.eventSource = new EventSource(url);
+
+                        this.eventSource.onmessage = (event) => {
+                            try {
+                                const data = JSON.parse(event.data);
+                                this.handleStreamMessage(data);
+                                if (onMessageCallback) onMessageCallback(data);
+
+                                if (data.type === 'done' || data.type === 'init_done' || data.type === 'batch_done') {
+                                    if (this.eventSource) {
+                                        this.eventSource.close();
+                                        this.eventSource = null;
+                                    }
+                                    resolve(data);
+                                }
+                            } catch (e) {
+                                console.error('Error parsing SSE event:', e, event.data);
+                            }
+                        };
+
+                        this.eventSource.onerror = (err) => {
+                            if (this.eventSource) {
+                                this.eventSource.close();
+                                this.eventSource = null;
+                            }
+                            resolve(null);
+                        };
+                    });
+                },
+
+                async startSync(action) {
                     if (this.isRunning) return;
 
                     const companySelect = this.$refs.companySelect;
@@ -617,63 +660,104 @@
                     this.isRunning = true;
                     this.isFinished = false;
                     this.currentAction = action;
-                    this.statusText = 'CONNECTING...';
+                    this.statusText = 'STARTING...';
                     this.progressPercent = 0;
                     this.totalEmployees = 0;
+                    this.totalBatches = 0;
                     this.currentBatchText = '';
                     this.metrics = { processed: 0, created: 0, updated: 0, resigned: 0, errors: 0 };
 
-                    // Scroll terminal into view
                     document.getElementById('odoo-terminal-container')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-                    const timeStr = new Date().toLocaleTimeString('id-ID', { hour12: false });
-                    this.logs.push({
-                        time: timeStr,
-                        type: 'info',
-                        message: '▶️ Memulai proses [' + action.toUpperCase() + ']... Menghubungkan ke engine Odoo.'
-                    });
+                    if (action === 'employees') {
+                        await this.runEmployeesChunked(companyId);
+                    } else if (action === 'all') {
+                        // 1. Sync Principals first
+                        this.logMessage('info', '--- TAHAP 1: SINKRONISASI PRINCIPALS ---');
+                        const pUrl = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=principals&_t=' + Date.now();
+                        await this.streamUrl(pUrl);
 
-                    // Construct SSE endpoint URL
-                    const url = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=' + encodeURIComponent(action) + '&_t=' + Date.now();
+                        if (!this.isRunning) return;
 
-                    if (this.eventSource) {
-                        this.eventSource.close();
+                        // 2. Sync Employees chunked
+                        this.logMessage('info', '--- TAHAP 2: SINKRONISASI EMPLOYEES ---');
+                        await this.runEmployeesChunked(companyId);
+                    } else {
+                        // Single direct stream actions (principals, cleanup_duplicates, test_connection, all_companies)
+                        const url = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=' + encodeURIComponent(action) + '&_t=' + Date.now();
+                        await this.streamUrl(url);
+                        this.finishSync();
+                    }
+                },
+
+                async runEmployeesChunked(companyId) {
+                    this.statusText = 'CHECKING ODOO...';
+                    this.logMessage('info', '▶️ Memulai proses sinkronisasi karyawan. Memeriksa total data di Odoo...');
+
+                    // Step 1: Initialize & count total records in Odoo
+                    const initUrl = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=init_employees&_t=' + Date.now();
+                    const initRes = await this.streamUrl(initUrl);
+
+                    if (!this.isRunning) return;
+
+                    const total = (initRes && initRes.meta && initRes.meta.total) ? initRes.meta.total : 0;
+                    const limit = (initRes && initRes.meta && initRes.meta.limit) ? initRes.meta.limit : 250;
+                    const totalBatches = (initRes && initRes.meta && initRes.meta.total_batches) ? initRes.meta.total_batches : 1;
+
+                    this.totalEmployees = total;
+                    this.totalBatches = totalBatches;
+
+                    // Step 2: Loop each batch step by step (Zero-timeout, completely isolated requests)
+                    for (let b = 1; b <= totalBatches; b++) {
+                        if (!this.isRunning) break;
+
+                        const offset = (b - 1) * limit;
+                        this.currentBatchText = 'Batch #' + b + '/' + totalBatches;
+                        this.statusText = 'BATCH #' + b + '/' + totalBatches;
+
+                        const batchUrl = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=batch_employees&offset=' + offset + '&limit=' + limit + '&batch=' + b + '&total=' + total + '&_t=' + Date.now();
+
+                        let batchSuccess = false;
+                        let retryCount = 0;
+
+                        while (!batchSuccess && retryCount < 3 && this.isRunning) {
+                            retryCount++;
+                            const batchRes = await this.streamUrl(batchUrl, (data) => {
+                                if (data.type === 'batch_done' && data.meta) {
+                                    if (data.meta.created) this.metrics.created += data.meta.created;
+                                    if (data.meta.updated) this.metrics.updated += data.meta.updated;
+                                    if (data.meta.resigned) this.metrics.resigned += data.meta.resigned;
+                                    if (data.meta.count !== undefined) this.metrics.processed += data.meta.count;
+                                    if (data.meta.errors && data.meta.errors.length) this.metrics.errors += data.meta.errors.length;
+
+                                    if (total > 0) {
+                                        this.progressPercent = Math.min(100, Math.round((this.metrics.processed / total) * 100));
+                                    }
+                                }
+                            });
+
+                            if (batchRes && batchRes.type === 'batch_done') {
+                                batchSuccess = true;
+                            } else if (this.isRunning && retryCount < 3) {
+                                this.logMessage('warning', '⚠️ Mencoba ulang Batch #' + b + ' (Percobaan ' + (retryCount + 1) + ')...');
+                                await new Promise(r => setTimeout(r, 2000));
+                            }
+                        }
                     }
 
-                    this.eventSource = new EventSource(url);
+                    if (!this.isRunning) return;
 
-                    this.eventSource.onopen = () => {
-                        this.statusText = 'STREAM ACTIVE';
-                    };
+                    // Step 3: Finalize & Save sync log
+                    this.progressPercent = 100;
+                    this.statusText = 'FINALIZING...';
+                    const finishUrl = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=finish_employees&created=' + this.metrics.created + '&updated=' + this.metrics.updated + '&resigned=' + this.metrics.resigned + '&errors=' + this.metrics.errors + '&_t=' + Date.now();
+                    await this.streamUrl(finishUrl);
 
-                    this.eventSource.onmessage = (event) => {
-                        try {
-                            const data = JSON.parse(event.data);
-                            this.handleStreamMessage(data);
-                        } catch (e) {
-                            console.error('Error parsing SSE event:', e, event.data);
-                        }
-                    };
-
-                    this.eventSource.onerror = (err) => {
-                        if (this.eventSource && this.eventSource.readyState === EventSource.CONNECTING) {
-                            this.statusText = 'MEMPROSES BATCH...';
-                            return;
-                        }
-                        if (this.isRunning && !this.isFinished) {
-                            const nowTime = new Date().toLocaleTimeString('id-ID', { hour12: false });
-                            this.logs.push({
-                                time: nowTime,
-                                type: 'info',
-                                message: '🏁 Koneksi stream selesai.'
-                            });
-                            this.finishSync();
-                        }
-                    };
+                    this.finishSync();
                 },
 
                 handleStreamMessage(data) {
-                    if (data.type === 'ping') return;
+                    if (!data || data.type === 'ping') return;
 
                     const time = data.time || new Date().toLocaleTimeString('id-ID', { hour12: false });
                     const type = data.type || 'info';
@@ -682,40 +766,19 @@
 
                     this.logs.push({ time: time, type: type, message: message });
 
-                    // Update Metrics
                     if (type === 'created') this.metrics.created++;
                     if (type === 'updated') this.metrics.updated++;
                     if (type === 'resigned') this.metrics.resigned++;
                     if (type === 'error') this.metrics.errors++;
 
-                    if (meta.created !== undefined) this.metrics.created = meta.created;
-                    if (meta.updated !== undefined) this.metrics.updated = meta.updated;
-                    if (meta.resigned !== undefined) this.metrics.resigned = meta.resigned;
-                    if (meta.processed !== undefined) this.metrics.processed = meta.processed;
-                    if (meta.errors !== undefined) this.metrics.errors = meta.errors;
-                    if (meta.total !== undefined && meta.total > 0) this.totalEmployees = meta.total;
-                    if (meta.progress !== undefined) this.progressPercent = meta.progress;
-
-                    // Update Status text and batch badge
+                    // Update Status text
                     if (type === 'company_start') {
                         this.statusText = meta.name ? 'SYNC: ' + meta.name : 'SYNCING...';
                     }
 
-                    if (type === 'batch') {
-                        this.currentBatchText = meta.batch ? 'Batch #' + meta.batch : (message.includes('Batch #') ? message.substring(message.indexOf('Batch #')).split('(')[0].trim() : 'Processing');
-                    }
-
-                    if (type === 'progress') {
-                        this.statusText = 'SYNCING (' + (this.totalEmployees > 0 ? this.metrics.processed + '/' + this.totalEmployees : this.metrics.processed) + ')';
-                        if (meta.progress !== undefined) {
-                            this.progressPercent = meta.progress;
-                        }
-                    }
-
                     if (type === 'done') {
                         this.progressPercent = 100;
-                        this.statusText = meta.status === 'success' ? 'COMPLETED' : 'FAILED';
-                        this.finishSync();
+                        this.statusText = 'COMPLETED';
                     }
 
                     // Auto scroll to bottom
@@ -729,17 +792,23 @@
                     }
                 },
 
+                logMessage(type, message) {
+                    const timeStr = new Date().toLocaleTimeString('id-ID', { hour12: false });
+                    this.logs.push({ time: timeStr, type: type, message: message });
+                    if (this.autoScroll) {
+                        this.$nextTick(() => {
+                            const box = this.$refs.terminalBox;
+                            if (box) box.scrollTop = box.scrollHeight;
+                        });
+                    }
+                },
+
                 stopSync() {
                     if (this.eventSource) {
                         this.eventSource.close();
                         this.eventSource = null;
                     }
-                    const timeStr = new Date().toLocaleTimeString('id-ID', { hour12: false });
-                    this.logs.push({
-                        time: timeStr,
-                        type: 'warning',
-                        message: '⏹️ Proses sinkronisasi dihentikan oleh user.'
-                    });
+                    this.logMessage('warning', '⏹️ Proses sinkronisasi dihentikan oleh user.');
                     this.finishSync();
                 },
 
@@ -750,13 +819,18 @@
                         this.eventSource.close();
                         this.eventSource = null;
                     }
+                    this.statusText = 'STANDBY';
                 },
 
                 clearLogs() {
                     this.logs = [];
                     this.progressPercent = 0;
+                    this.totalEmployees = 0;
+                    this.totalBatches = 0;
+                    this.currentBatchText = '';
                     this.metrics = { processed: 0, created: 0, updated: 0, resigned: 0, errors: 0 };
                     this.isFinished = false;
+                    this.statusText = 'STANDBY';
                 },
 
                 toggleAutoScroll() {
