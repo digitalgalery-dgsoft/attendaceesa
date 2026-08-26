@@ -15,6 +15,8 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class EmployeesTable
 {
@@ -33,10 +35,24 @@ class EmployeesTable
                     ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->full_name) . '&background=7367F0&color=fff'),
                 TextColumn::make('employee_no')
                     ->label('NIK / No Karyawan')
-                    ->searchable(),
+                    ->searchable(query: function (Builder $query, string $search) {
+                        $driver = DB::getDriverName();
+                        if ($driver === 'pgsql') {
+                            $query->where('employee_no', 'ilike', "%{$search}%");
+                        } else {
+                            $query->where('employee_no', 'like', "%{$search}%");
+                        }
+                    }),
                 TextColumn::make('full_name')
                     ->label('Nama Karyawan')
-                    ->searchable(),
+                    ->searchable(query: function (Builder $query, string $search) {
+                        $driver = DB::getDriverName();
+                        if ($driver === 'pgsql') {
+                            $query->where('full_name', 'ilike', "%{$search}%");
+                        } else {
+                            $query->where('full_name', 'like', "%{$search}%");
+                        }
+                    }),
                 TextColumn::make('company.name')
                     ->label('Company')
                     ->sortable()

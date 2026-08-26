@@ -435,12 +435,42 @@ class OdooSyncService
                     $positionId = $position->id;
                 }
 
+                // Helper to clean Odoo XML-RPC values
+                $cleanStr = function ($val) {
+                    if ($val === null || $val === false || $val === 'false' || $val === 'null') {
+                        return null;
+                    }
+                    $str = trim((string) $val);
+                    return $str !== '' ? $str : null;
+                };
+
+                $cleanDate = function ($dateVal) use ($cleanStr) {
+                    $str = $cleanStr($dateVal);
+                    if (!$str || $str === '0000-00-00') {
+                        return null;
+                    }
+                    return preg_match('/^\d{4}-\d{2}-\d{2}/', $str) ? substr($str, 0, 10) : null;
+                };
+
                 // Map employment status & active status
-                $isActiveInOdoo = isset($rec['active']) ? (bool) $rec['active'] : true;
-                if (!empty($rec['departure_date'])) {
+                $isActiveInOdoo = true;
+                if (isset($rec['active'])) {
+                    $parsedActive = filter_var($rec['active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                    if ($parsedActive !== null) {
+                        $isActiveInOdoo = $parsedActive;
+                    }
+                }
+
+                $departureDate = $cleanDate($rec['departure_date'] ?? null);
+                if ($departureDate && strtotime($departureDate) && strtotime($departureDate) <= time()) {
                     $isActiveInOdoo = false;
                 }
+
                 $employmentStatus = $isActiveInOdoo ? 'contract' : 'resigned';
+                $birthDate = $cleanDate($rec['birthday'] ?? null);
+                $joinDate = $cleanDate($rec['first_contract_date'] ?? null);
+                $phone = $cleanStr($rec['mobile_phone'] ?? null);
+                $email = $cleanStr($rec['private_email'] ?? null) ?: $cleanStr($rec['work_email'] ?? null);
 
                 // Map gender
                 $gender = match ($rec['gender'] ?? '') {
@@ -450,8 +480,8 @@ class OdooSyncService
                 };
 
                 // Employee no — prefer identification_id (NIK / No. KTP)
-                $rawNik = !empty($rec['identification_id']) ? trim((string) $rec['identification_id']) : null;
-                $rawRegNo = !empty($rec['registration_number']) ? trim((string) $rec['registration_number']) : null;
+                $rawNik = $cleanStr($rec['identification_id'] ?? null);
+                $rawRegNo = $cleanStr($rec['registration_number'] ?? null);
                 $employeeNo = $rawNik ?: ($rawRegNo ?: ('OD-' . $rec['id']));
 
                 // Look up existing employee:
@@ -497,6 +527,11 @@ class OdooSyncService
                         continue;
                     }
 
+                    // If trashed, restore it so it becomes visible in all normal queries
+                    if ($primary->trashed()) {
+                        $primary->restore();
+                    }
+
                     // If there are duplicate records with this same NIK and same principal, merge and remove the redundant ones
                     $duplicateIds = $existingEmployees->where('id', '!=', $primary->id)
                         ->where('principal_id', $principalId)
@@ -506,7 +541,6 @@ class OdooSyncService
                     }
 
                     $wasActive = $primary->is_active;
-                    $wasTrashed = $primary->trashed();
 
                     $updatePayload = [
                         'odoo_id'           => $rec['id'],
@@ -518,13 +552,13 @@ class OdooSyncService
                         'employee_no'       => $employeeNo,
                         'full_name'         => $rec['name'],
                         'gender'            => $gender,
-                        'birth_date'        => $rec['birthday'] ?: $primary->birth_date,
-                        'join_date'         => $rec['first_contract_date'] ?: $primary->join_date,
-                        'phone'             => $rec['mobile_phone'] ?: $primary->phone,
-                        'email'             => $rec['private_email'] ?: ($rec['work_email'] ?: $primary->email),
+                        'birth_date'        => $birthDate ?: $primary->birth_date,
+                        'join_date'         => $joinDate ?: $primary->join_date,
+                        'phone'             => $phone ?: $primary->phone,
+                        'email'             => $email ?: $primary->email,
                         'employment_status' => $employmentStatus,
                         'is_active'         => $isActiveInOdoo,
-                        'resign_date'       => !$isActiveInOdoo ? ($primary->resign_date ?: now()->toDateString()) : null,
+                        'resign_date'       => !$isActiveInOdoo ? ($departureDate ?: ($primary->resign_date ?: now()->toDateString())) : null,
                     ];
 
                     // Set default password '123456' if employee currently has no password
@@ -534,11 +568,7 @@ class OdooSyncService
 
                     $primary->fill($updatePayload);
                     $dirtyAttributes = $primary->getDirty();
-                    $isDirty = count($dirtyAttributes) > 0 || $wasTrashed;
-
-                    if ($wasTrashed) {
-                        $primary->deleted_at = null;
-                    }
+                    $isDirty = count($dirtyAttributes) > 0;
                     $primary->save();
 
                     if (!$isActiveInOdoo && $wasActive) {
@@ -567,13 +597,13 @@ class OdooSyncService
                         'full_name'         => $rec['name'],
                         'password'          => \Illuminate\Support\Facades\Hash::make('123456'),
                         'gender'            => $gender,
-                        'birth_date'        => $rec['birthday'] ?: null,
-                        'join_date'         => $rec['first_contract_date'] ?: null,
-                        'phone'             => $rec['mobile_phone'] ?: null,
-                        'email'             => $rec['private_email'] ?: ($rec['work_email'] ?: null),
+                        'birth_date'        => $birthDate,
+                        'join_date'         => $joinDate,
+                        'phone'             => $phone,
+                        'email'             => $email,
                         'employment_status' => $employmentStatus,
                         'is_active'         => $isActiveInOdoo,
-                        'resign_date'       => !$isActiveInOdoo ? now()->toDateString() : null,
+                        'resign_date'       => !$isActiveInOdoo ? ($departureDate ?: now()->toDateString()) : null,
                     ]);
 
                     if ($isActiveInOdoo) {
