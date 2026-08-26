@@ -70,6 +70,18 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
     return view('landing', compact('setting', 'stats'));
 });
 
+// Whitelabel Tenant Portal Auth Routes
+Route::get('/login', [\App\Http\Controllers\Auth\TenantAuthController::class, 'showLoginForm'])->name('tenant.login');
+Route::post('/login', [\App\Http\Controllers\Auth\TenantAuthController::class, 'login'])->name('tenant.login.submit');
+Route::post('/logout', [\App\Http\Controllers\Auth\TenantAuthController::class, 'logout'])->name('tenant.logout');
+
+// Principal Reporting Portal Routes
+Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'dashboard'])->name('dashboard');
+    Route::get('/report/{code}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'reportDetail'])->name('report.detail');
+    Route::get('/report/{code}/export', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'exportReport'])->name('report.export');
+});
+
 Route::middleware(\App\Http\Middleware\RedirectIfInstalled::class)->group(function () {
     Route::get('/install', [\App\Http\Controllers\InstallController::class, 'index'])->name('install.index');
     Route::post('/install', [\App\Http\Controllers\InstallController::class, 'process'])->name('install.process');

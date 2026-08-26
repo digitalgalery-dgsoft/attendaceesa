@@ -17,16 +17,18 @@
     <style>
         :root {
             --brand-primary: {{ $brandColor }};
-            --brand-glow: {{ $brandColor }}66;
-            --brand-light: {{ $brandColor }}22;
-            --bg-start: #090d16;
-            --bg-end: #0f172a;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --glass-bg: rgba(255, 255, 255, 0.03);
-            --glass-card: rgba(15, 23, 42, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --glass-border-hover: rgba(255, 255, 255, 0.2);
+            --brand-light: {{ $brandColor }}15;
+            --brand-glow: {{ $brandColor }}33;
+            --bg-main: #f8fafc;
+            --text-heading: #0f172a;
+            --text-body: #475569;
+            --text-muted: #64748b;
+            --card-bg: #ffffff;
+            --card-border: #e2e8f0;
+            --card-border-hover: #cbd5e1;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+            --shadow-md: 0 4px 20px -2px rgba(0,0,0,0.06), 0 2px 6px -1px rgba(0,0,0,0.03);
+            --shadow-lg: 0 12px 32px -4px rgba(0,0,0,0.08), 0 4px 12px -2px rgba(0,0,0,0.04);
         }
 
         * {
@@ -37,65 +39,17 @@
         }
 
         body {
-            background: linear-gradient(145deg, var(--bg-start) 0%, var(--bg-end) 100%);
-            color: var(--text-main);
+            background-color: var(--bg-main);
+            color: var(--text-body);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
-        }
-
-        /* Dynamic Background Glows */
-        .bg-shapes {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: -1;
-            overflow: hidden;
-            pointer-events: none;
-        }
-        
-        .shape {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(100px);
-            opacity: 0.35;
-            animation: float 18s infinite alternate ease-in-out;
-        }
-
-        .shape-1 {
-            width: 600px;
-            height: 600px;
-            background: var(--brand-primary);
-            top: -150px;
-            left: -150px;
-        }
-
-        .shape-2 {
-            width: 500px;
-            height: 500px;
-            background: #6366f1;
-            bottom: -100px;
-            right: -100px;
-            animation-delay: -6s;
-        }
-
-        .shape-3 {
-            width: 350px;
-            height: 350px;
-            background: var(--brand-primary);
-            top: 40%;
-            left: 60%;
-            opacity: 0.15;
-            animation-delay: -10s;
-        }
-
-        @keyframes float {
-            0% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(60px, 40px) scale(1.1); }
-            100% { transform: translate(-40px, 90px) scale(0.95); }
+            background-image: 
+                radial-gradient(circle at 15% 10%, {{ $brandColor }}10 0%, transparent 40%),
+                radial-gradient(circle at 85% 60%, {{ $brandColor }}08 0%, transparent 35%),
+                radial-gradient(circle at 50% 90%, #6366f108 0%, transparent 40%);
+            background-attachment: fixed;
         }
 
         /* Navbar */
@@ -103,25 +57,25 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1.25rem 6%;
-            background: rgba(9, 13, 22, 0.7);
+            padding: 1.1rem 6%;
+            background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border-bottom: 1px solid var(--glass-border);
+            border-bottom: 1px solid var(--card-border);
             position: sticky;
             top: 0;
             z-index: 100;
+            box-shadow: var(--shadow-sm);
         }
 
         .brand-container {
             display: flex;
             align-items: center;
-            gap: 1.25rem;
+            gap: 1.15rem;
             text-decoration: none;
         }
 
         .brand-logo-wrapper {
-            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -131,7 +85,6 @@
             max-height: 44px;
             max-width: 140px;
             object-fit: contain;
-            filter: drop-shadow(0 2px 8px var(--brand-glow));
         }
 
         .brand-badge-icon {
@@ -143,9 +96,8 @@
             align-items: center;
             justify-content: center;
             font-size: 1.25rem;
-            color: #fff;
-            box-shadow: 0 4px 15px var(--brand-glow);
-            border: 1px solid rgba(255,255,255,0.15);
+            color: #ffffff;
+            box-shadow: 0 4px 12px var(--brand-glow);
         }
 
         .brand-info {
@@ -154,16 +106,16 @@
         }
 
         .brand-title {
-            font-size: 1.25rem;
+            font-size: 1.2rem;
             font-weight: 800;
-            color: #fff;
+            color: var(--text-heading);
             letter-spacing: -0.5px;
             line-height: 1.2;
         }
 
         .brand-subtitle {
             font-size: 0.75rem;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--text-muted);
             letter-spacing: 0.5px;
             text-transform: uppercase;
@@ -176,32 +128,31 @@
         }
 
         .btn-portal-login {
-            background: linear-gradient(135deg, var(--brand-primary), #1e1b4b);
+            background: var(--brand-primary);
             color: #ffffff;
-            padding: 0.65rem 1.5rem;
+            padding: 0.65rem 1.4rem;
             border-radius: 9999px;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            border: 1px solid rgba(255,255,255,0.2);
-            box-shadow: 0 4px 16px var(--brand-glow);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 14px var(--brand-glow);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .btn-portal-login:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px var(--brand-glow);
-            border-color: rgba(255,255,255,0.4);
+            box-shadow: 0 6px 20px var(--brand-glow);
+            filter: brightness(1.08);
         }
 
         /* Hero Section */
         .hero {
             padding: 4.5rem 6% 3.5rem;
             text-align: center;
-            max-width: 1080px;
+            max-width: 1100px;
             margin: 0 auto;
             display: flex;
             flex-direction: column;
@@ -212,52 +163,93 @@
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.45rem 1.2rem;
+            padding: 0.4rem 1.15rem;
             background: var(--brand-light);
             border: 1px solid var(--brand-glow);
             border-radius: 9999px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #fff;
-            margin-bottom: 1.75rem;
-            box-shadow: 0 2px 10px var(--brand-glow);
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--brand-primary);
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 8px var(--brand-glow);
         }
 
         .tenant-pill i {
-            color: #38bdf8;
+            font-size: 0.75rem;
         }
 
         .hero h1 {
             font-size: 3.25rem;
             font-weight: 900;
-            line-height: 1.15;
+            line-height: 1.18;
             margin-bottom: 1.25rem;
             letter-spacing: -1.5px;
-            background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--text-heading);
         }
 
         .hero h1 span.highlight {
-            background: linear-gradient(135deg, #60a5fa 0%, var(--brand-primary) 100%);
+            background: linear-gradient(135deg, var(--brand-primary) 0%, #4338ca 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
         .hero p {
-            font-size: 1.15rem;
-            color: var(--text-muted);
-            max-width: 780px;
+            font-size: 1.12rem;
+            color: var(--text-body);
+            max-width: 760px;
             line-height: 1.7;
-            margin-bottom: 2.5rem;
+            margin-bottom: 2.25rem;
             font-weight: 400;
         }
 
         .hero-cta-group {
             display: flex;
-            gap: 1.25rem;
+            gap: 1rem;
             flex-wrap: wrap;
             justify-content: center;
+        }
+
+        .btn-primary-glow {
+            background: var(--brand-primary);
+            color: #ffffff;
+            padding: 0.85rem 2rem;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.98rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            box-shadow: 0 6px 20px var(--brand-glow);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-primary-glow:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 28px var(--brand-glow);
+            filter: brightness(1.08);
+        }
+
+        .btn-secondary-glass {
+            background: #ffffff;
+            color: var(--text-heading);
+            padding: 0.85rem 1.8rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.98rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            border: 1px solid var(--card-border);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.25s ease;
+        }
+
+        .btn-secondary-glass:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            transform: translateY(-2px);
         }
 
         /* Brand Switcher */
@@ -266,13 +258,13 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.65rem;
             width: 100%;
         }
 
         .brand-switcher-title {
-            font-size: 0.82rem;
-            font-weight: 600;
+            font-size: 0.78rem;
+            font-weight: 700;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.8px;
@@ -285,155 +277,102 @@
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 0.6rem;
+            gap: 0.55rem;
             max-width: 900px;
         }
 
         .brand-pill {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1.15rem;
+            gap: 0.45rem;
+            padding: 0.45rem 1.1rem;
             border-radius: 9999px;
-            font-size: 0.85rem;
+            font-size: 0.84rem;
             font-weight: 600;
             text-decoration: none;
-            color: var(--text-muted);
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--glass-border);
-            backdrop-filter: blur(8px);
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            color: var(--text-body);
+            background: #ffffff;
+            border: 1px solid var(--card-border);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .brand-pill:hover {
-            color: #ffffff;
+            color: var(--brand-primary);
             border-color: var(--brand-primary);
-            background: rgba(255, 255, 255, 0.08);
+            background: var(--brand-light);
             transform: translateY(-2px);
         }
 
         .brand-pill.active {
             color: #ffffff;
-            background: linear-gradient(135deg, var(--brand-primary), #1e293b);
-            border-color: rgba(255, 255, 255, 0.3);
-            box-shadow: 0 4px 15px var(--brand-glow);
-        }
-
-        .btn-primary-glow {
             background: var(--brand-primary);
-            color: white;
-            padding: 0.9rem 2.2rem;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 1rem;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.75rem;
-            box-shadow: 0 6px 20px var(--brand-glow);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(255,255,255,0.25);
-        }
-
-        .btn-primary-glow:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 30px var(--brand-glow);
-        }
-
-        .btn-secondary-glass {
-            background: var(--glass-bg);
-            color: #fff;
-            padding: 0.9rem 2rem;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 1rem;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.75rem;
-            border: 1px solid var(--glass-border);
-            backdrop-filter: blur(10px);
-            transition: all 0.3s;
-        }
-
-        .btn-secondary-glass:hover {
-            background: rgba(255,255,255,0.08);
-            border-color: var(--glass-border-hover);
-            transform: translateY(-3px);
+            border-color: var(--brand-primary);
+            box-shadow: 0 4px 12px var(--brand-glow);
         }
 
         /* Stats Grid */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 1.5rem;
+            gap: 1.25rem;
+            max-width: 1150px;
             width: 100%;
-            max-width: 1140px;
-            margin: 0 auto 5rem;
+            margin: 0 auto 4.5rem;
             padding: 0 6%;
         }
 
         .stat-card {
-            background: var(--glass-card);
-            border: 1px solid var(--glass-border);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            padding: 1.75rem 1.5rem;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
             border-radius: 16px;
-            text-align: center;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-md);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
             position: relative;
             overflow: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, transparent, var(--brand-primary), transparent);
-            opacity: 0;
-            transition: opacity 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .stat-card:hover {
             transform: translateY(-4px);
-            border-color: var(--glass-border-hover);
-            box-shadow: 0 12px 30px rgba(0,0,0,0.3);
-        }
-
-        .stat-card:hover::before {
-            opacity: 1;
+            border-color: var(--card-border-hover);
+            box-shadow: var(--shadow-lg);
         }
 
         .stat-icon {
-            font-size: 1.75rem;
+            font-size: 1.4rem;
             color: var(--brand-primary);
-            margin-bottom: 0.75rem;
-            display: inline-block;
+            margin-bottom: 1rem;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--brand-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .stat-value {
-            font-size: 2.25rem;
+            font-size: 2.1rem;
             font-weight: 800;
-            color: #ffffff;
-            line-height: 1;
-            margin-bottom: 0.4rem;
+            color: var(--text-heading);
+            line-height: 1.1;
+            margin-bottom: 0.35rem;
+            letter-spacing: -0.5px;
         }
 
         .stat-label {
             font-size: 0.85rem;
-            font-weight: 500;
             color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-weight: 600;
         }
 
-        /* Reporting Templates Section */
+        /* Templates Section */
         .section-container {
-            max-width: 1140px;
+            max-width: 1150px;
             margin: 0 auto 5rem;
             padding: 0 6%;
             width: 100%;
@@ -441,109 +380,107 @@
 
         .section-header {
             text-align: center;
-            margin-bottom: 3rem;
+            margin-bottom: 2.75rem;
         }
 
         .section-badge {
             display: inline-block;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 1px;
             color: var(--brand-primary);
             background: var(--brand-light);
-            padding: 0.35rem 1rem;
+            padding: 0.3rem 0.9rem;
             border-radius: 9999px;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.65rem;
             border: 1px solid var(--brand-glow);
         }
 
         .section-title {
-            font-size: 2.25rem;
+            font-size: 2.1rem;
             font-weight: 800;
-            color: #ffffff;
-            margin-bottom: 0.75rem;
+            color: var(--text-heading);
+            margin-bottom: 0.6rem;
             letter-spacing: -0.5px;
         }
 
         .section-desc {
-            font-size: 1rem;
+            font-size: 0.98rem;
             color: var(--text-muted);
-            max-width: 650px;
+            max-width: 620px;
             margin: 0 auto;
+            line-height: 1.6;
         }
 
         .templates-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+            gap: 1.35rem;
         }
 
         .template-card {
-            background: var(--glass-card);
-            border: 1px solid var(--glass-border);
-            backdrop-filter: blur(12px);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
             border-radius: 16px;
-            padding: 1.75rem;
+            padding: 1.6rem;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            box-shadow: var(--shadow-md);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
-            overflow: hidden;
         }
 
         .template-card:hover {
             transform: translateY(-5px);
-            border-color: var(--brand-glow);
-            box-shadow: 0 12px 35px var(--brand-glow);
+            border-color: var(--brand-primary);
+            box-shadow: var(--shadow-lg);
         }
 
         .template-card-top {
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
-            margin-bottom: 1.25rem;
+            margin-bottom: 1.15rem;
         }
 
         .template-icon-box {
-            width: 48px;
-            height: 48px;
+            width: 44px;
+            height: 44px;
             border-radius: 12px;
             background: var(--brand-light);
-            border: 1px solid var(--brand-glow);
+            color: var(--brand-primary);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.35rem;
-            color: #fff;
+            font-size: 1.2rem;
         }
 
         .template-code-badge {
-            font-size: 0.7rem;
+            font-size: 0.72rem;
             font-weight: 700;
-            font-family: monospace;
-            background: rgba(255,255,255,0.06);
-            color: #94a3b8;
-            padding: 0.25rem 0.6rem;
+            color: var(--text-muted);
+            background: #f1f5f9;
+            padding: 0.25rem 0.65rem;
             border-radius: 6px;
-            border: 1px solid rgba(255,255,255,0.1);
+            font-family: monospace;
+            border: 1px solid #e2e8f0;
         }
 
         .template-card-title {
-            font-size: 1.15rem;
+            font-size: 1.1rem;
             font-weight: 700;
-            color: #ffffff;
-            margin-bottom: 0.5rem;
-            line-height: 1.3;
+            color: var(--text-heading);
+            margin-bottom: 0.45rem;
+            line-height: 1.35;
         }
 
         .template-card-desc {
-            font-size: 0.875rem;
-            color: var(--text-muted);
+            font-size: 0.87rem;
+            color: var(--text-body);
             line-height: 1.5;
-            margin-bottom: 1.5rem;
-            flex-grow: 1;
+            margin-bottom: 1.25rem;
         }
 
         .template-card-footer {
@@ -551,73 +488,89 @@
             align-items: center;
             justify-content: space-between;
             padding-top: 1rem;
-            border-top: 1px solid rgba(255,255,255,0.06);
+            border-top: 1px solid #f1f5f9;
             font-size: 0.8rem;
-            color: #cbd5e1;
         }
 
         .field-count-pill {
             display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
-            color: #38bdf8;
+            gap: 0.35rem;
+            color: var(--brand-primary);
+            font-weight: 700;
+            background: var(--brand-light);
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+        }
+
+        .template-action-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            color: var(--text-heading);
             font-weight: 600;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .template-action-link:hover {
+            color: var(--brand-primary);
         }
 
         /* Features Section */
         .features-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 1.5rem;
+            gap: 1.35rem;
         }
 
         .feature-card {
-            background: var(--glass-card);
-            border: 1px solid var(--glass-border);
-            backdrop-filter: blur(12px);
-            padding: 2rem 1.75rem;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 1.85rem 1.6rem;
             border-radius: 16px;
+            box-shadow: var(--shadow-sm);
             transition: all 0.3s ease;
         }
 
         .feature-card:hover {
-            transform: translateY(-4px);
-            border-color: var(--glass-border-hover);
+            transform: translateY(-3px);
+            border-color: var(--card-border-hover);
+            box-shadow: var(--shadow-md);
         }
 
         .feature-icon-wrapper {
-            width: 52px;
-            height: 52px;
-            border-radius: 14px;
-            background: linear-gradient(135deg, var(--brand-light), transparent);
-            border: 1px solid var(--brand-glow);
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--brand-light);
+            color: var(--brand-primary);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.4rem;
-            color: #fff;
-            margin-bottom: 1.25rem;
+            font-size: 1.3rem;
+            margin-bottom: 1.15rem;
         }
 
         .feature-title {
-            font-size: 1.2rem;
+            font-size: 1.15rem;
             font-weight: 700;
-            color: #fff;
-            margin-bottom: 0.6rem;
+            color: var(--text-heading);
+            margin-bottom: 0.5rem;
         }
 
         .feature-desc {
-            font-size: 0.9rem;
-            color: var(--text-muted);
+            font-size: 0.88rem;
+            color: var(--text-body);
             line-height: 1.6;
         }
 
         /* Footer */
         footer {
             margin-top: auto;
-            padding: 2.5rem 6%;
-            border-top: 1px solid var(--glass-border);
-            background: rgba(9, 13, 22, 0.9);
+            padding: 2.25rem 6%;
+            border-top: 1px solid var(--card-border);
+            background: #ffffff;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -630,12 +583,9 @@
         .footer-brand {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-        }
-
-        .footer-logo {
+            gap: 0.65rem;
             font-weight: 700;
-            color: #fff;
+            color: var(--text-heading);
         }
 
         /* Responsive */
@@ -673,18 +623,13 @@
 </head>
 <body>
 
-    <!-- Dynamic Glow Shapes -->
-    <div class="bg-shapes">
-        <div class="shape shape-1"></div>
-        <div class="shape shape-2"></div>
-        <div class="shape shape-3"></div>
-    </div>
-
     <!-- Whitelabel Navbar -->
     <nav>
         <a href="/" class="brand-container">
             <div class="brand-logo-wrapper">
-                @if(!empty($tenantPrincipal->logo))
+                @if(!empty($tenantPrincipal->logo_path))
+                    <img src="{{ asset('storage/' . $tenantPrincipal->logo_path) }}" alt="{{ $tenantPrincipal->name }}" class="brand-logo-img">
+                @elseif(!empty($tenantPrincipal->logo))
                     <img src="{{ asset('storage/' . $tenantPrincipal->logo) }}" alt="{{ $tenantPrincipal->name }}" class="brand-logo-img">
                 @elseif(!empty($setting->app_logo))
                     <img src="{{ asset('storage/' . $setting->app_logo) }}" alt="{{ $tenantPrincipal->name }}" class="brand-logo-img">
@@ -701,7 +646,7 @@
         </a>
 
         <div class="nav-actions">
-            <a href="/admin/login" class="btn-portal-login">
+            <a href="/login" class="btn-portal-login">
                 <i class="fa-solid fa-lock"></i>
                 Masuk ke Portal
             </a>
@@ -727,12 +672,12 @@
             </p>
 
             <div class="hero-cta-group">
-                <a href="/admin/login" class="btn-primary-glow">
+                <a href="/login" class="btn-primary-glow">
                     <i class="fa-solid fa-shield-halved"></i>
                     Masuk ke Portal Manajemen
                 </a>
                 <a href="/app-release.apk" class="btn-secondary-glass">
-                    <i class="fa-brands fa-android" style="color: #4ade80;"></i>
+                    <i class="fa-brands fa-android" style="color: #16a34a;"></i>
                     Unduh Aplikasi Mobile (SPG)
                 </a>
             </div>
@@ -758,25 +703,33 @@
         <!-- Dynamic Scoped Stats -->
         <section class="stats-grid">
             <div class="stat-card">
-                <i class="fa-solid fa-users stat-icon"></i>
+                <div class="stat-icon">
+                    <i class="fa-solid fa-users"></i>
+                </div>
                 <div class="stat-value">{{ number_format($stats['employees']) }}</div>
                 <div class="stat-label">Promotor / SPG Terdaftar</div>
             </div>
 
             <div class="stat-card">
-                <i class="fa-solid fa-map-location-dot stat-icon"></i>
+                <div class="stat-icon">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                </div>
                 <div class="stat-value">{{ number_format($stats['areas']) }}</div>
                 <div class="stat-label">Area Operasional</div>
             </div>
 
             <div class="stat-card">
-                <i class="fa-solid fa-clipboard-list stat-icon"></i>
+                <div class="stat-icon">
+                    <i class="fa-solid fa-clipboard-list"></i>
+                </div>
                 <div class="stat-value">{{ number_format($stats['templates']) }}</div>
                 <div class="stat-label">Modul Form Pelaporan</div>
             </div>
 
             <div class="stat-card">
-                <i class="fa-solid fa-chart-line stat-icon"></i>
+                <div class="stat-icon">
+                    <i class="fa-solid fa-chart-line"></i>
+                </div>
                 <div class="stat-value">{{ number_format($stats['submissions']) }}</div>
                 <div class="stat-label">Total Laporan Masuk</div>
             </div>
@@ -796,18 +749,21 @@
             <div class="templates-grid">
                 @foreach($activeTemplates as $tpl)
                     @php
-                        // Pilih icon berdasarkan tipe laporan
                         $iconClass = 'fa-solid fa-file-lines';
-                        if (str_contains(strtolower($tpl->title), 'offtake') || str_contains(strtolower($tpl->title), 'jual')) {
+                        if (str_contains(strtolower($tpl->title), 'offtake') || str_contains(strtolower($tpl->title), 'jual') || str_contains(strtolower($tpl->title), 'sell')) {
                             $iconClass = 'fa-solid fa-cart-shopping';
                         } elseif (str_contains(strtolower($tpl->title), 'stok') || str_contains(strtolower($tpl->title), 'oos')) {
                             $iconClass = 'fa-solid fa-boxes-stacked';
                         } elseif (str_contains(strtolower($tpl->title), 'market') || str_contains(strtolower($tpl->title), 'kompetitor')) {
                             $iconClass = 'fa-solid fa-chart-pie';
-                        } elseif (str_contains(strtolower($tpl->title), 'tinting') || str_contains(strtolower($tpl->title), 'display')) {
-                            $iconClass = 'fa-solid fa-paint-roller';
-                        } elseif (str_contains(strtolower($tpl->title), 'kunjungan') || str_contains(strtolower($tpl->title), 'tl') || str_contains(strtolower($tpl->title), 'toko')) {
+                        } elseif (str_contains(strtolower($tpl->title), 'display') || str_contains(strtolower($tpl->title), 'sewa') || str_contains(strtolower($tpl->title), 'sos')) {
                             $iconClass = 'fa-solid fa-store';
+                        } elseif (str_contains(strtolower($tpl->title), 'harga') || str_contains(strtolower($tpl->title), 'price') || str_contains(strtolower($tpl->title), 'promo')) {
+                            $iconClass = 'fa-solid fa-tags';
+                        } elseif (str_contains(strtolower($tpl->title), 'expired') || str_contains(strtolower($tpl->title), 'fefo')) {
+                            $iconClass = 'fa-solid fa-clock-rotate-left';
+                        } elseif (str_contains(strtolower($tpl->title), 'posm') || str_contains(strtolower($tpl->title), 'stiker')) {
+                            $iconClass = 'fa-solid fa-bullhorn';
                         }
                     @endphp
                     <div class="template-card">
@@ -824,12 +780,11 @@
                         <div class="template-card-footer">
                             <span class="field-count-pill">
                                 <i class="fa-solid fa-list-check"></i>
-                                {{ $tpl->fields->count() }} Parameter Input
+                                {{ $tpl->fields->count() }} Field Input
                             </span>
-                            <span style="color: #4ade80; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
-                                <i class="fa-solid fa-circle" style="font-size: 0.5rem;"></i>
-                                Aktif
-                            </span>
+                            <a href="/login" class="template-action-link">
+                                Buka Form <i class="fa-solid fa-arrow-right"></i>
+                            </a>
                         </div>
                     </div>
                 @endforeach
@@ -837,44 +792,44 @@
         </section>
         @endif
 
-        <!-- Enterprise Features -->
+        <!-- Features -->
         <section class="section-container">
             <div class="section-header">
-                <span class="section-badge">Keamanan & Otomasi</span>
-                <h2 class="section-title">Keunggulan Pelaporan Digital Kami</h2>
+                <span class="section-badge">Enterprise Features</span>
+                <h2 class="section-title">Keunggulan Platform Pelaporan</h2>
                 <p class="section-desc">
-                    Didukung fitur keamanan data tingkat enterprise untuk memastikan integritas data lapangan 100% valid.
+                    Infrastruktur pelaporan berbasis mobile & web untuk efisiensi operasional lapangan secara menyeluruh.
                 </p>
             </div>
 
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-icon-wrapper">
+                        <i class="fa-solid fa-location-crosshairs"></i>
+                    </div>
+                    <h3 class="feature-title">Validasi Geofencing & GPS</h3>
+                    <p class="feature-desc">
+                        Setiap laporan diverifikasi dengan titik koordinat GPS toko yang presisi untuk menjamin integritas kehadiran dan keaslian kunjungan.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon-wrapper">
                         <i class="fa-solid fa-camera"></i>
                     </div>
-                    <h3 class="feature-title">Watermark & Geotag Anti-Fraud</h3>
+                    <h3 class="feature-title">Bukti Foto & Watermark</h3>
                     <p class="feature-desc">
-                        Setiap foto bukti offtake atau display otomatis dibubuhi stempel koordinat GPS, nama toko, tanggal, dan nama promotor secara permanen.
+                        Pengambilan foto kondisi display, stok, dan rak dengan watermark otomatis tanggal, jam, dan lokasi toko anti-manipulasi.
                     </p>
                 </div>
 
                 <div class="feature-card">
                     <div class="feature-icon-wrapper">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <i class="fa-solid fa-chart-pie"></i>
                     </div>
-                    <h3 class="feature-title">Offline-First & Auto-Sync</h3>
+                    <h3 class="feature-title">Executive Analytics</h3>
                     <p class="feature-desc">
-                        Promotor tetap dapat mengisi laporan di area minim sinyal/gudang toko. Data tersimpan di SQLite lokal dan otomatis terunggah saat online.
-                    </p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon-wrapper">
-                        <i class="fa-solid fa-file-excel"></i>
-                    </div>
-                    <h3 class="feature-title">Rekap & Analisis Instan</h3>
-                    <p class="feature-desc">
-                        Export data laporan harian, mingguan, dan bulanan ke format Excel (XLSX) dan PDF lengkap dengan pivot summary untuk meeting manajemen.
+                        Dashboard analitik langsung merekap pencapaian offtake harian, stok habis (OOS), dan share of shelf secara otomatis.
                     </p>
                 </div>
             </div>
@@ -884,12 +839,11 @@
     <!-- Footer -->
     <footer>
         <div class="footer-brand">
-            <span class="footer-logo">{{ $tenantPrincipal->name }}</span>
-            <span>&bull;</span>
-            <span>Powered by {{ $setting->app_name ?? 'ESA Attendance System' }}</span>
+            <i class="fa-solid fa-shield-halved" style="color: var(--brand-primary);"></i>
+            <span>{{ $tenantPrincipal->portal_title ?? $tenantPrincipal->name }}</span>
         </div>
         <div>
-            &copy; {{ date('Y') }} {{ $tenantPrincipal->name }}. All Rights Reserved.
+            &copy; {{ date('Y') }} {{ $tenantPrincipal->name }}. Powered by <strong>{{ $setting->app_name ?? 'ESA Groups' }}</strong>.
         </div>
     </footer>
 
