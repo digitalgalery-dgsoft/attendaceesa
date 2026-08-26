@@ -218,8 +218,8 @@ class PrincipalPortalController extends Controller
 
         // Dropdown filter options
         $positions = Position::orderBy('name')->get();
-        $employees = Employee::whereIn('principal_id', $scopedPrincipalIds)->orderBy('name')->get();
-        $workLocations = WorkLocation::whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id')->orderBy('name')->get();
+        $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)->orderBy('employees.full_name')->get();
+        $workLocations = WorkLocation::whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id')->orderBy('work_locations.name')->get();
         $setting = Setting::first();
 
         return view('portal.dashboard', compact(

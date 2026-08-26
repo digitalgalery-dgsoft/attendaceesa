@@ -84,4 +84,14 @@ class Employee extends Authenticatable
     {
         return $this->belongsTo(Area::class);
     }
+
+    public function getNameAttribute(): ?string
+    {
+        return $this->full_name;
+    }
+
+    public function getNikAttribute(): ?string
+    {
+        return $this->employee_no;
+    }
 }
