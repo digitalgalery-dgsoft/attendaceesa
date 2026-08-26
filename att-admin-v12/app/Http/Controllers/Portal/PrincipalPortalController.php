@@ -102,18 +102,18 @@ class PrincipalPortalController extends Controller
         }
 
         // Submissions base query
-        $submissionsQuery = ReportSubmission::whereIn('principal_id', $scopedPrincipalIds)
-            ->whereBetween('submitted_at', [$startDate, $endDate]);
+        $submissionsQuery = ReportSubmission::whereIn('report_submissions.principal_id', $scopedPrincipalIds)
+            ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate]);
 
         if ($employeeId) {
-            $submissionsQuery->where('employee_id', $employeeId);
+            $submissionsQuery->where('report_submissions.employee_id', $employeeId);
         }
         if ($locationId) {
-            $submissionsQuery->where('work_location_id', $locationId);
+            $submissionsQuery->where('report_submissions.work_location_id', $locationId);
         }
         if ($positionId) {
             $submissionsQuery->whereHas('employee', function ($q) use ($positionId) {
-                $q->where('position_id', $positionId);
+                $q->where('employees.position_id', $positionId);
             });
         }
 
@@ -121,8 +121,8 @@ class PrincipalPortalController extends Controller
         $totalSubmissions = (clone $submissionsQuery)->count();
 
         // Prev month submissions
-        $prevSubmissions = ReportSubmission::whereIn('principal_id', $scopedPrincipalIds)
-            ->whereBetween('submitted_at', [$prevStartDate, $prevEndDate])
+        $prevSubmissions = ReportSubmission::whereIn('report_submissions.principal_id', $scopedPrincipalIds)
+            ->whereBetween('report_submissions.submitted_at', [$prevStartDate, $prevEndDate])
             ->count();
 
         // Growth calculation
@@ -131,20 +131,20 @@ class PrincipalPortalController extends Controller
             : ($totalSubmissions > 0 ? 100 : 0);
 
         // Promotor / SPG Metrics
-        $employeesQuery = Employee::whereIn('principal_id', $scopedPrincipalIds);
+        $employeesQuery = Employee::whereIn('employees.principal_id', $scopedPrincipalIds);
         if ($positionId) {
-            $employeesQuery->where('position_id', $positionId);
+            $employeesQuery->where('employees.position_id', $positionId);
         }
         $totalEmployees = (clone $employeesQuery)->count();
-        $activeEmployees = (clone $employeesQuery)->where('is_active', true)->count();
-        $resignedEmployees = (clone $employeesQuery)->where('is_active', false)->count();
+        $activeEmployees = (clone $employeesQuery)->where('employees.is_active', true)->count();
+        $resignedEmployees = (clone $employeesQuery)->where('employees.is_active', false)->count();
 
         // Active Stores / Locations visited
-        $totalStores = (clone $submissionsQuery)->distinct('work_location_id')->count('work_location_id');
-        $prevStores = ReportSubmission::whereIn('principal_id', $scopedPrincipalIds)
-            ->whereBetween('submitted_at', [$prevStartDate, $prevEndDate])
-            ->distinct('work_location_id')
-            ->count('work_location_id');
+        $totalStores = (clone $submissionsQuery)->distinct('report_submissions.work_location_id')->count('report_submissions.work_location_id');
+        $prevStores = ReportSubmission::whereIn('report_submissions.principal_id', $scopedPrincipalIds)
+            ->whereBetween('report_submissions.submitted_at', [$prevStartDate, $prevEndDate])
+            ->distinct('report_submissions.work_location_id')
+            ->count('report_submissions.work_location_id');
 
         // Total Sales / Offtake calculation from numeric fields
         $totalSalesVal = DB::table('report_submission_values')
@@ -188,7 +188,7 @@ class PrincipalPortalController extends Controller
 
         // Daily Submission Chart Data (for ApexCharts)
         $dailyData = (clone $submissionsQuery)
-            ->selectRaw('DATE(submitted_at) as date, count(*) as total')
+            ->selectRaw('DATE(report_submissions.submitted_at) as date, count(*) as total')
             ->groupBy('date')
             ->orderBy('date')
             ->pluck('total', 'date')
@@ -207,13 +207,13 @@ class PrincipalPortalController extends Controller
             ->join('report_templates', 'report_submissions.report_template_id', '=', 'report_templates.id')
             ->selectRaw('report_templates.category, count(*) as count')
             ->groupBy('report_templates.category')
-            ->pluck('count', 'category')
+            ->pluck('count', 'report_templates.category')
             ->toArray();
 
         // Recent live submissions table
         $recentSubmissions = (clone $submissionsQuery)
             ->with(['template', 'employee', 'workLocation', 'values.formField'])
-            ->latest('submitted_at')
+            ->latest('report_submissions.submitted_at')
             ->paginate(15);
 
         // Dropdown filter options
@@ -286,39 +286,39 @@ class PrincipalPortalController extends Controller
         $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
         $endDate = $startDate->copy()->endOfMonth();
 
-        $query = ReportSubmission::where('report_template_id', $template->id)
-            ->whereBetween('submitted_at', [$startDate, $endDate])
+        $query = ReportSubmission::where('report_submissions.report_template_id', $template->id)
+            ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
             ->with(['employee', 'workLocation', 'values.formField']);
 
         if ($employeeId) {
-            $query->where('employee_id', $employeeId);
+            $query->where('report_submissions.employee_id', $employeeId);
         }
         if ($locationId) {
-            $query->where('work_location_id', $locationId);
+            $query->where('report_submissions.work_location_id', $locationId);
         }
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->whereHas('employee', function ($sub) use ($search) {
-                    $sub->where('name', 'LIKE', "%{$search}%")
-                        ->orWhere('nik', 'LIKE', "%{$search}%");
+                    $sub->where('employees.name', 'LIKE', "%{$search}%")
+                        ->orWhere('employees.nik', 'LIKE', "%{$search}%");
                 })->orWhereHas('workLocation', function ($sub) use ($search) {
-                    $sub->where('name', 'LIKE', "%{$search}%");
+                    $sub->where('work_locations.name', 'LIKE', "%{$search}%");
                 });
             });
         }
 
-        $submissions = $query->latest('submitted_at')->paginate(20);
-        $totalTemplateSubmissions = ReportSubmission::where('report_template_id', $template->id)
-            ->whereBetween('submitted_at', [$startDate, $endDate])
+        $submissions = $query->latest('report_submissions.submitted_at')->paginate(20);
+        $totalTemplateSubmissions = ReportSubmission::where('report_submissions.report_template_id', $template->id)
+            ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
             ->count();
 
-        $uniqueStores = ReportSubmission::where('report_template_id', $template->id)
-            ->whereBetween('submitted_at', [$startDate, $endDate])
-            ->distinct('work_location_id')
-            ->count('work_location_id');
+        $uniqueStores = ReportSubmission::where('report_submissions.report_template_id', $template->id)
+            ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
+            ->distinct('report_submissions.work_location_id')
+            ->count('report_submissions.work_location_id');
 
-        $employees = Employee::whereIn('principal_id', $scopedPrincipalIds)->orderBy('name')->get();
-        $workLocations = WorkLocation::whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id')->orderBy('name')->get();
+        $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)->orderBy('employees.name')->get();
+        $workLocations = WorkLocation::whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id')->orderBy('work_locations.name')->get();
         $setting = Setting::first();
 
         return view('portal.report_detail', compact(
@@ -359,10 +359,10 @@ class PrincipalPortalController extends Controller
         $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
         $endDate = $startDate->copy()->endOfMonth();
 
-        $submissions = ReportSubmission::where('report_template_id', $template->id)
-            ->whereBetween('submitted_at', [$startDate, $endDate])
+        $submissions = ReportSubmission::where('report_submissions.report_template_id', $template->id)
+            ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
             ->with(['employee', 'workLocation', 'values.formField'])
-            ->latest('submitted_at')
+            ->latest('report_submissions.submitted_at')
             ->get();
 
         $headers = [
