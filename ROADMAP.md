@@ -443,15 +443,58 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Di-assign secara otomatis ke entitas **PT WINGS SURYA**, **PT LION WINGS**, **PT SAYAP MAS UTAMA**, dan **CV SINAR SURYA**.
    - Berhasil dideploy dan diverifikasi langsung pada server live (`https://appsend.my.id/seed-templates-now`).
 
-### 5. Rencana Kerja untuk Dilanjutkan (Fase 4 Subdomain Portal Prinsiple)
-1. **Portal Subdomain Prinsiple (Fase 4)**:
-   - Pengujian login dan isolasi data tenant pada subdomain portal prinsiple (`fonterra.appsend.my.id`, `dulux.appsend.my.id`).
-   - Penyempurnaan tabel data Laporan Masuk Dinamis di Web Admin & Portal Prinsiple agar kolom tabel dan detail view otomatis menampilkan isian field dinamis sesuai template.
-   - Pembuatan filter lanjutan (filter tanggal range, outlet, promotor, status verifikasi) dan ekspor laporan ke format Excel / CSV per jenis form.
-2. **Offline Mode & SQLite Sync**:
-   - Pengujian pengisian laporan saat kondisi offline (tanpa internet) dan mekanisme auto-sync ketika perangkat kembali terhubung online.
-3. **UAT & Penyesuaian Form Prinsiple Lainnya**:
-   - Verifikasi form builder untuk prinsiple lain jika ada penambahan template laporan baru.
+9. **Penyelesaian Whitelabel Subdomain Portal Prinsiple (SELESAI 26 Agustus 2026)**:
+    - **Isolasi Multi-Tenant & Scoping Data Ketat**: Mengimplementasikan pemfilteran data berbasis `$scopedPrincipalIds` pada seluruh modul portal:
+      - **Karyawan (Employees)**: Hanya menampilkan SPG/Promotor di bawah prinsiple aktif.
+      - **Area / Cabang (Areas)**: Hanya menampilkan cabang yang memiliki promotor aktif di bawah prinsiple tersebut.
+      - **Lokasi Kerja / Toko (Work Locations)**: Hanya menampilkan toko yang didaftarkan langsung di bawah prinsiple atau yang ditugaskan dalam roster jadwal dan itinerari.
+      - **Shift Kerja (Shifts)**: Hanya menampilkan shift kerja yang digunakan oleh tim promotor prinsiple terkait.
+    - **Modul Katalog SKU Produk & Import Excel**:
+      - Menyediakan fitur manajemen SKU Produk lengkap (Nama, SKU, Brand, Kategori, Harga Jual, UOM, Barcode, Deskripsi).
+      - Fitur upload & preview foto produk interaktif.
+      - Fitur Import massal produk via template file Excel (.xlsx).
+    - **Sistem Branding & Gradasi Warna Dinamis**:
+      - Dukungan logo, nama prinsiple, judul portal, dan gradasi 2 warna (`theme_color` & `theme_color_secondary`) yang otomatis diterapkan ke sidebar, header, tombol aksi, dan grafik.
+    - **Dynamic Role & Permission Navigation**:
+      - Sidebar menu beradaptasi secara otomatis mengikuti izin/hak akses Role pengguna (`view_employees`, `view_attendance`, `view_work_locations`, `view_manpower_report`, dll.).
+    - **Halaman Khusus Whitelabel Portal (Full Light Mode)**:
+      - Membuat dan menyelaraskan 13 halaman portal mandiri berdesain premium (tidak beralih ke backend gelap Filament):
+        1. `/portal/dashboard` (Sales Summary Dashboard & Charts)
+        2. `/portal/products` (Katalog SKU Produk & Import Excel)
+        3. `/portal/employees` (Daftar Karyawan/Promotor)
+        4. `/portal/areas` (Area & Cabang)
+        5. `/portal/work-locations` (Lokasi Kerja / Toko)
+        6. `/portal/shifts` (Shift Kerja)
+        7. `/portal/attendances` (Monitoring Presensi Harian & GPS)
+        8. `/portal/schedules` (Roster Jadwal Kerja)
+        9. `/portal/leaves` (Pengajuan Cuti / Izin)
+        10. `/portal/extra-hours` (Pengajuan Lembur)
+        11. `/portal/unchecked` (Monitoring Karyawan Belum Absen)
+        12. `/portal/visit-reports` (Laporan Kunjungan Lapangan)
+        13. `/portal/itineraries` (Jadwal Kunjungan & Rute Toko Promotor)
+        14. `/portal/manpower-report` (Laporan Rekapitulasi Headcount Jan - Des)
+        15. `/portal/mandays-report` (Laporan Target vs Realisasi Mandays & Efektivitas %)
+        16. `/portal/turnover-report` (Statistik Masuk/Keluar Promotor & Turnover Rate %)
+    - **Komponen Navigasi Pagination Modern**:
+      - Mengganti link raw pagination menjadi komponen tombol pill modern dengan active state bergradasi warna prinsiple, disabled buttons, dan info jumlah total data yang rapi.
+    - **Verifikasi & Deployment Live**: Berhasil dideploy dan aktif pada domain `https://wings.appsend.my.id` dan `https://appsend.my.id`.
+
+10. **Pembaruan Aplikasi Mobile Android (APK Release v1.0.97 - SELESAI 26 Agustus 2026)**:
+    - **Filter Ketat Radius 1.000 Meter (1 km) pada Form Reporting**:
+      - Pemilihan lokasi/toko pada form pelaporan dinamis (`dynamic_form_screen.dart`) hanya menampilkan toko yang berada dalam radius maksimal 1.000 meter (1 km) dari titik koordinat GPS posisi user secara real-time.
+      - Toko diurutkan dari yang paling dekat dengan posisi user.
+      - Badge counter pada header area selector otomatis menghitung jumlah toko yang memenuhi syarat jarak radius (`x toko (≤ 1km)`).
+      - Menampilkan pesan informatif jika user berada di luar perimeter seluruh toko terdaftar.
+    - **URL Server Dinamis (Arsitektur Multi-Server)**:
+      - Normalisasi otomatis endpoint dan dukungan fallback default ke `https://appsend.my.id/api`.
+      - Kemudahan konfigurasi server tujuan melalui layar `server_config_screen.dart`.
+    - **Adaptasi Warna Tema Dinamis Sesuai Prinsiple (Whitelabel Theme)**:
+      - `AuthProvider` secara otomatis mengekstrak properti `theme_color` prinsiple karyawan saat login / me profile.
+      - Warna branding disimpan ke dalam `SharedPreferences` (`cached_principal_theme_color`) sehingga langsung aktif sejak splash screen dibuka.
+      - Seluruh UI Flutter (`MaterialApp`, `ThemeData`, `AppBar`, buttons, tabs, accent icons) menyesuaikan warna primer secara dinamis mengikuti identitas prinsiple karyawan (Merah untuk Wings Surya, Biru untuk Lion Wings / Dulux, Hijau untuk Fonterra, dsb.).
+    - **Build & Distribusi APK v1.0.97**:
+      - Versi aplikasi ditingkatkan menjadi `1.0.97+97`.
+      - File installer `app-release-1.0.97.apk` (94.6 MB) berhasil dikompilasi dan didistribusikan ke server live (`https://wings.appsend.my.id/app-release.apk` dan `https://appsend.my.id/downloads/app-release-1.0.97.apk`).
 
 ---
 
@@ -461,6 +504,7 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Penambahan filter lanjutan pada laporan presensi dan ekspor data audit penyesuaian manual/import.
 2. **Peningkatan Skalabilitas & Media Storage:**
    - Integrasi penyimpanan awan (*Cloud Storage S3 / Spaces / GCS*) untuk media foto presensi dan laporan visit.
+
 
 
 
