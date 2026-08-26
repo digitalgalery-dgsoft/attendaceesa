@@ -27,4 +27,9 @@ class WorkLocation extends Model
     {
         return $this->belongsTo(Principal::class);
     }
+
+    public function employees()
+    {
+        return $this->hasMany(Employee::class);
+    }
 }

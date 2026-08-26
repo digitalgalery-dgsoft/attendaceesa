@@ -85,6 +85,11 @@ class Employee extends Authenticatable
         return $this->belongsTo(Area::class);
     }
 
+    public function workLocation()
+    {
+        return $this->belongsTo(WorkLocation::class);
+    }
+
     public function getNameAttribute(): ?string
     {
         return $this->full_name;

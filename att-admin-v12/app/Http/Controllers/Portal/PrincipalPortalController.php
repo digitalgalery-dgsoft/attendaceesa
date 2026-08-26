@@ -1168,12 +1168,17 @@ class PrincipalPortalController extends Controller
         $today = Carbon::today()->format('Y-m-d');
         $search = $request->query('q');
 
+        $attendedEmployeeIds = Attendance::whereHas('employee', function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+        })->where('attendance_date', $today)->whereNotNull('checkin_at')->pluck('employee_id')->toArray();
+
         $query = EmployeeSchedule::whereHas('employee', function($q) use ($scopedPrincipalIds) {
             $q->whereIn('employees.principal_id', $scopedPrincipalIds)->where('employees.is_active', true);
-        })->where('schedule_date', $today)
-          ->whereDoesntHave('attendances', function($aq) {
-              $aq->whereNotNull('checkin_at');
-          });
+        })->where('schedule_date', $today);
+
+        if (!empty($attendedEmployeeIds)) {
+            $query->whereNotIn('employee_id', $attendedEmployeeIds);
+        }
 
         if ($search) {
             $query->whereHas('employee', function($q) use ($search) {
@@ -1219,7 +1224,7 @@ class PrincipalPortalController extends Controller
             });
         }
 
-        $visitReports = $query->with(['employee.branch', 'workLocation'])
+        $visitReports = $query->with(['employee.branch', 'itineraryItem.workLocation'])
             ->orderBy('visited_at', 'desc')
             ->paginate(20);
 
