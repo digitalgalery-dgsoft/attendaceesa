@@ -112,7 +112,7 @@
     </table>
 
     <div style="padding: 1.25rem 1.5rem; border-top: 1px solid var(--border-color);">
-        {{ $schedules->appends(request()->query())->links() }}
+        {{ $schedules->appends(request()->query())->links('portal.pagination') }}
     </div>
 </div>
 @endsection

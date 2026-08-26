@@ -442,7 +442,7 @@
     </table>
 
     <div style="padding: 1.25rem 1.5rem; border-top: 1px solid var(--border-color);">
-        {{ $attendances->appends(request()->query())->links() }}
+        {{ $attendances->appends(request()->query())->links('portal.pagination') }}
     </div>
 </div>
 @endsection

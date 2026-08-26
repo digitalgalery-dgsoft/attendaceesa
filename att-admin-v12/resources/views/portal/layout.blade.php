@@ -353,6 +353,84 @@
             flex: 1;
         }
 
+        /* Modern Portal Pagination Styling */
+        .portal-pagination-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+            padding: 0.25rem 0;
+            width: 100%;
+        }
+
+        .portal-pagination-info {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .portal-pagination-info span {
+            font-weight: 700;
+            color: var(--text-heading);
+        }
+
+        .portal-pagination-controls {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+
+        .pagination-btn {
+            min-width: 36px;
+            height: 36px;
+            padding: 0 0.6rem;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.84rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: var(--text-heading);
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .pagination-btn:hover:not(.disabled):not(.dots):not(.active) {
+            background: #f8fafc;
+            border-color: var(--brand-primary);
+            color: var(--brand-primary);
+            transform: translateY(-1px);
+        }
+
+        .pagination-btn.active {
+            background: var(--brand-gradient);
+            color: #ffffff;
+            border-color: transparent;
+            box-shadow: 0 2px 8px var(--brand-glow);
+        }
+
+        .pagination-btn.disabled {
+            color: #cbd5e1;
+            background: #f8fafc;
+            border-color: #f1f5f9;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .pagination-btn.dots {
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            box-shadow: none;
+            cursor: default;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             aside.portal-sidebar {

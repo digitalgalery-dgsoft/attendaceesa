@@ -706,7 +706,7 @@
             </div>
 
             <div style="margin-top: 1.25rem;">
-                {{ $products->appends(request()->query())->links() }}
+                {{ $products->appends(request()->query())->links('portal.pagination') }}
             </div>
         @else
             <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
