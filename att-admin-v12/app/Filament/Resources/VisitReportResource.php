@@ -29,10 +29,12 @@ class VisitReportResource extends Resource
 {
     protected static ?string $model = VisitReport::class;
 
-    protected static $navigationIcon = 'heroicon-o-document-magnifying-glass';
-    protected static $navigationGroup = 'Field Operations & Sales';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-magnifying-glass';
+    protected static string|\UnitEnum|null $navigationGroup = 'Field Operations & Sales';
     protected static ?int $navigationSort = 2;
     protected static ?string $navigationLabel = 'Visit Reports';
+    protected static ?string $modelLabel = 'Visit Report';
+    protected static ?string $pluralModelLabel = 'Visit Reports';
 
     public static function form(Schema $schema): Schema
     {
