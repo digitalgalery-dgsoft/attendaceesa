@@ -132,42 +132,65 @@ class ReportTemplatePresetsSeeder extends Seeder
 
         $this->seedMamasukaTemplates($primaryMamasuka, $allMamasukaIds);
 
-        // 4. WINGS SURYA / LION WINGS / SAYAP MAS UTAMA
-        $wingsPrincipals = Principal::where(function ($q) {
-            $q->where('name', 'LIKE', '%WINGS%')
-              ->orWhere('name', 'LIKE', '%SURYA%')
-              ->orWhere('name', 'LIKE', '%LION WINGS%')
-              ->orWhere('name', 'LIKE', '%SAYAP MAS%')
-              ->orWhere('code', 'LIKE', '%WINGS%')
-              ->orWhere('code', 'LIKE', '%LION%')
-              ->orWhere('subdomain', 'LIKE', '%wings%');
-        })->get();
+        // 4. WINGS GROUP: KHUSUS HANYA PT WINGS SURYA & PT LION WINGS
+        // Reset subdomain 'wings' dari entitas non-Wings Surya / Lion Wings (misal CV Sinar Surya, Sayap Mas Utama)
+        Principal::where('subdomain', 'wings')
+            ->where(function ($q) {
+                $q->where('name', 'NOT LIKE', '%WINGS SURYA%')
+                  ->where('name', 'NOT LIKE', '%LION WINGS%')
+                  ->where('code', 'NOT LIKE', '%WINGS-SURYA%')
+                  ->where('code', 'NOT LIKE', '%LION-WINGS%');
+            })
+            ->update(['subdomain' => null]);
 
-        if ($wingsPrincipals->isEmpty()) {
-            $primaryWings = Principal::firstOrCreate(
-                ['code' => 'PR-WINGS-SURYA'],
-                [
-                    'name' => 'PT WINGS SURYA (WINGS GROUP & LION WINGS)',
-                    'subdomain' => 'wings',
-                    'theme_color' => '#D32F2F',
-                    'portal_title' => 'Portal Pelaporan & Monitoring Wings Surya & Lion Wings',
-                    'is_active' => true,
-                ]
-            );
-            $wingsPrincipals = collect([$primaryWings]);
+        // Temukan atau buat PT WINGS SURYA
+        $wingsSurya = Principal::where('code', 'PR-WINGS-SURYA')
+            ->orWhere('name', 'LIKE', '%WINGS SURYA%')
+            ->first();
+
+        if (!$wingsSurya) {
+            $wingsSurya = Principal::create([
+                'code' => 'PR-WINGS-SURYA',
+                'name' => 'PT WINGS SURYA',
+                'subdomain' => 'wings',
+                'theme_color' => '#D32F2F',
+                'portal_title' => 'Portal Pelaporan & Monitoring PT Wings Surya & Lion Wings',
+                'is_active' => true,
+            ]);
         } else {
-            foreach ($wingsPrincipals as $wp) {
-                $wp->update([
-                    'subdomain' => 'wings',
-                    'theme_color' => '#D32F2F',
-                    'portal_title' => 'Portal Pelaporan & Monitoring Wings Surya & Lion Wings',
-                    'is_active' => true,
-                ]);
-            }
+            $wingsSurya->update([
+                'subdomain' => 'wings',
+                'theme_color' => '#D32F2F',
+                'portal_title' => 'Portal Pelaporan & Monitoring PT Wings Surya & Lion Wings',
+                'is_active' => true,
+            ]);
         }
 
-        $primaryWings = $wingsPrincipals->first();
-        $allWingsIds = $wingsPrincipals->pluck('id')->toArray();
+        // Temukan atau buat PT LION WINGS
+        $lionWings = Principal::where('code', 'PR-LION-WINGS')
+            ->orWhere('name', 'LIKE', '%LION WINGS%')
+            ->first();
+
+        if (!$lionWings) {
+            $lionWings = Principal::create([
+                'code' => 'PR-LION-WINGS',
+                'name' => 'PT LION WINGS',
+                'subdomain' => 'wings',
+                'theme_color' => '#008848',
+                'portal_title' => 'Portal Pelaporan & Monitoring PT Wings Surya & Lion Wings',
+                'is_active' => true,
+            ]);
+        } else {
+            $lionWings->update([
+                'subdomain' => 'wings',
+                'theme_color' => '#008848',
+                'portal_title' => 'Portal Pelaporan & Monitoring PT Wings Surya & Lion Wings',
+                'is_active' => true,
+            ]);
+        }
+
+        $allWingsIds = array_values(array_unique([$wingsSurya->id, $lionWings->id]));
+        $primaryWings = $wingsSurya;
 
         $this->seedWingsTemplates($primaryWings, $allWingsIds);
     }
