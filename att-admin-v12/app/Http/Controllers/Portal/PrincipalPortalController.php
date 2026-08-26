@@ -950,7 +950,8 @@ class PrincipalPortalController extends Controller
             ->pluck('employee_schedules.work_location_id')
             ->merge(
                 DB::table('itinerary_items')
-                    ->join('employees', 'employees.id', '=', 'itinerary_items.employee_id')
+                    ->join('itineraries', 'itineraries.id', '=', 'itinerary_items.itinerary_id')
+                    ->join('employees', 'employees.id', '=', 'itineraries.employee_id')
                     ->whereIn('employees.principal_id', $scopedPrincipalIds)
                     ->whereNotNull('itinerary_items.work_location_id')
                     ->pluck('itinerary_items.work_location_id')
