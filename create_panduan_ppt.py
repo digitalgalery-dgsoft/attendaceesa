@@ -76,15 +76,14 @@ card1.fill.fore_color.rgb = C_CARD_BG
 card1.line.color.rgb = C_CARD_BORDER
 card1.line.width = Pt(1.5)
 
-# Badge
-badge = s1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.4), Inches(1.3), Inches(5.2), Inches(0.45))
+badge = s1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.4), Inches(1.3), Inches(5.5), Inches(0.45))
 badge.fill.solid()
 badge.fill.fore_color.rgb = RGBColor(30, 58, 138)
 badge.line.color.rgb = C_CYAN
 badge.line.width = Pt(1)
 tf_b = badge.text_frame
 p_b = tf_b.paragraphs[0]
-p_b.text = "PANDUAN TEKNIS INFRASTRUKTUR IT • 2026"
+p_b.text = "PANDUAN TEKNIS & SOP AAPANEL • 2026"
 p_b.font.size = Pt(10)
 p_b.font.bold = True
 p_b.font.color.rgb = C_CYAN
@@ -95,21 +94,21 @@ tf_c = tb_c.text_frame
 tf_c.word_wrap = True
 
 p1 = tf_c.paragraphs[0]
-p1.text = "Panduan Arsitektur & Setting 3 Server Produksi"
-p1.font.size = Pt(30)
+p1.text = "Panduan Arsitektur & Setting 3 Server (aaPanel)"
+p1.font.size = Pt(28)
 p1.font.bold = True
 p1.font.color.rgb = C_WHITE
 
 p2 = tf_c.add_paragraph()
-p2.text = "Sistem Presensi Mobile & Pelaporan Lapangan (ESA Groups)"
-p2.font.size = Pt(19)
+p2.text = "Aplikasi Presensi Mobile & Pelaporan Lapangan (ESA Groups - 23.511 Karyawan)"
+p2.font.size = Pt(18)
 p2.font.bold = True
 p2.font.color.rgb = C_EMERALD
 p2.space_before = Pt(8)
 
 p3 = tf_c.add_paragraph()
-p3.text = "Dokumen Standard Operating Procedure (SOP) Konfigurasi Server, Dynamic Routing, Cross-Entity Hierarchy, & Subdomain Portal Prinsiple"
-p3.font.size = Pt(11.5)
+p3.text = "SOP Lengkap Konfigurasi aaPanel (LNMP Stack, PHP 8.2 Tuning, Supervisor, Cron Job Odoo, & Dynamic Routing)"
+p3.font.size = Pt(11)
 p3.font.color.rgb = C_MUTED
 p3.space_before = Pt(10)
 
@@ -123,25 +122,25 @@ tf_fb.margin_left = Inches(0.3)
 tf_fb.margin_top = Inches(0.18)
 
 p_fb1 = tf_fb.paragraphs[0]
-p_fb1.text = "CAKUPAN PANDUAN DEPLOYMENT:"
+p_fb1.text = "CAKUPAN PANDUAN DEPLOYMENT AAPANEL:"
 p_fb1.font.size = Pt(11)
 p_fb1.font.bold = True
 p_fb1.font.color.rgb = C_AMBER
 
 p_fb2 = tf_fb.add_paragraph()
-p_fb2.text = "1. Topologi Jaringan & Pembagian Komputasi (AMK: 11.687, ATB+ATK+ABO: 7.424, AKP: 4.400 Karyawan)"
+p_fb2.text = "1. Setup LNMP (Nginx 1.24, PHP 8.2-FPM, PostgreSQL/MySQL, Redis 7, Supervisor Process Manager)"
 p_fb2.font.size = Pt(10)
 p_fb2.font.color.rgb = C_WHITE
 p_fb2.space_before = Pt(3)
 
 p_fb3 = tf_fb.add_paragraph()
-p_fb3.text = "2. Skema Single Gateway Domain & Auto Dynamic Server Routing pada Aplikasi Mobile (Android/iOS)"
+p_fb3.text = "2. Konfigurasi Website, Document Root /public, URL Rewrite Laravel, dan SSL Let's Encrypt Wildcard (*.esagroups.id)"
 p_fb3.font.size = Pt(10)
 p_fb3.font.color.rgb = C_CYAN
 p_fb3.space_before = Pt(2)
 
 p_fb4 = tf_fb.add_paragraph()
-p_fb4.text = "3. Mekanisme Approval Lintas Entitas (Cross-Entity Hierarchy SPV) & Integrasi Subdomain Reporting Klien"
+p_fb4.text = "3. Setting Dynamic Routing Mobile App, Hierarki SPV Lintas Entitas, dan Cron Background Sync Odoo"
 p_fb4.font.size = Pt(10)
 p_fb4.font.color.rgb = C_EMERALD
 p_fb4.space_before = Pt(2)
@@ -219,7 +218,6 @@ for i, tp in enumerate(topologies):
     p_r.font.color.rgb = RGBColor(226, 232, 240)
     p_r.space_before = Pt(8)
 
-# Bottom Inter-VPC Banner
 banner = s2.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(5.8), Inches(11.733), Inches(1.2))
 banner.fill.solid()
 banner.fill.fore_color.rgb = C_CARD_ALT
@@ -250,14 +248,96 @@ p_bn3.font.color.rgb = C_MUTED
 p_bn3.space_before = Pt(2)
 
 # ==============================================================================
-# SLIDE 3: SKEMA URL & DYNAMIC SERVER ROUTING PADA MOBILE APP
+# SLIDE 3: SOP INSTALASI & ENVIRONMENT AAPANEL
 # ==============================================================================
 s3 = prs.slides.add_slide(blank_layout)
 set_slide_bg(s3)
-add_header(s3, "MOBILE CLIENT INTEGRATION", "Skema URL & Dynamic Server Routing pada Mobile App", "Karyawan cukup memasukkan NIK di aplikasi mobile; sistem otomatis merutekan traffic ke server yang tepat.")
+add_header(s3, "SOP KONFIGURASI SERVER (BAGIAN 1)", "Panduan Instalasi aaPanel & Konfigurasi LNMP Stack", "Tahapan penyiapan environment pada Ubuntu 22.04 LTS hingga siap digunakan.")
 
-# Left Card: Flow
-left_box = s3.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(1.8), Inches(6.8), Inches(5.2))
+aapanel_steps_1 = [
+    ("1. Instalasi aaPanel di Ubuntu 22.04", "Eksekusi one-line script instalasi resmi aaPanel via terminal SSH: `wget -O install.sh http://www.aapanel.com/script/install-ubuntu_6.0_en.sh && sudo bash install.sh aapanel`."),
+    ("2. Instalasi Paket LNMP (App Store)", "Pilih stack: Nginx 1.24+, PHP 8.2 (Wajib), PostgreSQL 15 / MySQL 8.0, Redis 7.0+, dan Supervisor Process Manager."),
+    ("3. Instalasi Ekstensi PHP 8.2", "Masuk ke PHP 8.2 Settings > Install Extensions: Wajib install `fileinfo`, `redis`, `pgsql`/`pdo_pgsql`, `gd`, `zip`, `xmlrpc`, `bcmath`, dan `opcache`."),
+    ("4. Tuning Performa PHP (php.ini)", "Atur nilai: `memory_limit = 1024M`, `upload_max_filesize = 50M`, `post_max_size = 50M`, `max_execution_time = 300`, `max_input_vars = 5000`.")
+]
+
+left_s3 = Inches(0.8)
+top_s3_start = Inches(1.8)
+height_s3 = Inches(1.2)
+
+for i, (title, desc) in enumerate(aapanel_steps_1):
+    card = s3.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_s3, top_s3_start + Inches(i * 1.3), Inches(11.733), height_s3)
+    card.fill.solid()
+    card.fill.fore_color.rgb = C_CARD_BG if i % 2 == 0 else C_CARD_ALT
+    card.line.color.rgb = C_CYAN if i % 2 == 0 else C_CARD_BORDER
+
+    tf = card.text_frame
+    tf.word_wrap = True
+    tf.margin_left = Inches(0.3)
+    tf.margin_top = Inches(0.18)
+
+    p_t = tf.paragraphs[0]
+    p_t.text = title
+    p_t.font.size = Pt(12)
+    p_t.font.bold = True
+    p_t.font.color.rgb = C_CYAN
+
+    p_d = tf.add_paragraph()
+    p_d.text = desc
+    p_d.font.size = Pt(10)
+    p_d.font.color.rgb = RGBColor(226, 232, 240)
+    p_d.space_before = Pt(4)
+
+# ==============================================================================
+# SLIDE 4: SOP WEBSITE, SSL, SUPERVISOR & CRON AAPANEL
+# ==============================================================================
+s4 = prs.slides.add_slide(blank_layout)
+set_slide_bg(s4)
+add_header(s4, "SOP KONFIGURASI SERVER (BAGIAN 2)", "Setting Website, SSL Wildcard, Supervisor & Cron Job", "Langkah deploy kode aplikasi, SSL otomatis, dan otomatisasi task background.")
+
+aapanel_steps_2 = [
+    ("1. Add Website & Document Root", "Buat website di aaPanel (misal `amk.esagroups.id` & `*.amk.esagroups.id`). Set **Running Directory** ke `/public`. Set URL Rewrite ke preset `laravel5`."),
+    ("2. SSL Let's Encrypt Wildcard", "Buka tab SSL > Let's Encrypt > centang domain dan subdomain > Apply. Aktifkan toggle **Force HTTPS** untuk enkripsi penuh port 443."),
+    ("3. Clone Project & Build Cache", "Di terminal: `git clone ...`, `composer install --no-dev`, `cp .env.example .env`, `php artisan key:generate`, `php artisan migrate --force`, `php artisan optimize`."),
+    ("4. Supervisor Queue Worker", "Di App Store > Supervisor > Add Daemon: Command `php artisan queue:work redis --sleep=3 --tries=3` dengan 4 worker paralel untuk antrean background email & notifikasi."),
+    ("5. Setting Cron Job Dini Hari", "Di menu Cron aaPanel: Tambah task setiap 1 menit (`php artisan schedule:run`) dan task jam 01:00 WIB (`php artisan odoo:sync-employees`).")
+]
+
+left_s4 = Inches(0.8)
+top_s4_start = Inches(1.8)
+height_s4 = Inches(0.95)
+
+for i, (title, desc) in enumerate(aapanel_steps_2):
+    card = s4.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_s4, top_s4_start + Inches(i * 1.05), Inches(11.733), height_s4)
+    card.fill.solid()
+    card.fill.fore_color.rgb = C_CARD_BG if i % 2 == 0 else C_CARD_ALT
+    card.line.color.rgb = C_EMERALD if i % 2 == 0 else C_CARD_BORDER
+
+    tf = card.text_frame
+    tf.word_wrap = True
+    tf.margin_left = Inches(0.25)
+    tf.margin_top = Inches(0.12)
+
+    p_t = tf.paragraphs[0]
+    p_t.text = title
+    p_t.font.size = Pt(11)
+    p_t.font.bold = True
+    p_t.font.color.rgb = C_EMERALD
+
+    p_d = tf.add_paragraph()
+    p_d.text = desc
+    p_d.font.size = Pt(9.5)
+    p_d.font.color.rgb = RGBColor(226, 232, 240)
+    p_d.space_before = Pt(2)
+
+# ==============================================================================
+# SLIDE 5: DYNAMIC SERVER ROUTING MOBILE APP
+# ==============================================================================
+s5 = prs.slides.add_slide(blank_layout)
+set_slide_bg(s5)
+add_header(s5, "MOBILE CLIENT INTEGRATION", "Skema URL & Dynamic Server Routing pada Mobile App", "Karyawan cukup memasukkan NIK di aplikasi mobile; sistem otomatis merutekan traffic ke server yang tepat.")
+
+left_box = s5.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(1.8), Inches(6.8), Inches(5.2))
 left_box.fill.solid()
 left_box.fill.fore_color.rgb = C_CARD_BG
 left_box.line.color.rgb = C_CYAN
@@ -296,8 +376,7 @@ for title, desc in flow_steps:
     p_d.font.color.rgb = C_MUTED
     p_d.space_before = Pt(2)
 
-# Right Card: Sample Response JSON
-right_box = s3.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(7.8), Inches(1.8), Inches(4.733), Inches(5.2))
+right_box = s5.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(7.8), Inches(1.8), Inches(4.733), Inches(5.2))
 right_box.fill.solid()
 right_box.fill.fore_color.rgb = C_CARD_ALT
 right_box.line.color.rgb = RGBColor(51, 65, 85)
@@ -340,11 +419,11 @@ p_code.font.color.rgb = RGBColor(167, 139, 250)
 p_code.space_before = Pt(8)
 
 # ==============================================================================
-# SLIDE 4: ARSITEKTUR HIERARKI SPV LINTAS ENTITAS (CROSS-ENTITY APPROVAL)
+# SLIDE 6: HIERARKI SPV LINTAS ENTITAS (CROSS-ENTITY)
 # ==============================================================================
-s4 = prs.slides.add_slide(blank_layout)
-set_slide_bg(s4)
-add_header(s4, "WORKFLOW MANAGEMENT", "Hierarki Atasan Lintas Entitas (Cross-Entity Hierarchy)", "Menangani approval Cuti, Izin, Lembur, dan Monitoring Karyawan yang memiliki Head/SPV di entitas berbeda.")
+s6 = prs.slides.add_slide(blank_layout)
+set_slide_bg(s6)
+add_header(s6, "WORKFLOW MANAGEMENT", "Hierarki Atasan Lintas Entitas (Cross-Entity Hierarchy)", "Menangani approval Cuti, Izin, Lembur, dan Monitoring Karyawan yang memiliki Head/SPV di entitas berbeda.")
 
 cross_cards = [
     {
@@ -373,7 +452,7 @@ left_grid = [Inches(0.8), Inches(6.8), Inches(0.8), Inches(6.8)]
 top_grid = [Inches(1.8), Inches(1.8), Inches(4.4), Inches(4.4)]
 
 for i, cc in enumerate(cross_cards):
-    bx = s4.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_grid[i], top_grid[i], Inches(5.7), Inches(2.3))
+    bx = s6.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_grid[i], top_grid[i], Inches(5.7), Inches(2.3))
     bx.fill.solid()
     bx.fill.fore_color.rgb = C_CARD_BG
     bx.line.color.rgb = cc["color"]
@@ -398,14 +477,13 @@ for i, cc in enumerate(cross_cards):
     p_d.space_before = Pt(8)
 
 # ==============================================================================
-# SLIDE 5: SUBDOMAIN PORTAL REPORTING KHUSUS PRINSIPLE
+# SLIDE 7: SUBDOMAIN PRINSIPLE
 # ==============================================================================
-s5 = prs.slides.add_slide(blank_layout)
-set_slide_bg(s5)
-add_header(s5, "CLIENT REPORTING PORTAL", "Subdomain Khusus Pelaporan & Monitoring Prinsiple", "Portal white-label mandiri bagi prinsiple/klien (Dulux, Fonterra, Wings, dll) dengan akses data terisolasi.")
+s7 = prs.slides.add_slide(blank_layout)
+set_slide_bg(s7)
+add_header(s7, "CLIENT REPORTING PORTAL", "Subdomain Khusus Pelaporan & Monitoring Prinsiple", "Portal white-label mandiri bagi prinsiple/klien (Dulux, Fonterra, Wings, dll) dengan akses data terisolasi.")
 
-# Left Card: Cara Kerja Subdomain
-sub_left = s5.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(1.8), Inches(6.2), Inches(5.2))
+sub_left = s7.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(1.8), Inches(6.2), Inches(5.2))
 sub_left.fill.solid()
 sub_left.fill.fore_color.rgb = C_CARD_BG
 sub_left.line.color.rgb = C_EMERALD
@@ -444,8 +522,7 @@ for title, desc in sub_features:
     p_d.font.color.rgb = C_MUTED
     p_d.space_before = Pt(2)
 
-# Right Card: Sample URL mapping
-sub_right = s5.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(7.2), Inches(1.8), Inches(5.333), Inches(5.2))
+sub_right = s7.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(7.2), Inches(1.8), Inches(5.333), Inches(5.2))
 sub_right.fill.solid()
 sub_right.fill.fore_color.rgb = C_CARD_ALT
 sub_right.line.color.rgb = C_CARD_BORDER
@@ -485,53 +562,11 @@ for url, label in sub_list:
     p_l.font.color.rgb = C_WHITE
 
 # ==============================================================================
-# SLIDE 6: CHECKLIST & SOP SETUP SERVER PRODUKSI
+# SLIDE 8: SUMMARY & ACTION PLAN
 # ==============================================================================
-s6 = prs.slides.add_slide(blank_layout)
-set_slide_bg(s6)
-add_header(s6, "STANDARD OPERATING PROCEDURE", "Checklist & SOP Konfigurasi Server Produksi", "Panduan langkah demi langkah penyiapan environment 3 Server Cloud VPS hingga Go-Live.")
-
-sop_steps = [
-    ("Langkah 1: Provisioning & OS", "Instalasi Ubuntu 22.04 LTS 64-bit pada 3 Server Multiverse Ultra. Konfigurasi Private IP Inter-VPC (10.0.1.x) dan SSH Key Authentication."),
-    ("Langkah 2: Web Server & PHP Stack", "Instalasi Nginx Web Server, PHP 8.2-FPM (dengan ekstensi pgsql, redis, gd, zip, xmlrpc, bcmath), dan Supervisor Process Manager."),
-    ("Langkah 3: Database & Caching", "Instalasi PostgreSQL 15 / MySQL 8 & Redis Server. Konfigurasi `shared_buffers` 8GB di Server 1 & 2, serta 4GB di Server 3. Optimasi max_connections 500."),
-    ("Langkah 4: Deploy Script & SSL", "Clone repository `att-admin-v12`, jalankan composer install & migration, aktifkan SSL Let's Encrypt Wildcard (*.esagroups.id), dan tes Odoo Sync."),
-    ("Langkah 5: Cron & Object Storage", "Setting Cron Job harian (01:00 WIB Odoo Sync, 00:05 Auto Reset Roster), hubungkan S3 Object Storage API, dan verifikasi upload selfie kamera.")
-]
-
-left_sop = Inches(0.8)
-top_sop_start = Inches(1.8)
-height_sop = Inches(0.95)
-
-for i, (title, desc) in enumerate(sop_steps):
-    card = s6.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_sop, top_sop_start + Inches(i * 1.05), Inches(11.733), height_sop)
-    card.fill.solid()
-    card.fill.fore_color.rgb = C_CARD_BG if i % 2 == 0 else C_CARD_ALT
-    card.line.color.rgb = C_CARD_BORDER
-
-    tf = card.text_frame
-    tf.word_wrap = True
-    tf.margin_left = Inches(0.25)
-    tf.margin_top = Inches(0.12)
-
-    p_t = tf.paragraphs[0]
-    p_t.text = title
-    p_t.font.size = Pt(11)
-    p_t.font.bold = True
-    p_t.font.color.rgb = C_CYAN
-
-    p_d = tf.add_paragraph()
-    p_d.text = desc
-    p_d.font.size = Pt(9.5)
-    p_d.font.color.rgb = RGBColor(226, 232, 240)
-    p_d.space_before = Pt(2)
-
-# ==============================================================================
-# SLIDE 7: SUMMARY & ACTION PLAN
-# ==============================================================================
-s7 = prs.slides.add_slide(blank_layout)
-set_slide_bg(s7)
-add_header(s7, "SUMMARY & NEXT STEPS", "Rangkuman Eksekutif & Rencana Tindak Lanjut", "Arsitektur 3 server siap dieksekusi untuk menjamin operasional presensi 23.511 karyawan tanpa kendala.")
+s8 = prs.slides.add_slide(blank_layout)
+set_slide_bg(s8)
+add_header(s8, "SUMMARY & NEXT STEPS", "Rangkuman Eksekutif & Rencana Tindak Lanjut", "Arsitektur 3 server siap dieksekusi untuk menjamin operasional presensi 23.511 karyawan tanpa kendala.")
 
 final_cards = [
     ("⚡ Bebas Bottleneck 100%", "Beban puncak presensi pagi & sore (500–800 RPS) terbagi rata di 3 mesin independen. Menghilangkan risiko server down atau antrean database."),
@@ -544,7 +579,7 @@ left_f = [Inches(0.8), Inches(6.8), Inches(0.8), Inches(6.8)]
 top_f = [Inches(1.8), Inches(1.8), Inches(4.3), Inches(4.3)]
 
 for i, (title, desc) in enumerate(final_cards):
-    bx = s7.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_f[i], top_f[i], Inches(5.7), Inches(2.2))
+    bx = s8.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_f[i], top_f[i], Inches(5.7), Inches(2.2))
     bx.fill.solid()
     bx.fill.fore_color.rgb = C_CARD_BG
     bx.line.color.rgb = C_EMERALD if i == 3 else C_CARD_BORDER
@@ -571,4 +606,4 @@ for i, (title, desc) in enumerate(final_cards):
 # Save presentation
 out_ppt = "Panduan_Arsitektur_dan_Setting_Production_3_Server_ESA.pptx"
 prs.save(out_ppt)
-print(f"Panduan presentation saved to: {out_ppt}")
+print(f"Panduan presentation with aaPanel updated and saved to: {out_ppt}")
