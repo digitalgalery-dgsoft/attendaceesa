@@ -249,7 +249,7 @@
         }
     </style>
 
-    <div x-data="odooSyncEngine()" class="odoo-sync-wrap">
+    <div wire:ignore x-data="odooSyncEngine()" class="odoo-sync-wrap">
 
         {{-- Row 1: Status & Quick Tools --}}
         <div class="odoo-top-grid">
@@ -622,6 +622,10 @@
                     }
 
                     this.eventSource = new EventSource(url);
+
+                    this.eventSource.onopen = () => {
+                        console.log('SSE Stream Connected');
+                    };
 
                     this.eventSource.onmessage = (event) => {
                         try {

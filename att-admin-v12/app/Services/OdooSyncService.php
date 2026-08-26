@@ -273,8 +273,10 @@ class OdooSyncService
         $updatedEmployees = [];
         $resignedEmployees = [];
         $offset   = 0;
-        $limit    = 500;
+        $limit    = 100; // Small fast batch for smooth real-time stream
         $batchNum = 0;
+
+        $log('info', "👥 Menginisialisasi pengambilan data karyawan (Batch size: {$limit})...");
 
         do {
             $batchNum++;
@@ -921,7 +923,8 @@ class OdooSyncService
             CURLOPT_POSTFIELDS     => $xmlBody,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPHEADER     => ['Content-Type: text/xml', 'Content-Length: ' . strlen($xmlBody)],
-            CURLOPT_TIMEOUT        => 60,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_CONNECTTIMEOUT => 30,
             CURLOPT_SSL_VERIFYPEER => false,
         ]);
 

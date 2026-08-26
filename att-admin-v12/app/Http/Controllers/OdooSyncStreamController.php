@@ -27,17 +27,22 @@ class OdooSyncStreamController extends Controller
         $action = $request->get('action', 'all'); // 'test_connection', 'cleanup_duplicates', 'principals', 'employees', 'all', 'all_companies'
 
         return new StreamedResponse(function () use ($companyId, $action) {
-            // Disable output buffers
-            while (ob_get_level() > 0) {
-                ob_end_flush();
+            // Disable gzip and server output buffering
+            if (function_exists('apache_setenv')) {
+                @apache_setenv('no-gzip', '1');
             }
-            ini_set('output_buffering', 'off');
-            ini_set('zlib.output_compression', false);
+            @ini_set('zlib.output_compression', '0');
+            @ini_set('output_buffering', 'off');
+            @ini_set('implicit_flush', '1');
+            @ob_implicit_flush(true);
 
-            // Fast flush padding for proxies/webservers (Apache/Nginx/Cloudflare)
-            echo ":" . str_repeat(" ", 4096) . "\n\n";
-            if (ob_get_level() > 0) ob_flush();
-            flush();
+            while (ob_get_level() > 0) {
+                @ob_end_flush();
+            }
+
+            // Fast flush padding for proxies/webservers (Apache/Nginx/Cloudflare/aaPanel)
+            echo ":" . str_repeat(" ", 8192) . "\n\n";
+            @flush();
 
             $sendEvent = function (string $type, string $message, ?array $meta = null) {
                 $payload = [
@@ -46,9 +51,11 @@ class OdooSyncStreamController extends Controller
                     'message' => $message,
                     'meta' => $meta,
                 ];
-                echo "data: " . json_encode($payload) . "\n\n";
-                if (ob_get_level() > 0) ob_flush();
-                flush();
+                echo "data: " . json_encode($payload, JSON_UNESCAPED_UNICODE) . "\n\n";
+                while (ob_get_level() > 0) {
+                    @ob_end_flush();
+                }
+                @flush();
             };
 
             $sendEvent('info', "🚀 Engine Odoo Sync Inisialisasi...");
@@ -179,9 +186,11 @@ class OdooSyncStreamController extends Controller
                 $sendEvent('done', "❌ Proses terhenti karena error.", ['status' => 'failed', 'error' => $e->getMessage()]);
             }
         }, 200, [
-            'Content-Type' => 'text/event-stream; charset=utf-8',
-            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Content-Type' => 'text/event-stream; charset=UTF-8',
+            'Cache-Control' => 'no-cache, no-store, must-revalidate, no-transform',
+            'Pragma' => 'no-cache',
             'X-Accel-Buffering' => 'no',
+            'Content-Encoding' => 'none',
             'Connection' => 'keep-alive',
         ]);
     }
