@@ -78,7 +78,15 @@ Route::post('/logout', [\App\Http\Controllers\Auth\TenantAuthController::class, 
 // Principal Reporting Portal Routes
 Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'dashboard'])->name('dashboard');
+    
+    // Master Data Products / SKU
     Route::get('/products', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'productsList'])->name('products');
+    Route::post('/products', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'storeProduct'])->name('products.store');
+    Route::put('/products/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'updateProduct'])->name('products.update');
+    Route::delete('/products/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'destroyProduct'])->name('products.destroy');
+    Route::get('/products/template-import', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'downloadTemplateImport'])->name('products.template');
+    Route::post('/products/import', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'importProducts'])->name('products.import');
+
     Route::get('/report/{code}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'reportDetail'])->name('report.detail');
     Route::get('/report/{code}/export', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'exportReport'])->name('report.export');
 });

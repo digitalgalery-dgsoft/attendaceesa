@@ -495,4 +495,259 @@ class PrincipalPortalController extends Controller
             'setting'
         ));
     }
+
+    /**
+     * Store a newly created product
+     */
+    public function storeProduct(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'sku_code' => 'required|string|max:100',
+            'barcode' => 'nullable|string|max:100',
+            'brand' => 'nullable|string|max:100',
+            'category' => 'nullable|string|max:100',
+            'price' => 'nullable|numeric|min:0',
+            'uom' => 'nullable|string|max:50',
+            'description' => 'nullable|string|max:1000',
+            'image' => 'nullable|image|max:4096',
+        ]);
+
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('products', 'public');
+        }
+
+        Product::updateOrCreate(
+            ['sku_code' => trim($validated['sku_code'])],
+            [
+                'principal_id' => $tenantPrincipal->id,
+                'company_id' => $tenantPrincipal->company_id,
+                'name' => trim($validated['name']),
+                'barcode' => !empty($validated['barcode']) ? trim($validated['barcode']) : null,
+                'brand' => !empty($validated['brand']) ? trim($validated['brand']) : null,
+                'category' => !empty($validated['category']) ? trim($validated['category']) : null,
+                'price' => $validated['price'] ?? 0,
+                'uom' => !empty($validated['uom']) ? trim($validated['uom']) : 'Pcs',
+                'description' => $validated['description'] ?? null,
+                'image_path' => $imagePath,
+                'is_active' => true,
+            ]
+        );
+
+        return redirect()->route('portal.products')->with('success', 'Produk SKU baru berhasil ditambahkan!');
+    }
+
+    /**
+     * Update an existing product
+     */
+    public function updateProduct(Request $request, int $id)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $product = Product::whereIn('principal_id', $scopedPrincipalIds)->findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'sku_code' => 'required|string|max:100',
+            'barcode' => 'nullable|string|max:100',
+            'brand' => 'nullable|string|max:100',
+            'category' => 'nullable|string|max:100',
+            'price' => 'nullable|numeric|min:0',
+            'uom' => 'nullable|string|max:50',
+            'description' => 'nullable|string|max:1000',
+            'image' => 'nullable|image|max:4096',
+        ]);
+
+        if ($request->hasFile('image')) {
+            $product->image_path = $request->file('image')->store('products', 'public');
+        }
+
+        $product->update([
+            'name' => trim($validated['name']),
+            'sku_code' => trim($validated['sku_code']),
+            'barcode' => !empty($validated['barcode']) ? trim($validated['barcode']) : null,
+            'brand' => !empty($validated['brand']) ? trim($validated['brand']) : null,
+            'category' => !empty($validated['category']) ? trim($validated['category']) : null,
+            'price' => $validated['price'] ?? 0,
+            'uom' => !empty($validated['uom']) ? trim($validated['uom']) : 'Pcs',
+            'description' => $validated['description'] ?? null,
+        ]);
+
+        return redirect()->route('portal.products')->with('success', 'Data produk berhasil diperbarui!');
+    }
+
+    /**
+     * Delete a product
+     */
+    public function destroyProduct(Request $request, int $id)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $product = Product::whereIn('principal_id', $scopedPrincipalIds)->findOrFail($id);
+        $product->delete();
+
+        return redirect()->route('portal.products')->with('success', 'Produk berhasil dihapus!');
+    }
+
+    /**
+     * Download Excel / CSV Import Template
+     */
+    public function downloadTemplateImport(Request $request)
+    {
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="template_import_produk_sku.csv"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
+        ];
+
+        $callback = function () {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM
+
+            // Header format
+            fputcsv($handle, ['nama_produk', 'kode_sku', 'barcode', 'brand', 'kategori', 'harga', 'satuan', 'deskripsi']);
+
+            // Sample rows
+            fputcsv($handle, ['SoKlin Liquid Antibacterial 720ml', 'WNG-SKL-LIQ-720', '8998866101102', 'SoKlin', 'Care / Detergent', '19500', 'Pouch', 'Deterjen cair konsentrat antibakteri']);
+            fputcsv($handle, ['Mie Sedaap Goreng Original 90g', 'WNG-MSD-GRG-90', '8998866200010', 'Mie Sedaap', 'Food & Beverage', '3200', 'Bks', 'Mie instan goreng bawang renyah']);
+            fputcsv($handle, ['Nuvo Family Soap 76g', 'LNW-NVO-MRH-76', '8998866600015', 'Nuvo', 'Personal Care', '4500', 'Pcs', 'Sabun mandi antibakteri']);
+
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Import products from Excel / CSV file
+     */
+    public function importProducts(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $extension = strtolower($file->getClientOriginalExtension());
+        $rows = [];
+
+        // 1. If XLSX/XLS, try using PhpSpreadsheet
+        if (in_array($extension, ['xlsx', 'xls']) && class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $worksheet = $spreadsheet->getActiveSheet();
+            $data = $worksheet->toArray();
+            if (!empty($data)) {
+                $header = array_shift($data);
+                foreach ($data as $row) {
+                    if (empty(array_filter($row))) continue;
+                    $rowAssoc = [];
+                    foreach ($header as $i => $colName) {
+                        $key = strtolower(trim((string)$colName));
+                        $key = str_replace([' ', '-', '/'], '_', $key);
+                        $rowAssoc[$key] = $row[$i] ?? null;
+                    }
+                    $rows[] = $rowAssoc;
+                }
+            }
+        } else {
+            // 2. CSV Parser with auto delimiter detection
+            $content = file_get_contents($file->getRealPath());
+            $content = preg_replace('/^\xEF\xBB\xBF/', '', $content); // Strip BOM
+            $lines = preg_split('/\r\n|\r|\n/', trim($content));
+            
+            if (!empty($lines)) {
+                $firstLine = $lines[0];
+                $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
+                $header = str_getcsv(array_shift($lines), $delimiter);
+                $normalizedHeader = [];
+                foreach ($header as $col) {
+                    $k = strtolower(trim($col));
+                    $k = str_replace([' ', '-', '/'], '_', $k);
+                    $normalizedHeader[] = $k;
+                }
+
+                foreach ($lines as $line) {
+                    if (empty(trim($line))) continue;
+                    $cols = str_getcsv($line, $delimiter);
+                    $rowAssoc = [];
+                    foreach ($normalizedHeader as $idx => $k) {
+                        $rowAssoc[$k] = $cols[$idx] ?? null;
+                    }
+                    $rows[] = $rowAssoc;
+                }
+            }
+        }
+
+        if (empty($rows)) {
+            return redirect()->back()->with('error', 'File tidak berisi data atau format tidak sesuai.');
+        }
+
+        $imported = 0;
+        foreach ($rows as $r) {
+            $name = $r['nama_produk'] ?? $r['name'] ?? $r['nama'] ?? $r['produk'] ?? null;
+            $sku = $r['kode_sku'] ?? $r['sku_code'] ?? $r['sku'] ?? $r['kode'] ?? null;
+
+            if (empty($name) && empty($sku)) {
+                continue;
+            }
+
+            if (empty($sku)) {
+                $sku = 'SKU-' . strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', (string)$name), 0, 8)) . '-' . rand(100, 999);
+            }
+            if (empty($name)) {
+                $name = $sku;
+            }
+
+            $barcode = $r['barcode'] ?? $r['ean'] ?? $r['kode_barcode'] ?? null;
+            $brand = $r['brand'] ?? $r['merek'] ?? $r['merk'] ?? null;
+            $category = $r['kategori'] ?? $r['category'] ?? null;
+            $priceRaw = $r['harga'] ?? $r['price'] ?? $r['harga_standar'] ?? 0;
+            $price = (float) preg_replace('/[^0-9.]/', '', (string)$priceRaw);
+            $uom = $r['satuan'] ?? $r['uom'] ?? 'Pcs';
+            $description = $r['deskripsi'] ?? $r['description'] ?? $r['keterangan'] ?? null;
+
+            Product::updateOrCreate(
+                ['sku_code' => trim((string)$sku)],
+                [
+                    'principal_id' => $tenantPrincipal->id,
+                    'company_id' => $tenantPrincipal->company_id,
+                    'name' => trim((string)$name),
+                    'barcode' => !empty($barcode) ? trim((string)$barcode) : null,
+                    'brand' => !empty($brand) ? trim((string)$brand) : null,
+                    'category' => !empty($category) ? trim((string)$category) : null,
+                    'price' => $price,
+                    'uom' => !empty($uom) ? trim((string)$uom) : 'Pcs',
+                    'description' => $description,
+                    'is_active' => true,
+                ]
+            );
+
+            $imported++;
+        }
+
+        return redirect()->route('portal.products')->with('success', "Berhasil mengimpor {$imported} data produk ke katalog!");
+    }
 }

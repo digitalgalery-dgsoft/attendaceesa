@@ -55,6 +55,55 @@
         color: var(--text-muted);
     }
 
+    .catalog-actions-right {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .btn-add-product {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1.35rem;
+        background: var(--brand-primary);
+        color: #ffffff;
+        border: none;
+        border-radius: 10px;
+        font-size: 0.88rem;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 4px 12px var(--brand-glow);
+        transition: all 0.2s ease;
+    }
+
+    .btn-add-product:hover {
+        transform: translateY(-2px);
+        filter: brightness(1.1);
+    }
+
+    .btn-import-excel {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1.25rem;
+        background: #16a34a;
+        color: #ffffff;
+        border: none;
+        border-radius: 10px;
+        font-size: 0.88rem;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+        transition: all 0.2s ease;
+    }
+
+    .btn-import-excel:hover {
+        background: #15803d;
+        transform: translateY(-2px);
+    }
+
     /* Mini Stats */
     .mini-stats-grid {
         display: grid;
@@ -197,6 +246,163 @@
         border-radius: 9999px;
     }
 
+    .btn-action-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        background: #ffffff;
+        color: var(--text-heading);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+    }
+
+    .btn-action-icon:hover {
+        background: var(--brand-light);
+        color: var(--brand-primary);
+        border-color: var(--brand-primary);
+    }
+
+    .btn-action-icon.delete:hover {
+        background: #fee2e2;
+        color: #ef4444;
+        border-color: #ef4444;
+    }
+
+    /* Modal Overlay & Card */
+    .portal-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 100;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .portal-modal-overlay.active {
+        display: flex;
+    }
+
+    .portal-modal-card {
+        background: #ffffff;
+        border-radius: 18px;
+        width: 100%;
+        max-width: 580px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: var(--shadow-lg);
+        animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalPop {
+        from { transform: scale(0.92); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+
+    .portal-modal-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .portal-modal-title {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--text-heading);
+    }
+
+    .btn-close-modal {
+        background: #f1f5f9;
+        border: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #64748b;
+        transition: all 0.2s ease;
+    }
+
+    .btn-close-modal:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+    }
+
+    .portal-modal-body {
+        padding: 1.5rem;
+    }
+
+    .form-group-row {
+        margin-bottom: 1.1rem;
+    }
+
+    .form-label-custom {
+        display: block;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--text-heading);
+        margin-bottom: 0.4rem;
+    }
+
+    .form-input-custom {
+        width: 100%;
+        padding: 0.65rem 0.95rem;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        font-size: 0.88rem;
+        outline: none;
+        background: #f8fafc;
+        transition: all 0.2s ease;
+    }
+
+    .form-input-custom:focus {
+        border-color: var(--brand-primary);
+        background: #ffffff;
+        box-shadow: 0 0 0 3px var(--brand-light);
+    }
+
+    .form-grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.85rem;
+    }
+
+    .alert-banner {
+        padding: 0.95rem 1.25rem;
+        border-radius: 12px;
+        margin-bottom: 1.25rem;
+        font-size: 0.88rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .alert-success {
+        background: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
+
+    .alert-error {
+        background: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+    }
+
     @media (max-width: 992px) {
         .mini-stats-grid {
             grid-template-columns: 1fr;
@@ -206,6 +412,20 @@
 @endpush
 
 @section('content')
+
+    @if(session('success'))
+        <div class="alert-banner alert-success">
+            <i class="fa-solid fa-circle-check" style="font-size: 1.1rem;"></i>
+            <span>{{ session('success') }}</span>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert-banner alert-error">
+            <i class="fa-solid fa-circle-exclamation" style="font-size: 1.1rem;"></i>
+            <span>{{ session('error') }}</span>
+        </div>
+    @endif
 
     <!-- Header Card -->
     <div class="catalog-header">
@@ -221,6 +441,17 @@
                     <span>Daftar item target pemantauan stok, offtake, dan display lapangan</span>
                 </div>
             </div>
+        </div>
+
+        <div class="catalog-actions-right">
+            <button type="button" class="btn-import-excel" onclick="openImportModal()">
+                <i class="fa-solid fa-file-excel"></i>
+                Import Excel / CSV
+            </button>
+            <button type="button" class="btn-add-product" onclick="openAddModal()">
+                <i class="fa-solid fa-plus"></i>
+                Tambah Produk Baru
+            </button>
         </div>
     </div>
 
@@ -296,6 +527,7 @@
                             <th>Harga Standar</th>
                             <th>Satuan</th>
                             <th>Barcode</th>
+                            <th style="text-align: center;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -318,7 +550,7 @@
                                         {{ $prod->name }}
                                     </div>
                                     @if($prod->description)
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); max-width: 320px;">
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); max-width: 300px;">
                                             {{ Str::limit($prod->description, 60) }}
                                         </div>
                                     @endif
@@ -345,6 +577,18 @@
                                         {{ $prod->barcode ?? '-' }}
                                     </span>
                                 </td>
+                                <td style="text-align: center; white-space: nowrap;">
+                                    <button type="button" class="btn-action-icon" title="Edit Produk" onclick='openEditModal(@json($prod))'>
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <form action="{{ route('portal.products.destroy', $prod->id) }}" method="POST" style="display: inline-block; margin: 0;" onsubmit="return confirm('Yakin ingin menghapus produk ini dari katalog?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn-action-icon delete" title="Hapus Produk">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -358,11 +602,234 @@
             <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
                 <i class="fa-solid fa-boxes-packing" style="font-size: 2.5rem; margin-bottom: 0.75rem; color: #cbd5e1;"></i>
                 <div style="font-weight: 700; font-size: 1.05rem; color: var(--text-heading);">Belum Ada Data Produk Terdaftar</div>
-                <p style="font-size: 0.85rem; max-width: 420px; margin: 0.35rem auto 0;">
-                    Daftar SKU produk prinsiple dapat diinput melalui Admin Panel pada menu <strong>Master Data > Products / SKU</strong>.
+                <p style="font-size: 0.85rem; max-width: 420px; margin: 0.35rem auto 1.25rem;">
+                    Daftar SKU produk prinsiple dapat diinput manual satu per satu atau diimpor massal dari file Excel.
                 </p>
+                <div style="display: flex; gap: 0.75rem; justify-content: center;">
+                    <button type="button" class="btn-import-excel" onclick="openImportModal()">
+                        <i class="fa-solid fa-file-excel"></i> Import File Excel
+                    </button>
+                    <button type="button" class="btn-add-product" onclick="openAddModal()">
+                        <i class="fa-solid fa-plus"></i> Tambah Produk Baru
+                    </button>
+                </div>
             </div>
         @endif
     </div>
 
+    <!-- MODAL 1: TAMBAH PRODUK BARU -->
+    <div id="modalAddProduct" class="portal-modal-overlay">
+        <div class="portal-modal-card">
+            <div class="portal-modal-header">
+                <h3 class="portal-modal-title"><i class="fa-solid fa-plus-circle" style="color: var(--brand-primary);"></i> Tambah Produk Baru</h3>
+                <button type="button" class="btn-close-modal" onclick="closeModal('modalAddProduct')">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form action="{{ route('portal.products.store') }}" method="POST" enctype="multipart/form-data" class="portal-modal-body">
+                @csrf
+                <div class="form-group-row">
+                    <label class="form-label-custom">Nama Produk / SKU <span style="color: #ef4444;">*</span></label>
+                    <input type="text" name="name" class="form-input-custom" placeholder="Contoh: SoKlin Liquid Detergent Antibac 720ml" required>
+                </div>
+
+                <div class="form-grid-2 form-group-row">
+                    <div>
+                        <label class="form-label-custom">Kode SKU <span style="color: #ef4444;">*</span></label>
+                        <input type="text" name="sku_code" class="form-input-custom" placeholder="Contoh: WNG-SKL-LIQ-720" required>
+                    </div>
+                    <div>
+                        <label class="form-label-custom">Barcode EAN / UPC</label>
+                        <input type="text" name="barcode" class="form-input-custom" placeholder="Contoh: 8998866101102">
+                    </div>
+                </div>
+
+                <div class="form-grid-2 form-group-row">
+                    <div>
+                        <label class="form-label-custom">Merek / Sub-Brand</label>
+                        <input type="text" name="brand" class="form-input-custom" placeholder="Contoh: SoKlin, Nuvo, Mie Sedaap">
+                    </div>
+                    <div>
+                        <label class="form-label-custom">Kategori Produk</label>
+                        <input type="text" name="category" class="form-input-custom" placeholder="Contoh: Care, Food, Dairy">
+                    </div>
+                </div>
+
+                <div class="form-grid-2 form-group-row">
+                    <div>
+                        <label class="form-label-custom">Harga Standar (Rp)</label>
+                        <input type="number" name="price" class="form-input-custom" placeholder="0" min="0">
+                    </div>
+                    <div>
+                        <label class="form-label-custom">Satuan Unit (UoM)</label>
+                        <input type="text" name="uom" class="form-input-custom" placeholder="Pcs / Pouch / Pack / Btl" value="Pcs">
+                    </div>
+                </div>
+
+                <div class="form-group-row">
+                    <label class="form-label-custom">Foto Kemasan Produk</label>
+                    <input type="file" name="image" class="form-input-custom" accept="image/*">
+                </div>
+
+                <div class="form-group-row">
+                    <label class="form-label-custom">Deskripsi Singkat</label>
+                    <textarea name="description" class="form-input-custom" rows="2" placeholder="Catatan spesifikasi produk..."></textarea>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+                    <button type="button" class="filter-select-btn" onclick="closeModal('modalAddProduct')">Batal</button>
+                    <button type="submit" class="btn-add-product"><i class="fa-solid fa-check"></i> Simpan Produk</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: EDIT PRODUK -->
+    <div id="modalEditProduct" class="portal-modal-overlay">
+        <div class="portal-modal-card">
+            <div class="portal-modal-header">
+                <h3 class="portal-modal-title"><i class="fa-solid fa-pen-to-square" style="color: var(--brand-primary);"></i> Edit Data Produk</h3>
+                <button type="button" class="btn-close-modal" onclick="closeModal('modalEditProduct')">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form id="formEditProduct" action="" method="POST" enctype="multipart/form-data" class="portal-modal-body">
+                @csrf
+                @method('PUT')
+                <div class="form-group-row">
+                    <label class="form-label-custom">Nama Produk / SKU <span style="color: #ef4444;">*</span></label>
+                    <input type="text" id="edit_name" name="name" class="form-input-custom" required>
+                </div>
+
+                <div class="form-grid-2 form-group-row">
+                    <div>
+                        <label class="form-label-custom">Kode SKU <span style="color: #ef4444;">*</span></label>
+                        <input type="text" id="edit_sku_code" name="sku_code" class="form-input-custom" required>
+                    </div>
+                    <div>
+                        <label class="form-label-custom">Barcode EAN / UPC</label>
+                        <input type="text" id="edit_barcode" name="barcode" class="form-input-custom">
+                    </div>
+                </div>
+
+                <div class="form-grid-2 form-group-row">
+                    <div>
+                        <label class="form-label-custom">Merek / Sub-Brand</label>
+                        <input type="text" id="edit_brand" name="brand" class="form-input-custom">
+                    </div>
+                    <div>
+                        <label class="form-label-custom">Kategori Produk</label>
+                        <input type="text" id="edit_category" name="category" class="form-input-custom">
+                    </div>
+                </div>
+
+                <div class="form-grid-2 form-group-row">
+                    <div>
+                        <label class="form-label-custom">Harga Standar (Rp)</label>
+                        <input type="number" id="edit_price" name="price" class="form-input-custom" min="0">
+                    </div>
+                    <div>
+                        <label class="form-label-custom">Satuan Unit (UoM)</label>
+                        <input type="text" id="edit_uom" name="uom" class="form-input-custom">
+                    </div>
+                </div>
+
+                <div class="form-group-row">
+                    <label class="form-label-custom">Ganti Foto Kemasan (Opsional)</label>
+                    <input type="file" name="image" class="form-input-custom" accept="image/*">
+                </div>
+
+                <div class="form-group-row">
+                    <label class="form-label-custom">Deskripsi Singkat</label>
+                    <textarea id="edit_description" name="description" class="form-input-custom" rows="2"></textarea>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+                    <button type="button" class="filter-select-btn" onclick="closeModal('modalEditProduct')">Batal</button>
+                    <button type="submit" class="btn-add-product"><i class="fa-solid fa-save"></i> Perbarui Produk</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: IMPORT EXCEL / CSV -->
+    <div id="modalImportProduct" class="portal-modal-overlay">
+        <div class="portal-modal-card">
+            <div class="portal-modal-header">
+                <h3 class="portal-modal-title"><i class="fa-solid fa-file-excel" style="color: #16a34a;"></i> Import Data Produk via Excel / CSV</h3>
+                <button type="button" class="btn-close-modal" onclick="closeModal('modalImportProduct')">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form action="{{ route('portal.products.import') }}" method="POST" enctype="multipart/form-data" class="portal-modal-body">
+                @csrf
+                <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
+                    <div style="font-weight: 700; font-size: 0.88rem; color: var(--text-heading); margin-bottom: 0.35rem;">
+                        <i class="fa-solid fa-circle-info" style="color: #2563eb;"></i> Format Kolom File Excel / CSV:
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+                        Pastikan baris pertama (Header) berisi kolom berikut:
+                        <br>
+                        <code style="font-weight: 700; color: #0f172a; background: #e2e8f0; padding: 0.2rem 0.4rem; border-radius: 4px; display: inline-block; margin-top: 0.35rem;">
+                            nama_produk, kode_sku, barcode, brand, kategori, harga, satuan, deskripsi
+                        </code>
+                    </div>
+                    <div style="margin-top: 0.85rem;">
+                        <a href="{{ route('portal.products.template') }}" class="filter-select-btn" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; background: #ffffff;">
+                            <i class="fa-solid fa-download"></i> Unduh Format Template CSV / Excel
+                        </a>
+                    </div>
+                </div>
+
+                <div class="form-group-row">
+                    <label class="form-label-custom">Pilih File (.xlsx, .xls, atau .csv) <span style="color: #ef4444;">*</span></label>
+                    <input type="file" name="file" class="form-input-custom" accept=".xlsx,.xls,.csv,.txt" required>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+                    <button type="button" class="filter-select-btn" onclick="closeModal('modalImportProduct')">Batal</button>
+                    <button type="submit" class="btn-import-excel"><i class="fa-solid fa-cloud-arrow-up"></i> Upload & Import Data</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 @endsection
+
+@push('scripts')
+<script>
+    function openAddModal() {
+        document.getElementById('modalAddProduct').classList.add('active');
+    }
+
+    function openImportModal() {
+        document.getElementById('modalImportProduct').classList.add('active');
+    }
+
+    function openEditModal(prod) {
+        document.getElementById('formEditProduct').action = '/portal/products/' + prod.id;
+        document.getElementById('edit_name').value = prod.name || '';
+        document.getElementById('edit_sku_code').value = prod.sku_code || '';
+        document.getElementById('edit_barcode').value = prod.barcode || '';
+        document.getElementById('edit_brand').value = prod.brand || '';
+        document.getElementById('edit_category').value = prod.category || '';
+        document.getElementById('edit_price').value = prod.price || 0;
+        document.getElementById('edit_uom').value = prod.uom || 'Pcs';
+        document.getElementById('edit_description').value = prod.description || '';
+        document.getElementById('modalEditProduct').classList.add('active');
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('active');
+    }
+
+    // Close on click outside card
+    document.querySelectorAll('.portal-modal-overlay').forEach(function (overlay) {
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) {
+                overlay.classList.remove('active');
+            }
+        });
+    });
+</script>
+@endpush
