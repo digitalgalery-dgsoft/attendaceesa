@@ -423,25 +423,25 @@
             @if($hasMasterData)
                 <div class="menu-category-label">Master Data</div>
                 @if($hasPerm('view_employees'))
-                    <a href="/admin/employees" class="sidebar-nav-item">
+                    <a href="{{ route('portal.employees', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.employees*') ? 'active' : '' }}">
                         <i class="fa-solid fa-users nav-icon"></i>
                         <span class="nav-text">Employees (Karyawan)</span>
                     </a>
                 @endif
                 @if($hasPerm('view_areas'))
-                    <a href="/admin/branches" class="sidebar-nav-item">
+                    <a href="{{ route('portal.areas', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.areas*') ? 'active' : '' }}">
                         <i class="fa-solid fa-map-location-dot nav-icon"></i>
                         <span class="nav-text">Areas / Cabang</span>
                     </a>
                 @endif
                 @if($hasPerm('view_work_locations'))
-                    <a href="/admin/work-locations" class="sidebar-nav-item">
+                    <a href="{{ route('portal.work_locations', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.work_locations*') ? 'active' : '' }}">
                         <i class="fa-solid fa-store nav-icon"></i>
                         <span class="nav-text">Work Locations (Lokasi Kerja)</span>
                     </a>
                 @endif
                 @if($hasPerm('view_shifts'))
-                    <a href="/admin/shifts" class="sidebar-nav-item">
+                    <a href="{{ route('portal.shifts', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.shifts*') ? 'active' : '' }}">
                         <i class="fa-solid fa-business-time nav-icon"></i>
                         <span class="nav-text">Shifts (Shift Kerja)</span>
                     </a>
@@ -482,25 +482,25 @@
             @if($hasAttendance)
                 <div class="menu-category-label">Attendance & Kehadiran</div>
                 @if($hasPerm('view_attendance'))
-                    <a href="/admin/attendances" class="sidebar-nav-item">
+                    <a href="{{ route('portal.attendances', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.attendances*') ? 'active' : '' }}">
                         <i class="fa-solid fa-clipboard-user nav-icon"></i>
                         <span class="nav-text">Presensi / Absensi</span>
                     </a>
                 @endif
                 @if($hasPerm('manage_roster'))
-                    <a href="/admin/employee-schedules" class="sidebar-nav-item">
+                    <a href="{{ route('portal.schedules', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.schedules*') ? 'active' : '' }}">
                         <i class="fa-solid fa-calendar-week nav-icon"></i>
                         <span class="nav-text">Roster & Jadwal Kerja</span>
                     </a>
                 @endif
                 @if($hasPerm('view_leave_requests'))
-                    <a href="/admin/leave-requests" class="sidebar-nav-item">
+                    <a href="{{ route('portal.leaves', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.leaves*') ? 'active' : '' }}">
                         <i class="fa-solid fa-envelope-open-text nav-icon"></i>
                         <span class="nav-text">Izin / Cuti</span>
                     </a>
                 @endif
                 @if($hasPerm('view_extra_hours'))
-                    <a href="/admin/extra-hours" class="sidebar-nav-item">
+                    <a href="{{ route('portal.extra_hours', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.extra_hours*') ? 'active' : '' }}">
                         <i class="fa-solid fa-user-clock nav-icon"></i>
                         <span class="nav-text">Lembur (Extra Hours)</span>
                     </a>
@@ -512,7 +512,7 @@
                     </a>
                 @endif
                 @if($hasPerm('view_unchecked_monitoring'))
-                    <a href="/admin/team-unchecked-monitoring" class="sidebar-nav-item">
+                    <a href="{{ route('portal.unchecked', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.unchecked*') ? 'active' : '' }}">
                         <i class="fa-solid fa-user-slash nav-icon"></i>
                         <span class="nav-text">Monitoring Belum Check-in</span>
                     </a>
@@ -529,7 +529,7 @@
                     </a>
                 @endif
                 @if($hasPerm('view_visit_reports'))
-                    <a href="/admin/visit-reports" class="sidebar-nav-item">
+                    <a href="{{ route('portal.visit_reports', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.visit_reports*') ? 'active' : '' }}">
                         <i class="fa-solid fa-file-waveform nav-icon"></i>
                         <span class="nav-text">Laporan Kunjungan</span>
                     </a>

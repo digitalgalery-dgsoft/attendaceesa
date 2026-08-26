@@ -3,13 +3,21 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Models\Attendance;
+use App\Models\AttendanceLog;
+use App\Models\Branch;
 use App\Models\Employee;
+use App\Models\EmployeeSchedule;
+use App\Models\ExtraHour;
+use App\Models\LeaveRequest;
 use App\Models\Position;
 use App\Models\Principal;
 use App\Models\Product;
 use App\Models\ReportSubmission;
 use App\Models\ReportTemplate;
 use App\Models\Setting;
+use App\Models\Shift;
+use App\Models\VisitReport;
 use App\Models\WorkLocation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -744,5 +752,483 @@ class PrincipalPortalController extends Controller
         }
 
         return redirect()->route('portal.products')->with('success', "Berhasil mengimpor {$imported} data produk ke katalog!");
+    }
+
+    /**
+     * Presensi / Attendance Log
+     */
+    public function attendances(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $startDate = $request->query('start_date') ? Carbon::parse($request->query('start_date'))->startOfDay() : Carbon::now()->startOfMonth();
+        $endDate = $request->query('end_date') ? Carbon::parse($request->query('end_date'))->endOfDay() : Carbon::now()->endOfMonth();
+        $search = $request->query('q');
+        $employeeId = $request->query('employee_id');
+        $locationId = $request->query('location_id');
+        $status = $request->query('status');
+
+        $query = Attendance::whereHas('employee', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+        })->whereBetween('attendance_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]);
+
+        if ($search) {
+            $query->whereHas('employee', function ($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")
+                  ->orWhere('nik', 'like', "%{$search}%");
+            });
+        }
+        if ($employeeId) {
+            $query->where('employee_id', $employeeId);
+        }
+        if ($status) {
+            $query->where('status', $status);
+        }
+        if ($locationId) {
+            $query->whereHas('employeeSchedule', function ($q) use ($locationId) {
+                $q->where('work_location_id', $locationId);
+            });
+        }
+
+        $stats = [
+            'total' => (clone $query)->count(),
+            'present' => (clone $query)->whereIn('status', ['present', 'on_time', 'hadir'])->count(),
+            'late' => (clone $query)->whereIn('status', ['late', 'terlambat'])->count(),
+            'leave' => (clone $query)->whereIn('status', ['leave', 'cuti', 'izin', 'sick', 'sakit'])->count(),
+        ];
+
+        $attendances = $query->with(['employee.branch', 'employee.position', 'checkinLog', 'checkoutLog', 'employeeSchedule.workLocation', 'employeeSchedule.shift'])
+            ->orderBy('attendance_date', 'desc')
+            ->orderBy('checkin_at', 'desc')
+            ->paginate(20);
+
+        $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)->orderBy('full_name')->get();
+        $workLocations = WorkLocation::whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id')->orderBy('name')->get();
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.attendances', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'attendances', 'stats', 'startDate', 'endDate', 'search', 'employeeId',
+            'locationId', 'status', 'employees', 'workLocations', 'setting'
+        ));
+    }
+
+    /**
+     * Export Attendance Logs to CSV
+     */
+    public function exportAttendances(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        $startDate = $request->query('start_date') ? Carbon::parse($request->query('start_date'))->startOfDay() : Carbon::now()->startOfMonth();
+        $endDate = $request->query('end_date') ? Carbon::parse($request->query('end_date'))->endOfDay() : Carbon::now()->endOfMonth();
+
+        $query = Attendance::whereHas('employee', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+        })->whereBetween('attendance_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]);
+
+        $attendances = $query->with(['employee.branch', 'employee.position', 'checkinLog', 'checkoutLog', 'employeeSchedule.workLocation', 'employeeSchedule.shift'])
+            ->orderBy('attendance_date', 'desc')->get();
+
+        $filename = 'rekap_presensi_' . \Illuminate\Support\Str::slug($tenantPrincipal->name) . '_' . $startDate->format('Ymd') . '-' . $endDate->format('Ymd') . '.csv';
+
+        $callback = function () use ($attendances) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, ['Tanggal', 'NIK', 'Nama Karyawan', 'Jabatan', 'Area / Cabang', 'Toko / Lokasi Kerja', 'Shift', 'Jam Masuk', 'Jam Pulang', 'Status', 'Keterlambatan (Menit)', 'Durasi Kerja (Menit)', 'Alamat / GPS Checkin']);
+
+            foreach ($attendances as $att) {
+                fputcsv($file, [
+                    $att->attendance_date,
+                    $att->employee?->nik ?? '-',
+                    $att->employee?->full_name ?? '-',
+                    $att->employee?->position?->name ?? '-',
+                    $att->employee?->branch?->name ?? '-',
+                    $att->employeeSchedule?->workLocation?->name ?? ($att->employee?->workLocation?->name ?? '-'),
+                    $att->employeeSchedule?->shift?->name ?? 'Default Shift',
+                    $att->checkin_at ? Carbon::parse($att->checkin_at)->format('H:i:s') : '-',
+                    $att->checkout_at ? Carbon::parse($att->checkout_at)->format('H:i:s') : '-',
+                    strtoupper($att->status ?? 'PRESENT'),
+                    $att->late_minutes ?? 0,
+                    $att->work_duration_minutes ?? 0,
+                    $att->checkinLog?->address_text ?? ($att->checkinLog ? "{$att->checkinLog->latitude}, {$att->checkinLog->longitude}" : '-'),
+                ]);
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
+
+    /**
+     * Employees / SPG List
+     */
+    public function employeesList(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $search = $request->query('q');
+        $branchId = $request->query('branch_id');
+        $positionId = $request->query('position_id');
+        $status = $request->query('status');
+
+        $query = Employee::whereIn('employees.principal_id', $scopedPrincipalIds);
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")
+                  ->orWhere('nik', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+        if ($positionId) {
+            $query->where('position_id', $positionId);
+        }
+        if ($status !== null && $status !== '') {
+            $query->where('is_active', (bool) $status);
+        }
+
+        $stats = [
+            'total' => (clone $query)->count(),
+            'active' => (clone $query)->where('is_active', true)->count(),
+            'inactive' => (clone $query)->where('is_active', false)->count(),
+        ];
+
+        $employees = $query->with(['branch', 'position', 'company', 'workLocation'])
+            ->orderBy('is_active', 'desc')
+            ->orderBy('full_name')
+            ->paginate(20);
+
+        $branches = Branch::orderBy('name')->get();
+        $positions = Position::orderBy('name')->get();
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.employees', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'employees', 'stats', 'search', 'branchId', 'positionId', 'status',
+            'branches', 'positions', 'setting'
+        ));
+    }
+
+    /**
+     * Work Locations / Toko List
+     */
+    public function workLocationsList(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $search = $request->query('q');
+        $branchId = $request->query('branch_id');
+
+        $query = WorkLocation::where(function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('work_locations.principal_id', $scopedPrincipalIds)
+              ->orWhereNull('work_locations.principal_id')
+              ->orWhereHas('employees', function($eq) use ($scopedPrincipalIds) {
+                  $eq->whereIn('employees.principal_id', $scopedPrincipalIds);
+              });
+        });
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('code', 'like', "%{$search}%")
+                  ->orWhere('address', 'like', "%{$search}%")
+                  ->orWhere('city', 'like', "%{$search}%");
+            });
+        }
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $workLocations = $query->with('branch')->withCount(['employees' => function($eq) use ($scopedPrincipalIds) {
+            $eq->whereIn('employees.principal_id', $scopedPrincipalIds)->where('employees.is_active', true);
+        }])->orderBy('name')->paginate(20);
+
+        $branches = Branch::orderBy('name')->get();
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.work_locations', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'workLocations', 'search', 'branchId', 'branches', 'setting'
+        ));
+    }
+
+    /**
+     * Shifts List
+     */
+    public function shiftsList(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $shifts = Shift::orderBy('name')->paginate(20);
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.shifts', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'shifts', 'setting'
+        ));
+    }
+
+    /**
+     * Areas / Cabang List
+     */
+    public function areasList(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $search = $request->query('q');
+        $query = Branch::query();
+
+        if ($search) {
+            $query->where('name', 'like', "%{$search}%")->orWhere('address', 'like', "%{$search}%");
+        }
+
+        $branches = $query->withCount(['employees' => function($eq) use ($scopedPrincipalIds) {
+            $eq->whereIn('employees.principal_id', $scopedPrincipalIds)->where('employees.is_active', true);
+        }])->orderBy('name')->paginate(20);
+
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.areas', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'branches', 'search', 'setting'
+        ));
+    }
+
+    /**
+     * Schedules / Roster Matrix
+     */
+    public function schedulesList(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $month = (int) ($request->query('month') ?? Carbon::now()->month);
+        $year = (int) ($request->query('year') ?? Carbon::now()->year);
+        $search = $request->query('q');
+
+        $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+        $endDate = $startDate->copy()->endOfMonth();
+
+        $query = EmployeeSchedule::whereHas('employee', function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+        })->whereBetween('schedule_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]);
+
+        if ($search) {
+            $query->whereHas('employee', function($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+            });
+        }
+
+        $schedules = $query->with(['employee.branch', 'shift', 'workLocation'])
+            ->orderBy('schedule_date', 'desc')
+            ->paginate(25);
+
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.schedules', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'schedules', 'month', 'year', 'search', 'setting'
+        ));
+    }
+
+    /**
+     * Leave Requests (Izin / Cuti)
+     */
+    public function leavesList(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $search = $request->query('q');
+        $status = $request->query('status');
+
+        $query = LeaveRequest::whereHas('employee', function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+        });
+
+        if ($search) {
+            $query->whereHas('employee', function($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+            });
+        }
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        $leaves = $query->with(['employee.branch', 'employee.position', 'approver'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.leaves', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'leaves', 'search', 'status', 'setting'
+        ));
+    }
+
+    /**
+     * Extra Hours (Lembur)
+     */
+    public function extraHoursList(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $search = $request->query('q');
+        $status = $request->query('status');
+
+        $query = ExtraHour::whereHas('employee', function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+        });
+
+        if ($search) {
+            $query->whereHas('employee', function($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+            });
+        }
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        $extraHours = $query->with(['employee.branch', 'employee.position', 'approver'])
+            ->orderBy('date', 'desc')
+            ->paginate(20);
+
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.extra_hours', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'extraHours', 'search', 'status', 'setting'
+        ));
+    }
+
+    /**
+     * Team Unchecked Monitoring
+     */
+    public function uncheckedMonitoring(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $today = Carbon::today()->format('Y-m-d');
+        $search = $request->query('q');
+
+        $query = EmployeeSchedule::whereHas('employee', function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds)->where('employees.is_active', true);
+        })->where('schedule_date', $today)
+          ->whereDoesntHave('attendances', function($aq) {
+              $aq->whereNotNull('checkin_at');
+          });
+
+        if ($search) {
+            $query->whereHas('employee', function($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+            });
+        }
+
+        $unchecked = $query->with(['employee.branch', 'employee.position', 'workLocation', 'shift'])
+            ->orderBy('id', 'desc')
+            ->paginate(25);
+
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.unchecked', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'unchecked', 'today', 'search', 'setting'
+        ));
+    }
+
+    /**
+     * Visit Reports
+     */
+    public function visitReportsList(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $search = $request->query('q');
+        $query = VisitReport::whereHas('employee', function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+        });
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->whereHas('employee', function($eq) use ($search) {
+                    $eq->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+                })->orWhere('notes', 'like', "%{$search}%");
+            });
+        }
+
+        $visitReports = $query->with(['employee.branch', 'workLocation'])
+            ->orderBy('visited_at', 'desc')
+            ->paginate(20);
+
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.visit_reports', compact(
+            'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
+            'visitReports', 'search', 'setting'
+        ));
     }
 }

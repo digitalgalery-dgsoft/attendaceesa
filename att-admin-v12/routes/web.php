@@ -87,6 +87,24 @@ Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function ()
     Route::get('/products/template-import', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'downloadTemplateImport'])->name('products.template');
     Route::post('/products/import', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'importProducts'])->name('products.import');
 
+    // Attendance & Time Management Portal Routes
+    Route::get('/attendances', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'attendances'])->name('attendances');
+    Route::get('/attendances/export', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'exportAttendances'])->name('attendances.export');
+    Route::get('/schedules', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'schedulesList'])->name('schedules');
+    Route::get('/leaves', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'leavesList'])->name('leaves');
+    Route::get('/extra-hours', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'extraHoursList'])->name('extra_hours');
+    Route::get('/unchecked', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'uncheckedMonitoring'])->name('unchecked');
+
+    // Master Data Portal Routes
+    Route::get('/employees', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'employeesList'])->name('employees');
+    Route::get('/work-locations', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'workLocationsList'])->name('work_locations');
+    Route::get('/shifts', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'shiftsList'])->name('shifts');
+    Route::get('/areas', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'areasList'])->name('areas');
+
+    // Field Operations & Sales
+    Route::get('/visit-reports', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'visitReportsList'])->name('visit_reports');
+
+    // Dynamic Report Templates
     Route::get('/report/{code}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'reportDetail'])->name('report.detail');
     Route::get('/report/{code}/export', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'exportReport'])->name('report.export');
 });
