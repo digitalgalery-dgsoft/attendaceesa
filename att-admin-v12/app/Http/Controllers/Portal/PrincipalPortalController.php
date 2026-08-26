@@ -941,13 +941,7 @@ class PrincipalPortalController extends Controller
         $search = $request->query('q');
         $branchId = $request->query('branch_id');
 
-        $query = WorkLocation::where(function($q) use ($scopedPrincipalIds) {
-            $q->whereIn('work_locations.principal_id', $scopedPrincipalIds)
-              ->orWhereNull('work_locations.principal_id')
-              ->orWhereHas('employees', function($eq) use ($scopedPrincipalIds) {
-                  $eq->whereIn('employees.principal_id', $scopedPrincipalIds);
-              });
-        });
+        $query = WorkLocation::query();
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -961,9 +955,7 @@ class PrincipalPortalController extends Controller
             $query->where('branch_id', $branchId);
         }
 
-        $workLocations = $query->with('branch')->withCount(['employees' => function($eq) use ($scopedPrincipalIds) {
-            $eq->whereIn('employees.principal_id', $scopedPrincipalIds)->where('employees.is_active', true);
-        }])->orderBy('name')->paginate(20);
+        $workLocations = $query->with('branch')->orderBy('name')->paginate(20);
 
         $branches = Branch::orderBy('name')->get();
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';

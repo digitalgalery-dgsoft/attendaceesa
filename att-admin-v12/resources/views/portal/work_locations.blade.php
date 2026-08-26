@@ -87,7 +87,7 @@
                 <th>Cabang / Region</th>
                 <th>Kota / Alamat</th>
                 <th>Radius GPS (Geofence)</th>
-                <th>Promotor Aktif</th>
+                <th>Status Lokasi</th>
             </tr>
         </thead>
         <tbody>
@@ -106,8 +106,8 @@
                         </span>
                     </td>
                     <td>
-                        <span style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.6rem; border-radius: 9999px; background: var(--brand-light); color: var(--brand-primary); font-weight: 800; font-size: 0.78rem;">
-                            <i class="fa-solid fa-user-group"></i> {{ $loc->employees_count ?? 0 }} SPG
+                        <span style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.6rem; border-radius: 9999px; background: #dcfce7; color: #15803d; font-weight: 700; font-size: 0.75rem;">
+                            <i class="fa-solid fa-circle-check"></i> Aktif
                         </span>
                     </td>
                 </tr>
