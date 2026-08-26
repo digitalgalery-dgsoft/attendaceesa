@@ -429,6 +429,19 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
      9. **Monitoring Expired Date (`RPT-MAMASUKA-EXPIRED-01`)**: 9 fields (Kategori, SKU, Tanggal ED, Qty Fisik, Selisih Bulan Kritis/Near ED/Aman, Rekomendasi Tindakan Clearance/Retur, Foto Batch & ED).
    - Di-assign secara otomatis ke principal **PT DAESANG AGUNG INDONESIA / MAMASUKA / MIWON**.
    - Berhasil dideploy dan diverifikasi langsung pada server live (`https://appsend.my.id/seed-templates-now`).
+8. **7 Form Pelaporan Lengkap Prinsiple Wings Surya & Lion Wings (SELESAI 26 Agustus 2026)**:
+   - Menganalisis file `FORM REPORT MBR.xlsx`, `Report Exp Date Food.pdf`, `Report MBR OOS.pdf`, dan `Report Promo Kompetitor.pdf`.
+   - Membuat migration `2026_08_26_140000_seed_all_wings_reporting_templates.php` dan mengupdate `ReportTemplatePresetsSeeder.php`.
+   - Menghasilkan 7 template form dinamis terverifikasi:
+     1. **Cek Stok & OOS Wings Food (`RPT-WINGS-OOS-FOOD-01`)**: 10 fields (Kategori Food Mie/RTD/Cup/Kopi/Snack/Bumbu, SKU, Status Stok Aman/OOS/Menipis, Min Stock, Actual Stock, Alasan OOS PO/Gudang/Distributor/Bad Stock, Estimasi PO, PIC Toko, Foto Rak).
+     2. **Cek Stok & OOS Wings Care & Lion Wings (`RPT-WINGS-OOS-CARE-01`)**: 10 fields (Kategori Fabric Care/Dishwashing/Personal Wash/Hair Care/Oral Care/Baby Diapers/Fragrance, SKU Daia/SoKlin/Giv/Nuvo/Ciptadent/Baby Happy, Status Stok, Min Stock, Actual Stock, Alasan OOS, Estimasi PO, PIC Toko, Foto).
+     3. **Stok & Freezer Es Krim Glico Wings (`RPT-WINGS-GLICO-01`)**: 8 fields (Kategori Waku Waku/J-Cone/Frostbite/Haku, SKU, Kondisi Suhu & Kebersihan Freezer -18°C s/d -22°C, Status Stok di Basket Freezer, Actual Stock Pcs, Foto Freezer Depan/Dalam).
+     4. **Expired Date & Indikator Lakban Wings Food (`RPT-WINGS-EXPIRED-FOOD-01`)**: 10 fields (Kategori Umur Simpan, SKU, Tanggal ED, Warna Lakban Karton Biru Tua/Kuning/Coklat/Merah/Hijau/Biru Muda, Qty Karton, Qty Pcs, Selisih ED Kritis/Near ED, Rekomendasi FIFO/Clearance/Retur, Foto Batch & Lakban).
+     5. **Aktivitas & Promo Kompetitor Wings (`RPT-WINGS-PROMO-COMP-01`)**: 11 fields (Divisi Food vs Care, Brand Pesaing Indofood/Unilever/Mayora/Kao/P&G/Sweety/dll, SKU Pesaing, Ukuran Kemasan, Tipe Diskon/Buy 1 Get 1/Gimmick/Mailer, Mekanisme, Periode, Harga Normal vs Promo, Display Tambahan, Foto).
+     6. **Share of Display / SOS Wings vs Kompetitor (`RPT-WINGS-SHARE-DISPLAY-01`)**: 9 fields (Channel MTI/MTKA/Kemitraan, 10 Kategori Wajib Wings, Jumlah Tiers Rak Wings Actual, Total Tiers Rak Kategori, Target % SOS Toko, Actual % SOS Terhitung, Status Pencapaian Target SOS, Foto Full Gondola Rak).
+     7. **Additional Display & Sewa Endcap Wings (`RPT-WINGS-ADD-DISPLAY-01`)**: 9 fields (Divisi Food/Care/Glico, Brand Display, Tipe Sewa Endcap TG/Floor Island/Wing Stage/Hanging Kasir, Status Kontrak Paid/Free/Bonus, Status Realisasi, Lokasi Toko, Foto Depan & Samping).
+   - Di-assign secara otomatis ke entitas **PT WINGS SURYA**, **PT LION WINGS**, **PT SAYAP MAS UTAMA**, dan **CV SINAR SURYA**.
+   - Berhasil dideploy dan diverifikasi langsung pada server live (`https://appsend.my.id/seed-templates-now`).
 
 ### 5. Rencana Kerja untuk Dilanjutkan (Fase 4 Subdomain Portal Prinsiple)
 1. **Portal Subdomain Prinsiple (Fase 4)**:
