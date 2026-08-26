@@ -54,17 +54,22 @@ class ReportTemplateForm
                             Select::make('category')
                                 ->label('Kategori Pelaporan')
                                 ->options([
-                                    'offtake' => 'Offtake / Sell-Out (Penjualan)',
+                                    'offtake' => 'Offtake / Penjualan Harian',
+                                    'sellout' => 'Sell-Out (SPG / MD / Demo Event)',
                                     'stock' => 'Cek Stok & OOS (Barang Kosong)',
-                                    'pricing' => 'Harga & Promo Tracking',
+                                    'pricing' => 'Cek Harga & Price Tag Tracking',
+                                    'price' => 'Price Monitoring (Harga & Kompetitor)',
+                                    'promo' => 'Tracking Program Promo',
                                     'display' => 'Display & Sewa Display (Rent/Add Display)',
-                                    'posm' => 'POSM & Sticker Tracker',
-                                    'competitor' => 'Market Share & Kompetitor Tracking',
+                                    'posm' => 'POSM & Material Promosi / Stiker',
+                                    'competitor' => 'Market Share & Aktivitas Kompetitor',
+                                    'expiry' => 'Monitoring Expired Date (Kadaluarsa)',
                                     'expired_date' => 'Monitoring Expired Date (Kadaluarsa)',
-                                    'survey' => 'Survey Pasar / Konsumen',
+                                    'survey' => 'Survey Pasar / Profil Toko',
                                     'general' => 'Pelaporan Umum / Kunjungan Biasa',
                                 ])
                                 ->default('general')
+                                ->searchable()
                                 ->required(),
                             Toggle::make('require_gps')
                                 ->label('Wajib Titik GPS')

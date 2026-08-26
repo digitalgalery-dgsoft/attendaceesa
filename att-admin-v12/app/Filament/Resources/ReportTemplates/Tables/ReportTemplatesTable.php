@@ -36,25 +36,31 @@ class ReportTemplatesTable
                 TextColumn::make('category')
                     ->label('Kategori')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'offtake' => 'success',
+                    ->color(fn (?string $state): string => match ($state) {
+                        'offtake', 'sellout' => 'success',
                         'stock' => 'warning',
-                        'pricing' => 'info',
+                        'pricing', 'price' => 'info',
+                        'promo' => 'primary',
                         'display', 'posm' => 'danger',
                         'competitor' => 'gray',
-                        'expired_date' => 'danger',
+                        'expiry', 'expired_date' => 'danger',
+                        'survey' => 'warning',
                         default => 'primary',
                     })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'offtake' => 'Offtake / Sales',
+                        'sellout' => 'Sell-Out',
                         'stock' => 'Cek Stock / OOS',
-                        'pricing' => 'Price & Promo',
+                        'pricing' => 'Price & Tag',
+                        'price' => 'Price Check',
+                        'promo' => 'Promo Program',
                         'display' => 'Display Tracker',
                         'posm' => 'POSM & Sticker',
                         'competitor' => 'Competitor Share',
-                        'expired_date' => 'Expired Alert',
+                        'expiry', 'expired_date' => 'Expired Alert',
                         'survey' => 'Survey',
-                        default => ucfirst($state),
+                        'general' => 'General',
+                        default => ucfirst($state ?? '-'),
                     })
                     ->sortable(),
                 TextColumn::make('fields_count')
@@ -96,12 +102,16 @@ class ReportTemplatesTable
                     ->label('Filter Kategori')
                     ->options([
                         'offtake' => 'Offtake / Sales',
+                        'sellout' => 'Sell-Out',
                         'stock' => 'Cek Stock / OOS',
-                        'pricing' => 'Price & Promo',
+                        'pricing' => 'Price & Tag',
+                        'price' => 'Price Check',
+                        'promo' => 'Promo Tracking',
                         'display' => 'Display Tracker',
                         'posm' => 'POSM & Sticker',
                         'competitor' => 'Competitor Share',
-                        'expired_date' => 'Expired Alert',
+                        'expiry' => 'Expired Alert (Expiry)',
+                        'expired_date' => 'Expired Alert (Expired Date)',
                         'survey' => 'Survey',
                         'general' => 'General',
                     ]),
