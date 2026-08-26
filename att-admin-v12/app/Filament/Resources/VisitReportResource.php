@@ -29,8 +29,8 @@ class VisitReportResource extends Resource
 {
     protected static ?string $model = VisitReport::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-magnifying-glass';
-    protected static string|\UnitEnum|null $navigationGroup = 'Field Operations & Sales';
+    protected static $navigationIcon = 'heroicon-o-document-magnifying-glass';
+    protected static $navigationGroup = 'Field Operations & Sales';
     protected static ?int $navigationSort = 2;
     protected static ?string $navigationLabel = 'Visit Reports';
 
@@ -151,7 +151,7 @@ class VisitReportResource extends Resource
                     ->label('Store / Location')
                     ->getStateUsing(function (VisitReport $record): string {
                         // 1. Try from itinerary item (if set)
-                        if ($record->itinerary_item_id && $record->itineraryItem?->workLocation) {
+                        if ($record->itinerary_item_id && $record->itineraryItem && $record->itineraryItem->workLocation) {
                             return $record->itineraryItem->workLocation->name;
                         }
                         // 2. Try from employee schedule on the report date
@@ -160,7 +160,7 @@ class VisitReportResource extends Resource
                             ->where('schedule_date', $scheduleDate)
                             ->with('workLocation')
                             ->first();
-                        if ($schedule?->workLocation) {
+                        if ($schedule && $schedule->workLocation) {
                             return $schedule->workLocation->name;
                         }
                         return '-';
@@ -170,23 +170,30 @@ class VisitReportResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => str_replace('_', ' ', ucfirst($state)))
-                    ->color(fn (string $state): string => match ($state) {
-                        'open_issue' => 'danger',
-                        'action_taken' => 'info',
-                        'completed' => 'success',
-                        'overdue' => 'warning',
-                        default => 'gray',
+                    ->color(function (string $state): string {
+                        switch ($state) {
+                            case 'open_issue':
+                                return 'danger';
+                            case 'action_taken':
+                                return 'info';
+                            case 'completed':
+                                return 'success';
+                            case 'overdue':
+                                return 'warning';
+                            default:
+                                return 'gray';
+                        }
                     }),
                 TextColumn::make('notes')
                     ->label('Notes')
                     ->limit(50)
                     ->tooltip(fn (VisitReport $record) => $record->notes)
                     ->wrap()
-                    ->toggleable(isToggledHiddenByDefault: false),
+                    ->toggleable(false),
                 TextColumn::make('deadline')
                     ->date()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(true),
                 ImageColumn::make('photo_path')
                     ->label('Evidence'),
                 TextColumn::make('created_at')
@@ -225,6 +232,23 @@ class VisitReportResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->hasRole('Super Admin') || auth()->user()->can('view_visit_reports');
+        if (!auth()->check()) {
+            return false;
+        }
+
+        $user = auth()->user();
+        return $user->hasRole('Super Admin') 
+            || (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) 
+            || $user->can('view_visit_reports')
+            || $user->can('view_itineraries');
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index'  => Pages\ListVisitReports::route('/'),
+            'create' => Pages\CreateVisitReport::route('/create'),
+            'edit'   => Pages\EditVisitReport::route('/{record}/edit'),
+        ];
     }
 }
