@@ -1,70 +1,321 @@
 <x-filament-panels::page>
-    <div x-data="odooSyncEngine()" class="space-y-6">
+    <style>
+        .odoo-sync-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .odoo-top-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 16px;
+        }
+        .odoo-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 20px;
+        }
+        @media (max-width: 1024px) {
+            .odoo-top-grid {
+                grid-template-columns: 1fr;
+            }
+            .odoo-actions-grid {
+                grid-template-columns: 1fr;
+            }
+        }
 
-        {{-- Status Konfigurasi & Quick Header --}}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="md:col-span-2">
+        /* Card Styles */
+        .odoo-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+        }
+        .dark .odoo-card {
+            background: #18181b;
+            border-color: #27272a;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+        }
+        .odoo-card:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+        }
+        .dark .odoo-card:hover {
+            border-color: #3f3f46;
+        }
+
+        /* Banner Styles */
+        .odoo-banner-success {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 12px;
+            padding: 16px 20px;
+            color: #166534;
+        }
+        .dark .odoo-banner-success {
+            background: rgba(22, 101, 52, 0.15);
+            border-color: rgba(34, 197, 94, 0.25);
+            color: #4ade80;
+        }
+
+        .odoo-banner-warning {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 12px;
+            padding: 16px 20px;
+            color: #92400e;
+        }
+        .dark .odoo-banner-warning {
+            background: rgba(146, 64, 14, 0.15);
+            border-color: rgba(245, 158, 11, 0.25);
+            color: #fbbf24;
+        }
+
+        /* Button Styles */
+        .odoo-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 18px;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+        .odoo-btn:active {
+            transform: scale(0.98);
+        }
+        .odoo-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .odoo-btn-primary { background: #2563eb; color: #ffffff; }
+        .odoo-btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+
+        .odoo-btn-success { background: #16a34a; color: #ffffff; }
+        .odoo-btn-success:hover:not(:disabled) { background: #15803d; }
+
+        .odoo-btn-warning { background: #d97706; color: #ffffff; }
+        .odoo-btn-warning:hover:not(:disabled) { background: #b45309; }
+
+        .odoo-btn-gradient {
+            background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+            color: #ffffff;
+            font-weight: 800;
+            box-shadow: 0 4px 10px rgba(234, 88, 12, 0.25);
+        }
+        .odoo-btn-gradient:hover:not(:disabled) {
+            background: linear-gradient(135deg, #d97706 0%, #c2410c 100%);
+            box-shadow: 0 6px 14px rgba(234, 88, 12, 0.35);
+        }
+
+        .odoo-btn-outline-violet {
+            background: rgba(139, 92, 246, 0.08);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: #6d28d9;
+        }
+        .dark .odoo-btn-outline-violet {
+            background: rgba(139, 92, 246, 0.12);
+            border-color: rgba(139, 92, 246, 0.35);
+            color: #c4b5fd;
+        }
+        .odoo-btn-outline-violet:hover:not(:disabled) {
+            background: rgba(139, 92, 246, 0.18);
+        }
+
+        .odoo-btn-outline-cyan {
+            background: rgba(6, 182, 212, 0.08);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            color: #0e7490;
+        }
+        .dark .odoo-btn-outline-cyan {
+            background: rgba(6, 182, 212, 0.12);
+            border-color: rgba(6, 182, 212, 0.35);
+            color: #67e8f9;
+        }
+        .odoo-btn-outline-cyan:hover {
+            background: rgba(6, 182, 212, 0.18);
+        }
+
+        /* Terminal Window */
+        .odoo-terminal-box {
+            background: #090d16;
+            border: 1px solid #1f293d;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+        }
+        .odoo-terminal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px;
+            background: #0f172a;
+            border-bottom: 1px solid #1e293b;
+        }
+        .odoo-terminal-dots {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .odoo-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .odoo-dot-red { background: #ef4444; }
+        .odoo-dot-yellow { background: #f59e0b; }
+        .odoo-dot-green { background: #10b981; }
+
+        .odoo-metrics-bar {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 8px;
+            padding: 10px 18px;
+            background: #0c1427;
+            border-bottom: 1px solid #1a253c;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+            font-size: 11px;
+        }
+        @media (max-width: 640px) {
+            .odoo-metrics-bar {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        .odoo-metric-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #94a3b8;
+        }
+        .odoo-metric-val {
+            font-weight: 800;
+        }
+
+        .odoo-terminal-body {
+            padding: 16px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #cbd5e1;
+            min-height: 380px;
+            max-height: 520px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+        .odoo-terminal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+        .odoo-terminal-body::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        .odoo-terminal-body::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        /* Spinner animation */
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .odoo-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+    </style>
+
+    <div x-data="odooSyncEngine()" class="odoo-sync-wrap">
+
+        {{-- Row 1: Status & Quick Tools --}}
+        <div class="odoo-top-grid">
+            <div>
                 @if ($this->isConfigured())
-                    <div class="flex items-center justify-between p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400">
-                        <div class="flex items-center gap-3">
-                            <div class="p-2 bg-emerald-500/20 rounded-lg">
-                                <x-filament::icon icon="heroicon-m-check-badge" class="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                    <div class="odoo-banner-success">
+                        <div style="display: flex; align-items: center; gap: 14px;">
+                            <div style="padding: 8px; background: rgba(34, 197, 94, 0.2); border-radius: 10px;">
+                                <x-filament::icon icon="heroicon-m-check-badge" style="width: 24px; height: 24px; color: #16a34a;" />
                             </div>
                             <div>
-                                <h4 class="font-bold text-sm">Odoo ERP Terhubung & Siap</h4>
-                                <p class="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
-                                    DB: <code class="font-mono px-1 py-0.5 bg-emerald-500/10 rounded">{{ $this->getCompany()?->odoo_db }}</code> · Host: <span class="font-mono">{{ $this->getCompany()?->odoo_url }}</span>
-                                </p>
+                                <div style="font-weight: 800; font-size: 14px;">Odoo ERP Terhubung & Siap</div>
+                                <div style="font-size: 11px; margin-top: 2px; opacity: 0.85; font-family: ui-monospace, monospace;">
+                                    DB: <strong>{{ $this->getCompany()?->odoo_db }}</strong> · Host: <span>{{ $this->getCompany()?->odoo_url }}</span>
+                                </div>
                             </div>
                         </div>
-                        <button type="button" @click="startSync('test_connection')" x-bind:disabled="isRunning" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition disabled:opacity-50">
-                            Test Ping
+                        <button type="button" @click="startSync('test_connection')" x-bind:disabled="isRunning" class="odoo-btn odoo-btn-success" style="padding: 6px 14px; font-size: 12px;">
+                            <x-filament::icon icon="heroicon-m-signal" style="width: 14px; height: 14px;" />
+                            <span>Test Ping</span>
                         </button>
                     </div>
                 @else
-                    <div class="flex items-center justify-between p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400">
-                        <div class="flex items-center gap-3">
-                            <div class="p-2 bg-amber-500/20 rounded-lg">
-                                <x-filament::icon icon="heroicon-m-exclamation-triangle" class="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                    <div class="odoo-banner-warning">
+                        <div style="display: flex; align-items: center; gap: 14px;">
+                            <div style="padding: 8px; background: rgba(245, 158, 11, 0.2); border-radius: 10px;">
+                                <x-filament::icon icon="heroicon-m-exclamation-triangle" style="width: 24px; height: 24px; color: #d97706;" />
                             </div>
                             <div>
-                                <h4 class="font-bold text-sm">Konfigurasi Odoo Belum Lengkap</h4>
-                                <p class="text-xs text-amber-600/80 dark:text-amber-400/80 mt-0.5">
+                                <div style="font-weight: 800; font-size: 14px;">Konfigurasi Odoo Belum Lengkap</div>
+                                <div style="font-size: 11px; margin-top: 2px; opacity: 0.85;">
                                     URL, Database, Username, atau API Key belum diisi untuk entitas ini.
-                                </p>
+                                </div>
                             </div>
                         </div>
-                        <a href="{{ route('filament.admin.resources.companies.index') }}" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition">
+                        <a href="{{ route('filament.admin.resources.companies.index') }}" class="odoo-btn odoo-btn-warning" style="padding: 6px 14px; font-size: 12px;">
                             Master Perusahaan
                         </a>
                     </div>
                 @endif
             </div>
 
-            {{-- Pembersih Duplikat NIK & Link Laporan --}}
-            <div class="flex items-center gap-2">
-                <button type="button" @click="startSync('cleanup_duplicates')" x-bind:disabled="isRunning" class="flex-1 flex items-center justify-center gap-2 p-4 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 text-violet-700 dark:text-violet-300 transition disabled:opacity-50 text-left">
-                    <x-filament::icon icon="heroicon-m-sparkles" class="h-5 w-5 text-violet-600 dark:text-violet-400 shrink-0" />
+            {{-- Quick action cards --}}
+            <div style="display: flex; gap: 10px;">
+                <button type="button" @click="startSync('cleanup_duplicates')" x-bind:disabled="isRunning" class="odoo-btn odoo-btn-outline-violet" style="flex: 1; text-align: left; padding: 12px 16px; border-radius: 12px; justify-content: flex-start;">
+                    <x-filament::icon icon="heroicon-m-sparkles" style="width: 20px; height: 20px; flex-shrink: 0;" />
                     <div>
-                        <div class="text-xs font-bold">Bersihkan Duplikat NIK</div>
-                        <div class="text-[10px] text-gray-500 dark:text-gray-400">Gabungkan riwayat ganda</div>
+                        <div style="font-size: 12px; font-weight: 800;">Bersihkan Duplikat</div>
+                        <div style="font-size: 10px; font-weight: 400; opacity: 0.75;">Gabungkan data NIK ganda</div>
                     </div>
                 </button>
-                <a href="{{ route('filament.admin.pages.odoo-sync-report') }}" class="flex items-center justify-center p-4 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 text-cyan-700 dark:text-cyan-300 transition text-center" title="Buka Laporan Sinkronisasi">
-                    <x-filament::icon icon="heroicon-m-document-chart-bar" class="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
+                <a href="{{ route('filament.admin.pages.odoo-sync-report') }}" class="odoo-btn odoo-btn-outline-cyan" style="padding: 12px 16px; border-radius: 12px;" title="Buka Laporan Sinkronisasi">
+                    <x-filament::icon icon="heroicon-m-document-chart-bar" style="width: 22px; height: 22px;" />
                 </a>
             </div>
         </div>
 
-        {{-- Company Selector & Mode Sync --}}
-        <x-filament::section>
-            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div class="w-full md:w-1/2">
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+        {{-- Row 2: Company Selector Card --}}
+        <div class="odoo-card" style="padding: 18px 24px;">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px;">
+                <div style="flex: 1; min-width: 280px; max-width: 550px;">
+                    <label style="display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 6px;">
                         Pilih Perusahaan / Entitas Target
                     </label>
                     <x-filament::input.wrapper>
-                        <x-filament::input.select wire:model.live="selectedCompanyId" x-ref="companySelect" class="w-full font-medium" x-bind:disabled="isRunning">
+                        <x-filament::input.select wire:model.live="selectedCompanyId" x-ref="companySelect" x-bind:disabled="isRunning" style="font-weight: 600;">
                             @foreach ($this->getCompanyOptions() as $id => $name)
                                 <option value="{{ $id }}">{{ $name }}</option>
                             @endforeach
@@ -72,159 +323,143 @@
                     </x-filament::input.wrapper>
                 </div>
 
-                <div class="w-full md:w-auto flex items-center gap-3 pt-2 md:pt-5">
-                    <button type="button" 
-                            @click="startSync('all_companies')" 
-                            x-bind:disabled="isRunning" 
-                            class="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition transform active:scale-95 disabled:opacity-50">
-                        <x-filament::icon icon="heroicon-m-bolt" class="h-5 w-5" />
+                <div style="display: flex; align-items: center; gap: 12px; padding-top: 4px;">
+                    <button type="button" @click="startSync('all_companies')" x-bind:disabled="isRunning" class="odoo-btn odoo-btn-gradient" style="padding: 12px 24px; font-size: 13px;">
+                        <x-filament::icon icon="heroicon-m-bolt" style="width: 18px; height: 18px;" />
                         <span>Sync Semua Perusahaan Sekaligus</span>
                     </button>
                 </div>
             </div>
-        </x-filament::section>
+        </div>
 
-        {{-- Action Cards (3 Tombol Utama) --}}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {{-- Sync Principal --}}
-            <x-filament::section class="relative overflow-hidden border-t-4 border-t-primary-500">
-                <div class="flex items-center gap-2.5 text-primary-600 dark:text-primary-400 mb-2">
-                    <div class="p-2 rounded-lg bg-primary-500/10">
-                        <x-filament::icon icon="heroicon-m-building-office-2" class="h-6 w-6" />
+        {{-- Row 3: 3 Action Cards --}}
+        <div class="odoo-actions-grid">
+            
+            {{-- Card 1: Sync Principals --}}
+            <div class="odoo-card" style="border-top: 4px solid #3b82f6;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <div style="padding: 6px; background: rgba(59, 130, 246, 0.12); border-radius: 8px; color: #2563eb;">
+                            <x-filament::icon icon="heroicon-m-building-office-2" style="width: 20px; height: 20px;" />
+                        </div>
+                        <div>
+                            <div style="font-size: 15px; font-weight: 800; color: #0f172a;" class="dark:!text-white">Sync Principals</div>
+                            <div style="font-size: 11px; color: #64748b;">Odoo Contact (is_principal = True)</div>
+                        </div>
                     </div>
-                    <div>
-                        <h3 class="font-bold text-base text-gray-900 dark:text-white">Sync Principals</h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">Odoo Contact (is_principal = True)</p>
+                    <div style="font-size: 12px; color: #64748b; margin: 12px 0 20px 0; line-height: 1.5;">
+                        Menarik dan memperbarui master data <strong>Prinsiple / Brand</strong> dari kontak Odoo ke master database lokal.
                     </div>
                 </div>
-                
-                <p class="text-xs text-gray-600 dark:text-gray-400 mb-5 min-h-[36px]">
-                    Menarik dan memperbarui master data <strong>Prinsiple / Brand</strong> dari kontak Odoo ke database lokal.
-                </p>
-                
-                <button type="button" 
-                        @click="startSync('principals')" 
-                        x-bind:disabled="isRunning || !isCompanyConfigured" 
-                        class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs shadow transition disabled:opacity-40">
-                    <span x-show="isRunning && currentAction === 'principals'" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    <span x-show="!isRunning || currentAction !== 'principals'">
-                        <x-filament::icon icon="heroicon-m-arrow-path" class="h-4 w-4" />
-                    </span>
+
+                <button type="button" @click="startSync('principals')" x-bind:disabled="isRunning || !isCompanyConfigured" class="odoo-btn odoo-btn-primary" style="width: 100%;">
+                    <span x-show="isRunning && currentAction === 'principals'" class="odoo-spinner"></span>
+                    <span x-show="!isRunning || currentAction !== 'principals'"><x-filament::icon icon="heroicon-m-arrow-path" style="width: 15px; height: 15px;" /></span>
                     <span>Mulai Sync Principals</span>
                 </button>
-            </x-filament::section>
+            </div>
 
-            {{-- Sync Employee --}}
-            <x-filament::section class="relative overflow-hidden border-t-4 border-t-emerald-500">
-                <div class="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400 mb-2">
-                    <div class="p-2 rounded-lg bg-emerald-500/10">
-                        <x-filament::icon icon="heroicon-m-users" class="h-6 w-6" />
+            {{-- Card 2: Sync Employees --}}
+            <div class="odoo-card" style="border-top: 4px solid #10b981;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <div style="padding: 6px; background: rgba(16, 185, 129, 0.12); border-radius: 8px; color: #16a34a;">
+                            <x-filament::icon icon="heroicon-m-users" style="width: 20px; height: 20px;" />
+                        </div>
+                        <div>
+                            <div style="font-size: 15px; font-weight: 800; color: #0f172a;" class="dark:!text-white">Sync Employees</div>
+                            <div style="font-size: 11px; color: #64748b;">Odoo hr.employee</div>
+                        </div>
                     </div>
-                    <div>
-                        <h3 class="font-bold text-base text-gray-900 dark:text-white">Sync Employees</h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">Odoo hr.employee</p>
+                    <div style="font-size: 12px; color: #64748b; margin: 12px 0 20px 0; line-height: 1.5;">
+                        Sinkronisasi data karyawan aktif & resign, jabatan, area, serta auto-create department secara instan.
                     </div>
                 </div>
-                
-                <p class="text-xs text-gray-600 dark:text-gray-400 mb-5 min-h-[36px]">
-                    Sinkronisasi data karyawan aktif & resign, jabatan, area, serta auto-create department.
-                </p>
-                
-                <button type="button" 
-                        @click="startSync('employees')" 
-                        x-bind:disabled="isRunning || !isCompanyConfigured" 
-                        class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow transition disabled:opacity-40">
-                    <span x-show="isRunning && currentAction === 'employees'" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    <span x-show="!isRunning || currentAction !== 'employees'">
-                        <x-filament::icon icon="heroicon-m-arrow-path" class="h-4 w-4" />
-                    </span>
+
+                <button type="button" @click="startSync('employees')" x-bind:disabled="isRunning || !isCompanyConfigured" class="odoo-btn odoo-btn-success" style="width: 100%;">
+                    <span x-show="isRunning && currentAction === 'employees'" class="odoo-spinner"></span>
+                    <span x-show="!isRunning || currentAction !== 'employees'"><x-filament::icon icon="heroicon-m-arrow-path" style="width: 15px; height: 15px;" /></span>
                     <span>Mulai Sync Employees</span>
                 </button>
-            </x-filament::section>
+            </div>
 
-            {{-- Sync All --}}
-            <x-filament::section class="relative overflow-hidden border-t-4 border-t-amber-500">
-                <div class="flex items-center gap-2.5 text-amber-600 dark:text-amber-400 mb-2">
-                    <div class="p-2 rounded-lg bg-amber-500/10">
-                        <x-filament::icon icon="heroicon-m-bolt" class="h-6 w-6" />
+            {{-- Card 3: Sync All --}}
+            <div class="odoo-card" style="border-top: 4px solid #f59e0b;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <div style="padding: 6px; background: rgba(245, 158, 11, 0.12); border-radius: 8px; color: #d97706;">
+                            <x-filament::icon icon="heroicon-m-bolt" style="width: 20px; height: 20px;" />
+                        </div>
+                        <div>
+                            <div style="font-size: 15px; font-weight: 800; color: #0f172a;" class="dark:!text-white">Sync All</div>
+                            <div style="font-size: 11px; color: #64748b;">Principal + Employee Sekaligus</div>
+                        </div>
                     </div>
-                    <div>
-                        <h3 class="font-bold text-base text-gray-900 dark:text-white">Sync All</h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">Principal + Employee</p>
+                    <div style="font-size: 12px; color: #64748b; margin: 12px 0 20px 0; line-height: 1.5;">
+                        Jalankan sinkronisasi lengkap: <strong>Principal</strong> terlebih dahulu, lalu <strong>Employee</strong> secara berurutan.
                     </div>
                 </div>
-                
-                <p class="text-xs text-gray-600 dark:text-gray-400 mb-5 min-h-[36px]">
-                    Jalankan sinkronisasi lengkap: <strong>Principal</strong> terlebih dahulu, lalu <strong>Employee</strong> secara berurutan.
-                </p>
-                
-                <button type="button" 
-                        @click="startSync('all')" 
-                        x-bind:disabled="isRunning || !isCompanyConfigured" 
-                        class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow transition disabled:opacity-40">
-                    <span x-show="isRunning && currentAction === 'all'" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    <span x-show="!isRunning || currentAction !== 'all'">
-                        <x-filament::icon icon="heroicon-m-arrow-path" class="h-4 w-4" />
-                    </span>
+
+                <button type="button" @click="startSync('all')" x-bind:disabled="isRunning || !isCompanyConfigured" class="odoo-btn odoo-btn-warning" style="width: 100%;">
+                    <span x-show="isRunning && currentAction === 'all'" class="odoo-spinner"></span>
+                    <span x-show="!isRunning || currentAction !== 'all'"><x-filament::icon icon="heroicon-m-arrow-path" style="width: 15px; height: 15px;" /></span>
                     <span>Mulai Sync All</span>
                 </button>
-            </x-filament::section>
+            </div>
+
         </div>
 
         {{-- JENDELA TERMINAL REALTIME STREAMING (SEPERTI DI TERMINAL LINUX) --}}
-        <div id="odoo-terminal-container" class="rounded-2xl bg-[#090d16] border border-gray-800 shadow-2xl overflow-hidden transition-all duration-300">
+        <div id="odoo-terminal-container" class="odoo-terminal-box">
             
-            {{-- Terminal Top Bar (macOS / Linux Style) --}}
-            <div class="flex items-center justify-between px-4 py-3 bg-[#111827] border-b border-gray-800 select-none">
-                <div class="flex items-center gap-3">
-                    {{-- Window Dots --}}
-                    <div class="flex items-center gap-1.5">
-                        <span class="w-3 h-3 rounded-full bg-rose-500 inline-block shadow-sm"></span>
-                        <span class="w-3 h-3 rounded-full bg-amber-500 inline-block shadow-sm"></span>
-                        <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block shadow-sm"></span>
+            {{-- Terminal Top Bar --}}
+            <div class="odoo-terminal-header">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div class="odoo-terminal-dots">
+                        <span class="odoo-dot odoo-dot-red"></span>
+                        <span class="odoo-dot odoo-dot-yellow"></span>
+                        <span class="odoo-dot odoo-dot-green"></span>
                     </div>
-                    {{-- Terminal Title --}}
-                    <div class="flex items-center gap-2 text-xs font-mono text-gray-300 font-semibold pl-2 border-l border-gray-700">
-                        <x-filament::icon icon="heroicon-m-command-line" class="h-4 w-4 text-cyan-400" />
+                    <div style="display: flex; align-items: center; gap: 8px; font-family: ui-monospace, monospace; font-size: 12px; font-weight: 700; color: #e2e8f0; padding-left: 10px; border-left: 1px solid #334155;">
+                        <x-filament::icon icon="heroicon-m-command-line" style="width: 16px; height: 16px; color: #38bdf8;" />
                         <span>esa@appsend: ~/odoo-sync-terminal</span>
                     </div>
                 </div>
 
-                {{-- Status Badge & Controls --}}
-                <div class="flex items-center gap-2.5">
-                    {{-- Running Status Pill --}}
+                {{-- Status Indicator & Terminal Controls --}}
+                <div style="display: flex; align-items: center; gap: 10px;">
                     <template x-if="isRunning">
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 9999px; font-family: ui-monospace, monospace; font-size: 10px; font-weight: 800; background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background: #34d399; display: inline-block;"></span>
                             <span x-text="statusText || 'RUNNING...'"></span>
                         </span>
                     </template>
                     <template x-if="!isRunning && isFinished">
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 9999px; font-family: ui-monospace, monospace; font-size: 10px; font-weight: 800; background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background: #38bdf8; display: inline-block;"></span>
                             <span>COMPLETED</span>
                         </span>
                     </template>
                     <template x-if="!isRunning && !isFinished">
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono text-gray-400 bg-gray-800/80 border border-gray-700">
-                            <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+                        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 9999px; font-family: ui-monospace, monospace; font-size: 10px; font-weight: 700; background: #1e293b; color: #94a3b8; border: 1px solid #334155;">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background: #64748b; display: inline-block;"></span>
                             <span>STANDBY</span>
                         </span>
                     </template>
 
                     {{-- Toolbar buttons --}}
-                    <div class="flex items-center gap-1 pl-2 border-l border-gray-700">
-                        <button type="button" @click="toggleAutoScroll()" x-bind:title="autoScroll ? 'Auto Scroll Aktif' : 'Auto Scroll Mati'" class="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition" x-bind:class="autoScroll ? 'text-cyan-400' : ''">
-                            <x-filament::icon icon="heroicon-m-arrows-up-down" class="h-4 w-4" />
+                    <div style="display: flex; align-items: center; gap: 4px; padding-left: 8px; border-left: 1px solid #334155;">
+                        <button type="button" @click="toggleAutoScroll()" x-bind:title="autoScroll ? 'Auto Scroll Aktif' : 'Auto Scroll Mati'" style="padding: 6px 8px; border-radius: 6px; background: transparent; border: none; cursor: pointer; color: #94a3b8;" x-bind:style="autoScroll ? 'color: #38bdf8;' : ''">
+                            <x-filament::icon icon="heroicon-m-arrows-up-down" style="width: 16px; height: 16px;" />
                         </button>
-                        <button type="button" @click="copyLogs()" title="Salin Seluruh Log" class="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition">
-                            <x-filament::icon icon="heroicon-m-clipboard-document" class="h-4 w-4" />
+                        <button type="button" @click="copyLogs()" title="Salin Seluruh Log" style="padding: 6px 8px; border-radius: 6px; background: transparent; border: none; cursor: pointer; color: #94a3b8;">
+                            <x-filament::icon icon="heroicon-m-clipboard-document" style="width: 16px; height: 16px;" />
                         </button>
-                        <button type="button" @click="clearLogs()" title="Bersihkan Layar Terminal" class="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition">
-                            <x-filament::icon icon="heroicon-m-trash" class="h-4 w-4" />
+                        <button type="button" @click="clearLogs()" title="Bersihkan Layar Terminal" style="padding: 6px 8px; border-radius: 6px; background: transparent; border: none; cursor: pointer; color: #94a3b8;">
+                            <x-filament::icon icon="heroicon-m-trash" style="width: 16px; height: 16px;" />
                         </button>
                         <template x-if="isRunning">
-                            <button type="button" @click="stopSync()" title="Hentikan Proses" class="px-2 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white font-mono text-[10px] font-bold transition">
+                            <button type="button" @click="stopSync()" style="padding: 4px 10px; border-radius: 6px; background: #dc2626; color: #ffffff; font-family: ui-monospace, monospace; font-size: 10px; font-weight: 800; border: none; cursor: pointer; margin-left: 4px;">
                                 STOP
                             </button>
                         </template>
@@ -233,92 +468,89 @@
             </div>
 
             {{-- Live Metric Counter Header --}}
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 px-4 py-2.5 bg-[#0b1322] border-b border-gray-800/80 text-xs font-mono">
-                <div class="flex items-center gap-2 text-gray-300">
-                    <span class="text-gray-500">DIPROSES:</span>
-                    <span class="font-bold text-cyan-400" x-text="metrics.processed">0</span>
+            <div class="odoo-metrics-bar">
+                <div class="odoo-metric-item">
+                    <span>DIPROSES:</span>
+                    <span class="odoo-metric-val" style="color: #38bdf8;" x-text="metrics.processed">0</span>
                 </div>
-                <div class="flex items-center gap-2 text-gray-300">
-                    <span class="text-gray-500">BARU:</span>
-                    <span class="font-bold text-emerald-400" x-text="metrics.created">0</span>
+                <div class="odoo-metric-item">
+                    <span>BARU:</span>
+                    <span class="odoo-metric-val" style="color: #34d399;" x-text="metrics.created">0</span>
                 </div>
-                <div class="flex items-center gap-2 text-gray-300">
-                    <span class="text-gray-500">UPDATE:</span>
-                    <span class="font-bold text-amber-400" x-text="metrics.updated">0</span>
+                <div class="odoo-metric-item">
+                    <span>UPDATE:</span>
+                    <span class="odoo-metric-val" style="color: #fbbf24;" x-text="metrics.updated">0</span>
                 </div>
-                <div class="flex items-center gap-2 text-gray-300">
-                    <span class="text-gray-500">RESIGN:</span>
-                    <span class="font-bold text-rose-400" x-text="metrics.resigned">0</span>
+                <div class="odoo-metric-item">
+                    <span>RESIGN:</span>
+                    <span class="odoo-metric-val" style="color: #f87171;" x-text="metrics.resigned">0</span>
                 </div>
-                <div class="flex items-center gap-2 text-gray-300">
-                    <span class="text-gray-500">ERROR:</span>
-                    <span class="font-bold text-red-500" x-text="metrics.errors">0</span>
+                <div class="odoo-metric-item">
+                    <span>ERROR:</span>
+                    <span class="odoo-metric-val" style="color: #ef4444;" x-text="metrics.errors">0</span>
                 </div>
             </div>
 
             {{-- Progress Line Indicator --}}
-            <div class="w-full bg-gray-900 h-1 relative overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-cyan-500 via-emerald-400 to-amber-400 transition-all duration-300" x-bind:style="'width: ' + progressPercent + '%'"></div>
-                <template x-if="isRunning">
-                    <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
-                </template>
+            <div style="width: 100%; height: 3px; background: #0f172a; position: relative;">
+                <div style="height: 100%; background: linear-gradient(90deg, #38bdf8, #34d399, #fbbf24); transition: width 0.3s ease;" x-bind:style="'width: ' + progressPercent + '%'"></div>
             </div>
 
             {{-- Terminal Output Log Box --}}
-            <div x-ref="terminalBox" class="p-4 font-mono text-[12px] leading-relaxed text-gray-300 min-h-[380px] max-h-[520px] overflow-y-auto space-y-1 select-text scroll-smooth" style="scrollbar-width: thin; scrollbar-color: #374151 #090d16;">
+            <div x-ref="terminalBox" class="odoo-terminal-body">
                 
                 {{-- Welcome / Standby message --}}
-                <div class="text-gray-600 dark:text-gray-500 select-none pb-2 border-b border-gray-800/60 mb-2">
+                <div style="color: #64748b; padding-bottom: 8px; border-bottom: 1px solid #1e293b; margin-bottom: 8px; user-select: none;">
                     <div>ESA Odoo Sync Engine v2.0 [Real-time Stream Edition]</div>
                     <div>Klik tombol di atas untuk memulai sinkronisasi. Log aktivitas tiap entitas & batch akan tampil di bawah ini secara langsung tanpa jeda atau timeout.</div>
                 </div>
 
                 {{-- Dynamic Stream Logs --}}
                 <template x-for="(log, idx) in logs" :key="idx">
-                    <div class="flex items-start gap-2 py-0.5 group hover:bg-gray-800/30 px-1 rounded transition-colors">
-                        <span class="text-gray-600 select-none shrink-0" x-text="'[' + log.time + ']'"></span>
+                    <div style="display: flex; align-items: flex-start; gap: 8px; padding: 2px 4px; border-radius: 4px;">
+                        <span style="color: #64748b; flex-shrink: 0; user-select: none;" x-text="'[' + log.time + ']'"></span>
                         
                         {{-- Log Type Badge / Format --}}
                         <template x-if="log.type === 'company_start'">
-                            <span class="text-amber-400 font-bold tracking-wide" x-text="log.message"></span>
+                            <span style="color: #fbbf24; font-weight: 800; letter-spacing: 0.02em;" x-text="log.message"></span>
                         </template>
                         <template x-if="log.type === 'company_end'">
-                            <span class="text-emerald-400 font-bold" x-text="log.message"></span>
+                            <span style="color: #34d399; font-weight: 800;" x-text="log.message"></span>
                         </template>
                         <template x-if="log.type === 'batch'">
-                            <span class="text-violet-400 font-semibold" x-text="log.message"></span>
+                            <span style="color: #a78bfa; font-weight: 700;" x-text="log.message"></span>
                         </template>
                         <template x-if="log.type === 'created'">
-                            <span class="text-emerald-400" x-text="log.message"></span>
+                            <span style="color: #34d399;" x-text="log.message"></span>
                         </template>
                         <template x-if="log.type === 'updated'">
-                            <span class="text-cyan-300" x-text="log.message"></span>
+                            <span style="color: #38bdf8;" x-text="log.message"></span>
                         </template>
                         <template x-if="log.type === 'resigned'">
-                            <span class="text-rose-400 font-medium" x-text="log.message"></span>
+                            <span style="color: #f87171; font-weight: 600;" x-text="log.message"></span>
                         </template>
                         <template x-if="log.type === 'progress'">
-                            <span class="text-blue-400 font-semibold" x-text="log.message"></span>
+                            <span style="color: #60a5fa; font-weight: 700;" x-text="log.message"></span>
                         </template>
                         <template x-if="log.type === 'summary'">
-                            <span class="text-emerald-300 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded" x-text="log.message"></span>
+                            <span style="color: #6ee7b7; font-weight: 800; background: rgba(16, 185, 129, 0.15); padding: 2px 6px; border-radius: 4px; display: inline-block;" x-text="log.message"></span>
                         </template>
                         <template x-if="log.type === 'error'">
-                            <span class="text-rose-500 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded" x-text="log.message"></span>
+                            <span style="color: #ef4444; font-weight: 800; background: rgba(239, 68, 68, 0.15); padding: 2px 6px; border-radius: 4px; display: inline-block;" x-text="log.message"></span>
                         </template>
                         <template x-if="log.type === 'warning'">
-                            <span class="text-amber-400 font-medium" x-text="log.message"></span>
+                            <span style="color: #fbbf24; font-weight: 600;" x-text="log.message"></span>
                         </template>
                         <template x-if="log.type === 'info' || log.type === 'item'">
-                            <span class="text-gray-300" x-text="log.message"></span>
+                            <span style="color: #cbd5e1;" x-text="log.message"></span>
                         </template>
                     </div>
                 </template>
 
                 {{-- Cursor Blinking --}}
-                <div class="flex items-center gap-1 pt-1 text-cyan-400 font-bold select-none" x-show="isRunning">
-                    <span class="animate-pulse">❯</span>
-                    <span class="w-2 h-4 bg-cyan-400 animate-pulse"></span>
+                <div style="display: flex; align-items: center; gap: 4px; padding-top: 4px; color: #38bdf8; font-weight: 800; user-select: none;" x-show="isRunning">
+                    <span>❯</span>
+                    <span style="display: inline-block; width: 8px; height: 14px; background: #38bdf8;"></span>
                 </div>
             </div>
 
