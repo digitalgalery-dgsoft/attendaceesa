@@ -17,7 +17,7 @@
                                 </p>
                             </div>
                         </div>
-                        <button type="button" @click="startSync('test_connection')" :disabled="isRunning" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition disabled:opacity-50">
+                        <button type="button" @click="startSync('test_connection')" x-bind:disabled="isRunning" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition disabled:opacity-50">
                             Test Ping
                         </button>
                     </div>
@@ -43,7 +43,7 @@
 
             {{-- Pembersih Duplikat NIK & Link Laporan --}}
             <div class="flex items-center gap-2">
-                <button type="button" @click="startSync('cleanup_duplicates')" :disabled="isRunning" class="flex-1 flex items-center justify-center gap-2 p-4 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 text-violet-700 dark:text-violet-300 transition disabled:opacity-50 text-left">
+                <button type="button" @click="startSync('cleanup_duplicates')" x-bind:disabled="isRunning" class="flex-1 flex items-center justify-center gap-2 p-4 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 text-violet-700 dark:text-violet-300 transition disabled:opacity-50 text-left">
                     <x-filament::icon icon="heroicon-m-sparkles" class="h-5 w-5 text-violet-600 dark:text-violet-400 shrink-0" />
                     <div>
                         <div class="text-xs font-bold">Bersihkan Duplikat NIK</div>
@@ -64,7 +64,7 @@
                         Pilih Perusahaan / Entitas Target
                     </label>
                     <x-filament::input.wrapper>
-                        <x-filament::input.select wire:model.live="selectedCompanyId" x-ref="companySelect" class="w-full font-medium" :disabled="isRunning">
+                        <x-filament::input.select wire:model.live="selectedCompanyId" x-ref="companySelect" class="w-full font-medium" x-bind:disabled="isRunning">
                             @foreach ($this->getCompanyOptions() as $id => $name)
                                 <option value="{{ $id }}">{{ $name }}</option>
                             @endforeach
@@ -75,7 +75,7 @@
                 <div class="w-full md:w-auto flex items-center gap-3 pt-2 md:pt-5">
                     <button type="button" 
                             @click="startSync('all_companies')" 
-                            :disabled="isRunning" 
+                            x-bind:disabled="isRunning" 
                             class="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition transform active:scale-95 disabled:opacity-50">
                         <x-filament::icon icon="heroicon-m-bolt" class="h-5 w-5" />
                         <span>Sync Semua Perusahaan Sekaligus</span>
@@ -104,9 +104,12 @@
                 
                 <button type="button" 
                         @click="startSync('principals')" 
-                        :disabled="isRunning || !isCompanyConfigured" 
+                        x-bind:disabled="isRunning || !isCompanyConfigured" 
                         class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs shadow transition disabled:opacity-40">
-                    <x-filament::icon icon="heroicon-m-arrow-path" class="h-4 w-4" ::class="isRunning && currentAction === 'principals' ? 'animate-spin' : ''" />
+                    <span x-show="isRunning && currentAction === 'principals'" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span x-show="!isRunning || currentAction !== 'principals'">
+                        <x-filament::icon icon="heroicon-m-arrow-path" class="h-4 w-4" />
+                    </span>
                     <span>Mulai Sync Principals</span>
                 </button>
             </x-filament::section>
@@ -129,9 +132,12 @@
                 
                 <button type="button" 
                         @click="startSync('employees')" 
-                        :disabled="isRunning || !isCompanyConfigured" 
+                        x-bind:disabled="isRunning || !isCompanyConfigured" 
                         class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow transition disabled:opacity-40">
-                    <x-filament::icon icon="heroicon-m-arrow-path" class="h-4 w-4" ::class="isRunning && currentAction === 'employees' ? 'animate-spin' : ''" />
+                    <span x-show="isRunning && currentAction === 'employees'" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span x-show="!isRunning || currentAction !== 'employees'">
+                        <x-filament::icon icon="heroicon-m-arrow-path" class="h-4 w-4" />
+                    </span>
                     <span>Mulai Sync Employees</span>
                 </button>
             </x-filament::section>
@@ -154,9 +160,12 @@
                 
                 <button type="button" 
                         @click="startSync('all')" 
-                        :disabled="isRunning || !isCompanyConfigured" 
+                        x-bind:disabled="isRunning || !isCompanyConfigured" 
                         class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow transition disabled:opacity-40">
-                    <x-filament::icon icon="heroicon-m-arrow-path" class="h-4 w-4" ::class="isRunning && currentAction === 'all' ? 'animate-spin' : ''" />
+                    <span x-show="isRunning && currentAction === 'all'" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span x-show="!isRunning || currentAction !== 'all'">
+                        <x-filament::icon icon="heroicon-m-arrow-path" class="h-4 w-4" />
+                    </span>
                     <span>Mulai Sync All</span>
                 </button>
             </x-filament::section>
@@ -205,7 +214,7 @@
 
                     {{-- Toolbar buttons --}}
                     <div class="flex items-center gap-1 pl-2 border-l border-gray-700">
-                        <button type="button" @click="toggleAutoScroll()" :title="autoScroll ? 'Auto Scroll Aktif' : 'Auto Scroll Mati'" class="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition" :class="autoScroll ? 'text-cyan-400' : ''">
+                        <button type="button" @click="toggleAutoScroll()" x-bind:title="autoScroll ? 'Auto Scroll Aktif' : 'Auto Scroll Mati'" class="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition" x-bind:class="autoScroll ? 'text-cyan-400' : ''">
                             <x-filament::icon icon="heroicon-m-arrows-up-down" class="h-4 w-4" />
                         </button>
                         <button type="button" @click="copyLogs()" title="Salin Seluruh Log" class="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition">
@@ -249,7 +258,7 @@
 
             {{-- Progress Line Indicator --}}
             <div class="w-full bg-gray-900 h-1 relative overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-cyan-500 via-emerald-400 to-amber-400 transition-all duration-300" :style="`width: ${progressPercent}%`"></div>
+                <div class="h-full bg-gradient-to-r from-cyan-500 via-emerald-400 to-amber-400 transition-all duration-300" x-bind:style="'width: ' + progressPercent + '%'"></div>
                 <template x-if="isRunning">
                     <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
                 </template>
@@ -267,7 +276,7 @@
                 {{-- Dynamic Stream Logs --}}
                 <template x-for="(log, idx) in logs" :key="idx">
                     <div class="flex items-start gap-2 py-0.5 group hover:bg-gray-800/30 px-1 rounded transition-colors">
-                        <span class="text-gray-600 select-none shrink-0" x-text="`[${log.time}]`"></span>
+                        <span class="text-gray-600 select-none shrink-0" x-text="'[' + log.time + ']'"></span>
                         
                         {{-- Log Type Badge / Format --}}
                         <template x-if="log.type === 'company_start'">
@@ -370,11 +379,11 @@
                     this.logs.push({
                         time: timeStr,
                         type: 'info',
-                        message: `▶️ Memulai proses [${action.toUpperCase()}]... Membuka koneksi stream ke server.`
+                        message: '▶️ Memulai proses [' + action.toUpperCase() + ']... Membuka koneksi stream ke server.'
                     });
 
                     // Construct SSE endpoint URL
-                    const url = `{{ route('admin.odoo-sync.stream') }}?company_id=${encodeURIComponent(companyId)}&action=${encodeURIComponent(action)}&_t=${Date.now()}`;
+                    const url = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=' + encodeURIComponent(action) + '&_t=' + Date.now();
 
                     if (this.eventSource) {
                         this.eventSource.close();
@@ -411,7 +420,7 @@
                     const message = data.message || '';
                     const meta = data.meta || {};
 
-                    this.logs.push({ time, type, message });
+                    this.logs.push({ time: time, type: type, message: message });
 
                     // Update Metrics
                     if (type === 'created') this.metrics.created++;
@@ -427,11 +436,11 @@
 
                     // Update Status text
                     if (type === 'company_start') {
-                        this.statusText = meta.name ? `SYNC: ${meta.name}` : 'SYNCING...';
+                        this.statusText = meta.name ? 'SYNC: ' + meta.name : 'SYNCING...';
                     }
 
                     if (type === 'progress') {
-                        this.statusText = `PROGRESS (${this.metrics.processed})`;
+                        this.statusText = 'PROGRESS (' + this.metrics.processed + ')';
                         this.progressPercent = Math.min(95, this.progressPercent + 5);
                     }
 
@@ -487,7 +496,7 @@
                 },
 
                 copyLogs() {
-                    const text = this.logs.map(l => `[${l.time}] ${l.message}`).join('\n');
+                    const text = this.logs.map(l => '[' + l.time + '] ' + l.message).join('\n');
                     navigator.clipboard.writeText(text).then(() => {
                         alert('Seluruh log terminal berhasil disalin ke clipboard!');
                     }).catch(() => {
