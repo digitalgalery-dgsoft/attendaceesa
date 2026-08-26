@@ -432,27 +432,33 @@ class OdooSyncService
                 $employeeNo = $rawNik ?: ($rawRegNo ?: ('OD-' . $rec['id']));
 
                 // Look up existing employee:
-                // Parameter Pencocokan: WAJIB HANYA jika NIK (employee_no) DAN Principal (principal_id) KEDUANYA SAMA!
+                // Parameter Pencocokan: WAJIB HANYA jika No. KTP / NIK (employee_no) DAN Principal (principal_id) KEDUANYA SAMA!
                 $existingEmployees = collect();
                 if ($rawNik) {
                     $query = Employee::withTrashed()->where('employee_no', $rawNik);
                     if ($principalId) {
                         $query->where('principal_id', $principalId);
+                    } else {
+                        $query->whereNull('principal_id');
                     }
                     $existingEmployees = $query->get();
                 } elseif ($rawRegNo) {
                     $query = Employee::withTrashed()->where('employee_no', $rawRegNo);
                     if ($principalId) {
                         $query->where('principal_id', $principalId);
+                    } else {
+                        $query->whereNull('principal_id');
                     }
                     $existingEmployees = $query->get();
                 } else {
-                    // Fallback jika tidak ada NIK dan NIP di Odoo: gunakan kombinasi ketat odoo_id + company_id + principal_id
+                    // Fallback jika tidak ada NIK dan NIP di Odoo: gunakan kombinasi odoo_id + company_id + principal_id
                     $query = Employee::withTrashed()
                         ->where('odoo_id', $rec['id'])
                         ->where('company_id', $companyId);
                     if ($principalId) {
                         $query->where('principal_id', $principalId);
+                    } else {
+                        $query->whereNull('principal_id');
                     }
                     $existingEmployees = $query->get();
                 }
