@@ -107,5 +107,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reporting/stores', [\App\Http\Controllers\Api\ReportingApiController::class, 'stores']);
     Route::post('/reporting/submit', [\App\Http\Controllers\Api\ReportingApiController::class, 'submit']);
     Route::get('/reporting/history', [\App\Http\Controllers\Api\ReportingApiController::class, 'history']);
+
+    // Cross-Entity Hierarchy & Approval routes
+    Route::get('/v1/cross-entity/subordinates', [\App\Http\Controllers\Api\ServerGatewayController::class, 'crossEntitySubordinates']);
+    Route::post('/v1/cross-entity/approve', [\App\Http\Controllers\Api\ServerGatewayController::class, 'crossEntityApproval']);
 });
+
+// Multi-Server Gateway & Discovery Routes (Public)
+Route::post('/v1/gateway/discover', [\App\Http\Controllers\Api\ServerGatewayController::class, 'discover']);
+Route::post('/v1/gateway/login', [\App\Http\Controllers\Api\ServerGatewayController::class, 'login']);
+
 
