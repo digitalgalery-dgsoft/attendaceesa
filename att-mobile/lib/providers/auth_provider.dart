@@ -24,6 +24,14 @@ class AuthProvider with ChangeNotifier {
   Color? get appColor => _appColor;
 
   Future<void> fetchSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedColor = prefs.getString('cached_principal_theme_color');
+    if (cachedColor != null && cachedColor.isNotEmpty) {
+      try {
+        _appColor = Color(int.parse(cachedColor, radix: 16));
+      } catch (_) {}
+    }
+
     try {
       final response = await http.get(Uri.parse('${Constants.baseUrl}/settings'));
       if (response.statusCode == 200) {
@@ -32,17 +40,15 @@ class AuthProvider with ChangeNotifier {
           if (data['data']['app_name'] != null) {
             _appName = data['data']['app_name'];
           }
-          if (data['data']['theme_color'] != null) {
+          if (data['data']['theme_color'] != null && _appColor == null) {
             String hexStr = data['data']['theme_color'].toString().replaceAll('#', '');
-            if (hexStr.length == 6) hexStr = 'FF' + hexStr;
+            if (hexStr.length == 6) hexStr = 'FF$hexStr';
             _appColor = Color(int.parse(hexStr, radix: 16));
           }
           if (data['data']['tracking_interval_minutes'] != null) {
-            final prefs = await SharedPreferences.getInstance();
             await prefs.setInt('tracking_interval_minutes', int.parse(data['data']['tracking_interval_minutes'].toString()));
           }
           if (data['data']['tracking_distance_meters'] != null) {
-            final prefs = await SharedPreferences.getInstance();
             await prefs.setInt('tracking_distance_meters', int.parse(data['data']['tracking_distance_meters'].toString()));
           }
           notifyListeners();
@@ -50,6 +56,23 @@ class AuthProvider with ChangeNotifier {
       }
     } catch (e) {
       // Ignore network errors for settings
+    }
+  }
+
+  void _updateAppColorFromEmployee() {
+    if (_employeeData != null) {
+      final principalColor = _employeeData?['principal']?['theme_color']?.toString() ??
+          _employeeData?['company']?['theme_color']?.toString();
+      if (principalColor != null && principalColor.isNotEmpty) {
+        String hexStr = principalColor.replaceAll('#', '');
+        if (hexStr.length == 6) hexStr = 'FF$hexStr';
+        try {
+          _appColor = Color(int.parse(hexStr, radix: 16));
+          SharedPreferences.getInstance().then((prefs) {
+            prefs.setString('cached_principal_theme_color', hexStr);
+          });
+        } catch (_) {}
+      }
     }
   }
 
@@ -75,6 +98,7 @@ class AuthProvider with ChangeNotifier {
         final data = json.decode(response.body);
         _user = data['data']['user'];
         _employeeData = data['data']['employee_data'];
+        _updateAppColorFromEmployee();
         notifyListeners();
         return true;
       }
@@ -103,6 +127,7 @@ class AuthProvider with ChangeNotifier {
         _token = savedToken;
         _user = data['data']['user'];
         _employeeData = data['data']['employee_data'];
+        _updateAppColorFromEmployee();
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', savedToken);
         _isLoading = false;
@@ -118,23 +143,24 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<Map<String, String?>> _getDeviceInfo() async {
-    final DeviceInfoPlugin deviceInfoPlugin = DeviceInfoPlugin();
+    final deviceInfoPlugin = DeviceInfoPlugin();
     String? deviceId;
     String? deviceName;
 
     try {
       if (Platform.isAndroid) {
-        final build = await deviceInfoPlugin.androidInfo;
-        deviceId = build.id; // Or build.fingerprint, but build.id is typically used. For Android 8+, Settings.Secure.ANDROID_ID is best, but this is simplest without extra packages. Actually, id might change on factory reset, which is fine.
-        deviceName = "${build.brand} ${build.model}";
+        final androidInfo = await deviceInfoPlugin.androidInfo;
+        deviceId = androidInfo.id;
+        deviceName = '${androidInfo.brand} ${androidInfo.model}';
       } else if (Platform.isIOS) {
-        final data = await deviceInfoPlugin.iosInfo;
-        deviceId = data.identifierForVendor;
-        deviceName = data.name;
+        final iosInfo = await deviceInfoPlugin.iosInfo;
+        deviceId = iosInfo.identifierForVendor;
+        deviceName = iosInfo.utsname.machine;
       }
     } catch (e) {
-      // Ignore
+      debugPrint('Failed to get device info: $e');
     }
+
     return {'id': deviceId, 'name': deviceName};
   }
 
@@ -168,6 +194,7 @@ class AuthProvider with ChangeNotifier {
         _token = responseData['data']['access_token'];
         _user = responseData['data']['user'];
         _employeeData = responseData['data']['employee_data'];
+        _updateAppColorFromEmployee();
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', _token!);
@@ -253,6 +280,7 @@ class AuthProvider with ChangeNotifier {
       if (response.statusCode == 200 && responseData['status'] == 'success') {
         if (responseData['data'] != null && responseData['data']['employee_data'] != null) {
           _employeeData = responseData['data']['employee_data'];
+          _updateAppColorFromEmployee();
         }
         _isLoading = false;
         notifyListeners();

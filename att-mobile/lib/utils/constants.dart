@@ -1,17 +1,27 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Constants {
-  static String baseUrl = '';
+  static String baseUrl = 'https://appsend.my.id/api';
 
   static Future<void> loadBaseUrl() async {
     final prefs = await SharedPreferences.getInstance();
-    baseUrl = prefs.getString('server_base_url') ?? '';
+    baseUrl = prefs.getString('server_base_url') ?? 'https://appsend.my.id/api';
+    if (baseUrl.isEmpty) {
+      baseUrl = 'https://appsend.my.id/api';
+    }
   }
 
   static Future<void> setBaseUrl(String url) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('server_base_url', url);
-    baseUrl = url;
+    var cleanUrl = url.trim();
+    if (cleanUrl.endsWith('/')) {
+      cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1);
+    }
+    if (!cleanUrl.endsWith('/api')) {
+      cleanUrl = '$cleanUrl/api';
+    }
+    await prefs.setString('server_base_url', cleanUrl);
+    baseUrl = cleanUrl;
   }
 
   static String getImageUrl(String? path) {

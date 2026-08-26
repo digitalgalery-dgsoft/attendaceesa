@@ -571,7 +571,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     );
   }
 
-  // Modal Dialog Search & Select Lokasi Terdaftar
+  // Modal Dialog Search & Select Lokasi Terdaftar (Hanya dalam Radius 1.000m / 1 km)
   void _showStorePickerModal(List<dynamic> locations, Color themeColor, bool isDarkMode) {
     final locale = Provider.of<LocaleProvider>(context, listen: false);
     showModalBottomSheet(
@@ -590,9 +590,38 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               final addr = loc['address']?.toString().toLowerCase() ?? '';
               final area = loc['area']?.toString().toLowerCase() ?? '';
               final q = searchQuery.trim().toLowerCase();
+
+              // Filter ketat: Hanya toko dalam radius 1.000 meter (1 km) dari posisi GPS user
+              if (_latitude != null && _longitude != null) {
+                final locLat = double.tryParse(loc['latitude']?.toString() ?? '');
+                final locLng = double.tryParse(loc['longitude']?.toString() ?? '');
+                if (locLat != null && locLng != null) {
+                  final dist = Geolocator.distanceBetween(_latitude!, _longitude!, locLat, locLng);
+                  if (dist > 1000.0) {
+                    return false; // Abaikan toko di luar 1000 meter
+                  }
+                } else {
+                  return false;
+                }
+              }
+
               if (q.isEmpty) return true;
               return name.contains(q) || addr.contains(q) || area.contains(q);
             }).toList();
+
+            // Urutkan toko terdekat di bagian paling atas
+            filtered.sort((a, b) {
+              final locLatA = double.tryParse(a['latitude']?.toString() ?? '');
+              final locLngA = double.tryParse(a['longitude']?.toString() ?? '');
+              final locLatB = double.tryParse(b['latitude']?.toString() ?? '');
+              final locLngB = double.tryParse(b['longitude']?.toString() ?? '');
+              if (_latitude != null && _longitude != null && locLatA != null && locLngA != null && locLatB != null && locLngB != null) {
+                final distA = Geolocator.distanceBetween(_latitude!, _longitude!, locLatA, locLngA);
+                final distB = Geolocator.distanceBetween(_latitude!, _longitude!, locLatB, locLngB);
+                return distA.compareTo(distB);
+              }
+              return (a['name']?.toString() ?? '').compareTo(b['name']?.toString() ?? '');
+            });
 
             return Container(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -616,8 +645,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          _selectedArea != null ? 'Pilih Toko - Area $_selectedArea' : locale.tr('choose_registered_store'),
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          _selectedArea != null ? 'Pilih Toko - Area $_selectedArea (Radius ≤ 1km)' : 'Pilih Toko Terdekat (Radius ≤ 1km)',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -648,17 +677,26 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   Expanded(
                     child: filtered.isEmpty
                         ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.storefront_outlined, size: 48, color: Colors.grey.shade400),
-                                const SizedBox(height: 10),
-                                Text(
-                                  locale.tr('store_not_found'),
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-                                ),
-                              ],
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.location_off_rounded, size: 52, color: Colors.grey.shade400),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Tidak Ada Toko dalam Radius 1.000m',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : const Color(0xFF0E1830)),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Hanya menampilkan toko terdaftar dalam jarak maksimal 1 km (1.000 meter) dari titik koordinat GPS Anda saat ini.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 12.5, color: isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893)),
+                                  ),
+                                ],
+                              ),
                             ),
                           )
                         : ListView.separated(
@@ -907,6 +945,19 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         ? availableLocations.where((loc) => loc['area']?.toString().trim().toLowerCase() == _selectedArea!.toLowerCase()).toList()
         : availableLocations;
 
+    final int nearbyCountInSelectedArea = storesInSelectedArea.where((loc) {
+      if (_latitude != null && _longitude != null) {
+        final locLat = double.tryParse(loc['latitude']?.toString() ?? '');
+        final locLng = double.tryParse(loc['longitude']?.toString() ?? '');
+        if (locLat != null && locLng != null) {
+          final dist = Geolocator.distanceBetween(_latitude!, _longitude!, locLat, locLng);
+          return dist <= 1000.0;
+        }
+        return false;
+      }
+      return true;
+    }).length;
+
     final primaryColor = auth.appColor ?? const Color(0xFF0F52BA);
     final themeColor = Color(int.tryParse(widget.template.color.replaceAll('#', '0xFF')) ?? primaryColor.value);
 
@@ -1003,7 +1054,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            '${storesInSelectedArea.length} toko',
+                            '$nearbyCountInSelectedArea toko (≤ 1km)',
                             style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: themeColor),
                           ),
                         ),
