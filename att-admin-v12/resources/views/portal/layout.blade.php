@@ -388,6 +388,11 @@
                 <span class="nav-text">Sales Summary Dashboard</span>
             </a>
 
+            <a href="{{ route('portal.products') }}" class="sidebar-nav-item {{ request()->routeIs('portal.products') ? 'active' : '' }}">
+                <i class="fa-solid fa-boxes-stacked nav-icon"></i>
+                <span class="nav-text">Katalog Produk (SKU)</span>
+            </a>
+
             @if(isset($activeTemplates) && $activeTemplates->isNotEmpty())
                 <div class="menu-category-label">Modul Pelaporan ({{ $activeTemplates->count() }})</div>
 

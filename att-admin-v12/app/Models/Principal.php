@@ -60,6 +60,11 @@ class Principal extends Model
         return $this->hasMany(ReportTemplateAssignment::class);
     }
 
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
+    }
+
     public function getPortalUrlAttribute(): string
     {
         if ($this->custom_domain) {

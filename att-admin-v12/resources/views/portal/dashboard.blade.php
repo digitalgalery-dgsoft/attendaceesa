@@ -569,22 +569,23 @@
         </div>
 
         <!-- 4. Products / SKU -->
-        <div class="kpi-card">
+        <a href="{{ route('portal.products') }}" class="kpi-card" style="text-decoration: none; color: inherit;">
             <div>
                 <div class="kpi-card-header">
                     <span class="kpi-title"><i class="fa-solid fa-boxes-stacked"></i> Products (SKU)</span>
+                    <span style="font-size: 0.75rem; font-weight: 700; color: var(--brand-primary);"><i class="fa-solid fa-arrow-up-right-from-square"></i> Lihat</span>
                 </div>
                 <div class="kpi-big-value">
-                    {{ $activeTemplates->count() * 12 }} <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted);">SKU Target</span>
+                    {{ number_format($totalProducts) }} <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted);">SKU Aktif</span>
                 </div>
                 <div class="kpi-sub-text">
                     Tercakup di {{ $activeTemplates->count() }} modul pelaporan aktif
                 </div>
             </div>
             <div style="margin-top: 1.5rem; font-size: 0.78rem; color: var(--text-muted);">
-                Monitoring stok, OOS, dan display
+                Monitoring stok, OOS, harga, dan display
             </div>
-        </div>
+        </a>
 
         <!-- 5. Stores / Outlets -->
         <div class="kpi-card">

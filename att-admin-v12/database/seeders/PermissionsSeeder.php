@@ -35,6 +35,7 @@ class PermissionsSeeder extends Seeder
             'visit_reports',
             'report_templates',
             'report_submissions',
+            'products',
             'settings',
         ];
 

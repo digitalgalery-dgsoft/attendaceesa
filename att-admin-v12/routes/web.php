@@ -78,6 +78,7 @@ Route::post('/logout', [\App\Http\Controllers\Auth\TenantAuthController::class, 
 // Principal Reporting Portal Routes
 Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'dashboard'])->name('dashboard');
+    Route::get('/products', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'productsList'])->name('products');
     Route::get('/report/{code}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'reportDetail'])->name('report.detail');
     Route::get('/report/{code}/export', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'exportReport'])->name('report.export');
 });
@@ -101,6 +102,9 @@ Route::get('/seed-templates-now', function () {
 
         $seeder = new \Database\Seeders\ReportTemplatePresetsSeeder();
         $seeder->run();
+
+        $prodSeeder = new \Database\Seeders\ProductPresetsSeeder();
+        $prodSeeder->run();
 
         $templates = \App\Models\ReportTemplate::with('principals')->get()->map(function ($t) {
             return [

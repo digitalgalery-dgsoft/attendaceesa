@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\Principal;
+use App\Models\Product;
 use App\Models\ReportSubmission;
 use App\Models\ReportTemplate;
 use App\Models\Setting;
@@ -223,6 +224,9 @@ class PrincipalPortalController extends Controller
         $setting = Setting::first();
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
 
+        // Total Products (SKU)
+        $totalProducts = Product::whereIn('principal_id', $scopedPrincipalIds)->where('is_active', true)->count();
+
         return view('portal.dashboard', compact(
             'tenantPrincipal',
             'brandColor',
@@ -252,6 +256,7 @@ class PrincipalPortalController extends Controller
             'positions',
             'employees',
             'workLocations',
+            'totalProducts',
             'setting'
         ));
     }
@@ -417,5 +422,77 @@ class PrincipalPortalController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Master Data Products / SKU Catalog for Principal
+     */
+    public function productsList(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $search = $request->query('q');
+        $category = $request->query('category');
+        $brand = $request->query('brand');
+
+        $query = Product::whereIn('principal_id', $scopedPrincipalIds)->where('is_active', true);
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('sku_code', 'LIKE', "%{$search}%")
+                  ->orWhere('barcode', 'LIKE', "%{$search}%")
+                  ->orWhere('brand', 'LIKE', "%{$search}%")
+                  ->orWhere('category', 'LIKE', "%{$search}%");
+            });
+        }
+
+        if ($category) {
+            $query->where('category', $category);
+        }
+
+        if ($brand) {
+            $query->where('brand', $brand);
+        }
+
+        $products = $query->orderBy('name')->paginate(20);
+
+        $categories = Product::whereIn('principal_id', $scopedPrincipalIds)
+            ->whereNotNull('category')
+            ->distinct()
+            ->pluck('category')
+            ->toArray();
+
+        $brands = Product::whereIn('principal_id', $scopedPrincipalIds)
+            ->whereNotNull('brand')
+            ->distinct()
+            ->pluck('brand')
+            ->toArray();
+
+        $totalProducts = Product::whereIn('principal_id', $scopedPrincipalIds)->where('is_active', true)->count();
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.products', compact(
+            'tenantPrincipal',
+            'brandColor',
+            'activeTemplates',
+            'products',
+            'categories',
+            'brands',
+            'totalProducts',
+            'search',
+            'category',
+            'brand',
+            'setting'
+        ));
     }
 }
