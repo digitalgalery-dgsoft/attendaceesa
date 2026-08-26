@@ -28,12 +28,13 @@ class ReportTemplateForm
                     ->schema([
                         Grid::make(3)->schema([
                             Select::make('principals')
-                                ->relationship('principals', 'name')
+                                ->relationship('principals', 'name', modifyQueryUsing: fn ($query) => $query->with('company'))
+                                ->getOptionLabelFromRecordUsing(fn (\App\Models\Principal $record) => $record->name . ($record->company ? " [{$record->company->name}]" : ''))
                                 ->label('Prinsiple Klien (Pilihan Multipel)')
                                 ->multiple()
                                 ->searchable()
                                 ->preload()
-                                ->helperText('Pilih satu atau lebih entitas prinsiple (misal: semua entitas ICI PAINTS / DULUX)')
+                                ->helperText('Pilih satu atau lebih entitas prinsiple (misal: semua entitas PT WINGS SURYA / PT LION WINGS lintas entitas AMK/ATB/ATK)')
                                 ->required(),
                             TextInput::make('title')
                                 ->label('Judul Form Pelaporan')

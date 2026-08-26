@@ -27,12 +27,16 @@ class ReportTemplatesTable
                     ->sortable()
                     ->weight('bold')
                     ->description(fn (ReportTemplate $record) => $record->code),
-                TextColumn::make('principals.name')
+                TextColumn::make('principals_list')
                     ->label('Prinsiple Klien')
                     ->badge()
                     ->color('primary')
-                    ->separator(',')
-                    ->searchable(),
+                    ->getStateUsing(fn (ReportTemplate $record) => $record->principals->pluck('name')->unique()->values()->toArray())
+                    ->searchable(query: function ($query, string $search) {
+                        return $query->whereHas('principals', function ($q) use ($search) {
+                            $q->where('name', 'like', "%{$search}%");
+                        });
+                    }),
                 TextColumn::make('category')
                     ->label('Kategori')
                     ->badge()
