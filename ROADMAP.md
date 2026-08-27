@@ -496,6 +496,21 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Versi aplikasi ditingkatkan menjadi `1.0.97+97`.
       - File installer `app-release-1.0.97.apk` (94.6 MB) berhasil dikompilasi dan didistribusikan ke server live (`https://wings.appsend.my.id/app-release.apk` dan `https://appsend.my.id/downloads/app-release-1.0.97.apk`).
 
+11. **Metode Input Employee Schedule Roster via Working Group 2-Step Wizard (SELESAI 27 Agustus 2026)**:
+    - **Step 1: Description & Configuration**:
+      - Input Nama Working Group, Date Applied, Area / Branch, dan Prinsiple.
+      - General Configuration: Default Shift / Working Hour, Late Tolerance (menit), Store / Work Location.
+      - Action Cepat: `Select All` (7 hari aktif) dan `Work Days` (Senin s/d Jumat aktif, Sabtu-Minggu libur).
+      - **Custom Option per Hari**: Accordion ekspansi sub-form per hari kerja aktif untuk menentukan Shift khusus, Toleransi Terlambat khusus, dan Lokasi Toko khusus hari tersebut.
+    - **Step 2: Implementing Working Group**:
+      - Autocomplete selector `Select employee to be added` dengan instant auto-add.
+      - Fitur massal `Tambah Semua di Area/Prinsiple Ini` dan `Kosongkan`.
+      - Data table anggota terpilih lengkap dengan avatar, Nama, NIK, Posisi/Area, live search, pagination, dan tombol hapus.
+    - **Schedule Generator Engine Sepanjang Tahun Berjalan**:
+      - Tombol `Simpan & Generate Jadwal (Submit)` secara otomatis menyimpan data Working Group, aturan 7 hari, anggota, serta mengenerate seluruh data `employee_schedules` untuk semua karyawan anggota dari `Date Applied` hingga akhir tahun berjalan (`endOfYear()`).
+    - **Akses Langsung dari Roster**:
+      - Menambahkan tombol aksi **`Input via Working Group`** langsung pada header halaman Matriks Roster Jadwal Kerja (`EmployeeScheduleRoster`).
+
 ---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)

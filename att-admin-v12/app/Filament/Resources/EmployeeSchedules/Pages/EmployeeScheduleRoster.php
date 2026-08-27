@@ -172,6 +172,12 @@ class EmployeeScheduleRoster extends Page implements HasForms
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('create_working_group')
+                ->label('Input via Working Group')
+                ->icon('heroicon-o-user-group')
+                ->color('info')
+                ->url(fn () => \App\Filament\Resources\WorkingGroupResource::getUrl('create')),
+
             Action::make('generate_schedule')
                 ->label('Generate Schedule Roster')
                 ->icon('heroicon-o-calendar-days')

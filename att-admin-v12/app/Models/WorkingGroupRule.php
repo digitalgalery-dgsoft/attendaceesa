@@ -13,10 +13,19 @@ class WorkingGroupRule extends Model
     protected $fillable = [
         'working_group_id',
         'day_of_week',
+        'is_active',
+        'has_custom_option',
         'shift_id',
         'late_tolerance',
         'routing_active',
         'store_assignment_id',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'has_custom_option' => 'boolean',
+        'routing_active' => 'boolean',
+        'late_tolerance' => 'integer',
     ];
 
     public function group(): BelongsTo
