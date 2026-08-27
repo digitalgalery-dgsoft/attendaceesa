@@ -120,14 +120,12 @@ class PrincipalPortalController extends Controller
         if ($locationId) {
             $submissionsQuery->where('report_submissions.work_location_id', $locationId);
         }
-        if ($positionId) {
-            $submissionsQuery->whereHas('employee', function ($q) use ($positionId) {
-                $q->where('employees.position_id', $positionId);
-            });
-        }
 
-        // Total Submissions this month
+        // Real Submission counts this month
         $totalSubmissions = (clone $submissionsQuery)->count();
+        $approvedSubmissions = (clone $submissionsQuery)->whereIn('status', ['approved', 'verified'])->count();
+        $pendingSubmissions = (clone $submissionsQuery)->whereIn('status', ['pending', 'submitted'])->count();
+        $rejectedSubmissions = (clone $submissionsQuery)->where('status', 'rejected')->count();
 
         // Prev month submissions
         $prevSubmissions = ReportSubmission::whereIn('report_submissions.principal_id', $scopedPrincipalIds)
@@ -141,9 +139,6 @@ class PrincipalPortalController extends Controller
 
         // Promotor / SPG Metrics
         $employeesQuery = Employee::whereIn('employees.principal_id', $scopedPrincipalIds);
-        if ($positionId) {
-            $employeesQuery->where('employees.position_id', $positionId);
-        }
         $totalEmployees = (clone $employeesQuery)->count();
         $activeEmployees = (clone $employeesQuery)->where('employees.is_active', true)->count();
         $resignedEmployees = (clone $employeesQuery)->where('employees.is_active', false)->count();
@@ -186,15 +181,6 @@ class PrincipalPortalController extends Controller
             })
             ->sum('report_submission_values.value_number');
 
-        // Target estimation (example calculation or base target)
-        $targetSalesVal = $prevSalesVal > 0 ? $prevSalesVal * 1.15 : ($totalSalesVal > 0 ? $totalSalesVal * 1.2 : 1500000000);
-        $achievementPercent = $targetSalesVal > 0 ? min(round(($totalSalesVal / $targetSalesVal) * 100), 100) : 0;
-        if ($totalSalesVal == 0 && $totalSubmissions > 0) {
-            // Target submission fallback if sales nominal not yet entered
-            $targetSubmissions = max($prevSubmissions * 1.1, 100);
-            $achievementPercent = min(round(($totalSubmissions / $targetSubmissions) * 100), 100);
-        }
-
         // Daily Submission Chart Data (for ApexCharts)
         $dailyData = (clone $submissionsQuery)
             ->selectRaw('DATE(report_submissions.submitted_at) as date, count(*) as total')
@@ -225,9 +211,16 @@ class PrincipalPortalController extends Controller
             ->latest('report_submissions.submitted_at')
             ->paginate(15);
 
-        // Dropdown filter options
-        $positions = Position::orderBy('name')->get();
-        $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)->orderBy('employees.full_name')->get();
+        // Grouped employees by Branch/Area for searchable dropdown
+        $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)
+            ->with(['branch', 'position'])
+            ->orderBy('employees.full_name')
+            ->get();
+
+        $groupedEmployees = $employees->groupBy(function($emp) {
+            return $emp->branch?->name ?? 'Pusat / Seluruh Area';
+        });
+
         $workLocations = WorkLocation::whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id')->orderBy('work_locations.name')->get();
         $setting = Setting::first();
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
@@ -242,11 +235,13 @@ class PrincipalPortalController extends Controller
             'activeTemplates',
             'month',
             'year',
-            'positionId',
             'employeeId',
             'locationId',
             'timegonePercent',
             'totalSubmissions',
+            'approvedSubmissions',
+            'pendingSubmissions',
+            'rejectedSubmissions',
             'prevSubmissions',
             'growthPercent',
             'totalEmployees',
@@ -256,14 +251,12 @@ class PrincipalPortalController extends Controller
             'prevStores',
             'totalSalesVal',
             'prevSalesVal',
-            'targetSalesVal',
-            'achievementPercent',
             'chartLabels',
             'chartSubmissions',
             'categoryBreakdown',
             'recentSubmissions',
-            'positions',
             'employees',
+            'groupedEmployees',
             'workLocations',
             'totalProducts',
             'setting'
