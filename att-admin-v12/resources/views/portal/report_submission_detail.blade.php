@@ -13,6 +13,28 @@
         font-family: 'Outfit', sans-serif;
     }
 
+    /* FLASH ALERT */
+    .alert-banner {
+        padding: 1rem 1.25rem;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        animation: fadeIn 0.3s ease;
+    }
+    .alert-success {
+        background: #dcfce7;
+        color: #15803d;
+        border: 1px solid #86efac;
+    }
+    .alert-danger {
+        background: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+    }
+
     /* BANNER HEADER CARD */
     .report-banner-card {
         background: #ffffff;
@@ -93,6 +115,47 @@
         font-weight: 700;
         border: 1px solid;
         letter-spacing: 0.2px;
+    }
+
+    /* APPROVAL ACTION BUTTONS */
+    .btn-action-approve {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        background: #16a34a;
+        color: #ffffff;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(22, 163, 74, 0.25);
+        transition: all 0.2s ease;
+    }
+    .btn-action-approve:hover {
+        background: #15803d;
+        transform: translateY(-1px);
+    }
+
+    .btn-action-reject {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        background: #dc2626;
+        color: #ffffff;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+        transition: all 0.2s ease;
+    }
+    .btn-action-reject:hover {
+        background: #b91c1c;
+        transform: translateY(-1px);
     }
 
     .btn-portal-back {
@@ -282,6 +345,35 @@
         text-decoration: underline;
     }
 
+    /* MODAL STYLING */
+    .custom-modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(15, 23, 42, 0.5);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+    .custom-modal-box {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1.75rem;
+        max-width: 480px;
+        width: 90%;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        border: 1px solid var(--border-color);
+        animation: scaleUp 0.2s ease;
+    }
+    @keyframes scaleUp {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+
     /* EMPTY STATE */
     .empty-responses {
         background: #ffffff;
@@ -329,6 +421,21 @@
     @endphp
 
     <div class="report-view-wrapper">
+        {{-- FLASH MESSAGES --}}
+        @if(session('success'))
+            <div class="alert-banner alert-success">
+                <i class="fa-solid fa-circle-check" style="font-size: 1.2rem;"></i>
+                <span>{{ session('success') }}</span>
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div class="alert-banner alert-danger">
+                <i class="fa-solid fa-circle-exclamation" style="font-size: 1.2rem;"></i>
+                <span>{{ session('error') }}</span>
+            </div>
+        @endif
+
         {{-- BANNER HEADER CARD --}}
         <div class="report-banner-card">
             <div class="banner-left">
@@ -349,14 +456,36 @@
             </div>
 
             <div class="banner-actions">
+                {{-- STATUS BADGE --}}
                 <div class="status-badge" style="background-color: {{ $statusConfig['bg'] }}; color: {{ $statusConfig['color'] }}; border-color: {{ $statusConfig['border'] }};">
                     <i class="fa-solid {{ $statusConfig['icon'] }}"></i>
                     <span>{{ $statusConfig['label'] }}</span>
                 </div>
 
+                {{-- ACTION: APPROVE --}}
+                @if(in_array($status, ['pending', 'submitted', 'rejected']))
+                    <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $submission->id, 'p' => $tenantPrincipal->id]) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menyetujui (verifikasi valid) laporan ini?');">
+                        @csrf
+                        <input type="hidden" name="status" value="approved">
+                        <button type="submit" class="btn-action-approve">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>Setujui Laporan</span>
+                        </button>
+                    </form>
+                @endif
+
+                {{-- ACTION: REJECT --}}
+                @if(in_array($status, ['pending', 'submitted', 'approved', 'verified']))
+                    <button type="button" class="btn-action-reject" onclick="openRejectModal()">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                        <span>Tolak Laporan</span>
+                    </button>
+                @endif
+
+                {{-- BACK BUTTON --}}
                 <a href="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" class="btn-portal-back">
                     <i class="fa-solid fa-arrow-left"></i>
-                    <span>Kembali ke Rekap</span>
+                    <span>Kembali</span>
                 </a>
             </div>
         </div>
@@ -405,7 +534,7 @@
                     <div class="info-row" style="border-top: 1px solid #f1f5f9; padding-top: 0.5rem;">
                         <span class="info-label">Diverifikasi Oleh</span>
                         <span class="info-value">
-                            {{ $submission->verifier?->name ?? 'Admin / Verifikator' }}
+                            {{ $submission->verifier?->name ?? 'Admin Prinsiple' }}
                             <span style="font-size: 0.75rem; color: var(--text-muted); display: block; font-weight: 500;">
                                 {{ $submission->verified_at->translatedFormat('d M Y, H:i') }} WIB
                             </span>
@@ -461,7 +590,7 @@
 
                 @if($submission->verification_notes)
                     <div class="info-row" style="border-top: 1px solid #f1f5f9; padding-top: 0.5rem;">
-                        <span class="info-label">Catatan Admin</span>
+                        <span class="info-label">Catatan Verifikasi</span>
                         <span class="info-value" style="color: #b45309; font-style: italic;">
                             "{{ $submission->verification_notes }}"
                         </span>
@@ -546,4 +675,53 @@
             </div>
         @endif
     </div>
+
+    {{-- MODAL REJECT WITH REASON --}}
+    <div id="rejectModal" class="custom-modal-backdrop">
+        <div class="custom-modal-box">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #b91c1c; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Tolak Laporan Ini?</span>
+                </h3>
+                <button type="button" onclick="closeRejectModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+            </div>
+
+            <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $submission->id, 'p' => $tenantPrincipal->id]) }}" method="POST">
+                @csrf
+                <input type="hidden" name="status" value="rejected">
+                <div style="margin-bottom: 1.25rem;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-heading); margin-bottom: 0.35rem;">
+                        Alasan / Catatan Penolakan (Opsional):
+                    </label>
+                    <textarea name="verification_notes" rows="3" placeholder="Tuliskan alasan penolakan atau catatan evaluasi untuk promotor..." style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.85rem; outline: none; font-family: inherit;">{{ $submission->verification_notes }}</textarea>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                    <button type="button" onclick="closeRejectModal()" class="btn-portal-back">Batal</button>
+                    <button type="submit" class="btn-action-reject">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                        <span>Konfirmasi Tolak</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @push('scripts')
+    <script>
+        function openRejectModal() {
+            document.getElementById('rejectModal').style.display = 'flex';
+        }
+        function closeRejectModal() {
+            document.getElementById('rejectModal').style.display = 'none';
+        }
+        window.onclick = function(event) {
+            const modal = document.getElementById('rejectModal');
+            if (event.target == modal) {
+                closeRejectModal();
+            }
+        }
+    </script>
+    @endpush
 @endsection

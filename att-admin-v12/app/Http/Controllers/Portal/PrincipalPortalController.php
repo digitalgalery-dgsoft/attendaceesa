@@ -402,6 +402,51 @@ class PrincipalPortalController extends Controller
     }
 
     /**
+     * Update Approval / Verification Status for a Report Submission on Principal Portal
+     */
+    public function updateSubmissionStatus(Request $request, string $code, int $id)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $template = ReportTemplate::where('code', $code)
+            ->whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+                $q->whereIn('principals.id', $scopedPrincipalIds);
+            })
+            ->firstOrFail();
+
+        $submission = ReportSubmission::where('id', $id)
+            ->where('report_template_id', $template->id)
+            ->whereIn('principal_id', $scopedPrincipalIds)
+            ->firstOrFail();
+
+        $status = $request->input('status');
+        if (!in_array($status, ['approved', 'rejected', 'pending'])) {
+            return back()->with('error', 'Status verifikasi tidak valid.');
+        }
+
+        $notes = $request->input('verification_notes');
+
+        $submission->update([
+            'status' => $status,
+            'verified_at' => in_array($status, ['approved', 'rejected']) ? now() : null,
+            'verified_by' => Auth::id(),
+            'verification_notes' => $notes !== null ? $notes : $submission->verification_notes,
+        ]);
+
+        $msg = match ($status) {
+            'approved' => 'Laporan berhasil disetujui & diverifikasi (Valid).',
+            'rejected' => 'Laporan berhasil ditolak.',
+            default => 'Status laporan dikembalikan ke Menunggu Verifikasi.',
+        };
+
+        return back()->with('success', $msg);
+    }
+
+    /**
      * Export Submissions for a Template to CSV / Excel Download
      */
     public function exportReport(Request $request, string $code)
