@@ -36,8 +36,7 @@ class DynamicFormScreen extends StatefulWidget {
 class _DynamicFormScreenState extends State<DynamicFormScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // Area & Lokasi Terdaftar & Kalkulasi Radius
-  String? _selectedArea;
+  // Lokasi Terikat Sesuai Check-in / Visit Aktif
   Map<String, dynamic>? _selectedLocation;
   int? _selectedWorkLocationId;
   String _selectedStoreName = '';
@@ -81,66 +80,124 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         await repProvider.fetchStores(auth.token!, forceRefresh: true);
       }
 
-      final locations = repProvider.stores.isNotEmpty ? repProvider.stores : attProvider.workLocations;
-      
-      // Auto-assign Area Default sesuai Karyawan atau Store list
-      if (_selectedArea == null && locations.isNotEmpty) {
-        final availableAreas = locations
-            .map((loc) => loc['area']?.toString().trim() ?? '')
-            .where((a) => a.isNotEmpty)
-            .toSet()
-            .toList();
+      // Pastikan status absensi terbaru ter-load
+      await attProvider.checkAttendanceStatus();
 
-        final employeeBranch = auth.employeeData?['branch']?['name']?.toString() ??
-            auth.employeeData?['area']?.toString() ??
-            repProvider.defaultArea;
-
-        if (employeeBranch != null && availableAreas.any((a) => a.toLowerCase() == employeeBranch.toLowerCase())) {
-          _selectedArea = availableAreas.firstWhere((a) => a.toLowerCase() == employeeBranch.toLowerCase());
-        } else if (repProvider.defaultArea != null && availableAreas.any((a) => a.toLowerCase() == repProvider.defaultArea!.toLowerCase())) {
-          _selectedArea = availableAreas.firstWhere((a) => a.toLowerCase() == repProvider.defaultArea!.toLowerCase());
-        } else if (availableAreas.isNotEmpty) {
-          _selectedArea = availableAreas.first;
-        }
-      }
-
-      _matchInitialLocation(locations);
+      // Ikat lokasi otomatis dari Check-in atau Visit aktif
+      _initLocationFromAttendance();
     });
   }
 
-  void _matchInitialLocation(List<dynamic> locations) {
-    if (locations.isEmpty) return;
+  void _initLocationFromAttendance() {
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final locations = repProvider.stores.isNotEmpty ? repProvider.stores : attProvider.workLocations;
 
-    Map<String, dynamic>? matched;
-    if (_selectedWorkLocationId != null) {
-      matched = locations.cast<Map<String, dynamic>?>().firstWhere(
-            (l) => l?['id'] == _selectedWorkLocationId || l?['id'].toString() == _selectedWorkLocationId.toString(),
+    // 1. Jika mode Edit Submission
+    if (widget.editSubmission != null) {
+      _selectedStoreName = widget.editSubmission!.storeName ?? 'Lokasi Terdaftar';
+      _selectedWorkLocationId = widget.editSubmission!.workLocationId;
+      _address = widget.editSubmission!.address ?? _address;
+
+      final match = locations.cast<Map<String, dynamic>?>().firstWhere(
+            (l) => l?['id'] == _selectedWorkLocationId || (l?['name'] != null && l?['name'].toString().toLowerCase() == _selectedStoreName.toLowerCase()),
             orElse: () => null,
           );
-    } else if (_selectedStoreName.isNotEmpty) {
-      matched = locations.cast<Map<String, dynamic>?>().firstWhere(
-            (l) => l?['name']?.toString().toLowerCase() == _selectedStoreName.toLowerCase(),
+      if (match != null) {
+        _selectLocation(match);
+      }
+      return;
+    }
+
+    // 2. Jika widget parameters diberikan secara eksplisit (dari Visit/Itinerary screen)
+    if (widget.storeName != null && widget.storeName!.isNotEmpty) {
+      _selectedStoreName = widget.storeName!;
+      _selectedWorkLocationId = widget.workLocationId;
+
+      final match = locations.cast<Map<String, dynamic>?>().firstWhere(
+            (l) => l?['id'] == _selectedWorkLocationId || (l?['name'] != null && l?['name'].toString().toLowerCase() == _selectedStoreName.toLowerCase()),
             orElse: () => null,
           );
-    } else {
-      // Cari store yang ada di area terpilih
-      final areaLocs = (_selectedArea != null && _selectedArea != 'Semua Area')
-          ? locations.where((l) => l['area']?.toString().trim().toLowerCase() == _selectedArea!.toLowerCase()).toList()
-          : locations;
+      if (match != null) {
+        _selectLocation(match);
+      }
+      return;
+    }
 
-      if (areaLocs.isNotEmpty) {
-        matched = areaLocs.first as Map<String, dynamic>?;
-      } else {
-        matched = locations.first as Map<String, dynamic>?;
+    // 3. Jika sedang Visit In aktif
+    if (attProvider.isVisiting) {
+      Map<String, dynamic>? visitInLog;
+      for (final log in attProvider.todayLogs) {
+        if (log['log_type'] == 'visit_in') {
+          visitInLog = log as Map<String, dynamic>?;
+          break;
+        }
+      }
+
+      int? visitLocId;
+      if (visitInLog != null && visitInLog['metadata'] != null) {
+        final meta = visitInLog['metadata'];
+        if (meta is Map) {
+          visitLocId = int.tryParse(meta['visit_location_id']?.toString() ?? '');
+        }
+      }
+
+      Map<String, dynamic>? activeItineraryItem;
+      if (attProvider.todayItinerary != null && attProvider.todayItinerary!['items'] is List) {
+        for (final it in (attProvider.todayItinerary!['items'] as List)) {
+          if (it['status'] == 'in_progress' || (visitLocId != null && (it['work_location_id'] == visitLocId || it['work_location']?['id'] == visitLocId))) {
+            activeItineraryItem = it as Map<String, dynamic>?;
+            break;
+          }
+        }
+      }
+
+      if (activeItineraryItem != null) {
+        _selectedStoreName = activeItineraryItem['work_location']?['name'] ?? activeItineraryItem['name'] ?? 'Toko Kunjungan';
+        _selectedWorkLocationId = activeItineraryItem['work_location_id'] ?? activeItineraryItem['work_location']?['id'];
+        _address = activeItineraryItem['work_location']?['address'] ?? _address;
+      } else if (visitLocId != null) {
+        final match = locations.cast<Map<String, dynamic>?>().firstWhere(
+              (l) => l?['id'] == visitLocId || l?['id'].toString() == visitLocId.toString(),
+              orElse: () => null,
+            );
+        if (match != null) {
+          _selectLocation(match);
+          return;
+        }
       }
     }
 
-    if (matched != null) {
-      final matchedArea = matched['area']?.toString().trim();
-      if (matchedArea != null && matchedArea.isNotEmpty && (_selectedArea == null || _selectedArea == 'Semua Area')) {
-        _selectedArea = matchedArea;
+    // 4. Jika sedang Check-In aktif (Reguler Attendance)
+    if (_selectedStoreName.isEmpty && attProvider.isCheckedIn) {
+      if (attProvider.todaySchedule != null) {
+        final sched = attProvider.todaySchedule!;
+        _selectedStoreName = sched['work_location']?['name'] ?? sched['work_location_name'] ?? auth.employeeData?['branch']?['name'] ?? 'Lokasi Check-In';
+        _selectedWorkLocationId = int.tryParse(sched['work_location_id']?.toString() ?? sched['work_location']?['id']?.toString() ?? '');
+        _address = sched['work_location']?['address'] ?? _address;
+      } else if (attProvider.monthlyHistory.isNotEmpty) {
+        final lastAtt = attProvider.monthlyHistory.first as Map<String, dynamic>;
+        _selectedStoreName = lastAtt['work_location']?['name'] ?? lastAtt['branch']?['name'] ?? 'Lokasi Check-In';
+        _selectedWorkLocationId = int.tryParse(lastAtt['work_location_id']?.toString() ?? lastAtt['work_location']?['id']?.toString() ?? '');
+        _address = lastAtt['work_location']?['address'] ?? _address;
       }
-      _selectLocation(matched);
+    }
+
+    // Match ke list locations untuk kalkulasi radius jika ditemukan
+    if (_selectedStoreName.isNotEmpty) {
+      final match = locations.cast<Map<String, dynamic>?>().firstWhere(
+            (l) => (_selectedWorkLocationId != null && (l?['id'] == _selectedWorkLocationId || l?['id'].toString() == _selectedWorkLocationId.toString())) ||
+                   (l?['name'] != null && l?['name'].toString().toLowerCase() == _selectedStoreName.toLowerCase()),
+            orElse: () => null,
+          );
+      if (match != null) {
+        _selectLocation(match);
+      } else {
+        setState(() {});
+      }
+    } else {
+      setState(() {});
     }
   }
 
@@ -504,431 +561,29 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
   }
 
-  // Modal Dialog Search & Select Area / Cabang
-  void _showAreaPickerModal(List<String> areas, Color themeColor, bool isDarkMode) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      backgroundColor: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
-      builder: (context) {
-        String searchQuery = '';
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final filteredAreas = areas.where((a) {
-              final q = searchQuery.trim().toLowerCase();
-              if (q.isEmpty) return true;
-              return a.toLowerCase().contains(q);
-            }).toList();
-
-            return Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              height: MediaQuery.of(context).size.height * 0.65,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade400,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Pilih Area / Cabang',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 20),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Cari nama area / kota...',
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      filled: true,
-                      fillColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF1F5F9),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    ),
-                    onChanged: (val) {
-                      setModalState(() {
-                        searchQuery = val;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  Expanded(
-                    child: filteredAreas.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.map_outlined, size: 48, color: Colors.grey.shade400),
-                                const SizedBox(height: 10),
-                                Text(
-                                  'Area tidak ditemukan',
-                                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.separated(
-                            itemCount: filteredAreas.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
-                            itemBuilder: (context, idx) {
-                              final areaName = filteredAreas[idx];
-                              final isSelected = areaName == _selectedArea;
-
-                              return InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedArea = areaName;
-                                    // Reset store jika toko terpilih sebelumnya berbeda area
-                                    if (_selectedLocation != null) {
-                                      final storeArea = _selectedLocation!['area']?.toString().trim();
-                                      if (storeArea != null && storeArea.isNotEmpty && areaName != 'Semua Area' && storeArea.toLowerCase() != areaName.toLowerCase()) {
-                                        _selectedLocation = null;
-                                        _selectedWorkLocationId = null;
-                                        _selectedStoreName = '';
-                                        _calculatedDistance = null;
-                                      }
-                                    }
-                                  });
-                                  Navigator.pop(context);
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? themeColor.withOpacity(0.08) : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: isSelected ? themeColor : themeColor.withOpacity(0.12),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Icon(
-                                          Icons.location_city_rounded,
-                                          color: isSelected ? Colors.white : themeColor,
-                                          size: 18,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          areaName,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                            color: isSelected ? themeColor : null,
-                                          ),
-                                        ),
-                                      ),
-                                      if (isSelected)
-                                        Icon(Icons.check_circle_rounded, color: themeColor, size: 20),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // Modal Dialog Search & Select Lokasi Terdaftar (Hanya dalam Radius 1.000m / 1 km)
-  void _showStorePickerModal(List<dynamic> locations, Color themeColor, bool isDarkMode) {
-    final locale = Provider.of<LocaleProvider>(context, listen: false);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      backgroundColor: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
-      builder: (context) {
-        String searchQuery = '';
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final filtered = locations.where((loc) {
-              final name = loc['name']?.toString().toLowerCase() ?? '';
-              final addr = loc['address']?.toString().toLowerCase() ?? '';
-              final area = loc['area']?.toString().toLowerCase() ?? '';
-              final q = searchQuery.trim().toLowerCase();
-
-              // Filter ketat: Hanya toko dalam radius 1.000 meter (1 km) dari posisi GPS user
-              if (_latitude != null && _longitude != null) {
-                final locLat = double.tryParse(loc['latitude']?.toString() ?? '');
-                final locLng = double.tryParse(loc['longitude']?.toString() ?? '');
-                if (locLat != null && locLng != null) {
-                  final dist = Geolocator.distanceBetween(_latitude!, _longitude!, locLat, locLng);
-                  if (dist > 1000.0) {
-                    return false; // Abaikan toko di luar 1000 meter
-                  }
-                } else {
-                  return false;
-                }
-              }
-
-              if (q.isEmpty) return true;
-              return name.contains(q) || addr.contains(q) || area.contains(q);
-            }).toList();
-
-            // Urutkan toko terdekat di bagian paling atas
-            filtered.sort((a, b) {
-              final locLatA = double.tryParse(a['latitude']?.toString() ?? '');
-              final locLngA = double.tryParse(a['longitude']?.toString() ?? '');
-              final locLatB = double.tryParse(b['latitude']?.toString() ?? '');
-              final locLngB = double.tryParse(b['longitude']?.toString() ?? '');
-              if (_latitude != null && _longitude != null && locLatA != null && locLngA != null && locLatB != null && locLngB != null) {
-                final distA = Geolocator.distanceBetween(_latitude!, _longitude!, locLatA, locLngA);
-                final distB = Geolocator.distanceBetween(_latitude!, _longitude!, locLatB, locLngB);
-                return distA.compareTo(distB);
-              }
-              return (a['name']?.toString() ?? '').compareTo(b['name']?.toString() ?? '');
-            });
-
-            return Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              height: MediaQuery.of(context).size.height * 0.75,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade400,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _selectedArea != null ? 'Pilih Toko - Area $_selectedArea (Radius ≤ 1km)' : 'Pilih Toko Terdekat (Radius ≤ 1km)',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 20),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: locale.tr('search_store_hint'),
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      filled: true,
-                      fillColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF1F5F9),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    ),
-                    onChanged: (val) {
-                      setModalState(() {
-                        searchQuery = val;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  Expanded(
-                    child: filtered.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.location_off_rounded, size: 52, color: Colors.grey.shade400),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'Tidak Ada Toko dalam Radius 1.000m',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : const Color(0xFF0E1830)),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Hanya menampilkan toko terdaftar dalam jarak maksimal 1 km (1.000 meter) dari titik koordinat GPS Anda saat ini.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 12.5, color: isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
-                            itemBuilder: (context, idx) {
-                              final loc = filtered[idx] as Map<String, dynamic>;
-                              final name = loc['name']?.toString() ?? 'Toko';
-                              final address = loc['address']?.toString() ?? '';
-                              final locLat = double.tryParse(loc['latitude']?.toString() ?? '');
-                              final locLng = double.tryParse(loc['longitude']?.toString() ?? '');
-                              final isSelected = loc['id'] == _selectedWorkLocationId || loc['id'].toString() == _selectedWorkLocationId?.toString();
-
-                              double? dist;
-                              if (_latitude != null && _longitude != null && locLat != null && locLng != null) {
-                                dist = Geolocator.distanceBetween(_latitude!, _longitude!, locLat, locLng);
-                              }
-
-                              return InkWell(
-                                onTap: () {
-                                  _selectLocation(loc);
-                                  Navigator.pop(context);
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? themeColor.withOpacity(0.08) : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(10),
-                                        decoration: BoxDecoration(
-                                          color: isSelected ? themeColor : themeColor.withOpacity(0.12),
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        child: Icon(
-                                          Icons.storefront_rounded,
-                                          color: isSelected ? Colors.white : themeColor,
-                                          size: 22,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    name,
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: isSelected ? themeColor : null,
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (loc['is_today_itinerary'] == true) ...[
-                                                  const SizedBox(width: 6),
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      color: themeColor.withOpacity(0.12),
-                                                      borderRadius: BorderRadius.circular(4),
-                                                      border: Border.all(color: themeColor.withOpacity(0.3), width: 0.8),
-                                                    ),
-                                                    child: Text(
-                                                      'Jadwal Hari Ini',
-                                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: themeColor),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                            if (address.isNotEmpty || (loc['area'] != null && loc['area'].toString().isNotEmpty)) ...[
-                                              const SizedBox(height: 3),
-                                              Text(
-                                                [
-                                                  if (loc['area'] != null && loc['area'].toString().isNotEmpty) loc['area'].toString(),
-                                                  if (address.isNotEmpty) address,
-                                                ].join(' • '),
-                                                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                      if (dist != null) ...[
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: (dist <= (_allowedRadiusMeter))
-                                                ? const Color(0xFFE2F6EE)
-                                                : const Color(0xFFFFF3E0),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            dist >= 1000 ? '${(dist / 1000).toStringAsFixed(1)} km' : '${dist.round()} m',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: (dist <= (_allowedRadiusMeter))
-                                                  ? const Color(0xFF149A6E)
-                                                  : const Color(0xFFD98A2B),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   // Submit Form
   Future<void> _submitForm() async {
     final locale = Provider.of<LocaleProvider>(context, listen: false);
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
 
-    if (_selectedWorkLocationId == null || _selectedStoreName.isEmpty) {
+    final bool isVisiting = attProvider.isVisiting;
+    final bool isCheckedIn = attProvider.isCheckedIn;
+    final bool isEditMode = widget.editSubmission != null;
+    final bool canSubmitReport = isVisiting || isCheckedIn || isEditMode;
+
+    if (!canSubmitReport) {
       toastification.show(
         context: context,
         type: ToastificationType.warning,
-        title: Text(locale.tr('choose_registered_store')),
-        description: const Text('Silakan pilih salah satu toko / lokasi yang terdaftar.'),
-        autoCloseDuration: const Duration(seconds: 3),
+        title: const Text('Belum Absensi Kehadiran / Visit'),
+        description: const Text('Anda wajib melakukan Check-In kehadiran atau Visit-In kunjungan toko terlebih dahulu untuk mengirim laporan.'),
+        autoCloseDuration: const Duration(seconds: 4),
       );
       return;
+    }
+
+    if (_selectedStoreName.isEmpty) {
+      _selectedStoreName = 'Lokasi Kunjungan Terdaftar';
     }
 
     if (!_formKey.currentState!.validate()) {
@@ -1069,38 +724,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final attProvider = Provider.of<AttendanceProvider>(context);
-    final repProvider = Provider.of<DynamicReportingProvider>(context);
     final locale = Provider.of<LocaleProvider>(context);
-    final availableLocations = repProvider.stores.isNotEmpty ? repProvider.stores : attProvider.workLocations;
 
-    // List of unique areas
-    final List<String> allAreas = availableLocations
-        .map((loc) => loc['area']?.toString().trim() ?? '')
-        .where((a) => a.isNotEmpty)
-        .toSet()
-        .toList();
-    allAreas.sort();
-    if (!allAreas.contains('Semua Area') && allAreas.length > 1) {
-      allAreas.insert(0, 'Semua Area');
-    }
-
-    // Filter stores based on selected area
-    final List<dynamic> storesInSelectedArea = (_selectedArea != null && _selectedArea != 'Semua Area')
-        ? availableLocations.where((loc) => loc['area']?.toString().trim().toLowerCase() == _selectedArea!.toLowerCase()).toList()
-        : availableLocations;
-
-    final int nearbyCountInSelectedArea = storesInSelectedArea.where((loc) {
-      if (_latitude != null && _longitude != null) {
-        final locLat = double.tryParse(loc['latitude']?.toString() ?? '');
-        final locLng = double.tryParse(loc['longitude']?.toString() ?? '');
-        if (locLat != null && locLng != null) {
-          final dist = Geolocator.distanceBetween(_latitude!, _longitude!, locLat, locLng);
-          return dist <= 1000.0;
-        }
-        return false;
-      }
-      return true;
-    }).length;
+    final bool isVisiting = attProvider.isVisiting;
+    final bool isCheckedIn = attProvider.isCheckedIn;
+    final bool isEditMode = widget.editSubmission != null;
+    final bool canSubmitReport = isVisiting || isCheckedIn || isEditMode;
 
     final primaryColor = auth.appColor ?? const Color(0xFF0F52BA);
     final themeColor = Color(int.tryParse(widget.template.color.replaceAll('#', '0xFF')) ?? primaryColor.value);
@@ -1111,6 +740,21 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     final textColor = isDarkMode ? Colors.white : const Color(0xFF0E1830);
     final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
     final elevatedColor = isDarkMode ? Colors.grey.shade800 : const Color(0xFFEDF1F8);
+
+    // Badge status lokasi
+    String locationBadgeTitle = 'LOKASI CHECK-IN';
+    Color locationBadgeColor = themeColor;
+    IconData locationBadgeIcon = Icons.verified_user_rounded;
+
+    if (isVisiting) {
+      locationBadgeTitle = 'LOKASI VISIT AKTIF';
+      locationBadgeColor = const Color(0xFF149A6E);
+      locationBadgeIcon = Icons.directions_walk_rounded;
+    } else if (isEditMode) {
+      locationBadgeTitle = 'LOKASI LAPORAN';
+      locationBadgeColor = const Color(0xFF0F52BA);
+      locationBadgeIcon = Icons.edit_document;
+    }
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -1128,296 +772,288 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           children: [
-            // ─── Header: Pemilih Area & Toko Terdaftar & Perhitungan Radius Otomatis ───
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: _selectedLocation != null
-                      ? (_isWithinRadius ? const Color(0xFF149A6E) : const Color(0xFFD98A2B)).withOpacity(0.5)
-                      : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
-                  width: _selectedLocation != null ? 1.5 : 1.0,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+            // ─── Header: Lokasi Terikat Otomatis Sesuai Check-In / Visit ───
+            if (canSubmitReport) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: _selectedLocation != null
+                        ? (_isWithinRadius ? const Color(0xFF149A6E) : const Color(0xFFD98A2B)).withOpacity(0.5)
+                        : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                    width: _selectedLocation != null ? 1.5 : 1.0,
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: themeColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Badge Header & Status Terkunci
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: locationBadgeColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: locationBadgeColor.withOpacity(0.3), width: 0.8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(locationBadgeIcon, color: locationBadgeColor, size: 14),
+                              const SizedBox(width: 5),
+                              Text(
+                                locationBadgeTitle,
+                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: locationBadgeColor),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Icon(Icons.storefront_rounded, color: themeColor, size: 24),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.lock_rounded, size: 11, color: subtitleColor),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Terkunci Otomatis',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: subtitleColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Nama Toko / Lokasi Terikat
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: themeColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.storefront_rounded, color: themeColor, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _selectedStoreName.isNotEmpty ? _selectedStoreName : 'Lokasi Terdaftar',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor,
+                                ),
+                              ),
+                              if (_selectedLocation?['address'] != null && _selectedLocation!['address'].toString().isNotEmpty) ...[
+                                const SizedBox(height: 3),
+                                Text(
+                                  _selectedLocation!['address'].toString(),
+                                  style: TextStyle(fontSize: 11.5, color: subtitleColor),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ] else if (_address != null && _address!.isNotEmpty) ...[
+                                const SizedBox(height: 3),
+                                Text(
+                                  _address!,
+                                  style: TextStyle(fontSize: 11.5, color: subtitleColor),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Dynamic Radius & Geofence Indicator
+                    if (_selectedLocation != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: _isWithinRadius
+                              ? const Color(0xFFE2F6EE)
+                              : (isDarkMode ? const Color(0xFF332010) : const Color(0xFFFFF3E0)),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _isWithinRadius ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
                           children: [
-                            Text(
-                              locale.tr('select_store_location'),
-                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor),
+                            Icon(
+                              _isWithinRadius ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+                              size: 18,
+                              color: _isWithinRadius ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              widget.template.code,
-                              style: TextStyle(fontSize: 10.5, color: themeColor, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _calculatedDistance != null
+                                    ? locale.tr('radius_info', params: {
+                                        'distance': _calculatedDistance! >= 1000
+                                            ? '${(_calculatedDistance! / 1000).toStringAsFixed(1)} km'
+                                            : '${_calculatedDistance!.round()} m',
+                                        'allowed': '${_allowedRadiusMeter.round()} m',
+                                      })
+                                    : (_isWithinRadius ? locale.tr('within_radius') : locale.tr('outside_radius')),
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: _isWithinRadius
+                                      ? const Color(0xFF0F7652)
+                                      : (isDarkMode ? Colors.orange.shade200 : const Color(0xFFB46A14)),
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 14),
 
-                  // ─── 1. Selector Pilihan Area / Cabang ───
-                  Row(
-                    children: [
-                      Text(
-                        'Area / Cabang',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: subtitleColor),
-                      ),
-                      if (_selectedArea != null) ...[
+                    const Divider(height: 20),
+
+                    // GPS Live Status
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.my_location_rounded,
+                          size: 14,
+                          color: _latitude != null ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
+                        ),
                         const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: themeColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
+                        Expanded(
                           child: Text(
-                            '$nearbyCountInSelectedArea toko (≤ 1km)',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: themeColor),
+                            _latitude != null
+                                ? '${locale.tr('gps_connected')} (${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)})'
+                                : locale.tr('gps_searching'),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _latitude != null ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (_isFetchingLocation)
+                          const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              // ─── Peringatan: Belum Check-in atau Visit-in ───
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? const Color(0xFF2A1515) : const Color(0xFFFFF1F1),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.red.shade400, width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withOpacity(0.06),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.lock_clock_rounded, color: Colors.red, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Belum Check-In / Visit-In',
+                                style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.red),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Laporan terkunci & tidak dapat dikirim',
+                                style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.red.shade300 : Colors.red.shade700),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  InkWell(
-                    onTap: () => _showAreaPickerModal(allAreas, themeColor, isDarkMode),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: elevatedColor,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.map_outlined, color: themeColor, size: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _selectedArea ?? 'Pilih Area',
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.bold,
-                                color: _selectedArea != null ? textColor : subtitleColor,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: themeColor.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Text(
-                                  'Ganti Area',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: themeColor),
-                                ),
-                                Icon(Icons.arrow_drop_down, color: themeColor, size: 16),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // ─── 2. Selector Toko / Lokasi Kerja ───
-                  Text(
-                    'Toko / Lokasi Terdaftar',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: subtitleColor),
-                  ),
-                  const SizedBox(height: 6),
-                  InkWell(
-                    onTap: () => _showStorePickerModal(storesInSelectedArea, themeColor, isDarkMode),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                      decoration: BoxDecoration(
-                        color: elevatedColor,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.location_on_rounded, color: themeColor, size: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _selectedStoreName.isNotEmpty
-                                      ? _selectedStoreName
-                                      : (_selectedArea != null ? 'Pilih Toko di Area $_selectedArea' : locale.tr('choose_registered_store')),
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: _selectedStoreName.isNotEmpty ? FontWeight.bold : FontWeight.w500,
-                                    color: _selectedStoreName.isNotEmpty ? textColor : subtitleColor,
-                                  ),
-                                ),
-                                if (_selectedLocation?['address'] != null && _selectedLocation!['address'].toString().isNotEmpty) ...[
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _selectedLocation!['address'].toString(),
-                                    style: TextStyle(fontSize: 11, color: subtitleColor),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: themeColor.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Text(
-                                  _selectedStoreName.isNotEmpty ? 'Ganti Toko' : 'Pilih Toko',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: themeColor),
-                                ),
-                                Icon(Icons.arrow_drop_down, color: themeColor, size: 16),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // ─── Dynamic Radius & Geofence Indicator ───
-                  if (_selectedLocation != null) ...[
                     const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _isWithinRadius
-                            ? const Color(0xFFE2F6EE)
-                            : (isDarkMode ? const Color(0xFF332010) : const Color(0xFFFFF3E0)),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: _isWithinRadius ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
-                          width: 1,
-                        ),
+                    Text(
+                      'Untuk mengisi dan mengirim laporan reporting, Anda wajib melakukan Check-In kehadiran atau Visit-In kunjungan toko terlebih dahulu. Lokasi reporting akan mengikat otomatis ke lokasi absensi aktif Anda.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: isDarkMode ? Colors.grey.shade300 : const Color(0xFF552222),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _isWithinRadius ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
-                            size: 20,
-                            color: _isWithinRadius ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _isWithinRadius ? locale.tr('within_radius') : locale.tr('outside_radius'),
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: _isWithinRadius ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _calculatedDistance != null
-                                      ? locale.tr('radius_info', params: {
-                                          'distance': _calculatedDistance! >= 1000
-                                              ? '${(_calculatedDistance! / 1000).toStringAsFixed(1)} km'
-                                              : '${_calculatedDistance!.round()} m',
-                                          'allowed': '${_allowedRadiusMeter.round()} m',
-                                        })
-                                      : 'Menghitung jarak...',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: _isWithinRadius
-                                        ? const Color(0xFF0F7652)
-                                        : (isDarkMode ? Colors.orange.shade200 : const Color(0xFFB46A14)),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
+                    ),
+                    const Divider(height: 20, color: Colors.redAccent),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.my_location_rounded,
+                          size: 14,
+                          color: _latitude != null ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _latitude != null
+                                ? 'GPS Siap (${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)})'
+                                : 'Mendeteksi koordinat GPS...',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _latitude != null ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ],
-
-                  const Divider(height: 22),
-
-                  // GPS Live Status
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.my_location_rounded,
-                        size: 15,
-                        color: _latitude != null ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          _latitude != null
-                              ? '${locale.tr('gps_connected')} (${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)})'
-                              : locale.tr('gps_searching'),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: _latitude != null ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      if (_isFetchingLocation)
-                        const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                    ],
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
 
             const SizedBox(height: 16),
 
@@ -1435,25 +1071,43 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
             const SizedBox(height: 16),
 
-            // Submit Button
-            ElevatedButton.icon(
-              onPressed: _isSubmitting ? null : _submitForm,
-              icon: _isSubmitting
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Icon(widget.editSubmission != null ? Icons.save_rounded : Icons.send_rounded, color: Colors.white, size: 18),
-              label: Text(
-                _isSubmitting
-                    ? (widget.editSubmission != null ? 'Menyimpan Perubahan...' : locale.tr('btn_submitting_report'))
-                    : (widget.editSubmission != null ? 'Simpan Perubahan Laporan' : locale.tr('btn_submit_report')),
-                style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
+            // Submit Button (Dinonaktifkan jika belum Check-In / Visit-In)
+            if (!canSubmitReport)
+              ElevatedButton.icon(
+                onPressed: null,
+                icon: const Icon(Icons.lock_rounded, size: 18, color: Colors.grey),
+                label: const Text(
+                  'Wajib Check-In / Visit-In Terlebih Dahulu',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.grey),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+                  disabledBackgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+                  disabledForegroundColor: Colors.grey.shade500,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
+                ),
+              )
+            else
+              ElevatedButton.icon(
+                onPressed: _isSubmitting ? null : _submitForm,
+                icon: _isSubmitting
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Icon(widget.editSubmission != null ? Icons.save_rounded : Icons.send_rounded, color: Colors.white, size: 18),
+                label: Text(
+                  _isSubmitting
+                      ? (widget.editSubmission != null ? 'Menyimpan Perubahan...' : locale.tr('btn_submitting_report'))
+                      : (widget.editSubmission != null ? 'Simpan Perubahan Laporan' : locale.tr('btn_submit_report')),
+                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: themeColor,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 2,
+                ),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: themeColor,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                elevation: 2,
-              ),
-            ),
             const SizedBox(height: 30),
           ],
         ),
