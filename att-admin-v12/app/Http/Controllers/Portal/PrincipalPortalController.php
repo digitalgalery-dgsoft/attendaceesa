@@ -21,10 +21,14 @@ use App\Models\Setting;
 use App\Models\Shift;
 use App\Models\VisitReport;
 use App\Models\WorkLocation;
+use App\Models\WorkingGroup;
+use App\Models\WorkingGroupMember;
+use App\Models\WorkingGroupRule;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PrincipalPortalController extends Controller
 {
@@ -1160,6 +1164,9 @@ class PrincipalPortalController extends Controller
     /**
      * Schedules / Roster Matrix
      */
+    /**
+     * Schedules / Roster Matrix
+     */
     public function schedulesList(Request $request)
     {
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
@@ -1191,8 +1198,17 @@ class PrincipalPortalController extends Controller
             ->paginate(25);
 
         $employees = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('is_active', true)->orderBy('full_name')->get();
-        $shifts = Shift::orderBy('name')->get();
+        $shifts = Shift::where('is_active', 1)->orWhereNull('is_active')->orderBy('name')->get();
         $workLocations = WorkLocation::whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id')->orderBy('name')->get();
+        $branches = Branch::whereIn('id', function($sub) use ($scopedPrincipalIds) {
+            $sub->select('branch_id')->from('employees')->whereIn('principal_id', $scopedPrincipalIds)->whereNotNull('branch_id');
+        })->orderBy('name')->get();
+
+        $workingGroups = WorkingGroup::where(function($q) use ($scopedPrincipalIds, $tenantPrincipal) {
+            $q->whereIn('principal_id', $scopedPrincipalIds)
+              ->orWhere('company_id', $tenantPrincipal->company_id)
+              ->orWhereNull('principal_id');
+        })->with(['rules.shift', 'members.employee'])->get();
 
         $user = Auth::user();
         $isSuperAdmin = $user && ($user->isSuperAdmin() || $user->hasRole('super_admin') || $user->hasRole('Super Admin') || $user->hasRole('admin'));
@@ -1206,7 +1222,7 @@ class PrincipalPortalController extends Controller
         return view('portal.schedules', compact(
             'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
             'schedules', 'month', 'year', 'search', 'setting',
-            'employees', 'shifts', 'workLocations',
+            'employees', 'shifts', 'workLocations', 'branches', 'workingGroups',
             'canCreateRoster', 'canUpdateRoster', 'canDeleteRoster'
         ));
     }
@@ -1223,27 +1239,46 @@ class PrincipalPortalController extends Controller
             'employee_id' => 'required|exists:employees,id',
             'schedule_date' => 'required|date',
             'end_date' => 'nullable|date|after_or_equal:schedule_date',
-            'shift_id' => 'required|exists:shifts,id',
+            'shift_id' => 'nullable|exists:shifts,id',
             'work_location_id' => 'nullable|exists:work_locations,id',
+            'schedule_type' => 'required|in:workday,dayoff,holiday,remote,field',
             'notes' => 'nullable|string|max:500',
         ]);
 
         $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)->findOrFail($request->employee_id);
         $startDate = Carbon::parse($request->schedule_date);
         $endDate = $request->end_date ? Carbon::parse($request->end_date) : $startDate->copy();
+        $shift = $request->shift_id ? Shift::find($request->shift_id) : null;
 
         $createdCount = 0;
         $current = $startDate->copy();
 
         while ($current->lte($endDate)) {
+            $plannedStart = null;
+            $plannedEnd = null;
+
+            if ($shift && $shift->start_time && $shift->end_time && $request->schedule_type !== 'dayoff') {
+                $plannedStart = Carbon::parse($current->toDateString() . ' ' . $shift->start_time);
+                $plannedEnd = Carbon::parse($current->toDateString() . ' ' . $shift->end_time);
+
+                if ($shift->is_cross_day ?? false) {
+                    $plannedEnd->addDay();
+                } elseif ($plannedEnd->lt($plannedStart)) {
+                    $plannedEnd->addDay();
+                }
+            }
+
             EmployeeSchedule::updateOrCreate(
                 [
                     'employee_id' => $employee->id,
                     'schedule_date' => $current->format('Y-m-d'),
                 ],
                 [
-                    'shift_id' => $request->shift_id,
+                    'shift_id' => $request->schedule_type === 'dayoff' ? null : ($shift?->id),
                     'work_location_id' => $request->work_location_id ?: $employee->work_location_id,
+                    'schedule_type' => $request->schedule_type,
+                    'planned_start_at' => $plannedStart,
+                    'planned_end_at' => $plannedEnd,
                     'notes' => $request->notes,
                     'company_id' => $employee->company_id ?? $tenantPrincipal->company_id,
                     'created_by' => Auth::id(),
@@ -1261,6 +1296,115 @@ class PrincipalPortalController extends Controller
     }
 
     /**
+     * Generate employee schedules from Working Group rules
+     */
+    public function generateFromWorkingGroup(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $request->validate([
+            'working_group_id' => 'required|exists:working_groups,id',
+            'employee_ids' => 'nullable|array',
+            'employee_ids.*' => 'exists:employees,id',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        $workingGroup = WorkingGroup::with(['rules.shift', 'members.employee'])->findOrFail($request->working_group_id);
+        $startDate = Carbon::parse($request->start_date);
+        $endDate = Carbon::parse($request->end_date);
+
+        $employeeIds = $request->input('employee_ids', []);
+        if (empty($employeeIds)) {
+            // Use members or all employees of principal
+            $employeeIds = $workingGroup->members()->pluck('employee_id')->toArray();
+            if (empty($employeeIds)) {
+                $employeeIds = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('is_active', true)->pluck('id')->toArray();
+            }
+        }
+
+        $employees = Employee::whereIn('id', $employeeIds)->where('is_active', true)->get();
+        if ($employees->isEmpty()) {
+            return redirect()->back()->with('error', 'Tidak ada karyawan aktif yang dipilih untuk digenerate.');
+        }
+
+        $rules = $workingGroup->rules()->with('shift')->get()->keyBy('day_of_week');
+        $defaultShift = $workingGroup->default_shift_id ? Shift::find($workingGroup->default_shift_id) : Shift::first();
+        $defaultLocationId = $workingGroup->default_work_location_id;
+
+        $totalGenerated = 0;
+
+        foreach ($employees as $emp) {
+            $current = $startDate->copy();
+            while ($current->lte($endDate)) {
+                $dayName = $current->format('l');
+                $rule = $rules->get($dayName);
+
+                $isOff = false;
+                $shiftId = null;
+                $locationId = $emp->work_location_id ?: $defaultLocationId;
+                $schedType = 'workday';
+
+                if ($rule) {
+                    $isOff = (bool)$rule->is_day_off;
+                    $shiftId = $rule->shift_id ?: ($defaultShift?->id);
+                    if ($rule->store_assignment_id) {
+                        $locationId = $rule->store_assignment_id;
+                    }
+                } else {
+                    $shiftId = $defaultShift?->id;
+                }
+
+                if ($isOff) {
+                    $schedType = 'dayoff';
+                    $shiftId = null;
+                }
+
+                $shift = $shiftId ? Shift::find($shiftId) : null;
+                $plannedStart = null;
+                $plannedEnd = null;
+
+                if ($shift && $shift->start_time && $shift->end_time && !$isOff) {
+                    $plannedStart = Carbon::parse($current->toDateString() . ' ' . $shift->start_time);
+                    $plannedEnd = Carbon::parse($current->toDateString() . ' ' . $shift->end_time);
+                    if ($shift->is_cross_day ?? false) {
+                        $plannedEnd->addDay();
+                    } elseif ($plannedEnd->lt($plannedStart)) {
+                        $plannedEnd->addDay();
+                    }
+                }
+
+                EmployeeSchedule::updateOrCreate(
+                    [
+                        'employee_id' => $emp->id,
+                        'schedule_date' => $current->toDateString(),
+                    ],
+                    [
+                        'shift_id' => $shiftId,
+                        'work_location_id' => $locationId,
+                        'schedule_type' => $schedType,
+                        'planned_start_at' => $plannedStart,
+                        'planned_end_at' => $plannedEnd,
+                        'notes' => 'Generated via Pola Kerja: ' . $workingGroup->name,
+                        'company_id' => $emp->company_id ?? $tenantPrincipal->company_id,
+                        'created_by' => Auth::id(),
+                    ]
+                );
+
+                $totalGenerated++;
+                $current->addDay();
+            }
+        }
+
+        return redirect()->route('portal.schedules', [
+            'p' => $tenantPrincipal->id,
+            'month' => $startDate->month,
+            'year' => $startDate->year
+        ])->with('success', "Berhasil mengenerate {$totalGenerated} jadwal roster untuk " . $employees->count() . " karyawan via Pola Kerja {$workingGroup->name}!");
+    }
+
+    /**
      * Update an employee schedule
      */
     public function updateSchedule(Request $request, $id)
@@ -1274,15 +1418,34 @@ class PrincipalPortalController extends Controller
 
         $request->validate([
             'schedule_date' => 'required|date',
-            'shift_id' => 'required|exists:shifts,id',
+            'shift_id' => 'nullable|exists:shifts,id',
             'work_location_id' => 'nullable|exists:work_locations,id',
+            'schedule_type' => 'required|in:workday,dayoff,holiday,remote,field',
             'notes' => 'nullable|string|max:500',
         ]);
 
+        $shift = $request->shift_id ? Shift::find($request->shift_id) : null;
+        $currentDate = Carbon::parse($request->schedule_date);
+        $plannedStart = null;
+        $plannedEnd = null;
+
+        if ($shift && $shift->start_time && $shift->end_time && $request->schedule_type !== 'dayoff') {
+            $plannedStart = Carbon::parse($currentDate->toDateString() . ' ' . $shift->start_time);
+            $plannedEnd = Carbon::parse($currentDate->toDateString() . ' ' . $shift->end_time);
+            if ($shift->is_cross_day ?? false) {
+                $plannedEnd->addDay();
+            } elseif ($plannedEnd->lt($plannedStart)) {
+                $plannedEnd->addDay();
+            }
+        }
+
         $schedule->update([
             'schedule_date' => $request->schedule_date,
-            'shift_id' => $request->shift_id,
+            'shift_id' => $request->schedule_type === 'dayoff' ? null : ($shift?->id),
             'work_location_id' => $request->work_location_id ?: $schedule->work_location_id,
+            'schedule_type' => $request->schedule_type,
+            'planned_start_at' => $plannedStart,
+            'planned_end_at' => $plannedEnd,
             'notes' => $request->notes,
         ]);
 
@@ -1307,35 +1470,15 @@ class PrincipalPortalController extends Controller
     }
 
     /**
-     * Download CSV template for Schedule/Roster import
+     * Download Excel template for Schedule/Roster import (2 Pilihan Format: Matrix vs Range)
      */
     public function downloadScheduleTemplate(Request $request)
     {
-        $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="template_import_jadwal_roster.csv"',
-            'Pragma' => 'no-cache',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0',
-        ];
-
-        $callback = function () {
-            $handle = fopen('php://output', 'w');
-            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM
-
-            fputcsv($handle, ['nik_karyawan', 'nama_karyawan', 'tanggal_jadwal', 'nama_shift', 'nama_toko_lokasi', 'catatan']);
-
-            // Sample rows
-            $today = Carbon::today()->format('Y-m-d');
-            $tomorrow = Carbon::tomorrow()->format('Y-m-d');
-            fputcsv($handle, ['EMP001', 'Budi Santoso', $today, 'Shift Pagi', 'SUPERINDO SURABAYA', 'Penugasan Reguler']);
-            fputcsv($handle, ['EMP002', 'Siti Aminah', $today, 'Shift Siang', 'HYPERMART ROYAL PLAZA', 'Covering Weekend']);
-            fputcsv($handle, ['EMP001', 'Budi Santoso', $tomorrow, 'Shift Pagi', 'SUPERINDO SURABAYA', 'Penugasan Reguler']);
-
-            fclose($handle);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        $type = $request->query('type', 'matrix');
+        if ($type === 'range') {
+            return Excel::download(new \App\Exports\EmployeeScheduleRangeTemplateExport(), 'Template_Import_Jadwal_Rentang_Tanggal.xlsx');
+        }
+        return Excel::download(new \App\Exports\EmployeeScheduleMatrixTemplateExport(), 'Template_Import_Jadwal_Per_Tanggal_Matrix.xlsx');
     }
 
     /**
@@ -1350,119 +1493,21 @@ class PrincipalPortalController extends Controller
             'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
         ]);
 
-        $file = $request->file('file');
-        $extension = strtolower($file->getClientOriginalExtension());
-        $rows = [];
+        try {
+            $file = $request->file('file');
+            $import = new \App\Imports\EmployeeScheduleImport();
+            Excel::import($import, $file->getRealPath());
 
-        if (in_array($extension, ['xlsx', 'xls']) && class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
-            $worksheet = $spreadsheet->getActiveSheet();
-            $data = $worksheet->toArray();
-            if (!empty($data)) {
-                $header = array_shift($data);
-                foreach ($data as $row) {
-                    if (empty(array_filter($row))) continue;
-                    $rowAssoc = [];
-                    foreach ($header as $i => $colName) {
-                        $key = strtolower(trim((string)$colName));
-                        $key = str_replace([' ', '-', '/'], '_', $key);
-                        $rowAssoc[$key] = $row[$i] ?? null;
-                    }
-                    $rows[] = $rowAssoc;
-                }
+            $msg = "Berhasil mengimpor {$import->importedCount} jadwal karyawan.";
+            if ($import->skippedCount > 0) {
+                $msg .= " ({$import->skippedCount} baris dilewati / format tidak sesuai).";
             }
-        } else {
-            $content = file_get_contents($file->getRealPath());
-            $content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
-            $lines = preg_split('/\r\n|\r|\n/', trim($content));
-            if (!empty($lines)) {
-                $firstLine = $lines[0];
-                $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
-                $header = str_getcsv(array_shift($lines), $delimiter);
-                $normalizedHeader = [];
-                foreach ($header as $col) {
-                    $k = strtolower(trim($col));
-                    $k = str_replace([' ', '-', '/'], '_', $k);
-                    $normalizedHeader[] = $k;
-                }
-                foreach ($lines as $line) {
-                    if (empty(trim($line))) continue;
-                    $cols = str_getcsv($line, $delimiter);
-                    $rowAssoc = [];
-                    foreach ($normalizedHeader as $idx => $k) {
-                        $rowAssoc[$k] = $cols[$idx] ?? null;
-                    }
-                    $rows[] = $rowAssoc;
-                }
-            }
+
+            return redirect()->route('portal.schedules', ['p' => $tenantPrincipal->id])
+                ->with('success', $msg);
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Gagal import jadwal: ' . $e->getMessage());
         }
-
-        if (empty($rows)) {
-            return redirect()->back()->with('error', 'File tidak berisi data atau format tidak sesuai.');
-        }
-
-        $defaultShift = Shift::first();
-        $imported = 0;
-
-        foreach ($rows as $r) {
-            $nik = $r['nik_karyawan'] ?? $r['nik'] ?? $r['employee_id'] ?? null;
-            $nama = $r['nama_karyawan'] ?? $r['nama'] ?? $r['name'] ?? null;
-            $dateRaw = $r['tanggal_jadwal'] ?? $r['tanggal'] ?? $r['date'] ?? null;
-
-            if (empty($dateRaw)) continue;
-
-            try {
-                $date = Carbon::parse($dateRaw)->format('Y-m-d');
-            } catch (\Throwable $e) {
-                continue;
-            }
-
-            // Find Employee
-            $employee = null;
-            if ($nik) {
-                $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('nik', trim((string)$nik))->first();
-            }
-            if (!$employee && $nama) {
-                $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('full_name', 'LIKE', '%' . trim((string)$nama) . '%')->first();
-            }
-
-            if (!$employee) continue;
-
-            // Find Shift
-            $shiftName = $r['nama_shift'] ?? $r['shift'] ?? null;
-            $shift = null;
-            if ($shiftName) {
-                $shift = Shift::where('name', 'LIKE', '%' . trim((string)$shiftName) . '%')->first();
-            }
-            if (!$shift) $shift = $defaultShift;
-
-            // Find Work Location
-            $locName = $r['nama_toko_lokasi'] ?? $r['nama_toko'] ?? $r['lokasi'] ?? $r['toko'] ?? null;
-            $workLocation = null;
-            if ($locName) {
-                $workLocation = WorkLocation::where('name', 'LIKE', '%' . trim((string)$locName) . '%')->first();
-            }
-
-            $notes = $r['catatan'] ?? $r['keterangan'] ?? $r['notes'] ?? null;
-
-            EmployeeSchedule::updateOrCreate(
-                [
-                    'employee_id' => $employee->id,
-                    'schedule_date' => $date,
-                ],
-                [
-                    'shift_id' => $shift?->id,
-                    'work_location_id' => $workLocation?->id ?: $employee->work_location_id,
-                    'notes' => $notes,
-                    'company_id' => $employee->company_id ?? $tenantPrincipal->company_id,
-                    'created_by' => Auth::id(),
-                ]
-            );
-
-            $imported++;
-        }
-
-        return redirect()->route('portal.schedules')->with('success', "Berhasil mengimpor {$imported} baris jadwal roster!");
     }
 
     /**
@@ -1632,7 +1677,7 @@ class PrincipalPortalController extends Controller
     }
 
     /**
-     * Visit Schedule (Itinerari)
+     * Visit Schedule (Itinerari) - Interactive Calendar View
      */
     public function itinerariesList(Request $request)
     {
@@ -1643,15 +1688,28 @@ class PrincipalPortalController extends Controller
             $q->whereIn('principals.id', $scopedPrincipalIds);
         })->where('is_active', true)->with('fields')->orderBy('id')->get();
 
-        $date = $request->query('date') ?? Carbon::today()->format('Y-m-d');
+        $month = (int) ($request->query('month') ?? Carbon::now()->month);
+        $year = (int) ($request->query('year') ?? Carbon::now()->year);
+        $branchId = $request->query('branch_id');
+        $employeeId = $request->query('employee_id');
         $search = $request->query('q');
 
-        $query = Itinerary::whereHas('employee', function($q) use ($scopedPrincipalIds) {
-            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
-        });
+        $startOfMonth = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+        $endOfMonth = $startOfMonth->copy()->endOfMonth();
 
-        if ($date) {
-            $query->where('date', $date);
+        // 7-day grid starting on Monday
+        $gridStart = $startOfMonth->copy()->startOfWeek(Carbon::MONDAY);
+        $gridEnd = $endOfMonth->copy()->endOfWeek(Carbon::SUNDAY);
+
+        $query = Itinerary::whereHas('employee', function($q) use ($scopedPrincipalIds, $branchId) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+            if ($branchId) {
+                $q->where('employees.branch_id', $branchId);
+            }
+        })->whereBetween('date', [$gridStart->format('Y-m-d'), $gridEnd->format('Y-m-d')]);
+
+        if ($employeeId) {
+            $query->where('employee_id', $employeeId);
         }
 
         if ($search) {
@@ -1660,12 +1718,51 @@ class PrincipalPortalController extends Controller
             });
         }
 
-        $itineraries = $query->with(['employee.branch', 'items.workLocation'])
-            ->orderBy('date', 'desc')
-            ->paginate(20);
+        $allItineraries = $query->with([
+            'employee.position',
+            'employee.branch',
+            'items.workLocation',
+            'items.principal'
+        ])->get();
 
-        $employees = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('is_active', true)->orderBy('full_name')->get();
+        $itinerariesByDate = $allItineraries->groupBy('date');
+
+        // Build Calendar Days
+        $calendarDays = [];
+        $currDay = $gridStart->copy();
+        $todayStr = Carbon::today()->format('Y-m-d');
+
+        $totalSchedulesInMonth = 0;
+        $totalStoresInMonth = 0;
+
+        while ($currDay->lte($gridEnd)) {
+            $dateStr = $currDay->format('Y-m-d');
+            $isCurrentMonth = ($currDay->month == $month);
+            $daySchedules = $itinerariesByDate->get($dateStr, collect());
+
+            if ($isCurrentMonth) {
+                $totalSchedulesInMonth += $daySchedules->count();
+                foreach ($daySchedules as $ds) {
+                    $totalStoresInMonth += $ds->items->count();
+                }
+            }
+
+            $calendarDays[] = [
+                'date_string' => $dateStr,
+                'day_number' => $currDay->day,
+                'is_current_month' => $isCurrentMonth,
+                'is_today' => ($dateStr === $todayStr),
+                'schedules' => $daySchedules,
+            ];
+
+            $currDay->addDay();
+        }
+
+        $employees = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('is_active', true)->with(['position', 'branch'])->orderBy('full_name')->get();
         $workLocations = WorkLocation::whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id')->orderBy('name')->get();
+        $branches = Branch::whereIn('id', function($sub) use ($scopedPrincipalIds) {
+            $sub->select('branch_id')->from('employees')->whereIn('principal_id', $scopedPrincipalIds)->whereNotNull('branch_id');
+        })->orderBy('name')->get();
 
         $user = Auth::user();
         $isSuperAdmin = $user && ($user->isSuperAdmin() || $user->hasRole('super_admin') || $user->hasRole('Super Admin') || $user->hasRole('admin'));
@@ -1678,14 +1775,15 @@ class PrincipalPortalController extends Controller
 
         return view('portal.itineraries', compact(
             'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
-            'itineraries', 'date', 'search', 'setting',
-            'employees', 'workLocations',
+            'calendarDays', 'month', 'year', 'branchId', 'employeeId', 'search', 'setting',
+            'totalSchedulesInMonth', 'totalStoresInMonth',
+            'employees', 'workLocations', 'branches',
             'canCreateItinerary', 'canUpdateItinerary', 'canDeleteItinerary'
         ));
     }
 
     /**
-     * Store new Itinerary with multiple route store locations
+     * Store new Itinerary with multiple route store locations (Single day or Month full)
      */
     public function storeItinerary(Request $request)
     {
@@ -1694,7 +1792,11 @@ class PrincipalPortalController extends Controller
 
         $request->validate([
             'employee_id' => 'required|exists:employees,id',
-            'date' => 'required|date',
+            'creation_type' => 'required|in:single,month',
+            'date' => 'required_if:creation_type,single|nullable|date',
+            'month' => 'required_if:creation_type,month|nullable|integer|between:1,12',
+            'year' => 'required_if:creation_type,month|nullable|integer',
+            'status' => 'required|in:approved,draft,cancelled',
             'is_strict_routing' => 'nullable',
             'notes' => 'nullable|string|max:500',
             'locations' => 'required|array|min:1',
@@ -1703,33 +1805,67 @@ class PrincipalPortalController extends Controller
         ]);
 
         $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)->findOrFail($request->employee_id);
-
-        $itinerary = Itinerary::create([
-            'employee_id' => $employee->id,
-            'date' => $request->date,
-            'status' => 'active',
-            'is_strict_routing' => $request->boolean('is_strict_routing'),
-            'notes' => $request->notes,
-        ]);
-
         $locations = $request->input('locations', []);
         $visitTypes = $request->input('visit_types', []);
+        $isStrict = $request->boolean('is_strict_routing');
 
-        foreach ($locations as $idx => $locId) {
-            ItineraryItem::create([
-                'itinerary_id' => $itinerary->id,
-                'work_location_id' => $locId,
-                'sequence' => $idx + 1,
-                'is_checkin_location' => ($idx === 0),
-                'principal_id' => $employee->principal_id ?? $tenantPrincipal->id,
-                'visit_type' => $visitTypes[$idx] ?? 'Reguler',
-            ]);
+        $datesToCreate = [];
+
+        if ($request->creation_type === 'month') {
+            $m = (int)$request->month;
+            $y = (int)$request->year;
+            $start = Carbon::createFromDate($y, $m, 1)->startOfMonth();
+            $end = $start->copy()->endOfMonth();
+            $cur = $start->copy();
+
+            while ($cur->lte($end)) {
+                // Skip Sundays (0) if desired or create all Mon-Sat
+                if ($cur->dayOfWeek !== 0) {
+                    $datesToCreate[] = $cur->format('Y-m-d');
+                }
+                $cur->addDay();
+            }
+        } else {
+            $datesToCreate[] = Carbon::parse($request->date)->format('Y-m-d');
         }
+
+        $createdCount = 0;
+
+        foreach ($datesToCreate as $d) {
+            $itinerary = Itinerary::updateOrCreate(
+                [
+                    'employee_id' => $employee->id,
+                    'date' => $d,
+                ],
+                [
+                    'status' => $request->status,
+                    'is_strict_routing' => $isStrict,
+                    'notes' => $request->notes,
+                ]
+            );
+
+            $itinerary->items()->delete();
+
+            foreach ($locations as $idx => $locId) {
+                ItineraryItem::create([
+                    'itinerary_id' => $itinerary->id,
+                    'work_location_id' => $locId,
+                    'sequence' => $idx + 1,
+                    'is_checkin_location' => ($idx === 0),
+                    'principal_id' => $employee->principal_id ?? $tenantPrincipal->id,
+                    'visit_type' => $visitTypes[$idx] ?? 'Reguler',
+                ]);
+            }
+            $createdCount++;
+        }
+
+        $redirectDate = !empty($datesToCreate) ? Carbon::parse($datesToCreate[0]) : Carbon::today();
 
         return redirect()->route('portal.itineraries', [
             'p' => $tenantPrincipal->id,
-            'date' => $request->date
-        ])->with('success', "Berhasil menambahkan rute itinerari untuk {$employee->full_name} dengan " . count($locations) . " toko!");
+            'month' => $redirectDate->month,
+            'year' => $redirectDate->year
+        ])->with('success', "Berhasil menambahkan {$createdCount} jadwal itinerari untuk {$employee->full_name} dengan " . count($locations) . " toko kunjungan!");
     }
 
     /**
@@ -1746,6 +1882,7 @@ class PrincipalPortalController extends Controller
 
         $request->validate([
             'date' => 'required|date',
+            'status' => 'required|in:approved,draft,cancelled',
             'is_strict_routing' => 'nullable',
             'notes' => 'nullable|string|max:500',
             'locations' => 'required|array|min:1',
@@ -1755,6 +1892,7 @@ class PrincipalPortalController extends Controller
 
         $itinerary->update([
             'date' => $request->date,
+            'status' => $request->status,
             'is_strict_routing' => $request->boolean('is_strict_routing'),
             'notes' => $request->notes,
         ]);
@@ -1798,33 +1936,11 @@ class PrincipalPortalController extends Controller
     }
 
     /**
-     * Download CSV template for Itinerary import
+     * Download Excel template for Itinerary import
      */
     public function downloadItineraryTemplate(Request $request)
     {
-        $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="template_import_itinerary.csv"',
-            'Pragma' => 'no-cache',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0',
-        ];
-
-        $callback = function () {
-            $handle = fopen('php://output', 'w');
-            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM
-
-            fputcsv($handle, ['nik_promotor', 'nama_promotor', 'tanggal', 'aturan_routing', 'toko_1', 'toko_2', 'toko_3', 'toko_4', 'toko_5', 'catatan']);
-
-            // Sample rows
-            $today = Carbon::today()->format('Y-m-d');
-            fputcsv($handle, ['EMP001', 'Budi Santoso', $today, 'Wajib Urut', 'SUPERINDO SURABAYA', 'HYPERMART ROYAL PLAZA', 'NAGA SWALAYAN', '', '', 'Kunjungan Display & Cek Stok']);
-            fputcsv($handle, ['EMP002', 'Siti Aminah', $today, 'Bebas Visit', 'HERO GALAXY MALL', 'PAPAYA FRESH MARKET', '', '', '', 'Promo Event Akhir Pekan']);
-
-            fclose($handle);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        return Excel::download(new \App\Exports\VisitScheduleTemplateExport(), 'Template_Import_Visit_Schedule.xlsx');
     }
 
     /**
@@ -1839,133 +1955,21 @@ class PrincipalPortalController extends Controller
             'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
         ]);
 
-        $file = $request->file('file');
-        $extension = strtolower($file->getClientOriginalExtension());
-        $rows = [];
+        try {
+            $file = $request->file('file');
+            $import = new \App\Imports\VisitScheduleImport();
+            Excel::import($import, $file->getRealPath());
 
-        if (in_array($extension, ['xlsx', 'xls']) && class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
-            $worksheet = $spreadsheet->getActiveSheet();
-            $data = $worksheet->toArray();
-            if (!empty($data)) {
-                $header = array_shift($data);
-                foreach ($data as $row) {
-                    if (empty(array_filter($row))) continue;
-                    $rowAssoc = [];
-                    foreach ($header as $i => $colName) {
-                        $key = strtolower(trim((string)$colName));
-                        $key = str_replace([' ', '-', '/'], '_', $key);
-                        $rowAssoc[$key] = $row[$i] ?? null;
-                    }
-                    $rows[] = $rowAssoc;
-                }
+            $msg = "Berhasil mengimpor {$import->importedCount} jadwal visit itinerari.";
+            if ($import->skippedCount > 0) {
+                $msg .= " ({$import->skippedCount} baris dilewati / format tidak sesuai).";
             }
-        } else {
-            $content = file_get_contents($file->getRealPath());
-            $content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
-            $lines = preg_split('/\r\n|\r|\n/', trim($content));
-            if (!empty($lines)) {
-                $firstLine = $lines[0];
-                $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
-                $header = str_getcsv(array_shift($lines), $delimiter);
-                $normalizedHeader = [];
-                foreach ($header as $col) {
-                    $k = strtolower(trim($col));
-                    $k = str_replace([' ', '-', '/'], '_', $k);
-                    $normalizedHeader[] = $k;
-                }
-                foreach ($lines as $line) {
-                    if (empty(trim($line))) continue;
-                    $cols = str_getcsv($line, $delimiter);
-                    $rowAssoc = [];
-                    foreach ($normalizedHeader as $idx => $k) {
-                        $rowAssoc[$k] = $cols[$idx] ?? null;
-                    }
-                    $rows[] = $rowAssoc;
-                }
-            }
+
+            return redirect()->route('portal.itineraries', ['p' => $tenantPrincipal->id])
+                ->with('success', $msg);
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Gagal import itinerari: ' . $e->getMessage());
         }
-
-        if (empty($rows)) {
-            return redirect()->back()->with('error', 'File tidak berisi data atau format tidak sesuai.');
-        }
-
-        $imported = 0;
-
-        foreach ($rows as $r) {
-            $nik = $r['nik_promotor'] ?? $r['nik_karyawan'] ?? $r['nik'] ?? null;
-            $nama = $r['nama_promotor'] ?? $r['nama_karyawan'] ?? $r['nama'] ?? null;
-            $dateRaw = $r['tanggal'] ?? $r['date'] ?? null;
-
-            if (empty($dateRaw)) continue;
-
-            try {
-                $date = Carbon::parse($dateRaw)->format('Y-m-d');
-            } catch (\Throwable $e) {
-                continue;
-            }
-
-            // Find Employee
-            $employee = null;
-            if ($nik) {
-                $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('nik', trim((string)$nik))->first();
-            }
-            if (!$employee && $nama) {
-                $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('full_name', 'LIKE', '%' . trim((string)$nama) . '%')->first();
-            }
-
-            if (!$employee) continue;
-
-            $routingStr = strtolower(trim((string)($r['aturan_routing'] ?? $r['routing'] ?? '')));
-            $isStrict = (str_contains($routingStr, 'urut') || str_contains($routingStr, 'strict') || $routingStr === '1' || $routingStr === 'true');
-
-            $notes = $r['catatan'] ?? $r['keterangan'] ?? $r['notes'] ?? null;
-
-            // Collect stores
-            $storeNames = [];
-            foreach ($r as $key => $val) {
-                if (empty($val)) continue;
-                if (str_starts_with($key, 'toko_') || str_starts_with($key, 'store_') || str_starts_with($key, 'lokasi_')) {
-                    $storeNames[] = trim((string)$val);
-                }
-            }
-
-            if (empty($storeNames)) continue;
-
-            $itinerary = Itinerary::updateOrCreate(
-                [
-                    'employee_id' => $employee->id,
-                    'date' => $date,
-                ],
-                [
-                    'status' => 'active',
-                    'is_strict_routing' => $isStrict,
-                    'notes' => $notes,
-                ]
-            );
-
-            $itinerary->items()->delete();
-
-            $seq = 1;
-            foreach ($storeNames as $sName) {
-                $loc = WorkLocation::where('name', 'LIKE', '%' . $sName . '%')->first();
-                if ($loc) {
-                    ItineraryItem::create([
-                        'itinerary_id' => $itinerary->id,
-                        'work_location_id' => $loc->id,
-                        'sequence' => $seq,
-                        'is_checkin_location' => ($seq === 1),
-                        'principal_id' => $employee->principal_id ?? $tenantPrincipal->id,
-                        'visit_type' => 'Reguler',
-                    ]);
-                    $seq++;
-                }
-            }
-
-            $imported++;
-        }
-
-        return redirect()->route('portal.itineraries')->with('success', "Berhasil mengimpor {$imported} rute jadwal itinerari!");
     }
 
     /**

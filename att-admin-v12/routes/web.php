@@ -169,6 +169,7 @@ Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function ()
     Route::get('/attendances/export', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'exportAttendances'])->name('attendances.export');
     Route::get('/schedules', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'schedulesList'])->name('schedules');
     Route::post('/schedules', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'storeSchedule'])->name('schedules.store');
+    Route::post('/schedules/working-group', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'generateFromWorkingGroup'])->name('schedules.working_group');
     Route::put('/schedules/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'updateSchedule'])->name('schedules.update');
     Route::delete('/schedules/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'destroySchedule'])->name('schedules.destroy');
     Route::get('/schedules/template-import', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'downloadScheduleTemplate'])->name('schedules.template');

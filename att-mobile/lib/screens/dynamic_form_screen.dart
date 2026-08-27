@@ -451,8 +451,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     if (result != null && mounted) {
       final fieldKey = field.id.toString();
       setState(() {
-        if (field.fieldType == 'multi_photo') {
+        if (['photo', 'camera_photo', 'multi_photo'].contains(field.fieldType)) {
           _multiPhotoFiles.putIfAbsent(fieldKey, () => []).add(result.file);
+          _photoFiles[fieldKey] = result.file;
           _watermarkTexts[fieldKey] = result.watermarkText;
           _formValues[fieldKey] = _multiPhotoFiles[fieldKey]!.map((f) => f.path).toList();
         } else {
@@ -941,10 +942,14 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     for (final field in widget.template.fields) {
       if (field.isRequired) {
         final fieldKey = field.id.toString();
-        if (field.fieldType == 'multi_photo') {
+        if (['photo', 'camera_photo', 'multi_photo'].contains(field.fieldType)) {
           final hasFiles = _multiPhotoFiles[fieldKey]?.isNotEmpty ?? false;
-          final hasExisting = (_existingMultiPhotoUrls[fieldKey]?.isNotEmpty ?? false) || (_existingMultiPhotoUrls[field.fieldName]?.isNotEmpty ?? false);
-          if (!hasFiles && !hasExisting) {
+          final hasSingleFile = _photoFiles[fieldKey] != null;
+          final hasExisting = (_existingMultiPhotoUrls[fieldKey]?.isNotEmpty ?? false) ||
+              (_existingMultiPhotoUrls[field.fieldName]?.isNotEmpty ?? false) ||
+              _existingPhotoUrls.containsKey(fieldKey) ||
+              _existingPhotoUrls.containsKey(field.fieldName);
+          if (!hasFiles && !hasSingleFile && !hasExisting) {
             toastification.show(
               context: context,
               type: ToastificationType.warning,
@@ -954,7 +959,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             );
             return;
           }
-        } else if (['photo', 'camera_photo', 'signature'].contains(field.fieldType)) {
+        } else if (field.fieldType == 'signature') {
           final hasFile = _photoFiles.containsKey(fieldKey) && _photoFiles[fieldKey] != null;
           final hasExisting = _existingPhotoUrls.containsKey(fieldKey) || _existingPhotoUrls.containsKey(field.fieldName);
           if (!hasFile && !hasExisting) {
@@ -962,7 +967,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               context: context,
               type: ToastificationType.warning,
               title: Text('Wajib Mengisi ${field.fieldLabel}'),
-              description: const Text('Silakan ambil foto bukti atau buat tanda tangan terlebih dahulu.'),
+              description: const Text('Silakan buat tanda tangan terlebih dahulu.'),
               autoCloseDuration: const Duration(seconds: 3),
             );
             return;
@@ -1647,72 +1652,15 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
       case 'photo':
       case 'camera_photo':
-        final photoFile = _photoFiles[fieldKey];
-        final existingPhotoUrl = _existingPhotoUrls[fieldKey] ?? _existingPhotoUrls[field.fieldName];
-
-        inputWidget = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (photoFile != null) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(photoFile, height: 220, width: double.infinity, fit: BoxFit.cover),
-              ),
-              const SizedBox(height: 10),
-            ] else if (existingPhotoUrl != null && existingPhotoUrl.isNotEmpty) ...[
-              Stack(
-                alignment: Alignment.topRight,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      existingPhotoUrl,
-                      height: 220,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        height: 120,
-                        color: elevatedColor,
-                        alignment: Alignment.center,
-                        child: Text('Foto sebelumnya tersimpan', style: TextStyle(color: subtitleColor, fontSize: 12)),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    margin: const EdgeInsets.all(8),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black87,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text('Foto Tersimpan', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-            ],
-            OutlinedButton.icon(
-              onPressed: () => _takeWatermarkedPhoto(field),
-              icon: const Icon(Icons.camera_alt_rounded, size: 18),
-              label: Text(
-                (photoFile == null && (existingPhotoUrl == null || existingPhotoUrl.isEmpty))
-                    ? locale.tr('take_watermark_photo')
-                    : 'Ubah / Ambil Ulang Foto',
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: themeColor,
-                side: BorderSide(color: themeColor),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ],
-        );
-        break;
-
       case 'multi_photo':
         final capturedFiles = _multiPhotoFiles[fieldKey] ?? [];
         final existingUrls = _existingMultiPhotoUrls[fieldKey] ?? _existingMultiPhotoUrls[field.fieldName] ?? [];
+        // Also check if there is a single existingPhotoUrl
+        final singleExisting = _existingPhotoUrls[fieldKey] ?? _existingPhotoUrls[field.fieldName];
+        if (existingUrls.isEmpty && singleExisting != null && singleExisting.isNotEmpty) {
+          existingUrls.add(singleExisting);
+          _existingMultiPhotoUrls[fieldKey] = existingUrls;
+        }
         final totalCount = capturedFiles.length + existingUrls.length;
 
         inputWidget = Column(
