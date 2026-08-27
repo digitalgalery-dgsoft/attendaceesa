@@ -151,10 +151,9 @@ class CreateWorkingGroup extends Page
         $this->currentStep = 1;
     }
 
-    public function updatedEmployeeToAdd($value): void
+    public function addEmployee(int $empId): void
     {
-        if (!empty($value)) {
-            $empId = (int)$value;
+        if (!empty($empId)) {
             if (!in_array($empId, $this->selected_employee_ids)) {
                 $this->selected_employee_ids[] = $empId;
                 Notification::make()

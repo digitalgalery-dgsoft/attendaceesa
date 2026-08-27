@@ -1452,7 +1452,7 @@
                                 return this.options.filter(o => o.name.toLowerCase().includes(q)).slice(0, 30);
                             },
                             selectOption(id) {
-                                $wire.updatedEmployeeToAdd(id);
+                                $wire.addEmployee(id);
                                 this.open = false;
                                 this.search = '';
                             }
