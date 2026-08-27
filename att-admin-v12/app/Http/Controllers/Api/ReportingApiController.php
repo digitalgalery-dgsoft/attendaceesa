@@ -365,18 +365,365 @@ class ReportingApiController extends Controller
             ], 404);
         }
 
-        $limit = $request->integer('limit', 20);
-        $submissions = ReportSubmission::with(['template', 'principal', 'values'])
+        $limit = $request->integer('limit', 50);
+        $submissions = ReportSubmission::with([
+            'template' => function ($q) {
+                $q->with(['fields' => fn($fq) => $fq->orderBy('order_index', 'asc'), 'products']);
+            },
+            'principal',
+            'workLocation',
+            'values.formField',
+        ])
             ->where('employee_id', $employee->id)
             ->orderBy('submitted_at', 'desc')
             ->paginate($limit);
 
+        $items = collect($submissions->items())->map(function ($s) {
+            $isApproved = in_array(strtolower($s->status ?? ''), ['approved', 'verified']);
+            $canEdit = !$isApproved;
+
+            $valuesFormatted = $s->values->map(function ($v) {
+                $mediaFullUrl = null;
+                if (!empty($v->media_url)) {
+                    $mediaFullUrl = (str_starts_with($v->media_url, 'http://') || str_starts_with($v->media_url, 'https://'))
+                        ? $v->media_url
+                        : asset('storage/' . ltrim($v->media_url, '/'));
+                }
+
+                return [
+                    'id' => $v->id,
+                    'report_form_field_id' => $v->report_form_field_id,
+                    'field_name' => $v->field_name,
+                    'field_label' => $v->formField?->field_label ?? Str::title(str_replace('_', ' ', $v->field_name)),
+                    'field_type' => $v->field_type,
+                    'value_text' => $v->value_text,
+                    'value_number' => $v->value_number !== null ? (float) $v->value_number : null,
+                    'value_json' => $v->value_json,
+                    'media_url' => $v->media_url,
+                    'media_full_url' => $mediaFullUrl,
+                ];
+            });
+
+            return [
+                'id' => $s->id,
+                'submission_code' => $s->submission_code,
+                'report_template_id' => $s->report_template_id,
+                'template_title' => $s->template?->title ?? 'Laporan',
+                'template_code' => $s->template?->code ?? '',
+                'template_category' => $s->template?->category ?? 'general',
+                'store_name' => $s->store_name,
+                'address' => $s->address,
+                'work_location_id' => $s->work_location_id,
+                'status' => $s->status ?? 'pending',
+                'status_label' => match(strtolower($s->status ?? '')) {
+                    'approved', 'verified' => 'Terverifikasi (Approve)',
+                    'rejected' => 'Ditolak',
+                    default => 'Menunggu Verifikasi (Pending)',
+                },
+                'can_edit' => $canEdit,
+                'is_within_radius' => (bool) $s->is_within_radius,
+                'latitude' => $s->latitude ? (float) $s->latitude : null,
+                'longitude' => $s->longitude ? (float) $s->longitude : null,
+                'submitted_at' => $s->submitted_at ? $s->submitted_at->toDateTimeString() : null,
+                'submitted_at_formatted' => $s->submitted_at ? $s->submitted_at->format('d M Y, H:i') : null,
+                'principal_name' => $s->principal?->name,
+                'template' => $s->template ? [
+                    'id' => $s->template->id,
+                    'code' => $s->template->code,
+                    'title' => $s->template->title,
+                    'description' => $s->template->description,
+                    'category' => $s->template->category,
+                    'color' => $s->template->color ?? '#0F52BA',
+                    'icon' => $s->template->icon ?? 'document-text',
+                    'fields' => $s->template->fields->map(fn($f) => [
+                        'id' => $f->id,
+                        'field_name' => $f->field_name,
+                        'field_label' => $f->field_label,
+                        'field_type' => $f->field_type === 'product_select' ? 'dropdown' : $f->field_type,
+                        'is_required' => (bool) $f->is_required,
+                        'options' => $f->options ?? [],
+                        'placeholder' => $f->placeholder,
+                        'help_text' => $f->help_text,
+                    ]),
+                    'products' => $s->template->products->map(fn($p) => [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'brand' => $p->brand,
+                        'price' => (float) $p->price,
+                        'formatted_price' => $p->formatted_price,
+                    ]),
+                ] : null,
+                'values' => $valuesFormatted,
+            ];
+        });
+
         return response()->json([
             'status' => 'success',
-            'data' => $submissions->items(),
+            'data' => $items,
             'current_page' => $submissions->currentPage(),
             'total' => $submissions->total(),
             'last_page' => $submissions->lastPage(),
         ]);
+    }
+
+    /**
+     * Get single report submission detail.
+     */
+    public function show(Request $request, $id): JsonResponse
+    {
+        $employee = $this->getAuthenticatedEmployee($request);
+
+        if (!$employee) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data karyawan tidak ditemukan.',
+            ], 404);
+        }
+
+        $submission = ReportSubmission::with([
+            'template' => function ($q) {
+                $q->with(['fields' => fn($fq) => $fq->orderBy('order_index', 'asc'), 'products']);
+            },
+            'principal',
+            'workLocation',
+            'values.formField',
+        ])
+            ->where('id', $id)
+            ->where('employee_id', $employee->id)
+            ->firstOrFail();
+
+        $isApproved = in_array(strtolower($submission->status ?? ''), ['approved', 'verified']);
+        $canEdit = !$isApproved;
+
+        $valuesFormatted = $submission->values->map(function ($v) {
+            $mediaFullUrl = null;
+            if (!empty($v->media_url)) {
+                $mediaFullUrl = (str_starts_with($v->media_url, 'http://') || str_starts_with($v->media_url, 'https://'))
+                    ? $v->media_url
+                    : asset('storage/' . ltrim($v->media_url, '/'));
+            }
+
+            return [
+                'id' => $v->id,
+                'report_form_field_id' => $v->report_form_field_id,
+                'field_name' => $v->field_name,
+                'field_label' => $v->formField?->field_label ?? Str::title(str_replace('_', ' ', $v->field_name)),
+                'field_type' => $v->field_type,
+                'value_text' => $v->value_text,
+                'value_number' => $v->value_number !== null ? (float) $v->value_number : null,
+                'value_json' => $v->value_json,
+                'media_url' => $v->media_url,
+                'media_full_url' => $mediaFullUrl,
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'id' => $submission->id,
+                'submission_code' => $submission->submission_code,
+                'report_template_id' => $submission->report_template_id,
+                'template_title' => $submission->template?->title ?? 'Laporan',
+                'template_code' => $submission->template?->code ?? '',
+                'template_category' => $submission->template?->category ?? 'general',
+                'store_name' => $submission->store_name,
+                'address' => $submission->address,
+                'work_location_id' => $submission->work_location_id,
+                'status' => $submission->status ?? 'pending',
+                'status_label' => match(strtolower($submission->status ?? '')) {
+                    'approved', 'verified' => 'Terverifikasi (Approve)',
+                    'rejected' => 'Ditolak',
+                    default => 'Menunggu Verifikasi (Pending)',
+                },
+                'can_edit' => $canEdit,
+                'is_within_radius' => (bool) $submission->is_within_radius,
+                'latitude' => $submission->latitude ? (float) $submission->latitude : null,
+                'longitude' => $submission->longitude ? (float) $submission->longitude : null,
+                'submitted_at' => $submission->submitted_at ? $submission->submitted_at->toDateTimeString() : null,
+                'submitted_at_formatted' => $submission->submitted_at ? $submission->submitted_at->format('d M Y, H:i') : null,
+                'principal_name' => $submission->principal?->name,
+                'template' => $submission->template ? [
+                    'id' => $submission->template->id,
+                    'code' => $submission->template->code,
+                    'title' => $submission->template->title,
+                    'description' => $submission->template->description,
+                    'category' => $submission->template->category,
+                    'color' => $submission->template->color ?? '#0F52BA',
+                    'icon' => $submission->template->icon ?? 'document-text',
+                    'fields' => $submission->template->fields->map(fn($f) => [
+                        'id' => $f->id,
+                        'field_name' => $f->field_name,
+                        'field_label' => $f->field_label,
+                        'field_type' => $f->field_type === 'product_select' ? 'dropdown' : $f->field_type,
+                        'is_required' => (bool) $f->is_required,
+                        'options' => $f->options ?? [],
+                        'placeholder' => $f->placeholder,
+                        'help_text' => $f->help_text,
+                    ]),
+                    'products' => $submission->template->products->map(fn($p) => [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'brand' => $p->brand,
+                        'price' => (float) $p->price,
+                        'formatted_price' => $p->formatted_price,
+                    ]),
+                ] : null,
+                'values' => $valuesFormatted,
+            ],
+        ]);
+    }
+
+    /**
+     * Update an existing report submission if not yet approved.
+     */
+    public function update(Request $request, $id): JsonResponse
+    {
+        $employee = $this->getAuthenticatedEmployee($request);
+
+        if (!$employee) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data karyawan tidak ditemukan.',
+            ], 404);
+        }
+
+        $submission = ReportSubmission::with(['template.fields', 'values'])
+            ->where('id', $id)
+            ->where('employee_id', $employee->id)
+            ->firstOrFail();
+
+        // Cek apakah status sudah Approve / Verified
+        if (in_array(strtolower($submission->status ?? ''), ['approved', 'verified'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Laporan ini sudah disetujui (Approved) dan tidak dapat diubah lagi.',
+            ], 422);
+        }
+
+        $template = $submission->template;
+        if (!$template) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Template form pelaporan tidak ditemukan.',
+            ], 404);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Update data header jika dikirimkan
+            if ($request->filled('store_name')) {
+                $submission->store_name = $request->store_name;
+            }
+            if ($request->filled('address')) {
+                $submission->address = $request->address;
+            }
+            if ($request->filled('work_location_id')) {
+                $submission->work_location_id = $request->work_location_id;
+            }
+            $submission->updated_at = now();
+            $submission->save();
+
+            // Decode input values
+            $valuesInput = $request->input('values');
+            if (is_string($valuesInput)) {
+                $valuesInput = json_decode($valuesInput, true) ?? [];
+            }
+            if (!is_array($valuesInput)) {
+                $valuesInput = [];
+            }
+
+            // Update setiap field parameter
+            foreach ($template->fields as $field) {
+                $fieldId = (string) $field->id;
+                $fieldName = $field->field_name;
+
+                $existingVal = $submission->values->first(function ($val) use ($field, $fieldId, $fieldName) {
+                    return $val->report_form_field_id == $field->id || $val->field_name == $fieldName;
+                });
+
+                // Cek apakah ada input nilai baru
+                $hasNewValue = array_key_exists($fieldId, $valuesInput) || 
+                               array_key_exists($fieldName, $valuesInput) || 
+                               $request->has("val_{$fieldId}") || 
+                               $request->has("val_{$fieldName}");
+
+                $rawValue = $valuesInput[$fieldId] ?? $valuesInput[$fieldName] ?? $request->input("val_{$fieldId}") ?? $request->input("val_{$fieldName}") ?? ($existingVal?->value_text);
+
+                $valueText = $existingVal?->value_text;
+                $valueNumber = $existingVal?->value_number;
+                $valueJson = $existingVal?->value_json;
+                $photoPath = $existingVal?->media_url;
+
+                // Handle upload foto / media baru jika dikirimkan
+                $fileKey = "photo_{$fieldId}";
+                if ($request->hasFile($fileKey)) {
+                    $file = $request->file($fileKey);
+                    $filename = "report_{$submission->id}_{$fieldId}_" . time() . '.' . $file->getClientOriginalExtension();
+                    $photoPath = $file->storeAs("reports/" . now()->format('Y-m'), $filename, 'public');
+                    $valueText = $photoPath;
+                } elseif ($request->hasFile("photo_{$fieldName}")) {
+                    $file = $request->file("photo_{$fieldName}");
+                    $filename = "report_{$submission->id}_{$fieldId}_" . time() . '.' . $file->getClientOriginalExtension();
+                    $photoPath = $file->storeAs("reports/" . now()->format('Y-m'), $filename, 'public');
+                    $valueText = $photoPath;
+                }
+
+                if ($hasNewValue) {
+                    if (in_array($field->field_type, ['number', 'integer', 'currency', 'percentage', 'rating', 'rating_star', 'slider'])) {
+                        if (is_numeric($rawValue)) {
+                            $valueNumber = (float) $rawValue;
+                        } elseif (is_string($rawValue)) {
+                            $cleanNum = preg_replace('/[^0-9.]/', '', $rawValue);
+                            $valueNumber = is_numeric($cleanNum) ? (float) $cleanNum : null;
+                        }
+                        $valueText = $rawValue !== null ? (string) $rawValue : null;
+                    } elseif (in_array($field->field_type, ['multi_select', 'checkbox_group', 'sku_list']) || is_array($rawValue)) {
+                        $valueJson = is_array($rawValue) ? $rawValue : [$rawValue];
+                        $valueText = is_array($rawValue) ? implode(', ', $rawValue) : (string) $rawValue;
+                    } else {
+                        $valueText = is_string($rawValue) ? $rawValue : ($rawValue !== null ? json_encode($rawValue) : null);
+                    }
+                }
+
+                if ($photoPath && (!$hasNewValue || empty($valueText))) {
+                    $valueText = $photoPath;
+                }
+
+                ReportSubmissionValue::updateOrCreate(
+                    [
+                        'report_submission_id' => $submission->id,
+                        'report_form_field_id' => $field->id,
+                    ],
+                    [
+                        'field_name' => $field->field_name,
+                        'field_type' => $field->field_type,
+                        'value_text' => $valueText,
+                        'value_number' => $valueNumber,
+                        'value_json' => $valueJson,
+                        'media_url' => $photoPath,
+                    ]
+                );
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Laporan berhasil diperbarui.',
+                'data' => [
+                    'id' => $submission->id,
+                    'submission_code' => $submission->submission_code,
+                    'status' => $submission->status,
+                    'updated_at' => $submission->updated_at->toDateTimeString(),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal memperbarui laporan: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

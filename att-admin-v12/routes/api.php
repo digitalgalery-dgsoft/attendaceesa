@@ -107,6 +107,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reporting/stores', [\App\Http\Controllers\Api\ReportingApiController::class, 'stores']);
     Route::post('/reporting/submit', [\App\Http\Controllers\Api\ReportingApiController::class, 'submit']);
     Route::get('/reporting/history', [\App\Http\Controllers\Api\ReportingApiController::class, 'history']);
+    Route::get('/reporting/submissions/{id}', [\App\Http\Controllers\Api\ReportingApiController::class, 'show']);
+    Route::post('/reporting/submissions/{id}', [\App\Http\Controllers\Api\ReportingApiController::class, 'update']);
 
     // Cross-Entity Hierarchy & Approval routes
     Route::get('/v1/cross-entity/subordinates', [\App\Http\Controllers\Api\ServerGatewayController::class, 'crossEntitySubordinates']);
