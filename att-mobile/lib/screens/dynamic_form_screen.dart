@@ -998,6 +998,15 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     });
 
+    // Buat salinan bersih dari formValues tanpa path file lokal perangkat
+    final Map<String, dynamic> cleanFormValues = Map<String, dynamic>.from(_formValues);
+    for (var f in widget.template.fields) {
+      if (['photo', 'camera_photo', 'multi_photo', 'signature'].contains(f.fieldType)) {
+        cleanFormValues.remove(f.id.toString());
+        cleanFormValues.remove(f.fieldName);
+      }
+    }
+
     // Gabungkan payload foto (single dan multi-foto)
     final Map<String, dynamic> allPhotosPayload = {};
     _photoFiles.forEach((k, v) => allPhotosPayload[k] = v);
@@ -1012,7 +1021,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         storeName: _selectedStoreName,
         workLocationId: _selectedWorkLocationId,
         address: _selectedLocation?['address'] ?? _address,
-        values: _formValues,
+        values: cleanFormValues,
         photoFiles: allPhotosPayload,
         existingPhotos: _existingMultiPhotoUrls,
       );
@@ -1028,7 +1037,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         longitude: _longitude,
         address: _selectedLocation?['address'] ?? _address,
         isWithinRadius: _isWithinRadius,
-        values: _formValues,
+        values: cleanFormValues,
         photoFiles: allPhotosPayload,
         watermarkTexts: _watermarkTexts,
       );

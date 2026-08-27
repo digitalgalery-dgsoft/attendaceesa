@@ -223,6 +223,8 @@ class ReportingApiController extends Controller
                 $valueJson = null;
                 $photoPath = null;
 
+                $isMediaField = in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature']);
+
                 // Handle file upload (single foto, multi-foto, atau tanda tangan)
                 $savedPhotos = $this->saveUploadedPhotos($request, $submission->id, $fieldId, $fieldName);
                 if (!empty($savedPhotos)) {
@@ -231,21 +233,23 @@ class ReportingApiController extends Controller
                     $valueText = implode(', ', $savedPhotos);
                 }
 
-                // Handle format data berdasarkan field_type
-                if (in_array($field->field_type, ['number', 'integer', 'currency', 'percentage', 'rating', 'rating_star', 'slider'])) {
-                    if (is_numeric($rawValue)) {
-                        $valueNumber = (float) $rawValue;
-                    } elseif (is_string($rawValue)) {
-                        // Bersihkan karakter non-digit jika currency (misal: "Rp 1.500.000" -> 1500000)
-                        $cleanNum = preg_replace('/[^0-9.]/', '', $rawValue);
-                        $valueNumber = is_numeric($cleanNum) ? (float) $cleanNum : null;
+                // Handle format data berdasarkan field_type (HANYA untuk non-media)
+                if (!$isMediaField) {
+                    if (in_array($field->field_type, ['number', 'integer', 'currency', 'percentage', 'rating', 'rating_star', 'slider'])) {
+                        if (is_numeric($rawValue)) {
+                            $valueNumber = (float) $rawValue;
+                        } elseif (is_string($rawValue)) {
+                            // Bersihkan karakter non-digit jika currency (misal: "Rp 1.500.000" -> 1500000)
+                            $cleanNum = preg_replace('/[^0-9.]/', '', $rawValue);
+                            $valueNumber = is_numeric($cleanNum) ? (float) $cleanNum : null;
+                        }
+                        $valueText = $rawValue !== null ? (string) $rawValue : null;
+                    } elseif (in_array($field->field_type, ['multi_select', 'checkbox_group', 'sku_list']) || is_array($rawValue)) {
+                        $valueJson = is_array($rawValue) ? $rawValue : [$rawValue];
+                        $valueText = is_array($rawValue) ? implode(', ', $rawValue) : (string) $rawValue;
+                    } else {
+                        $valueText = is_string($rawValue) ? $rawValue : ($rawValue !== null ? json_encode($rawValue) : null);
                     }
-                    $valueText = $rawValue !== null ? (string) $rawValue : null;
-                } elseif (in_array($field->field_type, ['multi_select', 'checkbox_group', 'sku_list']) || is_array($rawValue)) {
-                    $valueJson = is_array($rawValue) ? $rawValue : [$rawValue];
-                    $valueText = is_array($rawValue) ? implode(', ', $rawValue) : (string) $rawValue;
-                } elseif (!in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])) {
-                    $valueText = is_string($rawValue) ? $rawValue : ($rawValue !== null ? json_encode($rawValue) : null);
                 }
 
                 // Jika berupa media / foto dan belum ada valueText
@@ -662,6 +666,10 @@ class ReportingApiController extends Controller
                     foreach ((array)$rawArr as $item) {
                         if (empty($item) || !is_string($item)) continue;
                         $cleaned = trim($item);
+                        // Abaikan jika berupa path lokal perangkat android
+                        if (str_starts_with($cleaned, '/data/user/') || str_starts_with($cleaned, 'data/user/') || str_contains($cleaned, 'cache/wm_')) {
+                            continue;
+                        }
                         if (str_contains($cleaned, '/storage/')) {
                             $parts = explode('/storage/', $cleaned);
                             $cleaned = ltrim(end($parts), '/');
@@ -676,6 +684,9 @@ class ReportingApiController extends Controller
                         foreach ($existingVal->value_json as $item) {
                             if (empty($item) || !is_string($item)) continue;
                             $cleaned = trim($item);
+                            if (str_starts_with($cleaned, '/data/user/') || str_starts_with($cleaned, 'data/user/') || str_contains($cleaned, 'cache/wm_')) {
+                                continue;
+                            }
                             if (str_contains($cleaned, '/storage/')) {
                                 $parts = explode('/storage/', $cleaned);
                                 $cleaned = ltrim(end($parts), '/');
@@ -686,13 +697,15 @@ class ReportingApiController extends Controller
                         }
                     } elseif ($existingVal->media_url) {
                         $cleaned = trim($existingVal->media_url);
-                        if (str_contains($cleaned, '/storage/')) {
-                            $parts = explode('/storage/', $cleaned);
-                            $cleaned = ltrim(end($parts), '/');
-                        } elseif (str_starts_with($cleaned, 'storage/')) {
-                            $cleaned = ltrim(substr($cleaned, 8), '/');
+                        if (!str_starts_with($cleaned, '/data/user/') && !str_starts_with($cleaned, 'data/user/') && !str_contains($cleaned, 'cache/wm_')) {
+                            if (str_contains($cleaned, '/storage/')) {
+                                $parts = explode('/storage/', $cleaned);
+                                $cleaned = ltrim(end($parts), '/');
+                            } elseif (str_starts_with($cleaned, 'storage/')) {
+                                $cleaned = ltrim(substr($cleaned, 8), '/');
+                            }
+                            $keptExistingPhotos[] = $cleaned;
                         }
-                        $keptExistingPhotos[] = $cleaned;
                     }
                 }
 
@@ -704,7 +717,10 @@ class ReportingApiController extends Controller
                     $valueText = implode(', ', $allPhotos);
                 }
 
-                if ($hasNewValue) {
+                $isMediaField = in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature']);
+
+                // Format data non-media
+                if (!$isMediaField && $hasNewValue) {
                     if (in_array($field->field_type, ['number', 'integer', 'currency', 'percentage', 'rating', 'rating_star', 'slider'])) {
                         if (is_numeric($rawValue)) {
                             $valueNumber = (float) $rawValue;
@@ -716,7 +732,7 @@ class ReportingApiController extends Controller
                     } elseif (in_array($field->field_type, ['multi_select', 'checkbox_group', 'sku_list']) || is_array($rawValue)) {
                         $valueJson = is_array($rawValue) ? $rawValue : [$rawValue];
                         $valueText = is_array($rawValue) ? implode(', ', $rawValue) : (string) $rawValue;
-                    } elseif (!in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])) {
+                    } else {
                         $valueText = is_string($rawValue) ? $rawValue : ($rawValue !== null ? json_encode($rawValue) : null);
                     }
                 }
@@ -841,6 +857,10 @@ class ReportingApiController extends Controller
         foreach ($rawPaths as $p) {
             if (empty($p) || !is_string($p)) continue;
             $clean = trim($p);
+            // Abaikan jika berupa path lokal perangkat android
+            if (str_starts_with($clean, '/data/user/') || str_starts_with($clean, 'data/user/') || str_contains($clean, 'cache/wm_')) {
+                continue;
+            }
             if (str_starts_with($clean, 'http://') || str_starts_with($clean, 'https://')) {
                 $urls[] = str_replace('/storage/storage/', '/storage/', $clean);
             } else {
@@ -850,6 +870,25 @@ class ReportingApiController extends Controller
                     $clean = substr($clean, 9);
                 }
                 $urls[] = asset('storage/' . ltrim($clean, '/'));
+            }
+        }
+
+        // Fallback: Jika urls kosong padahal ini media field, cari file di disk yang sesuai
+        if (empty($urls) && in_array($v->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])) {
+            $subId = $v->report_submission_id;
+            $fieldId = $v->report_form_field_id;
+            $pattern = "reports/*/report_{$subId}_{$fieldId}_*.jpg";
+            $matches = glob(storage_path("app/public/{$pattern}"));
+            if (empty($matches)) {
+                $pattern2 = "reports/*/report_{$subId}_*.jpg";
+                $matches = glob(storage_path("app/public/{$pattern2}"));
+            }
+            if (!empty($matches)) {
+                foreach ($matches as $match) {
+                    $rel = str_replace(storage_path('app/public/'), '', $match);
+                    $rel = str_replace('\\', '/', $rel);
+                    $urls[] = asset('storage/' . ltrim($rel, '/'));
+                }
             }
         }
 

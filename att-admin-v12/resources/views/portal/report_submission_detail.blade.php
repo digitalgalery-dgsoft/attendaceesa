@@ -660,10 +660,16 @@
                 $rawPaths = array_map('trim', explode(',', $val->value_text));
             }
 
+            $foundUrls = [];
             foreach ($rawPaths as $p) {
                 if (empty($p) || !is_string($p)) continue;
                 $clean = trim($p);
                 
+                // Abaikan jika berupa path lokal perangkat android
+                if (str_starts_with($clean, '/data/user/') || str_starts_with($clean, 'data/user/') || str_contains($clean, 'cache/wm_')) {
+                    continue;
+                }
+
                 // If it is a full URL
                 if (str_starts_with($clean, 'http://') || str_starts_with($clean, 'https://')) {
                     $clean = str_replace('/storage/storage/', '/storage/', $clean);
@@ -677,13 +683,39 @@
                     $url = asset('storage/' . ltrim($clean, '/'));
                 }
 
-                $mediaItems[] = [
+                $foundUrls[] = [
                     'label' => $fieldLabel,
                     'url' => $url,
                     'path' => $clean,
                     'field_type' => $val->field_type,
                 ];
             }
+
+            // Fallback: Jika path di database rusak/lokal tapi file ada di disk server
+            if (empty($foundUrls)) {
+                $subId = $submission->id;
+                $fieldId = $val->report_form_field_id;
+                $pattern = "reports/*/report_{$subId}_{$fieldId}_*.jpg";
+                $matches = glob(storage_path("app/public/{$pattern}"));
+                if (empty($matches)) {
+                    $pattern2 = "reports/*/report_{$subId}_*.jpg";
+                    $matches = glob(storage_path("app/public/{$pattern2}"));
+                }
+                if (!empty($matches)) {
+                    foreach ($matches as $match) {
+                        $rel = str_replace(storage_path('app/public/'), '', $match);
+                        $rel = str_replace('\\', '/', $rel);
+                        $foundUrls[] = [
+                            'label' => $fieldLabel,
+                            'url' => asset('storage/' . ltrim($rel, '/')),
+                            'path' => $rel,
+                            'field_type' => $val->field_type,
+                        ];
+                    }
+                }
+            }
+
+            $mediaItems = array_merge($mediaItems, $foundUrls);
         }
         $mediaValues = collect($mediaItems);
     @endphp

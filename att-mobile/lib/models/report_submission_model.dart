@@ -120,10 +120,15 @@ class ReportSubmissionValueModel {
   factory ReportSubmissionValueModel.fromJson(Map<String, dynamic> json) {
     List<String> urls = [];
     if (json['media_full_urls'] is List && (json['media_full_urls'] as List).isNotEmpty) {
-      urls = (json['media_full_urls'] as List).map((e) => e.toString()).toList();
+      for (final item in (json['media_full_urls'] as List)) {
+        final str = item.toString().trim();
+        if (str.startsWith('/data/user/') || str.startsWith('data/user/') || str.contains('cache/wm_')) continue;
+        urls.add(str);
+      }
     } else if (json['value_json'] is List && (json['value_json'] as List).isNotEmpty) {
       for (final item in (json['value_json'] as List)) {
-        final str = item.toString();
+        final str = item.toString().trim();
+        if (str.startsWith('/data/user/') || str.startsWith('data/user/') || str.contains('cache/wm_')) continue;
         if (str.startsWith('http://') || str.startsWith('https://')) {
           urls.add(str);
         } else if (str.contains('reports/')) {
@@ -131,13 +136,18 @@ class ReportSubmissionValueModel {
         }
       }
     } else if (json['media_full_url'] != null && json['media_full_url'].toString().isNotEmpty) {
-      urls = [json['media_full_url'].toString()];
-    } else if (json['media_url'] != null && json['media_url'].toString().isNotEmpty) {
-      final str = json['media_url'].toString();
-      if (str.startsWith('http://') || str.startsWith('https://')) {
+      final str = json['media_full_url'].toString().trim();
+      if (!str.startsWith('/data/user/') && !str.startsWith('data/user/') && !str.contains('cache/wm_')) {
         urls.add(str);
-      } else {
-        urls.add('${Constants.baseUrl.replaceAll('/api', '')}/storage/${str.replaceFirst('storage/', '').replaceFirst(RegExp(r'^/+'), '')}');
+      }
+    } else if (json['media_url'] != null && json['media_url'].toString().isNotEmpty) {
+      final str = json['media_url'].toString().trim();
+      if (!str.startsWith('/data/user/') && !str.startsWith('data/user/') && !str.contains('cache/wm_')) {
+        if (str.startsWith('http://') || str.startsWith('https://')) {
+          urls.add(str);
+        } else {
+          urls.add('${Constants.baseUrl.replaceAll('/api', '')}/storage/${str.replaceFirst('storage/', '').replaceFirst(RegExp(r'^/+'), '')}');
+        }
       }
     }
 
