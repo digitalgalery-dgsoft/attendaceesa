@@ -182,6 +182,53 @@ class ReportingApiController extends Controller
         $randomSeq = strtoupper(Str::random(4));
         $submissionCode = "RPT-{$dateStr}-{$randomSeq}";
 
+        $workLocationId = $request->work_location_id;
+        $itineraryItemId = $request->itinerary_item_id;
+        $storeName = $request->store_name;
+        $address = $request->address;
+
+        $today = now()->toDateString();
+        
+        // Cek jika sedang visit aktif hari ini
+        $lastVisitIn = \App\Models\AttendanceLog::where('employee_id', $employee->id)
+            ->whereDate('logged_at', $today)
+            ->where('log_type', 'visit_in')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if ($lastVisitIn && isset($lastVisitIn->metadata['visit_location_id'])) {
+            $vLocId = $lastVisitIn->metadata['visit_location_id'];
+            $loc = \App\Models\WorkLocation::find($vLocId);
+            if ($loc) {
+                $workLocationId = $workLocationId ?: $loc->id;
+                $storeName = $storeName ?: $loc->name;
+                $address = $address ?: $loc->address;
+            }
+        }
+
+        // Jika belum dapat storeName, cek dari absensi check-in hari ini
+        if (empty($storeName) || empty($workLocationId)) {
+            $todayAtt = \App\Models\Attendance::where('employee_id', $employee->id)
+                ->where('attendance_date', $today)
+                ->with(['workLocation', 'branch'])
+                ->first();
+
+            if ($todayAtt) {
+                if ($todayAtt->workLocation) {
+                    $workLocationId = $workLocationId ?: $todayAtt->workLocation->id;
+                    $storeName = $storeName ?: $todayAtt->workLocation->name;
+                    $address = $address ?: $todayAtt->workLocation->address;
+                } elseif ($todayAtt->branch) {
+                    $storeName = $storeName ?: $todayAtt->branch->name;
+                    $address = $address ?: $todayAtt->branch->address;
+                }
+            }
+        }
+
+        if (empty($storeName)) {
+            $storeName = 'Lokasi Kunjungan Terdaftar';
+        }
+
         try {
             DB::beginTransaction();
 
@@ -189,11 +236,11 @@ class ReportingApiController extends Controller
                 'report_template_id' => $template->id,
                 'principal_id' => $principalId,
                 'employee_id' => $employee->id,
-                'work_location_id' => $request->work_location_id,
-                'itinerary_item_id' => $request->itinerary_item_id,
+                'work_location_id' => $workLocationId,
+                'itinerary_item_id' => $itineraryItemId,
                 'submission_code' => $submissionCode,
-                'store_name' => $request->store_name ?? 'Kunjungan Toko',
-                'address' => $request->address,
+                'store_name' => $storeName,
+                'address' => $address,
                 'latitude' => $request->latitude,
                 'longitude' => $request->longitude,
                 'is_within_radius' => $request->boolean('is_within_radius', true),
