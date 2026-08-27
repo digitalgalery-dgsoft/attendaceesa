@@ -1,14 +1,15 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Masuk - {{ $tenantPrincipal->portal_title ?? ($tenantPrincipal->name . ' Portal Pelaporan') }}</title>
+    <title>{{ $tenantPrincipal->name }} - Portal Login</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
     @php
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
@@ -16,6 +17,8 @@
     @endphp
 
     <style>
+        [x-cloak] { display: none !important; }
+
         :root {
             --brand-primary: {{ $brandColor }};
             --brand-secondary: {{ $brandSecondary }};
@@ -36,7 +39,7 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Plus Jakarta Sans', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
         body {
@@ -70,16 +73,57 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* Top Lang Switcher in Card */
+        .card-top-bar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 0.5rem;
+        }
+
+        .lang-switch-box {
+            display: inline-flex;
+            align-items: center;
+            background: #f1f5f9;
+            padding: 3px;
+            border-radius: 9999px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .lang-btn {
+            border: none;
+            background: transparent;
+            padding: 0.25rem 0.65rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .lang-btn.active {
+            background: #ffffff;
+            color: var(--text-heading);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        }
+
+        .lang-btn:hover:not(.active) {
+            color: var(--brand-primary);
+        }
+
         .login-header {
             text-align: center;
-            margin-bottom: 2rem;
+            margin-bottom: 1.75rem;
         }
 
         .brand-logo-box {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 1.25rem;
+            margin-bottom: 1.15rem;
         }
 
         .brand-logo-img {
@@ -116,7 +160,7 @@
         }
 
         .login-title {
-            font-size: 1.45rem;
+            font-size: 1.4rem;
             font-weight: 800;
             color: var(--text-heading);
             letter-spacing: -0.5px;
@@ -125,18 +169,18 @@
         }
 
         .login-subtitle {
-            font-size: 0.88rem;
+            font-size: 0.86rem;
             color: var(--text-muted);
         }
 
         .form-group {
-            margin-bottom: 1.25rem;
+            margin-bottom: 1.2rem;
         }
 
         .form-label {
             display: block;
             font-size: 0.85rem;
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text-heading);
             margin-bottom: 0.45rem;
         }
@@ -191,24 +235,25 @@
             color: var(--text-heading);
         }
 
-        .form-options {
+        .form-actions {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.4rem;
             font-size: 0.84rem;
         }
 
-        .remember-label {
+        .remember-checkbox {
             display: flex;
             align-items: center;
             gap: 0.5rem;
             color: var(--text-body);
             cursor: pointer;
             user-select: none;
+            font-weight: 500;
         }
 
-        .remember-label input[type="checkbox"] {
+        .remember-checkbox input[type="checkbox"] {
             width: 16px;
             height: 16px;
             accent-color: var(--brand-primary);
@@ -223,7 +268,7 @@
             border: none;
             border-radius: 10px;
             font-size: 0.95rem;
-            font-weight: 700;
+            font-weight: 800;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -272,7 +317,7 @@
             gap: 0.4rem;
             color: var(--text-body);
             text-decoration: none;
-            font-weight: 600;
+            font-weight: 700;
             margin-bottom: 0.5rem;
             transition: color 0.2s ease;
         }
@@ -282,9 +327,32 @@
         }
     </style>
 </head>
-<body>
+<body x-data="{
+    lang: localStorage.getItem('portal_lang') || '{{ request()->query('lang', 'en') }}',
+    principalName: '{{ $tenantPrincipal->name }}',
+    setLang(l) {
+        this.lang = l;
+        localStorage.setItem('portal_lang', l);
+        document.documentElement.lang = l;
+        document.title = (l === 'en') 
+            ? (this.principalName + ' - Portal Login') 
+            : ('Masuk - ' + ('{{ $tenantPrincipal->portal_title ?? ($tenantPrincipal->name . " Portal Pelaporan") }}'));
+    }
+}" x-init="setLang(lang)">
 
     <div class="login-card">
+        <!-- Language Switcher in Card Header -->
+        <div class="card-top-bar">
+            <div class="lang-switch-box">
+                <button type="button" class="lang-btn" :class="{ 'active': lang === 'en' }" @click="setLang('en')">
+                    🇺🇸 EN
+                </button>
+                <button type="button" class="lang-btn" :class="{ 'active': lang === 'id' }" @click="setLang('id')">
+                    🇮🇩 ID
+                </button>
+            </div>
+        </div>
+
         <div class="login-header">
             <div class="brand-logo-box">
                 @if(!empty($tenantPrincipal->logo_path))
@@ -318,8 +386,14 @@
             </div>
             @endif
 
-            <h1 class="login-title">{{ $tenantPrincipal->portal_title ?? ($tenantPrincipal->name . ' Portal Pelaporan') }}</h1>
-            <p class="login-subtitle">Masuk dengan kredensial akun prinsiple Anda</p>
+            <h1 class="login-title">
+                <span x-show="lang === 'en'">{{ $tenantPrincipal->name }} Reporting &amp; Monitoring Portal</span>
+                <span x-show="lang === 'id'" x-cloak>{{ $tenantPrincipal->portal_title ?? ('Portal Pelaporan & Monitoring ' . $tenantPrincipal->name) }}</span>
+            </h1>
+            <p class="login-subtitle">
+                <span x-show="lang === 'en'">Sign in with your principal management credentials</span>
+                <span x-show="lang === 'id'" x-cloak>Masuk dengan kredensial akun prinsiple Anda</span>
+            </p>
         </div>
 
         @if ($errors->any())
@@ -339,7 +413,9 @@
 
             <div class="form-group">
                 <label class="form-label" for="email">
-                    Alamat Email <span class="req">*</span>
+                    <span x-show="lang === 'en'">Corporate Email Address</span>
+                    <span x-show="lang === 'id'" x-cloak>Alamat Email</span>
+                    <span class="req">*</span>
                 </label>
                 <div class="input-wrapper">
                     <i class="fa-solid fa-envelope input-icon"></i>
@@ -348,7 +424,7 @@
                         name="email" 
                         id="email" 
                         class="form-input" 
-                        placeholder="Masukkan alamat email Anda"
+                        :placeholder="lang === 'en' ? 'Enter your corporate email' : 'Masukkan alamat email Anda'"
                         value="{{ old('email') }}" 
                         required 
                         autofocus
@@ -358,7 +434,9 @@
 
             <div class="form-group">
                 <label class="form-label" for="password">
-                    Kata Sandi <span class="req">*</span>
+                    <span x-show="lang === 'en'">Account Password</span>
+                    <span x-show="lang === 'id'" x-cloak>Kata Sandi</span>
+                    <span class="req">*</span>
                 </label>
                 <div class="input-wrapper">
                     <i class="fa-solid fa-lock input-icon"></i>
@@ -367,7 +445,7 @@
                         name="password" 
                         id="password" 
                         class="form-input" 
-                        placeholder="Masukkan kata sandi akun"
+                        :placeholder="lang === 'en' ? 'Enter your password' : 'Masukkan kata sandi akun'"
                         required
                     >
                     <i class="fa-solid fa-eye password-toggle" id="togglePassword"></i>
@@ -377,22 +455,28 @@
             <div class="form-actions">
                 <label class="remember-checkbox">
                     <input type="checkbox" name="remember" id="remember" {{ old('remember') ? 'checked' : '' }}>
-                    <span>Ingat saya</span>
+                    <span x-show="lang === 'en'">Remember me</span>
+                    <span x-show="lang === 'id'" x-cloak>Ingat saya</span>
                 </label>
             </div>
 
             <button type="submit" class="btn-submit">
                 <i class="fa-solid fa-right-to-bracket"></i>
-                Masuk ke Portal
+                <span x-show="lang === 'en'">Sign In to Portal</span>
+                <span x-show="lang === 'id'" x-cloak>Masuk ke Portal</span>
             </button>
         </form>
 
         <div class="login-footer">
             <a href="/?p={{ $tenantPrincipal->id }}" class="back-link">
-                <i class="fa-solid fa-arrow-left"></i> Kembali ke Halaman Utama
+                <i class="fa-solid fa-arrow-left"></i>
+                <span x-show="lang === 'en'">Return to Home</span>
+                <span x-show="lang === 'id'" x-cloak>Kembali ke Halaman Utama</span>
             </a>
             <div>
-                &copy; {{ date('Y') }} {{ $tenantPrincipal->name }}. All rights reserved.
+                &copy; {{ date('Y') }} {{ $tenantPrincipal->name }}. 
+                <span x-show="lang === 'en'">All rights reserved.</span>
+                <span x-show="lang === 'id'" x-cloak>Hak cipta dilindungi.</span>
             </div>
         </div>
     </div>

@@ -41,10 +41,29 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
     if ($tenantPrincipal) {
         $scopedPrincipalIds = !empty($tenantPrincipalIds) ? $tenantPrincipalIds : [$tenantPrincipal->id];
         
-        $stats = \Illuminate\Support\Facades\Cache::remember("tenant_stats_{$tenantPrincipal->id}", 120, function () use ($scopedPrincipalIds) {
+        $stats = \Illuminate\Support\Facades\Cache::remember("tenant_stats_{$tenantPrincipal->id}_v2", 30, function () use ($scopedPrincipalIds) {
+            $areasCount = Employee::whereIn('principal_id', $scopedPrincipalIds)
+                ->whereNotNull('branch_id')
+                ->distinct('branch_id')
+                ->count('branch_id');
+
+            if ($areasCount === 0) {
+                $areasCount = Employee::whereIn('principal_id', $scopedPrincipalIds)
+                    ->whereNotNull('area_id')
+                    ->distinct('area_id')
+                    ->count('area_id');
+            }
+
+            if ($areasCount === 0) {
+                $areasCount = Employee::whereIn('principal_id', $scopedPrincipalIds)
+                    ->whereNotNull('work_location_id')
+                    ->distinct('work_location_id')
+                    ->count('work_location_id');
+            }
+
             return [
                 'employees' => Employee::whereIn('principal_id', $scopedPrincipalIds)->count(),
-                'areas' => Employee::whereIn('principal_id', $scopedPrincipalIds)->whereNotNull('area_id')->distinct()->count('area_id'),
+                'areas' => $areasCount,
                 'templates' => \App\Models\ReportTemplate::whereHas('principals', function($q) use ($scopedPrincipalIds) {
                     $q->whereIn('principals.id', $scopedPrincipalIds);
                 })->where('is_active', true)->count(),
