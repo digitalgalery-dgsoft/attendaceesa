@@ -132,6 +132,7 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
+            position: relative;
         }
         .form-label {
             font-size: 13px;
@@ -148,7 +149,7 @@
             color: #ef4444;
         }
 
-        .form-input, .form-select {
+        .form-input {
             width: 100%;
             padding: 10px 14px;
             font-size: 13px;
@@ -159,14 +160,164 @@
             transition: all 0.15s ease;
             outline: none;
         }
-        .dark .form-input, .dark .form-select {
+        .dark .form-input {
             background: #0f172a;
             border-color: #475569;
             color: #f8fafc;
         }
-        .form-input:focus, .form-select:focus {
+        .form-input:focus {
             border-color: #0284c7;
             box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+        }
+
+        /* SEARCHABLE SELECT STYLES */
+        .custom-searchable-select {
+            position: relative;
+            width: 100%;
+            user-select: none;
+        }
+        .custom-select-trigger {
+            width: 100%;
+            padding: 10px 14px;
+            font-size: 13px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            background: #ffffff;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            min-height: 42px;
+        }
+        .dark .custom-select-trigger {
+            background: #0f172a;
+            border-color: #475569;
+            color: #f8fafc;
+        }
+        .custom-select-trigger:hover {
+            border-color: #94a3b8;
+        }
+        .custom-select-trigger.is-open {
+            border-color: #0284c7;
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+        }
+        .custom-select-trigger .is-placeholder {
+            color: #94a3b8;
+        }
+        .chevron-icon {
+            width: 16px;
+            height: 16px;
+            color: #64748b;
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+        }
+        .chevron-icon.rotate-180 {
+            transform: rotate(180deg);
+        }
+        .clear-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+        }
+        .clear-btn:hover {
+            color: #ef4444;
+        }
+
+        .custom-select-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            z-index: 999;
+            overflow: hidden;
+        }
+        .dark .custom-select-dropdown {
+            background: #1e293b;
+            border-color: #475569;
+        }
+
+        .dropdown-search-wrapper {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .dark .dropdown-search-wrapper {
+            background: #0f172a;
+            border-bottom-color: #334155;
+        }
+        .dropdown-search-input {
+            width: 100%;
+            padding: 6px 10px;
+            font-size: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #0f172a;
+            outline: none;
+        }
+        .dark .dropdown-search-input {
+            background: #1e293b;
+            border-color: #475569;
+            color: #f8fafc;
+        }
+        .dropdown-search-input:focus {
+            border-color: #0284c7;
+        }
+
+        .dropdown-options-list {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+        .dropdown-option-item {
+            padding: 8px 14px;
+            font-size: 13px;
+            color: #334155;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background-color 0.1s ease;
+        }
+        .dark .dropdown-option-item {
+            color: #cbd5e1;
+        }
+        .dropdown-option-item:hover {
+            background: #f0f9ff;
+            color: #0284c7;
+        }
+        .dark .dropdown-option-item:hover {
+            background: #0f172a;
+            color: #38bdf8;
+        }
+        .dropdown-option-item.is-selected {
+            background: #e0f2fe;
+            color: #0369a1;
+            font-weight: 700;
+        }
+        .dark .dropdown-option-item.is-selected {
+            background: #0369a1;
+            color: #ffffff;
+        }
+        .no-options-found {
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
         }
 
         .info-box-note {
@@ -289,7 +440,7 @@
             border-radius: 12px;
             background: #ffffff;
             transition: all 0.2s ease;
-            overflow: hidden;
+            overflow: visible;
         }
         .dark .day-row-card {
             border-color: #334155;
@@ -346,6 +497,8 @@
             display: grid;
             grid-template-columns: repeat(1, 1fr);
             gap: 12px;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
         }
         @media (min-width: 768px) {
             .custom-option-body {
@@ -478,6 +631,13 @@
         $selectedEmployees = $viewData['selectedEmployees'];
         $totalSelected = $viewData['totalSelected'];
         $pagination = $viewData['pagination'];
+
+        // Format options as arrays for Alpine searchable selects
+        $branchOptions = $branches->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->values()->toArray();
+        $principalOptions = $principals->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->values()->toArray();
+        $shiftOptions = $shifts->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->values()->toArray();
+        $locationOptions = $workLocations->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->values()->toArray();
+        $empOptions = $availableEmployees->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->values()->toArray();
     @endphp
 
     <div class="wg-wizard-wrapper">
@@ -543,24 +703,176 @@
                         Working group will applied from date applied afterward. This feature will be generating alpha to absent employees.
                     </div>
 
+                    {{-- SEARCHABLE DROPDOWN: FOR AREA --}}
                     <div class="form-group">
                         <label class="form-label">For Area (Cabang)</label>
-                        <select wire:model="branch_id" class="form-select">
-                            <option value="">-- Select Area --</option>
-                            @foreach ($branches as $id => $branchName)
-                                <option value="{{ $id }}">{{ $branchName }}</option>
-                            @endforeach
-                        </select>
+                        <div
+                            x-data="{
+                                open: false,
+                                search: '',
+                                value: @entangle('branch_id').live,
+                                options: {{ json_encode($branchOptions) }},
+                                placeholder: '-- Select Area --',
+                                get selectedLabel() {
+                                    if (!this.value) return this.placeholder;
+                                    let found = this.options.find(o => String(o.id) === String(this.value));
+                                    return found ? found.name : this.placeholder;
+                                },
+                                get filteredOptions() {
+                                    if (!this.search.trim()) return this.options;
+                                    let q = this.search.toLowerCase();
+                                    return this.options.filter(o => o.name.toLowerCase().includes(q));
+                                },
+                                selectOption(id) {
+                                    this.value = id;
+                                    this.open = false;
+                                    this.search = '';
+                                },
+                                clear() {
+                                    this.value = null;
+                                    this.search = '';
+                                }
+                            }"
+                            @click.outside="open = false"
+                            class="custom-searchable-select"
+                        >
+                            <div
+                                @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())"
+                                class="custom-select-trigger"
+                                :class="{ 'is-open': open }"
+                            >
+                                <span x-text="selectedLabel" :class="{ 'is-placeholder': !value }"></span>
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <template x-if="value">
+                                        <button type="button" @click.stop="clear()" class="clear-btn">&times;</button>
+                                    </template>
+                                    <svg class="chevron-icon" :class="{ 'rotate-180': open }" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <div x-show="open" x-transition.opacity.duration.150ms class="custom-select-dropdown" style="display: none;">
+                                <div class="dropdown-search-wrapper">
+                                    <svg style="width: 14px; height: 14px; color: #94a3b8;" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <input
+                                        x-ref="searchInput"
+                                        type="text"
+                                        x-model="search"
+                                        placeholder="Ketik untuk mencari area..."
+                                        class="dropdown-search-input"
+                                        @keydown.escape="open = false"
+                                    />
+                                </div>
+                                <div class="dropdown-options-list">
+                                    <template x-for="opt in filteredOptions" :key="opt.id">
+                                        <div
+                                            @click="selectOption(opt.id)"
+                                            class="dropdown-option-item"
+                                            :class="{ 'is-selected': String(opt.id) === String(value) }"
+                                        >
+                                            <span x-text="opt.name"></span>
+                                            <template x-if="String(opt.id) === String(value)">
+                                                <svg style="width: 16px; height: 16px; color: #0284c7;" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                                </svg>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <template x-if="filteredOptions.length === 0">
+                                        <div class="no-options-found">Tidak ada area yang cocok</div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
+                    {{-- SEARCHABLE DROPDOWN: PRINSIPLE --}}
                     <div class="form-group">
                         <label class="form-label">Prinsiple (Opsional)</label>
-                        <select wire:model="principal_id" class="form-select">
-                            <option value="">-- Semua Prinsiple --</option>
-                            @foreach ($principals as $id => $principalName)
-                                <option value="{{ $id }}">{{ $principalName }}</option>
-                            @endforeach
-                        </select>
+                        <div
+                            x-data="{
+                                open: false,
+                                search: '',
+                                value: @entangle('principal_id').live,
+                                options: {{ json_encode($principalOptions) }},
+                                placeholder: '-- Semua Prinsiple --',
+                                get selectedLabel() {
+                                    if (!this.value) return this.placeholder;
+                                    let found = this.options.find(o => String(o.id) === String(this.value));
+                                    return found ? found.name : this.placeholder;
+                                },
+                                get filteredOptions() {
+                                    if (!this.search.trim()) return this.options;
+                                    let q = this.search.toLowerCase();
+                                    return this.options.filter(o => o.name.toLowerCase().includes(q));
+                                },
+                                selectOption(id) {
+                                    this.value = id;
+                                    this.open = false;
+                                    this.search = '';
+                                },
+                                clear() {
+                                    this.value = null;
+                                    this.search = '';
+                                }
+                            }"
+                            @click.outside="open = false"
+                            class="custom-searchable-select"
+                        >
+                            <div
+                                @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())"
+                                class="custom-select-trigger"
+                                :class="{ 'is-open': open }"
+                            >
+                                <span x-text="selectedLabel" :class="{ 'is-placeholder': !value }"></span>
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <template x-if="value">
+                                        <button type="button" @click.stop="clear()" class="clear-btn">&times;</button>
+                                    </template>
+                                    <svg class="chevron-icon" :class="{ 'rotate-180': open }" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <div x-show="open" x-transition.opacity.duration.150ms class="custom-select-dropdown" style="display: none;">
+                                <div class="dropdown-search-wrapper">
+                                    <svg style="width: 14px; height: 14px; color: #94a3b8;" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <input
+                                        x-ref="searchInput"
+                                        type="text"
+                                        x-model="search"
+                                        placeholder="Ketik untuk mencari prinsiple..."
+                                        class="dropdown-search-input"
+                                        @keydown.escape="open = false"
+                                    />
+                                </div>
+                                <div class="dropdown-options-list">
+                                    <template x-for="opt in filteredOptions" :key="opt.id">
+                                        <div
+                                            @click="selectOption(opt.id)"
+                                            class="dropdown-option-item"
+                                            :class="{ 'is-selected': String(opt.id) === String(value) }"
+                                        >
+                                            <span x-text="opt.name"></span>
+                                            <template x-if="String(opt.id) === String(value)">
+                                                <svg style="width: 16px; height: 16px; color: #0284c7;" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                                </svg>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <template x-if="filteredOptions.length === 0">
+                                        <div class="no-options-found">Tidak ada prinsiple yang cocok</div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -570,14 +882,90 @@
 
                     {{-- GENERAL CONFIGURATION --}}
                     <div style="display: grid; grid-template-columns: repeat(1, 1fr); gap: 16px;">
+                        {{-- SEARCHABLE DROPDOWN: WORKING HOUR (DEFAULT SHIFT) --}}
                         <div class="form-group">
                             <label class="form-label">Working Hour (Default Shift)</label>
-                            <select wire:model="default_shift_id" class="form-select">
-                                <option value="">Select working hour</option>
-                                @foreach ($shifts as $id => $shiftName)
-                                    <option value="{{ $id }}">{{ $shiftName }}</option>
-                                @endforeach
-                            </select>
+                            <div
+                                x-data="{
+                                    open: false,
+                                    search: '',
+                                    value: @entangle('default_shift_id').live,
+                                    options: {{ json_encode($shiftOptions) }},
+                                    placeholder: 'Select working hour',
+                                    get selectedLabel() {
+                                        if (!this.value) return this.placeholder;
+                                        let found = this.options.find(o => String(o.id) === String(this.value));
+                                        return found ? found.name : this.placeholder;
+                                    },
+                                    get filteredOptions() {
+                                        if (!this.search.trim()) return this.options;
+                                        let q = this.search.toLowerCase();
+                                        return this.options.filter(o => o.name.toLowerCase().includes(q));
+                                    },
+                                    selectOption(id) {
+                                        this.value = id;
+                                        this.open = false;
+                                        this.search = '';
+                                    },
+                                    clear() {
+                                        this.value = null;
+                                        this.search = '';
+                                    }
+                                }"
+                                @click.outside="open = false"
+                                class="custom-searchable-select"
+                            >
+                                <div
+                                    @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())"
+                                    class="custom-select-trigger"
+                                    :class="{ 'is-open': open }"
+                                >
+                                    <span x-text="selectedLabel" :class="{ 'is-placeholder': !value }"></span>
+                                    <div style="display: flex; align-items: center; gap: 4px;">
+                                        <template x-if="value">
+                                            <button type="button" @click.stop="clear()" class="clear-btn">&times;</button>
+                                        </template>
+                                        <svg class="chevron-icon" :class="{ 'rotate-180': open }" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                <div x-show="open" x-transition.opacity.duration.150ms class="custom-select-dropdown" style="display: none;">
+                                    <div class="dropdown-search-wrapper">
+                                        <svg style="width: 14px; height: 14px; color: #94a3b8;" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+                                        </svg>
+                                        <input
+                                            x-ref="searchInput"
+                                            type="text"
+                                            x-model="search"
+                                            placeholder="Cari shift..."
+                                            class="dropdown-search-input"
+                                            @keydown.escape="open = false"
+                                        />
+                                    </div>
+                                    <div class="dropdown-options-list">
+                                        <template x-for="opt in filteredOptions" :key="opt.id">
+                                            <div
+                                                @click="selectOption(opt.id)"
+                                                class="dropdown-option-item"
+                                                :class="{ 'is-selected': String(opt.id) === String(value) }"
+                                            >
+                                                <span x-text="opt.name"></span>
+                                                <template x-if="String(opt.id) === String(value)">
+                                                    <svg style="width: 16px; height: 16px; color: #0284c7;" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <template x-if="filteredOptions.length === 0">
+                                            <div class="no-options-found">Tidak ada shift yang cocok</div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -591,14 +979,90 @@
                             />
                         </div>
 
+                        {{-- SEARCHABLE DROPDOWN: STORE / LOCATION (DEFAULT) --}}
                         <div class="form-group">
                             <label class="form-label">Store/Location (Default)</label>
-                            <select wire:model="default_work_location_id" class="form-select">
-                                <option value="">Select store / location</option>
-                                @foreach ($workLocations as $id => $locName)
-                                    <option value="{{ $id }}">{{ $locName }}</option>
-                                @endforeach
-                            </select>
+                            <div
+                                x-data="{
+                                    open: false,
+                                    search: '',
+                                    value: @entangle('default_work_location_id').live,
+                                    options: {{ json_encode($locationOptions) }},
+                                    placeholder: 'Select store / location',
+                                    get selectedLabel() {
+                                        if (!this.value) return this.placeholder;
+                                        let found = this.options.find(o => String(o.id) === String(this.value));
+                                        return found ? found.name : this.placeholder;
+                                    },
+                                    get filteredOptions() {
+                                        if (!this.search.trim()) return this.options;
+                                        let q = this.search.toLowerCase();
+                                        return this.options.filter(o => o.name.toLowerCase().includes(q));
+                                    },
+                                    selectOption(id) {
+                                        this.value = id;
+                                        this.open = false;
+                                        this.search = '';
+                                    },
+                                    clear() {
+                                        this.value = null;
+                                        this.search = '';
+                                    }
+                                }"
+                                @click.outside="open = false"
+                                class="custom-searchable-select"
+                            >
+                                <div
+                                    @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())"
+                                    class="custom-select-trigger"
+                                    :class="{ 'is-open': open }"
+                                >
+                                    <span x-text="selectedLabel" :class="{ 'is-placeholder': !value }"></span>
+                                    <div style="display: flex; align-items: center; gap: 4px;">
+                                        <template x-if="value">
+                                            <button type="button" @click.stop="clear()" class="clear-btn">&times;</button>
+                                        </template>
+                                        <svg class="chevron-icon" :class="{ 'rotate-180': open }" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                <div x-show="open" x-transition.opacity.duration.150ms class="custom-select-dropdown" style="display: none;">
+                                    <div class="dropdown-search-wrapper">
+                                        <svg style="width: 14px; height: 14px; color: #94a3b8;" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+                                        </svg>
+                                        <input
+                                            x-ref="searchInput"
+                                            type="text"
+                                            x-model="search"
+                                            placeholder="Ketik untuk mencari lokasi toko..."
+                                            class="dropdown-search-input"
+                                            @keydown.escape="open = false"
+                                        />
+                                    </div>
+                                    <div class="dropdown-options-list">
+                                        <template x-for="opt in filteredOptions" :key="opt.id">
+                                            <div
+                                                @click="selectOption(opt.id)"
+                                                class="dropdown-option-item"
+                                                :class="{ 'is-selected': String(opt.id) === String(value) }"
+                                            >
+                                                <span x-text="opt.name"></span>
+                                                <template x-if="String(opt.id) === String(value)">
+                                                    <svg style="width: 16px; height: 16px; color: #0284c7;" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <template x-if="filteredOptions.length === 0">
+                                            <div class="no-options-found">Tidak ada lokasi yang cocok</div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -659,14 +1123,83 @@
                                     {{-- EXPANDED CUSTOM OPTION FORM --}}
                                     @if ($day['is_active'] && ($day['has_custom_option'] ?? false))
                                         <div class="custom-option-body">
+                                            {{-- SEARCHABLE DROPDOWN: CUSTOM SHIFT --}}
                                             <div class="form-group">
                                                 <label class="form-label" style="font-size: 11px;">Working Hour (Custom)</label>
-                                                <select wire:model="days.{{ $dayKey }}.shift_id" class="form-select" style="padding: 8px 10px; font-size: 12px;">
-                                                    <option value="">Pilih shift khusus</option>
-                                                    @foreach ($shifts as $id => $shiftName)
-                                                        <option value="{{ $id }}">{{ $shiftName }}</option>
-                                                    @endforeach
-                                                </select>
+                                                <div
+                                                    x-data="{
+                                                        open: false,
+                                                        search: '',
+                                                        value: @entangle('days.' . $dayKey . '.shift_id').live,
+                                                        options: {{ json_encode($shiftOptions) }},
+                                                        placeholder: 'Pilih shift khusus',
+                                                        get selectedLabel() {
+                                                            if (!this.value) return this.placeholder;
+                                                            let found = this.options.find(o => String(o.id) === String(this.value));
+                                                            return found ? found.name : this.placeholder;
+                                                        },
+                                                        get filteredOptions() {
+                                                            if (!this.search.trim()) return this.options;
+                                                            let q = this.search.toLowerCase();
+                                                            return this.options.filter(o => o.name.toLowerCase().includes(q));
+                                                        },
+                                                        selectOption(id) {
+                                                            this.value = id;
+                                                            this.open = false;
+                                                            this.search = '';
+                                                        },
+                                                        clear() {
+                                                            this.value = null;
+                                                            this.search = '';
+                                                        }
+                                                    }"
+                                                    @click.outside="open = false"
+                                                    class="custom-searchable-select"
+                                                >
+                                                    <div
+                                                        @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())"
+                                                        class="custom-select-trigger"
+                                                        :class="{ 'is-open': open }"
+                                                        style="min-height: 38px; padding: 6px 10px; font-size: 12px;"
+                                                    >
+                                                        <span x-text="selectedLabel" :class="{ 'is-placeholder': !value }"></span>
+                                                        <div style="display: flex; align-items: center; gap: 4px;">
+                                                            <template x-if="value">
+                                                                <button type="button" @click.stop="clear()" class="clear-btn">&times;</button>
+                                                            </template>
+                                                            <svg class="chevron-icon" :class="{ 'rotate-180': open }" viewBox="0 0 20 20" fill="currentColor">
+                                                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+
+                                                    <div x-show="open" x-transition.opacity.duration.150ms class="custom-select-dropdown" style="display: none;">
+                                                        <div class="dropdown-search-wrapper">
+                                                            <input
+                                                                x-ref="searchInput"
+                                                                type="text"
+                                                                x-model="search"
+                                                                placeholder="Cari shift..."
+                                                                class="dropdown-search-input"
+                                                                @keydown.escape="open = false"
+                                                            />
+                                                        </div>
+                                                        <div class="dropdown-options-list">
+                                                            <template x-for="opt in filteredOptions" :key="opt.id">
+                                                                <div
+                                                                    @click="selectOption(opt.id)"
+                                                                    class="dropdown-option-item"
+                                                                    :class="{ 'is-selected': String(opt.id) === String(value) }"
+                                                                >
+                                                                    <span x-text="opt.name"></span>
+                                                                </div>
+                                                            </template>
+                                                            <template x-if="filteredOptions.length === 0">
+                                                                <div class="no-options-found">Tidak ada shift</div>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             <div class="form-group">
@@ -676,18 +1209,87 @@
                                                     wire:model="days.{{ $dayKey }}.late_tolerance"
                                                     placeholder="15"
                                                     class="form-input"
-                                                    style="padding: 8px 10px; font-size: 12px;"
+                                                    style="padding: 8px 10px; font-size: 12px; min-height: 38px;"
                                                 />
                                             </div>
 
+                                            {{-- SEARCHABLE DROPDOWN: CUSTOM LOCATION --}}
                                             <div class="form-group">
                                                 <label class="form-label" style="font-size: 11px;">Store / Location (Custom)</label>
-                                                <select wire:model="days.{{ $dayKey }}.work_location_id" class="form-select" style="padding: 8px 10px; font-size: 12px;">
-                                                    <option value="">Pilih lokasi khusus</option>
-                                                    @foreach ($workLocations as $id => $locName)
-                                                        <option value="{{ $id }}">{{ $locName }}</option>
-                                                    @endforeach
-                                                </select>
+                                                <div
+                                                    x-data="{
+                                                        open: false,
+                                                        search: '',
+                                                        value: @entangle('days.' . $dayKey . '.work_location_id').live,
+                                                        options: {{ json_encode($locationOptions) }},
+                                                        placeholder: 'Pilih lokasi khusus',
+                                                        get selectedLabel() {
+                                                            if (!this.value) return this.placeholder;
+                                                            let found = this.options.find(o => String(o.id) === String(this.value));
+                                                            return found ? found.name : this.placeholder;
+                                                        },
+                                                        get filteredOptions() {
+                                                            if (!this.search.trim()) return this.options;
+                                                            let q = this.search.toLowerCase();
+                                                            return this.options.filter(o => o.name.toLowerCase().includes(q));
+                                                        },
+                                                        selectOption(id) {
+                                                            this.value = id;
+                                                            this.open = false;
+                                                            this.search = '';
+                                                        },
+                                                        clear() {
+                                                            this.value = null;
+                                                            this.search = '';
+                                                        }
+                                                    }"
+                                                    @click.outside="open = false"
+                                                    class="custom-searchable-select"
+                                                >
+                                                    <div
+                                                        @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())"
+                                                        class="custom-select-trigger"
+                                                        :class="{ 'is-open': open }"
+                                                        style="min-height: 38px; padding: 6px 10px; font-size: 12px;"
+                                                    >
+                                                        <span x-text="selectedLabel" :class="{ 'is-placeholder': !value }"></span>
+                                                        <div style="display: flex; align-items: center; gap: 4px;">
+                                                            <template x-if="value">
+                                                                <button type="button" @click.stop="clear()" class="clear-btn">&times;</button>
+                                                            </template>
+                                                            <svg class="chevron-icon" :class="{ 'rotate-180': open }" viewBox="0 0 20 20" fill="currentColor">
+                                                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+
+                                                    <div x-show="open" x-transition.opacity.duration.150ms class="custom-select-dropdown" style="display: none;">
+                                                        <div class="dropdown-search-wrapper">
+                                                            <input
+                                                                x-ref="searchInput"
+                                                                type="text"
+                                                                x-model="search"
+                                                                placeholder="Cari lokasi..."
+                                                                class="dropdown-search-input"
+                                                                @keydown.escape="open = false"
+                                                            />
+                                                        </div>
+                                                        <div class="dropdown-options-list">
+                                                            <template x-for="opt in filteredOptions" :key="opt.id">
+                                                                <div
+                                                                    @click="selectOption(opt.id)"
+                                                                    class="dropdown-option-item"
+                                                                    :class="{ 'is-selected': String(opt.id) === String(value) }"
+                                                                >
+                                                                    <span x-text="opt.name"></span>
+                                                                </div>
+                                                            </template>
+                                                            <template x-if="filteredOptions.length === 0">
+                                                                <div class="no-options-found">Tidak ada lokasi</div>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     @endif
@@ -737,17 +1339,78 @@
                     </div>
                 </div>
 
-                {{-- SELECT EMPLOYEE AUTOCOMPLETE --}}
+                {{-- SEARCHABLE DROPDOWN: SELECT EMPLOYEE AUTOCOMPLETE --}}
                 <div class="form-group" style="margin-top: 8px;">
                     <label class="form-label">
                         Select employee to be added
                     </label>
-                    <select wire:model.live="employee_to_add" class="form-select" style="padding: 12px 14px;">
-                        <option value="">-- Pilih karyawan untuk langsung ditambahkan ke list --</option>
-                        @foreach ($availableEmployees as $empId => $empLabel)
-                            <option value="{{ $empId }}">{{ $empLabel }}</option>
-                        @endforeach
-                    </select>
+                    <div
+                        x-data="{
+                            open: false,
+                            search: '',
+                            options: {{ json_encode($empOptions) }},
+                            placeholder: '-- Ketik nama / NIK karyawan untuk langsung ditambahkan --',
+                            get filteredOptions() {
+                                if (!this.search.trim()) return this.options.slice(0, 30);
+                                let q = this.search.toLowerCase();
+                                return this.options.filter(o => o.name.toLowerCase().includes(q)).slice(0, 30);
+                            },
+                            selectOption(id) {
+                                $wire.updatedEmployeeToAdd(id);
+                                this.open = false;
+                                this.search = '';
+                            }
+                        }"
+                        @click.outside="open = false"
+                        class="custom-searchable-select"
+                    >
+                        <div
+                            @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())"
+                            class="custom-select-trigger"
+                            :class="{ 'is-open': open }"
+                            style="min-height: 44px;"
+                        >
+                            <span class="is-placeholder" x-text="placeholder"></span>
+                            <svg class="chevron-icon" :class="{ 'rotate-180': open }" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+
+                        <div x-show="open" x-transition.opacity.duration.150ms class="custom-select-dropdown" style="display: none;">
+                            <div class="dropdown-search-wrapper">
+                                <svg style="width: 14px; height: 14px; color: #94a3b8;" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+                                </svg>
+                                <input
+                                    x-ref="searchInput"
+                                    type="text"
+                                    x-model="search"
+                                    placeholder="Ketik nama atau NIK karyawan..."
+                                    class="dropdown-search-input"
+                                    @keydown.escape="open = false"
+                                />
+                            </div>
+                            <div class="dropdown-options-list" style="max-height: 240px;">
+                                <template x-for="opt in filteredOptions" :key="opt.id">
+                                    <div
+                                        @click="selectOption(opt.id)"
+                                        class="dropdown-option-item"
+                                    >
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span style="font-weight: 600;" x-text="opt.name"></span>
+                                        </div>
+                                        <svg style="width: 14px; height: 14px; color: #0284c7;" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                </template>
+                                <template x-if="filteredOptions.length === 0">
+                                    <div class="no-options-found">Tidak ada karyawan yang cocok</div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
                     <div style="font-size: 11px; color: #64748b; font-style: italic;">
                         Selected employee will be automatically added to list
                     </div>
@@ -756,7 +1419,7 @@
                 {{-- TABLE CONTROLS --}}
                 <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 12px;">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <select wire:model.live="table_per_page" class="form-select" style="padding: 6px 12px; font-size: 12px; width: 70px;">
+                        <select wire:model.live="table_per_page" class="form-input" style="padding: 6px 12px; font-size: 12px; width: 70px;">
                             <option value="5">5</option>
                             <option value="10">10</option>
                             <option value="25">25</option>
