@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $tenantPrincipal->portal_title ?? ($tenantPrincipal->name . ' - Reporting Portal') }}</title>
+    <title>{{ $tenantPrincipal->name }} - Integrated Reporting Portal</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,6 +17,8 @@
     @endphp
 
     <style>
+        [x-cloak] { display: none !important; }
+
         :root {
             --brand-primary: {{ $brandColor }};
             --brand-secondary: {{ $brandSecondary }};
@@ -676,10 +678,14 @@
 </head>
 <body x-data="{
     lang: localStorage.getItem('portal_lang') || '{{ request()->query('lang', 'en') }}',
+    principalName: '{{ $tenantPrincipal->name }}',
     setLang(l) {
         this.lang = l;
         localStorage.setItem('portal_lang', l);
         document.documentElement.lang = l;
+        document.title = (l === 'en')
+            ? (this.principalName + ' - Integrated Reporting Portal')
+            : ('{{ $tenantPrincipal->portal_title ?? ($tenantPrincipal->name . " - Portal Pelaporan") }}');
     }
 }" x-init="setLang(lang)">
 
@@ -700,10 +706,13 @@
                 @endif
             </div>
             <div class="brand-info">
-                <span class="brand-title">{{ $tenantPrincipal->portal_title ?? $tenantPrincipal->name }}</span>
+                <span class="brand-title">
+                    <span x-show="lang === 'en'">{{ $tenantPrincipal->name }} Reporting &amp; Monitoring Portal</span>
+                    <span x-show="lang === 'id'" x-cloak>{{ $tenantPrincipal->portal_title ?? ('Portal Pelaporan & Monitoring ' . $tenantPrincipal->name) }}</span>
+                </span>
                 <span class="brand-subtitle">
-                    <span x-show="lang === 'en'">Enterprise Reporting Portal &bull; {{ $tenantPrincipal->name }}</span>
-                    <span x-show="lang === 'id'" x-cloak>Portal Pelaporan Perusahaan &bull; {{ $tenantPrincipal->name }}</span>
+                    <span x-show="lang === 'en'">ENTERPRISE REPORTING PORTAL &bull; {{ $tenantPrincipal->name }}</span>
+                    <span x-show="lang === 'id'" x-cloak>PORTAL PELAPORAN ENTERPRISE &bull; {{ $tenantPrincipal->name }}</span>
                 </span>
             </div>
         </a>
@@ -869,6 +878,26 @@
                         } elseif (str_contains(strtolower($tpl->title), 'posm') || str_contains(strtolower($tpl->title), 'stiker')) {
                             $iconClass = 'fa-solid fa-bullhorn';
                         }
+
+                        $idTitle = $tpl->title;
+                        $enTitle = $tpl->title;
+                        $translations = [
+                            'Laporan Cek Stok & OOS' => 'Stock Check & OOS Audit Report',
+                            'Laporan Stok & Freezer' => 'Stock & Freezer Audit Report',
+                            'Laporan Expired Date & Indikator Lakban' => 'Expiration Date & Tape Indicator Report',
+                            'Laporan Aktivitas & Promo Kompetitor' => 'Competitor Activity & Promo Report',
+                            'Laporan Share of Display (SOS)' => 'Share of Display (SOS) & Visibility Report',
+                            'Laporan Additional Display & Sewa Endcap' => 'Secondary Display & Endcap Rental Report',
+                            'Laporan Kunjungan' => 'Outlet Store Visit Report',
+                            'Laporan Absensi' => 'Attendance & Working Hours Report',
+                            'Laporan Penjualan' => 'Daily Sales & Offtake Report',
+                            'Laporan ' => 'Report - ',
+                        ];
+                        foreach ($translations as $from => $to) {
+                            if (stripos($enTitle, $from) !== false) {
+                                $enTitle = str_ireplace($from, $to, $enTitle);
+                            }
+                        }
                     @endphp
                     <div class="template-card">
                         <div>
@@ -878,8 +907,13 @@
                                 </div>
                                 <span class="template-code-badge">{{ $tpl->code }}</span>
                             </div>
-                            <h3 class="template-card-title">{{ $tpl->title }}</h3>
-                            <p class="template-card-desc">{{ $tpl->description ?? 'Standard operational field reporting module.' }}</p>
+                            <h3 class="template-card-title">
+                                <span x-show="lang === 'en'">{{ $enTitle }}</span>
+                                <span x-show="lang === 'id'" x-cloak>{{ $idTitle }}</span>
+                            </h3>
+                            <p class="template-card-desc">
+                                {{ $tpl->description ?? 'Standard operational field reporting module.' }}
+                            </p>
                         </div>
                         <div class="template-card-footer">
                             <span class="field-count-pill">
@@ -967,7 +1001,8 @@
     <footer>
         <div class="footer-brand">
             <i class="fa-solid fa-shield-halved" style="color: var(--brand-primary);"></i>
-            <span>{{ $tenantPrincipal->portal_title ?? $tenantPrincipal->name }}</span>
+            <span x-show="lang === 'en'">{{ $tenantPrincipal->name }} Reporting &amp; Monitoring Portal</span>
+            <span x-show="lang === 'id'" x-cloak>{{ $tenantPrincipal->portal_title ?? ('Portal Pelaporan & Monitoring ' . $tenantPrincipal->name) }}</span>
         </div>
         <div>
             &copy; {{ date('Y') }} {{ $tenantPrincipal->name }}. 
