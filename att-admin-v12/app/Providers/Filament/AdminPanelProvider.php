@@ -31,8 +31,8 @@ class AdminPanelProvider extends PanelProvider
             $setting = null;
         }
 
-        $appName = $setting?->app_name ?? 'AbsensiKu';
-        $themeColor = $setting?->theme_color ?? '#0A192F';
+        $appName = $setting?->app_name ?? 'ESA Groups';
+        $themeColor = $setting?->theme_color ?? '#0F52BA';
         $logoPath = $setting?->logo_path;
 
         return $panel
@@ -56,48 +56,207 @@ class AdminPanelProvider extends PanelProvider
                 return null;
             })
             ->brandLogoHeight($logoPath ? '2.5rem' : null)
-            ->font('Public Sans')
+            ->font('Outfit')
             ->colors([
-                'primary' => $themeColor,
-                'danger' => '#EA5455',
-                'success' => '#28C76F',
-                'warning' => '#FF9F43',
-                'info' => '#00CFE8',
+                'primary' => [
+                    50  => '#eff6ff',
+                    100 => '#dbeafe',
+                    200 => '#bfdbfe',
+                    300 => '#93c5fd',
+                    400 => '#60a5fa',
+                    500 => '#2563eb',
+                    600 => '#0F52BA',
+                    700 => '#1d4ed8',
+                    800 => '#1e40af',
+                    900 => '#1e3a8a',
+                    950 => '#172554',
+                ],
+                'danger' => '#EF4444',
+                'success' => '#10B981',
+                'warning' => '#F59E0B',
+                'info' => '#06B6D4',
                 'gray' => Color::Slate,
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => '<style>
+                fn (): string => '<link rel="preconnect" href="https://fonts.googleapis.com">
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+                <style>
+                    /* GLOBAL OUTFIT TYPOGRAPHY & CLEAN PRINCIPAL PORTAL THEME */
+                    * {
+                        font-family: \'Outfit\', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                    }
+                    
+                    /* Background body */
+                    .fi-body {
+                        background-color: #f8fafc !important;
+                    }
+                    .dark .fi-body {
+                        background-color: #0b1120 !important;
+                    }
+
+                    /* SIDEBAR CLEAN DESIGN */
                     aside.fi-sidebar {
-                        background-color: ' . $themeColor . ' !important;
+                        background-color: #ffffff !important;
+                        border-right: 1px solid #e2e8f0 !important;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
                     }
+                    .dark aside.fi-sidebar {
+                        background-color: #0f172a !important;
+                        border-right-color: #1e293b !important;
+                        box-shadow: none !important;
+                    }
+
+                    /* Sidebar Header */
                     .fi-sidebar-header {
-                        background-color: ' . $themeColor . ' !important;
-                        border-bottom: 1px solid rgba(255,255,255,0.1);
+                        background-color: #ffffff !important;
+                        border-bottom: 1px solid #f1f5f9 !important;
+                        padding-top: 1.15rem !important;
+                        padding-bottom: 1.15rem !important;
                     }
-                    .fi-sidebar .fi-sidebar-item-label, .fi-sidebar .fi-sidebar-item-icon, .fi-sidebar-group-label {
+                    .dark .fi-sidebar-header {
+                        background-color: #0f172a !important;
+                        border-bottom-color: #1e293b !important;
+                    }
+                    .fi-sidebar-header .fi-logo {
+                        color: #0f172a !important;
+                        font-weight: 800 !important;
+                        letter-spacing: -0.3px !important;
+                    }
+                    .dark .fi-sidebar-header .fi-logo {
+                        color: #f8fafc !important;
+                    }
+
+                    /* Sidebar Navigation Group Labels */
+                    .fi-sidebar-group-label {
+                        font-size: 0.68rem !important;
+                        font-weight: 800 !important;
+                        text-transform: uppercase !important;
+                        letter-spacing: 0.8px !important;
+                        color: #64748b !important;
+                        padding-top: 0.85rem !important;
+                    }
+                    .dark .fi-sidebar-group-label {
+                        color: #94a3b8 !important;
+                    }
+
+                    /* Sidebar Items */
+                    .fi-sidebar-item-button,
+                    .fi-sidebar-item > a,
+                    .fi-sidebar-item > button {
+                        border-radius: 10px !important;
+                        margin-bottom: 2px !important;
+                        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                    }
+                    .fi-sidebar-item-label {
+                        font-size: 0.86rem !important;
+                        font-weight: 600 !important;
+                        color: #334155 !important;
+                    }
+                    .dark .fi-sidebar-item-label {
                         color: #cbd5e1 !important;
                     }
-                    .fi-sidebar .fi-sidebar-item.fi-active > a, 
-                    .fi-sidebar .fi-sidebar-item.fi-active > button {
-                        background-color: rgba(255, 255, 255, 0.15) !important;
+                    .fi-sidebar-item-icon {
+                        color: #64748b !important;
+                        transition: color 0.15s ease !important;
                     }
-                    .fi-sidebar .fi-sidebar-item.fi-active .fi-sidebar-item-label, 
-                    .fi-sidebar .fi-sidebar-item.fi-active .fi-sidebar-item-icon {
+                    .dark .fi-sidebar-item-icon {
+                        color: #94a3b8 !important;
+                    }
+
+                    /* Sidebar Hover State */
+                    .fi-sidebar-item:hover > a,
+                    .fi-sidebar-item:hover > button {
+                        background-color: #f1f5f9 !important;
+                    }
+                    .dark .fi-sidebar-item:hover > a,
+                    .dark .fi-sidebar-item:hover > button {
+                        background-color: #1e293b !important;
+                    }
+                    .fi-sidebar-item:hover .fi-sidebar-item-label {
+                        color: #0f172a !important;
+                    }
+                    .dark .fi-sidebar-item:hover .fi-sidebar-item-label {
                         color: #ffffff !important;
-                        font-weight: 600 !important;
                     }
-                    /* Logo in sidebar header */
-                    .fi-sidebar-header .fi-logo {
-                        color: #ffffff !important;
+                    .fi-sidebar-item:hover .fi-sidebar-item-icon {
+                        color: #0F52BA !important;
                     }
-                    /* Logo in topbar */
+                    .dark .fi-sidebar-item:hover .fi-sidebar-item-icon {
+                        color: #60a5fa !important;
+                    }
+
+                    /* Sidebar Active State (Portal-style highlight) */
+                    .fi-sidebar-item.fi-active > a,
+                    .fi-sidebar-item.fi-active > button {
+                        background: linear-gradient(135deg, rgba(15, 82, 186, 0.1) 0%, rgba(37, 99, 235, 0.05) 100%) !important;
+                        border-left: 3px solid #0F52BA !important;
+                    }
+                    .dark .fi-sidebar-item.fi-active > a,
+                    .dark .fi-sidebar-item.fi-active > button {
+                        background: linear-gradient(135deg, rgba(37, 99, 235, 0.22) 0%, rgba(59, 130, 246, 0.12) 100%) !important;
+                        border-left: 3px solid #3b82f6 !important;
+                    }
+                    .fi-sidebar-item.fi-active .fi-sidebar-item-label {
+                        color: #0F52BA !important;
+                        font-weight: 700 !important;
+                    }
+                    .dark .fi-sidebar-item.fi-active .fi-sidebar-item-label {
+                        color: #60a5fa !important;
+                    }
+                    .fi-sidebar-item.fi-active .fi-sidebar-item-icon {
+                        color: #0F52BA !important;
+                    }
+                    .dark .fi-sidebar-item.fi-active .fi-sidebar-item-icon {
+                        color: #60a5fa !important;
+                    }
+
+                    /* TOPBAR CLEAN DESIGN */
+                    .fi-topbar {
+                        background-color: #ffffff !important;
+                        border-bottom: 1px solid #e2e8f0 !important;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
+                    }
+                    .dark .fi-topbar {
+                        background-color: #0f172a !important;
+                        border-bottom-color: #1e293b !important;
+                        box-shadow: none !important;
+                    }
                     .fi-topbar .fi-logo {
-                        color: ' . $themeColor . ' !important;
+                        color: #0F52BA !important;
+                        font-weight: 800 !important;
                     }
                     .dark .fi-topbar .fi-logo {
-                        color: #ffffff !important;
+                        color: #60a5fa !important;
                     }
+
+                    /* CLEAN CARDS, SECTIONS, & TABLES */
+                    .fi-section,
+                    .fi-ta-ctn,
+                    .fi-wi-widget > div {
+                        border-radius: 14px !important;
+                        border: 1px solid #e2e8f0 !important;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02) !important;
+                    }
+                    .dark .fi-section,
+                    .dark .fi-ta-ctn,
+                    .dark .fi-wi-widget > div {
+                        border-color: #1e293b !important;
+                        background-color: #0f172a !important;
+                        box-shadow: none !important;
+                    }
+
+                    /* BUTTONS & CONTROLS */
+                    .fi-btn {
+                        border-radius: 10px !important;
+                        font-weight: 700 !important;
+                        transition: all 0.15s ease !important;
+                    }
+                    .fi-input-wrp {
+                        border-radius: 10px !important;
+                    }
+
                     /* Custom logo override */
                     .fi-logo-custom-img { display: flex; align-items: center; }
                 </style>'
@@ -144,16 +303,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
-            ->navigationItems([
-                \Filament\Navigation\NavigationItem::make('Portal Pelaporan Prinsiple')
-                    ->url('/portal', shouldOpenInNewTab: false)
-                    ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->group('Ringkasan & Portal')
-                    ->sort(-1),
-            ])
             ->navigationGroups([
-                \Filament\Navigation\NavigationGroup::make()
-                     ->label('Ringkasan & Portal'),
                 \Filament\Navigation\NavigationGroup::make()
                      ->label('Master Data'),
                 \Filament\Navigation\NavigationGroup::make()
