@@ -480,6 +480,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
         }
         .dark .media-photo-frame {
             background: #0f172a;
@@ -492,7 +493,7 @@
             transition: transform 0.2s ease;
         }
         .media-photo-frame img:hover {
-            transform: scale(1.02);
+            transform: scale(1.03);
         }
 
         .media-footer-bar {
@@ -500,20 +501,137 @@
             align-items: center;
             justify-content: flex-end;
         }
-        .media-full-link {
+        .media-full-btn {
             font-size: 0.78rem;
             font-weight: 700;
             color: #0F52BA;
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: background 0.15s ease;
+        }
+        .media-full-btn:hover {
+            background: rgba(15, 82, 186, 0.08);
+            text-decoration: underline;
+        }
+        .dark .media-full-btn {
+            color: #60a5fa;
+        }
+
+        /* LIGHTBOX MODAL */
+        .lightbox-backdrop {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            padding: 1.5rem;
+        }
+        .lightbox-content-box {
+            position: relative;
+            max-width: 92vw;
+            max-height: 92vh;
+            display: flex;
+            flex-direction: column;
+            background: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: zoomIn 0.2s ease;
+        }
+        .dark .lightbox-content-box {
+            background: #1e293b;
+        }
+        @keyframes zoomIn {
+            from { transform: scale(0.92); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .lightbox-header {
+            padding: 1rem 1.35rem;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .dark .lightbox-header {
+            background: #0f172a;
+            border-color: #334155;
+        }
+        .lightbox-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .dark .lightbox-title {
+            color: #f8fafc;
+        }
+        .lightbox-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .lightbox-action-btn {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #0f172a;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 4px;
+            transition: background 0.15s ease;
         }
-        .media-full-link:hover {
-            text-decoration: underline;
+        .dark .lightbox-action-btn {
+            background: #334155;
+            color: #f8fafc;
+            border-color: #475569;
         }
-        .dark .media-full-link {
-            color: #60a5fa;
+        .lightbox-close-btn {
+            background: none;
+            border: none;
+            font-size: 1.4rem;
+            color: #64748b;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 4px;
+            transition: color 0.15s ease;
+        }
+        .lightbox-close-btn:hover {
+            color: #ef4444;
+        }
+        .lightbox-image-wrap {
+            padding: 1rem;
+            background: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+            max-height: calc(92vh - 70px);
+        }
+        .lightbox-image-wrap img {
+            max-width: 100%;
+            max-height: 75vh;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
     </style>
 
@@ -626,7 +744,7 @@
                         @if($coordinates)
                             <span style="font-family: monospace; font-size: 0.82rem;">{{ $coordinates }}</span>
                             @if($mapsUrl)
-                                <a href="{{ $mapsUrl }}" target="_blank" class="photo-link" style="margin-left: 6px; font-size: 0.8rem; color: #0F52BA; font-weight: 700; text-decoration: underline;">
+                                <a href="{{ $mapsUrl }}" target="_blank" class="media-full-btn" style="margin-left: 6px; font-size: 0.8rem; text-decoration: underline;">
                                     <span>Buka Maps ↗</span>
                                 </a>
                             @endif
@@ -737,15 +855,13 @@
                                     <span class="media-badge-tag">📷 Foto #{{ $loop->iteration }}</span>
                                     <div class="media-field-title">{{ $fieldLabel }}</div>
                                 </div>
-                                <div class="media-photo-frame">
-                                    <a href="{{ $mediaUrl }}" target="_blank">
-                                        <img src="{{ $mediaUrl }}" alt="{{ $fieldLabel }}" loading="lazy">
-                                    </a>
+                                <div class="media-photo-frame" onclick="openAdminPhotoModal('{{ $mediaUrl }}', '{{ addslashes($fieldLabel) }}')" title="Klik untuk memperbesar">
+                                    <img src="{{ $mediaUrl }}" alt="{{ $fieldLabel }}" loading="lazy">
                                 </div>
                                 <div class="media-footer-bar">
-                                    <a href="{{ $mediaUrl }}" target="_blank" class="media-full-link">
-                                        <span>Buka Resolusi Penuh ↗</span>
-                                    </a>
+                                    <button type="button" class="media-full-btn" onclick="openAdminPhotoModal('{{ $mediaUrl }}', '{{ addslashes($fieldLabel) }}')">
+                                        <span>Lihat Foto Penuh ↗</span>
+                                    </button>
                                 </div>
                             </div>
                         @endforeach
@@ -754,4 +870,53 @@
             @endif
         </div>
     </div>
+
+    {{-- LIGHTBOX MODAL UNTUK PREVIEW FOTO ADMIN --}}
+    <div id="adminPhotoLightbox" class="lightbox-backdrop" onclick="if(event.target === this) closeAdminPhotoModal()">
+        <div class="lightbox-content-box">
+            <div class="lightbox-header">
+                <div class="lightbox-title">
+                    <x-filament::icon icon="heroicon-o-photo" style="width: 20px; height: 20px; color: #0F52BA;" />
+                    <span id="adminLightboxTitle">Preview Foto Bukti</span>
+                </div>
+                <div class="lightbox-actions">
+                    <a id="adminLightboxDownloadBtn" href="#" target="_blank" download class="lightbox-action-btn">
+                        <span>Unduh File</span>
+                    </a>
+                    <button type="button" class="lightbox-close-btn" onclick="closeAdminPhotoModal()">&times;</button>
+                </div>
+            </div>
+            <div class="lightbox-image-wrap">
+                <img id="adminLightboxImg" src="" alt="Preview">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openAdminPhotoModal(imageUrl, title) {
+            const modal = document.getElementById('adminPhotoLightbox');
+            if (modal) {
+                document.getElementById('adminLightboxImg').src = imageUrl;
+                document.getElementById('adminLightboxTitle').textContent = title || 'Preview Foto Bukti';
+                document.getElementById('adminLightboxDownloadBtn').href = imageUrl;
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        function closeAdminPhotoModal() {
+            const modal = document.getElementById('adminPhotoLightbox');
+            if (modal) {
+                modal.style.display = 'none';
+                document.getElementById('adminLightboxImg').src = '';
+                document.body.style.overflow = 'auto';
+            }
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeAdminPhotoModal();
+            }
+        });
+    </script>
 </x-filament-panels::page>

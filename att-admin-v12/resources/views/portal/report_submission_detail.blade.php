@@ -432,6 +432,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        cursor: pointer;
     }
     .media-photo-frame img {
         width: 100%;
@@ -440,7 +441,7 @@
         transition: transform 0.2s ease;
     }
     .media-photo-frame img:hover {
-        transform: scale(1.02);
+        transform: scale(1.03);
     }
 
     .media-footer-bar {
@@ -448,20 +449,125 @@
         align-items: center;
         justify-content: flex-end;
     }
-    .media-full-link {
+    .media-full-btn {
         font-size: 0.78rem;
         font-weight: 700;
         color: #0F52BA;
+        background: none;
+        border: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        transition: background 0.15s ease;
+    }
+    .media-full-btn:hover {
+        background: rgba(15, 82, 186, 0.08);
+        text-decoration: underline;
+    }
+
+    /* LIGHTBOX MODAL */
+    .lightbox-backdrop {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(8px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        padding: 1.5rem;
+    }
+    .lightbox-content-box {
+        position: relative;
+        max-width: 92vw;
+        max-height: 92vh;
+        display: flex;
+        flex-direction: column;
+        background: #ffffff;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        animation: zoomIn 0.2s ease;
+    }
+    @keyframes zoomIn {
+        from { transform: scale(0.92); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+    .lightbox-header {
+        padding: 1rem 1.35rem;
+        background: #f8fafc;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    .lightbox-title {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: var(--text-heading);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .lightbox-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .lightbox-action-btn {
+        background: #f1f5f9;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 6px 12px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--text-heading);
         text-decoration: none;
         display: inline-flex;
         align-items: center;
         gap: 4px;
+        transition: background 0.15s ease;
     }
-    .media-full-link:hover {
-        text-decoration: underline;
+    .lightbox-action-btn:hover {
+        background: #e2e8f0;
+    }
+    .lightbox-close-btn {
+        background: none;
+        border: none;
+        font-size: 1.4rem;
+        color: var(--text-muted);
+        cursor: pointer;
+        line-height: 1;
+        padding: 0 4px;
+        transition: color 0.15s ease;
+    }
+    .lightbox-close-btn:hover {
+        color: #ef4444;
+    }
+    .lightbox-image-wrap {
+        padding: 1rem;
+        background: #0f172a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: auto;
+        max-height: calc(92vh - 70px);
+    }
+    .lightbox-image-wrap img {
+        max-width: 100%;
+        max-height: 75vh;
+        object-fit: contain;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
 
-    /* MODAL STYLING */
+    /* REJECT MODAL STYLING */
     .custom-modal-backdrop {
         position: fixed;
         top: 0;
@@ -685,7 +791,7 @@
                         @if($coordinates)
                             <span style="font-family: monospace; font-size: 0.82rem;">{{ $coordinates }}</span>
                             @if($mapsUrl)
-                                <a href="{{ $mapsUrl }}" target="_blank" class="photo-link" style="margin-left: 6px; font-size: 0.8rem;">
+                                <a href="{{ $mapsUrl }}" target="_blank" class="media-full-btn" style="margin-left: 6px; font-size: 0.8rem; text-decoration: underline;">
                                     <span>Buka Maps ↗</span>
                                 </a>
                             @endif
@@ -796,15 +902,13 @@
                                     <span class="media-badge-tag"><i class="fa-solid fa-image"></i> Foto #{{ $loop->iteration }}</span>
                                     <div class="media-field-title">{{ $fieldLabel }}</div>
                                 </div>
-                                <div class="media-photo-frame">
-                                    <a href="{{ $mediaUrl }}" target="_blank">
-                                        <img src="{{ $mediaUrl }}" alt="{{ $fieldLabel }}" loading="lazy">
-                                    </a>
+                                <div class="media-photo-frame" onclick="openPhotoModal('{{ $mediaUrl }}', '{{ addslashes($fieldLabel) }}')" title="Klik untuk memperbesar">
+                                    <img src="{{ $mediaUrl }}" alt="{{ $fieldLabel }}" loading="lazy">
                                 </div>
                                 <div class="media-footer-bar">
-                                    <a href="{{ $mediaUrl }}" target="_blank" class="media-full-link">
-                                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Buka Resolusi Penuh
-                                    </a>
+                                    <button type="button" class="media-full-btn" onclick="openPhotoModal('{{ $mediaUrl }}', '{{ addslashes($fieldLabel) }}')">
+                                        <i class="fa-solid fa-expand"></i> <span>Lihat Foto Penuh</span>
+                                    </button>
                                 </div>
                             </div>
                         @endforeach
@@ -814,8 +918,29 @@
         </div>
     </div>
 
+    {{-- LIGHTBOX MODAL UNTUK PREVIEW FOTO --}}
+    <div id="photoLightbox" class="lightbox-backdrop" onclick="if(event.target === this) closePhotoModal()">
+        <div class="lightbox-content-box">
+            <div class="lightbox-header">
+                <div class="lightbox-title">
+                    <i class="fa-solid fa-image" style="color: #0F52BA;"></i>
+                    <span id="lightboxTitle">Preview Foto Bukti</span>
+                </div>
+                <div class="lightbox-actions">
+                    <a id="lightboxDownloadBtn" href="#" target="_blank" download class="lightbox-action-btn">
+                        <i class="fa-solid fa-download"></i> <span>Unduh</span>
+                    </a>
+                    <button type="button" class="lightbox-close-btn" onclick="closePhotoModal()">&times;</button>
+                </div>
+            </div>
+            <div class="lightbox-image-wrap">
+                <img id="lightboxImg" src="" alt="Preview">
+            </div>
+        </div>
+    </div>
+
     {{-- MODAL REJECT WITH REASON --}}
-    <div id="rejectModal" class="custom-modal-backdrop">
+    <div id="rejectModal" class="custom-modal-backdrop" onclick="if(event.target === this) closeRejectModal()">
         <div class="custom-modal-box">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                 <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #b91c1c; display: flex; align-items: center; gap: 8px;">
@@ -848,18 +973,35 @@
 
     @push('scripts')
     <script>
+        function openPhotoModal(imageUrl, title) {
+            document.getElementById('lightboxImg').src = imageUrl;
+            document.getElementById('lightboxTitle').textContent = title || 'Preview Foto Bukti';
+            document.getElementById('lightboxDownloadBtn').href = imageUrl;
+            document.getElementById('photoLightbox').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePhotoModal() {
+            document.getElementById('photoLightbox').style.display = 'none';
+            document.getElementById('lightboxImg').src = '';
+            document.body.style.overflow = 'auto';
+        }
+
         function openRejectModal() {
             document.getElementById('rejectModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
         }
         function closeRejectModal() {
             document.getElementById('rejectModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
         }
-        window.onclick = function(event) {
-            const modal = document.getElementById('rejectModal');
-            if (event.target == modal) {
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closePhotoModal();
                 closeRejectModal();
             }
-        }
+        });
     </script>
     @endpush
 @endsection
