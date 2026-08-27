@@ -359,7 +359,7 @@ class EmployeeScheduleRoster extends Page implements HasForms
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('primary')
                 ->modalHeading('Import Jadwal Roster (Excel)')
-                ->modalDescription('Unggah file Excel (.xlsx / .csv) berisi jadwal kerja karyawan. Kolom template: nik, nama_karyawan, tanggal_mulai, tanggal_akhir, shift, lokasi_kerja.')
+                ->modalDescription('Unggah file Excel (.xlsx / .csv) berisi jadwal kerja karyawan. Mendukung format per-tanggal harian (kolom KTP, NAME, STORE CODE, STORE NAME, MONTH, YEAR, 1..31) maupun format rentang tanggal (nik, tanggal_mulai, tanggal_akhir, shift, lokasi_kerja).')
                 ->form([
                     FileUpload::make('attachment')
                         ->label('File Excel (.xlsx / .csv)')
