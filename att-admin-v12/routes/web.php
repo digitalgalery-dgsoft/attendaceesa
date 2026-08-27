@@ -27,6 +27,64 @@ Route::get('/.well-known/acme-challenge/{token}', function ($token) {
     return response('acme challenge handler active', 404);
 });
 
+Route::get('/portal-assets/logo/{id}', function ($id) {
+    $principal = \App\Models\Principal::find($id);
+    if (!$principal) abort(404);
+    
+    $path = $principal->logo_path ?: ($principal->logo ?? null);
+    if (!$path) abort(404);
+
+    $candidates = [
+        storage_path('app/public/' . $path),
+        storage_path('app/private/' . $path),
+        storage_path('app/' . $path),
+        public_path('storage/' . $path),
+        base_path('storage/app/public/' . $path),
+        base_path('storage/app/' . $path),
+    ];
+
+    foreach ($candidates as $filePath) {
+        if (file_exists($filePath) && !is_dir($filePath)) {
+            $mime = mime_content_type($filePath) ?: 'image/png';
+            return response()->file($filePath, [
+                'Content-Type' => $mime,
+                'Cache-Control' => 'public, max-age=86400',
+            ]);
+        }
+    }
+
+    abort(404);
+})->name('portal.logo');
+
+Route::get('/portal-assets/banner/{id}', function ($id) {
+    $principal = \App\Models\Principal::find($id);
+    if (!$principal) abort(404);
+    
+    $path = $principal->banner_path ?: ($principal->banner ?? null);
+    if (!$path) abort(404);
+
+    $candidates = [
+        storage_path('app/public/' . $path),
+        storage_path('app/private/' . $path),
+        storage_path('app/' . $path),
+        public_path('storage/' . $path),
+        base_path('storage/app/public/' . $path),
+        base_path('storage/app/' . $path),
+    ];
+
+    foreach ($candidates as $filePath) {
+        if (file_exists($filePath) && !is_dir($filePath)) {
+            $mime = mime_content_type($filePath) ?: 'image/jpeg';
+            return response()->file($filePath, [
+                'Content-Type' => $mime,
+                'Cache-Control' => 'public, max-age=86400',
+            ]);
+        }
+    }
+
+    abort(404);
+})->name('portal.banner');
+
 Route::get('/', function (\Illuminate\Http\Request $request) {
     $setting = Setting::first();
     

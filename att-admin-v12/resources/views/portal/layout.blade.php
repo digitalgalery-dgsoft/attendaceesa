@@ -453,10 +453,16 @@
     <!-- Sidebar -->
     <aside class="portal-sidebar" id="portalSidebar">
         <div class="sidebar-header">
-            @if(!empty($tenantPrincipal->logo_path))
-                <img src="{{ asset('storage/' . $tenantPrincipal->logo_path) }}" alt="{{ $tenantPrincipal->name }}" class="sidebar-logo">
-            @elseif(!empty($tenantPrincipal->logo))
-                <img src="{{ asset('storage/' . $tenantPrincipal->logo) }}" alt="{{ $tenantPrincipal->name }}" class="sidebar-logo">
+            @if($tenantPrincipal->logo_url)
+                <img src="{{ $tenantPrincipal->logo_url }}" alt="{{ $tenantPrincipal->name }}" class="sidebar-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="sidebar-badge-icon" style="display: none;">
+                    <i class="fa-solid fa-layer-group"></i>
+                </div>
+            @elseif(!empty($setting->app_logo))
+                <img src="{{ asset('storage/' . $setting->app_logo) }}" alt="{{ $tenantPrincipal->name }}" class="sidebar-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="sidebar-badge-icon" style="display: none;">
+                    <i class="fa-solid fa-layer-group"></i>
+                </div>
             @else
                 <div class="sidebar-badge-icon">
                     <i class="fa-solid fa-layer-group"></i>

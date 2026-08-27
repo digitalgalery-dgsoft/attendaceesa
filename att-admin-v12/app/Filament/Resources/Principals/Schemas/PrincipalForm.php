@@ -72,11 +72,15 @@ class PrincipalForm
                             FileUpload::make('logo_path')
                                 ->label('Logo Prinsiple (Header/Login)')
                                 ->image()
+                                ->disk('public')
+                                ->visibility('public')
                                 ->directory('principals/logos')
                                 ->imageEditor(),
                             FileUpload::make('banner_path')
                                 ->label('Banner Portal / Dashboard')
                                 ->image()
+                                ->disk('public')
+                                ->visibility('public')
                                 ->directory('principals/banners')
                                 ->imageEditor(),
                         ]),

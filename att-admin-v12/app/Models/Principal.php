@@ -80,4 +80,33 @@ class Principal extends Model
         $secondary = $this->theme_color_secondary ?: $primary;
         return "linear-gradient(135deg, {$primary} 0%, {$secondary} 100%)";
     }
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        $path = $this->logo_path ?: ($this->logo ?? null);
+        if (!$path) {
+            return null;
+        }
+
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
+        }
+
+        // Return dedicated logo stream route
+        return route('portal.logo', ['id' => $this->id]);
+    }
+
+    public function getBannerUrlAttribute(): ?string
+    {
+        $path = $this->banner_path ?: ($this->banner ?? null);
+        if (!$path) {
+            return null;
+        }
+
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
+        }
+
+        return route('portal.banner', ['id' => $this->id]);
+    }
 }
