@@ -178,7 +178,7 @@ class LiveChat extends Page
         if (!empty($this->search)) {
             $query->whereHas('employee', function ($q) {
                 $q->whereRaw('LOWER(full_name) LIKE LOWER(?)', ['%' . strtolower($this->search) . '%'])
-                  ->orWhereRaw('LOWER(nik) LIKE LOWER(?)', ['%' . strtolower($this->search) . '%']);
+                  ->orWhereRaw('LOWER(employee_no) LIKE LOWER(?)', ['%' . strtolower($this->search) . '%']);
             });
         }
 
@@ -194,7 +194,7 @@ class LiveChat extends Page
         if (!empty($this->newChatSearch)) {
             $query->where(function ($q) {
                 $q->whereRaw('LOWER(full_name) LIKE LOWER(?)', ['%' . strtolower($this->newChatSearch) . '%'])
-                  ->orWhereRaw('LOWER(nik) LIKE LOWER(?)', ['%' . strtolower($this->newChatSearch) . '%']);
+                  ->orWhereRaw('LOWER(employee_no) LIKE LOWER(?)', ['%' . strtolower($this->newChatSearch) . '%']);
             });
         }
 

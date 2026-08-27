@@ -605,7 +605,7 @@
                     $activeEmpName = $activeConversation->employee?->full_name ?? $activeConversation->employee?->name ?? 'Karyawan';
                     $activeEmpPos = $activeConversation->employee?->position?->name ?? 'Tenaga Lapangan';
                     $activeEmpBranch = $activeConversation->employee?->branch?->name ?? $activeConversation->employee?->area?->name ?? 'Area';
-                    $activeEmpNik = $activeConversation->employee?->nik ?? '-';
+                    $activeEmpNik = $activeConversation->employee?->employee_no ?? $activeConversation->employee?->nik ?? '-';
                     $activeEmpInitial = strtoupper(substr($activeEmpName, 0, 1));
                 @endphp
 
@@ -618,7 +618,7 @@
                         <div>
                             <h3 style="font-weight: 800; font-size: 1rem; color: #0f172a; margin: 0;">{{ $activeEmpName }}</h3>
                             <p style="font-size: 0.76rem; color: #64748b; margin: 2px 0 0 0;">
-                                {{ $activeEmpPos }} &bull; {{ $activeEmpBranch }} (NIK: {{ $activeEmpNik }})
+                                {{ $activeEmpPos }} &bull; {{ $activeEmpBranch }} (NIK/No: {{ $activeEmpNik }})
                             </p>
                         </div>
                     </div>
@@ -712,7 +712,7 @@
                             <div style="flex: 1 1 0%; min-width: 0;">
                                 <div style="font-weight: 700; font-size: 0.85rem; color: #0f172a;">{{ $emp->full_name ?? $emp->name }}</div>
                                 <div style="font-size: 0.72rem; color: #64748b;">
-                                    {{ $emp->position?->name ?? 'SPG/MD' }} &bull; {{ $emp->branch?->name ?? 'Cabang' }} (NIK: {{ $emp->nik ?? '-' }})
+                                    {{ $emp->position?->name ?? 'SPG/MD' }} &bull; {{ $emp->branch?->name ?? 'Cabang' }} (No: {{ $emp->employee_no ?? '-' }})
                                 </div>
                             </div>
                             <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem; color: #94a3b8;"></i>
