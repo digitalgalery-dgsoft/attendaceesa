@@ -1151,7 +1151,33 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                           ),
                         ],
 
-                        if (widget.type == 'visit_in')
+                        if (widget.type == 'visit_in') ...[
+                          Builder(builder: (context) {
+                            final itinerary = attProvider.todayItinerary;
+                            final isStrict = itinerary?['is_strict_routing'] == true;
+                            if (!isStrict) return const SizedBox.shrink();
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.amber.shade700, width: 0.8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.lock, color: Colors.amber.shade900, size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Aturan Routing Aktif: Kunjungan wajib dilakukan berurutan sesuai list rute toko.',
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
                           Padding(
                             padding: const EdgeInsets.only(bottom: 12.0),
                             child: DropdownButtonFormField<int>(
@@ -1170,9 +1196,35 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                               initialValue: _selectedWorkLocationId,
                               value: _selectedWorkLocationId,
                               items: attProvider.workLocations.map((loc) {
+                                final itemsList = (attProvider.todayItinerary?['items'] as List?) ?? [];
+                                final itItem = itemsList.firstWhere(
+                                  (e) => e['work_location_id'] == loc['id'],
+                                  orElse: () => null,
+                                );
+                                final seq = itItem?['sequence'];
+                                final isLocked = itItem?['is_locked'] == true;
+                                final isTarget = itItem?['is_next_target'] == true;
+
+                                String label = loc['name'] ?? 'Toko';
+                                if (isTarget) {
+                                  label = '🎯 $label (Urutan #$seq - Target)';
+                                } else if (isLocked) {
+                                  label = '🔒 $label (Urutan #$seq - Terkunci)';
+                                } else if (seq != null) {
+                                  label = '$label (Urutan #$seq)';
+                                }
+
                                 return DropdownMenuItem<int>(
                                   value: loc['id'],
-                                  child: Text(loc['name']),
+                                  child: Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: isTarget ? FontWeight.bold : FontWeight.normal,
+                                      color: isLocked ? subtitleColor : textColor,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 );
                               }).toList(),
                               onChanged: (val) {
@@ -1182,6 +1234,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                               },
                             ),
                           ),
+                        ],
 
                         if (widget.type == 'visit_out')
                           Padding(

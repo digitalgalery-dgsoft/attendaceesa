@@ -36,16 +36,21 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         .fetchItineraries(authProvider);
   }
 
-  List<dynamic> _getEventsForDay(DateTime day, List<dynamic> itineraries) {
+  Map<String, dynamic>? _getItineraryForDay(DateTime day, List<dynamic> itineraries) {
     final dateStr = DateFormat('yyyy-MM-dd').format(day);
     try {
-      final itinerary = itineraries.firstWhere(
+      final item = itineraries.firstWhere(
         (it) => it['date'] == dateStr,
       );
-      return itinerary['items'] ?? [];
+      return item is Map<String, dynamic> ? item : Map<String, dynamic>.from(item);
     } catch (e) {
-      return [];
+      return null;
     }
+  }
+
+  List<dynamic> _getEventsForDay(DateTime day, List<dynamic> itineraries) {
+    final itinerary = _getItineraryForDay(day, itineraries);
+    return itinerary != null ? (itinerary['items'] ?? []) : [];
   }
 
   @override
@@ -154,14 +159,53 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        child: Text(
-                          'Jadwal Kunjungan: ${DateFormat('dd MMM yyyy').format(_selectedDay ?? _focusedDay)}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: textColor,
-                          ),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Jadwal Kunjungan: ${DateFormat('dd MMM yyyy').format(_selectedDay ?? _focusedDay)}',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor,
+                                ),
+                              ),
+                            ),
+                            if (selectedEvents.isNotEmpty) ...[
+                              Builder(builder: (context) {
+                                final currentItinerary = _getItineraryForDay(_selectedDay ?? _focusedDay, itineraryProvider.itineraries);
+                                final isStrict = currentItinerary?['is_strict_routing'] == true;
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: isStrict ? Colors.amber.withValues(alpha: 0.15) : Colors.blue.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: isStrict ? Colors.amber.shade700 : Colors.blue.shade400, width: 0.8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isStrict ? Icons.lock : Icons.swap_horiz,
+                                        size: 12,
+                                        color: isStrict ? Colors.amber.shade900 : Colors.blue.shade700,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        isStrict ? 'Rute Wajib Berurutan' : 'Bebas Visit',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: isStrict ? Colors.amber.shade900 : Colors.blue.shade800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                          ],
                         ),
                       ),
                       if (selectedEvents.isEmpty)
@@ -190,47 +234,106 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                               final locationName = event['work_location'] != null
                                   ? event['work_location']['name']
                                   : 'Unknown Location';
+                              final isVisited = event['is_visited'] == true;
+                              final isLocked = event['is_locked'] == true;
+                              final isNextTarget = event['is_next_target'] == true;
                                   
                               return Container(
-                                margin: const EdgeInsets.only(bottom: 12),
+                                margin: const EdgeInsets.only(bottom: 10),
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: cardColor,
-                                  border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                                  border: Border.all(
+                                    color: isNextTarget 
+                                        ? primaryColor.withValues(alpha: 0.6) 
+                                        : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                                    width: isNextTarget ? 1.5 : 1,
+                                  ),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.all(10),
+                                      padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: primaryColor.withOpacity(0.1),
+                                        color: isVisited 
+                                            ? Colors.green.withValues(alpha: 0.15)
+                                            : (isLocked ? Colors.orange.withValues(alpha: 0.15) : primaryColor.withValues(alpha: 0.1)),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
-                                      child: Text(
-                                        '${index + 1}',
-                                        style: TextStyle(
-                                          color: primaryColor,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
+                                      child: isVisited
+                                          ? const Icon(Icons.check_circle, size: 18, color: Colors.green)
+                                          : (isLocked
+                                              ? Icon(Icons.lock, size: 18, color: Colors.orange.shade700)
+                                              : Text(
+                                                  '${event['sequence'] ?? (index + 1)}',
+                                                  style: TextStyle(
+                                                    color: primaryColor,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13,
+                                                  ),
+                                                )),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            locationName,
-                                            style: TextStyle(fontWeight: FontWeight.bold, color: textColor, fontSize: 14),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  locationName,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isLocked ? textColor.withValues(alpha: 0.7) : textColor,
+                                                    fontSize: 13.5,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (isVisited)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.green.withValues(alpha: 0.12),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: const Text('SELESAI', style: TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+                                                )
+                                              else if (isLocked)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.orange.withValues(alpha: 0.12),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text('TERKUNCI', style: TextStyle(color: Colors.orange.shade800, fontSize: 9, fontWeight: FontWeight.bold)),
+                                                )
+                                              else if (isNextTarget)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: primaryColor.withValues(alpha: 0.12),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text('TARGET BERIKUTNYA', style: TextStyle(color: primaryColor, fontSize: 9, fontWeight: FontWeight.bold)),
+                                                ),
+                                            ],
                                           ),
                                           if (event['notes'] != null && event['notes'].toString().isNotEmpty) ...[
-                                            const SizedBox(height: 4),
+                                            const SizedBox(height: 3),
                                             Text(
                                               event['notes'],
-                                              style: TextStyle(color: subtitleColor, fontSize: 12),
+                                              style: TextStyle(color: subtitleColor, fontSize: 11.5),
                                             ),
-                                          ]
+                                          ],
+                                          if (isLocked) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Wajib selesaikan kunjungan urutan sebelumnya terlebih dahulu',
+                                              style: TextStyle(color: Colors.orange.shade700, fontSize: 10, fontStyle: FontStyle.italic),
+                                            ),
+                                          ],
                                         ],
                                       ),
                                     ),
