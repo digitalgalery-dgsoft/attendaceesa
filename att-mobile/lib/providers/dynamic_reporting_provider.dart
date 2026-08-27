@@ -256,6 +256,77 @@ class DynamicReportingProvider with ChangeNotifier {
   }
 
   /**
+   * Update an existing report submission.
+   */
+  Future<Map<String, dynamic>> updateReport({
+    required String token,
+    required int submissionId,
+    String? storeName,
+    int? workLocationId,
+    String? address,
+    required Map<String, dynamic> values,
+    required Map<String, File> photoFiles,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final uri = Uri.parse('${Constants.baseUrl}/reporting/submissions/$submissionId');
+      final request = http.MultipartRequest('POST', uri);
+
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+
+      if (storeName != null) request.fields['store_name'] = storeName;
+      if (workLocationId != null) request.fields['work_location_id'] = workLocationId.toString();
+      if (address != null) request.fields['address'] = address;
+
+      // Values JSON
+      request.fields['values'] = jsonEncode(values);
+
+      // Photos
+      for (final entry in photoFiles.entries) {
+        final fieldId = entry.key;
+        final file = entry.value;
+        if (await file.exists()) {
+          request.files.add(await http.MultipartFile.fromPath('photo_$fieldId', file.path));
+        }
+      }
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 35));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final resData = jsonDecode(response.body);
+        _isLoading = false;
+        await fetchHistory(token);
+        notifyListeners();
+        return {
+          'success': true,
+          'message': resData['message'] ?? 'Laporan berhasil diperbarui.',
+        };
+      } else {
+        final resData = jsonDecode(response.body);
+        _isLoading = false;
+        notifyListeners();
+        return {
+          'success': false,
+          'message': resData['message'] ?? 'Gagal memperbarui laporan.',
+        };
+      }
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return {
+        'success': false,
+        'message': 'Gagal memperbarui laporan: $e',
+      };
+    }
+  }
+
+  /**
    * Refresh pending offline reports count.
    */
   Future<void> refreshPendingCount() async {

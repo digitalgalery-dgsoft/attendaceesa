@@ -8,6 +8,7 @@ import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/providers/locale_provider.dart';
 import 'package:att_mobile/screens/dynamic_form_screen.dart';
+import 'package:att_mobile/screens/report_detail_screen.dart';
 
 class ReportingHubScreen extends StatefulWidget {
   final String? storeName;
@@ -618,7 +619,6 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: cardColor,
             borderRadius: BorderRadius.circular(16),
@@ -631,47 +631,83 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    item.submissionCode,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryColor, fontFamily: 'monospace'),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ReportDetailScreen(submission: item),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: statusBgColor,
-                      borderRadius: BorderRadius.circular(6),
+                ).then((_) {
+                  final auth = Provider.of<AuthProvider>(context, listen: false);
+                  if (auth.token != null) {
+                    Provider.of<DynamicReportingProvider>(context, listen: false).fetchHistory(auth.token!);
+                  }
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          item.submissionCode,
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryColor, fontFamily: 'monospace'),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: statusBgColor,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            statusLabel,
+                            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: statusTextColor),
+                          ),
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      statusLabel,
-                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: statusTextColor),
+                    const SizedBox(height: 6),
+                    Text(
+                      item.templateTitle,
+                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                item.templateTitle,
-                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor),
-              ),
-              if (item.storeName != null) ...[
-                const SizedBox(height: 3),
-                Text(
-                  '📍 ${item.storeName}',
-                  style: TextStyle(fontSize: 12, color: subtitleColor),
+                    if (item.storeName != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        '📍 ${item.storeName}',
+                        style: TextStyle(fontSize: 12, color: subtitleColor),
+                      ),
+                    ],
+                    const Divider(height: 18),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Waktu: $dateStr',
+                          style: TextStyle(fontSize: 11, color: subtitleColor),
+                        ),
+                        Row(
+                          children: [
+                            Text(
+                              item.canEdit ? 'Detail & Edit' : 'Lihat Detail',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primaryColor),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(Icons.arrow_forward_ios_rounded, size: 11, color: primaryColor),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-              const Divider(height: 18),
-              Text(
-                'Waktu Submit: $dateStr',
-                style: TextStyle(fontSize: 11, color: subtitleColor),
               ),
-            ],
+            ),
           ),
         );
       },

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:toastification/toastification.dart';
 import 'package:att_mobile/models/report_template_model.dart';
+import 'package:att_mobile/models/report_submission_model.dart';
 import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
@@ -17,6 +18,7 @@ class DynamicFormScreen extends StatefulWidget {
   final String? storeName;
   final int? workLocationId;
   final int? itineraryItemId;
+  final ReportSubmissionModel? editSubmission;
 
   const DynamicFormScreen({
     super.key,
@@ -24,6 +26,7 @@ class DynamicFormScreen extends StatefulWidget {
     this.storeName,
     this.workLocationId,
     this.itineraryItemId,
+    this.editSubmission,
   });
 
   @override
@@ -46,6 +49,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   final Map<String, dynamic> _formValues = {};
   final Map<String, File> _photoFiles = {};
   final Map<String, String> _watermarkTexts = {};
+  final Map<String, String> _existingPhotoUrls = {};
 
   // Controllers untuk text & currency fields
   final Map<String, TextEditingController> _controllers = {};
@@ -187,6 +191,60 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         _formValues[fieldKey] = int.tryParse(field.defaultValue ?? '5') ?? 5;
       } else if (field.fieldType == 'multi_select' || field.fieldType == 'checkbox_group') {
         _formValues[fieldKey] = <String>[];
+      }
+    }
+
+    // Pre-populate jika membuka laporan dalam mode edit
+    if (widget.editSubmission != null) {
+      _selectedStoreName = widget.editSubmission!.storeName ?? _selectedStoreName;
+      _selectedWorkLocationId = widget.editSubmission!.workLocationId ?? _selectedWorkLocationId;
+
+      for (final val in widget.editSubmission!.values) {
+        final fieldKey = val.reportFormFieldId != null ? val.reportFormFieldId.toString() : val.fieldName;
+
+        if (val.mediaFullUrl != null && val.mediaFullUrl!.isNotEmpty) {
+          _existingPhotoUrls[fieldKey] = val.mediaFullUrl!;
+          _existingPhotoUrls[val.fieldName] = val.mediaFullUrl!;
+        }
+
+        if (['photo', 'camera_photo', 'multi_photo', 'signature'].contains(val.fieldType)) {
+          _formValues[fieldKey] = val.valueText;
+          _formValues[val.fieldName] = val.valueText;
+          continue;
+        }
+
+        if (val.fieldType == 'currency') {
+          final formatted = val.valueNumber != null
+              ? NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(val.valueNumber)
+              : (val.valueText ?? '');
+          _controllers[fieldKey] = TextEditingController(text: formatted);
+          _controllers[val.fieldName] = TextEditingController(text: formatted);
+          _formValues[fieldKey] = val.valueNumber ?? val.valueText;
+          _formValues[val.fieldName] = val.valueNumber ?? val.valueText;
+        } else if (['text', 'textarea', 'number', 'integer', 'percentage', 'date', 'datepicker', 'time', 'timepicker', 'datetime'].contains(val.fieldType)) {
+          final strVal = val.valueText ?? (val.valueNumber != null ? (val.valueNumber! % 1 == 0 ? val.valueNumber!.toInt().toString() : val.valueNumber.toString()) : '');
+          _controllers[fieldKey] = TextEditingController(text: strVal);
+          _controllers[val.fieldName] = TextEditingController(text: strVal);
+          _formValues[fieldKey] = strVal;
+          _formValues[val.fieldName] = strVal;
+        } else if (val.fieldType == 'checkbox') {
+          final boolVal = val.valueText == 'true' || val.valueText == '1';
+          _formValues[fieldKey] = boolVal;
+          _formValues[val.fieldName] = boolVal;
+        } else if (val.fieldType == 'rating' || val.fieldType == 'rating_star') {
+          final rateVal = val.valueNumber?.toInt() ?? int.tryParse(val.valueText ?? '5') ?? 5;
+          _formValues[fieldKey] = rateVal;
+          _formValues[val.fieldName] = rateVal;
+        } else if (val.fieldType == 'multi_select' || val.fieldType == 'checkbox_group') {
+          if (val.valueJson is List) {
+            _formValues[fieldKey] = (val.valueJson as List).map((e) => e.toString()).toList();
+          } else if (val.valueText != null && val.valueText!.isNotEmpty) {
+            _formValues[fieldKey] = val.valueText!.split(',').map((e) => e.trim()).toList();
+          }
+        } else {
+          _formValues[fieldKey] = val.valueText;
+          _formValues[val.fieldName] = val.valueText;
+        }
       }
     }
   }
@@ -859,7 +917,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       if (field.isRequired) {
         final fieldKey = field.id.toString();
         if (['photo', 'camera_photo', 'multi_photo', 'signature'].contains(field.fieldType)) {
-          if (!_photoFiles.containsKey(fieldKey) || _photoFiles[fieldKey] == null) {
+          final hasFile = _photoFiles.containsKey(fieldKey) && _photoFiles[fieldKey] != null;
+          final hasExisting = _existingPhotoUrls.containsKey(fieldKey) || _existingPhotoUrls.containsKey(field.fieldName);
+          if (!hasFile && !hasExisting) {
             toastification.show(
               context: context,
               type: ToastificationType.warning,
@@ -891,21 +951,35 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     });
 
-    final result = await repProvider.submitReport(
-      token: token,
-      templateId: widget.template.id,
-      templateTitle: widget.template.title,
-      storeName: _selectedStoreName,
-      workLocationId: _selectedWorkLocationId,
-      itineraryItemId: widget.itineraryItemId,
-      latitude: _latitude,
-      longitude: _longitude,
-      address: _selectedLocation?['address'] ?? _address,
-      isWithinRadius: _isWithinRadius,
-      values: _formValues,
-      photoFiles: _photoFiles,
-      watermarkTexts: _watermarkTexts,
-    );
+    Map<String, dynamic> result;
+
+    if (widget.editSubmission != null) {
+      result = await repProvider.updateReport(
+        token: token,
+        submissionId: widget.editSubmission!.id,
+        storeName: _selectedStoreName,
+        workLocationId: _selectedWorkLocationId,
+        address: _selectedLocation?['address'] ?? _address,
+        values: _formValues,
+        photoFiles: _photoFiles,
+      );
+    } else {
+      result = await repProvider.submitReport(
+        token: token,
+        templateId: widget.template.id,
+        templateTitle: widget.template.title,
+        storeName: _selectedStoreName,
+        workLocationId: _selectedWorkLocationId,
+        itineraryItemId: widget.itineraryItemId,
+        latitude: _latitude,
+        longitude: _longitude,
+        address: _selectedLocation?['address'] ?? _address,
+        isWithinRadius: _isWithinRadius,
+        values: _formValues,
+        photoFiles: _photoFiles,
+        watermarkTexts: _watermarkTexts,
+      );
+    }
 
     setState(() => _isSubmitting = false);
 
@@ -913,11 +987,19 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       toastification.show(
         context: context,
         type: result['is_offline'] == true ? ToastificationType.info : ToastificationType.success,
-        title: Text(result['is_offline'] == true ? 'Tersimpan Offline' : 'Laporan Terkirim'),
-        description: Text(result['message']),
+        title: Text(widget.editSubmission != null ? 'Laporan Diperbarui' : (result['is_offline'] == true ? 'Tersimpan Offline' : 'Laporan Terkirim')),
+        description: Text(result['message'] ?? 'Berhasil menyimpan laporan.'),
         autoCloseDuration: const Duration(seconds: 4),
       );
       Navigator.of(context).pop(true);
+    } else if (mounted) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        title: const Text('Gagal Menyimpan'),
+        description: Text(result['message'] ?? 'Terjadi kesalahan saat menyimpan.'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
     }
   }
 
@@ -972,7 +1054,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       backgroundColor: backgroundColor,
       appBar: AppBar(
         title: Text(
-          widget.template.title,
+          widget.editSubmission != null ? 'Edit ${widget.template.title}' : widget.template.title,
           style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold),
         ),
         backgroundColor: backgroundColor,
@@ -1296,9 +1378,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               onPressed: _isSubmitting ? null : _submitForm,
               icon: _isSubmitting
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                  : Icon(widget.editSubmission != null ? Icons.save_rounded : Icons.send_rounded, color: Colors.white, size: 18),
               label: Text(
-                _isSubmitting ? locale.tr('btn_submitting_report') : locale.tr('btn_submit_report'),
+                _isSubmitting
+                    ? (widget.editSubmission != null ? 'Menyimpan Perubahan...' : locale.tr('btn_submitting_report'))
+                    : (widget.editSubmission != null ? 'Simpan Perubahan Laporan' : locale.tr('btn_submit_report')),
                 style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(
@@ -1521,6 +1605,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       case 'camera_photo':
       case 'multi_photo':
         final photoFile = _photoFiles[fieldKey];
+        final existingPhotoUrl = _existingPhotoUrls[fieldKey] ?? _existingPhotoUrls[field.fieldName];
+
         inputWidget = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1530,11 +1616,46 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 child: Image.file(photoFile, height: 220, width: double.infinity, fit: BoxFit.cover),
               ),
               const SizedBox(height: 10),
+            ] else if (existingPhotoUrl != null && existingPhotoUrl.isNotEmpty) ...[
+              Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      existingPhotoUrl,
+                      height: 220,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 120,
+                        color: elevatedColor,
+                        alignment: Alignment.center,
+                        child: Text('Foto sebelumnya tersimpan', style: TextStyle(color: subtitleColor, fontSize: 12)),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text('Foto Tersimpan', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
             ],
             OutlinedButton.icon(
               onPressed: () => _takeWatermarkedPhoto(field),
               icon: const Icon(Icons.camera_alt_rounded, size: 18),
-              label: Text(photoFile == null ? locale.tr('take_watermark_photo') : locale.tr('retake_photo')),
+              label: Text(
+                (photoFile == null && (existingPhotoUrl == null || existingPhotoUrl.isEmpty))
+                    ? locale.tr('take_watermark_photo')
+                    : 'Ubah / Ambil Ulang Foto',
+              ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: themeColor,
                 side: BorderSide(color: themeColor),
@@ -1548,6 +1669,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
       case 'signature':
         final sigFile = _photoFiles[fieldKey];
+        final existingSigUrl = _existingPhotoUrls[fieldKey] ?? _existingPhotoUrls[field.fieldName];
+
         inputWidget = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1563,11 +1686,27 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 child: Image.file(sigFile, fit: BoxFit.contain),
               ),
               const SizedBox(height: 10),
+            ] else if (existingSigUrl != null && existingSigUrl.isNotEmpty) ...[
+              Container(
+                height: 100,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Image.network(existingSigUrl, fit: BoxFit.contain),
+              ),
+              const SizedBox(height: 10),
             ],
             OutlinedButton.icon(
               onPressed: () => _openSignaturePad(field),
               icon: const Icon(Icons.draw_rounded, size: 18),
-              label: Text(sigFile == null ? locale.tr('sign_pad_button') : locale.tr('resign_button')),
+              label: Text(
+                (sigFile == null && (existingSigUrl == null || existingSigUrl.isEmpty))
+                    ? locale.tr('sign_pad_button')
+                    : 'Ubah Tanda Tangan',
+              ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: themeColor,
                 side: BorderSide(color: themeColor),
