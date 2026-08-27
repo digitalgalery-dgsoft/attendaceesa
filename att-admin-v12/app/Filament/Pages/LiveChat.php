@@ -201,7 +201,7 @@ class LiveChat extends Page
         return $query->orderBy('full_name')->limit(25)->get();
     }
 
-    public function render(): \Illuminate\Contracts\View\View
+    protected function getViewData(): array
     {
         $conversations = $this->getConversations();
         $activeConversation = $this->activeConversationId 
@@ -209,10 +209,10 @@ class LiveChat extends Page
             : null;
         $availableEmployees = $this->showNewChatModal ? $this->getAvailableEmployees() : collect();
 
-        return view($this->view, [
+        return [
             'conversations' => $conversations,
             'activeConversation' => $activeConversation,
             'availableEmployees' => $availableEmployees,
-        ]);
+        ];
     }
 }
