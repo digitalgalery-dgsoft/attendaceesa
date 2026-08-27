@@ -353,6 +353,55 @@ class PrincipalPortalController extends Controller
     }
 
     /**
+     * View detailed individual report submission on Principal Portal
+     */
+    public function submissionDetail(Request $request, string $code, int $id)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principals.id', $scopedPrincipalIds);
+        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+
+        $template = ReportTemplate::where('code', $code)
+            ->whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+                $q->whereIn('principals.id', $scopedPrincipalIds);
+            })
+            ->with('fields')
+            ->firstOrFail();
+
+        $submission = ReportSubmission::where('id', $id)
+            ->where('report_template_id', $template->id)
+            ->whereIn('principal_id', $scopedPrincipalIds)
+            ->with([
+                'employee.branch',
+                'employee.position',
+                'workLocation',
+                'itineraryItem',
+                'values.formField',
+                'verifier'
+            ])
+            ->firstOrFail();
+
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.report_submission_detail', compact(
+            'tenantPrincipal',
+            'tenantPrincipalsAll',
+            'brandColor',
+            'activeTemplates',
+            'template',
+            'submission',
+            'setting'
+        ));
+    }
+
+    /**
      * Export Submissions for a Template to CSV / Excel Download
      */
     public function exportReport(Request $request, string $code)

@@ -324,28 +324,34 @@
                 <table class="custom-table">
                     <thead>
                         <tr>
-                            <th>No</th>
-                            <th>Tanggal & Jam</th>
+                            <th style="width: 50px; text-align: center;">No</th>
+                            <th style="width: 140px;">No. Laporan</th>
+                            <th>Tanggal & Waktu</th>
                             <th>Petugas (SPG/MD)</th>
                             <th>Toko / Outlet</th>
-                            <th>Validasi GPS</th>
-                            @foreach($template->fields as $field)
-                                <th>{{ $field->field_label }}</th>
-                            @endforeach
+                            <th style="text-align: center;">Validasi GPS</th>
+                            <th style="text-align: center;">Status</th>
+                            <th style="text-align: right; width: 140px;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($submissions as $idx => $sub)
                             @php
-                                $valuesMap = $sub->values->keyBy('report_form_field_id');
+                                $status = $sub->status ?? 'pending';
+                                $storeName = $sub->workLocation?->name ?? $sub->itineraryItem?->destination ?? $sub->store_name ?? 'Kunjungan Toko';
                             @endphp
                             <tr>
-                                <td style="color: var(--text-muted); font-weight: 700;">
+                                <td style="color: var(--text-muted); font-weight: 700; text-align: center;">
                                     {{ $submissions->firstItem() + $idx }}
                                 </td>
                                 <td>
+                                    <span class="template-code-pill" style="font-size: 0.78rem; color: #0F52BA; background: rgba(15, 82, 186, 0.08); border-color: rgba(15, 82, 186, 0.2);">
+                                        {{ $sub->submission_code }}
+                                    </span>
+                                </td>
+                                <td>
                                     <div style="font-weight: 700; color: var(--text-heading);">
-                                        {{ $sub->submitted_at ? $sub->submitted_at->format('d M Y') : '-' }}
+                                        {{ $sub->submitted_at ? $sub->submitted_at->translatedFormat('d M Y') : '-' }}
                                     </div>
                                     <div style="font-size: 0.75rem; color: var(--text-muted);">
                                         {{ $sub->submitted_at ? $sub->submitted_at->format('H:i:s') : '-' }} WIB
@@ -353,61 +359,51 @@
                                 </td>
                                 <td>
                                     <div style="font-weight: 700; color: var(--text-heading);">
-                                        {{ $sub->employee?->name ?? 'Petugas' }}
+                                        {{ $sub->employee?->full_name ?? $sub->employee?->name ?? 'Petugas' }}
                                     </div>
                                     <div style="font-size: 0.75rem; color: var(--text-muted);">
                                         NIK: {{ $sub->employee?->nik ?? '-' }}
                                     </div>
                                 </td>
                                 <td>
-                                    <div style="font-weight: 600; color: var(--text-heading);">
-                                        {{ $sub->workLocation?->name ?? 'Outlet Reguler' }}
+                                    <div style="font-weight: 700; color: var(--text-heading);">
+                                        {{ $storeName }}
                                     </div>
                                     <div style="font-size: 0.75rem; color: var(--text-muted);">
-                                        {{ $sub->workLocation?->address ?? '-' }}
+                                        {{ $sub->employee?->branch?->name ?? ($sub->workLocation?->address ? \Illuminate\Support\Str::limit($sub->workLocation->address, 35) : '-') }}
                                     </div>
                                 </td>
-                                <td>
+                                <td style="text-align: center;">
                                     @if($sub->is_within_radius)
-                                        <span style="font-size: 0.74rem; font-weight: 700; color: #16a34a; background: #dcfce7; padding: 0.2rem 0.55rem; border-radius: 9999px;">
-                                            <i class="fa-solid fa-check"></i> Valid
+                                        <span style="font-size: 0.74rem; font-weight: 700; color: #16a34a; background: #dcfce7; padding: 0.25rem 0.65rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid fa-circle-check"></i> Valid
                                         </span>
                                     @else
-                                        <span style="font-size: 0.74rem; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 0.2rem 0.55rem; border-radius: 9999px;">
-                                            Terekam
+                                        <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.65rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid fa-triangle-exclamation"></i> Luar Radius
                                         </span>
                                     @endif
                                 </td>
-                                @foreach($template->fields as $field)
-                                    @php
-                                        $val = $valuesMap->get($field->id);
-                                    @endphp
-                                    <td>
-                                        @if($val)
-                                            @if($val->file_path)
-                                                <a href="{{ asset('storage/' . $val->file_path) }}" target="_blank">
-                                                    <img src="{{ asset('storage/' . $val->file_path) }}" alt="Foto" class="img-thumb-preview">
-                                                </a>
-                                            @elseif($val->value_number !== null)
-                                                <span style="font-weight: 700; color: var(--text-heading);">
-                                                    {{ number_format($val->value_number) }}
-                                                </span>
-                                            @elseif($val->value_date)
-                                                <span style="color: var(--text-heading);">
-                                                    {{ Carbon\Carbon::parse($val->value_date)->format('d/m/Y') }}
-                                                </span>
-                                            @elseif($val->value_json)
-                                                <span style="font-size: 0.78rem; background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 4px;">
-                                                    {{ is_array($val->value_json) ? implode(', ', $val->value_json) : $val->value_json }}
-                                                </span>
-                                            @else
-                                                <span>{{ $val->value_text ?? '-' }}</span>
-                                            @endif
-                                        @else
-                                            <span style="color: #cbd5e1;">-</span>
-                                        @endif
-                                    </td>
-                                @endforeach
+                                <td style="text-align: center;">
+                                    @if(in_array($status, ['approved', 'verified']))
+                                        <span style="font-size: 0.74rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 0.25rem 0.65rem; border-radius: 8px;">
+                                            Terverifikasi
+                                        </span>
+                                    @elseif($status === 'rejected')
+                                        <span style="font-size: 0.74rem; font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 0.25rem 0.65rem; border-radius: 8px;">
+                                            Ditolak
+                                        </span>
+                                    @else
+                                        <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.65rem; border-radius: 8px;">
+                                            Menunggu
+                                        </span>
+                                    @endif
+                                </td>
+                                <td style="text-align: right;">
+                                    <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" style="display: inline-flex; align-items: center; gap: 6px; padding: 0.45rem 0.85rem; border-radius: 8px; font-size: 0.8rem; font-weight: 700; text-decoration: none; background: #f1f5f9; color: #0F52BA; border: 1px solid #cbd5e1; transition: all 0.15s ease;" onmouseover="this.style.background='#0F52BA'; this.style.color='#fff';" onmouseout="this.style.background='#f1f5f9'; this.style.color='#0F52BA';">
+                                        <i class="fa-solid fa-eye"></i> Detail
+                                    </a>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>

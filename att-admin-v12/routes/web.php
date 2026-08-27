@@ -112,6 +112,7 @@ Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function ()
 
     // Dynamic Report Templates
     Route::get('/report/{code}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'reportDetail'])->name('report.detail');
+    Route::get('/report/{code}/submission/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'submissionDetail'])->name('report.submission');
     Route::get('/report/{code}/export', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'exportReport'])->name('report.export');
 });
 
