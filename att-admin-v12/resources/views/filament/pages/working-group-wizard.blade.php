@@ -230,6 +230,40 @@
             color: #ef4444;
         }
 
+        .multi-select-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: 700;
+            background: #e0f2fe;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+            border-radius: 6px;
+        }
+        .dark .multi-select-chip {
+            background: #082f49;
+            color: #38bdf8;
+            border-color: #0369a1;
+        }
+        .chip-remove-btn {
+            background: none;
+            border: none;
+            color: #0369a1;
+            font-weight: 800;
+            font-size: 13px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        .dark .chip-remove-btn {
+            color: #38bdf8;
+        }
+        .chip-remove-btn:hover {
+            color: #ef4444;
+        }
+
         .custom-select-dropdown {
             position: absolute;
             top: calc(100% + 4px);
@@ -703,33 +737,48 @@
                         Working group will applied from date applied afterward. This feature will be generating alpha to absent employees.
                     </div>
 
-                    {{-- SEARCHABLE DROPDOWN: FOR AREA --}}
+                    {{-- SEARCHABLE MULTI-SELECT DROPDOWN: FOR AREA --}}
                     <div class="form-group">
-                        <label class="form-label">For Area (Cabang)</label>
+                        <label class="form-label">For Area / Cabang (Bisa Pilih Banyak)</label>
                         <div
                             x-data="{
                                 open: false,
                                 search: '',
-                                value: @entangle('branch_id').live,
+                                values: @entangle('branch_ids').live,
                                 options: {{ json_encode($branchOptions) }},
-                                placeholder: '-- Select Area --',
-                                get selectedLabel() {
-                                    if (!this.value) return this.placeholder;
-                                    let found = this.options.find(o => String(o.id) === String(this.value));
-                                    return found ? found.name : this.placeholder;
+                                placeholder: '-- Pilih Area / Cabang --',
+                                get selectedItems() {
+                                    if (!Array.isArray(this.values)) return [];
+                                    return this.options.filter(o => this.values.map(String).includes(String(o.id)));
                                 },
                                 get filteredOptions() {
                                     if (!this.search.trim()) return this.options;
                                     let q = this.search.toLowerCase();
                                     return this.options.filter(o => o.name.toLowerCase().includes(q));
                                 },
-                                selectOption(id) {
-                                    this.value = id;
-                                    this.open = false;
-                                    this.search = '';
+                                toggleOption(id) {
+                                    let strId = String(id);
+                                    let current = Array.isArray(this.values) ? this.values.map(String) : [];
+                                    if (current.includes(strId)) {
+                                        this.values = current.filter(v => v !== strId);
+                                    } else {
+                                        this.values = [...current, id];
+                                    }
+                                },
+                                isSelected(id) {
+                                    return Array.isArray(this.values) && this.values.map(String).includes(String(id));
+                                },
+                                removeItem(id) {
+                                    let strId = String(id);
+                                    if (Array.isArray(this.values)) {
+                                        this.values = this.values.filter(v => String(v) !== strId);
+                                    }
+                                },
+                                selectAll() {
+                                    this.values = this.options.map(o => o.id);
                                 },
                                 clear() {
-                                    this.value = null;
+                                    this.values = [];
                                     this.search = '';
                                 }
                             }"
@@ -740,11 +789,25 @@
                                 @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())"
                                 class="custom-select-trigger"
                                 :class="{ 'is-open': open }"
+                                style="min-height: 42px; flex-wrap: wrap; gap: 4px; padding: 6px 12px;"
                             >
-                                <span x-text="selectedLabel" :class="{ 'is-placeholder': !value }"></span>
-                                <div style="display: flex; align-items: center; gap: 4px;">
-                                    <template x-if="value">
-                                        <button type="button" @click.stop="clear()" class="clear-btn">&times;</button>
+                                <template x-if="selectedItems.length === 0">
+                                    <span class="is-placeholder" x-text="placeholder"></span>
+                                </template>
+                                <template x-if="selectedItems.length > 0">
+                                    <div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 90%;">
+                                        <template x-for="item in selectedItems" :key="item.id">
+                                            <span class="multi-select-chip" @click.stop="">
+                                                <span x-text="item.name"></span>
+                                                <button type="button" @click.stop="removeItem(item.id)" class="chip-remove-btn">&times;</button>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                <div style="display: flex; align-items: center; gap: 4px; margin-left: auto;">
+                                    <template x-if="selectedItems.length > 0">
+                                        <button type="button" @click.stop="clear()" class="clear-btn" title="Hapus semua pilihan">&times;</button>
                                     </template>
                                     <svg class="chevron-icon" :class="{ 'rotate-180': open }" viewBox="0 0 20 20" fill="currentColor">
                                         <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -766,19 +829,21 @@
                                         @keydown.escape="open = false"
                                     />
                                 </div>
+                                <div style="padding: 4px 10px; background: #f1f5f9; display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #64748b; border-bottom: 1px solid #e2e8f0;">
+                                    <button type="button" @click="selectAll()" style="background: none; border: none; color: #0284c7; cursor: pointer;">Pilih Semua</button>
+                                    <button type="button" @click="clear()" style="background: none; border: none; color: #ef4444; cursor: pointer;">Kosongkan</button>
+                                </div>
                                 <div class="dropdown-options-list">
                                     <template x-for="opt in filteredOptions" :key="opt.id">
                                         <div
-                                            @click="selectOption(opt.id)"
+                                            @click="toggleOption(opt.id)"
                                             class="dropdown-option-item"
-                                            :class="{ 'is-selected': String(opt.id) === String(value) }"
+                                            :class="{ 'is-selected': isSelected(opt.id) }"
                                         >
-                                            <span x-text="opt.name"></span>
-                                            <template x-if="String(opt.id) === String(value)">
-                                                <svg style="width: 16px; height: 16px; color: #0284c7;" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                                                </svg>
-                                            </template>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <input type="checkbox" :checked="isSelected(opt.id)" style="cursor: pointer; pointer-events: none;" />
+                                                <span x-text="opt.name"></span>
+                                            </div>
                                         </div>
                                     </template>
                                     <template x-if="filteredOptions.length === 0">
@@ -789,33 +854,48 @@
                         </div>
                     </div>
 
-                    {{-- SEARCHABLE DROPDOWN: PRINSIPLE --}}
+                    {{-- SEARCHABLE MULTI-SELECT DROPDOWN: PRINSIPLE --}}
                     <div class="form-group">
-                        <label class="form-label">Prinsiple (Opsional)</label>
+                        <label class="form-label">Prinsiple (Bisa Pilih Banyak)</label>
                         <div
                             x-data="{
                                 open: false,
                                 search: '',
-                                value: @entangle('principal_id').live,
+                                values: @entangle('principal_ids').live,
                                 options: {{ json_encode($principalOptions) }},
                                 placeholder: '-- Semua Prinsiple --',
-                                get selectedLabel() {
-                                    if (!this.value) return this.placeholder;
-                                    let found = this.options.find(o => String(o.id) === String(this.value));
-                                    return found ? found.name : this.placeholder;
+                                get selectedItems() {
+                                    if (!Array.isArray(this.values)) return [];
+                                    return this.options.filter(o => this.values.map(String).includes(String(o.id)));
                                 },
                                 get filteredOptions() {
                                     if (!this.search.trim()) return this.options;
                                     let q = this.search.toLowerCase();
                                     return this.options.filter(o => o.name.toLowerCase().includes(q));
                                 },
-                                selectOption(id) {
-                                    this.value = id;
-                                    this.open = false;
-                                    this.search = '';
+                                toggleOption(id) {
+                                    let strId = String(id);
+                                    let current = Array.isArray(this.values) ? this.values.map(String) : [];
+                                    if (current.includes(strId)) {
+                                        this.values = current.filter(v => v !== strId);
+                                    } else {
+                                        this.values = [...current, id];
+                                    }
+                                },
+                                isSelected(id) {
+                                    return Array.isArray(this.values) && this.values.map(String).includes(String(id));
+                                },
+                                removeItem(id) {
+                                    let strId = String(id);
+                                    if (Array.isArray(this.values)) {
+                                        this.values = this.values.filter(v => String(v) !== strId);
+                                    }
+                                },
+                                selectAll() {
+                                    this.values = this.options.map(o => o.id);
                                 },
                                 clear() {
-                                    this.value = null;
+                                    this.values = [];
                                     this.search = '';
                                 }
                             }"
@@ -826,11 +906,25 @@
                                 @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())"
                                 class="custom-select-trigger"
                                 :class="{ 'is-open': open }"
+                                style="min-height: 42px; flex-wrap: wrap; gap: 4px; padding: 6px 12px;"
                             >
-                                <span x-text="selectedLabel" :class="{ 'is-placeholder': !value }"></span>
-                                <div style="display: flex; align-items: center; gap: 4px;">
-                                    <template x-if="value">
-                                        <button type="button" @click.stop="clear()" class="clear-btn">&times;</button>
+                                <template x-if="selectedItems.length === 0">
+                                    <span class="is-placeholder" x-text="placeholder"></span>
+                                </template>
+                                <template x-if="selectedItems.length > 0">
+                                    <div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 90%;">
+                                        <template x-for="item in selectedItems" :key="item.id">
+                                            <span class="multi-select-chip" @click.stop="">
+                                                <span x-text="item.name"></span>
+                                                <button type="button" @click.stop="removeItem(item.id)" class="chip-remove-btn">&times;</button>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </template>
+
+                                <div style="display: flex; align-items: center; gap: 4px; margin-left: auto;">
+                                    <template x-if="selectedItems.length > 0">
+                                        <button type="button" @click.stop="clear()" class="clear-btn" title="Hapus semua pilihan">&times;</button>
                                     </template>
                                     <svg class="chevron-icon" :class="{ 'rotate-180': open }" viewBox="0 0 20 20" fill="currentColor">
                                         <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -852,19 +946,21 @@
                                         @keydown.escape="open = false"
                                     />
                                 </div>
+                                <div style="padding: 4px 10px; background: #f1f5f9; display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #64748b; border-bottom: 1px solid #e2e8f0;">
+                                    <button type="button" @click="selectAll()" style="background: none; border: none; color: #0284c7; cursor: pointer;">Pilih Semua</button>
+                                    <button type="button" @click="clear()" style="background: none; border: none; color: #ef4444; cursor: pointer;">Kosongkan</button>
+                                </div>
                                 <div class="dropdown-options-list">
                                     <template x-for="opt in filteredOptions" :key="opt.id">
                                         <div
-                                            @click="selectOption(opt.id)"
+                                            @click="toggleOption(opt.id)"
                                             class="dropdown-option-item"
-                                            :class="{ 'is-selected': String(opt.id) === String(value) }"
+                                            :class="{ 'is-selected': isSelected(opt.id) }"
                                         >
-                                            <span x-text="opt.name"></span>
-                                            <template x-if="String(opt.id) === String(value)">
-                                                <svg style="width: 16px; height: 16px; color: #0284c7;" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                                                </svg>
-                                            </template>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <input type="checkbox" :checked="isSelected(opt.id)" style="cursor: pointer; pointer-events: none;" />
+                                                <span x-text="opt.name"></span>
+                                            </div>
                                         </div>
                                     </template>
                                     <template x-if="filteredOptions.length === 0">

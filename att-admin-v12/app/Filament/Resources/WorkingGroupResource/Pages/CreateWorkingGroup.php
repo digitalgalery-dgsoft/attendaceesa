@@ -30,8 +30,8 @@ class CreateWorkingGroup extends Page
     // Step 1: Description
     public ?string $name = '';
     public ?string $data_applied_date = '';
-    public ?int $branch_id = null;
-    public ?int $principal_id = null;
+    public array $branch_ids = [];
+    public array $principal_ids = [];
 
     // Step 1: General Configuration
     public ?int $default_shift_id = null;
@@ -58,6 +58,8 @@ class CreateWorkingGroup extends Page
         $this->data_applied_date = Carbon::now()->toDateString();
         $this->default_late_tolerance = 15;
         $this->currentStep = 1;
+        $this->branch_ids = [];
+        $this->principal_ids = [];
 
         $defaultDays = [
             'Monday'    => ['name' => 'Monday',    'label' => 'Monday (Senin)',    'is_active' => true,  'has_custom_option' => false, 'shift_id' => null, 'late_tolerance' => 15, 'work_location_id' => null],
@@ -170,36 +172,32 @@ class CreateWorkingGroup extends Page
     {
         $query = Employee::where('is_active', 1);
 
-        if (!empty($this->branch_id)) {
-            $branch = Branch::find($this->branch_id);
-            if ($branch) {
-                $sameNameBranchIds = Branch::where('name', $branch->name)->pluck('id')->toArray();
-                $query->whereIn('branch_id', $sameNameBranchIds);
-            } else {
-                $query->where('branch_id', $this->branch_id);
-            }
+        if (!empty($this->branch_ids)) {
+            $selectedBranches = Branch::whereIn('id', $this->branch_ids)->get();
+            $branchNames = $selectedBranches->pluck('name')->filter()->toArray();
+            $allMatchingBranchIds = Branch::whereIn('name', $branchNames)->pluck('id')->merge($this->branch_ids)->unique()->toArray();
+            $query->whereIn('branch_id', $allMatchingBranchIds);
         }
-        if (!empty($this->principal_id)) {
-            $principal = Principal::find($this->principal_id);
-            if ($principal) {
-                $samePrincipalIds = Principal::where('name', $principal->name)
-                    ->orWhere(function ($q) use ($principal) {
-                        if (!empty($principal->subdomain)) {
-                            $q->where('subdomain', $principal->subdomain);
-                        }
-                    })
-                    ->pluck('id')
-                    ->toArray();
-                $query->whereIn('principal_id', $samePrincipalIds);
-            } else {
-                $query->where('principal_id', $this->principal_id);
-            }
+
+        if (!empty($this->principal_ids)) {
+            $selectedPrincipals = Principal::whereIn('id', $this->principal_ids)->get();
+            $principalNames = $selectedPrincipals->pluck('name')->filter()->toArray();
+            $subdomains = $selectedPrincipals->pluck('subdomain')->filter()->toArray();
+
+            $allMatchingPrincipalIds = Principal::where(function ($q) use ($principalNames, $subdomains) {
+                $q->whereIn('name', $principalNames);
+                if (!empty($subdomains)) {
+                    $q->orWhereIn('subdomain', $subdomains);
+                }
+            })->pluck('id')->merge($this->principal_ids)->unique()->toArray();
+
+            $query->whereIn('principal_id', $allMatchingPrincipalIds);
         }
 
         $empIds = $query->pluck('id')->toArray();
         if (empty($empIds)) {
             Notification::make()
-                ->title('Tidak ada karyawan aktif pada Area / Prinsiple ini')
+                ->title('Tidak ada karyawan aktif pada Area / Prinsiple yang dipilih')
                 ->warning()
                 ->send();
             return;
@@ -268,12 +266,16 @@ class CreateWorkingGroup extends Page
 
         DB::beginTransaction();
         try {
+            $branchNames = !empty($this->branch_ids) ? Branch::whereIn('id', $this->branch_ids)->pluck('name')->unique()->implode(', ') : null;
+            $firstBranchId = !empty($this->branch_ids) ? (int)$this->branch_ids[0] : null;
+            $firstPrincipalId = !empty($this->principal_ids) ? (int)$this->principal_ids[0] : null;
+
             // 1. Create Working Group record
             $workingGroup = WorkingGroup::create([
                 'name' => $this->name,
-                'branch_id' => $this->branch_id,
-                'principal_id' => $this->principal_id,
-                'area' => $this->branch_id ? Branch::find($this->branch_id)?->name : null,
+                'branch_id' => $firstBranchId,
+                'principal_id' => $firstPrincipalId,
+                'area' => $branchNames,
                 'data_applied_date' => $this->data_applied_date,
                 'default_shift_id' => $this->default_shift_id,
                 'default_late_tolerance' => $this->default_late_tolerance ?: 15,
@@ -369,30 +371,26 @@ class CreateWorkingGroup extends Page
         $availEmpQuery = Employee::where('is_active', 1)
             ->whereNotIn('id', $this->selected_employee_ids);
 
-        if (!empty($this->branch_id)) {
-            $branch = Branch::find($this->branch_id);
-            if ($branch) {
-                $sameNameBranchIds = Branch::where('name', $branch->name)->pluck('id')->toArray();
-                $availEmpQuery->whereIn('branch_id', $sameNameBranchIds);
-            } else {
-                $availEmpQuery->where('branch_id', $this->branch_id);
-            }
+        if (!empty($this->branch_ids)) {
+            $selectedBranches = Branch::whereIn('id', $this->branch_ids)->get();
+            $branchNames = $selectedBranches->pluck('name')->filter()->toArray();
+            $allMatchingBranchIds = Branch::whereIn('name', $branchNames)->pluck('id')->merge($this->branch_ids)->unique()->toArray();
+            $availEmpQuery->whereIn('branch_id', $allMatchingBranchIds);
         }
-        if (!empty($this->principal_id)) {
-            $principal = Principal::find($this->principal_id);
-            if ($principal) {
-                $samePrincipalIds = Principal::where('name', $principal->name)
-                    ->orWhere(function ($q) use ($principal) {
-                        if (!empty($principal->subdomain)) {
-                            $q->where('subdomain', $principal->subdomain);
-                        }
-                    })
-                    ->pluck('id')
-                    ->toArray();
-                $availEmpQuery->whereIn('principal_id', $samePrincipalIds);
-            } else {
-                $availEmpQuery->where('principal_id', $this->principal_id);
-            }
+
+        if (!empty($this->principal_ids)) {
+            $selectedPrincipals = Principal::whereIn('id', $this->principal_ids)->get();
+            $principalNames = $selectedPrincipals->pluck('name')->filter()->toArray();
+            $subdomains = $selectedPrincipals->pluck('subdomain')->filter()->toArray();
+
+            $allMatchingPrincipalIds = Principal::where(function ($q) use ($principalNames, $subdomains) {
+                $q->whereIn('name', $principalNames);
+                if (!empty($subdomains)) {
+                    $q->orWhereIn('subdomain', $subdomains);
+                }
+            })->pluck('id')->merge($this->principal_ids)->unique()->toArray();
+
+            $availEmpQuery->whereIn('principal_id', $allMatchingPrincipalIds);
         }
 
         $availableEmployees = $availEmpQuery->orderBy('full_name')
