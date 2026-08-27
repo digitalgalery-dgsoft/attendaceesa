@@ -1157,6 +1157,9 @@ class PrincipalPortalController extends Controller
     /**
      * Schedules / Roster Matrix
      */
+    /**
+     * Schedules / Roster Matrix
+     */
     public function schedulesList(Request $request)
     {
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
@@ -1187,13 +1190,279 @@ class PrincipalPortalController extends Controller
             ->orderBy('schedule_date', 'desc')
             ->paginate(25);
 
+        $employees = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('is_active', true)->orderBy('full_name')->get();
+        $shifts = Shift::orderBy('name')->get();
+        $workLocations = WorkLocation::whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id')->orderBy('name')->get();
+
+        $user = Auth::user();
+        $isSuperAdmin = $user && ($user->isSuperAdmin() || $user->hasRole('super_admin') || $user->hasRole('Super Admin') || $user->hasRole('admin'));
+        $canCreateRoster = $isSuperAdmin || ($user && ($user->can('create_employee_schedules') || $user->can('manage_roster')));
+        $canUpdateRoster = $isSuperAdmin || ($user && ($user->can('update_employee_schedules') || $user->can('manage_roster')));
+        $canDeleteRoster = $isSuperAdmin || ($user && ($user->can('delete_employee_schedules') || $user->can('manage_roster')));
+
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();
 
         return view('portal.schedules', compact(
             'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
-            'schedules', 'month', 'year', 'search', 'setting'
+            'schedules', 'month', 'year', 'search', 'setting',
+            'employees', 'shifts', 'workLocations',
+            'canCreateRoster', 'canUpdateRoster', 'canDeleteRoster'
         ));
+    }
+
+    /**
+     * Store new employee schedule (single date or date range)
+     */
+    public function storeSchedule(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $request->validate([
+            'employee_id' => 'required|exists:employees,id',
+            'schedule_date' => 'required|date',
+            'end_date' => 'nullable|date|after_or_equal:schedule_date',
+            'shift_id' => 'required|exists:shifts,id',
+            'work_location_id' => 'nullable|exists:work_locations,id',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)->findOrFail($request->employee_id);
+        $startDate = Carbon::parse($request->schedule_date);
+        $endDate = $request->end_date ? Carbon::parse($request->end_date) : $startDate->copy();
+
+        $createdCount = 0;
+        $current = $startDate->copy();
+
+        while ($current->lte($endDate)) {
+            EmployeeSchedule::updateOrCreate(
+                [
+                    'employee_id' => $employee->id,
+                    'schedule_date' => $current->format('Y-m-d'),
+                ],
+                [
+                    'shift_id' => $request->shift_id,
+                    'work_location_id' => $request->work_location_id ?: $employee->work_location_id,
+                    'notes' => $request->notes,
+                    'company_id' => $employee->company_id ?? $tenantPrincipal->company_id,
+                    'created_by' => Auth::id(),
+                ]
+            );
+            $createdCount++;
+            $current->addDay();
+        }
+
+        return redirect()->route('portal.schedules', [
+            'p' => $tenantPrincipal->id,
+            'month' => $startDate->month,
+            'year' => $startDate->year
+        ])->with('success', "Berhasil menambahkan {$createdCount} hari jadwal roster untuk {$employee->full_name}!");
+    }
+
+    /**
+     * Update an employee schedule
+     */
+    public function updateSchedule(Request $request, $id)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $schedule = EmployeeSchedule::whereHas('employee', function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+        })->findOrFail($id);
+
+        $request->validate([
+            'schedule_date' => 'required|date',
+            'shift_id' => 'required|exists:shifts,id',
+            'work_location_id' => 'nullable|exists:work_locations,id',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $schedule->update([
+            'schedule_date' => $request->schedule_date,
+            'shift_id' => $request->shift_id,
+            'work_location_id' => $request->work_location_id ?: $schedule->work_location_id,
+            'notes' => $request->notes,
+        ]);
+
+        return redirect()->back()->with('success', 'Jadwal roster berhasil diperbarui!');
+    }
+
+    /**
+     * Delete an employee schedule
+     */
+    public function destroySchedule(Request $request, $id)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $schedule = EmployeeSchedule::whereHas('employee', function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+        })->findOrFail($id);
+
+        $schedule->delete();
+
+        return redirect()->back()->with('success', 'Jadwal roster berhasil dihapus!');
+    }
+
+    /**
+     * Download CSV template for Schedule/Roster import
+     */
+    public function downloadScheduleTemplate(Request $request)
+    {
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="template_import_jadwal_roster.csv"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
+        ];
+
+        $callback = function () {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM
+
+            fputcsv($handle, ['nik_karyawan', 'nama_karyawan', 'tanggal_jadwal', 'nama_shift', 'nama_toko_lokasi', 'catatan']);
+
+            // Sample rows
+            $today = Carbon::today()->format('Y-m-d');
+            $tomorrow = Carbon::tomorrow()->format('Y-m-d');
+            fputcsv($handle, ['EMP001', 'Budi Santoso', $today, 'Shift Pagi', 'SUPERINDO SURABAYA', 'Penugasan Reguler']);
+            fputcsv($handle, ['EMP002', 'Siti Aminah', $today, 'Shift Siang', 'HYPERMART ROYAL PLAZA', 'Covering Weekend']);
+            fputcsv($handle, ['EMP001', 'Budi Santoso', $tomorrow, 'Shift Pagi', 'SUPERINDO SURABAYA', 'Penugasan Reguler']);
+
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Import schedules from Excel / CSV
+     */
+    public function importSchedules(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $extension = strtolower($file->getClientOriginalExtension());
+        $rows = [];
+
+        if (in_array($extension, ['xlsx', 'xls']) && class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $worksheet = $spreadsheet->getActiveSheet();
+            $data = $worksheet->toArray();
+            if (!empty($data)) {
+                $header = array_shift($data);
+                foreach ($data as $row) {
+                    if (empty(array_filter($row))) continue;
+                    $rowAssoc = [];
+                    foreach ($header as $i => $colName) {
+                        $key = strtolower(trim((string)$colName));
+                        $key = str_replace([' ', '-', '/'], '_', $key);
+                        $rowAssoc[$key] = $row[$i] ?? null;
+                    }
+                    $rows[] = $rowAssoc;
+                }
+            }
+        } else {
+            $content = file_get_contents($file->getRealPath());
+            $content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
+            $lines = preg_split('/\r\n|\r|\n/', trim($content));
+            if (!empty($lines)) {
+                $firstLine = $lines[0];
+                $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
+                $header = str_getcsv(array_shift($lines), $delimiter);
+                $normalizedHeader = [];
+                foreach ($header as $col) {
+                    $k = strtolower(trim($col));
+                    $k = str_replace([' ', '-', '/'], '_', $k);
+                    $normalizedHeader[] = $k;
+                }
+                foreach ($lines as $line) {
+                    if (empty(trim($line))) continue;
+                    $cols = str_getcsv($line, $delimiter);
+                    $rowAssoc = [];
+                    foreach ($normalizedHeader as $idx => $k) {
+                        $rowAssoc[$k] = $cols[$idx] ?? null;
+                    }
+                    $rows[] = $rowAssoc;
+                }
+            }
+        }
+
+        if (empty($rows)) {
+            return redirect()->back()->with('error', 'File tidak berisi data atau format tidak sesuai.');
+        }
+
+        $defaultShift = Shift::first();
+        $imported = 0;
+
+        foreach ($rows as $r) {
+            $nik = $r['nik_karyawan'] ?? $r['nik'] ?? $r['employee_id'] ?? null;
+            $nama = $r['nama_karyawan'] ?? $r['nama'] ?? $r['name'] ?? null;
+            $dateRaw = $r['tanggal_jadwal'] ?? $r['tanggal'] ?? $r['date'] ?? null;
+
+            if (empty($dateRaw)) continue;
+
+            try {
+                $date = Carbon::parse($dateRaw)->format('Y-m-d');
+            } catch (\Throwable $e) {
+                continue;
+            }
+
+            // Find Employee
+            $employee = null;
+            if ($nik) {
+                $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('nik', trim((string)$nik))->first();
+            }
+            if (!$employee && $nama) {
+                $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('full_name', 'LIKE', '%' . trim((string)$nama) . '%')->first();
+            }
+
+            if (!$employee) continue;
+
+            // Find Shift
+            $shiftName = $r['nama_shift'] ?? $r['shift'] ?? null;
+            $shift = null;
+            if ($shiftName) {
+                $shift = Shift::where('name', 'LIKE', '%' . trim((string)$shiftName) . '%')->first();
+            }
+            if (!$shift) $shift = $defaultShift;
+
+            // Find Work Location
+            $locName = $r['nama_toko_lokasi'] ?? $r['nama_toko'] ?? $r['lokasi'] ?? $r['toko'] ?? null;
+            $workLocation = null;
+            if ($locName) {
+                $workLocation = WorkLocation::where('name', 'LIKE', '%' . trim((string)$locName) . '%')->first();
+            }
+
+            $notes = $r['catatan'] ?? $r['keterangan'] ?? $r['notes'] ?? null;
+
+            EmployeeSchedule::updateOrCreate(
+                [
+                    'employee_id' => $employee->id,
+                    'schedule_date' => $date,
+                ],
+                [
+                    'shift_id' => $shift?->id,
+                    'work_location_id' => $workLocation?->id ?: $employee->work_location_id,
+                    'notes' => $notes,
+                    'company_id' => $employee->company_id ?? $tenantPrincipal->company_id,
+                    'created_by' => Auth::id(),
+                ]
+            );
+
+            $imported++;
+        }
+
+        return redirect()->route('portal.schedules')->with('success', "Berhasil mengimpor {$imported} baris jadwal roster!");
     }
 
     /**
@@ -1395,13 +1664,308 @@ class PrincipalPortalController extends Controller
             ->orderBy('date', 'desc')
             ->paginate(20);
 
+        $employees = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('is_active', true)->orderBy('full_name')->get();
+        $workLocations = WorkLocation::whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id')->orderBy('name')->get();
+
+        $user = Auth::user();
+        $isSuperAdmin = $user && ($user->isSuperAdmin() || $user->hasRole('super_admin') || $user->hasRole('Super Admin') || $user->hasRole('admin'));
+        $canCreateItinerary = $isSuperAdmin || ($user && $user->can('create_itineraries'));
+        $canUpdateItinerary = $isSuperAdmin || ($user && $user->can('update_itineraries'));
+        $canDeleteItinerary = $isSuperAdmin || ($user && $user->can('delete_itineraries'));
+
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();
 
         return view('portal.itineraries', compact(
             'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
-            'itineraries', 'date', 'search', 'setting'
+            'itineraries', 'date', 'search', 'setting',
+            'employees', 'workLocations',
+            'canCreateItinerary', 'canUpdateItinerary', 'canDeleteItinerary'
         ));
+    }
+
+    /**
+     * Store new Itinerary with multiple route store locations
+     */
+    public function storeItinerary(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $request->validate([
+            'employee_id' => 'required|exists:employees,id',
+            'date' => 'required|date',
+            'is_strict_routing' => 'nullable',
+            'notes' => 'nullable|string|max:500',
+            'locations' => 'required|array|min:1',
+            'locations.*' => 'required|exists:work_locations,id',
+            'visit_types' => 'nullable|array',
+        ]);
+
+        $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)->findOrFail($request->employee_id);
+
+        $itinerary = Itinerary::create([
+            'employee_id' => $employee->id,
+            'date' => $request->date,
+            'status' => 'active',
+            'is_strict_routing' => $request->boolean('is_strict_routing'),
+            'notes' => $request->notes,
+        ]);
+
+        $locations = $request->input('locations', []);
+        $visitTypes = $request->input('visit_types', []);
+
+        foreach ($locations as $idx => $locId) {
+            ItineraryItem::create([
+                'itinerary_id' => $itinerary->id,
+                'work_location_id' => $locId,
+                'sequence' => $idx + 1,
+                'is_checkin_location' => ($idx === 0),
+                'principal_id' => $employee->principal_id ?? $tenantPrincipal->id,
+                'visit_type' => $visitTypes[$idx] ?? 'Reguler',
+            ]);
+        }
+
+        return redirect()->route('portal.itineraries', [
+            'p' => $tenantPrincipal->id,
+            'date' => $request->date
+        ])->with('success', "Berhasil menambahkan rute itinerari untuk {$employee->full_name} dengan " . count($locations) . " toko!");
+    }
+
+    /**
+     * Update an Itinerary and its route store locations
+     */
+    public function updateItinerary(Request $request, $id)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $itinerary = Itinerary::whereHas('employee', function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+        })->findOrFail($id);
+
+        $request->validate([
+            'date' => 'required|date',
+            'is_strict_routing' => 'nullable',
+            'notes' => 'nullable|string|max:500',
+            'locations' => 'required|array|min:1',
+            'locations.*' => 'required|exists:work_locations,id',
+            'visit_types' => 'nullable|array',
+        ]);
+
+        $itinerary->update([
+            'date' => $request->date,
+            'is_strict_routing' => $request->boolean('is_strict_routing'),
+            'notes' => $request->notes,
+        ]);
+
+        // Recreate items
+        $itinerary->items()->delete();
+
+        $locations = $request->input('locations', []);
+        $visitTypes = $request->input('visit_types', []);
+
+        foreach ($locations as $idx => $locId) {
+            ItineraryItem::create([
+                'itinerary_id' => $itinerary->id,
+                'work_location_id' => $locId,
+                'sequence' => $idx + 1,
+                'is_checkin_location' => ($idx === 0),
+                'principal_id' => $itinerary->employee?->principal_id ?? $tenantPrincipal->id,
+                'visit_type' => $visitTypes[$idx] ?? 'Reguler',
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Rute itinerari berhasil diperbarui!');
+    }
+
+    /**
+     * Delete an Itinerary
+     */
+    public function destroyItinerary(Request $request, $id)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $itinerary = Itinerary::whereHas('employee', function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+        })->findOrFail($id);
+
+        $itinerary->items()->delete();
+        $itinerary->delete();
+
+        return redirect()->back()->with('success', 'Jadwal itinerari berhasil dihapus!');
+    }
+
+    /**
+     * Download CSV template for Itinerary import
+     */
+    public function downloadItineraryTemplate(Request $request)
+    {
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="template_import_itinerary.csv"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
+        ];
+
+        $callback = function () {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM
+
+            fputcsv($handle, ['nik_promotor', 'nama_promotor', 'tanggal', 'aturan_routing', 'toko_1', 'toko_2', 'toko_3', 'toko_4', 'toko_5', 'catatan']);
+
+            // Sample rows
+            $today = Carbon::today()->format('Y-m-d');
+            fputcsv($handle, ['EMP001', 'Budi Santoso', $today, 'Wajib Urut', 'SUPERINDO SURABAYA', 'HYPERMART ROYAL PLAZA', 'NAGA SWALAYAN', '', '', 'Kunjungan Display & Cek Stok']);
+            fputcsv($handle, ['EMP002', 'Siti Aminah', $today, 'Bebas Visit', 'HERO GALAXY MALL', 'PAPAYA FRESH MARKET', '', '', '', 'Promo Event Akhir Pekan']);
+
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Import itineraries from Excel / CSV
+     */
+    public function importItineraries(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) return redirect('/');
+
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $extension = strtolower($file->getClientOriginalExtension());
+        $rows = [];
+
+        if (in_array($extension, ['xlsx', 'xls']) && class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $worksheet = $spreadsheet->getActiveSheet();
+            $data = $worksheet->toArray();
+            if (!empty($data)) {
+                $header = array_shift($data);
+                foreach ($data as $row) {
+                    if (empty(array_filter($row))) continue;
+                    $rowAssoc = [];
+                    foreach ($header as $i => $colName) {
+                        $key = strtolower(trim((string)$colName));
+                        $key = str_replace([' ', '-', '/'], '_', $key);
+                        $rowAssoc[$key] = $row[$i] ?? null;
+                    }
+                    $rows[] = $rowAssoc;
+                }
+            }
+        } else {
+            $content = file_get_contents($file->getRealPath());
+            $content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
+            $lines = preg_split('/\r\n|\r|\n/', trim($content));
+            if (!empty($lines)) {
+                $firstLine = $lines[0];
+                $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
+                $header = str_getcsv(array_shift($lines), $delimiter);
+                $normalizedHeader = [];
+                foreach ($header as $col) {
+                    $k = strtolower(trim($col));
+                    $k = str_replace([' ', '-', '/'], '_', $k);
+                    $normalizedHeader[] = $k;
+                }
+                foreach ($lines as $line) {
+                    if (empty(trim($line))) continue;
+                    $cols = str_getcsv($line, $delimiter);
+                    $rowAssoc = [];
+                    foreach ($normalizedHeader as $idx => $k) {
+                        $rowAssoc[$k] = $cols[$idx] ?? null;
+                    }
+                    $rows[] = $rowAssoc;
+                }
+            }
+        }
+
+        if (empty($rows)) {
+            return redirect()->back()->with('error', 'File tidak berisi data atau format tidak sesuai.');
+        }
+
+        $imported = 0;
+
+        foreach ($rows as $r) {
+            $nik = $r['nik_promotor'] ?? $r['nik_karyawan'] ?? $r['nik'] ?? null;
+            $nama = $r['nama_promotor'] ?? $r['nama_karyawan'] ?? $r['nama'] ?? null;
+            $dateRaw = $r['tanggal'] ?? $r['date'] ?? null;
+
+            if (empty($dateRaw)) continue;
+
+            try {
+                $date = Carbon::parse($dateRaw)->format('Y-m-d');
+            } catch (\Throwable $e) {
+                continue;
+            }
+
+            // Find Employee
+            $employee = null;
+            if ($nik) {
+                $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('nik', trim((string)$nik))->first();
+            }
+            if (!$employee && $nama) {
+                $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('full_name', 'LIKE', '%' . trim((string)$nama) . '%')->first();
+            }
+
+            if (!$employee) continue;
+
+            $routingStr = strtolower(trim((string)($r['aturan_routing'] ?? $r['routing'] ?? '')));
+            $isStrict = (str_contains($routingStr, 'urut') || str_contains($routingStr, 'strict') || $routingStr === '1' || $routingStr === 'true');
+
+            $notes = $r['catatan'] ?? $r['keterangan'] ?? $r['notes'] ?? null;
+
+            // Collect stores
+            $storeNames = [];
+            foreach ($r as $key => $val) {
+                if (empty($val)) continue;
+                if (str_starts_with($key, 'toko_') || str_starts_with($key, 'store_') || str_starts_with($key, 'lokasi_')) {
+                    $storeNames[] = trim((string)$val);
+                }
+            }
+
+            if (empty($storeNames)) continue;
+
+            $itinerary = Itinerary::updateOrCreate(
+                [
+                    'employee_id' => $employee->id,
+                    'date' => $date,
+                ],
+                [
+                    'status' => 'active',
+                    'is_strict_routing' => $isStrict,
+                    'notes' => $notes,
+                ]
+            );
+
+            $itinerary->items()->delete();
+
+            $seq = 1;
+            foreach ($storeNames as $sName) {
+                $loc = WorkLocation::where('name', 'LIKE', '%' . $sName . '%')->first();
+                if ($loc) {
+                    ItineraryItem::create([
+                        'itinerary_id' => $itinerary->id,
+                        'work_location_id' => $loc->id,
+                        'sequence' => $seq,
+                        'is_checkin_location' => ($seq === 1),
+                        'principal_id' => $employee->principal_id ?? $tenantPrincipal->id,
+                        'visit_type' => 'Reguler',
+                    ]);
+                    $seq++;
+                }
+            }
+
+            $imported++;
+        }
+
+        return redirect()->route('portal.itineraries')->with('success', "Berhasil mengimpor {$imported} rute jadwal itinerari!");
     }
 
     /**

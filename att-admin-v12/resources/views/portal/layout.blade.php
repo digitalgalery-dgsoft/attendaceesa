@@ -485,7 +485,7 @@
                 };
 
                 $hasMasterData = $hasPerm('view_employees') || $hasPerm('view_areas') || $hasPerm('view_principals') || $hasPerm('view_companies') || $hasPerm('view_departments') || $hasPerm('view_positions') || $hasPerm('view_work_locations') || $hasPerm('view_shifts') || $hasPerm('view_holidays');
-                $hasAttendance = $hasPerm('view_attendance') || $hasPerm('manage_roster') || $hasPerm('view_leave_requests') || $hasPerm('view_extra_hours') || $hasPerm('view_working_groups') || $hasPerm('view_unchecked_monitoring');
+                $hasAttendance = $hasPerm('view_attendance') || $hasPerm('manage_roster') || $hasPerm('view_employee_schedules') || $hasPerm('view_leave_requests') || $hasPerm('view_extra_hours') || $hasPerm('view_working_groups') || $hasPerm('view_unchecked_monitoring');
                 $hasFieldOps = $hasPerm('view_itineraries') || $hasPerm('view_visit_reports') || $hasPerm('view_sales_reports') || $hasPerm('view_work_targets') || $hasPerm('view_payslips');
                 $hasAnalytics = $hasPerm('view_manpower_report') || $hasPerm('view_mandays_report') || $hasPerm('view_turnover_report') || $hasPerm('view_odoo_sync');
                 $hasSystem = $hasPerm('manage_users') || $hasPerm('manage_roles') || $hasPerm('manage_settings') || $hasPerm('view_blast_info') || $hasPerm('view_live_chat');
@@ -570,7 +570,7 @@
                         <span class="nav-text">Presensi / Absensi</span>
                     </a>
                 @endif
-                @if($hasPerm('manage_roster'))
+                @if($hasPerm('manage_roster') || $hasPerm('view_employee_schedules'))
                     <a href="{{ route('portal.schedules', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.schedules*') ? 'active' : '' }}">
                         <i class="fa-solid fa-calendar-week nav-icon"></i>
                         <span class="nav-text">Roster & Jadwal Kerja</span>

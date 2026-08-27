@@ -168,6 +168,12 @@ Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function ()
     Route::get('/attendances', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'attendances'])->name('attendances');
     Route::get('/attendances/export', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'exportAttendances'])->name('attendances.export');
     Route::get('/schedules', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'schedulesList'])->name('schedules');
+    Route::post('/schedules', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'storeSchedule'])->name('schedules.store');
+    Route::put('/schedules/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'updateSchedule'])->name('schedules.update');
+    Route::delete('/schedules/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'destroySchedule'])->name('schedules.destroy');
+    Route::get('/schedules/template-import', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'downloadScheduleTemplate'])->name('schedules.template');
+    Route::post('/schedules/import', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'importSchedules'])->name('schedules.import');
+
     Route::get('/leaves', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'leavesList'])->name('leaves');
     Route::get('/extra-hours', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'extraHoursList'])->name('extra_hours');
     Route::get('/unchecked', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'uncheckedMonitoring'])->name('unchecked');
@@ -180,6 +186,11 @@ Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function ()
 
     // Field Operations & Sales
     Route::get('/itineraries', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'itinerariesList'])->name('itineraries');
+    Route::post('/itineraries', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'storeItinerary'])->name('itineraries.store');
+    Route::put('/itineraries/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'updateItinerary'])->name('itineraries.update');
+    Route::delete('/itineraries/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'destroyItinerary'])->name('itineraries.destroy');
+    Route::get('/itineraries/template-import', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'downloadItineraryTemplate'])->name('itineraries.template');
+    Route::post('/itineraries/import', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'importItineraries'])->name('itineraries.import');
     Route::get('/visit-reports', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'visitReportsList'])->name('visit_reports');
 
     // Reports & Analytics
