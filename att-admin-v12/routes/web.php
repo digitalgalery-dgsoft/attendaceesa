@@ -216,6 +216,56 @@ Route::get('/migrate-now', function () {
     return \Illuminate\Support\Facades\Artisan::output();
 });
 
+Route::get('/debug-report-photo/{code}', function ($code) {
+    $submission = \App\Models\ReportSubmission::where('submission_code', $code)->with('values')->first();
+    if (!$submission) {
+        return response()->json(['error' => 'Submission not found'], 404);
+    }
+
+    $debug = [
+        'submission_id' => $submission->id,
+        'submission_code' => $submission->submission_code,
+        'public_path_storage' => public_path('storage'),
+        'storage_path_app_public' => storage_path('app/public'),
+        'is_symlink' => is_link(public_path('storage')),
+        'public_storage_exists' => file_exists(public_path('storage')),
+        'values' => [],
+    ];
+
+    foreach ($submission->values as $v) {
+        $files = [];
+        $pathsToCheck = [];
+        if (!empty($v->media_url)) $pathsToCheck[] = $v->media_url;
+        if (is_array($v->value_json)) $pathsToCheck = array_merge($pathsToCheck, $v->value_json);
+
+        foreach (array_unique($pathsToCheck) as $p) {
+            $clean = ltrim(str_replace(['/storage/', 'storage/'], '', $p), '/');
+            $files[] = [
+                'raw_path' => $p,
+                'clean_path' => $clean,
+                'storage_disk_exists' => \Illuminate\Support\Facades\Storage::disk('public')->exists($clean),
+                'file_exists_in_app_public' => file_exists(storage_path('app/public/' . $clean)),
+                'file_exists_in_public_storage' => file_exists(public_path('storage/' . $clean)),
+                'asset_url' => asset('storage/' . $clean),
+            ];
+        }
+
+        $debug['values'][] = [
+            'field_name' => $v->field_name,
+            'field_type' => $v->field_type,
+            'media_url' => $v->media_url,
+            'value_json' => $v->value_json,
+            'value_text' => $v->value_text,
+            'checks' => $files,
+        ];
+    }
+
+    $reportsDir = storage_path('app/public/reports/' . now()->format('Y-m'));
+    $debug['scanned_reports_dir'] = file_exists($reportsDir) ? scandir($reportsDir) : 'DIR NOT FOUND';
+
+    return response()->json($debug);
+});
+
 Route::get('/seed-templates-now', function () {
     try {
         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
