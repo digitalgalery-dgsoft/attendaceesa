@@ -417,8 +417,23 @@ class EmployeeScheduleRoster extends Page implements HasForms
                 ->label('Download Template Excel')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('gray')
-                ->action(function () {
-                    return Excel::download(new EmployeeScheduleTemplateExport(), 'Template_Import_Jadwal_Roster.xlsx');
+                ->modalHeading('Pilih Format Template Excel Jadwal')
+                ->modalDescription('Pilih salah satu format template jadwal yang ingin Anda gunakan:')
+                ->form([
+                    Select::make('template_type')
+                        ->label('Jenis Format Template')
+                        ->options([
+                            'matrix' => '1. Format Per Tanggal / Matrix Harian (Kolom 1..31 - Sangat Fleksibel)',
+                            'range' => '2. Format Rentang Tanggal (Tanggal Mulai s/d Tanggal Akhir)',
+                        ])
+                        ->default('matrix')
+                        ->required(),
+                ])
+                ->action(function (array $data) {
+                    if ($data['template_type'] === 'range') {
+                        return Excel::download(new \App\Exports\EmployeeScheduleRangeTemplateExport(), 'Template_Import_Jadwal_Rentang_Tanggal.xlsx');
+                    }
+                    return Excel::download(new \App\Exports\EmployeeScheduleMatrixTemplateExport(), 'Template_Import_Jadwal_Per_Tanggal_Matrix.xlsx');
                 }),
         ];
     }
