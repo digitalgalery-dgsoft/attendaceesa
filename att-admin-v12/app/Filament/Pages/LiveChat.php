@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Conversation;
 use App\Models\ChatMessage;
+use App\Models\Employee;
 use App\Services\FirebaseService;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
@@ -30,13 +31,12 @@ class LiveChat extends Page
 
     protected string $view = 'filament.pages.live-chat';
 
-    public $conversations = [];
     public $activeConversationId = null;
-    public $activeConversation = null;
     public $messages = [];
     public $newMessage = '';
-
     public $search = '';
+    public $showNewChatModal = false;
+    public $newChatSearch = '';
 
     protected function getListeners()
     {
@@ -48,35 +48,16 @@ class LiveChat extends Page
 
     public function mount()
     {
-        $this->loadConversations();
-    }
-
-    public function updatedSearch()
-    {
-        $this->loadConversations();
-    }
-
-    public function loadConversations()
-    {
-        $query = Conversation::with(['employee', 'employee.position', 'employee.area', 'messages' => function ($query) {
-            $query->latest();
-        }]);
-
-        if (!empty($this->search)) {
-            $query->whereHas('employee', function ($q) {
-                $q->whereRaw('LOWER(full_name) LIKE LOWER(?)', ['%' . $this->search . '%']);
-            });
+        // Auto-select first conversation if available so the input field & chat are immediately visible
+        $firstConv = Conversation::latest('updated_at')->first();
+        if ($firstConv) {
+            $this->selectConversation($firstConv->id);
         }
-
-        $this->conversations = $query->get()->sortByDesc(function ($conv) {
-            return $conv->messages->first() ? $conv->messages->first()->created_at : $conv->created_at;
-        });
     }
 
     public function selectConversation($id)
     {
-        $this->activeConversationId = $id;
-        $this->activeConversation = Conversation::with(['employee', 'employee.position', 'employee.area'])->find($id);
+        $this->activeConversationId = (int)$id;
         
         // Mark employee messages as read
         ChatMessage::where('conversation_id', $id)
@@ -85,9 +66,29 @@ class LiveChat extends Page
             ->update(['is_read' => true]);
 
         $this->loadMessages();
-        $this->loadConversations();
-        
         $this->dispatch('scroll-to-bottom');
+    }
+
+    public function startConversationWithEmployee($employeeId)
+    {
+        $conversation = Conversation::firstOrCreate([
+            'employee_id' => $employeeId,
+        ]);
+
+        $this->showNewChatModal = false;
+        $this->newChatSearch = '';
+        $this->selectConversation($conversation->id);
+    }
+
+    public function openNewChatModal()
+    {
+        $this->showNewChatModal = true;
+        $this->newChatSearch = '';
+    }
+
+    public function closeNewChatModal()
+    {
+        $this->showNewChatModal = false;
     }
 
     public function loadMessages()
@@ -97,47 +98,43 @@ class LiveChat extends Page
                 ->orderBy('created_at', 'asc')
                 ->get()
                 ->toArray();
+        } else {
+            $this->messages = [];
         }
     }
 
-    /**
-     * Polling: called every N seconds from frontend to refresh messages in real-time
-     */
     public function pollMessages()
     {
         if ($this->activeConversationId) {
             $this->loadMessages();
-            $this->loadConversations();
         }
     }
 
     public function sendMessage()
     {
-        if (empty(trim($this->newMessage)) || !$this->activeConversationId) {
+        $text = trim($this->newMessage);
+        if (empty($text) || !$this->activeConversationId) {
             return;
         }
-
-        $messageText = $this->newMessage;
 
         $message = ChatMessage::create([
             'conversation_id' => $this->activeConversationId,
             'sender_type' => 'admin',
             'sender_id' => Auth::id(),
-            'message' => $messageText,
+            'message' => $text,
             'is_read' => false,
         ]);
 
+        // Touch conversation to refresh updated_at
+        Conversation::where('id', $this->activeConversationId)->touch();
+
         $this->newMessage = '';
         $this->loadMessages();
-        $this->loadConversations();
 
-        $conversation = $this->activeConversation 
-            ?? Conversation::with('employee')->find($this->activeConversationId);
+        $conversation = Conversation::with('employee')->find($this->activeConversationId);
             
-        // Jalankan pengiriman FCM dan Broadcast setelah response dikirim ke browser (Background)
-        // Ini menghilangkan jeda/delay pada UI Admin.
-        app()->terminating(function () use ($messageText, $conversation, $message) {
-            // Send FCM push notification
+        // Send FCM push notification and Broadcast in background
+        app()->terminating(function () use ($text, $conversation, $message) {
             try {
                 $employee = $conversation?->employee;
                 if ($employee && !empty($employee->fcm_token)) {
@@ -145,7 +142,7 @@ class LiveChat extends Page
                     $firebase->sendNotification(
                         $employee->fcm_token,
                         'Pesan dari Admin',
-                        $messageText,
+                        $text,
                         [
                             'type' => 'chat',
                             'conversation_id' => (string) $conversation->id,
@@ -156,7 +153,6 @@ class LiveChat extends Page
                 Log::error('LiveChat FCM notification error: ' . $e->getMessage());
             }
             
-            // Broadcast via WebSocket (Reverb)
             try {
                 broadcast(new \App\Events\MessageSent($message))->toOthers();
             } catch (\Throwable $e) {
@@ -167,18 +163,56 @@ class LiveChat extends Page
         $this->dispatch('scroll-to-bottom');
     }
 
-    public function receiveMessage($event)
+    public function getConversations()
     {
-        $message = $event['message'];
-        
-        if ($this->activeConversationId == $message['conversation_id']) {
-            $this->loadMessages();
-            ChatMessage::where('id', $message['id'])->update(['is_read' => true]);
-            $this->dispatch('scroll-to-bottom');
-        } else {
-            $this->dispatch('notify', 'Pesan baru dari Karyawan');
+        $query = Conversation::with([
+            'employee', 
+            'employee.position', 
+            'employee.area', 
+            'employee.branch', 
+            'messages' => function ($q) {
+                $q->latest();
+            }
+        ]);
+
+        if (!empty($this->search)) {
+            $query->whereHas('employee', function ($q) {
+                $q->whereRaw('LOWER(full_name) LIKE LOWER(?)', ['%' . strtolower($this->search) . '%'])
+                  ->orWhereRaw('LOWER(nik) LIKE LOWER(?)', ['%' . strtolower($this->search) . '%']);
+            });
         }
-        
-        $this->loadConversations();
+
+        return $query->get()->sortByDesc(function ($conv) {
+            return $conv->messages->first() ? $conv->messages->first()->created_at : $conv->updated_at;
+        });
+    }
+
+    public function getAvailableEmployees()
+    {
+        $query = Employee::where('is_active', true)->with(['position', 'branch']);
+
+        if (!empty($this->newChatSearch)) {
+            $query->where(function ($q) {
+                $q->whereRaw('LOWER(full_name) LIKE LOWER(?)', ['%' . strtolower($this->newChatSearch) . '%'])
+                  ->orWhereRaw('LOWER(nik) LIKE LOWER(?)', ['%' . strtolower($this->newChatSearch) . '%']);
+            });
+        }
+
+        return $query->orderBy('full_name')->limit(25)->get();
+    }
+
+    public function render(): \Illuminate\Contracts\View\View
+    {
+        $conversations = $this->getConversations();
+        $activeConversation = $this->activeConversationId 
+            ? Conversation::with(['employee', 'employee.position', 'employee.area', 'employee.branch'])->find($this->activeConversationId)
+            : null;
+        $availableEmployees = $this->showNewChatModal ? $this->getAvailableEmployees() : collect();
+
+        return view($this->view, [
+            'conversations' => $conversations,
+            'activeConversation' => $activeConversation,
+            'availableEmployees' => $availableEmployees,
+        ]);
     }
 }
