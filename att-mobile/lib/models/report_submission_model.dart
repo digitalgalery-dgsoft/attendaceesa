@@ -1,4 +1,5 @@
 import 'package:att_mobile/models/report_template_model.dart';
+import 'package:att_mobile/utils/constants.dart';
 
 class ReportSubmissionModel {
   final int id;
