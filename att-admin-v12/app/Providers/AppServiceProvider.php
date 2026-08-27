@@ -43,7 +43,17 @@ class AppServiceProvider extends ServiceProvider
                 }
             }
         } catch (\Exception $e) {
-            // Ignore during migrations or when DB is not ready
+            // Ignore if DB not ready
+        }
+
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('itineraries') && !\Illuminate\Support\Facades\Schema::hasColumn('itineraries', 'is_strict_routing')) {
+                \Illuminate\Support\Facades\Schema::table('itineraries', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->boolean('is_strict_routing')->default(false)->after('status');
+                });
+            }
+        } catch (\Exception $e) {
+            // Ignore if DB not ready
         }
     }
 }
