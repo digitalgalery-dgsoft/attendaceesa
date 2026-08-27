@@ -84,6 +84,16 @@ class ItineraryForm
                             ])
                             ->default('approved')
                             ->required(),
+                        Toggle::make('is_strict_routing')
+                            ->label('Aturan Routing Visit (Wajib Berurutan)')
+                            ->helperText('Aktif: Karyawan wajib melakukan absen/visit mengikuti urutan (sequence) list toko/lokasi (1, 2, 3...). Nonaktif: Bebas Visit (acak / fleksibel).')
+                            ->default(false)
+                            ->onIcon('heroicon-m-lock-closed')
+                            ->offIcon('heroicon-m-arrows-right-left')
+                            ->onColor('warning')
+                            ->offColor('gray')
+                            ->inline(false)
+                            ->columnSpanFull(),
                         Textarea::make('notes')
                             ->label('Catatan Umum')
                             ->rows(2)

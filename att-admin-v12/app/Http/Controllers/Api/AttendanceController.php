@@ -105,13 +105,38 @@ class AttendanceController extends Controller
                 ->map(fn($id) => (int)$id)
                 ->toArray();
             
-            $unvisitedCount = $itinerary->items->filter(function($item) use ($visitedLocationIds) {
-                return !in_array((int)$item->work_location_id, $visitedLocationIds);
-            })->count();
-            
+            $isStrict = (bool)($itinerary->is_strict_routing ?? false);
+            $foundNextTarget = false;
+
+            $itinerary->items->each(function($item) use ($visitedLocationIds, $isStrict, &$foundNextTarget) {
+                $isVisited = in_array((int)$item->work_location_id, $visitedLocationIds);
+                $item->is_visited = $isVisited;
+
+                if ($isStrict) {
+                    if (!$isVisited && !$foundNextTarget) {
+                        $item->is_next_target = true;
+                        $item->is_locked = false;
+                        $foundNextTarget = true;
+                    } elseif (!$isVisited && $foundNextTarget) {
+                        $item->is_next_target = false;
+                        $item->is_locked = true;
+                    } else {
+                        $item->is_next_target = false;
+                        $item->is_locked = false;
+                    }
+                } else {
+                    $item->is_next_target = !$isVisited;
+                    $item->is_locked = false;
+                }
+            });
+
+            $unvisitedCount = $itinerary->items->filter(fn($item) => !$item->is_visited)->count();
             if ($unvisitedCount > 0) {
                 $hasUnfinishedItinerary = true;
             }
+
+            $itinerary->routing_rule = $isStrict ? 'strict' : 'flexible';
+            $itinerary->routing_rule_label = $isStrict ? 'Routing Aktif (Wajib Berurutan)' : 'Bebas Visit (Acak)';
         }
 
         return response()->json([
@@ -399,9 +424,44 @@ class AttendanceController extends Controller
             } elseif ($request->type === 'visit_in') {
                 if (!$attendance) return response()->json(['message' => 'Must check in first'], 400);
                 
-                $itinerary = Itinerary::where('employee_id', $employeeId)->where('date', $today)->first();
+                $itinerary = Itinerary::where('employee_id', $employeeId)
+                    ->where('date', $today)
+                    ->with(['items' => function($q) {
+                        $q->orderBy('sequence', 'asc')->with('workLocation');
+                    }])
+                    ->first();
+
                 if (!$itinerary) {
                     return response()->json(['message' => 'Visit ditolak: Anda tidak memiliki itinerary (jadwal kunjungan) hari ini.'], 403);
+                }
+
+                // ─── VALIDASI ATURAN ROUTING VISIT (WAJIB BERURUTAN) ───────────────────
+                if ($itinerary->is_strict_routing && $itinerary->items->isNotEmpty()) {
+                    $visitedLocationIds = \App\Models\AttendanceLog::where('employee_id', $employeeId)
+                        ->where('log_type', 'visit_in')
+                        ->whereDate('logged_at', $today)
+                        ->get()
+                        ->map(function ($l) {
+                            $meta = is_array($l->metadata) ? $l->metadata : (is_string($l->metadata) ? json_decode($l->metadata, true) : []);
+                            $id = is_array($meta) ? ($meta['visit_location_id'] ?? null) : null;
+                            return $id ? (int)$id : null;
+                        })
+                        ->filter()
+                        ->unique()
+                        ->toArray();
+
+                    // Cari toko/titik kunjungan unvisited pertama berdasarkan urutan sequence
+                    $nextTargetItem = $itinerary->items->first(function ($item) use ($visitedLocationIds) {
+                        return !in_array((int)$item->work_location_id, $visitedLocationIds);
+                    });
+
+                    if ($nextTargetItem && (int)$nextTargetItem->work_location_id !== (int)$request->visit_location_id) {
+                        $targetName = $nextTargetItem->workLocation?->name ?? ('Lokasi Urutan ke-' . $nextTargetItem->sequence);
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => "Aturan Routing Visit Aktif: Anda wajib absen kunjungan mengikuti urutan list toko. Silakan lakukan Visit In di '{$targetName}' (Urutan #{$nextTargetItem->sequence}) terlebih dahulu sebelum mengunjungi lokasi lainnya."
+                        ], 422);
+                    }
                 }
 
                 $isOnlineMeeting = false;

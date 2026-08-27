@@ -22,6 +22,15 @@ class ItinerariesTable
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge(),
+                \Filament\Tables\Columns\IconColumn::make('is_strict_routing')
+                    ->label('Routing')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-lock-closed')
+                    ->falseIcon('heroicon-o-arrows-right-left')
+                    ->trueColor('warning')
+                    ->falseColor('gray')
+                    ->tooltip(fn ($record) => $record->is_strict_routing ? 'Routing Aktif (Wajib Berurutan)' : 'Bebas Visit (Acak)')
+                    ->sortable(),
                 TextColumn::make('items_count')
                     ->counts('items')
                     ->label('Locations'),

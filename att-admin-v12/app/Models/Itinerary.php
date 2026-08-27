@@ -9,7 +9,17 @@ class Itinerary extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['employee_id', 'date', 'status', 'notes'];
+    protected $fillable = [
+        'employee_id',
+        'date',
+        'status',
+        'is_strict_routing',
+        'notes',
+    ];
+
+    protected $casts = [
+        'is_strict_routing' => 'boolean',
+    ];
 
     public function employee()
     {

@@ -49,6 +49,8 @@ class VisitScheduleImport implements ToCollection, WithHeadingRow
             $principalName = trim((string)($row['prinsiple'] ?? ($row['principal'] ?? ($row['nama_prinsiple'] ?? ''))));
             $visitType = trim((string)($row['tipe_visit'] ?? ($row['visit_type'] ?? ($row['tipe'] ?? 'store'))));
             $rawCheckin = trim((string)($row['jadikan_lokasi_checkin'] ?? ($row['is_checkin_location'] ?? ($row['checkin_location'] ?? ($row['checkin'] ?? '')))));
+            $rawRouting = trim((string)($row['aturan_routing'] ?? ($row['routing'] ?? ($row['is_strict_routing'] ?? ($row['wajib_berurutan'] ?? '')))));
+            $isStrictRouting = in_array(strtolower($rawRouting), ['berurutan', 'routing', 'aktif', '1', 'ya', 'yes', 'true', 'strict']);
             $notes = trim((string)($row['catatan'] ?? ($row['notes'] ?? ($row['agenda'] ?? ''))));
 
             if (empty($nik) && empty($namaKaryawan) && empty($rawStartDate)) {
@@ -162,9 +164,14 @@ class VisitScheduleImport implements ToCollection, WithHeadingRow
                     ],
                     [
                         'status' => 'approved',
+                        'is_strict_routing' => $isStrictRouting,
                         'notes' => 'Imported via Excel',
                     ]
                 );
+
+                if ($isStrictRouting && !$itinerary->is_strict_routing) {
+                    $itinerary->update(['is_strict_routing' => true]);
+                }
 
                 ItineraryItem::updateOrCreate(
                     [

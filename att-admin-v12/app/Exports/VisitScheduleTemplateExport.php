@@ -6,7 +6,6 @@ use App\Models\Employee;
 use App\Models\Principal;
 use App\Models\WorkLocation;
 use Carbon\Carbon;
-use Maatwebsite\Excel\Concerns\CustomVersion;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
@@ -44,6 +43,7 @@ class VisitScheduleTemplateExport extends DefaultValueBinder implements FromArra
             'tanggal_akhir',
             'lokasi_visit',
             'urutan',
+            'aturan_routing',
             'prinsiple',
             'tipe_visit',
             'jadikan_lokasi_checkin',
@@ -71,6 +71,7 @@ class VisitScheduleTemplateExport extends DefaultValueBinder implements FromArra
                     $today,
                     $sampleWorkLocation,
                     (string)$seq,
+                    'Berurutan', // aturan_routing: Berurutan / Bebas
                     $samplePrincipal,
                     'Store Visit',
                     $seq === 1 ? 'Ya' : 'Tidak',
@@ -86,6 +87,7 @@ class VisitScheduleTemplateExport extends DefaultValueBinder implements FromArra
                 $today,
                 $sampleWorkLocation,
                 '1',
+                'Berurutan',
                 $samplePrincipal,
                 'Store Visit',
                 'Ya',
@@ -109,13 +111,14 @@ class VisitScheduleTemplateExport extends DefaultValueBinder implements FromArra
             'H' => NumberFormat::FORMAT_TEXT,
             'I' => NumberFormat::FORMAT_TEXT,
             'J' => NumberFormat::FORMAT_TEXT,
+            'K' => NumberFormat::FORMAT_TEXT,
         ];
     }
 
     public function styles(Worksheet $sheet)
     {
         // Style header baris 1
-        $sheet->getStyle('A1:J1')->applyFromArray([
+        $sheet->getStyle('A1:K1')->applyFromArray([
             'font' => [
                 'bold' => true,
                 'color' => ['argb' => 'FFFFFFFF'],
@@ -135,7 +138,7 @@ class VisitScheduleTemplateExport extends DefaultValueBinder implements FromArra
 
         // Border tipis ke seluruh data
         $highestRow = $sheet->getHighestRow();
-        $sheet->getStyle("A1:J{$highestRow}")->applyFromArray([
+        $sheet->getStyle("A1:K{$highestRow}")->applyFromArray([
             'borders' => [
                 'allBorders' => [
                     'borderStyle' => Border::BORDER_THIN,

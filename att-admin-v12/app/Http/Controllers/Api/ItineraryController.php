@@ -50,9 +50,33 @@ class ItineraryController extends Controller
             ->toArray();
 
         $itineraries->each(function($itinerary) use ($visitedLocationIds) {
-            $itinerary->items->each(function($item) use ($visitedLocationIds) {
-                $item->is_visited = in_array((int)$item->work_location_id, $visitedLocationIds);
+            $isStrict = (bool)($itinerary->is_strict_routing ?? false);
+            $foundNextTarget = false;
+
+            $itinerary->items->each(function($item) use ($visitedLocationIds, $isStrict, &$foundNextTarget) {
+                $isVisited = in_array((int)$item->work_location_id, $visitedLocationIds);
+                $item->is_visited = $isVisited;
+
+                if ($isStrict) {
+                    if (!$isVisited && !$foundNextTarget) {
+                        $item->is_next_target = true;
+                        $item->is_locked = false;
+                        $foundNextTarget = true;
+                    } elseif (!$isVisited && $foundNextTarget) {
+                        $item->is_next_target = false;
+                        $item->is_locked = true;
+                    } else {
+                        $item->is_next_target = false;
+                        $item->is_locked = false;
+                    }
+                } else {
+                    $item->is_next_target = !$isVisited;
+                    $item->is_locked = false;
+                }
             });
+
+            $itinerary->routing_rule = $isStrict ? 'strict' : 'flexible';
+            $itinerary->routing_rule_label = $isStrict ? 'Routing Aktif (Wajib Berurutan)' : 'Bebas Visit (Acak)';
         });
 
         return response()->json([

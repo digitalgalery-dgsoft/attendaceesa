@@ -70,6 +70,7 @@ class CreateItinerary extends CreateRecord
                 'employee_id' => $employee->id,
                 'date' => $currentDate->format('Y-m-d'),
                 'status' => $data['status'] ?? 'approved',
+                'is_strict_routing' => (bool)($data['is_strict_routing'] ?? false),
                 'notes' => $data['notes'] ?? null,
             ]);
 
