@@ -1,14 +1,15 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $tenantPrincipal->portal_title ?? ($tenantPrincipal->name . ' - Portal Pelaporan') }}</title>
+    <title>{{ $tenantPrincipal->portal_title ?? ($tenantPrincipal->name . ' - Reporting Portal') }}</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
     @php
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
@@ -136,8 +137,43 @@
         .nav-actions {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 0.85rem;
             flex-shrink: 0;
+        }
+
+        /* Language Switcher */
+        .lang-switch-box {
+            display: inline-flex;
+            align-items: center;
+            background: #f1f5f9;
+            padding: 3px;
+            border-radius: 9999px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .lang-btn {
+            border: none;
+            background: transparent;
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .lang-btn.active {
+            background: #ffffff;
+            color: var(--text-heading);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .lang-btn:hover:not(.active) {
+            color: var(--brand-primary);
         }
 
         .btn-portal-login {
@@ -625,7 +661,11 @@
                 font-size: 1rem;
             }
             .nav-actions {
-                display: none;
+                gap: 0.5rem;
+            }
+            .btn-portal-login {
+                padding: 0.5rem 1rem;
+                font-size: 0.8rem;
             }
             footer {
                 flex-direction: column;
@@ -634,7 +674,14 @@
         }
     </style>
 </head>
-<body>
+<body x-data="{
+    lang: localStorage.getItem('portal_lang') || '{{ request()->query('lang', 'en') }}',
+    setLang(l) {
+        this.lang = l;
+        localStorage.setItem('portal_lang', l);
+        document.documentElement.lang = l;
+    }
+}" x-init="setLang(lang)">
 
     <!-- Whitelabel Navbar -->
     <nav>
@@ -654,14 +701,28 @@
             </div>
             <div class="brand-info">
                 <span class="brand-title">{{ $tenantPrincipal->portal_title ?? $tenantPrincipal->name }}</span>
-                <span class="brand-subtitle">Enterprise Reporting Portal &bull; {{ $tenantPrincipal->name }}</span>
+                <span class="brand-subtitle">
+                    <span x-show="lang === 'en'">Enterprise Reporting Portal &bull; {{ $tenantPrincipal->name }}</span>
+                    <span x-show="lang === 'id'" x-cloak>Portal Pelaporan Perusahaan &bull; {{ $tenantPrincipal->name }}</span>
+                </span>
             </div>
         </a>
 
         <div class="nav-actions">
+            <!-- Language Selector -->
+            <div class="lang-switch-box">
+                <button type="button" class="lang-btn" :class="{ 'active': lang === 'en' }" @click="setLang('en')">
+                    🇺🇸 EN
+                </button>
+                <button type="button" class="lang-btn" :class="{ 'active': lang === 'id' }" @click="setLang('id')">
+                    🇮🇩 ID
+                </button>
+            </div>
+
             <a href="{{ route('tenant.login', ['p' => $tenantPrincipal->id]) }}" class="btn-portal-login">
                 <i class="fa-solid fa-lock"></i>
-                Masuk ke Portal
+                <span x-show="lang === 'en'">Portal Login</span>
+                <span x-show="lang === 'id'" x-cloak>Masuk ke Portal</span>
             </a>
         </div>
     </nav>
@@ -671,15 +732,20 @@
         <section class="hero">
             <div class="tenant-pill">
                 <i class="fa-solid fa-circle-check"></i>
-                PORTAL RESMI &bull; {{ strtoupper($tenantPrincipal->name) }}
+                <span x-show="lang === 'en'">OFFICIAL PORTAL &bull; {{ strtoupper($tenantPrincipal->name) }}</span>
+                <span x-show="lang === 'id'" x-cloak>PORTAL RESMI &bull; {{ strtoupper($tenantPrincipal->name) }}</span>
             </div>
 
             <h1>
-                Portal Pelaporan Terpadu<br>
+                <span x-show="lang === 'en'">Integrated Reporting Portal</span>
+                <span x-show="lang === 'id'" x-cloak>Portal Pelaporan Terpadu</span><br>
                 <span class="highlight">{{ $tenantPrincipal->name }}</span>
             </h1>
 
-            <p>
+            <p x-show="lang === 'en'">
+                Integrated enterprise reporting platform for real-time monitoring of daily sales offtake, inventory & out of stock (OOS), competitor market share analysis, and field promoter activities with precision.
+            </p>
+            <p x-show="lang === 'id'" x-cloak>
                 Platform pelaporan terintegrasi untuk pemantauan offtake penjualan harian, stok & OOS (Out of Stock), 
                 analisis market share kompetitor, serta aktivitas promotor lapangan secara real-time dan akurat.
             </p>
@@ -687,11 +753,13 @@
             <div class="hero-cta-group">
                 <a href="{{ route('tenant.login', ['p' => $tenantPrincipal->id]) }}" class="btn-primary-glow">
                     <i class="fa-solid fa-shield-halved"></i>
-                    Masuk ke Portal Manajemen
+                    <span x-show="lang === 'en'">Access Management Portal</span>
+                    <span x-show="lang === 'id'" x-cloak>Masuk ke Portal Manajemen</span>
                 </a>
                 <a href="/app-release.apk" class="btn-secondary-glass">
                     <i class="fa-brands fa-android" style="color: #16a34a;"></i>
-                    Unduh Aplikasi Mobile (SPG)
+                    <span x-show="lang === 'en'">Download Mobile App (SPG/MD)</span>
+                    <span x-show="lang === 'id'" x-cloak>Unduh Aplikasi Mobile (SPG)</span>
                 </a>
             </div>
 
@@ -700,7 +768,11 @@
             @endphp
             @if($uniqueEntities->count() > 1)
             <div class="brand-switcher-wrapper">
-                <span class="brand-switcher-title"><i class="fa-solid fa-layer-group"></i> Pilih Entitas Prinsiple Terkait:</span>
+                <span class="brand-switcher-title">
+                    <i class="fa-solid fa-layer-group"></i> 
+                    <span x-show="lang === 'en'">Select Associated Principal Entity:</span>
+                    <span x-show="lang === 'id'" x-cloak>Pilih Entitas Prinsiple Terkait:</span>
+                </span>
                 <div class="brand-switcher-pills">
                     @foreach($uniqueEntities as $entity)
                         <a href="?p={{ $entity->id }}" class="brand-pill {{ $tenantPrincipal->name === $entity->name ? 'active' : '' }}">
@@ -720,7 +792,10 @@
                     <i class="fa-solid fa-users"></i>
                 </div>
                 <div class="stat-value">{{ number_format($stats['employees']) }}</div>
-                <div class="stat-label">Promotor / SPG Terdaftar</div>
+                <div class="stat-label">
+                    <span x-show="lang === 'en'">Registered Promoters / SPG</span>
+                    <span x-show="lang === 'id'" x-cloak>Promotor / SPG Terdaftar</span>
+                </div>
             </div>
 
             <div class="stat-card">
@@ -728,7 +803,10 @@
                     <i class="fa-solid fa-map-location-dot"></i>
                 </div>
                 <div class="stat-value">{{ number_format($stats['areas']) }}</div>
-                <div class="stat-label">Area Operasional</div>
+                <div class="stat-label">
+                    <span x-show="lang === 'en'">Operational Areas</span>
+                    <span x-show="lang === 'id'" x-cloak>Area Operasional</span>
+                </div>
             </div>
 
             <div class="stat-card">
@@ -736,7 +814,10 @@
                     <i class="fa-solid fa-clipboard-list"></i>
                 </div>
                 <div class="stat-value">{{ number_format($stats['templates']) }}</div>
-                <div class="stat-label">Modul Form Pelaporan</div>
+                <div class="stat-label">
+                    <span x-show="lang === 'en'">Reporting Form Modules</span>
+                    <span x-show="lang === 'id'" x-cloak>Modul Form Pelaporan</span>
+                </div>
             </div>
 
             <div class="stat-card">
@@ -744,7 +825,10 @@
                     <i class="fa-solid fa-chart-line"></i>
                 </div>
                 <div class="stat-value">{{ number_format($stats['submissions']) }}</div>
-                <div class="stat-label">Total Laporan Masuk</div>
+                <div class="stat-label">
+                    <span x-show="lang === 'en'">Total Submitted Reports</span>
+                    <span x-show="lang === 'id'" x-cloak>Total Laporan Masuk</span>
+                </div>
             </div>
         </section>
 
@@ -752,10 +836,17 @@
         @if($activeTemplates->isNotEmpty())
         <section class="section-container">
             <div class="section-header">
-                <span class="section-badge">Standard Operating Procedures</span>
-                <h2 class="section-title">Form Pelaporan Standar {{ $tenantPrincipal->name }}</h2>
+                <span class="section-badge">
+                    <span x-show="lang === 'en'">Standard Operating Procedures</span>
+                    <span x-show="lang === 'id'" x-cloak>Standar Operasional Prosedur</span>
+                </span>
+                <h2 class="section-title">
+                    <span x-show="lang === 'en'">Standard Reporting Modules for {{ $tenantPrincipal->name }}</span>
+                    <span x-show="lang === 'id'" x-cloak>Form Pelaporan Standar {{ $tenantPrincipal->name }}</span>
+                </h2>
                 <p class="section-desc">
-                    Seluruh formulir pelaporan disesuaikan dengan kebutuhan analisis pasar dan operasional brand Anda.
+                    <span x-show="lang === 'en'">All reporting forms are customized according to your brand's market analysis and operational requirements.</span>
+                    <span x-show="lang === 'id'" x-cloak>Seluruh formulir pelaporan disesuaikan dengan kebutuhan analisis pasar dan operasional brand Anda.</span>
                 </p>
             </div>
 
@@ -788,15 +879,19 @@
                                 <span class="template-code-badge">{{ $tpl->code }}</span>
                             </div>
                             <h3 class="template-card-title">{{ $tpl->title }}</h3>
-                            <p class="template-card-desc">{{ $tpl->description ?? 'Formulir pelaporan operasional standar lapangan.' }}</p>
+                            <p class="template-card-desc">{{ $tpl->description ?? 'Standard operational field reporting module.' }}</p>
                         </div>
                         <div class="template-card-footer">
                             <span class="field-count-pill">
                                 <i class="fa-solid fa-list-check"></i>
-                                {{ $tpl->fields->count() }} Field Input
+                                <span>{{ $tpl->fields->count() }}</span>
+                                <span x-show="lang === 'en'">Fields</span>
+                                <span x-show="lang === 'id'" x-cloak>Field Input</span>
                             </span>
-                            <a href="/login" class="template-action-link">
-                                Buka Form <i class="fa-solid fa-arrow-right"></i>
+                            <a href="{{ route('tenant.login', ['p' => $tenantPrincipal->id]) }}" class="template-action-link">
+                                <span x-show="lang === 'en'">Open Module</span>
+                                <span x-show="lang === 'id'" x-cloak>Buka Form</span>
+                                <i class="fa-solid fa-arrow-right"></i>
                             </a>
                         </div>
                     </div>
@@ -808,10 +903,17 @@
         <!-- Features -->
         <section class="section-container">
             <div class="section-header">
-                <span class="section-badge">Enterprise Features</span>
-                <h2 class="section-title">Keunggulan Platform Pelaporan</h2>
+                <span class="section-badge">
+                    <span x-show="lang === 'en'">Enterprise Features</span>
+                    <span x-show="lang === 'id'" x-cloak>Keunggulan Enterprise</span>
+                </span>
+                <h2 class="section-title">
+                    <span x-show="lang === 'en'">Reporting Platform Advantages</span>
+                    <span x-show="lang === 'id'" x-cloak>Keunggulan Platform Pelaporan</span>
+                </h2>
                 <p class="section-desc">
-                    Infrastruktur pelaporan berbasis mobile & web untuk efisiensi operasional lapangan secara menyeluruh.
+                    <span x-show="lang === 'en'">End-to-end mobile & web reporting infrastructure designed for optimal field operational efficiency.</span>
+                    <span x-show="lang === 'id'" x-cloak>Infrastruktur pelaporan berbasis mobile & web untuk efisiensi operasional lapangan secara menyeluruh.</span>
                 </p>
             </div>
 
@@ -820,9 +922,13 @@
                     <div class="feature-icon-wrapper">
                         <i class="fa-solid fa-location-crosshairs"></i>
                     </div>
-                    <h3 class="feature-title">Validasi Geofencing & GPS</h3>
+                    <h3 class="feature-title">
+                        <span x-show="lang === 'en'">Geofencing & GPS Verification</span>
+                        <span x-show="lang === 'id'" x-cloak>Validasi Geofencing & GPS</span>
+                    </h3>
                     <p class="feature-desc">
-                        Setiap laporan diverifikasi dengan titik koordinat GPS toko yang presisi untuk menjamin integritas kehadiran dan keaslian kunjungan.
+                        <span x-show="lang === 'en'">Every field submission is verified against precise outlet GPS coordinates to guarantee attendance integrity and legitimate store visits.</span>
+                        <span x-show="lang === 'id'" x-cloak>Setiap laporan diverifikasi dengan titik koordinat GPS toko yang presisi untuk menjamin integritas kehadiran dan keaslian kunjungan.</span>
                     </p>
                 </div>
 
@@ -830,9 +936,13 @@
                     <div class="feature-icon-wrapper">
                         <i class="fa-solid fa-camera"></i>
                     </div>
-                    <h3 class="feature-title">Bukti Foto & Watermark</h3>
+                    <h3 class="feature-title">
+                        <span x-show="lang === 'en'">Photo Proof & Watermark</span>
+                        <span x-show="lang === 'id'" x-cloak>Bukti Foto & Watermark</span>
+                    </h3>
                     <p class="feature-desc">
-                        Pengambilan foto kondisi display, stok, dan rak dengan watermark otomatis tanggal, jam, dan lokasi toko anti-manipulasi.
+                        <span x-show="lang === 'en'">Photo documentation of store displays, shelves, and stock condition with automated date, time, and store location anti-tamper watermark.</span>
+                        <span x-show="lang === 'id'" x-cloak>Pengambilan foto kondisi display, stok, dan rak dengan watermark otomatis tanggal, jam, dan lokasi toko anti-manipulasi.</span>
                     </p>
                 </div>
 
@@ -840,9 +950,13 @@
                     <div class="feature-icon-wrapper">
                         <i class="fa-solid fa-chart-pie"></i>
                     </div>
-                    <h3 class="feature-title">Executive Analytics</h3>
+                    <h3 class="feature-title">
+                        <span x-show="lang === 'en'">Executive Analytics & Insights</span>
+                        <span x-show="lang === 'id'" x-cloak>Executive Analytics</span>
+                    </h3>
                     <p class="feature-desc">
-                        Dashboard analitik langsung merekap pencapaian offtake harian, stok habis (OOS), dan share of shelf secara otomatis.
+                        <span x-show="lang === 'en'">Real-time executive dashboards summarizing daily sales offtake, out-of-stock (OOS) frequencies, and share of shelf automatically.</span>
+                        <span x-show="lang === 'id'" x-cloak>Dashboard analitik langsung merekap pencapaian offtake harian, stok habis (OOS), dan share of shelf secara otomatis.</span>
                     </p>
                 </div>
             </div>
@@ -856,7 +970,10 @@
             <span>{{ $tenantPrincipal->portal_title ?? $tenantPrincipal->name }}</span>
         </div>
         <div>
-            &copy; {{ date('Y') }} {{ $tenantPrincipal->name }}. Powered by <strong>{{ $setting->app_name ?? 'ESA Groups' }}</strong>.
+            &copy; {{ date('Y') }} {{ $tenantPrincipal->name }}. 
+            <span x-show="lang === 'en'">Powered by</span>
+            <span x-show="lang === 'id'" x-cloak>Didukung oleh</span>
+            <strong>{{ $setting->app_name ?? 'ESA Groups' }}</strong>.
         </div>
     </footer>
 
