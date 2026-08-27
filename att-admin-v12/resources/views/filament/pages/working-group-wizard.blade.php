@@ -1421,7 +1421,7 @@
                         <span style="display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 10px; font-size: 13px; font-weight: 800; background: #0284c7; color: #ffffff; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);">
                             Selected ({{ number_format($totalSelected) }})
                         </span>
-                        @if ($branch_id || $principal_id)
+                        @if (!empty($branch_ids) || !empty($principal_ids))
                             <button type="button" wire:click="addAllEmployeesFromArea" class="btn-wizard btn-wizard-secondary" style="padding: 6px 12px; font-size: 12px;">
                                 <x-filament::icon icon="heroicon-o-user-plus" style="width: 16px; height: 16px;" />
                                 <span>Tambah Semua di Area/Prinsiple Ini</span>
