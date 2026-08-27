@@ -1026,6 +1026,33 @@ class ReportTemplatePresetsSeeder extends Seeder
     private function seedWingsTemplates(Principal $primaryWings, array $allWingsIds): void
     {
         $templatesData = [
+            // 0. Report Penjualan & Pembagian Hadiah Nuvo (Wings Surya & Lion Wings)
+            [
+                'code' => 'RPT-WINGS-PENJUALAN-HADIAH-01',
+                'title' => 'Report Penjualan & Pembagian Hadiah Nuvo (Wings Surya & Lion Wings)',
+                'description' => 'Pencatatan total nominal penjualan produk Nuvo, total jumlah hadiah yang keluar, serta rincian pembagian hadiah (Jaket Bomber, Payung, Mug/Gelas, Toples/Kotak Makan, Mama Lemon 230gr, dan Hadiah Tambahan).',
+                'category' => 'offtake',
+                'icon' => 'gift',
+                'color' => '#E53935',
+                'require_gps' => true,
+                'require_signature' => false,
+                'is_active' => true,
+                'version' => 1,
+                'fields' => [
+                    ['field_label' => 'Produk / Varian Nuvo yang Dijual', 'field_name' => 'produk_terjual', 'field_type' => 'dropdown', 'options' => ['Nuvo Liquid Soap Kemerdekaan 450ml', 'Nuvo Liquid Soap 250ml', 'Nuvo Liquid Soap Family 825ml', 'Nuvo Bar Soap Classic 76g', 'Nuvo Bar Soap Jumbo 110g', 'Nuvo Hand Sanitizer Gel 85ml', 'Nuvo Hand Sanitizer Spray 100ml', 'Nuvo Wet Wipes Antiseptik 50s', 'Mama Lemon Jeruk Nipis 230gr', 'Semua Varian Nuvo & Wings Promo'], 'placeholder' => 'Pilih varian produk...', 'is_required' => true],
+                    ['field_label' => 'Total Penjualan Nuvo (Nominal Rupiah)', 'field_name' => 'total_penjualan_nuvo_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'help_text' => 'Total omzet penjualan Nuvo hari ini dalam rupiah (in rupiah)', 'is_required' => true],
+                    ['field_label' => 'Total Pembagian Hadiah (Total Pcs)', 'field_name' => 'total_pembagian_hadiah', 'field_type' => 'number', 'placeholder' => '0', 'help_text' => 'Total seluruh pcs hadiah yang dibagikan ke konsumen (in pcs)', 'is_required' => true],
+                    ['field_label' => 'Jumlah Hadiah: Jaket Bomber (Pcs)', 'field_name' => 'qty_jaket_bomber', 'field_type' => 'number', 'placeholder' => '0', 'help_text' => 'Jumlah jaket bomber yang keluar (isi 0 jika tidak ada)', 'is_required' => false],
+                    ['field_label' => 'Jumlah Hadiah: Payung (Pcs)', 'field_name' => 'qty_payung', 'field_type' => 'number', 'placeholder' => '0', 'help_text' => 'Jumlah payung yang keluar (isi 0 jika tidak ada)', 'is_required' => false],
+                    ['field_label' => 'Jumlah Hadiah: Mug / Gelas (Pcs)', 'field_name' => 'qty_mug_gelas', 'field_type' => 'number', 'placeholder' => '0', 'help_text' => 'Jumlah mug / gelas yang keluar (isi 0 jika tidak ada)', 'is_required' => false],
+                    ['field_label' => 'Jumlah Hadiah: Toples / Kotak Makan (Pcs)', 'field_name' => 'qty_toples_kotak_makan', 'field_type' => 'number', 'placeholder' => '0', 'help_text' => 'Jumlah toples / kotak makan yang keluar (isi 0 jika tidak ada)', 'is_required' => false],
+                    ['field_label' => 'Jumlah Hadiah: Mama Lemon 230gr (Pcs)', 'field_name' => 'qty_mama_lemon', 'field_type' => 'number', 'placeholder' => '0', 'help_text' => 'Jumlah Mama Lemon 230gr yang keluar sebagai hadiah (isi 0 jika tidak ada)', 'is_required' => false],
+                    ['field_label' => 'Hadiah Tambahan Lain (Apabila Ada)', 'field_name' => 'hadiah_tambahan_lain', 'field_type' => 'text', 'placeholder' => 'Contoh: Piring Cantik, Tas Belanja, Pouch...', 'help_text' => 'Jenis hadiah tambahan jika ada promosi ekstra di toko', 'is_required' => false],
+                    ['field_label' => 'Jumlah Hadiah Tambahan (Pcs)', 'field_name' => 'qty_hadiah_tambahan', 'field_type' => 'number', 'placeholder' => '0', 'help_text' => 'Jumlah pcs hadiah tambahan yang keluar (isi 0 jika tidak ada)', 'is_required' => false],
+                    ['field_label' => 'Foto Bukti Struk Kasir / Penyerahan Hadiah', 'field_name' => 'foto_struk_hadiah', 'field_type' => 'camera_photo', 'help_text' => 'Wajib foto struk pembelian dan/atau penyerahan hadiah ke konsumen', 'is_required' => true],
+                    ['field_label' => 'Catatan / Respon Konsumen & Event Penjualan', 'field_name' => 'catatan_penjualan', 'field_type' => 'textarea', 'placeholder' => 'Catatan situasi penjualan, respon konsumen terhadap hadiah, atau ketersediaan stok...', 'is_required' => false],
+                ]
+            ],
             // 1. OOS Wings Food
             [
                 'code' => 'RPT-WINGS-OOS-FOOD-01',

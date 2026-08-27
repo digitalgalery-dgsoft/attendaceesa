@@ -41,6 +41,11 @@ class Product extends Model
         return $this->belongsTo(Company::class);
     }
 
+    public function reportTemplates(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(ReportTemplate::class, 'report_template_product')->withTimestamps();
+    }
+
     public function getFormattedPriceAttribute(): string
     {
         return 'Rp ' . number_format($this->price ?? 0, 0, ',', '.');

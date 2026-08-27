@@ -46,6 +46,11 @@ class ReportTemplate extends Model
         return $this->belongsToMany(Principal::class, 'report_template_principal')->withTimestamps();
     }
 
+    public function products(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'report_template_product')->withTimestamps();
+    }
+
     public function fields(): HasMany
     {
         return $this->hasMany(ReportFormField::class)->orderBy('order_index');

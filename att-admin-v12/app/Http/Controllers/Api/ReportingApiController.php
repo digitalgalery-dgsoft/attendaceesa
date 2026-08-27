@@ -54,9 +54,14 @@ class ReportingApiController extends Controller
         $principalId = $employee->principal_id;
         
         // Cari semua template yang ditugaskan ke prinsiple karyawan ini
-        $templatesQuery = ReportTemplate::with(['fields' => function ($q) {
-            $q->orderBy('order_index', 'asc');
-        }])->where('is_active', true);
+        $templatesQuery = ReportTemplate::with([
+            'fields' => function ($q) {
+                $q->orderBy('order_index', 'asc');
+            },
+            'products' => function ($q) {
+                $q->where('is_active', true)->orderBy('name', 'asc');
+            },
+        ])->where('is_active', true);
 
         if ($principalId) {
             // Cek apakah prinsiple memiliki subdomain bersama (misal: semua ICI Paints memiliki subdomain 'dulux')
@@ -79,7 +84,10 @@ class ReportingApiController extends Controller
         $templates = $templatesQuery->orderBy('id', 'asc')->get();
 
         // Format data template dan fields untuk konsumsi mobile
-        $formatted = $templates->map(function ($t) {
+        $formatted = $templates->map(function ($t) use ($employee) {
+            $templateProducts = $t->products;
+            $productNames = $templateProducts->pluck('name')->toArray();
+
             return [
                 'id' => $t->id,
                 'code' => $t->code,
@@ -92,14 +100,35 @@ class ReportingApiController extends Controller
                 'require_photo' => (bool) $t->require_photo,
                 'require_signature' => (bool) $t->require_signature,
                 'fields_count' => $t->fields->count(),
-                'fields' => $t->fields->map(function ($f) {
+                'products' => $templateProducts->map(function ($p) {
+                    return [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'sku_code' => $p->sku_code,
+                        'category' => $p->category,
+                        'brand' => $p->brand,
+                        'price' => (float) ($p->price ?? 0),
+                        'formatted_price' => $p->formatted_price,
+                        'uom' => $p->uom ?? 'Pcs',
+                    ];
+                })->values(),
+                'fields' => $t->fields->map(function ($f) use ($productNames, $templateProducts) {
+                    $options = $f->options ?? [];
+
+                    // Jika tipe product_select atau field adalah dropdown produk tanpa opsi manual
+                    if ($f->field_type === 'product_select' || (in_array($f->field_type, ['dropdown', 'select', 'radio', 'checkbox']) && (empty($options) || Str::contains(strtolower($f->field_name), ['produk', 'product', 'sku'])))) {
+                        if (!empty($productNames)) {
+                            $options = $productNames;
+                        }
+                    }
+
                     return [
                         'id' => $f->id,
                         'field_name' => $f->field_name,
                         'field_label' => $f->field_label,
-                        'field_type' => $f->field_type,
+                        'field_type' => $f->field_type === 'product_select' ? 'dropdown' : $f->field_type,
                         'is_required' => (bool) $f->is_required,
-                        'options' => $f->options ?? [],
+                        'options' => $options,
                         'placeholder' => $f->placeholder,
                         'help_text' => $f->help_text,
                         'default_value' => $f->default_value ?? null,

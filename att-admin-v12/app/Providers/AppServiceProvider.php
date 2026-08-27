@@ -55,5 +55,19 @@ class AppServiceProvider extends ServiceProvider
         } catch (\Exception $e) {
             // Ignore if DB not ready
         }
+
+        try {
+            if (!\Illuminate\Support\Facades\Schema::hasTable('report_template_product') && \Illuminate\Support\Facades\Schema::hasTable('report_templates') && \Illuminate\Support\Facades\Schema::hasTable('products')) {
+                \Illuminate\Support\Facades\Schema::create('report_template_product', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->id();
+                    $table->foreignId('report_template_id')->constrained('report_templates')->cascadeOnDelete();
+                    $table->foreignId('product_id')->constrained('products')->cascadeOnDelete();
+                    $table->timestamps();
+                    $table->unique(['report_template_id', 'product_id']);
+                });
+            }
+        } catch (\Exception $e) {
+            // Ignore if DB not ready
+        }
     }
 }

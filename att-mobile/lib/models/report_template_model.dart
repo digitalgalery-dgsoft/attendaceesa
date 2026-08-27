@@ -9,6 +9,7 @@ class ReportTemplateModel {
   final bool requirePhoto;
   final bool requireSignature;
   final int fieldsCount;
+  final List<TemplateProductModel> products;
   final List<ReportFormFieldModel> fields;
 
   ReportTemplateModel({
@@ -22,6 +23,7 @@ class ReportTemplateModel {
     this.requirePhoto = false,
     this.requireSignature = false,
     this.fieldsCount = 0,
+    this.products = const [],
     required this.fields,
   });
 
@@ -29,6 +31,11 @@ class ReportTemplateModel {
     var rawFields = json['fields'] as List? ?? [];
     List<ReportFormFieldModel> fieldsList = rawFields
         .map((f) => ReportFormFieldModel.fromJson(f as Map<String, dynamic>))
+        .toList();
+
+    var rawProducts = json['products'] as List? ?? [];
+    List<TemplateProductModel> productsList = rawProducts
+        .map((p) => TemplateProductModel.fromJson(p as Map<String, dynamic>))
         .toList();
 
     return ReportTemplateModel(
@@ -42,6 +49,7 @@ class ReportTemplateModel {
       requirePhoto: json['require_photo'] == true || json['require_photo'] == 1,
       requireSignature: json['require_signature'] == true || json['require_signature'] == 1,
       fieldsCount: json['fields_count'] is int ? json['fields_count'] : (fieldsList.length),
+      products: productsList,
       fields: fieldsList,
     );
   }
@@ -58,7 +66,56 @@ class ReportTemplateModel {
       'require_photo': requirePhoto,
       'require_signature': requireSignature,
       'fields_count': fieldsCount,
+      'products': products.map((p) => p.toJson()).toList(),
       'fields': fields.map((f) => f.toJson()).toList(),
+    };
+  }
+}
+
+class TemplateProductModel {
+  final int id;
+  final String name;
+  final String? skuCode;
+  final String? category;
+  final String? brand;
+  final double price;
+  final String? formattedPrice;
+  final String uom;
+
+  TemplateProductModel({
+    required this.id,
+    required this.name,
+    this.skuCode,
+    this.category,
+    this.brand,
+    this.price = 0.0,
+    this.formattedPrice,
+    this.uom = 'Pcs',
+  });
+
+  factory TemplateProductModel.fromJson(Map<String, dynamic> json) {
+    return TemplateProductModel(
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
+      name: json['name'] ?? '',
+      skuCode: json['sku_code'],
+      category: json['category'],
+      brand: json['brand'],
+      price: json['price'] is num ? (json['price'] as num).toDouble() : double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
+      formattedPrice: json['formatted_price'],
+      uom: json['uom'] ?? 'Pcs',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'sku_code': skuCode,
+      'category': category,
+      'brand': brand,
+      'price': price,
+      'formatted_price': formattedPrice,
+      'uom': uom,
     };
   }
 }

@@ -1366,18 +1366,59 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
       case 'select':
       case 'dropdown':
+      case 'product':
+      case 'product_select':
+        final effectiveOptions = field.options.isNotEmpty
+            ? field.options
+            : widget.template.products.map((p) => p.name).toList();
+
         inputWidget = DropdownButtonFormField<String>(
           value: _formValues[fieldKey],
-          decoration: _inputDecoration('Pilih salah satu opsi', elevatedColor, isDarkMode),
+          decoration: _inputDecoration(field.placeholder ?? 'Pilih salah satu opsi...', elevatedColor, isDarkMode),
           dropdownColor: cardColor,
+          isExpanded: true,
           style: TextStyle(color: textColor, fontSize: 13),
-          items: field.options
-              .map((opt) => DropdownMenuItem(
-                    value: opt,
-                    child: Text(opt, style: TextStyle(fontSize: 12.5, color: textColor)),
-                  ))
+          items: effectiveOptions
+              .map((opt) {
+                final matchedProduct = widget.template.products.cast<TemplateProductModel?>().firstWhere(
+                      (p) => p?.name.toLowerCase() == opt.toLowerCase(),
+                      orElse: () => null,
+                    );
+                return DropdownMenuItem<String>(
+                  value: opt,
+                  child: Row(
+                    children: [
+                      if (matchedProduct != null) ...[
+                        const Icon(Icons.inventory_2_outlined, size: 16, color: Color(0xFFE53935)),
+                        const SizedBox(width: 6),
+                      ],
+                      Expanded(
+                        child: Text(
+                          opt,
+                          style: TextStyle(fontSize: 12.5, color: textColor),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (matchedProduct != null && (matchedProduct.formattedPrice != null || matchedProduct.brand != null)) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: themeColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            matchedProduct.brand ?? matchedProduct.formattedPrice ?? '',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: themeColor),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              })
               .toList(),
-          validator: (v) => field.isRequired && v == null ? locale.tr('required_field') : null,
+          validator: (v) => field.isRequired && (v == null || v.isEmpty) ? locale.tr('required_field') : null,
           onChanged: (v) => setState(() => _formValues[fieldKey] = v),
         );
         break;

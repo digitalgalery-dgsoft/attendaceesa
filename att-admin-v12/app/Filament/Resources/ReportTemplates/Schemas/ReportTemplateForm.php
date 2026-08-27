@@ -34,6 +34,7 @@ class ReportTemplateForm
                                 ->multiple()
                                 ->searchable()
                                 ->preload()
+                                ->live()
                                 ->helperText('Pilih satu atau lebih entitas prinsiple (misal: semua entitas PT WINGS SURYA / PT LION WINGS lintas entitas AMK/ATB/ATK)')
                                 ->required(),
                             TextInput::make('title')
@@ -51,6 +52,22 @@ class ReportTemplateForm
                                 ->placeholder('RPT-OFFTAKE-DULUX')
                                 ->required(),
                         ]),
+                        Select::make('products')
+                            ->relationship('products', 'name', modifyQueryUsing: function ($query, callable $get) {
+                                $selectedPrincipals = $get('principals') ?? [];
+                                if (!empty($selectedPrincipals)) {
+                                    $query->whereIn('principal_id', $selectedPrincipals);
+                                }
+                                return $query->where('is_active', true)->orderBy('name');
+                            })
+                            ->getOptionLabelFromRecordUsing(fn (\App\Models\Product $record) => "{$record->name} " . ($record->brand ? "[{$record->brand}]" : '') . " - " . $record->formatted_price)
+                            ->label('Filter Parameter Produk Tertentu (Sesuai Prinsiple yang Dipilih)')
+                            ->placeholder('Pilih satu atau beberapa produk spesifik (Opsional: Kosongkan jika berlaku untuk semua produk prinsiple)')
+                            ->helperText('Produk yang dipilih di sini akan menjadi daftar pilihan produk saat tim lapangan/SPG mengisi laporan ini.')
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->columnSpanFull(),
                         Grid::make(4)->schema([
                             Select::make('category')
                                 ->label('Kategori Pelaporan')
@@ -125,6 +142,7 @@ class ReportTemplateForm
                                     Select::make('field_type')
                                         ->label('Tipe Input')
                                         ->options([
+                                            'product_select' => '📦 Pilihan Produk Tertentu (Otomatis dari Template / Master SKU)',
                                             'text' => '📝 Teks Singkat',
                                             'textarea' => '📄 Paragraf / Catatan Panjang',
                                             'number' => '🔢 Angka / Kuantitas (Qty)',
@@ -158,10 +176,10 @@ class ReportTemplateForm
                                         ->inline(false),
                                 ]),
                                 TagsInput::make('options')
-                                    ->label('Opsi Pilihan (Ketik dan Tekan Enter untuk Setiap Opsi)')
+                                    ->label('Opsi Pilihan Manual (Ketik dan Tekan Enter)')
                                     ->placeholder('Tambah opsi baru...')
-                                    ->helperText('Hanya berlaku untuk tipe Dropdown, Radio Button, Checkbox, atau Daftar SKU Produk')
-                                    ->visible(fn ($get) => in_array($get('field_type'), ['dropdown', 'radio', 'checkbox']))
+                                    ->helperText('Untuk tipe Dropdown/Radio/Checkbox. Jika tipe Produk Tertentu dipilih, opsi otomatis diambil dari produk yang di-set pada form template.')
+                                    ->visible(fn ($get) => in_array($get('field_type'), ['dropdown', 'radio', 'checkbox', 'product_select']))
                                     ->columnSpanFull(),
                                 KeyValue::make('validation_rules')
                                     ->label('Aturan Validasi Tambahan (Opsional)')
