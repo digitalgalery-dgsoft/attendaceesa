@@ -511,6 +511,47 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Akses Langsung dari Roster**:
       - Menambahkan tombol aksi **`Input via Working Group`** langsung pada header halaman Matriks Roster Jadwal Kerja (`EmployeeScheduleRoster`).
 
+12. **Penyelarasan Form Roster, 2 Template Import & Kalender Visit Schedule di Portal Prinsiple (SELESAI 27 Agustus 2026)**:
+    - **Penyelarasan Form Create Employee Schedule Roster**:
+      - Menyamakan form Create Roster di Portal Prinsiple persis seperti di Web Admin (pilihan Single Employee, Massal per Area/Prinsiple, dan integrasi input via Working Group).
+      - Dua Opsi Template Import Excel:
+        1. **Template Import Roster Tahunan (Full Year)**: Format template Excel lengkap 365 hari per karyawan.
+        2. **Template Import Matriks Grid Bulanan (Monthly Grid)**: Format template Excel horizontal 1 s/d 31 hari per bulan.
+      - Desain dialog unduh template dan upload file Excel dibuat modern dan profesional.
+    - **Penyelarasan Halaman Visit Schedule (Kalender Interaktif & Form Input)**:
+      - Tampilan halaman Visit Schedule di Portal Prinsiple diubah menjadi tampilan kalender interaktif (`FullCalendar`) persis seperti di Web Admin.
+      - Form Create Visit Schedule diselaraskan: dukungan penugasan jadwal kunjungan per karyawan atau per Working Group, multi-toko dalam 1 tanggal, rute kunjungan, dan validasi radius lokasi toko.
+
+13. **Perbaikan Multi-Foto Form Reporting & Pemulihan Foto Rusak (SELESAI 27 Agustus 2026, APK v1.0.100 - v1.0.102)**:
+    - **Dukungan Multi-Foto Pelaporan Dinamis**:
+      - Pengambilan foto berturut-turut pada field foto laporan (misal: Hadiah Nuvo, Display Toko, Bukti Promo) tersimpan lengkap ke array file upload (`_multiPhotoFiles`).
+    - **Penyelesaian Anomali Path Lokal Android**:
+      - Menemukan dan mengatasi akar masalah di mana path cache lokal perangkat Android (`/data/user/0/.../cache/wm_...jpg`) sempat masuk ke payload JSON `values` dan menimpa `value_json` & `media_url` di database.
+      - `ReportingApiController.php` mengisolasi total seluruh field media (`photo`, `camera_photo`, `multi_photo`, `signature`) agar tidak tertimpa input teks.
+      - Menambahkan mekanisme fallback otomatis disk scanning (`glob(storage_path('app/public/reports/...'))`) pada backend API dan view Web Admin (`report_submission_detail.blade.php`).
+    - **Database Migration Pemulihan Data**:
+      - Menjalankan migrasi `2026_08_27_163000_repair_corrupted_local_paths_in_report_values.php` di server produksi, memulihkan seluruh foto laporan lama ke path file fisik asli (diverifikasi dengan status HTTP 200 OK).
+
+14. **Penguncian Lokasi Laporan Otomatis Sesuai Sesi Presensi & Penonaktifan Submit Laporan (SELESAI 27 Agustus 2026, APK v1.0.102)**:
+    - **Penghapusan Pemilih Manual Area & Toko**:
+      - Selector manual Area dan Toko pada formulir pelaporan dinamis (`dynamic_form_screen.dart`) dihapus.
+      - Lokasi pelaporan kini **terkunci otomatis (*bound automatically*)** mengikuti sesi absensi aktif:
+        - **Sesi Visit In**: Laporan otomatis mengikat outlet/toko kunjungan aktif yang sedang dikunjungi (`LOKASI VISIT AKTIF`).
+        - **Sesi Check In**: Laporan otomatis mengikat lokasi kerja / cabang presensi karyawan (`LOKASI CHECK-IN`).
+        - **Mode Edit**: Laporan mengikat toko laporan awal yang sedang diedit (`LOKASI LAPORAN`).
+      - Header formulir menampilkan kartu info lokasi terikat yang elegan dengan badge status, nama outlet/toko, alamat lengkap, jarak geofence radius, koordinat GPS live, dan watermark geotag otomatis.
+    - **Penonaktifan Tombol Submit Jika Belum Check-In / Visit-In**:
+      - Jika karyawan belum melakukan Check-In atau Visit-In:
+        - Menampilkan banner peringatan terkunci (Merah/Oranye): *"Belum Check-In / Visit-In. Laporan terkunci & tidak dapat dikirim."*
+        - Tombol submit formulir pelaporan dinonaktifkan (`disabled`) dengan label *"Wajib Check-In / Visit-In Terlebih Dahulu"* dan ikon gembok 🔒.
+      - Jika sudah Check-In atau Visit-In: formulir terbuka dan tombol submit aktif normal.
+    - **Auto-Resolve Lokasi di Backend API**:
+      - `ReportingApiController.php` secara otomatis meng-infer lokasi toko dan ID lokasi kerja dari log visit aktif atau log check-in hari ini jika payload toko kosong.
+      - Telah dideploy langsung ke server produksi (`https://appsend.my.id/`).
+    - **Build & Rilis APK v1.0.102**:
+      - Versi aplikasi dinaikkan ke **`v1.0.102+102`**.
+      - File APK rilis siap pasang berhasil dikompilasi: `build/app/outputs/flutter-apk/app-release-v1.0.102.apk` (94.8 MB).
+
 ---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)
