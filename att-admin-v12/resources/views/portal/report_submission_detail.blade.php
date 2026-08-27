@@ -232,116 +232,232 @@
         word-break: break-word;
     }
 
-    /* SECTION HEADINGS */
-    .section-header-box {
+    /* SPLIT CONTENT GRID (FORM DATA + PHOTO GALLERY) */
+    .content-split-grid {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+    .content-split-grid.no-media {
+        grid-template-columns: 1fr;
+    }
+    @media (max-width: 992px) {
+        .content-split-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .panel-container {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+
+    .panel-header {
+        padding: 1.15rem 1.35rem;
+        background: #f8fafc;
+        border-bottom: 1px solid var(--border-color);
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-top: 0.5rem;
-        margin-bottom: -0.25rem;
     }
-    .section-header-title {
-        font-size: 1.1rem;
+    .panel-title {
+        font-size: 0.95rem;
         font-weight: 800;
         color: var(--text-heading);
         display: flex;
         align-items: center;
         gap: 8px;
     }
-    .section-count-pill {
-        font-size: 0.75rem;
+    .panel-count-badge {
+        font-size: 0.74rem;
         font-weight: 700;
         background: rgba(15, 82, 186, 0.08);
         color: #0F52BA;
-        padding: 2px 10px;
+        padding: 3px 10px;
         border-radius: 999px;
     }
 
-    /* FORM RESPONSES GRID */
-    .responses-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-        gap: 1.25rem;
+    /* PARAMETER TABLE */
+    .param-table {
+        width: 100%;
+        border-collapse: collapse;
     }
-    @media (max-width: 640px) {
-        .responses-grid {
-            grid-template-columns: 1fr;
-        }
+    .param-table tr {
+        border-bottom: 1px solid #f1f5f9;
+        transition: background 0.15s ease;
     }
-
-    .response-card {
-        background: #ffffff;
-        border: 1px solid var(--border-color);
-        border-radius: 14px;
-        padding: 1.25rem 1.35rem;
-        box-shadow: var(--shadow-sm);
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        transition: all 0.2s ease;
+    .param-table tr:last-child {
+        border-bottom: none;
     }
-    .response-card:hover {
-        border-color: var(--border-hover);
-        box-shadow: var(--shadow-md);
+    .param-table tr:hover {
+        background: #f8fafc;
+    }
+    .param-table td {
+        padding: 1rem 1.25rem;
+        vertical-align: middle;
     }
 
-    .response-label {
-        font-size: 0.8rem;
-        font-weight: 700;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0.5rem;
-        display: flex;
+    .param-num-col {
+        width: 44px;
+        text-align: center;
+        padding-right: 0 !important;
+    }
+    .param-num-circle {
+        display: inline-flex;
         align-items: center;
-        gap: 6px;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: #f1f5f9;
+        color: #64748b;
+        font-size: 0.78rem;
+        font-weight: 800;
+        border: 1px solid #e2e8f0;
     }
 
-    .response-value-text {
-        font-size: 1.05rem;
+    .param-label-col {
+        padding-left: 0.85rem !important;
+    }
+    .param-label-text {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: var(--text-heading);
+        line-height: 1.35;
+    }
+
+    .param-val-col {
+        text-align: right;
+    }
+    .val-currency {
+        font-family: monospace;
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #15803d;
+        background: #dcfce7;
+        padding: 4px 10px;
+        border-radius: 8px;
+        border: 1px solid #86efac;
+        display: inline-block;
+    }
+    .val-number {
+        font-weight: 800;
+        font-size: 0.95rem;
+        color: var(--text-heading);
+        background: #f1f5f9;
+        padding: 3px 10px;
+        border-radius: 6px;
+        display: inline-block;
+    }
+    .val-text {
+        font-size: 0.9rem;
         font-weight: 700;
         color: var(--text-heading);
         line-height: 1.4;
+        word-break: break-word;
+    }
+    .val-chips-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        justify-content: flex-end;
+    }
+    .val-chip {
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-heading);
+    }
+    .val-empty {
+        color: #cbd5e1;
+        font-style: italic;
     }
 
-    .response-photo-box {
-        margin-top: 0.75rem;
-        background: #f8fafc;
-        border: 1px solid var(--border-color);
-        border-radius: 10px;
-        padding: 8px;
+    /* MEDIA GALLERY */
+    .media-gallery-grid {
+        padding: 1.25rem;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 1.25rem;
     }
 
-    .response-photo-img {
-        width: 100%;
-        max-height: 320px;
-        object-fit: contain;
-        background: #ffffff;
-        border-radius: 8px;
-        border: 1px solid #cbd5e1;
+    .media-item-card {
+        background: #f8fafc;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
     }
 
-    .photo-action-bar {
+    .media-item-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        font-size: 0.78rem;
-        font-weight: 600;
-        color: var(--text-muted);
-        padding-top: 4px;
+        gap: 0.5rem;
     }
-    .photo-link {
+    .media-badge-tag {
+        font-size: 0.74rem;
+        font-weight: 700;
+        color: #0F52BA;
+        background: rgba(15, 82, 186, 0.1);
+        padding: 2px 8px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .media-field-title {
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: var(--text-heading);
+        text-align: right;
+        flex: 1;
+    }
+
+    .media-photo-frame {
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .media-photo-frame img {
+        width: 100%;
+        max-height: 360px;
+        object-fit: contain;
+        transition: transform 0.2s ease;
+    }
+    .media-photo-frame img:hover {
+        transform: scale(1.02);
+    }
+
+    .media-footer-bar {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+    }
+    .media-full-link {
+        font-size: 0.78rem;
+        font-weight: 700;
         color: #0F52BA;
         text-decoration: none;
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        font-weight: 700;
     }
-    .photo-link:hover {
+    .media-full-link:hover {
         text-decoration: underline;
     }
 
@@ -372,16 +488,6 @@
     @keyframes scaleUp {
         from { transform: scale(0.95); opacity: 0; }
         to { transform: scale(1); opacity: 1; }
-    }
-
-    /* EMPTY STATE */
-    .empty-responses {
-        background: #ffffff;
-        border: 1px dashed var(--border-color);
-        border-radius: 16px;
-        padding: 3rem 2rem;
-        text-align: center;
-        color: var(--text-muted);
     }
 </style>
 @endpush
@@ -418,6 +524,14 @@
         $storeName = $submission->workLocation?->name ?? $submission->itineraryItem?->destination ?? $submission->store_name ?? 'Kunjungan Toko';
         $coordinates = ($submission->latitude && $submission->longitude) ? "{$submission->latitude}, {$submission->longitude}" : null;
         $mapsUrl = $coordinates ? "https://www.google.com/maps?q={$submission->latitude},{$submission->longitude}" : null;
+
+        // Separate text inputs and photo/media attachments to prevent tall empty grid cards
+        $textValues = $submission->values->filter(function($val) {
+            return empty($val->media_url) && empty($val->file_path);
+        });
+        $mediaValues = $submission->values->filter(function($val) {
+            return !empty($val->media_url) || !empty($val->file_path);
+        });
     @endphp
 
     <div class="report-view-wrapper">
@@ -599,81 +713,105 @@
             </div>
         </div>
 
-        {{-- SECTION 2: HASIL FORM & JAWABAN ISIAN --}}
-        <div class="section-header-box">
-            <div class="section-header-title">
-                <i class="fa-solid fa-list-check" style="color: #0F52BA;"></i>
-                <span>Isian Form & Bukti Foto Hasil Pelaporan</span>
+        {{-- SECTION 2: SPLIT CONTENT (DATA FORM TABLE + PHOTO GALLERY) --}}
+        <div class="content-split-grid @if($mediaValues->isEmpty()) no-media @endif">
+            {{-- PANEL 1: DAFTAR PARAMETER ISIAN TEKS / DATA --}}
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <i class="fa-solid fa-list-check" style="color: #0F52BA;"></i>
+                        <span>Isian & Data Formulir</span>
+                    </div>
+                    <span class="panel-count-badge">{{ $textValues->count() }} Parameter</span>
+                </div>
+
+                @if($textValues->isNotEmpty())
+                    <table class="param-table">
+                        <tbody>
+                            @foreach($textValues as $val)
+                                @php
+                                    $fieldLabel = $val->formField?->field_label ?? ucwords(str_replace('_', ' ', (string)$val->field_name));
+                                    $fieldType = $val->formField?->field_type ?? $val->field_type;
+                                @endphp
+                                <tr>
+                                    <td class="param-num-col">
+                                        <span class="param-num-circle">{{ $loop->iteration }}</span>
+                                    </td>
+                                    <td class="param-label-col">
+                                        <div class="param-label-text">{{ $fieldLabel }}</div>
+                                    </td>
+                                    <td class="param-val-col">
+                                        @if($fieldType === 'currency' && $val->value_number !== null)
+                                            <span class="val-currency">
+                                                Rp {{ number_format((float)$val->value_number, 0, ',', '.') }}
+                                            </span>
+                                        @elseif($val->value_number !== null)
+                                            <span class="val-number">
+                                                {{ number_format((float)$val->value_number, (floor($val->value_number) == $val->value_number ? 0 : 2), ',', '.') }}
+                                            </span>
+                                        @elseif(!empty($val->value_json))
+                                            <div class="val-chips-wrap">
+                                                @foreach((array)$val->value_json as $chip)
+                                                    <span class="val-chip">{{ $chip }}</span>
+                                                @endforeach
+                                            </div>
+                                        @elseif(!empty($val->value_text))
+                                            <span class="val-text">{{ $val->value_text }}</span>
+                                        @else
+                                            <span class="val-empty">-</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @else
+                    <div style="padding: 2.5rem 1.5rem; text-align: center; color: var(--text-muted);">
+                        <i class="fa-solid fa-file-lines" style="font-size: 2rem; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
+                        <p style="font-size: 0.88rem; margin: 0;">Tidak ada isian teks tambahan pada formulir ini.</p>
+                    </div>
+                @endif
             </div>
-            <span class="section-count-pill">{{ $submission->values->count() }} Parameter</span>
-        </div>
 
-        @if($submission->values->isNotEmpty())
-            <div class="responses-grid">
-                @foreach($submission->values as $index => $val)
-                    @php
-                        $fieldLabel = $val->formField?->field_label ?? ucwords(str_replace('_', ' ', (string)$val->field_name));
-                        $fieldType = $val->formField?->field_type ?? $val->field_type;
-                        $hasMedia = !empty($val->media_url);
-                        $mediaUrl = $hasMedia ? asset('storage/' . $val->media_url) : null;
-                    @endphp
-
-                    <div class="response-card">
-                        <div>
-                            <div class="response-label">
-                                <span>#{{ $index + 1 }}</span>
-                                <span>&bull;</span>
-                                <span>{{ $fieldLabel }}</span>
-                            </div>
-
-                            @if(!$hasMedia)
-                                <div class="response-value-text">
-                                    @if($fieldType === 'currency' && $val->value_number !== null)
-                                        <span style="color: #15803d; font-family: monospace; font-size: 1.15rem;">
-                                            Rp {{ number_format((float)$val->value_number, 0, ',', '.') }}
-                                        </span>
-                                    @elseif($val->value_number !== null)
-                                        <span>{{ number_format((float)$val->value_number, (floor($val->value_number) == $val->value_number ? 0 : 2), ',', '.') }}</span>
-                                    @elseif(!empty($val->value_json))
-                                        <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
-                                            @foreach((array)$val->value_json as $chip)
-                                                <span style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 8px; font-size: 0.8rem; font-weight: 600;">
-                                                    {{ $chip }}
-                                                </span>
-                                            @endforeach
-                                        </div>
-                                    @elseif(!empty($val->value_text))
-                                        <span style="white-space: pre-line;">{{ $val->value_text }}</span>
-                                    @else
-                                        <span style="color: var(--text-muted); font-style: italic;">(Tidak diisi)</span>
-                                    @endif
-                                </div>
-                            @endif
+            {{-- PANEL 2: GALERI FOTO BUKTI / DOKUMENTASI --}}
+            @if($mediaValues->isNotEmpty())
+                <div class="panel-container">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-camera" style="color: #0F52BA;"></i>
+                            <span>Foto Bukti & Dokumentasi</span>
                         </div>
+                        <span class="panel-count-badge">{{ $mediaValues->count() }} Foto</span>
+                    </div>
 
-                        @if($hasMedia)
-                            <div class="response-photo-box">
-                                <a href="{{ $mediaUrl }}" target="_blank">
-                                    <img src="{{ $mediaUrl }}" alt="{{ $fieldLabel }}" class="response-photo-img" loading="lazy" />
-                                </a>
-                                <div class="photo-action-bar">
-                                    <span><i class="fa-solid fa-camera"></i> Lampiran Foto Bukti</span>
-                                    <a href="{{ $mediaUrl }}" target="_blank" class="photo-link">
-                                        <span>Buka Resolusi Asli <i class="fa-solid fa-arrow-up-right-from-square"></i></span>
+                    <div class="media-gallery-grid">
+                        @foreach($mediaValues as $val)
+                            @php
+                                $fieldLabel = $val->formField?->field_label ?? ucwords(str_replace('_', ' ', (string)$val->field_name));
+                                $mediaPath = $val->media_url ?? $val->file_path;
+                                $mediaUrl = asset('storage/' . $mediaPath);
+                            @endphp
+                            <div class="media-item-card">
+                                <div class="media-item-header">
+                                    <span class="media-badge-tag"><i class="fa-solid fa-image"></i> Foto #{{ $loop->iteration }}</span>
+                                    <div class="media-field-title">{{ $fieldLabel }}</div>
+                                </div>
+                                <div class="media-photo-frame">
+                                    <a href="{{ $mediaUrl }}" target="_blank">
+                                        <img src="{{ $mediaUrl }}" alt="{{ $fieldLabel }}" loading="lazy">
+                                    </a>
+                                </div>
+                                <div class="media-footer-bar">
+                                    <a href="{{ $mediaUrl }}" target="_blank" class="media-full-link">
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Buka Resolusi Penuh
                                     </a>
                                 </div>
                             </div>
-                        @endif
+                        @endforeach
                     </div>
-                @endforeach
-            </div>
-        @else
-            <div class="empty-responses">
-                <i class="fa-solid fa-file-circle-xmark" style="font-size: 2.5rem; margin-bottom: 0.75rem; color: #cbd5e1;"></i>
-                <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-heading); margin-bottom: 4px;">Tidak Ada Parameter Isian</div>
-                <div style="font-size: 0.85rem;">Laporan ini tidak memiliki data input form yang tersimpan.</div>
-            </div>
-        @endif
+                </div>
+            @endif
+        </div>
     </div>
 
     {{-- MODAL REJECT WITH REASON --}}

@@ -44,6 +44,14 @@
         $storeName = $record->workLocation?->name ?? $record->itineraryItem?->destination ?? $record->store_name ?? 'Kunjungan Toko';
         $coordinates = ($record->latitude && $record->longitude) ? "{$record->latitude}, {$record->longitude}" : null;
         $mapsUrl = $coordinates ? "https://www.google.com/maps?q={$record->latitude},{$record->longitude}" : null;
+
+        // Separate text inputs and photo/media attachments to prevent tall empty grid cards
+        $textValues = $record->values->filter(function($val) {
+            return empty($val->media_url) && empty($val->file_path);
+        });
+        $mediaValues = $record->values->filter(function($val) {
+            return !empty($val->media_url) || !empty($val->file_path);
+        });
     @endphp
 
     <style>
@@ -218,166 +226,294 @@
             color: #f8fafc;
         }
 
-        /* SECTION HEADINGS */
-        .section-header-box {
+        /* SPLIT CONTENT GRID (FORM DATA + PHOTO GALLERY) */
+        .content-split-grid {
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+        .content-split-grid.no-media {
+            grid-template-columns: 1fr;
+        }
+        @media (max-width: 992px) {
+            .content-split-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel-container {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            overflow: hidden;
+        }
+        .dark .panel-container {
+            background: #0f172a;
+            border-color: #1e293b;
+        }
+
+        .panel-header {
+            padding: 1.15rem 1.35rem;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-top: 0.5rem;
-            margin-bottom: -0.25rem;
         }
-        .section-header-title {
-            font-size: 1.1rem;
+        .dark .panel-header {
+            background: #1e293b;
+            border-color: #334155;
+        }
+
+        .panel-title {
+            font-size: 0.95rem;
             font-weight: 800;
             color: #0f172a;
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        .dark .section-header-title {
+        .dark .panel-title {
             color: #f8fafc;
         }
-        .section-count-pill {
-            font-size: 0.75rem;
+
+        .panel-count-badge {
+            font-size: 0.74rem;
             font-weight: 700;
             background: #e0f2fe;
             color: #0369a1;
-            padding: 2px 10px;
+            padding: 3px 10px;
             border-radius: 999px;
         }
-        .dark .section-count-pill {
+        .dark .panel-count-badge {
             background: #082f49;
             color: #38bdf8;
         }
 
-        /* FORM RESPONSES GRID */
-        .responses-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-            gap: 1.25rem;
+        /* PARAMETER TABLE */
+        .param-table {
+            width: 100%;
+            border-collapse: collapse;
         }
-        @media (max-width: 640px) {
-            .responses-grid {
-                grid-template-columns: 1fr;
-            }
+        .param-table tr {
+            border-bottom: 1px solid #f1f5f9;
+            transition: background 0.15s ease;
         }
-
-        .response-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 14px;
-            padding: 1.25rem 1.35rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            transition: all 0.2s ease;
-        }
-        .dark .response-card {
-            background: #0f172a;
+        .dark .param-table tr {
             border-color: #1e293b;
         }
-        .response-card:hover {
-            border-color: #cbd5e1;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        .param-table tr:last-child {
+            border-bottom: none;
         }
-        .dark .response-card:hover {
+        .param-table tr:hover {
+            background: #f8fafc;
+        }
+        .dark .param-table tr:hover {
+            background: #1e293b;
+        }
+        .param-table td {
+            padding: 1rem 1.25rem;
+            vertical-align: middle;
+        }
+
+        .param-num-col {
+            width: 44px;
+            text-align: center;
+            padding-right: 0 !important;
+        }
+        .param-num-circle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: #f1f5f9;
+            color: #64748b;
+            font-size: 0.78rem;
+            font-weight: 800;
+            border: 1px solid #e2e8f0;
+        }
+        .dark .param-num-circle {
+            background: #1e293b;
+            color: #94a3b8;
             border-color: #334155;
         }
 
-        .response-label {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+        .param-label-col {
+            padding-left: 0.85rem !important;
         }
-        .dark .response-label {
-            color: #94a3b8;
-        }
-
-        .response-value-text {
-            font-size: 1.05rem;
+        .param-label-text {
+            font-size: 0.88rem;
             font-weight: 700;
             color: #0f172a;
-            line-height: 1.4;
+            line-height: 1.35;
         }
-        .dark .response-value-text {
+        .dark .param-label-text {
             color: #f8fafc;
         }
 
-        .response-photo-box {
-            margin-top: 0.75rem;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 8px;
+        .param-val-col {
+            text-align: right;
+        }
+        .val-currency {
+            font-family: monospace;
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #15803d;
+            background: #dcfce7;
+            padding: 4px 10px;
+            border-radius: 8px;
+            border: 1px solid #86efac;
+            display: inline-block;
+        }
+        .val-number {
+            font-weight: 800;
+            font-size: 0.95rem;
+            color: #0f172a;
+            background: #f1f5f9;
+            padding: 3px 10px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+        .dark .val-number {
+            background: #1e293b;
+            color: #f8fafc;
+        }
+        .val-text {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+        .dark .val-text {
+            color: #f8fafc;
+        }
+        .val-chips-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            justify-content: flex-end;
+        }
+        .val-chip {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .dark .val-chip {
+            background: #1e293b;
+            border-color: #334155;
+            color: #f8fafc;
+        }
+        .val-empty {
+            color: #cbd5e1;
+            font-style: italic;
+        }
+
+        /* MEDIA GALLERY */
+        .media-gallery-grid {
+            padding: 1.25rem;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 1.25rem;
         }
-        .dark .response-photo-box {
+
+        .media-item-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .dark .media-item-card {
             background: #1e293b;
             border-color: #334155;
         }
 
-        .response-photo-img {
-            width: 100%;
-            max-height: 320px;
-            object-fit: contain;
-            background: #ffffff;
-            border-radius: 8px;
-            border: 1px solid #cbd5e1;
-        }
-        .dark .response-photo-img {
-            background: #0f172a;
-            border-color: #334155;
-        }
-
-        .photo-action-bar {
+        .media-item-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 0.5rem;
+        }
+        .media-badge-tag {
+            font-size: 0.74rem;
+            font-weight: 700;
+            color: #0F52BA;
+            background: rgba(15, 82, 186, 0.1);
+            padding: 2px 8px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .dark .media-badge-tag {
+            color: #60a5fa;
+            background: rgba(96, 165, 250, 0.15);
+        }
+        .media-field-title {
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: #0f172a;
+            text-align: right;
+            flex: 1;
+        }
+        .dark .media-field-title {
+            color: #f8fafc;
+        }
+
+        .media-photo-frame {
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .dark .media-photo-frame {
+            background: #0f172a;
+            border-color: #334155;
+        }
+        .media-photo-frame img {
+            width: 100%;
+            max-height: 360px;
+            object-fit: contain;
+            transition: transform 0.2s ease;
+        }
+        .media-photo-frame img:hover {
+            transform: scale(1.02);
+        }
+
+        .media-footer-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+        .media-full-link {
             font-size: 0.78rem;
-            font-weight: 600;
-            color: #64748b;
-            padding-top: 4px;
-        }
-        .dark .photo-action-bar {
-            color: #94a3b8;
-        }
-        .photo-link {
+            font-weight: 700;
             color: #0F52BA;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            font-weight: 700;
         }
-        .photo-link:hover {
+        .media-full-link:hover {
             text-decoration: underline;
         }
-        .dark .photo-link {
+        .dark .media-full-link {
             color: #60a5fa;
-        }
-
-        /* EMPTY STATE */
-        .empty-responses {
-            background: #ffffff;
-            border: 1px dashed #cbd5e1;
-            border-radius: 16px;
-            padding: 3rem 2rem;
-            text-align: center;
-            color: #64748b;
-        }
-        .dark .empty-responses {
-            background: #0f172a;
-            border-color: #334155;
-            color: #94a3b8;
         }
     </style>
 
@@ -490,7 +626,7 @@
                         @if($coordinates)
                             <span style="font-family: monospace; font-size: 0.82rem;">{{ $coordinates }}</span>
                             @if($mapsUrl)
-                                <a href="{{ $mapsUrl }}" target="_blank" class="photo-link" style="margin-left: 6px; font-size: 0.8rem;">
+                                <a href="{{ $mapsUrl }}" target="_blank" class="photo-link" style="margin-left: 6px; font-size: 0.8rem; color: #0F52BA; font-weight: 700; text-decoration: underline;">
                                     <span>Buka Maps ↗</span>
                                 </a>
                             @endif
@@ -518,80 +654,104 @@
             </div>
         </div>
 
-        {{-- SECTION 2: HASIL FORM & JAWABAN ISIAN --}}
-        <div class="section-header-box">
-            <div class="section-header-title">
-                <x-filament::icon icon="heroicon-o-document-text" style="width: 20px; height: 20px; color: #0F52BA;" />
-                <span>Isian Form & Bukti Foto Hasil Pelaporan</span>
+        {{-- SECTION 2: SPLIT CONTENT (DATA FORM TABLE + PHOTO GALLERY) --}}
+        <div class="content-split-grid @if($mediaValues->isEmpty()) no-media @endif">
+            {{-- PANEL 1: DAFTAR PARAMETER ISIAN TEKS / DATA --}}
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <x-filament::icon icon="heroicon-o-list-bullet" style="width: 18px; height: 18px; color: #0F52BA;" />
+                        <span>Isian & Data Formulir</span>
+                    </div>
+                    <span class="panel-count-badge">{{ $textValues->count() }} Parameter</span>
+                </div>
+
+                @if($textValues->isNotEmpty())
+                    <table class="param-table">
+                        <tbody>
+                            @foreach($textValues as $val)
+                                @php
+                                    $fieldLabel = $val->formField?->field_label ?? ucwords(str_replace('_', ' ', (string)$val->field_name));
+                                    $fieldType = $val->formField?->field_type ?? $val->field_type;
+                                @endphp
+                                <tr>
+                                    <td class="param-num-col">
+                                        <span class="param-num-circle">{{ $loop->iteration }}</span>
+                                    </td>
+                                    <td class="param-label-col">
+                                        <div class="param-label-text">{{ $fieldLabel }}</div>
+                                    </td>
+                                    <td class="param-val-col">
+                                        @if($fieldType === 'currency' && $val->value_number !== null)
+                                            <span class="val-currency">
+                                                Rp {{ number_format((float)$val->value_number, 0, ',', '.') }}
+                                            </span>
+                                        @elseif($val->value_number !== null)
+                                            <span class="val-number">
+                                                {{ number_format((float)$val->value_number, (floor($val->value_number) == $val->value_number ? 0 : 2), ',', '.') }}
+                                            </span>
+                                        @elseif(!empty($val->value_json))
+                                            <div class="val-chips-wrap">
+                                                @foreach((array)$val->value_json as $chip)
+                                                    <span class="val-chip">{{ $chip }}</span>
+                                                @endforeach
+                                            </div>
+                                        @elseif(!empty($val->value_text))
+                                            <span class="val-text">{{ $val->value_text }}</span>
+                                        @else
+                                            <span class="val-empty">-</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @else
+                    <div style="padding: 2.5rem 1.5rem; text-align: center; color: #64748b;">
+                        <x-filament::icon icon="heroicon-o-document-text" style="width: 32px; height: 32px; margin: 0 auto 8px; color: #94a3b8;" />
+                        <p style="font-size: 0.88rem; margin: 0;">Tidak ada isian teks tambahan pada formulir ini.</p>
+                    </div>
+                @endif
             </div>
-            <span class="section-count-pill">{{ $record->values->count() }} Parameter</span>
-        </div>
 
-        @if($record->values->isNotEmpty())
-            <div class="responses-grid">
-                @foreach($record->values as $index => $val)
-                    @php
-                        $fieldLabel = $val->formField?->field_label ?? ucwords(str_replace('_', ' ', (string)$val->field_name));
-                        $fieldType = $val->formField?->field_type ?? $val->field_type;
-                        $hasMedia = !empty($val->media_url);
-                        $mediaUrl = $hasMedia ? asset('storage/' . $val->media_url) : null;
-                    @endphp
-
-                    <div class="response-card">
-                        <div>
-                            <div class="response-label">
-                                <span>#{{ $index + 1 }}</span>
-                                <span>&bull;</span>
-                                <span>{{ $fieldLabel }}</span>
-                            </div>
-
-                            @if(!$hasMedia)
-                                <div class="response-value-text">
-                                    @if($fieldType === 'currency' && $val->value_number !== null)
-                                        <span style="color: #15803d; font-family: monospace; font-size: 1.15rem;">
-                                            Rp {{ number_format((float)$val->value_number, 0, ',', '.') }}
-                                        </span>
-                                    @elseif($val->value_number !== null)
-                                        <span>{{ number_format((float)$val->value_number, (floor($val->value_number) == $val->value_number ? 0 : 2), ',', '.') }}</span>
-                                    @elseif(!empty($val->value_json))
-                                        <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
-                                            @foreach((array)$val->value_json as $chip)
-                                                <span style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 8px; font-size: 0.8rem; font-weight: 600;">
-                                                    {{ $chip }}
-                                                </span>
-                                            @endforeach
-                                        </div>
-                                    @elseif(!empty($val->value_text))
-                                        <span style="white-space: pre-line;">{{ $val->value_text }}</span>
-                                    @else
-                                        <span style="color: #94a3b8; font-style: italic;">(Tidak diisi)</span>
-                                    @endif
-                                </div>
-                            @endif
+            {{-- PANEL 2: GALERI FOTO BUKTI / DOKUMENTASI --}}
+            @if($mediaValues->isNotEmpty())
+                <div class="panel-container">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <x-filament::icon icon="heroicon-o-camera" style="width: 18px; height: 18px; color: #0F52BA;" />
+                            <span>Foto Bukti & Dokumentasi</span>
                         </div>
+                        <span class="panel-count-badge">{{ $mediaValues->count() }} Foto</span>
+                    </div>
 
-                        @if($hasMedia)
-                            <div class="response-photo-box">
-                                <a href="{{ $mediaUrl }}" target="_blank">
-                                    <img src="{{ $mediaUrl }}" alt="{{ $fieldLabel }}" class="response-photo-img" loading="lazy" />
-                                </a>
-                                <div class="photo-action-bar">
-                                    <span>📷 Lampiran Foto / Gambar</span>
-                                    <a href="{{ $mediaUrl }}" target="_blank" class="photo-link">
-                                        <span>Buka Resolusi Asli ↗</span>
+                    <div class="media-gallery-grid">
+                        @foreach($mediaValues as $val)
+                            @php
+                                $fieldLabel = $val->formField?->field_label ?? ucwords(str_replace('_', ' ', (string)$val->field_name));
+                                $mediaPath = $val->media_url ?? $val->file_path;
+                                $mediaUrl = asset('storage/' . $mediaPath);
+                            @endphp
+                            <div class="media-item-card">
+                                <div class="media-item-header">
+                                    <span class="media-badge-tag">📷 Foto #{{ $loop->iteration }}</span>
+                                    <div class="media-field-title">{{ $fieldLabel }}</div>
+                                </div>
+                                <div class="media-photo-frame">
+                                    <a href="{{ $mediaUrl }}" target="_blank">
+                                        <img src="{{ $mediaUrl }}" alt="{{ $fieldLabel }}" loading="lazy">
+                                    </a>
+                                </div>
+                                <div class="media-footer-bar">
+                                    <a href="{{ $mediaUrl }}" target="_blank" class="media-full-link">
+                                        <span>Buka Resolusi Penuh ↗</span>
                                     </a>
                                 </div>
                             </div>
-                        @endif
+                        @endforeach
                     </div>
-                @endforeach
-            </div>
-        @else
-            <div class="empty-responses">
-                <x-filament::icon icon="heroicon-o-document-magnifying-glass" style="width: 48px; height: 48px; margin: 0 auto 12px; color: #94a3b8;" />
-                <div style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin-bottom: 4px;">Tidak Ada Parameter Isian</div>
-                <div style="font-size: 0.85rem;">Laporan ini tidak memiliki data input form yang tersimpan.</div>
-            </div>
-        @endif
+                </div>
+            @endif
+        </div>
     </div>
 </x-filament-panels::page>
