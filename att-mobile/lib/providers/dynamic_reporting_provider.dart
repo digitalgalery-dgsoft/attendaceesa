@@ -162,7 +162,7 @@ class DynamicReportingProvider with ChangeNotifier {
     String? address,
     bool isWithinRadius = true,
     required Map<String, dynamic> values,
-    required Map<String, File> photoFiles,
+    required Map<String, dynamic> photoFiles,
     required Map<String, String> watermarkTexts,
   }) async {
     _isLoading = true;
@@ -194,16 +194,25 @@ class DynamicReportingProvider with ChangeNotifier {
         request.fields['wm_$key'] = val;
       });
 
-      // Photos
+      // Photos (support single File or List<File>)
       for (final entry in photoFiles.entries) {
         final fieldId = entry.key;
-        final file = entry.value;
-        if (await file.exists()) {
-          request.files.add(await http.MultipartFile.fromPath('photo_$fieldId', file.path));
+        final val = entry.value;
+        if (val is List<File>) {
+          for (int i = 0; i < val.length; i++) {
+            final f = val[i];
+            if (await f.exists()) {
+              request.files.add(await http.MultipartFile.fromPath('photo_${fieldId}_$i', f.path));
+            }
+          }
+        } else if (val is File) {
+          if (await val.exists()) {
+            request.files.add(await http.MultipartFile.fromPath('photo_$fieldId', val.path));
+          }
         }
       }
 
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 35));
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 40));
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -224,8 +233,12 @@ class DynamicReportingProvider with ChangeNotifier {
 
       // Simpan ke offline queue
       Map<String, String> photoPaths = {};
-      photoFiles.forEach((key, file) {
-        photoPaths[key] = file.path;
+      photoFiles.forEach((key, val) {
+        if (val is List<File>) {
+          photoPaths[key] = jsonEncode(val.map((f) => f.path).toList());
+        } else if (val is File) {
+          photoPaths[key] = val.path;
+        }
       });
 
       await OfflineReportingSyncService.saveToQueue(
@@ -265,7 +278,8 @@ class DynamicReportingProvider with ChangeNotifier {
     int? workLocationId,
     String? address,
     required Map<String, dynamic> values,
-    required Map<String, File> photoFiles,
+    required Map<String, dynamic> photoFiles,
+    Map<String, List<String>>? existingPhotos,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -286,16 +300,32 @@ class DynamicReportingProvider with ChangeNotifier {
       // Values JSON
       request.fields['values'] = jsonEncode(values);
 
-      // Photos
+      // Existing photos to retain
+      if (existingPhotos != null) {
+        existingPhotos.forEach((fieldId, urls) {
+          request.fields['existing_photos_$fieldId'] = jsonEncode(urls);
+        });
+      }
+
+      // Photos (support single File or List<File>)
       for (final entry in photoFiles.entries) {
         final fieldId = entry.key;
-        final file = entry.value;
-        if (await file.exists()) {
-          request.files.add(await http.MultipartFile.fromPath('photo_$fieldId', file.path));
+        final val = entry.value;
+        if (val is List<File>) {
+          for (int i = 0; i < val.length; i++) {
+            final f = val[i];
+            if (await f.exists()) {
+              request.files.add(await http.MultipartFile.fromPath('photo_${fieldId}_$i', f.path));
+            }
+          }
+        } else if (val is File) {
+          if (await val.exists()) {
+            request.files.add(await http.MultipartFile.fromPath('photo_$fieldId', val.path));
+          }
         }
       }
 
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 35));
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 40));
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {

@@ -223,16 +223,16 @@ class ReportingApiController extends Controller
                 $valueJson = null;
                 $photoPath = null;
 
-                // Handle file upload (foto / tanda tangan)
-                $fileKey = "photo_{$fieldId}";
-                if ($request->hasFile($fileKey)) {
-                    $file = $request->file($fileKey);
-                    $filename = "report_{$submission->id}_{$fieldId}_" . time() . '.' . $file->getClientOriginalExtension();
-                    $photoPath = $file->storeAs("reports/" . now()->format('Y-m'), $filename, 'public');
-                } elseif ($request->hasFile("photo_{$fieldName}")) {
-                    $file = $request->file("photo_{$fieldName}");
-                    $filename = "report_{$submission->id}_{$fieldId}_" . time() . '.' . $file->getClientOriginalExtension();
-                    $photoPath = $file->storeAs("reports/" . now()->format('Y-m'), $filename, 'public');
+                // Handle file upload (single foto, multi-foto, atau tanda tangan)
+                $savedPhotos = $this->saveUploadedPhotos($request, $submission->id, $fieldId, $fieldName);
+                if (!empty($savedPhotos)) {
+                    $photoPath = $savedPhotos[0];
+                    if (count($savedPhotos) > 1 || $field->field_type === 'multi_photo') {
+                        $valueJson = $savedPhotos;
+                        $valueText = implode(', ', $savedPhotos);
+                    } else {
+                        $valueText = $photoPath;
+                    }
                 }
 
                 // Handle format data berdasarkan field_type
@@ -248,12 +248,12 @@ class ReportingApiController extends Controller
                 } elseif (in_array($field->field_type, ['multi_select', 'checkbox_group', 'sku_list']) || is_array($rawValue)) {
                     $valueJson = is_array($rawValue) ? $rawValue : [$rawValue];
                     $valueText = is_array($rawValue) ? implode(', ', $rawValue) : (string) $rawValue;
-                } else {
+                } elseif (!in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])) {
                     $valueText = is_string($rawValue) ? $rawValue : ($rawValue !== null ? json_encode($rawValue) : null);
                 }
 
-                // Jika berupa media / foto dan ada watermark, bisa disimpan pathnya
-                if ($photoPath) {
+                // Jika berupa media / foto dan belum ada valueText
+                if ($photoPath && empty($valueText)) {
                     $valueText = $photoPath;
                 }
 
@@ -383,12 +383,23 @@ class ReportingApiController extends Controller
             $canEdit = !$isApproved;
 
             $valuesFormatted = $s->values->map(function ($v) {
-                $mediaFullUrl = null;
-                if (!empty($v->media_url)) {
-                    $mediaFullUrl = (str_starts_with($v->media_url, 'http://') || str_starts_with($v->media_url, 'https://'))
+                $mediaFullUrls = [];
+                if (is_array($v->value_json) && !empty($v->value_json)) {
+                    foreach ($v->value_json as $p) {
+                        if (is_string($p) && (str_contains($p, 'reports/') || str_starts_with($p, 'http'))) {
+                            $mediaFullUrls[] = (str_starts_with($p, 'http://') || str_starts_with($p, 'https://'))
+                                ? $p
+                                : asset('storage/' . ltrim($p, '/'));
+                        }
+                    }
+                }
+                if (empty($mediaFullUrls) && !empty($v->media_url)) {
+                    $mediaFullUrls[] = (str_starts_with($v->media_url, 'http://') || str_starts_with($v->media_url, 'https://'))
                         ? $v->media_url
                         : asset('storage/' . ltrim($v->media_url, '/'));
                 }
+
+                $mediaFullUrl = $mediaFullUrls[0] ?? null;
 
                 return [
                     'id' => $v->id,
@@ -401,6 +412,7 @@ class ReportingApiController extends Controller
                     'value_json' => $v->value_json,
                     'media_url' => $v->media_url,
                     'media_full_url' => $mediaFullUrl,
+                    'media_full_urls' => $mediaFullUrls,
                 ];
             });
 
@@ -496,12 +508,23 @@ class ReportingApiController extends Controller
         $canEdit = !$isApproved;
 
         $valuesFormatted = $submission->values->map(function ($v) {
-            $mediaFullUrl = null;
-            if (!empty($v->media_url)) {
-                $mediaFullUrl = (str_starts_with($v->media_url, 'http://') || str_starts_with($v->media_url, 'https://'))
+            $mediaFullUrls = [];
+            if (is_array($v->value_json) && !empty($v->value_json)) {
+                foreach ($v->value_json as $p) {
+                    if (is_string($p) && (str_contains($p, 'reports/') || str_starts_with($p, 'http'))) {
+                        $mediaFullUrls[] = (str_starts_with($p, 'http://') || str_starts_with($p, 'https://'))
+                            ? $p
+                            : asset('storage/' . ltrim($p, '/'));
+                    }
+                }
+            }
+            if (empty($mediaFullUrls) && !empty($v->media_url)) {
+                $mediaFullUrls[] = (str_starts_with($v->media_url, 'http://') || str_starts_with($v->media_url, 'https://'))
                     ? $v->media_url
                     : asset('storage/' . ltrim($v->media_url, '/'));
             }
+
+            $mediaFullUrl = $mediaFullUrls[0] ?? null;
 
             return [
                 'id' => $v->id,
@@ -514,6 +537,7 @@ class ReportingApiController extends Controller
                 'value_json' => $v->value_json,
                 'media_url' => $v->media_url,
                 'media_full_url' => $mediaFullUrl,
+                'media_full_urls' => $mediaFullUrls,
             ];
         });
 
@@ -656,17 +680,37 @@ class ReportingApiController extends Controller
                 $photoPath = $existingVal?->media_url;
 
                 // Handle upload foto / media baru jika dikirimkan
-                $fileKey = "photo_{$fieldId}";
-                if ($request->hasFile($fileKey)) {
-                    $file = $request->file($fileKey);
-                    $filename = "report_{$submission->id}_{$fieldId}_" . time() . '.' . $file->getClientOriginalExtension();
-                    $photoPath = $file->storeAs("reports/" . now()->format('Y-m'), $filename, 'public');
-                    $valueText = $photoPath;
-                } elseif ($request->hasFile("photo_{$fieldName}")) {
-                    $file = $request->file("photo_{$fieldName}");
-                    $filename = "report_{$submission->id}_{$fieldId}_" . time() . '.' . $file->getClientOriginalExtension();
-                    $photoPath = $file->storeAs("reports/" . now()->format('Y-m'), $filename, 'public');
-                    $valueText = $photoPath;
+                $savedPhotos = $this->saveUploadedPhotos($request, $submission->id, $fieldId, $fieldName);
+
+                // Cek apakah ada existing photos yang dipertahankan dari request
+                $existingPhotosInput = $request->input("existing_photos_{$fieldId}") ?? $request->input("existing_photos_{$fieldName}");
+                $keptExistingPhotos = [];
+                if ($existingPhotosInput) {
+                    if (is_string($existingPhotosInput)) {
+                        $keptExistingPhotos = json_decode($existingPhotosInput, true) ?? [$existingPhotosInput];
+                    } elseif (is_array($existingPhotosInput)) {
+                        $keptExistingPhotos = $existingPhotosInput;
+                    }
+                } elseif (empty($savedPhotos) && $existingVal) {
+                    // Jika tidak ada upload baru dan tidak ada manipulasi existing photos, gunakan existing value
+                    if (is_array($existingVal->value_json)) {
+                        $keptExistingPhotos = $existingVal->value_json;
+                    } elseif ($existingVal->media_url) {
+                        $keptExistingPhotos = [$existingVal->media_url];
+                    }
+                }
+
+                // Gabungkan foto yang dipertahankan + foto yang baru diupload
+                $allPhotos = array_values(array_filter(array_merge($keptExistingPhotos, $savedPhotos)));
+                if (!empty($allPhotos)) {
+                    $photoPath = $allPhotos[0];
+                    if (count($allPhotos) > 1 || $field->field_type === 'multi_photo') {
+                        $valueJson = $allPhotos;
+                        $valueText = implode(', ', $allPhotos);
+                    } else {
+                        $valueJson = null;
+                        $valueText = $photoPath;
+                    }
                 }
 
                 if ($hasNewValue) {
@@ -681,12 +725,12 @@ class ReportingApiController extends Controller
                     } elseif (in_array($field->field_type, ['multi_select', 'checkbox_group', 'sku_list']) || is_array($rawValue)) {
                         $valueJson = is_array($rawValue) ? $rawValue : [$rawValue];
                         $valueText = is_array($rawValue) ? implode(', ', $rawValue) : (string) $rawValue;
-                    } else {
+                    } elseif (!in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])) {
                         $valueText = is_string($rawValue) ? $rawValue : ($rawValue !== null ? json_encode($rawValue) : null);
                     }
                 }
 
-                if ($photoPath && (!$hasNewValue || empty($valueText))) {
+                if ($photoPath && empty($valueText)) {
                     $valueText = $photoPath;
                 }
 
@@ -725,5 +769,64 @@ class ReportingApiController extends Controller
                 'message' => 'Gagal memperbarui laporan: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Helper to collect and save uploaded files for a field (single or multi-photo).
+     * @return array array of saved relative file paths
+     */
+    private function saveUploadedPhotos(Request $request, int $submissionId, string $fieldId, string $fieldName): array
+    {
+        $savedPaths = [];
+        $uploadedFiles = [];
+
+        // 1. Cek jika dikirim sebagai array photo_{fieldId}[] atau photos_{fieldId}[]
+        if ($request->hasFile("photo_{$fieldId}")) {
+            $f = $request->file("photo_{$fieldId}");
+            if (is_array($f)) {
+                $uploadedFiles = array_merge($uploadedFiles, $f);
+            } else {
+                $uploadedFiles[] = $f;
+            }
+        }
+        if ($request->hasFile("photos_{$fieldId}")) {
+            $f = $request->file("photos_{$fieldId}");
+            if (is_array($f)) {
+                $uploadedFiles = array_merge($uploadedFiles, $f);
+            } else {
+                $uploadedFiles[] = $f;
+            }
+        }
+        if ($request->hasFile("photo_{$fieldName}")) {
+            $f = $request->file("photo_{$fieldName}");
+            if (is_array($f)) {
+                $uploadedFiles = array_merge($uploadedFiles, $f);
+            } else {
+                $uploadedFiles[] = $f;
+            }
+        }
+
+        // 2. Cek jika dikirim dengan suffix index (misal: photo_{fieldId}_0, photo_{fieldId}_1, dst)
+        foreach ($request->allFiles() as $key => $file) {
+            if (str_starts_with($key, "photo_{$fieldId}_") || str_starts_with($key, "photos_{$fieldId}_") || str_starts_with($key, "photo_{$fieldName}_")) {
+                if (is_array($file)) {
+                    $uploadedFiles = array_merge($uploadedFiles, $file);
+                } else {
+                    $uploadedFiles[] = $file;
+                }
+            }
+        }
+
+        foreach ($uploadedFiles as $idx => $file) {
+            if ($file && $file->isValid()) {
+                $filename = "report_{$submissionId}_{$fieldId}_{$idx}_" . time() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs("reports/" . now()->format('Y-m'), $filename, 'public');
+                if ($path) {
+                    $savedPaths[] = $path;
+                }
+            }
+        }
+
+        return $savedPaths;
     }
 }

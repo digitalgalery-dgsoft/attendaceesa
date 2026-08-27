@@ -439,52 +439,99 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ),
           const SizedBox(height: 6),
           if (isMedia && hasMedia) ...[
-            GestureDetector(
-              onTap: () => _showImageDialog(context, val.mediaFullUrl!, val.fieldLabel),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    Image.network(
-                      val.mediaFullUrl!,
-                      height: 180,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        height: 100,
-                        color: elevatedColor,
-                        alignment: Alignment.center,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.broken_image_rounded, color: subtitleColor, size: 28),
-                            const SizedBox(height: 4),
-                            Text('Gagal memuat gambar', style: TextStyle(color: subtitleColor, fontSize: 11)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.all(8),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.zoom_in_rounded, color: Colors.white, size: 14),
-                          SizedBox(width: 4),
-                          Text('Lihat Foto', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+            if (val.mediaFullUrls.length > 1) ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: val.mediaFullUrls.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final url = entry.value;
+                  return GestureDetector(
+                    onTap: () => _showImageDialog(context, url, '${val.fieldLabel} (${idx + 1}/${val.mediaFullUrls.length})'),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          Image.network(
+                            url,
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              width: 100,
+                              height: 100,
+                              color: elevatedColor,
+                              alignment: Alignment.center,
+                              child: const Icon(Icons.broken_image_rounded, size: 24, color: Colors.grey),
+                            ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: Colors.black87,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Foto ${idx + 1}',
+                              style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  ],
+                  );
+                }).toList(),
+              ),
+            ] else ...[
+              GestureDetector(
+                onTap: () => _showImageDialog(context, val.mediaFullUrl!, val.fieldLabel),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      Image.network(
+                        val.mediaFullUrl!,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          height: 100,
+                          color: elevatedColor,
+                          alignment: Alignment.center,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.broken_image_rounded, color: subtitleColor, size: 28),
+                              const SizedBox(height: 4),
+                              Text('Gagal memuat gambar', style: TextStyle(color: subtitleColor, fontSize: 11)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.zoom_in_rounded, color: Colors.white, size: 14),
+                            SizedBox(width: 4),
+                            Text('Lihat Foto', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ] else ...[
             Text(
               displayValue,

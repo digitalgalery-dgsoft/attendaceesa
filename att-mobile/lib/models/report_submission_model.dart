@@ -100,6 +100,7 @@ class ReportSubmissionValueModel {
   final dynamic valueJson;
   final String? mediaUrl;
   final String? mediaFullUrl;
+  final List<String> mediaFullUrls;
 
   ReportSubmissionValueModel({
     required this.id,
@@ -112,9 +113,19 @@ class ReportSubmissionValueModel {
     this.valueJson,
     this.mediaUrl,
     this.mediaFullUrl,
+    this.mediaFullUrls = const [],
   });
 
   factory ReportSubmissionValueModel.fromJson(Map<String, dynamic> json) {
+    List<String> urls = [];
+    if (json['media_full_urls'] is List) {
+      urls = (json['media_full_urls'] as List).map((e) => e.toString()).toList();
+    } else if (json['media_full_url'] != null) {
+      urls = [json['media_full_url'].toString()];
+    } else if (json['media_url'] != null) {
+      urls = [json['media_url'].toString()];
+    }
+
     return ReportSubmissionValueModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
       reportFormFieldId: json['report_form_field_id'] is int ? json['report_form_field_id'] : int.tryParse(json['report_form_field_id']?.toString() ?? ''),
@@ -125,7 +136,8 @@ class ReportSubmissionValueModel {
       valueNumber: json['value_number'] is num ? (json['value_number'] as num).toDouble() : double.tryParse(json['value_number']?.toString() ?? ''),
       valueJson: json['value_json'],
       mediaUrl: json['media_url'],
-      mediaFullUrl: json['media_full_url'] ?? json['media_url'],
+      mediaFullUrl: json['media_full_url'] ?? (urls.isNotEmpty ? urls.first : json['media_url']),
+      mediaFullUrls: urls,
     );
   }
 }

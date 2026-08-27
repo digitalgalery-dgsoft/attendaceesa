@@ -48,8 +48,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   // State nilai form dinamis
   final Map<String, dynamic> _formValues = {};
   final Map<String, File> _photoFiles = {};
+  final Map<String, List<File>> _multiPhotoFiles = {};
   final Map<String, String> _watermarkTexts = {};
   final Map<String, String> _existingPhotoUrls = {};
+  final Map<String, List<String>> _existingMultiPhotoUrls = {};
 
   // Controllers untuk text & currency fields
   final Map<String, TextEditingController> _controllers = {};
@@ -202,12 +204,28 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       for (final val in widget.editSubmission!.values) {
         final fieldKey = val.reportFormFieldId != null ? val.reportFormFieldId.toString() : val.fieldName;
 
+        if (val.fieldType == 'multi_photo') {
+          List<String> urls = [];
+          if (val.mediaFullUrls.isNotEmpty) {
+            urls.addAll(val.mediaFullUrls);
+          } else if (val.valueJson is List) {
+            urls.addAll((val.valueJson as List).map((e) => e.toString()));
+          } else if (val.mediaFullUrl != null && val.mediaFullUrl!.isNotEmpty) {
+            urls.add(val.mediaFullUrl!);
+          }
+          if (urls.isNotEmpty) {
+            _existingMultiPhotoUrls[fieldKey] = urls;
+            _existingMultiPhotoUrls[val.fieldName] = urls;
+          }
+          continue;
+        }
+
         if (val.mediaFullUrl != null && val.mediaFullUrl!.isNotEmpty) {
           _existingPhotoUrls[fieldKey] = val.mediaFullUrl!;
           _existingPhotoUrls[val.fieldName] = val.mediaFullUrl!;
         }
 
-        if (['photo', 'camera_photo', 'multi_photo', 'signature'].contains(val.fieldType)) {
+        if (['photo', 'camera_photo', 'signature'].contains(val.fieldType)) {
           _formValues[fieldKey] = val.valueText;
           _formValues[val.fieldName] = val.valueText;
           continue;
@@ -431,10 +449,17 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     );
 
     if (result != null && mounted) {
+      final fieldKey = field.id.toString();
       setState(() {
-        _photoFiles[field.id.toString()] = result.file;
-        _watermarkTexts[field.id.toString()] = result.watermarkText;
-        _formValues[field.id.toString()] = result.file.path;
+        if (field.fieldType == 'multi_photo') {
+          _multiPhotoFiles.putIfAbsent(fieldKey, () => []).add(result.file);
+          _watermarkTexts[fieldKey] = result.watermarkText;
+          _formValues[fieldKey] = _multiPhotoFiles[fieldKey]!.map((f) => f.path).toList();
+        } else {
+          _photoFiles[fieldKey] = result.file;
+          _watermarkTexts[fieldKey] = result.watermarkText;
+          _formValues[fieldKey] = result.file.path;
+        }
       });
 
       toastification.show(
@@ -916,7 +941,20 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     for (final field in widget.template.fields) {
       if (field.isRequired) {
         final fieldKey = field.id.toString();
-        if (['photo', 'camera_photo', 'multi_photo', 'signature'].contains(field.fieldType)) {
+        if (field.fieldType == 'multi_photo') {
+          final hasFiles = _multiPhotoFiles[fieldKey]?.isNotEmpty ?? false;
+          final hasExisting = (_existingMultiPhotoUrls[fieldKey]?.isNotEmpty ?? false) || (_existingMultiPhotoUrls[field.fieldName]?.isNotEmpty ?? false);
+          if (!hasFiles && !hasExisting) {
+            toastification.show(
+              context: context,
+              type: ToastificationType.warning,
+              title: Text('Wajib Mengisi ${field.fieldLabel}'),
+              description: const Text('Silakan ambil minimal 1 foto bukti terlebih dahulu.'),
+              autoCloseDuration: const Duration(seconds: 3),
+            );
+            return;
+          }
+        } else if (['photo', 'camera_photo', 'signature'].contains(field.fieldType)) {
           final hasFile = _photoFiles.containsKey(fieldKey) && _photoFiles[fieldKey] != null;
           final hasExisting = _existingPhotoUrls.containsKey(fieldKey) || _existingPhotoUrls.containsKey(field.fieldName);
           if (!hasFile && !hasExisting) {
@@ -951,6 +989,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     });
 
+    // Gabungkan payload foto (single dan multi-foto)
+    final Map<String, dynamic> allPhotosPayload = {};
+    _photoFiles.forEach((k, v) => allPhotosPayload[k] = v);
+    _multiPhotoFiles.forEach((k, v) => allPhotosPayload[k] = v);
+
     Map<String, dynamic> result;
 
     if (widget.editSubmission != null) {
@@ -961,7 +1004,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         workLocationId: _selectedWorkLocationId,
         address: _selectedLocation?['address'] ?? _address,
         values: _formValues,
-        photoFiles: _photoFiles,
+        photoFiles: allPhotosPayload,
+        existingPhotos: _existingMultiPhotoUrls,
       );
     } else {
       result = await repProvider.submitReport(
@@ -976,7 +1020,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         address: _selectedLocation?['address'] ?? _address,
         isWithinRadius: _isWithinRadius,
         values: _formValues,
-        photoFiles: _photoFiles,
+        photoFiles: allPhotosPayload,
         watermarkTexts: _watermarkTexts,
       );
     }
@@ -1603,7 +1647,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
       case 'photo':
       case 'camera_photo':
-      case 'multi_photo':
         final photoFile = _photoFiles[fieldKey];
         final existingPhotoUrl = _existingPhotoUrls[fieldKey] ?? _existingPhotoUrls[field.fieldName];
 
@@ -1655,6 +1698,158 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 (photoFile == null && (existingPhotoUrl == null || existingPhotoUrl.isEmpty))
                     ? locale.tr('take_watermark_photo')
                     : 'Ubah / Ambil Ulang Foto',
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: themeColor,
+                side: BorderSide(color: themeColor),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        );
+        break;
+
+      case 'multi_photo':
+        final capturedFiles = _multiPhotoFiles[fieldKey] ?? [];
+        final existingUrls = _existingMultiPhotoUrls[fieldKey] ?? _existingMultiPhotoUrls[field.fieldName] ?? [];
+        final totalCount = capturedFiles.length + existingUrls.length;
+
+        inputWidget = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (totalCount > 0) ...[
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  // Existing network photos
+                  ...existingUrls.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final url = entry.value;
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            url,
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              width: 100,
+                              height: 100,
+                              color: elevatedColor,
+                              alignment: Alignment.center,
+                              child: const Icon(Icons.broken_image_rounded, size: 24, color: Colors.grey),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: -6,
+                          right: -6,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                existingUrls.removeAt(idx);
+                                _existingMultiPhotoUrls[fieldKey] = existingUrls;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 4,
+                          left: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: Colors.black87,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Foto ${idx + 1}',
+                              style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                  // Newly taken local files
+                  ...capturedFiles.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final file = entry.value;
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.file(
+                            file,
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          top: -6,
+                          right: -6,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                capturedFiles.removeAt(idx);
+                                _multiPhotoFiles[fieldKey] = capturedFiles;
+                                _formValues[fieldKey] = capturedFiles.map((f) => f.path).toList();
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 4,
+                          left: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF149A6E),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Baru ${existingUrls.length + idx + 1}',
+                              style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+            OutlinedButton.icon(
+              onPressed: () => _takeWatermarkedPhoto(field),
+              icon: const Icon(Icons.add_a_photo_rounded, size: 18),
+              label: Text(
+                totalCount == 0
+                    ? 'Ambil Foto Bukti (Multi-Foto)'
+                    : 'Tambah Foto Bukti Lainnya ($totalCount Terambil)',
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: themeColor,
