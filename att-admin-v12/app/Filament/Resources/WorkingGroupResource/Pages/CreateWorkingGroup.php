@@ -171,10 +171,29 @@ class CreateWorkingGroup extends Page
         $query = Employee::where('is_active', 1);
 
         if (!empty($this->branch_id)) {
-            $query->where('branch_id', $this->branch_id);
+            $branch = Branch::find($this->branch_id);
+            if ($branch) {
+                $sameNameBranchIds = Branch::where('name', $branch->name)->pluck('id')->toArray();
+                $query->whereIn('branch_id', $sameNameBranchIds);
+            } else {
+                $query->where('branch_id', $this->branch_id);
+            }
         }
         if (!empty($this->principal_id)) {
-            $query->where('principal_id', $this->principal_id);
+            $principal = Principal::find($this->principal_id);
+            if ($principal) {
+                $samePrincipalIds = Principal::where('name', $principal->name)
+                    ->orWhere(function ($q) use ($principal) {
+                        if (!empty($principal->subdomain)) {
+                            $q->where('subdomain', $principal->subdomain);
+                        }
+                    })
+                    ->pluck('id')
+                    ->toArray();
+                $query->whereIn('principal_id', $samePrincipalIds);
+            } else {
+                $query->where('principal_id', $this->principal_id);
+            }
         }
 
         $empIds = $query->pluck('id')->toArray();
@@ -317,20 +336,63 @@ class CreateWorkingGroup extends Page
 
     public function getViewData(): array
     {
-        $shifts = Shift::where('is_active', 1)->orderBy('name')->pluck('name', 'id');
-        $branches = Branch::orderBy('name')->pluck('name', 'id');
-        $principals = Principal::orderBy('name')->pluck('name', 'id');
-        $workLocations = WorkLocation::orderBy('name')->pluck('name', 'id');
+        $shifts = Shift::where('is_active', 1)
+            ->whereNotNull('name')
+            ->where('name', '!=', '')
+            ->orderBy('name')
+            ->get()
+            ->unique(fn($s) => trim(strtoupper($s->name)))
+            ->pluck('name', 'id');
+
+        $branches = Branch::whereNotNull('name')
+            ->where('name', '!=', '')
+            ->orderBy('name')
+            ->get()
+            ->unique(fn($b) => trim(strtoupper($b->name)))
+            ->pluck('name', 'id');
+
+        $principals = Principal::whereNotNull('name')
+            ->where('name', '!=', '')
+            ->orderBy('name')
+            ->get()
+            ->unique(fn($p) => trim(strtoupper($p->name)))
+            ->pluck('name', 'id');
+
+        $workLocations = WorkLocation::whereNotNull('name')
+            ->where('name', '!=', '')
+            ->orderBy('name')
+            ->get()
+            ->unique(fn($w) => trim(strtoupper($w->name)))
+            ->pluck('name', 'id');
 
         // Dropdown available employees (exclude already selected)
         $availEmpQuery = Employee::where('is_active', 1)
             ->whereNotIn('id', $this->selected_employee_ids);
 
         if (!empty($this->branch_id)) {
-            $availEmpQuery->where('branch_id', $this->branch_id);
+            $branch = Branch::find($this->branch_id);
+            if ($branch) {
+                $sameNameBranchIds = Branch::where('name', $branch->name)->pluck('id')->toArray();
+                $availEmpQuery->whereIn('branch_id', $sameNameBranchIds);
+            } else {
+                $availEmpQuery->where('branch_id', $this->branch_id);
+            }
         }
         if (!empty($this->principal_id)) {
-            $availEmpQuery->where('principal_id', $this->principal_id);
+            $principal = Principal::find($this->principal_id);
+            if ($principal) {
+                $samePrincipalIds = Principal::where('name', $principal->name)
+                    ->orWhere(function ($q) use ($principal) {
+                        if (!empty($principal->subdomain)) {
+                            $q->where('subdomain', $principal->subdomain);
+                        }
+                    })
+                    ->pluck('id')
+                    ->toArray();
+                $availEmpQuery->whereIn('principal_id', $samePrincipalIds);
+            } else {
+                $availEmpQuery->where('principal_id', $this->principal_id);
+            }
         }
 
         $availableEmployees = $availEmpQuery->orderBy('full_name')

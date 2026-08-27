@@ -632,12 +632,12 @@
         $totalSelected = $viewData['totalSelected'];
         $pagination = $viewData['pagination'];
 
-        // Format options as arrays for Alpine searchable selects
-        $branchOptions = $branches->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->values()->toArray();
-        $principalOptions = $principals->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->values()->toArray();
-        $shiftOptions = $shifts->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->values()->toArray();
-        $locationOptions = $workLocations->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->values()->toArray();
-        $empOptions = $availableEmployees->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->values()->toArray();
+        // Format options as arrays for Alpine searchable selects with distinct names
+        $branchOptions = collect($branches)->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->unique('name')->values()->toArray();
+        $principalOptions = collect($principals)->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->unique(fn($item) => trim(strtoupper($item['name'])))->values()->toArray();
+        $shiftOptions = collect($shifts)->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->unique('name')->values()->toArray();
+        $locationOptions = collect($workLocations)->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->unique('name')->values()->toArray();
+        $empOptions = collect($availableEmployees)->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->values()->toArray();
     @endphp
 
     <div class="wg-wizard-wrapper">
