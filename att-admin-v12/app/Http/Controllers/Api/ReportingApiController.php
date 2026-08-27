@@ -227,12 +227,8 @@ class ReportingApiController extends Controller
                 $savedPhotos = $this->saveUploadedPhotos($request, $submission->id, $fieldId, $fieldName);
                 if (!empty($savedPhotos)) {
                     $photoPath = $savedPhotos[0];
-                    if (count($savedPhotos) > 1 || $field->field_type === 'multi_photo') {
-                        $valueJson = $savedPhotos;
-                        $valueText = implode(', ', $savedPhotos);
-                    } else {
-                        $valueText = $photoPath;
-                    }
+                    $valueJson = $savedPhotos;
+                    $valueText = implode(', ', $savedPhotos);
                 }
 
                 // Handle format data berdasarkan field_type
@@ -383,22 +379,7 @@ class ReportingApiController extends Controller
             $canEdit = !$isApproved;
 
             $valuesFormatted = $s->values->map(function ($v) {
-                $mediaFullUrls = [];
-                if (is_array($v->value_json) && !empty($v->value_json)) {
-                    foreach ($v->value_json as $p) {
-                        if (is_string($p) && (str_contains($p, 'reports/') || str_starts_with($p, 'http'))) {
-                            $mediaFullUrls[] = (str_starts_with($p, 'http://') || str_starts_with($p, 'https://'))
-                                ? $p
-                                : asset('storage/' . ltrim($p, '/'));
-                        }
-                    }
-                }
-                if (empty($mediaFullUrls) && !empty($v->media_url)) {
-                    $mediaFullUrls[] = (str_starts_with($v->media_url, 'http://') || str_starts_with($v->media_url, 'https://'))
-                        ? $v->media_url
-                        : asset('storage/' . ltrim($v->media_url, '/'));
-                }
-
+                $mediaFullUrls = $this->formatMediaFullUrls($v);
                 $mediaFullUrl = $mediaFullUrls[0] ?? null;
 
                 return [
@@ -508,22 +489,7 @@ class ReportingApiController extends Controller
         $canEdit = !$isApproved;
 
         $valuesFormatted = $submission->values->map(function ($v) {
-            $mediaFullUrls = [];
-            if (is_array($v->value_json) && !empty($v->value_json)) {
-                foreach ($v->value_json as $p) {
-                    if (is_string($p) && (str_contains($p, 'reports/') || str_starts_with($p, 'http'))) {
-                        $mediaFullUrls[] = (str_starts_with($p, 'http://') || str_starts_with($p, 'https://'))
-                            ? $p
-                            : asset('storage/' . ltrim($p, '/'));
-                    }
-                }
-            }
-            if (empty($mediaFullUrls) && !empty($v->media_url)) {
-                $mediaFullUrls[] = (str_starts_with($v->media_url, 'http://') || str_starts_with($v->media_url, 'https://'))
-                    ? $v->media_url
-                    : asset('storage/' . ltrim($v->media_url, '/'));
-            }
-
+            $mediaFullUrls = $this->formatMediaFullUrls($v);
             $mediaFullUrl = $mediaFullUrls[0] ?? null;
 
             return [
@@ -687,30 +653,55 @@ class ReportingApiController extends Controller
                 $keptExistingPhotos = [];
                 if ($existingPhotosInput) {
                     if (is_string($existingPhotosInput)) {
-                        $keptExistingPhotos = json_decode($existingPhotosInput, true) ?? [$existingPhotosInput];
+                        $rawArr = json_decode($existingPhotosInput, true) ?? [$existingPhotosInput];
                     } elseif (is_array($existingPhotosInput)) {
-                        $keptExistingPhotos = $existingPhotosInput;
+                        $rawArr = $existingPhotosInput;
+                    } else {
+                        $rawArr = [];
+                    }
+                    foreach ((array)$rawArr as $item) {
+                        if (empty($item) || !is_string($item)) continue;
+                        $cleaned = trim($item);
+                        if (str_contains($cleaned, '/storage/')) {
+                            $parts = explode('/storage/', $cleaned);
+                            $cleaned = ltrim(end($parts), '/');
+                        } elseif (str_starts_with($cleaned, 'storage/')) {
+                            $cleaned = ltrim(substr($cleaned, 8), '/');
+                        }
+                        $keptExistingPhotos[] = $cleaned;
                     }
                 } elseif (empty($savedPhotos) && $existingVal) {
                     // Jika tidak ada upload baru dan tidak ada manipulasi existing photos, gunakan existing value
                     if (is_array($existingVal->value_json)) {
-                        $keptExistingPhotos = $existingVal->value_json;
+                        foreach ($existingVal->value_json as $item) {
+                            if (empty($item) || !is_string($item)) continue;
+                            $cleaned = trim($item);
+                            if (str_contains($cleaned, '/storage/')) {
+                                $parts = explode('/storage/', $cleaned);
+                                $cleaned = ltrim(end($parts), '/');
+                            } elseif (str_starts_with($cleaned, 'storage/')) {
+                                $cleaned = ltrim(substr($cleaned, 8), '/');
+                            }
+                            $keptExistingPhotos[] = $cleaned;
+                        }
                     } elseif ($existingVal->media_url) {
-                        $keptExistingPhotos = [$existingVal->media_url];
+                        $cleaned = trim($existingVal->media_url);
+                        if (str_contains($cleaned, '/storage/')) {
+                            $parts = explode('/storage/', $cleaned);
+                            $cleaned = ltrim(end($parts), '/');
+                        } elseif (str_starts_with($cleaned, 'storage/')) {
+                            $cleaned = ltrim(substr($cleaned, 8), '/');
+                        }
+                        $keptExistingPhotos[] = $cleaned;
                     }
                 }
 
                 // Gabungkan foto yang dipertahankan + foto yang baru diupload
-                $allPhotos = array_values(array_filter(array_merge($keptExistingPhotos, $savedPhotos)));
+                $allPhotos = array_values(array_unique(array_filter(array_merge($keptExistingPhotos, $savedPhotos))));
                 if (!empty($allPhotos)) {
                     $photoPath = $allPhotos[0];
-                    if (count($allPhotos) > 1 || $field->field_type === 'multi_photo') {
-                        $valueJson = $allPhotos;
-                        $valueText = implode(', ', $allPhotos);
-                    } else {
-                        $valueJson = null;
-                        $valueText = $photoPath;
-                    }
+                    $valueJson = $allPhotos;
+                    $valueText = implode(', ', $allPhotos);
                 }
 
                 if ($hasNewValue) {
@@ -819,7 +810,7 @@ class ReportingApiController extends Controller
 
         foreach ($uploadedFiles as $idx => $file) {
             if ($file && $file->isValid()) {
-                $filename = "report_{$submissionId}_{$fieldId}_{$idx}_" . time() . '.' . $file->getClientOriginalExtension();
+                $filename = "report_{$submissionId}_{$fieldId}_{$idx}_" . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
                 $path = $file->storeAs("reports/" . now()->format('Y-m'), $filename, 'public');
                 if ($path) {
                     $savedPaths[] = $path;
@@ -828,5 +819,40 @@ class ReportingApiController extends Controller
         }
 
         return $savedPaths;
+    }
+
+    /**
+     * Helper to format media full URLs cleanly and prevent duplicate/broken paths.
+     */
+    private function formatMediaFullUrls($v): array
+    {
+        $rawPaths = [];
+        if (is_array($v->value_json) && !empty($v->value_json)) {
+            $rawPaths = $v->value_json;
+        } elseif (!empty($v->media_url)) {
+            $rawPaths = [$v->media_url];
+        } elseif (!empty($v->file_path)) {
+            $rawPaths = [$v->file_path];
+        } elseif (!empty($v->value_text) && (str_contains($v->value_text, 'reports/') || str_contains($v->value_text, 'storage/'))) {
+            $rawPaths = array_map('trim', explode(',', $v->value_text));
+        }
+
+        $urls = [];
+        foreach ($rawPaths as $p) {
+            if (empty($p) || !is_string($p)) continue;
+            $clean = trim($p);
+            if (str_starts_with($clean, 'http://') || str_starts_with($clean, 'https://')) {
+                $urls[] = str_replace('/storage/storage/', '/storage/', $clean);
+            } else {
+                if (str_starts_with($clean, 'storage/')) {
+                    $clean = substr($clean, 8);
+                } elseif (str_starts_with($clean, '/storage/')) {
+                    $clean = substr($clean, 9);
+                }
+                $urls[] = asset('storage/' . ltrim($clean, '/'));
+            }
+        }
+
+        return array_values(array_unique(array_filter($urls)));
     }
 }

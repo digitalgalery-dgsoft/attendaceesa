@@ -633,11 +633,59 @@
 
         // Separate text inputs and photo/media attachments to prevent tall empty grid cards
         $textValues = $submission->values->filter(function($val) {
-            return empty($val->media_url) && empty($val->file_path);
+            $isMedia = in_array($val->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])
+                || !empty($val->media_url)
+                || !empty($val->file_path);
+            return !$isMedia;
         });
-        $mediaValues = $submission->values->filter(function($val) {
-            return !empty($val->media_url) || !empty($val->file_path);
-        });
+
+        // Collect all individual media items (including multi-photo JSON array)
+        $mediaItems = [];
+        foreach ($submission->values as $val) {
+            $fieldLabel = $val->formField?->field_label ?? ucwords(str_replace('_', ' ', (string)$val->field_name));
+            $isMedia = in_array($val->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])
+                || !empty($val->media_url)
+                || !empty($val->file_path);
+
+            if (!$isMedia) continue;
+
+            $rawPaths = [];
+            if (is_array($val->value_json) && !empty($val->value_json)) {
+                $rawPaths = $val->value_json;
+            } elseif (!empty($val->media_url)) {
+                $rawPaths = [$val->media_url];
+            } elseif (!empty($val->file_path)) {
+                $rawPaths = [$val->file_path];
+            } elseif (!empty($val->value_text) && (str_contains($val->value_text, 'reports/') || str_contains($val->value_text, 'storage/'))) {
+                $rawPaths = array_map('trim', explode(',', $val->value_text));
+            }
+
+            foreach ($rawPaths as $p) {
+                if (empty($p) || !is_string($p)) continue;
+                $clean = trim($p);
+                
+                // If it is a full URL
+                if (str_starts_with($clean, 'http://') || str_starts_with($clean, 'https://')) {
+                    $clean = str_replace('/storage/storage/', '/storage/', $clean);
+                    $url = $clean;
+                } else {
+                    if (str_starts_with($clean, 'storage/')) {
+                        $clean = substr($clean, 8);
+                    } elseif (str_starts_with($clean, '/storage/')) {
+                        $clean = substr($clean, 9);
+                    }
+                    $url = asset('storage/' . ltrim($clean, '/'));
+                }
+
+                $mediaItems[] = [
+                    'label' => $fieldLabel,
+                    'url' => $url,
+                    'path' => $clean,
+                    'field_type' => $val->field_type,
+                ];
+            }
+        }
+        $mediaValues = collect($mediaItems);
     @endphp
 
     <div class="report-view-wrapper">
@@ -891,22 +939,17 @@
                     </div>
 
                     <div class="media-gallery-grid">
-                        @foreach($mediaValues as $val)
-                            @php
-                                $fieldLabel = $val->formField?->field_label ?? ucwords(str_replace('_', ' ', (string)$val->field_name));
-                                $mediaPath = $val->media_url ?? $val->file_path;
-                                $mediaUrl = asset('storage/' . $mediaPath);
-                            @endphp
+                        @foreach($mediaValues as $idx => $m)
                             <div class="media-item-card">
                                 <div class="media-item-header">
                                     <span class="media-badge-tag"><i class="fa-solid fa-image"></i> Foto #{{ $loop->iteration }}</span>
-                                    <div class="media-field-title">{{ $fieldLabel }}</div>
+                                    <div class="media-field-title">{{ $m['label'] }}</div>
                                 </div>
-                                <div class="media-photo-frame" onclick="openPhotoModal('{{ $mediaUrl }}', '{{ addslashes($fieldLabel) }}')" title="Klik untuk memperbesar">
-                                    <img src="{{ $mediaUrl }}" alt="{{ $fieldLabel }}" loading="lazy">
+                                <div class="media-photo-frame" onclick="openPhotoModal('{{ $m['url'] }}', '{{ addslashes($m['label']) }} (Foto #{{ $loop->iteration }})')" title="Klik untuk memperbesar">
+                                    <img src="{{ $m['url'] }}" alt="{{ $m['label'] }}" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/600x400/e2e8f0/475569?text=Gagal+Memuat+Foto';">
                                 </div>
                                 <div class="media-footer-bar">
-                                    <button type="button" class="media-full-btn" onclick="openPhotoModal('{{ $mediaUrl }}', '{{ addslashes($fieldLabel) }}')">
+                                    <button type="button" class="media-full-btn" onclick="openPhotoModal('{{ $m['url'] }}', '{{ addslashes($m['label']) }} (Foto #{{ $loop->iteration }})')">
                                         <i class="fa-solid fa-expand"></i> <span>Lihat Foto Penuh</span>
                                     </button>
                                 </div>

@@ -412,8 +412,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     Color primaryColor,
     bool isDarkMode,
   ) {
-    final isMedia = ['photo', 'camera_photo', 'multi_photo', 'signature'].contains(val.fieldType) || val.mediaFullUrl != null;
-    final hasMedia = val.mediaFullUrl != null && val.mediaFullUrl!.isNotEmpty;
+    final isMedia = ['photo', 'camera_photo', 'multi_photo', 'signature'].contains(val.fieldType) || val.mediaFullUrl != null || val.mediaFullUrls.isNotEmpty;
+    final hasMedia = val.mediaFullUrls.isNotEmpty || (val.mediaFullUrl != null && val.mediaFullUrl!.isNotEmpty);
 
     String displayValue = val.valueText ?? '-';
     if (val.fieldType == 'currency' && val.valueNumber != null) {

@@ -204,7 +204,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       for (final val in widget.editSubmission!.values) {
         final fieldKey = val.reportFormFieldId != null ? val.reportFormFieldId.toString() : val.fieldName;
 
-        if (val.fieldType == 'multi_photo') {
+        if (['photo', 'camera_photo', 'multi_photo'].contains(val.fieldType)) {
           List<String> urls = [];
           if (val.mediaFullUrls.isNotEmpty) {
             urls.addAll(val.mediaFullUrls);
@@ -216,7 +216,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           if (urls.isNotEmpty) {
             _existingMultiPhotoUrls[fieldKey] = urls;
             _existingMultiPhotoUrls[val.fieldName] = urls;
+            _existingPhotoUrls[fieldKey] = urls.first;
+            _existingPhotoUrls[val.fieldName] = urls.first;
           }
+          _formValues[fieldKey] = urls;
+          _formValues[val.fieldName] = urls;
           continue;
         }
 
@@ -225,7 +229,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           _existingPhotoUrls[val.fieldName] = val.mediaFullUrl!;
         }
 
-        if (['photo', 'camera_photo', 'signature'].contains(val.fieldType)) {
+        if (val.fieldType == 'signature') {
           _formValues[fieldKey] = val.valueText;
           _formValues[val.fieldName] = val.valueText;
           continue;

@@ -118,12 +118,26 @@ class ReportSubmissionValueModel {
 
   factory ReportSubmissionValueModel.fromJson(Map<String, dynamic> json) {
     List<String> urls = [];
-    if (json['media_full_urls'] is List) {
+    if (json['media_full_urls'] is List && (json['media_full_urls'] as List).isNotEmpty) {
       urls = (json['media_full_urls'] as List).map((e) => e.toString()).toList();
-    } else if (json['media_full_url'] != null) {
+    } else if (json['value_json'] is List && (json['value_json'] as List).isNotEmpty) {
+      for (final item in (json['value_json'] as List)) {
+        final str = item.toString();
+        if (str.startsWith('http://') || str.startsWith('https://')) {
+          urls.add(str);
+        } else if (str.contains('reports/')) {
+          urls.add('${Constants.baseUrl.replaceAll('/api', '')}/storage/${str.replaceFirst('storage/', '').replaceFirst(RegExp(r'^/+'), '')}');
+        }
+      }
+    } else if (json['media_full_url'] != null && json['media_full_url'].toString().isNotEmpty) {
       urls = [json['media_full_url'].toString()];
-    } else if (json['media_url'] != null) {
-      urls = [json['media_url'].toString()];
+    } else if (json['media_url'] != null && json['media_url'].toString().isNotEmpty) {
+      final str = json['media_url'].toString();
+      if (str.startsWith('http://') || str.startsWith('https://')) {
+        urls.add(str);
+      } else {
+        urls.add('${Constants.baseUrl.replaceAll('/api', '')}/storage/${str.replaceFirst('storage/', '').replaceFirst(RegExp(r'^/+'), '')}');
+      }
     }
 
     return ReportSubmissionValueModel(
@@ -136,7 +150,7 @@ class ReportSubmissionValueModel {
       valueNumber: json['value_number'] is num ? (json['value_number'] as num).toDouble() : double.tryParse(json['value_number']?.toString() ?? ''),
       valueJson: json['value_json'],
       mediaUrl: json['media_url'],
-      mediaFullUrl: json['media_full_url'] ?? (urls.isNotEmpty ? urls.first : json['media_url']),
+      mediaFullUrl: urls.isNotEmpty ? urls.first : json['media_full_url'] ?? json['media_url'],
       mediaFullUrls: urls,
     );
   }
