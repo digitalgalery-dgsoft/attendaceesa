@@ -613,10 +613,10 @@
                 <span class="kpi-title">Tenaga Lapangan</span>
             </div>
             <div class="kpi-big-value">
-                {{ number_format($totalEmployees) }} <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted);">Total</span>
+                {{ number_format($activeEmployees) }} <span style="font-size: 0.95rem; font-weight: 700; color: #16a34a;">Aktif</span>
             </div>
             <div class="kpi-sub-text">
-                <strong style="color: #16a34a;">{{ number_format($activeEmployees) }}</strong> Aktif &bull; <span style="color: var(--text-muted);">{{ number_format($resignedEmployees) }} Nonaktif</span>
+                <span style="color: #64748b;">{{ number_format($resignedEmployees) }} Resign / Nonaktif</span> &bull; <span style="color: #64748b;">Total: {{ number_format($totalEmployees) }}</span>
             </div>
         </div>
 
