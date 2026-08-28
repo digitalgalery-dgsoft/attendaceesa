@@ -555,16 +555,46 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 15. **Penyelarasan Tampilan & Kartu Metrik Detail Laporan Portal Prinsiple (SELESAI 28 Agustus 2026)**:
     - **Metrik Dinamis Periode Berjalan**:
       - Label card ringkasan diubah menjadi dinamis sesuai filter bulan/tahun yang aktif (`Total Laporan Periode {Bulan Tahun}`, misal: `Total Laporan Periode Agustus 2026`).
-    - **Metrik Dinamis Periode Berjalan**.
-    - **Penyederhanaan Kartu Ringkasan (Mini Stats)**: Menghapus card "Wajib Titik GPS" dan "Wajib Tanda Tangan" agar tampilan ringkas.
-    - **Peningkatan Navigasi Pagination**: Integrasi komponen pagination custom `portal.pagination` dengan query filter preserved.
-16. **Integrasi Master Produk Prinsiple, Barcode Scanner & Auto-Select Kategori (SELESAI 28 Agustus 2026)**:
-    - **Multi-Tenant Scoping Master Produk per Prinsiple**: `ReportingApiController.php` secara ketat mengisolasi master produk per `principal_id` karyawan.
-    - **Scanner Barcode Fisik Kemasan Produk Real-Time**: Pembuatan widget `BarcodeScannerDialog` dengan `mobile_scanner`.
-    - **Picker Katalog Master Produk (Searchable Bottom Sheet)**: Bottom sheet interaktif pencarian real-time dengan filter kategori dinamis.
-    - **Auto-Fill & Auto-Select Kategori Otomatis**: Saat produk dipilih atau di-scan, sistem otomatis mencari & mengisi field kategori di template.
-    - **Deteksi Cerdas Input Produk**: Field tipe produk otomatis memiliki tombol pintas **Scan Barcode** dan **Katalog**.
-    - **Build & Rilis APK v1.0.103**: Versi aplikasi dinaikkan ke **`v1.0.103+103`**, file APK rilis (`app-release.apk`, 105.5 MB) berhasil dikompilasi.
+    - **Penyederhanaan Kartu Ringkasan (Mini Stats)**:
+      - Menghapus card "Wajib Titik GPS" dan "Wajib Tanda Tangan" agar tampilan ringkas, fokus pada performa data laporan masuk dan toko terjangkau.
+      - Grid metrik disesuaikan menjadi 2 kolom responsif.
+    - **Peningkatan Navigasi Pagination**:
+      - Integrasi komponen pagination custom `portal.pagination` dengan query filter preserved.
+    - **Deployment Live**: Berhasil dipush ke GitHub dan dideploy langsung ke server `https://appsend.my.id/`.
+
+16. **Integrasi Master Produk Prinsiple, Barcode Scanner & Auto-Select Kategori (SELESAI 28 Agustus 2026, APK v1.0.103)**:
+    - **Multi-Tenant Scoping Master Produk per Prinsiple**:
+      - `ReportingApiController.php` secara ketat mengisolasi master produk per `principal_id` karyawan (Wings, Dulux, Fonterra, MamaSuka, dll.).
+      - Payload API mengirimkan `id`, `name`, `sku_code`, `barcode`, `category`, `brand`, `price`, `formatted_price`, dan `uom`.
+      - Cross-Entity auto-resolver untuk grup entitas bersama (misal: Wings Surya & Lion Wings).
+    - **Scanner Barcode Fisik Kemasan Produk Real-Time**:
+      - Pembuatan widget dialog scanner kamera interaktif `BarcodeScannerDialog` menggunakan `mobile_scanner: ^7.4.0`.
+      - Dilengkapi overlay reticle corners, animasi laser garis merah, tombol toggle flashlight/senter, tombol rotasi kamera, dan modal input manual.
+    - **Picker Katalog Master Produk (Searchable Bottom Sheet)**:
+      - Bottom sheet interaktif pencarian real-time (Nama Produk, SKU, Barcode, Brand).
+      - Filter chips kategori dinamis ("Semua", "Food & Beverage", "Detergent", "Ice Cream", dll.).
+      - Tombol pintas scan barcode langsung dari search bar katalog.
+    - **Deteksi Cerdas Input Produk & Isolasi Field Kemasan/Kategori**:
+      - Field tipe `product_select`, `product`, `barcode_scanner`, ataupun field teks/dropdown bernama `produk`/`sku` otomatis memunculkan tombol **Scan Barcode** 📷 dan **Katalog** 📦.
+      - Pengecualian ketat (`isExcluded`) agar field turunan seperti `Kemasan Produk`, `Kategori Produk`, `Foto`, `Stok`, `Qty`, `Harga` tidak ikut berubah menjadi selector produk.
+    - **Algoritma Multi-Attribute Auto-Fill Kategori & Kemasan**:
+      - Pencocokan kategori cerdas berbasis Kategori, Brand, dan Kata Kunci Nama Produk (misal: *Dulux Aquashield Pelapis Anti Bocor* otomatis memilih opsi `Dulux Aquashield (Cat Pelapis Bocor)`).
+      - Auto-select field Kemasan Produk berdasarkan token ukuran produk (*misal 4kg otomatis memilih opsi `2.5 Liter / 4 Kg / 5 Kg (Galon)`*).
+    - **Build & Rilis APK v1.0.103**:
+      - Versi aplikasi dinaikkan ke **`v1.0.103+103`**.
+      - File APK rilis siap pasang berhasil dikompilasi: `att-mobile/build/app/outputs/flutter-apk/app-release.apk` (105.5 MB).
+
+17. **Optimasi & Pembersihan Kapasitas Storage Server Linux / aaPanel (SELESAI 28 Agustus 2026)**:
+    - **Investigasi Kapasitas Disk (91% / 35.4 GB)**:
+      - Analisis direktori menemukan 18 GB penggunaan disk berasal dari file log database PostgreSQL di `/www/server/pgsql/logs/`.
+    - **Perbaikan Skrip Pembersih Server Shell (Bash Script)**:
+      - Menghapus perintah berbahaya `rm -rf /tmp/*` yang sebelumnya menghapus UNIX socket aktif (PHP-FPM, MySQL, aaPanel) dan menyebabkan server macet/harus restart manual.
+      - Membuat skrip bash baru yang aman dengan pembersihan log Web Server (Nginx), log PostgreSQL, log aaPanel, Laravel cache & log (`optimize:clear`), Systemd Journal (`journalctl --vacuum-size=100M`), APT package cache, dan safe temporary cleanup (`find /tmp -atime +1 -not -name "*.sock"`).
+      - Pengaturan jadwal Cron Harian otomatis (pukul 02:00 WIB) untuk perawatan server rutin tanpa downtime.
+    - **Skrip Pembersih Otomatis Web Browser (`clean_server.php`)**:
+      - Pembuatan endpoint pembersih `att-admin-v12/public/clean_server.php` dengan otentikasi token keamanan `dgsoft_rahasia_123`.
+      - Dilengkapi kartu statistik visual persentase penggunaan disk sebelum vs sesudah dan log eksekusi pembersihan real-time.
+      - Telah dideploy dan aktif di server live: `https://appsend.my.id/clean_server.php?token=dgsoft_rahasia_123`.
 
 ---
 
