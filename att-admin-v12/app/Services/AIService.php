@@ -24,13 +24,12 @@ class AIService
             return "Error: API Key Sumopod belum dikonfigurasi di halaman AI Configurations.";
         }
 
-        $revenueFormatted = "Rp " . number_format((float) $report->revenue, 0, ',', '.');
-        
-        $prompt = "Tolong berikan analisa singkat dan saran langkah selanjutnya (follow up) untuk laporan aktivitas sales berikut:\n" .
-                  "- Klien: " . $report->client_name . "\n" .
-                  "- Perusahaan: " . ($report->client_company ?? '-') . "\n" .
-                  "- Nilai Pendapatan/Revenue: " . $revenueFormatted . "\n" .
-                  "- Status Saat Ini: " . $report->status . "\n" .
+        $prompt = "Tolong berikan analisa singkat dan saran langkah selanjutnya (follow up) untuk laporan aktivitas sales/toko berikut:\n" .
+                  "- Toko/Outlet: " . ($report->store_name ?? '-') . "\n" .
+                  "- Status OOS: " . ($report->oos_status ?? '-') . "\n" .
+                  "- Status Planogram: " . ($report->plano_status ?? '-') . "\n" .
+                  "- Status Promo: " . ($report->promo_status ?? '-') . "\n" .
+                  "- Status Laporan: " . ($report->status ?? '-') . "\n" .
                   "- Catatan Sales: " . ($report->notes ?? '-') . "\n\n" .
                   "Berikan respon yang profesional, singkat, dan berikan poin-poin saran strategis yang bisa dilakukan oleh tim sales. Jangan bertele-tele.";
 

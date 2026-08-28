@@ -33,7 +33,6 @@ class SalesReport extends Model
 
     protected $casts = [
         'report_date' => 'date',
-        'revenue' => 'decimal:2',
     ];
 
     public function employee(): BelongsTo

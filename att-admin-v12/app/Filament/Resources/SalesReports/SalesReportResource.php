@@ -26,7 +26,7 @@ class SalesReportResource extends Resource
     protected static ?int $navigationSort = 3;
     protected static ?string $navigationLabel = 'Sales Reports';
 
-    protected static ?string $recordTitleAttribute = 'client_name';
+    protected static ?string $recordTitleAttribute = 'store_name';
 
     public static function canViewAny(): bool
     {
