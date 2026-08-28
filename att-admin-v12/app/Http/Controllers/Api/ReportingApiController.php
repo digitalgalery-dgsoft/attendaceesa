@@ -181,8 +181,8 @@ class ReportingApiController extends Controller
                 'fields' => $t->fields->map(function ($f) use ($productNames, $templateProducts) {
                     $options = $f->options ?? [];
 
-                    // Jika tipe product_select atau field adalah dropdown produk tanpa opsi manual
-                    if ($f->field_type === 'product_select' || (in_array($f->field_type, ['dropdown', 'select', 'radio', 'checkbox']) && (empty($options) || Str::contains(strtolower($f->field_name), ['produk', 'product', 'sku'])))) {
+                    // HANYA isi options dari productNames jika field_type adalah product_select dan opsi manual kosong
+                    if ($f->field_type === 'product_select' && empty($options)) {
                         if (!empty($productNames)) {
                             $options = $productNames;
                         }

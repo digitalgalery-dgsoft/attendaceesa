@@ -1863,24 +1863,43 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   }
 
   bool _isProductField(ReportFormFieldModel field) {
-    final type = field.fieldType.toLowerCase();
-    if (type == 'product' || type == 'product_select' || type == 'barcode_scanner') {
+    if (field.fieldType == 'product_select' || field.fieldType == 'barcode_scanner' || field.fieldType == 'product') {
       return true;
     }
 
     final name = field.fieldName.toLowerCase();
     final label = field.fieldLabel.toLowerCase();
 
-    // Pastikan field kategori, PIC, alasan, catatan, foto tidak dianggap field produk
-    final isCategory = name.contains('kategori') || label.contains('kategori') || name.contains('category');
-    final isPic = name.contains('pic') || label.contains('pic') || name.contains('staff') || name.contains('nama_lengkap') || name.contains('konsumen') || name.contains('foto') || name.contains('alasan') || name.contains('resep') || name.contains('feedback');
+    // Pastikan field kemasan, kategori, foto, qty, harga, uom, PIC, dll. TIDAK dianggap field produk
+    final isExcluded = name.contains('kemasan') || label.contains('kemasan') ||
+                       name.contains('kategori') || label.contains('kategori') ||
+                       name.contains('category') || label.contains('category') ||
+                       name.contains('foto') || label.contains('foto') ||
+                       name.contains('photo') || label.contains('photo') ||
+                       name.contains('harga') || label.contains('harga') ||
+                       name.contains('price') || label.contains('price') ||
+                       name.contains('qty') || label.contains('qty') ||
+                       name.contains('jumlah') || label.contains('jumlah') ||
+                       name.contains('stok') || label.contains('stok') ||
+                       name.contains('stock') || label.contains('stock') ||
+                       name.contains('uom') || label.contains('satuan') ||
+                       name.contains('diskon') || label.contains('alasan') ||
+                       name.contains('pic') || label.contains('pic') ||
+                       name.contains('staff') || name.contains('nama_lengkap') ||
+                       name.contains('konsumen') || name.contains('resep') ||
+                       name.contains('feedback') || name.contains('tipe_customer');
 
-    if (isCategory || isPic) return false;
+    if (isExcluded) return false;
 
-    final matchesProduct = name.contains('produk') || name.contains('product') || 
-                           name.contains('nama_sku') || name.contains('sku_') ||
-                           label.contains('produk') || label.contains('product') || 
-                           label.contains('nama & sku') || label.contains('sku produk');
+    final matchesProduct = name == 'produk' || name == 'product' || name == 'sku' ||
+                           name.contains('nama_produk') || name.contains('nama_sku') ||
+                           name.contains('sku_produk') || name.contains('sku_warna') ||
+                           name.contains('sku_barang') || name.contains('pilih_produk') ||
+                           label.contains('nama & sku') || label.contains('sku produk') ||
+                           label.contains('sku / nama') || label.contains('pilih produk') ||
+                           label.contains('sku / nama warna') ||
+                           (label.contains('produk') && !label.contains('kategori') && !label.contains('kemasan')) ||
+                           (label.contains('product') && !label.contains('category'));
 
     return matchesProduct;
   }
@@ -2146,70 +2165,132 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     });
 
     String? autoCategoryResult;
+    String? autoKemasanResult;
 
-    // Auto-Fill Kategori Produk jika ada field kategori pada template ini
-    if (product.category != null && product.category!.trim().isNotEmpty) {
-      final productCat = product.category!.trim().toLowerCase();
+    final pNameLower = product.name.toLowerCase();
+    final pCatLower = (product.category ?? '').trim().toLowerCase();
+    final pBrandLower = (product.brand ?? '').trim().toLowerCase();
 
-      for (final field in widget.template.fields) {
-        final fName = field.fieldName.toLowerCase();
-        final fLabel = field.fieldLabel.toLowerCase();
+    // 1. Auto-Fill Kategori Produk jika ada field kategori
+    for (final field in widget.template.fields) {
+      final fName = field.fieldName.toLowerCase();
+      final fLabel = field.fieldLabel.toLowerCase();
 
-        // Cari field kategori yang bukan targetFieldKey
-        if (field.id.toString() != targetFieldKey &&
-            (fName.contains('kategori') || fLabel.contains('kategori') || fName.contains('category'))) {
-          final catKey = field.id.toString();
+      if (field.id.toString() != targetFieldKey &&
+          (fName.contains('kategori') || fLabel.contains('kategori') || fName.contains('category'))) {
+        final catKey = field.id.toString();
+        String? matchedOption;
 
-          String? matchedOption;
-
-          if (field.options.isNotEmpty) {
-            // 1. Coba exact match
-            for (final opt in field.options) {
-              if (opt.toLowerCase().trim() == productCat) {
-                matchedOption = opt;
-                break;
-              }
+        if (field.options.isNotEmpty) {
+          // 1. Exact / contains match dengan category atau brand
+          for (final opt in field.options) {
+            final optLower = opt.toLowerCase().trim();
+            if (pCatLower.isNotEmpty && (optLower == pCatLower || optLower.contains(pCatLower) || pCatLower.contains(optLower))) {
+              matchedOption = opt;
+              break;
             }
+            if (pBrandLower.isNotEmpty && (optLower == pBrandLower || optLower.contains(pBrandLower) || pBrandLower.contains(optLower))) {
+              matchedOption = opt;
+              break;
+            }
+          }
 
-            // 2. Coba contains match
-            if (matchedOption == null) {
+          // 2. Keyword matching dari Brand dan Product Name (misal: "Aquashield", "Weathershield", "Pentalite", "Catylac")
+          if (matchedOption == null) {
+            final searchTokens = <String>[];
+            if (pBrandLower.isNotEmpty) searchTokens.addAll(pBrandLower.split(RegExp(r'[\s\-/(),]+')));
+            searchTokens.addAll(pNameLower.split(RegExp(r'[\s\-/(),]+')));
+            
+            final meaningfulTokens = searchTokens
+                .where((t) => t.length >= 4 && !['anti', 'bocor', 'warna', 'ready', 'mix', 'cat'].contains(t))
+                .toSet();
+
+            for (final token in meaningfulTokens) {
+              for (final opt in field.options) {
+                if (opt.toLowerCase().contains(token)) {
+                  matchedOption = opt;
+                  break;
+                }
+              }
+              if (matchedOption != null) break;
+            }
+          }
+
+          // 3. Fallback ke category mapping khusus (Waterproofing -> Aquashield/Pelapis Bocor)
+          if (matchedOption == null) {
+            if (pCatLower.contains('waterproof') || pNameLower.contains('aquashield') || pNameLower.contains('bocor')) {
               for (final opt in field.options) {
                 final optLower = opt.toLowerCase();
-                if (optLower.contains(productCat) || productCat.contains(optLower)) {
+                if (optLower.contains('aquashield') || optLower.contains('bocor') || optLower.contains('waterproof')) {
                   matchedOption = opt;
                   break;
                 }
               }
             }
+          }
+        }
 
-            // 3. Coba keyword match (misal: "Mie Instant", "Beverage", "Gim", "Care", "Snack", "Deterjen", "Rumput Laut")
-            if (matchedOption == null) {
-              final keywords = productCat.split(RegExp(r'[\s\-/(),]+')).where((w) => w.length > 2);
-              for (final kw in keywords) {
-                for (final opt in field.options) {
-                  if (opt.toLowerCase().contains(kw)) {
-                    matchedOption = opt;
-                    break;
-                  }
-                }
-                if (matchedOption != null) break;
-              }
-            }
+        if (matchedOption != null) {
+          setState(() {
+            _formValues[catKey] = matchedOption;
+            _controllers[catKey]?.text = matchedOption!;
+          });
+          autoCategoryResult = matchedOption;
+          break;
+        } else {
+          // Jika tipe text atau dropdown tanpa match opsi, isi teks kategori produk jika ada
+          final fillValue = product.category?.isNotEmpty == true ? product.category : (product.brand?.isNotEmpty == true ? product.brand : null);
+          if (fillValue != null) {
+            setState(() {
+              _formValues[catKey] = fillValue;
+              _controllers[catKey]?.text = fillValue;
+            });
+            autoCategoryResult = fillValue;
+            break;
+          }
+        }
+      }
+    }
+
+    // 2. Auto-Fill Kemasan Produk jika ada field kemasan / ukuran
+    for (final field in widget.template.fields) {
+      final fName = field.fieldName.toLowerCase();
+      final fLabel = field.fieldLabel.toLowerCase();
+
+      if (field.id.toString() != targetFieldKey &&
+          (fName.contains('kemasan') || fLabel.contains('kemasan') || fName.contains('packaging') || fName.contains('ukuran'))) {
+        final kemasanKey = field.id.toString();
+        String? matchedKemasan;
+
+        if (field.options.isNotEmpty) {
+          // Cek 20L / 25Kg / Pail
+          if (pNameLower.contains('20l') || pNameLower.contains('20 l') || pNameLower.contains('25kg') || pNameLower.contains('25 kg') || pNameLower.contains('pail')) {
+            matchedKemasan = field.options.firstWhere(
+              (opt) => opt.toLowerCase().contains('20') || opt.toLowerCase().contains('pail') || opt.toLowerCase().contains('25'),
+              orElse: () => '',
+            );
+          }
+          // Cek 2.5L / 4Kg / 5Kg / Galon
+          else if (pNameLower.contains('4kg') || pNameLower.contains('4 kg') || pNameLower.contains('2.5') || pNameLower.contains('5kg') || pNameLower.contains('5 kg') || pNameLower.contains('galon')) {
+            matchedKemasan = field.options.firstWhere(
+              (opt) => opt.toLowerCase().contains('4') || opt.toLowerCase().contains('2.5') || opt.toLowerCase().contains('galon') || opt.toLowerCase().contains('5'),
+              orElse: () => '',
+            );
+          }
+          // Cek 1L / 1Kg / Kaleng Kecil
+          else if (pNameLower.contains('1l') || pNameLower.contains('1 l') || pNameLower.contains('1kg') || pNameLower.contains('1 kg') || pNameLower.contains('kaleng')) {
+            matchedKemasan = field.options.firstWhere(
+              (opt) => opt.toLowerCase().contains('1') || opt.toLowerCase().contains('kecil'),
+              orElse: () => '',
+            );
           }
 
-          if (matchedOption != null) {
+          if (matchedKemasan != null && matchedKemasan.isNotEmpty) {
             setState(() {
-              _formValues[catKey] = matchedOption;
-              _controllers[catKey]?.text = matchedOption!;
+              _formValues[kemasanKey] = matchedKemasan;
+              _controllers[kemasanKey]?.text = matchedKemasan!;
             });
-            autoCategoryResult = matchedOption;
-            break;
-          } else if (field.options.isEmpty) {
-            setState(() {
-              _formValues[catKey] = product.category;
-              _controllers[catKey]?.text = product.category!;
-            });
-            autoCategoryResult = product.category;
+            autoKemasanResult = matchedKemasan;
             break;
           }
         }
@@ -2222,7 +2303,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         type: ToastificationType.success,
         style: ToastificationStyle.flatColored,
         title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        description: Text('Kategori otomatis terpilih: $autoCategoryResult', style: const TextStyle(fontSize: 12)),
+        description: Text('Kategori otomatis terpilih: $autoCategoryResult' + (autoKemasanResult != null ? ' | Kemasan: $autoKemasanResult' : ''), style: const TextStyle(fontSize: 12)),
         alignment: Alignment.topCenter,
         autoCloseDuration: const Duration(seconds: 3),
       );
