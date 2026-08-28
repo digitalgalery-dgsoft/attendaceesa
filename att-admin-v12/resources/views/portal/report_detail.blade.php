@@ -90,8 +90,8 @@
     /* Mini Stats */
     .mini-stats-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 1rem;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.25rem;
         margin-bottom: 1.5rem;
     }
 
@@ -214,9 +214,9 @@
         transform: scale(1.15);
     }
 
-    @media (max-width: 992px) {
+    @media (max-width: 768px) {
         .mini-stats-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: 1fr;
         }
     }
 </style>
@@ -253,24 +253,12 @@
     <!-- Mini Stats -->
     <div class="mini-stats-grid">
         <div class="mini-stat-card">
-            <div class="mini-stat-label">Total Laporan Periode Ini</div>
+            <div class="mini-stat-label">Total Laporan Periode {{ \Carbon\Carbon::create($year, $month, 1)->translatedFormat('F Y') }}</div>
             <div class="mini-stat-value">{{ number_format($totalTemplateSubmissions ?? 0) }}</div>
         </div>
         <div class="mini-stat-card">
             <div class="mini-stat-label">Outlet / Toko Terjangkau</div>
             <div class="mini-stat-value">{{ number_format($uniqueStores ?? 0) }}</div>
-        </div>
-        <div class="mini-stat-card">
-            <div class="mini-stat-label">Wajib Titik GPS</div>
-            <div class="mini-stat-value" style="font-size: 1.1rem; color: #16a34a;">
-                <i class="fa-solid fa-circle-check"></i> {{ $template->require_gps ? 'Aktif (Geofence)' : 'Opsional' }}
-            </div>
-        </div>
-        <div class="mini-stat-card">
-            <div class="mini-stat-label">Wajib Tanda Tangan</div>
-            <div class="mini-stat-value" style="font-size: 1.1rem; color: #2563eb;">
-                <i class="fa-solid fa-signature"></i> {{ $template->require_signature ? 'Wajib Sign Toko' : 'Tidak Wajib' }}
-            </div>
         </div>
     </div>
 
@@ -411,7 +399,7 @@
             </div>
 
             <div style="margin-top: 1.25rem;">
-                {{ $submissions->links() }}
+                {{ $submissions->appends(request()->query())->links('portal.pagination') }}
             </div>
         @else
             <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
