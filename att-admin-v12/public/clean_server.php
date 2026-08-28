@@ -106,13 +106,19 @@ if ($wwwLogs) {
     $logs[] = "✓ Truncate /www/wwwlogs/*.log dijalankan.";
 }
 
-// Step 3: Bersihkan Log aaPanel Control Panel
+// Step 3: Bersihkan Log PostgreSQL Database
+$logs[] = "<br>🐘 <b>Membersihkan Log PostgreSQL Database (/www/server/pgsql/logs)...</b>";
+runCmd("rm -f /www/server/pgsql/logs/*.log /www/server/pgsql/logs/*.csv /www/server/pgsql/logs/*.gz 2>/dev/null");
+runCmd("truncate -s 0 /www/server/pgsql/logs/* 2>/dev/null");
+$logs[] = "✓ Log PostgreSQL berhasil dikosongkan.";
+
+// Step 4: Bersihkan Log aaPanel Control Panel
 $logs[] = "<br>⚙️ <b>Membersihkan Log aaPanel Panel...</b>";
 runCmd("truncate -s 0 /www/server/panel/logs/*.log 2>/dev/null");
 runCmd("find /www/server/panel/logs/ -type f \( -name '*.gz' -o -name '*.1' -o -name '*.log.*' \) -delete 2>/dev/null");
 $logs[] = "✓ Log aaPanel panel berhasil dikosongkan.";
 
-// Step 4: Bersihkan aaPanel Recycle Bin (Tempat sampah file manager aaPanel)
+// Step 5: Bersihkan aaPanel Recycle Bin (Tempat sampah file manager aaPanel)
 $logs[] = "<br>🗑️ <b>Membersihkan aaPanel Recycle Bin...</b>";
 runCmd("rm -rf /www/Recycle_bin/* 2>/dev/null");
 $logs[] = "✓ Pembersihan /www/Recycle_bin/* selesai.";
