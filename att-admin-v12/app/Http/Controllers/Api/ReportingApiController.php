@@ -51,7 +51,7 @@ class ReportingApiController extends Controller
             ], 404);
         }
 
-        $principalId = $employee->principal_id;
+        $principalId = $employee->principal_id ?? $employee->department?->principal_id;
         
         // Cari semua template yang ditugaskan ke prinsiple karyawan ini
         $templatesQuery = ReportTemplate::with([
@@ -59,16 +59,23 @@ class ReportingApiController extends Controller
                 $q->orderBy('order_index', 'asc');
             },
             'products' => function ($q) {
-                $q->where('is_active', true)->orderBy('name', 'asc');
+                $q->where(function ($sq) {
+                    $sq->where('is_active', true)->orWhere('is_active', 1)->orWhereNull('is_active');
+                })->orderBy('name', 'asc');
             },
+            'principals',
         ])->where('is_active', true);
 
+        $allMatchingPrincipalIds = [];
         if ($principalId) {
-            // Cek apakah prinsiple memiliki subdomain bersama (misal: semua ICI Paints memiliki subdomain 'dulux')
             $principal = Principal::find($principalId);
             $allMatchingPrincipalIds = [$principalId];
-            if ($principal && !empty($principal->subdomain)) {
-                $allMatchingPrincipalIds = Principal::where('subdomain', $principal->subdomain)->pluck('id')->toArray();
+            if ($principal) {
+                if (!empty($principal->subdomain)) {
+                    $allMatchingPrincipalIds = Principal::where('subdomain', $principal->subdomain)->pluck('id')->toArray();
+                } else {
+                    $allMatchingPrincipalIds = Principal::where('name', $principal->name)->pluck('id')->toArray();
+                }
             }
 
             $templatesQuery->where(function ($q) use ($allMatchingPrincipalIds, $principalId) {
@@ -81,18 +88,69 @@ class ReportingApiController extends Controller
             });
         }
 
-        // Ambil semua master produk aktif untuk principal karyawan sebagai fallback
-        $allPrincipalProducts = collect([]);
-        if (!empty($allMatchingPrincipalIds)) {
-            $allPrincipalProducts = \App\Models\Product::whereIn('principal_id', $allMatchingPrincipalIds)
-                ->where('is_active', true)
-                ->orderBy('name', 'asc')
-                ->get();
-        }
+        $templates = $templatesQuery->orderBy('id', 'asc')->get();
 
         // Format data template dan fields untuk konsumsi mobile
-        $formatted = $templates->map(function ($t) use ($employee, $allPrincipalProducts) {
-            $templateProducts = $t->products->isNotEmpty() ? $t->products : $allPrincipalProducts;
+        $formatted = $templates->map(function ($t) use ($employee, $allMatchingPrincipalIds) {
+            $templateProducts = $t->products;
+
+            // Jika template belum memiliki mapping produk spesifik di pivot table, cari otomatis dari master produk principal template / employee
+            if ($templateProducts->isEmpty()) {
+                $targetPrincipalIds = collect($allMatchingPrincipalIds);
+
+                if ($t->principal_id) {
+                    $targetPrincipalIds->push($t->principal_id);
+                }
+                if ($t->principals->isNotEmpty()) {
+                    $targetPrincipalIds = $targetPrincipalIds->merge($t->principals->pluck('id'));
+                }
+
+                // Jika template adalah Wings Surya / Lion Wings (kode: RPT-WINGS-...)
+                if (Str::startsWith($t->code, 'RPT-WINGS-') || Str::contains(strtoupper($t->title), 'WINGS')) {
+                    $wingsIds = Principal::where('name', 'LIKE', '%WINGS%')
+                        ->orWhere('code', 'LIKE', '%WINGS%')
+                        ->orWhere('subdomain', 'wings')
+                        ->pluck('id');
+                    $targetPrincipalIds = $targetPrincipalIds->merge($wingsIds);
+                }
+                // Jika template adalah Dulux / ICI Paints
+                elseif (Str::startsWith($t->code, 'RPT-DULUX-') || Str::contains(strtoupper($t->title), 'DULUX')) {
+                    $duluxIds = Principal::where('name', 'LIKE', '%DULUX%')
+                        ->orWhere('name', 'LIKE', '%AKZONOBEL%')
+                        ->orWhere('name', 'LIKE', '%ICI%')
+                        ->orWhere('subdomain', 'dulux')
+                        ->pluck('id');
+                    $targetPrincipalIds = $targetPrincipalIds->merge($duluxIds);
+                }
+                // Jika template adalah Fonterra
+                elseif (Str::startsWith($t->code, 'RPT-FONTERRA-') || Str::contains(strtoupper($t->title), 'FONTERRA')) {
+                    $fonterraIds = Principal::where('name', 'LIKE', '%FONTERRA%')
+                        ->orWhere('subdomain', 'fonterra')
+                        ->pluck('id');
+                    $targetPrincipalIds = $targetPrincipalIds->merge($fonterraIds);
+                }
+                // Jika template adalah Mamasuka / Daesang / Miwon
+                elseif (Str::startsWith($t->code, 'RPT-MAMASUKA-') || Str::contains(strtoupper($t->title), 'MAMASUKA')) {
+                    $mamasukaIds = Principal::where('name', 'LIKE', '%MAMASUKA%')
+                        ->orWhere('name', 'LIKE', '%DAESANG%')
+                        ->orWhere('name', 'LIKE', '%MIWON%')
+                        ->orWhere('subdomain', 'mamasuka')
+                        ->pluck('id');
+                    $targetPrincipalIds = $targetPrincipalIds->merge($mamasukaIds);
+                }
+
+                $cleanIds = $targetPrincipalIds->filter()->unique()->toArray();
+
+                if (!empty($cleanIds)) {
+                    $templateProducts = \App\Models\Product::whereIn('principal_id', $cleanIds)
+                        ->where(function ($q) {
+                            $q->where('is_active', true)->orWhere('is_active', 1)->orWhereNull('is_active');
+                        })
+                        ->orderBy('name', 'asc')
+                        ->get();
+                }
+            }
+
             $productNames = $templateProducts->pluck('name')->toArray();
 
             return [
