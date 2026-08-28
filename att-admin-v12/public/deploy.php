@@ -38,9 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'cp -a /www/wwwroot/appsend.my.id/att-admin-v12/. /www/wwwroot/appsend.my.id/',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan storage:link',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan migrate --force',
-        '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan db:seed --class=ReportTemplatePresetsSeeder --force',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan optimize:clear',
     ];
+
+    if (isset($_GET['seed']) && $_GET['seed'] === '1') {
+        $commands[] = '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan db:seed --class=ReportTemplatePresetsSeeder --force';
+    }
 
     if (isset($_GET['composer']) && $_GET['composer'] === '1') {
         array_splice($commands, 6, 0, [
