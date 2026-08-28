@@ -76,6 +76,7 @@ class TemplateProductModel {
   final int id;
   final String name;
   final String? skuCode;
+  final String? barcode;
   final String? category;
   final String? brand;
   final double price;
@@ -86,6 +87,7 @@ class TemplateProductModel {
     required this.id,
     required this.name,
     this.skuCode,
+    this.barcode,
     this.category,
     this.brand,
     this.price = 0.0,
@@ -98,6 +100,7 @@ class TemplateProductModel {
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
       name: json['name'] ?? '',
       skuCode: json['sku_code'],
+      barcode: json['barcode'],
       category: json['category'],
       brand: json['brand'],
       price: json['price'] is num ? (json['price'] as num).toDouble() : double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
@@ -111,6 +114,7 @@ class TemplateProductModel {
       'id': id,
       'name': name,
       'sku_code': skuCode,
+      'barcode': barcode,
       'category': category,
       'brand': brand,
       'price': price,

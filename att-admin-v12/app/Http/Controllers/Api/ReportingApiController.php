@@ -81,11 +81,18 @@ class ReportingApiController extends Controller
             });
         }
 
-        $templates = $templatesQuery->orderBy('id', 'asc')->get();
+        // Ambil semua master produk aktif untuk principal karyawan sebagai fallback
+        $allPrincipalProducts = collect([]);
+        if (!empty($allMatchingPrincipalIds)) {
+            $allPrincipalProducts = \App\Models\Product::whereIn('principal_id', $allMatchingPrincipalIds)
+                ->where('is_active', true)
+                ->orderBy('name', 'asc')
+                ->get();
+        }
 
         // Format data template dan fields untuk konsumsi mobile
-        $formatted = $templates->map(function ($t) use ($employee) {
-            $templateProducts = $t->products;
+        $formatted = $templates->map(function ($t) use ($employee, $allPrincipalProducts) {
+            $templateProducts = $t->products->isNotEmpty() ? $t->products : $allPrincipalProducts;
             $productNames = $templateProducts->pluck('name')->toArray();
 
             return [
@@ -105,6 +112,7 @@ class ReportingApiController extends Controller
                         'id' => $p->id,
                         'name' => $p->name,
                         'sku_code' => $p->sku_code,
+                        'barcode' => $p->barcode,
                         'category' => $p->category,
                         'brand' => $p->brand,
                         'price' => (float) ($p->price ?? 0),
@@ -126,7 +134,7 @@ class ReportingApiController extends Controller
                         'id' => $f->id,
                         'field_name' => $f->field_name,
                         'field_label' => $f->field_label,
-                        'field_type' => $f->field_type === 'product_select' ? 'dropdown' : $f->field_type,
+                        'field_type' => $f->field_type,
                         'is_required' => (bool) $f->is_required,
                         'options' => $options,
                         'placeholder' => $f->placeholder,

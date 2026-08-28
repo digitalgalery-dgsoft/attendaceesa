@@ -12,6 +12,7 @@ import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/providers/locale_provider.dart';
 import 'package:att_mobile/services/watermark_camera_service.dart';
 import 'package:att_mobile/widgets/signature_pad_dialog.dart';
+import 'package:att_mobile/widgets/barcode_scanner_dialog.dart';
 
 class DynamicFormScreen extends StatefulWidget {
   final ReportTemplateModel template;
@@ -241,7 +242,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         _formValues[fieldKey] = field.defaultValue;
       }
 
-      if (['text', 'textarea', 'number', 'integer', 'currency', 'percentage', 'date', 'datepicker', 'time', 'timepicker', 'datetime'].contains(field.fieldType)) {
+      if (['text', 'textarea', 'number', 'integer', 'currency', 'percentage', 'date', 'datepicker', 'time', 'timepicker', 'datetime', 'product', 'product_select', 'barcode_scanner'].contains(field.fieldType) || _isProductField(field)) {
         final ctrl = TextEditingController(text: field.defaultValue ?? '');
         _controllers[fieldKey] = ctrl;
       } else if (field.fieldType == 'checkbox') {
@@ -1129,7 +1130,20 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
     Widget inputWidget;
 
-    switch (field.fieldType) {
+    if (_isProductField(field)) {
+      inputWidget = _buildProductInput(
+        field,
+        fieldKey,
+        themeColor,
+        cardColor,
+        textColor,
+        subtitleColor,
+        elevatedColor,
+        isDarkMode,
+        locale,
+      );
+    } else {
+      switch (field.fieldType) {
       case 'textarea':
         inputWidget = TextFormField(
           controller: _controllers[fieldKey],
@@ -1808,6 +1822,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           onChanged: (v) => _formValues[fieldKey] = v,
         );
         break;
+      }
     }
 
     return Container(
@@ -1847,6 +1862,713 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     );
   }
 
+  bool _isProductField(ReportFormFieldModel field) {
+    final type = field.fieldType.toLowerCase();
+    if (type == 'product' || type == 'product_select' || type == 'barcode_scanner') {
+      return true;
+    }
+
+    final name = field.fieldName.toLowerCase();
+    final label = field.fieldLabel.toLowerCase();
+
+    // Pastikan field kategori, PIC, alasan, catatan, foto tidak dianggap field produk
+    final isCategory = name.contains('kategori') || label.contains('kategori') || name.contains('category');
+    final isPic = name.contains('pic') || label.contains('pic') || name.contains('staff') || name.contains('nama_lengkap') || name.contains('konsumen') || name.contains('foto') || name.contains('alasan') || name.contains('resep') || name.contains('feedback');
+
+    if (isCategory || isPic) return false;
+
+    final matchesProduct = name.contains('produk') || name.contains('product') || 
+                           name.contains('nama_sku') || name.contains('sku_') ||
+                           label.contains('produk') || label.contains('product') || 
+                           label.contains('nama & sku') || label.contains('sku produk');
+
+    return matchesProduct;
+  }
+
+  Widget _buildProductInput(
+    ReportFormFieldModel field,
+    String fieldKey,
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    bool isDarkMode,
+    LocaleProvider locale,
+  ) {
+    final currentText = _controllers[fieldKey]?.text ?? _formValues[fieldKey]?.toString() ?? '';
+    
+    // Cari produk yang sesuai dari katalog template jika ada
+    final matchedProduct = widget.template.products.cast<TemplateProductModel?>().firstWhere(
+          (p) => p != null && (p.name.toLowerCase() == currentText.toLowerCase() || (p.skuCode != null && p.skuCode!.toLowerCase() == currentText.toLowerCase())),
+          orElse: () => null,
+        );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: _controllers[fieldKey],
+          style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            hintText: field.placeholder ?? 'Ketik nama / pilih produk / scan barcode...',
+            hintStyle: TextStyle(color: isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400, fontSize: 12.5),
+            filled: true,
+            fillColor: elevatedColor,
+            prefixIcon: Icon(Icons.inventory_2_outlined, color: themeColor, size: 20),
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (currentText.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    color: subtitleColor,
+                    tooltip: 'Hapus',
+                    onPressed: () {
+                      setState(() {
+                        _formValues.remove(fieldKey);
+                        _controllers[fieldKey]?.clear();
+                      });
+                    },
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                  color: themeColor,
+                  tooltip: 'Scan Barcode',
+                  onPressed: () => _scanBarcodeForProduct(field, themeColor),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.menu_book_rounded, size: 20),
+                  color: themeColor,
+                  tooltip: 'Katalog Produk',
+                  onPressed: () => _openProductPickerBottomSheet(field, themeColor, isDarkMode),
+                ),
+              ],
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: themeColor, width: 1.5),
+            ),
+          ),
+          validator: (v) => field.isRequired && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
+          onChanged: (v) {
+            setState(() {
+              _formValues[fieldKey] = v;
+            });
+          },
+        ),
+        const SizedBox(height: 8),
+
+        // Quick Action Buttons (Scan Barcode & Buka Katalog)
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () => _scanBarcodeForProduct(field, themeColor),
+                icon: const Icon(Icons.qr_code_scanner_rounded, size: 16, color: Colors.white),
+                label: const Text(
+                  'Scan Barcode',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: themeColor,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                ),
+              ),
+            ),
+            if (widget.template.products.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _openProductPickerBottomSheet(field, themeColor, isDarkMode),
+                  icon: Icon(Icons.inventory_2_rounded, size: 16, color: themeColor),
+                  label: Text(
+                    'Katalog (${widget.template.products.length})',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: themeColor),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: themeColor.withOpacity(0.5)),
+                    backgroundColor: themeColor.withOpacity(0.06),
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+
+        // Preview Card jika produk teridentifikasi di database master produk
+        if (matchedProduct != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: themeColor.withOpacity(0.3), width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.check_circle_rounded, color: Colors.green.shade600, size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        matchedProduct.name,
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    if (matchedProduct.skuCode != null && matchedProduct.skuCode!.isNotEmpty)
+                      _buildProductInfoChip('SKU: ${matchedProduct.skuCode}', themeColor, isDarkMode),
+                    if (matchedProduct.barcode != null && matchedProduct.barcode!.isNotEmpty)
+                      _buildProductInfoChip('Barcode: ${matchedProduct.barcode}', Colors.purple, isDarkMode),
+                    if (matchedProduct.category != null && matchedProduct.category!.isNotEmpty)
+                      _buildProductInfoChip('Kategori: ${matchedProduct.category}', Colors.teal, isDarkMode),
+                    if (matchedProduct.brand != null && matchedProduct.brand!.isNotEmpty)
+                      _buildProductInfoChip('Brand: ${matchedProduct.brand}', Colors.indigo, isDarkMode),
+                    if (matchedProduct.formattedPrice != null && matchedProduct.formattedPrice!.isNotEmpty)
+                      _buildProductInfoChip(matchedProduct.formattedPrice!, Colors.orange, isDarkMode),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildProductInfoChip(String label, Color color, bool isDarkMode) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(isDarkMode ? 0.18 : 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 9.5,
+          fontWeight: FontWeight.w600,
+          color: isDarkMode ? color.withOpacity(0.9) : color,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _scanBarcodeForProduct(ReportFormFieldModel field, Color themeColor) async {
+    final scannedCode = await BarcodeScannerDialog.show(
+      context,
+      title: 'Scan Barcode ${field.fieldLabel}',
+      hintText: 'Arahkan kamera ke barcode kemasan produk untuk memilih otomatis',
+    );
+
+    if (scannedCode == null || scannedCode.trim().isEmpty) return;
+    final cleanCode = scannedCode.trim();
+
+    // Cari produk yang matching di list template products
+    final matched = widget.template.products.cast<TemplateProductModel?>().firstWhere(
+      (p) {
+        if (p == null) return false;
+        if (p.barcode != null && p.barcode!.trim() == cleanCode) return true;
+        if (p.skuCode != null && p.skuCode!.trim().toLowerCase() == cleanCode.toLowerCase()) return true;
+        if (p.name.trim().toLowerCase() == cleanCode.toLowerCase()) return true;
+        return false;
+      },
+      orElse: () => null,
+    );
+
+    final fieldKey = field.id.toString();
+
+    if (matched != null) {
+      _onProductSelected(matched, fieldKey);
+    } else {
+      // Barcode tidak ada di master produk, tetap masukkan nomor barcode ke input field
+      setState(() {
+        _formValues[fieldKey] = cleanCode;
+        _controllers[fieldKey]?.text = cleanCode;
+      });
+
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        style: ToastificationStyle.flatColored,
+        title: const Text('Barcode Terbaca', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        description: Text('Kode: $cleanCode (Belum terdaftar di master produk)', style: const TextStyle(fontSize: 12)),
+        alignment: Alignment.topCenter,
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+    }
+  }
+
+  void _onProductSelected(TemplateProductModel product, String targetFieldKey) {
+    setState(() {
+      _formValues[targetFieldKey] = product.name;
+      _controllers[targetFieldKey]?.text = product.name;
+    });
+
+    String? autoCategoryResult;
+
+    // Auto-Fill Kategori Produk jika ada field kategori pada template ini
+    if (product.category != null && product.category!.trim().isNotEmpty) {
+      final productCat = product.category!.trim().toLowerCase();
+
+      for (final field in widget.template.fields) {
+        final fName = field.fieldName.toLowerCase();
+        final fLabel = field.fieldLabel.toLowerCase();
+
+        // Cari field kategori yang bukan targetFieldKey
+        if (field.id.toString() != targetFieldKey &&
+            (fName.contains('kategori') || fLabel.contains('kategori') || fName.contains('category'))) {
+          final catKey = field.id.toString();
+
+          String? matchedOption;
+
+          if (field.options.isNotEmpty) {
+            // 1. Coba exact match
+            for (final opt in field.options) {
+              if (opt.toLowerCase().trim() == productCat) {
+                matchedOption = opt;
+                break;
+              }
+            }
+
+            // 2. Coba contains match
+            if (matchedOption == null) {
+              for (final opt in field.options) {
+                final optLower = opt.toLowerCase();
+                if (optLower.contains(productCat) || productCat.contains(optLower)) {
+                  matchedOption = opt;
+                  break;
+                }
+              }
+            }
+
+            // 3. Coba keyword match (misal: "Mie Instant", "Beverage", "Gim", "Care", "Snack", "Deterjen", "Rumput Laut")
+            if (matchedOption == null) {
+              final keywords = productCat.split(RegExp(r'[\s\-/(),]+')).where((w) => w.length > 2);
+              for (final kw in keywords) {
+                for (final opt in field.options) {
+                  if (opt.toLowerCase().contains(kw)) {
+                    matchedOption = opt;
+                    break;
+                  }
+                }
+                if (matchedOption != null) break;
+              }
+            }
+          }
+
+          if (matchedOption != null) {
+            setState(() {
+              _formValues[catKey] = matchedOption;
+              _controllers[catKey]?.text = matchedOption!;
+            });
+            autoCategoryResult = matchedOption;
+            break;
+          } else if (field.options.isEmpty) {
+            setState(() {
+              _formValues[catKey] = product.category;
+              _controllers[catKey]?.text = product.category!;
+            });
+            autoCategoryResult = product.category;
+            break;
+          }
+        }
+      }
+    }
+
+    if (autoCategoryResult != null) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.success,
+        style: ToastificationStyle.flatColored,
+        title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        description: Text('Kategori otomatis terpilih: $autoCategoryResult', style: const TextStyle(fontSize: 12)),
+        alignment: Alignment.topCenter,
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+    } else {
+      toastification.show(
+        context: context,
+        type: ToastificationType.success,
+        style: ToastificationStyle.flatColored,
+        title: const Text('Produk Dipilih', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        description: Text(product.name, style: const TextStyle(fontSize: 12)),
+        alignment: Alignment.topCenter,
+        autoCloseDuration: const Duration(seconds: 2),
+      );
+    }
+  }
+
+  void _openProductPickerBottomSheet(
+    ReportFormFieldModel field,
+    Color themeColor,
+    bool isDarkMode,
+  ) {
+    final fieldKey = field.id.toString();
+    final allProducts = widget.template.products;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        String searchQuery = '';
+        String selectedCategory = 'Semua';
+
+        // Ambil list kategori unik
+        final categories = <String>['Semua'];
+        for (final p in allProducts) {
+          if (p.category != null && p.category!.trim().isNotEmpty) {
+            if (!categories.contains(p.category!.trim())) {
+              categories.add(p.category!.trim());
+            }
+          }
+        }
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            // Filter products
+            final filteredProducts = allProducts.where((p) {
+              final matchesCat = selectedCategory == 'Semua' || (p.category != null && p.category!.trim().toLowerCase() == selectedCategory.toLowerCase());
+              if (!matchesCat) return false;
+
+              if (searchQuery.isEmpty) return true;
+              final q = searchQuery.toLowerCase();
+              final matchesName = p.name.toLowerCase().contains(q);
+              final matchesSku = p.skuCode?.toLowerCase().contains(q) ?? false;
+              final matchesBarcode = p.barcode?.toLowerCase().contains(q) ?? false;
+              final matchesBrand = p.brand?.toLowerCase().contains(q) ?? false;
+              return matchesName || matchesSku || matchesBarcode || matchesBrand;
+            }).toList();
+
+            final sheetBg = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
+            final itemBg = isDarkMode ? const Color(0xFF2A2A2A) : const Color(0xFFF8FAFC);
+            final sheetText = isDarkMode ? Colors.white : const Color(0xFF1E293B);
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.82,
+              decoration: BoxDecoration(
+                color: sheetBg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  // Drag handle
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: themeColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(Icons.inventory_2_rounded, color: themeColor, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Master Data Produk',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: sheetText),
+                              ),
+                              Text(
+                                '${widget.template.title} (${allProducts.length} SKU)',
+                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(sheetCtx).pop(),
+                          icon: const Icon(Icons.close_rounded),
+                          color: Colors.grey.shade500,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Search Bar with Barcode Scanner Button
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            autofocus: false,
+                            style: TextStyle(color: sheetText, fontSize: 13),
+                            decoration: InputDecoration(
+                              hintText: 'Cari nama produk, SKU, barcode...',
+                              hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 12.5),
+                              prefixIcon: Icon(Icons.search_rounded, color: themeColor, size: 20),
+                              filled: true,
+                              fillColor: itemBg,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: themeColor, width: 1.5),
+                              ),
+                            ),
+                            onChanged: (v) {
+                              setSheetState(() {
+                                searchQuery = v;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Quick Scan Barcode from inside Bottom Sheet
+                        InkWell(
+                          onTap: () async {
+                            Navigator.of(sheetCtx).pop();
+                            await _scanBarcodeForProduct(field, themeColor);
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                            decoration: BoxDecoration(
+                              color: themeColor,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: themeColor.withOpacity(0.3),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 20),
+                                SizedBox(width: 6),
+                                Text('Scan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Category Chips (if more than 1 category)
+                  if (categories.length > 2) ...[
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      height: 36,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: categories.length,
+                        separatorBuilder: (ctx, i) => const SizedBox(width: 6),
+                        itemBuilder: (ctx, idx) {
+                          final cat = categories[idx];
+                          final isSelected = cat == selectedCategory;
+                          return ChoiceChip(
+                            label: Text(
+                              cat,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? Colors.white : sheetText,
+                              ),
+                            ),
+                            selected: isSelected,
+                            selectedColor: themeColor,
+                            backgroundColor: itemBg,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            side: BorderSide(
+                              color: isSelected ? themeColor : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                            ),
+                            onSelected: (selected) {
+                              if (selected) {
+                                setSheetState(() {
+                                  selectedCategory = cat;
+                                });
+                              }
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 8),
+                  const Divider(height: 1),
+
+                  // List of Products
+                  Expanded(
+                    child: filteredProducts.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.search_off_rounded, size: 48, color: Colors.grey.shade400),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Produk tidak ditemukan',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: sheetText),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Coba kata kunci lain atau scan barcode produk',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            itemCount: filteredProducts.length,
+                            separatorBuilder: (ctx, i) => const SizedBox(height: 8),
+                            itemBuilder: (ctx, idx) {
+                              final p = filteredProducts[idx];
+                              final isCurrent = _controllers[fieldKey]?.text == p.name || _formValues[fieldKey] == p.name;
+
+                              return InkWell(
+                                onTap: () {
+                                  Navigator.of(sheetCtx).pop();
+                                  _onProductSelected(p, fieldKey);
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isCurrent ? themeColor.withOpacity(0.08) : itemBg,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isCurrent ? themeColor : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                                      width: isCurrent ? 1.5 : 1.0,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: isCurrent ? themeColor : themeColor.withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Icon(
+                                          Icons.inventory_2_rounded,
+                                          color: isCurrent ? Colors.white : themeColor,
+                                          size: 18,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              p.name,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                                color: isCurrent ? themeColor : sheetText,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 4,
+                                              children: [
+                                                if (p.skuCode != null && p.skuCode!.isNotEmpty)
+                                                  _buildProductInfoChip('SKU: ${p.skuCode}', themeColor, isDarkMode),
+                                                if (p.barcode != null && p.barcode!.isNotEmpty)
+                                                  _buildProductInfoChip('Barcode: ${p.barcode}', Colors.purple, isDarkMode),
+                                                if (p.category != null && p.category!.isNotEmpty)
+                                                  _buildProductInfoChip(p.category!, Colors.teal, isDarkMode),
+                                                if (p.brand != null && p.brand!.isNotEmpty)
+                                                  _buildProductInfoChip(p.brand!, Colors.indigo, isDarkMode),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (p.formattedPrice != null && p.formattedPrice!.isNotEmpty) ...[
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          p.formattedPrice!,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                      if (isCurrent) ...[
+                                        const SizedBox(width: 8),
+                                        Icon(Icons.check_circle_rounded, color: themeColor, size: 18),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   InputDecoration _inputDecoration(String hint, Color fillColor, bool isDarkMode) {
     return InputDecoration(
       hintText: hint,
@@ -1869,3 +2591,4 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     );
   }
 }
+
