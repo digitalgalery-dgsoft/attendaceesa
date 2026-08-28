@@ -565,10 +565,24 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 ---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)
-1. **Lanjutan Monitoring & Rekap Operasional:**
+1. **Integrasi Master Produk & Barcode Scanner pada Form Pelaporan Mobile (PRIORITAS BERIKUTNYA)**:
+   - **Isolasi Master Produk per Prinsiple (Strict Multi-Tenant Scoping)**:
+     - Memastikan query API `ReportingApiController` dan katalog produk di mobile app 100% terisolasi per `principal_id` karyawan yang sedang login.
+     - Setiap prinsiple (Wings, Dulux, Fonterra, MamaSuka, dll.) hanya dapat mengakses katalog SKU mereka sendiri.
+   - **Kamera Scanner Barcode Fisik Kemasan Produk**:
+     - Integrasi modul kamera barcode scanner (`google_mlkit_barcode_scanning` / `mobile_scanner`) dengan overlay target box & toggle flashlight.
+     - Mendukung scanning format barcode standar: **EAN-13, EAN-8, UPC-A, UPC-E, Code 128, QR Code**.
+   - **Auto-Match & Auto-Fill Cerdas**:
+     - Hasil scan barcode otomatis dicocokkan ke field `barcode` atau `sku_code` di Master Produk prinsiple.
+     - Mengisi otomatis field **Nama & SKU Produk** serta auto-select field **Kategori Produk** terkait.
+   - **Searchable Product Bottom Sheet Picker**:
+     - Menyediakan dialog pencarian live interaktif dengan filter berdasarkan Nama Produk, SKU, Brand, dan Harga.
+   - **Smart Detection pada Field Eksisting**:
+     - Deteksi otomatis untuk field form tipe `text`, `dropdown`, atau `product_select` yang mengandung kata kunci `produk`, `product`, `sku` agar otomatis memunculkan tombol scanner barcode 📷.
+2. **Lanjutan Monitoring & Rekap Operasional:**
    - Evaluasi integrasi data jadwal visit schedule dan kehadiran di mobile app saat karyawan check-in via lokasi terjadwal visit.
    - Penambahan filter lanjutan pada laporan presensi dan ekspor data audit penyesuaian manual/import.
-2. **Peningkatan Skalabilitas & Media Storage:**
+3. **Peningkatan Skalabilitas & Media Storage:**
    - Integrasi penyimpanan awan (*Cloud Storage S3 / Spaces / GCS*) untuk media foto presensi dan laporan visit.
 
 
