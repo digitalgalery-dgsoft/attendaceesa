@@ -555,37 +555,22 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 15. **Penyelarasan Tampilan & Kartu Metrik Detail Laporan Portal Prinsiple (SELESAI 28 Agustus 2026)**:
     - **Metrik Dinamis Periode Berjalan**:
       - Label card ringkasan diubah menjadi dinamis sesuai filter bulan/tahun yang aktif (`Total Laporan Periode {Bulan Tahun}`, misal: `Total Laporan Periode Agustus 2026`).
-    - **Penyederhanaan Kartu Ringkasan (Mini Stats)**:
-      - Menghapus card "Wajib Titik GPS" dan "Wajib Tanda Tangan" agar tampilan ringkas, fokus pada performa data laporan masuk dan toko terjangkau.
-      - Grid metrik disesuaikan menjadi 2 kolom responsif.
-    - **Peningkatan Navigasi Pagination**:
-      - Integrasi komponen pagination custom `portal.pagination` dengan query filter preserved.
-    - **Deployment Live**: Berhasil dipush ke GitHub dan dideploy langsung ke server `https://appsend.my.id/`.
+    - **Metrik Dinamis Periode Berjalan**.
+    - **Penyederhanaan Kartu Ringkasan (Mini Stats)**: Menghapus card "Wajib Titik GPS" dan "Wajib Tanda Tangan" agar tampilan ringkas.
+    - **Peningkatan Navigasi Pagination**: Integrasi komponen pagination custom `portal.pagination` dengan query filter preserved.
+16. **Integrasi Master Produk Prinsiple, Barcode Scanner & Auto-Select Kategori (SELESAI 28 Agustus 2026)**:
+    - **Multi-Tenant Scoping Master Produk per Prinsiple**: `ReportingApiController.php` secara ketat mengisolasi master produk per `principal_id` karyawan.
+    - **Scanner Barcode Fisik Kemasan Produk Real-Time**: Pembuatan widget `BarcodeScannerDialog` dengan `mobile_scanner`.
+    - **Picker Katalog Master Produk (Searchable Bottom Sheet)**: Bottom sheet interaktif pencarian real-time dengan filter kategori dinamis.
+    - **Auto-Fill & Auto-Select Kategori Otomatis**: Saat produk dipilih atau di-scan, sistem otomatis mencari & mengisi field kategori di template.
+    - **Deteksi Cerdas Input Produk**: Field tipe produk otomatis memiliki tombol pintas **Scan Barcode** dan **Katalog**.
+    - **Build & Rilis APK v1.0.103**: Versi aplikasi dinaikkan ke **`v1.0.103+103`**, file APK rilis (`app-release.apk`, 105.5 MB) berhasil dikompilasi.
 
 ---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)
-1. **Integrasi Master Produk & Barcode Scanner pada Form Pelaporan Mobile (PRIORITAS BERIKUTNYA)**:
-   - **Isolasi Master Produk per Prinsiple (Strict Multi-Tenant Scoping)**:
-     - Memastikan query API `ReportingApiController` dan katalog produk di mobile app 100% terisolasi per `principal_id` karyawan yang sedang login.
-     - Setiap prinsiple (Wings, Dulux, Fonterra, MamaSuka, dll.) hanya dapat mengakses katalog SKU mereka sendiri.
-   - **Kamera Scanner Barcode Fisik Kemasan Produk**:
-     - Integrasi modul kamera barcode scanner (`google_mlkit_barcode_scanning` / `mobile_scanner`) dengan overlay target box & toggle flashlight.
-     - Mendukung scanning format barcode standar: **EAN-13, EAN-8, UPC-A, UPC-E, Code 128, QR Code**.
-   - **Auto-Match & Auto-Fill Cerdas**:
-     - Hasil scan barcode otomatis dicocokkan ke field `barcode` atau `sku_code` di Master Produk prinsiple.
-     - Mengisi otomatis field **Nama & SKU Produk** serta auto-select field **Kategori Produk** terkait.
-   - **Searchable Product Bottom Sheet Picker**:
-     - Menyediakan dialog pencarian live interaktif dengan filter berdasarkan Nama Produk, SKU, Brand, dan Harga.
-   - **Smart Detection pada Field Eksisting**:
-     - Deteksi otomatis untuk field form tipe `text`, `dropdown`, atau `product_select` yang mengandung kata kunci `produk`, `product`, `sku` agar otomatis memunculkan tombol scanner barcode 📷.
-2. **Lanjutan Monitoring & Rekap Operasional:**
+1. **Lanjutan Monitoring & Rekap Operasional:**
    - Evaluasi integrasi data jadwal visit schedule dan kehadiran di mobile app saat karyawan check-in via lokasi terjadwal visit.
    - Penambahan filter lanjutan pada laporan presensi dan ekspor data audit penyesuaian manual/import.
-3. **Peningkatan Skalabilitas & Media Storage:**
+2. **Peningkatan Skalabilitas & Media Storage:**
    - Integrasi penyimpanan awan (*Cloud Storage S3 / Spaces / GCS*) untuk media foto presensi dan laporan visit.
-
-
-
-
-
