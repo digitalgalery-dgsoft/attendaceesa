@@ -1885,6 +1885,18 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     return matchesProduct;
   }
 
+  List<TemplateProductModel> _getProducts() {
+    final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+    final freshTemplate = repProvider.templates.cast<ReportTemplateModel?>().firstWhere(
+      (t) => t?.id == widget.template.id || t?.code == widget.template.code,
+      orElse: () => null,
+    );
+    if (freshTemplate != null && freshTemplate.products.isNotEmpty) {
+      return freshTemplate.products;
+    }
+    return widget.template.products;
+  }
+
   Widget _buildProductInput(
     ReportFormFieldModel field,
     String fieldKey,
@@ -1897,9 +1909,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     LocaleProvider locale,
   ) {
     final currentText = _controllers[fieldKey]?.text ?? _formValues[fieldKey]?.toString() ?? '';
+    final products = _getProducts();
     
     // Cari produk yang sesuai dari katalog template jika ada
-    final matchedProduct = widget.template.products.cast<TemplateProductModel?>().firstWhere(
+    final matchedProduct = products.cast<TemplateProductModel?>().firstWhere(
           (p) => p != null && (p.name.toLowerCase() == currentText.toLowerCase() || (p.skuCode != null && p.skuCode!.toLowerCase() == currentText.toLowerCase())),
           orElse: () => null,
         );
@@ -1987,14 +2000,14 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 ),
               ),
             ),
-            if (widget.template.products.isNotEmpty) ...[
+            if (products.isNotEmpty) ...[
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => _openProductPickerBottomSheet(field, themeColor, isDarkMode),
                   icon: Icon(Icons.inventory_2_rounded, size: 16, color: themeColor),
                   label: Text(
-                    'Katalog (${widget.template.products.length})',
+                    'Katalog (${products.length})',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: themeColor),
                   ),
                   style: OutlinedButton.styleFrom(
@@ -2089,9 +2102,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
     if (scannedCode == null || scannedCode.trim().isEmpty) return;
     final cleanCode = scannedCode.trim();
+    final products = _getProducts();
 
     // Cari produk yang matching di list template products
-    final matched = widget.template.products.cast<TemplateProductModel?>().firstWhere(
+    final matched = products.cast<TemplateProductModel?>().firstWhere(
       (p) {
         if (p == null) return false;
         if (p.barcode != null && p.barcode!.trim() == cleanCode) return true;
@@ -2231,7 +2245,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     bool isDarkMode,
   ) {
     final fieldKey = field.id.toString();
-    final allProducts = widget.template.products;
+    final allProducts = _getProducts();
 
     showModalBottomSheet(
       context: context,

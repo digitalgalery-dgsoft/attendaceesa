@@ -47,7 +47,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
     });
   }
 
-  void _loadData({bool force = false}) {
+  void _loadData({bool force = true}) {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
     if (auth.token != null) {
