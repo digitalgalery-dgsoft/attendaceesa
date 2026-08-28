@@ -193,7 +193,7 @@ class _BarcodeScannerDialogState extends State<BarcodeScannerDialog> with Single
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.between,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
