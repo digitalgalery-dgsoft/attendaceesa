@@ -24,6 +24,22 @@ header('Content-Type: text/html; charset=utf-8');
 
 function getDiskUsage(): array
 {
+    // Coba via shell df -P /
+    $df = @shell_exec('df -P / 2>&1');
+    if ($df && preg_match('/\n\S+\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)%\s+/', $df, $matches)) {
+        $totalBytes = (float)$matches[1] * 1024;
+        $usedBytes  = (float)$matches[2] * 1024;
+        $freeBytes  = (float)$matches[3] * 1024;
+        $percent    = (float)$matches[4];
+
+        return [
+            'total' => formatBytes($totalBytes),
+            'used' => formatBytes($usedBytes),
+            'free' => formatBytes($freeBytes),
+            'percent' => $percent,
+        ];
+    }
+
     $total = @disk_total_space('/');
     $free = @disk_free_space('/');
     $used = ($total !== false && $free !== false) ? $total - $free : 0;
@@ -98,12 +114,8 @@ $logs[] = "✓ Log aaPanel panel berhasil dikosongkan.";
 
 // Step 4: Bersihkan aaPanel Recycle Bin (Tempat sampah file manager aaPanel)
 $logs[] = "<br>🗑️ <b>Membersihkan aaPanel Recycle Bin...</b>";
-if (is_dir('/www/Recycle_bin')) {
-    runCmd("rm -rf /www/Recycle_bin/* 2>/dev/null");
-    $logs[] = "✓ File di /www/Recycle_bin/* berhasil dibersihkan.";
-} else {
-    $logs[] = "✓ Recycle bin kosong / tidak ditemukan.";
-}
+runCmd("rm -rf /www/Recycle_bin/* 2>/dev/null");
+$logs[] = "✓ Pembersihan /www/Recycle_bin/* selesai.";
 
 // Step 5: Bersihkan Systemd Journal Logs (Debian 12)
 $logs[] = "<br>📜 <b>Membersihkan Systemd Journal Log (Debian 12)...</b>";
