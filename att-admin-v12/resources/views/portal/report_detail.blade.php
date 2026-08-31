@@ -290,18 +290,23 @@
     }
 
     .col-span-12 { grid-column: span 12; }
+    .col-span-10 { grid-column: span 10; }
+    .col-span-9  { grid-column: span 9; }
     .col-span-8  { grid-column: span 8; }
+    .col-span-7  { grid-column: span 7; }
     .col-span-6  { grid-column: span 6; }
+    .col-span-5  { grid-column: span 5; }
     .col-span-4  { grid-column: span 4; }
     .col-span-3  { grid-column: span 3; }
+    .col-span-2  { grid-column: span 2; }
 
     @media (max-width: 1024px) {
-        .col-span-3, .col-span-4 { grid-column: span 6; }
-        .col-span-8 { grid-column: span 12; }
+        .col-span-2, .col-span-3, .col-span-4 { grid-column: span 6; }
+        .col-span-5, .col-span-7, .col-span-8, .col-span-9, .col-span-10 { grid-column: span 12; }
     }
 
     @media (max-width: 640px) {
-        .col-span-3, .col-span-4, .col-span-6, .col-span-8 { grid-column: span 12; }
+        .col-span-2, .col-span-3, .col-span-4, .col-span-5, .col-span-6, .col-span-7, .col-span-8, .col-span-9, .col-span-10 { grid-column: span 12; }
     }
 
     /* Studio Mode Canvas State */
@@ -980,11 +985,14 @@
                     <div>
                         <label class="form-label-custom">Lebar Kolom Grid</label>
                         <select id="cfg_col_span" class="form-select-custom">
-                            <option value="3">3 Kolom (25% - Seperempat Lebar)</option>
-                            <option value="4">4 Kolom (33% - Sepertiga Lebar)</option>
-                            <option value="6" selected>6 Kolom (50% - Setengah Lebar)</option>
-                            <option value="8">8 Kolom (66% - Dua Pertiga Lebar)</option>
-                            <option value="12">12 Kolom (100% - Lebar Penuh)</option>
+                            <option value="2">2 Kolom (2/12 - 16.6% Lebar / Pasangan 10/12)</option>
+                            <option value="3">3 Kolom (3/12 - 25% Lebar / Pasangan 9/12)</option>
+                            <option value="4">4 Kolom (4/12 - 33.3% Lebar / Pasangan 8/12)</option>
+                            <option value="6" selected>6 Kolom (6/12 - 50% Setengah Lebar)</option>
+                            <option value="8">8 Kolom (8/12 - 66.6% Dua Pertiga Lebar / Pasangan 4/12)</option>
+                            <option value="9">9 Kolom (9/12 - 75% Tiga Perempat Lebar / Pasangan 3/12)</option>
+                            <option value="10">10 Kolom (10/12 - 83.3% Lebar / Pasangan 2/12)</option>
+                            <option value="12">12 Kolom (12/12 - 100% Lebar Penuh)</option>
                         </select>
                     </div>
                     <div>
@@ -1245,7 +1253,7 @@
         }
     }
 
-    // Cycle Width: 3 -> 4 -> 6 -> 8 -> 12 -> 3
+    // Cycle Width: 2 -> 3 -> 4 -> 6 -> 8 -> 10 -> 12 -> 2
     function cycleWidgetWidth(wId) {
         var card = document.getElementById(wId);
         if (!card) return;
@@ -1253,15 +1261,12 @@
         var currentSpan = 6;
         var wIndex = (currentDashboardConfig.widgets || []).findIndex(function(w) { return w.id === wId; });
         if (wIndex >= 0) {
-            currentSpan = currentDashboardConfig.widgets[wIndex].col_span || 6;
+            currentSpan = parseInt(currentDashboardConfig.widgets[wIndex].col_span) || 6;
         }
 
-        var nextSpan = 6;
-        if (currentSpan === 3) nextSpan = 4;
-        else if (currentSpan === 4) nextSpan = 6;
-        else if (currentSpan === 6) nextSpan = 8;
-        else if (currentSpan === 8) nextSpan = 12;
-        else if (currentSpan === 12) nextSpan = 3;
+        var spans = [2, 3, 4, 6, 8, 10, 12];
+        var currentIdx = spans.indexOf(currentSpan);
+        var nextSpan = (currentIdx >= 0 && currentIdx < spans.length - 1) ? spans[currentIdx + 1] : spans[0];
 
         if (wIndex >= 0) {
             currentDashboardConfig.widgets[wIndex].col_span = nextSpan;
