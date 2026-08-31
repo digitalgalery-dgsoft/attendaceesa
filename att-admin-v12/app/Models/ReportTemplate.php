@@ -21,6 +21,7 @@ class ReportTemplate extends Model
         'min_photos' => 'integer',
         'max_photos' => 'integer',
         'version' => 'integer',
+        'report_days' => 'array',
     ];
 
     protected static function booted()
@@ -49,6 +50,16 @@ class ReportTemplate extends Model
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'report_template_product')->withTimestamps();
+    }
+
+    public function positions(): BelongsToMany
+    {
+        return $this->belongsToMany(Position::class, 'report_template_position')->withTimestamps();
+    }
+
+    public function employees(): BelongsToMany
+    {
+        return $this->belongsToMany(Employee::class, 'report_template_employee')->withTimestamps();
     }
 
     public function fields(): HasMany

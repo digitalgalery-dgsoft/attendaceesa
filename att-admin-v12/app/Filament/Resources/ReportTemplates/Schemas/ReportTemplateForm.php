@@ -102,6 +102,22 @@ class ReportTemplateForm
                                 ->default(true)
                                 ->inline(false),
                         ]),
+                        Select::make('report_days')
+                            ->label('🗓️ Hari Pelaporan Wajib / Jadwal Pengisian (Opsional)')
+                            ->placeholder('Pilih satu atau lebih hari (Kosongkan jika berlaku setiap hari)')
+                            ->options([
+                                'senin' => 'Senin (Monday)',
+                                'selasa' => 'Selasa (Tuesday)',
+                                'rabu' => 'Rabu (Wednesday)',
+                                'kamis' => 'Kamis (Thursday)',
+                                'jumat' => 'Jumat (Friday)',
+                                'sabtu' => 'Sabtu (Saturday)',
+                                'minggu' => 'Minggu (Sunday)',
+                            ])
+                            ->multiple()
+                            ->searchable()
+                            ->helperText('Tentukan hari form laporan ini harus dilakukan (misal: Senin - Jumat untuk weekday, atau Sabtu - Minggu untuk akhir pekan). Jika dikosongkan, form berlaku setiap hari.')
+                            ->columnSpanFull(),
                         Textarea::make('description')
                             ->label('Deskripsi & Petunjuk Pengisian untuk Karyawan')
                             ->placeholder('Jelaskan instruksi pengisian form ini bagi SPG/MD di lapangan...')
@@ -199,15 +215,47 @@ class ReportTemplateForm
                     ]),
 
                 Section::make('Penugasan Form Template (Form Assignment)')
-                    ->description('Tentukan karyawan mana yang wajib mengisi form ini saat kunjungan lapangan.')
+                    ->description('Tentukan jabatan atau nama karyawan spesifik yang wajib mengisi form ini saat kunjungan lapangan (Mendukung Multi-Select).')
                     ->collapsible()
                     ->columnSpanFull()
                     ->schema([
+                        Grid::make(2)->schema([
+                            Select::make('positions')
+                                ->relationship('positions', 'name')
+                                ->label('🎯 Target Jabatan (Pilihan Multipel / Multi-Select)')
+                                ->placeholder('Semua Jabatan (SPG, MD, TL, SPV, dll.)')
+                                ->helperText('Pilih satu atau lebih jabatan yang wajib mengisi form ini. Kosongkan jika berlaku untuk semua jabatan.')
+                                ->multiple()
+                                ->searchable()
+                                ->preload(),
+                            Select::make('employees')
+                                ->relationship('employees', 'full_name', modifyQueryUsing: function ($query, callable $get) {
+                                    $selectedPrincipals = $get('principals') ?? [];
+                                    if (!empty($selectedPrincipals)) {
+                                        $query->whereIn('principal_id', $selectedPrincipals);
+                                    }
+                                    return $query->orderBy('full_name');
+                                })
+                                ->getOptionLabelFromRecordUsing(fn (\App\Models\Employee $record) => "{$record->full_name} ({$record->nik})" . ($record->position ? " - {$record->position->name}" : '') . ($record->principal ? " [{$record->principal->name}]" : ''))
+                                ->label('👤 Target Nama Karyawan / Employee Spesifik (Multi-Select)')
+                                ->placeholder('Pilih satu atau lebih nama karyawan spesifik...')
+                                ->helperText('Pilih nama-nama karyawan khusus yang ditugaskan form ini. Kosongkan jika berlaku umum sesuai prinsiple / jabatan.')
+                                ->multiple()
+                                ->searchable()
+                                ->preload(),
+                        ]),
                         Repeater::make('assignments')
-                            ->label('Daftar Aturan Penugasan Form')
+                            ->label('Daftar Aturan Penugasan Spesifik Tambahan (Per Toko / Channel / Karyawan)')
                             ->relationship('assignments')
                             ->schema([
-                                Grid::make(3)->schema([
+                                Grid::make(4)->schema([
+                                    Select::make('employee_id')
+                                        ->relationship('employee', 'full_name')
+                                        ->getOptionLabelFromRecordUsing(fn (\App\Models\Employee $record) => "{$record->full_name} ({$record->nik})")
+                                        ->label('Nama Employee (Opsional)')
+                                        ->placeholder('Semua Employee')
+                                        ->searchable()
+                                        ->preload(),
                                     Select::make('position_id')
                                         ->relationship('position', 'name')
                                         ->label('Jabatan Tertentu (Opsional)')
@@ -233,7 +281,7 @@ class ReportTemplateForm
                                         ->placeholder('Semua Channel'),
                                 ]),
                             ])
-                            ->addActionLabel('➕ Tambah Target Penugasan')
+                            ->addActionLabel('➕ Tambah Target Penugasan Khusus')
                             ->defaultItems(0)
                             ->columnSpanFull(),
                     ]),

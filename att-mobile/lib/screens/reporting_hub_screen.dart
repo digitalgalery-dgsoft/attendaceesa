@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:toastification/toastification.dart';
 import 'package:att_mobile/models/report_template_model.dart';
-import 'package:att_mobile/models/report_submission_model.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/providers/locale_provider.dart';
@@ -531,7 +530,10 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                         ),
                       ],
                       const SizedBox(height: 8),
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
@@ -545,11 +547,39 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                               style: TextStyle(fontSize: 10, color: subtitleColor, fontFamily: 'monospace', fontWeight: FontWeight.w600),
                             ),
                           ),
-                          const SizedBox(width: 8),
                           Text(
                             '${template.fieldsCount} Parameter',
                             style: TextStyle(fontSize: 11, color: themeColor, fontWeight: FontWeight.w600),
                           ),
+                          if (template.reportDays.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: template.isTodayScheduled
+                                    ? const Color(0xFF149A6E).withOpacity(0.12)
+                                    : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today_rounded,
+                                    size: 10,
+                                    color: template.isTodayScheduled ? const Color(0xFF149A6E) : subtitleColor,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    template.scheduleDaysDisplay + (template.isTodayScheduled ? ' (Hari ini)' : ''),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: template.isTodayScheduled ? const Color(0xFF149A6E) : subtitleColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                         ],
                       ),
                     ],

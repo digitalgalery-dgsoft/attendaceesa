@@ -27,6 +27,11 @@ class ReportTemplateAssignment extends Model
         return $this->belongsTo(Position::class);
     }
 
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class);
+    }
+
     public function workLocation(): BelongsTo
     {
         return $this->belongsTo(WorkLocation::class);

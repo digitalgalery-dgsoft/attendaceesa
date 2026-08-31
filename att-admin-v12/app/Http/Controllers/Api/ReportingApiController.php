@@ -64,6 +64,9 @@ class ReportingApiController extends Controller
                 })->orderBy('name', 'asc');
             },
             'principals',
+            'positions',
+            'employees',
+            'assignments',
         ])->where('is_active', true);
 
         $allMatchingPrincipalIds = [];
@@ -88,7 +91,38 @@ class ReportingApiController extends Controller
             });
         }
 
-        $templates = $templatesQuery->orderBy('id', 'asc')->get();
+        $allTemplates = $templatesQuery->orderBy('id', 'asc')->get();
+
+        // Filter penugasan spesifik berdasarkan Karyawan (employees) atau Jabatan (positions) jika diset
+        $templates = $allTemplates->filter(function ($t) use ($employee) {
+            $hasAssignedEmployees = $t->employees->isNotEmpty();
+            $hasAssignedPositions = $t->positions->isNotEmpty();
+
+            // Jika ada penugasan nama karyawan atau jabatan spesifik
+            if ($hasAssignedEmployees || $hasAssignedPositions) {
+                $matchedEmployee = $hasAssignedEmployees && $t->employees->contains('id', $employee->id);
+                $matchedPosition = $hasAssignedPositions && $employee->position_id && $t->positions->contains('id', $employee->position_id);
+
+                if (!$matchedEmployee && !$matchedPosition) {
+                    return false;
+                }
+            }
+
+            // Jika ada aturan penugasan khusus di assignments repeater
+            if ($t->assignments->isNotEmpty()) {
+                $hasMatchingAssignment = $t->assignments->contains(function ($a) use ($employee) {
+                    $empMatch = empty($a->employee_id) || $a->employee_id == $employee->id;
+                    $posMatch = empty($a->position_id) || $a->position_id == $employee->position_id;
+                    return $empMatch && $posMatch;
+                });
+
+                if (!$hasMatchingAssignment && !$hasAssignedEmployees && !$hasAssignedPositions) {
+                    return false;
+                }
+            }
+
+            return true;
+        })->values();
 
         // Format data template dan fields untuk konsumsi mobile
         $formatted = $templates->map(function ($t) use ($employee, $allMatchingPrincipalIds) {
@@ -159,6 +193,9 @@ class ReportingApiController extends Controller
                 'title' => $t->title,
                 'description' => $t->description,
                 'category' => $t->category ?? 'general',
+                'report_days' => $t->report_days ?? [],
+                'assigned_positions' => $t->positions->pluck('name')->values()->toArray(),
+                'assigned_employees' => $t->employees->pluck('full_name')->values()->toArray(),
                 'icon' => $t->icon ?? 'document-text',
                 'color' => $t->color ?? '#0F52BA',
                 'require_gps' => (bool) $t->require_gps,

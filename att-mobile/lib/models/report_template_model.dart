@@ -9,6 +9,9 @@ class ReportTemplateModel {
   final bool requirePhoto;
   final bool requireSignature;
   final int fieldsCount;
+  final List<String> reportDays;
+  final List<String> assignedPositions;
+  final List<String> assignedEmployees;
   final List<TemplateProductModel> products;
   final List<ReportFormFieldModel> fields;
 
@@ -23,9 +26,34 @@ class ReportTemplateModel {
     this.requirePhoto = false,
     this.requireSignature = false,
     this.fieldsCount = 0,
+    this.reportDays = const [],
+    this.assignedPositions = const [],
+    this.assignedEmployees = const [],
     this.products = const [],
     required this.fields,
   });
+
+  bool isScheduledForDay(int weekday) {
+    if (reportDays.isEmpty) return true;
+    final dayNames = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu'];
+    final englishDayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    final currentDay = dayNames[weekday - 1];
+    final currentEnglishDay = englishDayNames[weekday - 1];
+    return reportDays.any((d) => d.toLowerCase() == currentDay || d.toLowerCase() == currentEnglishDay);
+  }
+
+  bool get isTodayScheduled => isScheduledForDay(DateTime.now().weekday);
+
+  String get scheduleDaysDisplay {
+    if (reportDays.isEmpty) return 'Setiap Hari';
+    final map = {
+      'senin': 'Sen', 'selasa': 'Sel', 'rabu': 'Rab', 'kamis': 'Kam',
+      'jumat': 'Jum', 'sabtu': 'Sab', 'minggu': 'Min',
+      'monday': 'Sen', 'tuesday': 'Sel', 'wednesday': 'Rab', 'thursday': 'Kam',
+      'friday': 'Jum', 'saturday': 'Sab', 'sunday': 'Min',
+    };
+    return reportDays.map((d) => map[d.toLowerCase()] ?? d).join(', ');
+  }
 
   factory ReportTemplateModel.fromJson(Map<String, dynamic> json) {
     var rawFields = json['fields'] as List? ?? [];
@@ -38,6 +66,15 @@ class ReportTemplateModel {
         .map((p) => TemplateProductModel.fromJson(p as Map<String, dynamic>))
         .toList();
 
+    var rawDays = json['report_days'] as List? ?? [];
+    List<String> parsedDays = rawDays.map((e) => e.toString().toLowerCase()).toList();
+
+    var rawPositions = json['assigned_positions'] as List? ?? [];
+    List<String> parsedPositions = rawPositions.map((e) => e.toString()).toList();
+
+    var rawEmployees = json['assigned_employees'] as List? ?? [];
+    List<String> parsedEmployees = rawEmployees.map((e) => e.toString()).toList();
+
     return ReportTemplateModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
       code: json['code'] ?? '',
@@ -49,6 +86,9 @@ class ReportTemplateModel {
       requirePhoto: json['require_photo'] == true || json['require_photo'] == 1,
       requireSignature: json['require_signature'] == true || json['require_signature'] == 1,
       fieldsCount: json['fields_count'] is int ? json['fields_count'] : (fieldsList.length),
+      reportDays: parsedDays,
+      assignedPositions: parsedPositions,
+      assignedEmployees: parsedEmployees,
       products: productsList,
       fields: fieldsList,
     );
@@ -66,6 +106,9 @@ class ReportTemplateModel {
       'require_photo': requirePhoto,
       'require_signature': requireSignature,
       'fields_count': fieldsCount,
+      'report_days': reportDays,
+      'assigned_positions': assignedPositions,
+      'assigned_employees': assignedEmployees,
       'products': products.map((p) => p.toJson()).toList(),
       'fields': fields.map((f) => f.toJson()).toList(),
     };
