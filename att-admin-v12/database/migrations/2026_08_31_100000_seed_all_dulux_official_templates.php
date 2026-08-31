@@ -41,6 +41,21 @@ return new class extends Migration
         $primaryDulux = $duluxPrincipals->first();
         $allDuluxIds = $duluxPrincipals->pluck('id')->toArray();
 
+        // Hapus / bersihkan template generic lama Dulux jika ada
+        $oldCodes = [
+            'RPT-DULUX-STOCK-OOS-01',
+            'RPT-DULUX-MARKET-SHARE-01',
+            'RPT-DULUX-TINTING-DISPLAY-01',
+            'RPT-DULUX-DATABASE-TL-01',
+        ];
+        foreach ($oldCodes as $oldCode) {
+            $oldTemplate = ReportTemplate::where('code', $oldCode)->first();
+            if ($oldTemplate) {
+                $oldTemplate->principals()->detach();
+                $oldTemplate->delete();
+            }
+        }
+
         // 1. Tinter Report LSO
         $this->seedTinterLso($primaryDulux, $allDuluxIds);
 
@@ -166,9 +181,9 @@ return new class extends Migration
         $fields = [
             ['field_label' => 'Pilih Produk Terjual (Dulux / Catylac)', 'field_name' => 'produk_terjual', 'field_type' => 'product_select', 'is_required' => true],
             ['field_label' => 'Kemasan Galon (Liter/Kg)', 'field_name' => 'kemasan_galon', 'field_type' => 'dropdown', 'options' => ['0.25 Liter', '0.75 Liter', '0.8 Liter', '0.9 Liter', '1 Liter', '2.5 Liter', '4 Kg', '5 Kg', 'Tidak Ada Galon'], 'is_required' => true],
-            ['field_label' => 'Jumlah Galon Terjual (Qty)', 'field_name' => 'qty_galon', 'field_type' => 'number', 'placeholder' => '0', 'default_value' => '0', 'is_required' => false],
+            ['field_label' => 'Jumlah Galon Terjual (Qty)', 'field_name' => 'qty_galon', 'field_type' => 'number', 'placeholder' => '0', 'is_required' => false],
             ['field_label' => 'Kemasan Pail (Liter/Kg)', 'field_name' => 'kemasan_pail', 'field_type' => 'dropdown', 'options' => ['18.5 Liter', '20 Liter', '21 Liter', '22 Liter', '25 Kg', 'Tidak Ada Pail'], 'is_required' => true],
-            ['field_label' => 'Jumlah Pail Terjual (Qty)', 'field_name' => 'qty_pail', 'field_type' => 'number', 'placeholder' => '0', 'default_value' => '0', 'is_required' => false],
+            ['field_label' => 'Jumlah Pail Terjual (Qty)', 'field_name' => 'qty_pail', 'field_type' => 'number', 'placeholder' => '0', 'is_required' => false],
             ['field_label' => 'Estimasi Total Volume Penjualan (Liter)', 'field_name' => 'total_volume_liter', 'field_type' => 'number', 'placeholder' => 'Total liter terjual', 'is_required' => true],
             ['field_label' => 'Total Nilai Penjualan (Rupiah)', 'field_name' => 'total_nilai_sales_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => true],
             ['field_label' => 'Tipe Pembeli / Customer', 'field_name' => 'tipe_customer', 'field_type' => 'radio', 'options' => ['End User (Pemilik Rumah Langsung)', 'Tukang Cat / Mandor Bangunan', 'Kontraktor / Aplikator Proyek', 'Mitra Dulux Terdaftar', 'Toko Pengecer / Retailer'], 'is_required' => true],
@@ -405,7 +420,7 @@ return new class extends Migration
             ['field_label' => 'Nomor Handphone untuk WhatsApp', 'field_name' => 'no_hp_whatsapp', 'field_type' => 'text', 'placeholder' => '08xxxxxxxxxx', 'is_required' => true],
             ['field_label' => 'Alamat Lengkap Sesuai KTP', 'field_name' => 'alamat_ktp', 'field_type' => 'textarea', 'placeholder' => 'Alamat lengkap mitra...', 'is_required' => true],
             ['field_label' => 'Profesi / Keahlian Mitra', 'field_name' => 'profesi_mitra', 'field_type' => 'dropdown', 'options' => ['Mandor Bangunan', 'Tukang Cat Profesional', 'Kontraktor / Pemborong Bangunan', 'Aplikator Cat Khusus', 'Arsitek / Desainer Interior', 'Karyawan / Bagian Pembelian Toko'], 'is_required' => true],
-            ['field_label' => 'Jumlah Tukang Cat di Bawah Koordinasi Mitra', 'field_name' => 'jumlah_tukang_cat', 'field_type' => 'number', 'placeholder' => 'Jumlah anak buah / tukang', 'default_value' => '1', 'is_required' => false],
+            ['field_label' => 'Jumlah Tukang Cat di Bawah Koordinasi Mitra', 'field_name' => 'jumlah_tukang_cat', 'field_type' => 'number', 'placeholder' => 'Jumlah anak buah / tukang', 'is_required' => false],
             ['field_label' => 'Nama Proyek Pengecatan yang Sedang Dikerjakan', 'field_name' => 'nama_proyek_pengecatan', 'field_type' => 'text', 'placeholder' => 'Contoh: Rumah Tinggal Bpk. Hendra / Ruko 3 Lantai', 'is_required' => true],
             ['field_label' => 'Estimasi Luas Bidang Pengecatan (m2)', 'field_name' => 'luas_bidang_pengecatan', 'field_type' => 'number', 'placeholder' => 'Luas m2', 'is_required' => false],
             ['field_label' => 'Foto Proyek Pengecatan (Eksterior / Interior)', 'field_name' => 'foto_proyek_pengecatan', 'field_type' => 'camera_photo', 'is_required' => true],
