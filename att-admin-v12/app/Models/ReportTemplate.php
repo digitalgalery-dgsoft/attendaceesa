@@ -22,7 +22,80 @@ class ReportTemplate extends Model
         'max_photos' => 'integer',
         'version' => 'integer',
         'report_days' => 'array',
+        'dashboard_config' => 'array',
     ];
+
+    /**
+     * Get default dashboard configuration for this template
+     */
+    public function getDefaultDashboardConfig(): array
+    {
+        return [
+            'version' => 1,
+            'is_custom' => false,
+            'widgets' => [
+                [
+                    'id' => 'kpi_total_submissions',
+                    'type' => 'kpi_card',
+                    'title' => 'Total Laporan Masuk',
+                    'col_span' => 6,
+                    'icon' => 'fa-file-invoice',
+                    'color' => 'blue',
+                    'dimension_field' => '_total_count',
+                    'metric_field' => '_submission',
+                    'aggregation' => 'COUNT',
+                    'prefix' => '',
+                    'suffix' => ' Laporan',
+                ],
+                [
+                    'id' => 'kpi_unique_stores',
+                    'type' => 'kpi_card',
+                    'title' => 'Outlet / Toko Terjangkau',
+                    'col_span' => 6,
+                    'icon' => 'fa-store',
+                    'color' => 'emerald',
+                    'dimension_field' => 'work_location_id',
+                    'metric_field' => '_unique_store',
+                    'aggregation' => 'DISTINCT_COUNT',
+                    'prefix' => '',
+                    'suffix' => ' Toko',
+                ],
+                [
+                    'id' => 'chart_daily_trend',
+                    'type' => 'line_chart',
+                    'title' => 'Tren Laporan Harian Periode Ini',
+                    'col_span' => 12,
+                    'dimension_field' => '_submitted_date',
+                    'metric_field' => '_count',
+                    'aggregation' => 'COUNT',
+                    'color' => 'blue',
+                ],
+                [
+                    'id' => 'table_submissions',
+                    'type' => 'data_table',
+                    'title' => 'Rincian Data Submission Laporan',
+                    'col_span' => 12,
+                    'show_gps' => true,
+                    'show_status' => true,
+                    'columns' => [],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Get resolved dashboard configuration (custom or default fallback)
+     */
+    public function getResolvedDashboardConfigAttribute(): array
+    {
+        if (!empty($this->dashboard_config) && is_array($this->dashboard_config) && !empty($this->dashboard_config['widgets'])) {
+            $config = $this->dashboard_config;
+            $config['is_custom'] = true;
+            return $config;
+        }
+
+        return $this->getDefaultDashboardConfig();
+    }
 
     protected static function booted()
     {

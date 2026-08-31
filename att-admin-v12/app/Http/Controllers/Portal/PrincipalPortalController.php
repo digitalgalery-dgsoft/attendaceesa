@@ -281,12 +281,13 @@ class PrincipalPortalController extends Controller
         $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
             $q->whereIn('principals.id', $scopedPrincipalIds);
         })->where('is_active', true)->with('fields')->orderBy('id')->get();
-
         $template = ReportTemplate::where('code', $code)
             ->whereHas('principals', function ($q) use ($scopedPrincipalIds) {
                 $q->whereIn('principals.id', $scopedPrincipalIds);
             })
-            ->with('fields')
+            ->with(['fields' => function ($q) {
+                $q->orderBy('order_index');
+            }])
             ->firstOrFail();
 
         // Filters
@@ -321,8 +322,168 @@ class PrincipalPortalController extends Controller
         }
 
         $submissions = $query->latest('report_submissions.submitted_at')->paginate(20);
-        $totalTemplateSubmissions = (clone $query)->count();
-        $uniqueStores = (clone $query)->distinct('report_submissions.work_location_id')->count('report_submissions.work_location_id');
+        $allFilteredSubmissions = (clone $query)->get();
+        $totalTemplateSubmissions = $allFilteredSubmissions->count();
+        $uniqueStores = $allFilteredSubmissions->pluck('work_location_id')->filter()->unique()->count();
+
+        // Dynamic Dashboard Configuration & Widget Calculation Engine (Concept Odoo Studio)
+        $dashboardConfig = $template->resolved_dashboard_config;
+        $widgets = $dashboardConfig['widgets'] ?? [];
+        $widgetResults = [];
+
+        foreach ($widgets as $w) {
+            $wId = $w['id'] ?? uniqid('w_');
+            $type = $w['type'] ?? 'kpi_card';
+            $dim = $w['dimension_field'] ?? null;
+            $metric = $w['metric_field'] ?? null;
+            $agg = strtoupper($w['aggregation'] ?? 'COUNT');
+
+            if ($type === 'kpi_card') {
+                $val = 0;
+                if ($metric === '_submission' || $dim === '_total_count' || empty($metric)) {
+                    $val = $totalTemplateSubmissions;
+                } elseif ($metric === '_unique_store' || $dim === 'work_location_id' || $metric === 'work_location_id') {
+                    $val = $uniqueStores;
+                } elseif ($metric === '_unique_employee' || $dim === 'employee_id' || $metric === 'employee_id') {
+                    $val = $allFilteredSubmissions->pluck('employee_id')->filter()->unique()->count();
+                } else {
+                    $values = collect();
+                    foreach ($allFilteredSubmissions as $sub) {
+                        foreach ($sub->values as $v) {
+                            if ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric)) {
+                                $num = $v->value_number ?? (is_numeric($v->value_text) ? (float) $v->value_text : null);
+                                if ($num !== null) $values->push($num);
+                            }
+                        }
+                    }
+                    if ($agg === 'SUM') {
+                        $val = $values->sum();
+                    } elseif ($agg === 'AVG') {
+                        $val = $values->count() > 0 ? round($values->avg(), 1) : 0;
+                    } elseif ($agg === 'MAX') {
+                        $val = $values->count() > 0 ? $values->max() : 0;
+                    } elseif ($agg === 'MIN') {
+                        $val = $values->count() > 0 ? $values->min() : 0;
+                    } else {
+                        $val = $values->count();
+                    }
+                }
+                $prefix = $w['prefix'] ?? '';
+                $suffix = $w['suffix'] ?? '';
+                $widgetResults[$wId] = [
+                    'value' => $val,
+                    'formatted_value' => $prefix . number_format($val, $val == (int)$val ? 0 : 2, ',', '.') . $suffix,
+                ];
+            } elseif (in_array($type, ['bar_chart', 'donut_chart', 'pie_chart', 'line_chart', 'breakdown_table'])) {
+                $groups = [];
+
+                if ($dim === '_submitted_date') {
+                    $daysInMonth = $startDate->daysInMonth;
+                    for ($d = 1; $d <= $daysInMonth; $d++) {
+                        $dateLabel = Carbon::create($year, $month, $d)->translatedFormat('d M');
+                        $groups[$dateLabel] = 0;
+                    }
+                    foreach ($allFilteredSubmissions as $sub) {
+                        if ($sub->submitted_at) {
+                            $dateLabel = $sub->submitted_at->translatedFormat('d M');
+                            if (isset($groups[$dateLabel])) {
+                                if ($metric && $metric !== '_count' && $metric !== '_submission') {
+                                    $valNum = 0;
+                                    foreach ($sub->values as $v) {
+                                        if ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric)) {
+                                            $valNum += $v->value_number ?? (is_numeric($v->value_text) ? (float)$v->value_text : 0);
+                                        }
+                                    }
+                                    $groups[$dateLabel] += $valNum;
+                                } else {
+                                    $groups[$dateLabel] += 1;
+                                }
+                            }
+                        }
+                    }
+                } elseif ($dim === '_employee' || $dim === 'employee_id') {
+                    foreach ($allFilteredSubmissions as $sub) {
+                        $label = $sub->employee?->name ?? 'Tanpa Nama';
+                        if (!isset($groups[$label])) $groups[$label] = 0;
+                        if ($agg === 'COUNT' || empty($metric) || $metric === '_count') {
+                            $groups[$label] += 1;
+                        } else {
+                            foreach ($sub->values as $v) {
+                                if ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric)) {
+                                    $groups[$label] += ($v->value_number ?? (is_numeric($v->value_text) ? (float)$v->value_text : 0));
+                                }
+                            }
+                        }
+                    }
+                } elseif ($dim === '_store' || $dim === 'work_location_id') {
+                    foreach ($allFilteredSubmissions as $sub) {
+                        $label = $sub->workLocation?->name ?? $sub->store_name ?? 'Toko Lainnya';
+                        if (!isset($groups[$label])) $groups[$label] = 0;
+                        if ($agg === 'COUNT' || empty($metric) || $metric === '_count') {
+                            $groups[$label] += 1;
+                        } else {
+                            foreach ($sub->values as $v) {
+                                if ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric)) {
+                                    $groups[$label] += ($v->value_number ?? (is_numeric($v->value_text) ? (float)$v->value_text : 0));
+                                }
+                            }
+                        }
+                    }
+                } elseif ($dim === '_status') {
+                    foreach ($allFilteredSubmissions as $sub) {
+                        $label = ucfirst($sub->status ?? 'pending');
+                        if (!isset($groups[$label])) $groups[$label] = 0;
+                        $groups[$label] += 1;
+                    }
+                } else {
+                    foreach ($allFilteredSubmissions as $sub) {
+                        $dimVal = null;
+                        $measureVal = 1;
+
+                        foreach ($sub->values as $v) {
+                            if ($v->field_name === $dim || ($v->formField && $v->formField->field_name === $dim)) {
+                                $dimVal = $v->value_text ?? $v->value_number;
+                            }
+                            if ($metric && ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric))) {
+                                $measureVal = $v->value_number ?? (is_numeric($v->value_text) ? (float)$v->value_text : 1);
+                            }
+                        }
+
+                        if (!empty($dimVal)) {
+                            $dimStr = (string) $dimVal;
+                            if (!isset($groups[$dimStr])) $groups[$dimStr] = 0;
+                            if ($agg === 'COUNT') {
+                                $groups[$dimStr] += 1;
+                            } else {
+                                $groups[$dimStr] += $measureVal;
+                            }
+                        }
+                    }
+                }
+
+                if ($dim !== '_submitted_date') {
+                    arsort($groups);
+                    if (count($groups) > 10) {
+                        $topGroups = array_slice($groups, 0, 10, true);
+                        $otherSum = array_sum(array_slice($groups, 10));
+                        if ($otherSum > 0 && in_array($type, ['donut_chart', 'pie_chart'])) {
+                            $topGroups['Lainnya'] = $otherSum;
+                        }
+                        $groups = $topGroups;
+                    }
+                }
+
+                $categories = array_keys($groups);
+                $seriesData = array_values($groups);
+
+                $widgetResults[$wId] = [
+                    'categories' => $categories,
+                    'series' => $seriesData,
+                    'groups' => $groups,
+                    'total' => array_sum($seriesData),
+                ];
+            }
+        }
 
         $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)->orderBy('employees.full_name')->get();
         $workLocations = WorkLocation::whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id')->orderBy('work_locations.name')->get();
@@ -345,13 +506,76 @@ class PrincipalPortalController extends Controller
             'locationId',
             'employees',
             'workLocations',
-            'setting'
+            'setting',
+            'dashboardConfig',
+            'widgetResults'
         ));
     }
 
     /**
-     * View detailed individual report submission on Principal Portal
+     * Save custom dashboard configuration for a report template (Studio Builder)
      */
+    public function saveDashboardConfig(Request $request, string $code)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $template = ReportTemplate::where('code', $code)
+            ->whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+                $q->whereIn('principals.id', $scopedPrincipalIds);
+            })
+            ->firstOrFail();
+
+        $config = $request->input('dashboard_config');
+        if (is_string($config)) {
+            $config = json_decode($config, true);
+        }
+
+        if (empty($config) || !isset($config['widgets'])) {
+            return response()->json(['success' => false, 'message' => 'Format konfigurasi dashboard tidak valid.'], 422);
+        }
+
+        $template->dashboard_config = $config;
+        $template->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Tata letak dashboard laporan berhasil disimpan!',
+            'dashboard_config' => $config,
+        ]);
+    }
+
+    /**
+     * Reset dashboard configuration back to default
+     */
+    public function resetDashboardConfig(Request $request, string $code)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $template = ReportTemplate::where('code', $code)
+            ->whereHas('principals', function ($q) use ($scopedPrincipalIds) {
+                $q->whereIn('principals.id', $scopedPrincipalIds);
+            })
+            ->firstOrFail();
+
+        $template->dashboard_config = null;
+        $template->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Dashboard berhasil dikembalikan ke tampilan standar bawaan!',
+        ]);
+    }
+
+    /**
+     * View detailed individual report submission on Principal Portal
     public function submissionDetail(Request $request, string $code, int $id)
     {
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);

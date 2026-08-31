@@ -201,6 +201,8 @@ Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function ()
 
     // Dynamic Report Templates
     Route::get('/report/{code}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'reportDetail'])->name('report.detail');
+    Route::post('/report/{code}/dashboard-config', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'saveDashboardConfig'])->name('report.dashboard.save');
+    Route::post('/report/{code}/dashboard-reset', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'resetDashboardConfig'])->name('report.dashboard.reset');
     Route::get('/report/{code}/submission/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'submissionDetail'])->name('report.submission');
     Route::post('/report/{code}/submission/{id}/status', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'updateSubmissionStatus'])->name('report.submission.status');
     Route::get('/report/{code}/export', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'exportReport'])->name('report.export');
