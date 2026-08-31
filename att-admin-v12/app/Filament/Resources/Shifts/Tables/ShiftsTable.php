@@ -15,8 +15,9 @@ class ShiftsTable
     {
         return $table
             ->columns([
-                TextColumn::make('company_id')
-                    ->numeric()
+                TextColumn::make('principal.name')
+                    ->label('Prinsiple')
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('name')
                     ->searchable(),
@@ -62,7 +63,11 @@ class ShiftsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('principal_id')
+                    ->relationship('principal', 'name', fn ($query) => $query->where('is_active', true))
+                    ->label('Prinsiple')
+                    ->searchable()
+                    ->preload(),
             ])
             ->recordActions([
                 EditAction::make(),

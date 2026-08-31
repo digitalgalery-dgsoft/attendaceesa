@@ -11,6 +11,20 @@ class Shift extends Model
 
     protected $guarded = ['id'];
 
+    protected $casts = [
+        'is_cross_day' => 'boolean',
+        'required_checkin' => 'boolean',
+        'required_checkout' => 'boolean',
+        'is_active' => 'boolean',
+        'grace_checkin_minutes' => 'integer',
+        'grace_checkout_minutes' => 'integer',
+    ];
+
+    public function principal()
+    {
+        return $this->belongsTo(Principal::class);
+    }
+
     public function company()
     {
         return $this->belongsTo(Company::class);

@@ -236,8 +236,9 @@ class EmployeeScheduleRoster extends Page implements HasForms
                         ->afterOrEqual('start_date'),
                     Select::make('shift_id')
                         ->label('Shift Kerja')
-                        ->options(Shift::where('is_active', 1)->pluck('name', 'id'))
+                        ->options(fn () => Shift::where('is_active', 1)->with('principal')->get()->mapWithKeys(fn ($s) => [$s->id => ($s->principal ? "[{$s->principal->name}] " : '') . $s->name]))
                         ->searchable()
+                        ->preload()
                         ->required(),
                     Select::make('work_location_id')
                         ->label('Lokasi Kerja')
@@ -679,8 +680,9 @@ class EmployeeScheduleRoster extends Page implements HasForms
                     ->live(),
                 Select::make('shift_id')
                     ->label('Shift Kerja')
-                    ->options(Shift::where('is_active', 1)->pluck('name', 'id'))
+                    ->options(fn () => Shift::where('is_active', 1)->with('principal')->get()->mapWithKeys(fn ($s) => [$s->id => ($s->principal ? "[{$s->principal->name}] " : '') . $s->name]))
                     ->searchable()
+                    ->preload()
                     ->required(fn ($get) => in_array($get('schedule_type'), ['workday', 'remote', 'field'])),
                 Select::make('work_location_id')
                     ->label('Lokasi Kerja')

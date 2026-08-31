@@ -205,7 +205,7 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                         );
                     } else {
                         // Cari Shift
-                        $shift = $this->resolveShift($shiftValStr, $employee->company_id ?? 1);
+                        $shift = $this->resolveShift($shiftValStr, $employee->principal_id, $employee->company_id ?? 1);
 
                         $plannedStart = null;
                         $plannedEnd = null;
@@ -273,7 +273,7 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                 
                 $shift = null;
                 if (!$isOff) {
-                    $shift = $this->resolveShift($shiftName, $employee->company_id ?? 1);
+                    $shift = $this->resolveShift($shiftName, $employee->principal_id, $employee->company_id ?? 1);
                 }
 
                 // Ambil Hari Kerja Departemen
@@ -335,19 +335,29 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
         }
     }
 
-    protected function resolveShift(string $shiftName, int $companyId): ?Shift
+    protected function resolveShift(string $shiftName, ?int $principalId = null, int $companyId = 1): ?Shift
     {
         $clean = trim($shiftName);
-        $key = strtolower($clean);
+        $key = strtolower($clean) . ($principalId ? "_{$principalId}" : '');
 
         if (isset($this->shiftsMap[$key])) {
             return $this->shiftsMap[$key];
         }
 
         // Cek di DB
-        $found = Shift::whereRaw('LOWER(name) = ?', [$key])
-            ->orWhereRaw('LOWER(code) = ?', [$key])
-            ->first();
+        $query = Shift::where(function ($q) use ($clean) {
+            $q->whereRaw('LOWER(name) = ?', [strtolower($clean)])
+              ->orWhereRaw('LOWER(code) = ?', [strtolower($clean)]);
+        });
+
+        if ($principalId) {
+            $query->where(function ($q) use ($principalId) {
+                $q->where('principal_id', $principalId)
+                  ->orWhereNull('principal_id');
+            });
+        }
+
+        $found = $query->first();
 
         if ($found) {
             $this->shiftsMap[$key] = $found;
@@ -357,6 +367,7 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
         // Auto-create shift jika nama shift baru (misal FLEKSIBEL01) belum terdaftar di DB
         try {
             $newShift = Shift::create([
+                'principal_id' => $principalId,
                 'company_id' => $companyId,
                 'name' => $clean,
                 'code' => strtoupper($clean),

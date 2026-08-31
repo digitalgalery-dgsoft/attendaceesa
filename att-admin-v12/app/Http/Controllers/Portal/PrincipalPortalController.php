@@ -1334,12 +1334,12 @@ class PrincipalPortalController extends Controller
             ->pluck('employee_schedules.shift_id')
             ->unique()->filter()->values()->toArray();
 
-        $query = Shift::query();
-        if (!empty($assignedShiftIds)) {
-            $query->whereIn('id', $assignedShiftIds);
-        } else {
-            $query->where('company_id', $tenantPrincipal->company_id);
-        }
+        $query = Shift::where(function ($q) use ($scopedPrincipalIds, $assignedShiftIds) {
+            $q->whereIn('principal_id', $scopedPrincipalIds);
+            if (!empty($assignedShiftIds)) {
+                $q->orWhereIn('id', $assignedShiftIds);
+            }
+        });
 
         $shifts = $query->orderBy('name')->paginate(20);
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';

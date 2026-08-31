@@ -14,8 +14,11 @@ class ShiftForm
     {
         return $schema
             ->components([
-                Select::make('company_id')
-                    ->relationship('company', 'name')
+                Select::make('principal_id')
+                    ->relationship('principal', 'name', fn ($query) => $query->where('is_active', true))
+                    ->label('Prinsiple')
+                    ->searchable()
+                    ->preload()
                     ->required(),
                 TextInput::make('name')
                     ->required(),
