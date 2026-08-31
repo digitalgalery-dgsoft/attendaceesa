@@ -31,10 +31,11 @@ class ReportTemplatesTable
                     ->label('Prinsiple Klien')
                     ->badge()
                     ->color('primary')
-                    ->getStateUsing(fn (ReportTemplate $record) => $record->principals->pluck('name')->unique()->values()->toArray())
+                    ->getStateUsing(fn (ReportTemplate $record) => $record->principals->where('is_active', true)->pluck('name')->unique()->values()->toArray())
                     ->searchable(query: function ($query, string $search) {
                         return $query->whereHas('principals', function ($q) use ($search) {
-                            $q->where('name', 'like', "%{$search}%");
+                            $q->where('principals.is_active', true)
+                              ->where('principals.name', 'like', "%{$search}%");
                         });
                     }),
                 TextColumn::make('category')
