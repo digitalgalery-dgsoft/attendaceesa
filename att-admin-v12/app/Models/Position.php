@@ -19,11 +19,13 @@ class Position extends Model
         'is_active',
         'allow_offline_mode',
         'distance_lock_override',
+        'require_face_recognition',
     ];
 
     protected $casts = [
         'allow_offline_mode' => 'boolean',
         'distance_lock_override' => 'integer',
+        'require_face_recognition' => 'boolean',
         'is_active' => 'boolean',
     ];
 

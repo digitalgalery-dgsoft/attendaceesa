@@ -32,6 +32,10 @@ class PositionsTable
                     ->badge()
                     ->color(fn ($state) => $state ? 'primary' : 'gray')
                     ->sortable(),
+                IconColumn::make('require_face_recognition')
+                    ->label('Wajib Face AI')
+                    ->boolean()
+                    ->sortable(),
                 IconColumn::make('is_active')
                     ->boolean(),
                 TextColumn::make('created_at')

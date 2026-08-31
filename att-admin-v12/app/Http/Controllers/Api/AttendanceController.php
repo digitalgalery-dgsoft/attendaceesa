@@ -230,10 +230,20 @@ class AttendanceController extends Controller
 
             // ─── UPLOAD FOTO ─────────────────────────────────────────────────
             $path = null;
+            $isFaceRequired = true;
+            if ($employee) {
+                $employee->loadMissing('position');
+                if ($employee->position && isset($employee->position->require_face_recognition)) {
+                    $isFaceRequired = (bool) $employee->position->require_face_recognition;
+                }
+            }
+
             if ($request->hasFile('photo')) {
                 $path = $request->file('photo')->store('attendances', 'public');
             } elseif (in_array($request->type, ['checkin', 'visit_in'])) {
-                return response()->json(['message' => 'Foto wajib diunggah untuk absen ini'], 400);
+                if ($isFaceRequired) {
+                    return response()->json(['message' => 'Foto verifikasi wajah wajib diunggah untuk absen ini'], 400);
+                }
             }
 
             // ─── ATTENDANCE HARI INI ──────────────────────────────────────────

@@ -252,9 +252,15 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   }
 
   Future<void> _takeSelfie() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final posData = authProvider.employeeData?['position'];
+    final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? true) : true;
+
     final String? photoPath = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const LivenessCameraScreen()),
+      MaterialPageRoute(
+        builder: (_) => LivenessCameraScreen(isRequired: isFaceRequired),
+      ),
     );
 
     if (photoPath != null) {
@@ -266,10 +272,14 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   }
 
   Future<void> _submitAttendance() async {
-    if (_selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in')) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final posData = authProvider.employeeData?['position'];
+    final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? true) : true;
+
+    if (isFaceRequired && _selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in')) {
       toastification.show(
         context: context,
-        title: const Text('Silakan ambil foto terlebih dahulu'),
+        title: const Text('Silakan ambil foto selfie verifikasi wajah terlebih dahulu'),
         type: ToastificationType.warning,
         style: ToastificationStyle.flat,
         alignment: Alignment.topRight,
@@ -1286,6 +1296,54 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                             ),
                           ),
 
+                        // ─── ADAPTIVE FACE RECOGNITION BADGE ───────────────────────
+                        Builder(
+                          builder: (context) {
+                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                            final posData = authProvider.employeeData?['position'];
+                            final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? true) : true;
+                            final posName = (posData is Map) ? (posData['name'] ?? 'Jabatan') : 'Jabatan';
+
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                              margin: const EdgeInsets.only(bottom: 10),
+                              decoration: BoxDecoration(
+                                color: isFaceRequired
+                                    ? (isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF))
+                                    : (isDarkMode ? const Color(0xFF272115) : const Color(0xFFFEF3C7)),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isFaceRequired
+                                      ? const Color(0xFF38BDF8).withValues(alpha: 0.4)
+                                      : Colors.amber.shade300,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    isFaceRequired ? Icons.verified_user : Icons.touch_app,
+                                    size: 16,
+                                    color: isFaceRequired ? const Color(0xFF0284C7) : const Color(0xFFD97706),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      isFaceRequired
+                                          ? 'Face Recognition AI: Wajib ($posName)'
+                                          : 'Face Recognition: Opsional ($posName)',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: isFaceRequired ? const Color(0xFF0284C7) : const Color(0xFFB45309),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+
                         // ─── SELFIE PREVIEW & ACTION BUTTONS ───────────────────────
                         if (_selfieFile != null)
                           Row(
@@ -1318,43 +1376,52 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  gradient: (_selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in'))
-                                    ? LinearGradient(colors: [Colors.grey.shade400, Colors.grey.shade400])
-                                    : LinearGradient(
-                                        colors: widget.type == 'checkin'
-                                            ? [primaryColor, Colors.green]
-                                            : widget.type == 'checkout'
-                                                ? [primaryColor, Colors.red]
-                                                : widget.type == 'visit_in'
-                                                    ? [primaryColor, Colors.lightBlue]
-                                                    : widget.type == 'meet_in'
-                                                        ? [primaryColor, Colors.teal]
-                                                        : [primaryColor, Colors.orange],
-                                        begin: Alignment.centerLeft,
-                                        end: Alignment.centerRight,
+                              child: Builder(
+                                builder: (context) {
+                                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                                  final posData = authProvider.employeeData?['position'];
+                                  final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? true) : true;
+                                  final bool isPhotoMissing = isFaceRequired && _selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in');
+
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      gradient: isPhotoMissing
+                                        ? LinearGradient(colors: [Colors.grey.shade400, Colors.grey.shade400])
+                                        : LinearGradient(
+                                            colors: widget.type == 'checkin'
+                                                ? [primaryColor, Colors.green]
+                                                : widget.type == 'checkout'
+                                                    ? [primaryColor, Colors.red]
+                                                    : widget.type == 'visit_in'
+                                                        ? [primaryColor, Colors.lightBlue]
+                                                        : widget.type == 'meet_in'
+                                                            ? [primaryColor, Colors.teal]
+                                                            : [primaryColor, Colors.orange],
+                                            begin: Alignment.centerLeft,
+                                            end: Alignment.centerRight,
+                                          ),
+                                    ),
+                                    child: ElevatedButton(
+                                      onPressed: (!isPhotoMissing || widget.type == 'checkout' || widget.type == 'visit_out') ? _submitAttendance : null,
+                                      style: ElevatedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        backgroundColor: Colors.transparent,
+                                        shadowColor: Colors.transparent,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                       ),
-                                ),
-                                child: ElevatedButton(
-                                  onPressed: (_selfieFile != null || widget.type == 'checkout' || widget.type == 'visit_out') ? _submitAttendance : null,
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  child: Text(
-                                    widget.type == 'checkin' ? 'Check In'
-                                    : widget.type == 'checkout' ? 'Check Out'
-                                    : widget.type == 'visit_in' ? 'Visit In'
-                                    : widget.type == 'meet_in' ? 'Meet-In Sekarang'
-                                    : 'Visit Out',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ),
+                                      child: Text(
+                                        widget.type == 'checkin' ? 'Check In'
+                                        : widget.type == 'checkout' ? 'Check Out'
+                                        : widget.type == 'visit_in' ? 'Visit In'
+                                        : widget.type == 'meet_in' ? 'Meet-In Sekarang'
+                                        : 'Visit Out',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
                           ],

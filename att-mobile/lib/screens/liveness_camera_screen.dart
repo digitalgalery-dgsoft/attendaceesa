@@ -5,7 +5,12 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:flutter/services.dart';
 
 class LivenessCameraScreen extends StatefulWidget {
-  const LivenessCameraScreen({Key? key}) : super(key: key);
+  final bool isRequired;
+
+  const LivenessCameraScreen({
+    Key? key,
+    this.isRequired = true,
+  }) : super(key: key);
 
   @override
   State<LivenessCameraScreen> createState() => _LivenessCameraScreenState();
@@ -23,9 +28,11 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
 
   bool _isBusy = false;
   bool _canProcess = true;
-  String _instruction = "Arahkan wajah ke kamera";
+  String _instruction = "Arahkan wajah ke dalam frame";
+  bool _isFaceDetected = false;
   bool _hasBlinked = false;
   bool _isEyesClosed = false;
+  bool _isCapturing = false;
 
   int _cameraIndex = -1;
   List<CameraDescription> _cameras = [];
@@ -57,6 +64,12 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
       return;
     }
 
+    await _startCameraStream();
+  }
+
+  Future<void> _startCameraStream() async {
+    if (_cameraIndex == -1 || _cameras.isEmpty) return;
+
     _cameraController = CameraController(
       _cameras[_cameraIndex],
       ResolutionPreset.medium,
@@ -70,18 +83,34 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
       await _cameraController!.initialize();
       if (!mounted) return;
 
+      _canProcess = true;
       _cameraController!.startImageStream(_processCameraImage);
       setState(() {});
     } catch (e) {
       debugPrint("Error initializing camera: $e");
-      setState(() {
-        _instruction = "Gagal mengakses kamera";
-      });
+      if (mounted) {
+        setState(() {
+          _instruction = "Gagal mengakses kamera";
+        });
+      }
     }
   }
 
+  Future<void> _switchCamera() async {
+    if (_cameras.length < 2) return;
+    _canProcess = false;
+    await _cameraController?.stopImageStream();
+    await _cameraController?.dispose();
+
+    _cameraIndex = (_cameraIndex + 1) % _cameras.length;
+    setState(() {
+      _cameraController = null;
+    });
+    await _startCameraStream();
+  }
+
   Future<void> _processCameraImage(CameraImage image) async {
-    if (!_canProcess || _isBusy) return;
+    if (!_canProcess || _isBusy || _isCapturing) return;
     _isBusy = true;
 
     final inputImage = _inputImageFromCameraImage(image);
@@ -95,7 +124,8 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
       if (faces.isEmpty) {
         if (mounted) {
           setState(() {
-            _instruction = "Wajah tidak terdeteksi";
+            _isFaceDetected = false;
+            _instruction = "Wajah tidak terdeteksi di dalam frame";
           });
         }
       } else {
@@ -104,6 +134,12 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
         final leftEyeOpen = face.leftEyeOpenProbability;
         final rightEyeOpen = face.rightEyeOpenProbability;
 
+        if (mounted) {
+          setState(() {
+            _isFaceDetected = true;
+          });
+        }
+
         if (leftEyeOpen != null && rightEyeOpen != null) {
           if (leftEyeOpen > 0.7 && rightEyeOpen > 0.7) {
             if (_isEyesClosed) {
@@ -111,14 +147,14 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
               _hasBlinked = true;
               if (mounted) {
                 setState(() {
-                  _instruction = "Bagus! Memproses...";
+                  _instruction = "✨ Kedipan Terdeteksi! Memproses...";
                 });
               }
               _captureAndReturn();
             } else {
               if (!_hasBlinked && mounted) {
                 setState(() {
-                  _instruction = "Silakan KEDIPKAN mata Anda";
+                  _instruction = "Silakan KEDIPKAN mata Anda 😉";
                 });
               }
             }
@@ -135,10 +171,14 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
   }
 
   Future<void> _captureAndReturn() async {
+    if (_isCapturing) return;
+    _isCapturing = true;
     _canProcess = false; // Hentikan deteksi frame
-    await _cameraController?.stopImageStream();
 
     try {
+      if (_cameraController != null && _cameraController!.value.isStreamingImages) {
+        await _cameraController?.stopImageStream();
+      }
       final XFile? file = await _cameraController?.takePicture();
       if (mounted) {
         Navigator.pop(context, file?.path);
@@ -190,7 +230,7 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
       bytes: Platform.isAndroid ? _concatenatePlanes(image.planes) : image.planes[0].bytes,
       metadata: InputImageMetadata(
         size: Size(image.width.toDouble(), image.height.toDouble()),
-        rotation: rotation, // rotasi frame
+        rotation: rotation,
         format: format,
         bytesPerRow: image.planes[0].bytesPerRow,
       ),
@@ -215,22 +255,26 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isRequired = widget.isRequired;
+
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text("Ambil Selfie"),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-      ),
       body: Stack(
         fit: StackFit.expand,
         children: [
+          // ─── CAMERA PREVIEW ──────────────────────────────────────────────
           if (_cameraController != null && _cameraController!.value.isInitialized)
-            CameraPreview(_cameraController!),
-          
-          // Overlay berbentuk bulat untuk memandu wajah (opsional)
+            Center(
+              child: CameraPreview(_cameraController!),
+            )
+          else
+            const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+
+          // ─── CUTOUT OVERLAY DENGAN FRAME OVAL GLOWING ─────────────────────
           ColorFiltered(
-            colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.5), BlendMode.srcOut),
+            colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: 0.55), BlendMode.srcOut),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -244,37 +288,202 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                   alignment: const Alignment(0.0, -0.2),
                   child: Container(
                     height: 350,
-                    width: 300,
+                    width: 290,
                     decoration: BoxDecoration(
                       color: Colors.red,
-                      borderRadius: BorderRadius.circular(200), // Bentuk oval/bulat
+                      borderRadius: BorderRadius.circular(160),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          
-          // Teks Instruksi
+
+          // ─── BORDER OVAL HIGHLIGHT ───────────────────────────────────────
+          Align(
+            alignment: const Alignment(0.0, -0.2),
+            child: Container(
+              height: 354,
+              width: 294,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(160),
+                border: Border.all(
+                  color: _isFaceDetected 
+                      ? (_hasBlinked ? Colors.greenAccent : const Color(0xFF38BDF8))
+                      : Colors.white.withValues(alpha: 0.3),
+                  width: 3,
+                ),
+                boxShadow: _isFaceDetected
+                    ? [
+                        BoxShadow(
+                          color: (_hasBlinked ? Colors.greenAccent : const Color(0xFF38BDF8)).withValues(alpha: 0.4),
+                          blurRadius: 16,
+                          spreadRadius: 2,
+                        )
+                      ]
+                    : null,
+              ),
+            ),
+          ),
+
+          // ─── TOP APP BAR & MODE BADGE ────────────────────────────────────
           Positioned(
-            bottom: 60,
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 16,
+            right: 16,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                CircleAvatar(
+                  backgroundColor: Colors.black.withValues(alpha: 0.5),
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 22),
+                    onPressed: () => Navigator.pop(context, null),
+                  ),
+                ),
+
+                // Adaptive Mode Pill
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isRequired 
+                        ? const Color(0xFF0284C7).withValues(alpha: 0.85)
+                        : const Color(0xFFD97706).withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isRequired ? Colors.cyanAccent.withValues(alpha: 0.5) : Colors.amberAccent.withValues(alpha: 0.5),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      )
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isRequired ? Icons.verified_user : Icons.touch_app,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        isRequired ? 'Face Recog: Wajib' : 'Face Recog: Opsional',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Switch camera button
+                if (_cameras.length > 1)
+                  CircleAvatar(
+                    backgroundColor: Colors.black.withValues(alpha: 0.5),
+                    child: IconButton(
+                      icon: const Icon(Icons.flip_camera_ios, color: Colors.white, size: 20),
+                      onPressed: _switchCamera,
+                    ),
+                  )
+                else
+                  const SizedBox(width: 40),
+              ],
+            ),
+          ),
+
+          // ─── BOTTOM INSTRUCTIONS & CONTROLS ──────────────────────────────
+          Positioned(
+            bottom: 30,
             left: 20,
             right: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.8),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _instruction,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Teks Instruksi Glassmorphism
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.75),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      )
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (_isFaceDetected)
+                        const Padding(
+                          padding: EdgeInsets.only(right: 8.0),
+                          child: Icon(Icons.face, color: Color(0xFF38BDF8), size: 20),
+                        ),
+                      Flexible(
+                        child: Text(
+                          _instruction,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _isFaceDetected ? Colors.white : Colors.white70,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+
+                const SizedBox(height: 16),
+
+                // Jika Opsional (atau tombol jepret manual disediakan)
+                if (!isRequired) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _captureAndReturn,
+                      icon: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                      label: const Text(
+                        'Jepret Foto Manual (Langsung)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Jabatan Anda mendukung presensi tanpa deteksi kedipan.',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10.5),
+                  ),
+                ] else ...[
+                  // If required, we also show a small fallback after a few seconds if camera struggle
+                  Text(
+                    'Posisikan wajah Anda tepat di dalam lingkaran dan kedipkan mata.',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ],
             ),
           ),
         ],
