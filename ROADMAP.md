@@ -602,9 +602,18 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Parameter "Read Only (Hanya Baca)" untuk Form Builder**:
       - Kolom `is_readonly` (boolean) ditambahkan ke tabel `report_form_fields` dan schema Form Builder Filament Admin.
       - Field yang diatur *Read Only* akan menampilkan badge status visual `🔒 Read Only` di aplikasi mobile dan mengunci input manual agar terproteksi dari perubahan manual oleh user saat terisi otomatis.
-    - **Build & Rilis APK v1.0.104**:
-      - Versi aplikasi dinaikkan ke **`v1.0.104+104`**.
-      - File APK rilis siap pasang dikompilasi: `att-mobile/build/app/outputs/flutter-apk/app-release-v1.0.104.apk`.
+19. **Penyempurnaan Form Builder: Parameter Hari Pelaporan, Penugasan Multi-Select Jabatan & Employee, dan Rilis APK v1.0.105 (SELESAI 31 Agustus 2026)**:
+    - **Parameter Jadwal Hari Pelaporan Wajib (`report_days`)**:
+      - Ditambahkan kolom `report_days` (JSON) pada tabel `report_templates` dan komponen multi-select pada Filament Admin Form Builder.
+      - Pilihan hari: `Senin`, `Selasa`, `Rabu`, `Kamis`, `Jumat`, `Sabtu`, `Minggu` (atau kosong untuk setiap hari).
+      - Integrasi ke API dan tampilan badge jadwal pengisian pada kartu template di mobile app (`reporting_hub_screen.dart`).
+    - **Penugasan Form Template Multi-Select (Jabatan & Nama Employee)**:
+      - Pembuatan relasi pivot `report_template_position` dan `report_template_employee` serta kolom `employee_id` di `report_template_assignments`.
+      - Penugasan form di Filament Form Builder mendukung pemilihan multipel **Target Jabatan** (SPG, MD, TL, dll.) dan **Target Nama Employee Spesifik** (dengan NIK & Prinsiple).
+      - Filter cerdas di backend API untuk memastikan karyawan hanya melihat form template yang relevan dengan tugasnya.
+    - **Build & Rilis APK v1.0.105**:
+      - Versi aplikasi dinaikkan ke **`v1.0.105+105`**.
+      - File APK rilis siap pasang dikompilasi: `att-mobile/build/app/outputs/flutter-apk/app-release-v1.0.105.apk`.
 
 ---
 
@@ -615,3 +624,4 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Penambahan filter lanjutan pada laporan presensi dan ekspor data audit penyesuaian manual/import.
 2. **Peningkatan Skalabilitas & Media Storage:**
    - Integrasi penyimpanan awan (*Cloud Storage S3 / Spaces / GCS*) untuk media foto presensi dan laporan visit.
+
