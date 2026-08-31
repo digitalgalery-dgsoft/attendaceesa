@@ -629,6 +629,59 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Migrasi & Seeder**:
       - Migrasi `2026_08_31_100000_seed_all_dulux_official_templates.php` dan `ReportTemplatePresetsSeeder.php` telah disinkronkan.
 
+21. **Pengikatan Shift ke Prinsiple & Tampilan Nama Prinsiple pada Master Data (SELESAI 31 Agustus 2026)**:
+    - **Relasi Shift ke Prinsiple**:
+      - Struktur `shifts` diubah agar terikat langsung ke `principal_id` (bukan `company_id`).
+      - Migrasi `2026_08_31_130000_update_shifts_table_bind_to_principal.php` dan pembaruan Model `Shift.php` (`belongsTo(Principal::class)`).
+    - **Tampilan Tabel & Form Shift**:
+      - Tabel daftar shift (`ShiftsTable.php`) langsung menampilkan **Nama Prinsiple** (dengan filter dan search cerdas), bukan ID numerik.
+      - Form shift (`ShiftForm.php`) menggunakan dropdown select Prinsiple aktif.
+
+22. **Fitur "Request New Location" oleh Karyawan dengan Approval Administrator (SELESAI 31 Agustus 2026, APK v1.0.106 - v1.0.107)**:
+    - **Struktur Database & Backend**:
+      - Pembuatan tabel `location_requests` dengan status (`pending`, `approved`, `rejected`), data nama lokasi, alamat, link Google Maps, koordinat GPS (lat, lng), radius, dan catatan admin.
+      - Pembuatan endpoint API `/api/location-requests` (GET & POST) dengan auto-assign employee, prinsiple, branch, dan company.
+    - **Panel Admin Approval (`LocationRequestResource`)**:
+      - Menu baru di Admin Panel untuk mengelola permohonan lokasi baru.
+      - Action Approval otomatis membuat master `work_locations` baru dan menghubungkannya dengan relasi multi-tenant yang sesuai.
+      - Notifikasi database (lonceng) dan email otomatis terkirim saat permohonan dibuat atau disetujui.
+    - **Antarmuka Mobile (`request_location_screen.dart`)**:
+      - Form pengajuan lokasi baru dengan panduan/instruksi interaktif cara menyalin link dari Google Maps.
+      - Auto-resolving link Google Maps (shortlink `maps.app.goo.gl` maupun URL koordinat lengkap) serta opsi tombol *Ambil Koordinat GPS Saat Ini*.
+      - Penyelarasan desain visual antarmuka selaras dengan halaman lainnya (Light/Dark mode, Banner Header, Card Elevation).
+
+23. **Penyempurnaan Logika Status Shift Belum Sampai Waktu Kerja pada List & Matriks Kehadiran (SELESAI 31 Agustus 2026)**:
+    - **Logika Status Kehadiran Adaptif Jam Masuk Shift**:
+      - Karyawan dengan jadwal shift siang/malam yang dicek sebelum jam shiftnya tiba tidak lagi ditampilkan sebagai `ALPHA`, melainkan menampilkan **Nama / Kode Shift** aslinya (misal: `S2`, `S3`, `NS`, `OFF`).
+      - Status hanya berubah menjadi `ALPHA` jika jam kerja shift tersebut telah terlewati dan karyawan belum melakukan check-in.
+    - **Penerapan pada Web Roster & Export Excel**:
+      - Diperbarui pada `AttendanceRoster.php` (Blade view) dan `AttendanceRosterMatrixExport.php` (Excel export).
+
+24. **Standarisasi Kode "LR" untuk Permit / Leave Request yang Belum di-Approve (SELESAI 31 Agustus 2026)**:
+    - **Status "LR" (Leave Request)**:
+      - Pengajuan izin / cuti / sakit yang berstatus `pending` (belum disetujui) pada matriks kehadiran kini menampilkan badge kode **`LR`** dengan warna oranye/kuning (tidak dihitung sebagai Alpha).
+      - Menampilkan subteks jenis izin (`Izin`, `Cuti`, `Sakit`) pada tampilan web dan output kode `LR` pada ekspor Excel matriks.
+
+25. **Sistem Face Recognition Adaptive per Jabatan Karyawan (SELESAI 31 Agustus 2026, APK v1.0.108)**:
+    - **Pengaturan per Jabatan di Admin Panel**:
+      - Ditambahkan toggle `require_face_recognition` (boolean, default: true) pada menu *Master Data > Positions*.
+      - Kolom indikator visual `Wajib Face AI` pada tabel daftar jabatan.
+    - **Kamera Liveness Adaptif di Mobile (`liveness_camera_screen.dart`)**:
+      - Status badge dinamis di bagian atas kamera: `Face Recog: Wajib` (Cyan) vs `Face Recog: Opsional` (Amber).
+      - Untuk jabatan opsional: Tersedia tombol prominent **"📸 Jepret Foto Manual (Langsung)"** tanpa kewajiban kedipan mata / liveness AI.
+      - Penyesuaian validasi unggah foto di `AttendanceController@store`.
+
+26. **Sistem Registrasi & Notifikasi Wajah Master (Face Master Enrollment) (SELESAI 31 Agustus 2026, APK v1.0.109)**:
+    - **Dashboard Banner & Notifikasi**:
+      - Untuk jabatan yang wajib Face Recognition dan belum memiliki foto master wajah, muncul **Banner Alert Merah / Oranye** di Dashboard: *"Registrasi Wajah Master Diperlukan (WAJIB)"* lengkap dengan tombol aksi langsung: **`📸 Daftarkan Wajah Master Sekarang`**.
+      - Toast peringatan otomatis muncul saat aplikasi dibuka.
+    - **Menu Cepat Dashboard & Profil**:
+      - Penambahan menu cepat **"Wajah Master"** pada menu lainnya di Dashboard.
+      - Halaman Profil dilengkapi kartu khusus status biometrik Face Recognition (`Wajah Master Terdaftar ✅` vs `Belum Terdaftar ⚠️`) dan opsi pendaftaran via Kamera AI Liveness, Kamera Biasa, atau Galeri.
+    - **Monitoring Admin Panel**:
+      - Label form edit karyawan disempurnakan menjadi **"Foto Master Wajah / Profil (Face Recognition Reference)"**.
+      - Kolom `Face Master` dengan status boolean pada tabel daftar Karyawan (`EmployeesTable.php`).
+
 ---
 
 
