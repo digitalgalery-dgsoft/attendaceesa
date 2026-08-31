@@ -35,6 +35,14 @@ class PrincipalsTable
                     ->label('Company')
                     ->sortable()
                     ->toggleable(),
+                TextColumn::make('active_employees_count')
+                    ->label('Employee Aktif')
+                    ->counts('activeEmployees')
+                    ->badge()
+                    ->color(fn ($state): string => (int) $state > 0 ? 'success' : 'danger')
+                    ->icon('heroicon-m-users')
+                    ->sortable()
+                    ->alignCenter(),
                 TextColumn::make('subdomain')
                     ->label('Subdomain Portal')
                     ->formatStateUsing(fn ($record) => $record->portal_url)

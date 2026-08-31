@@ -23,6 +23,33 @@ class Employee extends Authenticatable
 
     protected $appends = ['has_reporting_templates', 'is_inhouse'];
 
+    protected static function booted(): void
+    {
+        static::saved(function ($employee) {
+            if ($employee->principal_id) {
+                $employee->principal?->syncActiveStatus();
+            }
+            if ($employee->isDirty('principal_id')) {
+                $oldPrincipalId = $employee->getOriginal('principal_id');
+                if ($oldPrincipalId) {
+                    Principal::find($oldPrincipalId)?->syncActiveStatus();
+                }
+            }
+        });
+
+        static::deleted(function ($employee) {
+            if ($employee->principal_id) {
+                $employee->principal?->syncActiveStatus();
+            }
+        });
+
+        static::restored(function ($employee) {
+            if ($employee->principal_id) {
+                $employee->principal?->syncActiveStatus();
+            }
+        });
+    }
+
     public function getIsInhouseAttribute(): bool
     {
         if ($this->department && str_contains(strtolower($this->department->name), 'inhouse')) {

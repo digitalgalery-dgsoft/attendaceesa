@@ -40,6 +40,27 @@ class Principal extends Model
         return $this->hasMany(Employee::class);
     }
 
+    public function activeEmployees(): HasMany
+    {
+        return $this->hasMany(Employee::class)->where('is_active', true)->whereNull('deleted_at');
+    }
+
+    public function syncActiveStatus(): bool
+    {
+        $hasActive = $this->activeEmployees()->exists();
+        if ($this->is_active !== $hasActive) {
+            $this->update(['is_active' => $hasActive]);
+            return true;
+        }
+        return false;
+    }
+
+    public static function syncAllActiveStatuses(): void
+    {
+        static::whereDoesntHave('activeEmployees')->where('is_active', true)->update(['is_active' => false]);
+        static::whereHas('activeEmployees')->where('is_active', false)->update(['is_active' => true]);
+    }
+
     public function workLocations(): HasMany
     {
         return $this->hasMany(WorkLocation::class);
