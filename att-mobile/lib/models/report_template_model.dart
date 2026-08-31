@@ -130,6 +130,7 @@ class ReportFormFieldModel {
   final String fieldLabel;
   final String fieldType;
   final bool isRequired;
+  final bool isReadonly;
   final List<String> options;
   final String? placeholder;
   final String? defaultValue;
@@ -142,6 +143,7 @@ class ReportFormFieldModel {
     required this.fieldLabel,
     required this.fieldType,
     this.isRequired = false,
+    this.isReadonly = false,
     this.options = const [],
     this.placeholder,
     this.defaultValue,
@@ -165,6 +167,7 @@ class ReportFormFieldModel {
       fieldLabel: json['field_label'] ?? '',
       fieldType: json['field_type'] ?? 'text',
       isRequired: json['is_required'] == true || json['is_required'] == 1,
+      isReadonly: json['is_readonly'] == true || json['is_readonly'] == 1 || json['read_only'] == true,
       options: parsedOptions,
       placeholder: json['placeholder'],
       defaultValue: json['default_value']?.toString(),
@@ -180,6 +183,7 @@ class ReportFormFieldModel {
       'field_label': fieldLabel,
       'field_type': fieldType,
       'is_required': isRequired,
+      'is_readonly': isReadonly,
       'options': options,
       'placeholder': placeholder,
       'default_value': defaultValue,

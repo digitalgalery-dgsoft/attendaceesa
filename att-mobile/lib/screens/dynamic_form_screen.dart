@@ -242,7 +242,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         _formValues[fieldKey] = field.defaultValue;
       }
 
-      if (['text', 'textarea', 'number', 'integer', 'currency', 'percentage', 'date', 'datepicker', 'time', 'timepicker', 'datetime', 'product', 'product_select', 'barcode_scanner'].contains(field.fieldType) || _isProductField(field)) {
+      if (['text', 'textarea', 'number', 'integer', 'currency', 'percentage', 'date', 'datepicker', 'time', 'timepicker', 'datetime', 'product', 'product_select', 'barcode_scanner', 'month_year', 'month', 'year_month'].contains(field.fieldType) || _isProductField(field)) {
         final ctrl = TextEditingController(text: field.defaultValue ?? '');
         _controllers[fieldKey] = ctrl;
       } else if (field.fieldType == 'checkbox') {
@@ -301,7 +301,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           _controllers[val.fieldName] = TextEditingController(text: formatted);
           _formValues[fieldKey] = val.valueNumber ?? val.valueText;
           _formValues[val.fieldName] = val.valueNumber ?? val.valueText;
-        } else if (['text', 'textarea', 'number', 'integer', 'percentage', 'date', 'datepicker', 'time', 'timepicker', 'datetime'].contains(val.fieldType)) {
+        } else if (['text', 'textarea', 'number', 'integer', 'percentage', 'date', 'datepicker', 'time', 'timepicker', 'datetime', 'month_year', 'month', 'year_month'].contains(val.fieldType)) {
           final strVal = val.valueText ?? (val.valueNumber != null ? (val.valueNumber! % 1 == 0 ? val.valueNumber!.toInt().toString() : val.valueNumber.toString()) : '');
           _controllers[fieldKey] = TextEditingController(text: strVal);
           _controllers[val.fieldName] = TextEditingController(text: strVal);
@@ -356,6 +356,235 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       ctrl.dispose();
     }
     super.dispose();
+  }
+
+  // Nama-nama bulan Indonesia
+  static const List<String> _indoMonths = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+
+  // Format Bulan & Tahun display (MM/yyyy -> "Agustus 2026")
+  String _formatMonthYearDisplay(String val) {
+    if (val.trim().isEmpty) return '';
+    final clean = val.trim();
+
+    // Cek format MM/yyyy (misal: 08/2026)
+    if (clean.contains('/')) {
+      final parts = clean.split('/');
+      if (parts.length == 2) {
+        final m = int.tryParse(parts[0]);
+        final y = int.tryParse(parts[1]);
+        if (m != null && y != null && m >= 1 && m <= 12) {
+          return '${_indoMonths[m - 1]} $y';
+        }
+      }
+    }
+
+    // Cek format yyyy-MM atau yyyy-MM-dd
+    if (clean.contains('-')) {
+      final parts = clean.split('-');
+      if (parts.length >= 2) {
+        final y = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        if (m != null && y != null && m >= 1 && m <= 12) {
+          return '${_indoMonths[m - 1]} $y';
+        }
+      }
+    }
+
+    return clean;
+  }
+
+  // Pemilih Bulan & Tahun Interaktif (Month & Year Dialog)
+  Future<void> _pickMonthYear(String fieldKey, ReportFormFieldModel field) async {
+    int selectedYear = DateTime.now().year;
+    int? selectedMonth = DateTime.now().month;
+
+    final currentVal = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
+    if (currentVal.isNotEmpty) {
+      if (currentVal.contains('/')) {
+        final parts = currentVal.split('/');
+        if (parts.length == 2) {
+          final m = int.tryParse(parts[0]);
+          final y = int.tryParse(parts[1]);
+          if (y != null) selectedYear = y;
+          if (m != null && m >= 1 && m <= 12) selectedMonth = m;
+        }
+      } else if (currentVal.contains('-')) {
+        final parts = currentVal.split('-');
+        if (parts.length >= 2) {
+          final y = int.tryParse(parts[0]);
+          final m = int.tryParse(parts[1]);
+          if (y != null) selectedYear = y;
+          if (m != null && m >= 1 && m <= 12) selectedMonth = m;
+        }
+      }
+    }
+
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Provider.of<AuthProvider>(context, listen: false).appColor ?? const Color(0xFF0F52BA);
+    final themeColor = Color(int.tryParse(widget.template.color.replaceAll('#', '0xFF')) ?? primaryColor.value);
+
+    final result = await showDialog<Map<String, int>>(
+      context: context,
+      builder: (dialogCtx) {
+        int tempYear = selectedYear;
+        int? tempMonth = selectedMonth;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final dialogBg = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+            final textCol = isDarkMode ? Colors.white : const Color(0xFF0E1830);
+
+            return AlertDialog(
+              backgroundColor: dialogBg,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: themeColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.event_note_rounded, color: themeColor, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          field.fieldLabel,
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textCol),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Pilih Bulan & Tahun Expired',
+                          style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 320,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Year Selector Bar
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isDarkMode ? Colors.grey.shade800 : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.chevron_left_rounded, size: 24),
+                            color: textCol,
+                            onPressed: () {
+                              setDialogState(() {
+                                tempYear--;
+                              });
+                            },
+                          ),
+                          Text(
+                            '$tempYear',
+                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: themeColor),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.chevron_right_rounded, size: 24),
+                            color: textCol,
+                            onPressed: () {
+                              setDialogState(() {
+                                tempYear++;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // 12 Months Grid (3 columns x 4 rows)
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        childAspectRatio: 2.2,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemCount: 12,
+                      itemBuilder: (context, index) {
+                        final monthNum = index + 1;
+                        final monthName = _indoMonths[index];
+                        final isSelected = tempMonth == monthNum;
+
+                        return InkWell(
+                          onTap: () {
+                            setDialogState(() {
+                              tempMonth = monthNum;
+                            });
+                            Navigator.of(dialogCtx).pop({'year': tempYear, 'month': monthNum});
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            decoration: BoxDecoration(
+                              color: isSelected ? themeColor : (isDarkMode ? const Color(0xFF28283C) : const Color(0xFFF8FAFC)),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isSelected ? themeColor : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                                width: isSelected ? 1.5 : 1.0,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              monthName,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                color: isSelected ? Colors.white : textCol,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(null),
+                  child: Text('Batal', style: TextStyle(color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result != null) {
+      final y = result['year']!;
+      final m = result['month']!.toString().padLeft(2, '0');
+      final formattedValue = '$m/$y'; // format standard: "MM/yyyy"
+      setState(() {
+        _formValues[fieldKey] = formattedValue;
+        _controllers[fieldKey]?.text = formattedValue;
+      });
+    }
   }
 
   // Format tanggal display (dd MMM yyyy)
@@ -1127,6 +1356,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     LocaleProvider locale,
   ) {
     final fieldKey = field.id.toString();
+    final bool isFieldReadonly = field.isReadonly;
+    final readonlyBgColor = isDarkMode ? Colors.grey.shade900 : const Color(0xFFF1F5F9);
 
     Widget inputWidget;
 
@@ -1141,17 +1372,23 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         elevatedColor,
         isDarkMode,
         locale,
+        isFieldReadonly: isFieldReadonly,
       );
     } else {
       switch (field.fieldType) {
       case 'textarea':
         inputWidget = TextFormField(
           controller: _controllers[fieldKey],
+          readOnly: isFieldReadonly,
           maxLines: 3,
-          style: TextStyle(color: textColor, fontSize: 13),
-          decoration: _inputDecoration(field.placeholder ?? 'Tuliskan keterangan lengkap...', elevatedColor, isDarkMode),
-          validator: (v) => field.isRequired && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
-          onChanged: (v) => _formValues[fieldKey] = v,
+          style: TextStyle(color: isFieldReadonly ? subtitleColor : textColor, fontSize: 13),
+          decoration: _inputDecoration(
+            field.placeholder ?? 'Tuliskan keterangan lengkap...',
+            isFieldReadonly ? readonlyBgColor : elevatedColor,
+            isDarkMode,
+          ),
+          validator: (v) => (!isFieldReadonly && field.isRequired) && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
+          onChanged: isFieldReadonly ? null : (v) => _formValues[fieldKey] = v,
         );
         break;
 
@@ -1159,22 +1396,32 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       case 'integer':
         inputWidget = TextFormField(
           controller: _controllers[fieldKey],
+          readOnly: isFieldReadonly,
           keyboardType: TextInputType.number,
-          style: TextStyle(color: textColor, fontSize: 13),
-          decoration: _inputDecoration(field.placeholder ?? '0', elevatedColor, isDarkMode),
-          validator: (v) => field.isRequired && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
-          onChanged: (v) => _formValues[fieldKey] = num.tryParse(v),
+          style: TextStyle(color: isFieldReadonly ? subtitleColor : textColor, fontSize: 13),
+          decoration: _inputDecoration(
+            field.placeholder ?? '0',
+            isFieldReadonly ? readonlyBgColor : elevatedColor,
+            isDarkMode,
+          ),
+          validator: (v) => (!isFieldReadonly && field.isRequired) && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
+          onChanged: isFieldReadonly ? null : (v) => _formValues[fieldKey] = num.tryParse(v),
         );
         break;
 
       case 'currency':
         inputWidget = TextFormField(
           controller: _controllers[fieldKey],
+          readOnly: isFieldReadonly,
           keyboardType: TextInputType.number,
-          style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.w600),
-          decoration: _inputDecoration('Rp 0', elevatedColor, isDarkMode),
-          validator: (v) => field.isRequired && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
-          onChanged: (v) => _formatCurrency(fieldKey, v),
+          style: TextStyle(color: isFieldReadonly ? subtitleColor : textColor, fontSize: 13, fontWeight: FontWeight.w600),
+          decoration: _inputDecoration(
+            'Rp 0',
+            isFieldReadonly ? readonlyBgColor : elevatedColor,
+            isDarkMode,
+          ),
+          validator: (v) => (!isFieldReadonly && field.isRequired) && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
+          onChanged: isFieldReadonly ? null : (v) => _formatCurrency(fieldKey, v),
         );
         break;
 
@@ -1186,12 +1433,16 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             ? field.options
             : widget.template.products.map((p) => p.name).toList();
 
-        inputWidget = DropdownButtonFormField<String>(
+        final dropdownWidget = DropdownButtonFormField<String>(
           value: _formValues[fieldKey],
-          decoration: _inputDecoration(field.placeholder ?? 'Pilih salah satu opsi...', elevatedColor, isDarkMode),
+          decoration: _inputDecoration(
+            field.placeholder ?? 'Pilih salah satu opsi...',
+            isFieldReadonly ? readonlyBgColor : elevatedColor,
+            isDarkMode,
+          ),
           dropdownColor: cardColor,
           isExpanded: true,
-          style: TextStyle(color: textColor, fontSize: 13),
+          style: TextStyle(color: isFieldReadonly ? subtitleColor : textColor, fontSize: 13),
           items: effectiveOptions
               .map((opt) {
                 final matchedProduct = widget.template.products.cast<TemplateProductModel?>().firstWhere(
@@ -1209,7 +1460,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       Expanded(
                         child: Text(
                           opt,
-                          style: TextStyle(fontSize: 12.5, color: textColor),
+                          style: TextStyle(fontSize: 12.5, color: isFieldReadonly ? subtitleColor : textColor),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -1232,9 +1483,13 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 );
               })
               .toList(),
-          validator: (v) => field.isRequired && (v == null || v.isEmpty) ? locale.tr('required_field') : null,
-          onChanged: (v) => setState(() => _formValues[fieldKey] = v),
+          validator: (v) => (!isFieldReadonly && field.isRequired) && (v == null || v.isEmpty) ? locale.tr('required_field') : null,
+          onChanged: isFieldReadonly ? null : (v) => setState(() => _formValues[fieldKey] = v),
         );
+
+        inputWidget = isFieldReadonly
+            ? IgnorePointer(ignoring: true, child: dropdownWidget)
+            : dropdownWidget;
         break;
 
       case 'multi_select':
@@ -1252,23 +1507,25 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? Colors.white : textColor,
+                  color: isSelected ? Colors.white : (isFieldReadonly ? subtitleColor : textColor),
                 ),
               ),
               selected: isSelected,
-              selectedColor: themeColor,
-              backgroundColor: elevatedColor,
+              selectedColor: isFieldReadonly ? subtitleColor : themeColor,
+              backgroundColor: isFieldReadonly ? readonlyBgColor : elevatedColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    currentSelected.add(opt);
-                  } else {
-                    currentSelected.remove(opt);
-                  }
-                  _formValues[fieldKey] = currentSelected;
-                });
-              },
+              onSelected: isFieldReadonly
+                  ? null
+                  : (selected) {
+                      setState(() {
+                        if (selected) {
+                          currentSelected.add(opt);
+                        } else {
+                          currentSelected.remove(opt);
+                        }
+                        _formValues[fieldKey] = currentSelected;
+                      });
+                    },
             );
           }).toList(),
         );
@@ -1282,20 +1539,31 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             return Container(
               margin: const EdgeInsets.only(bottom: 6),
               decoration: BoxDecoration(
-                color: isSelected ? themeColor.withOpacity(0.08) : elevatedColor,
+                color: isSelected
+                    ? (isFieldReadonly ? subtitleColor.withOpacity(0.1) : themeColor.withOpacity(0.08))
+                    : (isFieldReadonly ? readonlyBgColor : elevatedColor),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: isSelected ? themeColor : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                  color: isSelected
+                      ? (isFieldReadonly ? subtitleColor : themeColor)
+                      : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
                 ),
               ),
               child: RadioListTile<String>(
-                title: Text(opt, style: TextStyle(fontSize: 12.5, color: textColor, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                title: Text(
+                  opt,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: isFieldReadonly ? subtitleColor : textColor,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
                 value: opt,
                 groupValue: currentRadioVal,
-                activeColor: themeColor,
+                activeColor: isFieldReadonly ? subtitleColor : themeColor,
                 dense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                onChanged: (val) => setState(() => _formValues[fieldKey] = val),
+                onChanged: isFieldReadonly ? null : (val) => setState(() => _formValues[fieldKey] = val),
               ),
             );
           }).toList(),
@@ -1305,11 +1573,14 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       case 'checkbox':
         final bool isChecked = _formValues[fieldKey] == true;
         inputWidget = SwitchListTile(
-          title: Text(field.placeholder ?? 'Aktifkan jika sesuai', style: TextStyle(fontSize: 13, color: textColor)),
+          title: Text(
+            field.placeholder ?? 'Aktifkan jika sesuai',
+            style: TextStyle(fontSize: 13, color: isFieldReadonly ? subtitleColor : textColor),
+          ),
           value: isChecked,
-          activeColor: themeColor,
+          activeColor: isFieldReadonly ? subtitleColor : themeColor,
           contentPadding: EdgeInsets.zero,
-          onChanged: (val) => setState(() => _formValues[fieldKey] = val),
+          onChanged: isFieldReadonly ? null : (val) => setState(() => _formValues[fieldKey] = val),
         );
         break;
 
@@ -1322,10 +1593,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             return IconButton(
               icon: Icon(
                 starVal <= currentRating ? Icons.star_rounded : Icons.star_outline_rounded,
-                color: Colors.amber,
+                color: isFieldReadonly ? Colors.grey : Colors.amber,
                 size: 32,
               ),
-              onPressed: () => setState(() => _formValues[fieldKey] = starVal),
+              onPressed: isFieldReadonly ? null : () => setState(() => _formValues[fieldKey] = starVal),
             );
           }),
         );
@@ -1336,7 +1607,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       case 'multi_photo':
         final capturedFiles = _multiPhotoFiles[fieldKey] ?? [];
         final existingUrls = _existingMultiPhotoUrls[fieldKey] ?? _existingMultiPhotoUrls[field.fieldName] ?? [];
-        // Also check if there is a single existingPhotoUrl
         final singleExisting = _existingPhotoUrls[fieldKey] ?? _existingPhotoUrls[field.fieldName];
         if (existingUrls.isEmpty && singleExisting != null && singleExisting.isNotEmpty) {
           existingUrls.add(singleExisting);
@@ -1352,7 +1622,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 spacing: 10,
                 runSpacing: 10,
                 children: [
-                  // Existing network photos
                   ...existingUrls.asMap().entries.map((entry) {
                     final idx = entry.key;
                     final url = entry.value;
@@ -1375,26 +1644,27 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                             ),
                           ),
                         ),
-                        Positioned(
-                          top: -6,
-                          right: -6,
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                existingUrls.removeAt(idx);
-                                _existingMultiPhotoUrls[fieldKey] = existingUrls;
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
+                        if (!isFieldReadonly)
+                          Positioned(
+                            top: -6,
+                            right: -6,
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  existingUrls.removeAt(idx);
+                                  _existingMultiPhotoUrls[fieldKey] = existingUrls;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
                               ),
-                              child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
                             ),
                           ),
-                        ),
                         Positioned(
                           bottom: 4,
                           left: 4,
@@ -1413,7 +1683,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       ],
                     );
                   }),
-                  // Newly taken local files
                   ...capturedFiles.asMap().entries.map((entry) {
                     final idx = entry.key;
                     final file = entry.value;
@@ -1429,27 +1698,28 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                             fit: BoxFit.cover,
                           ),
                         ),
-                        Positioned(
-                          top: -6,
-                          right: -6,
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                capturedFiles.removeAt(idx);
-                                _multiPhotoFiles[fieldKey] = capturedFiles;
-                                _formValues[fieldKey] = capturedFiles.map((f) => f.path).toList();
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
+                        if (!isFieldReadonly)
+                          Positioned(
+                            top: -6,
+                            right: -6,
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  capturedFiles.removeAt(idx);
+                                  _multiPhotoFiles[fieldKey] = capturedFiles;
+                                  _formValues[fieldKey] = capturedFiles.map((f) => f.path).toList();
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
                               ),
-                              child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
                             ),
                           ),
-                        ),
                         Positioned(
                           bottom: 4,
                           left: 4,
@@ -1472,21 +1742,22 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               ),
               const SizedBox(height: 12),
             ],
-            OutlinedButton.icon(
-              onPressed: () => _takeWatermarkedPhoto(field),
-              icon: const Icon(Icons.add_a_photo_rounded, size: 18),
-              label: Text(
-                totalCount == 0
-                    ? 'Ambil Foto Bukti (Multi-Foto)'
-                    : 'Tambah Foto Bukti Lainnya ($totalCount Terambil)',
+            if (!isFieldReadonly)
+              OutlinedButton.icon(
+                onPressed: () => _takeWatermarkedPhoto(field),
+                icon: const Icon(Icons.add_a_photo_rounded, size: 18),
+                label: Text(
+                  totalCount == 0
+                      ? 'Ambil Foto Bukti (Multi-Foto)'
+                      : 'Tambah Foto Bukti Lainnya ($totalCount Terambil)',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: themeColor,
+                  side: BorderSide(color: themeColor),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
               ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: themeColor,
-                side: BorderSide(color: themeColor),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
           ],
         );
         break;
@@ -1523,22 +1794,129 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               ),
               const SizedBox(height: 10),
             ],
-            OutlinedButton.icon(
-              onPressed: () => _openSignaturePad(field),
-              icon: const Icon(Icons.draw_rounded, size: 18),
-              label: Text(
-                (sigFile == null && (existingSigUrl == null || existingSigUrl.isEmpty))
-                    ? locale.tr('sign_pad_button')
-                    : 'Ubah Tanda Tangan',
+            if (!isFieldReadonly)
+              OutlinedButton.icon(
+                onPressed: () => _openSignaturePad(field),
+                icon: const Icon(Icons.draw_rounded, size: 18),
+                label: Text(
+                  (sigFile == null && (existingSigUrl == null || existingSigUrl.isEmpty))
+                      ? locale.tr('sign_pad_button')
+                      : 'Ubah Tanda Tangan',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: themeColor,
+                  side: BorderSide(color: themeColor),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
               ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: themeColor,
-                side: BorderSide(color: themeColor),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
           ],
+        );
+        break;
+
+      case 'month_year':
+      case 'month':
+      case 'year_month':
+        inputWidget = FormField<String>(
+          initialValue: _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text,
+          validator: (v) {
+            final val = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
+            if (!isFieldReadonly && field.isRequired && val.trim().isEmpty) {
+              return locale.tr('required_field');
+            }
+            return null;
+          },
+          builder: (state) {
+            final rawVal = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
+            final displayMonthYearText = _formatMonthYearDisplay(rawVal);
+            final hasError = state.hasError;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: isFieldReadonly
+                      ? null
+                      : () async {
+                          await _pickMonthYear(fieldKey, field);
+                          state.didChange(_formValues[fieldKey]?.toString());
+                        },
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isFieldReadonly ? readonlyBgColor : elevatedColor,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: hasError
+                            ? Colors.red
+                            : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                        width: hasError ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.event_note_rounded, color: isFieldReadonly ? subtitleColor : themeColor, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            displayMonthYearText.isNotEmpty
+                                ? displayMonthYearText
+                                : (field.placeholder ?? 'Pilih Bulan & Tahun Expired...'),
+                            style: TextStyle(
+                              color: displayMonthYearText.isNotEmpty
+                                  ? (isFieldReadonly ? subtitleColor : textColor)
+                                  : (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400),
+                              fontSize: 13,
+                              fontWeight: displayMonthYearText.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                        if (isFieldReadonly)
+                          Icon(Icons.lock_rounded, size: 16, color: subtitleColor)
+                        else if (displayMonthYearText.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            color: subtitleColor,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              setState(() {
+                                _formValues.remove(fieldKey);
+                                _controllers[fieldKey]?.clear();
+                              });
+                              state.didChange('');
+                            },
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: themeColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Pilih',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: themeColor),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (hasError) ...[
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      state.errorText ?? '',
+                      style: const TextStyle(color: Colors.red, fontSize: 11.5),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
         );
         break;
 
@@ -1548,7 +1926,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           initialValue: _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text,
           validator: (v) {
             final val = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
-            if (field.isRequired && val.trim().isEmpty) {
+            if (!isFieldReadonly && field.isRequired && val.trim().isEmpty) {
               return locale.tr('required_field');
             }
             return null;
@@ -1562,15 +1940,17 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 InkWell(
-                  onTap: () async {
-                    await _pickDate(fieldKey, field);
-                    state.didChange(_formValues[fieldKey]?.toString());
-                  },
+                  onTap: isFieldReadonly
+                      ? null
+                      : () async {
+                          await _pickDate(fieldKey, field);
+                          state.didChange(_formValues[fieldKey]?.toString());
+                        },
                   borderRadius: BorderRadius.circular(10),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
-                      color: elevatedColor,
+                      color: isFieldReadonly ? readonlyBgColor : elevatedColor,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: hasError
@@ -1581,7 +1961,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.calendar_month_rounded, color: themeColor, size: 20),
+                        Icon(Icons.calendar_month_rounded, color: isFieldReadonly ? subtitleColor : themeColor, size: 20),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
@@ -1590,14 +1970,16 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                                 : (field.placeholder ?? 'Pilih tanggal...'),
                             style: TextStyle(
                               color: displayDateText.isNotEmpty
-                                  ? textColor
+                                  ? (isFieldReadonly ? subtitleColor : textColor)
                                   : (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400),
                               fontSize: 13,
                               fontWeight: displayDateText.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
                             ),
                           ),
                         ),
-                        if (displayDateText.isNotEmpty)
+                        if (isFieldReadonly)
+                          Icon(Icons.lock_rounded, size: 16, color: subtitleColor)
+                        else if (displayDateText.isNotEmpty)
                           IconButton(
                             icon: const Icon(Icons.clear, size: 18),
                             color: subtitleColor,
@@ -1649,7 +2031,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           initialValue: _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text,
           validator: (v) {
             final val = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
-            if (field.isRequired && val.trim().isEmpty) {
+            if (!isFieldReadonly && field.isRequired && val.trim().isEmpty) {
               return locale.tr('required_field');
             }
             return null;
@@ -1662,15 +2044,17 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 InkWell(
-                  onTap: () async {
-                    await _pickTime(fieldKey, field);
-                    state.didChange(_formValues[fieldKey]?.toString());
-                  },
+                  onTap: isFieldReadonly
+                      ? null
+                      : () async {
+                          await _pickTime(fieldKey, field);
+                          state.didChange(_formValues[fieldKey]?.toString());
+                        },
                   borderRadius: BorderRadius.circular(10),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
-                      color: elevatedColor,
+                      color: isFieldReadonly ? readonlyBgColor : elevatedColor,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: hasError
@@ -1681,21 +2065,23 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.access_time_rounded, color: themeColor, size: 20),
+                        Icon(Icons.access_time_rounded, color: isFieldReadonly ? subtitleColor : themeColor, size: 20),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             timeVal.isNotEmpty ? timeVal : (field.placeholder ?? 'Pilih jam...'),
                             style: TextStyle(
                               color: timeVal.isNotEmpty
-                                  ? textColor
+                                  ? (isFieldReadonly ? subtitleColor : textColor)
                                   : (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400),
                               fontSize: 13,
                               fontWeight: timeVal.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
                             ),
                           ),
                         ),
-                        if (timeVal.isNotEmpty)
+                        if (isFieldReadonly)
+                          Icon(Icons.lock_rounded, size: 16, color: subtitleColor)
+                        else if (timeVal.isNotEmpty)
                           IconButton(
                             icon: const Icon(Icons.clear, size: 18),
                             color: subtitleColor,
@@ -1746,7 +2132,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           initialValue: _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text,
           validator: (v) {
             final val = _formValues[fieldKey]?.toString() ?? _controllers[fieldKey]?.text ?? '';
-            if (field.isRequired && val.trim().isEmpty) {
+            if (!isFieldReadonly && field.isRequired && val.trim().isEmpty) {
               return locale.tr('required_field');
             }
             return null;
@@ -1759,15 +2145,17 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 InkWell(
-                  onTap: () async {
-                    await _pickDate(fieldKey, field);
-                    state.didChange(_formValues[fieldKey]?.toString());
-                  },
+                  onTap: isFieldReadonly
+                      ? null
+                      : () async {
+                          await _pickDate(fieldKey, field);
+                          state.didChange(_formValues[fieldKey]?.toString());
+                        },
                   borderRadius: BorderRadius.circular(10),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
-                      color: elevatedColor,
+                      color: isFieldReadonly ? readonlyBgColor : elevatedColor,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: hasError
@@ -1778,20 +2166,22 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.calendar_today_rounded, color: themeColor, size: 20),
+                        Icon(Icons.calendar_today_rounded, color: isFieldReadonly ? subtitleColor : themeColor, size: 20),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             dtVal.isNotEmpty ? dtVal : (field.placeholder ?? 'Pilih tanggal & waktu...'),
                             style: TextStyle(
                               color: dtVal.isNotEmpty
-                                  ? textColor
+                                  ? (isFieldReadonly ? subtitleColor : textColor)
                                   : (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400),
                               fontSize: 13,
                               fontWeight: dtVal.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
                             ),
                           ),
                         ),
+                        if (isFieldReadonly)
+                          Icon(Icons.lock_rounded, size: 16, color: subtitleColor),
                       ],
                     ),
                   ),
@@ -1816,10 +2206,15 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       default:
         inputWidget = TextFormField(
           controller: _controllers[fieldKey],
-          style: TextStyle(color: textColor, fontSize: 13),
-          decoration: _inputDecoration(field.placeholder ?? 'Masukkan ${field.fieldLabel.toLowerCase()}', elevatedColor, isDarkMode),
-          validator: (v) => field.isRequired && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
-          onChanged: (v) => _formValues[fieldKey] = v,
+          readOnly: isFieldReadonly,
+          style: TextStyle(color: isFieldReadonly ? subtitleColor : textColor, fontSize: 13),
+          decoration: _inputDecoration(
+            field.placeholder ?? 'Masukkan ${field.fieldLabel.toLowerCase()}',
+            isFieldReadonly ? readonlyBgColor : elevatedColor,
+            isDarkMode,
+          ),
+          validator: (v) => (!isFieldReadonly && field.isRequired) && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
+          onChanged: isFieldReadonly ? null : (v) => _formValues[fieldKey] = v,
         );
         break;
       }
@@ -1846,9 +2241,37 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  field.fieldLabel,
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        field.fieldLabel,
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                    ),
+                    if (isFieldReadonly) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isDarkMode ? Colors.grey.shade800 : const Color(0xFFE2E8F0),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(color: isDarkMode ? Colors.grey.shade700 : const Color(0xFFCBD5E1), width: 0.8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.lock_rounded, size: 10.5, color: subtitleColor),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Read Only',
+                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: subtitleColor),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               if (field.isRequired)
@@ -1925,10 +2348,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     Color subtitleColor,
     Color elevatedColor,
     bool isDarkMode,
-    LocaleProvider locale,
-  ) {
+    LocaleProvider locale, {
+    bool isFieldReadonly = false,
+  }) {
     final currentText = _controllers[fieldKey]?.text ?? _formValues[fieldKey]?.toString() ?? '';
     final products = _getProducts();
+    final readonlyBgColor = isDarkMode ? Colors.grey.shade900 : const Color(0xFFF1F5F9);
     
     // Cari produk yang sesuai dari katalog template jika ada
     final matchedProduct = products.cast<TemplateProductModel?>().firstWhere(
@@ -1941,42 +2366,45 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       children: [
         TextFormField(
           controller: _controllers[fieldKey],
-          style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.w600),
+          readOnly: isFieldReadonly,
+          style: TextStyle(color: isFieldReadonly ? subtitleColor : textColor, fontSize: 13, fontWeight: FontWeight.w600),
           decoration: InputDecoration(
-            hintText: field.placeholder ?? 'Ketik nama / pilih produk / scan barcode...',
+            hintText: isFieldReadonly ? 'Produk terpilih otomatis' : (field.placeholder ?? 'Ketik nama / pilih produk / scan barcode...'),
             hintStyle: TextStyle(color: isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400, fontSize: 12.5),
             filled: true,
-            fillColor: elevatedColor,
-            prefixIcon: Icon(Icons.inventory_2_outlined, color: themeColor, size: 20),
-            suffixIcon: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (currentText.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
-                    color: subtitleColor,
-                    tooltip: 'Hapus',
-                    onPressed: () {
-                      setState(() {
-                        _formValues.remove(fieldKey);
-                        _controllers[fieldKey]?.clear();
-                      });
-                    },
+            fillColor: isFieldReadonly ? readonlyBgColor : elevatedColor,
+            prefixIcon: Icon(Icons.inventory_2_outlined, color: isFieldReadonly ? subtitleColor : themeColor, size: 20),
+            suffixIcon: isFieldReadonly
+                ? Icon(Icons.lock_rounded, size: 18, color: subtitleColor)
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (currentText.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          color: subtitleColor,
+                          tooltip: 'Hapus',
+                          onPressed: () {
+                            setState(() {
+                              _formValues.remove(fieldKey);
+                              _controllers[fieldKey]?.clear();
+                            });
+                          },
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                        color: themeColor,
+                        tooltip: 'Scan Barcode',
+                        onPressed: () => _scanBarcodeForProduct(field, themeColor),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.menu_book_rounded, size: 20),
+                        color: themeColor,
+                        tooltip: 'Katalog Produk',
+                        onPressed: () => _openProductPickerBottomSheet(field, themeColor, isDarkMode),
+                      ),
+                    ],
                   ),
-                IconButton(
-                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-                  color: themeColor,
-                  tooltip: 'Scan Barcode',
-                  onPressed: () => _scanBarcodeForProduct(field, themeColor),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.menu_book_rounded, size: 20),
-                  color: themeColor,
-                  tooltip: 'Katalog Produk',
-                  onPressed: () => _openProductPickerBottomSheet(field, themeColor, isDarkMode),
-                ),
-              ],
-            ),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -1991,55 +2419,59 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               borderSide: BorderSide(color: themeColor, width: 1.5),
             ),
           ),
-          validator: (v) => field.isRequired && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
-          onChanged: (v) {
-            setState(() {
-              _formValues[fieldKey] = v;
-            });
-          },
+          validator: (v) => (!isFieldReadonly && field.isRequired) && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
+          onChanged: isFieldReadonly
+              ? null
+              : (v) {
+                  setState(() {
+                    _formValues[fieldKey] = v;
+                  });
+                },
         ),
-        const SizedBox(height: 8),
+        if (!isFieldReadonly) ...[
+          const SizedBox(height: 8),
 
-        // Quick Action Buttons (Scan Barcode & Buka Katalog)
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () => _scanBarcodeForProduct(field, themeColor),
-                icon: const Icon(Icons.qr_code_scanner_rounded, size: 16, color: Colors.white),
-                label: const Text(
-                  'Scan Barcode',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: themeColor,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 9),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-                ),
-              ),
-            ),
-            if (products.isNotEmpty) ...[
-              const SizedBox(width: 8),
+          // Quick Action Buttons (Scan Barcode & Buka Katalog)
+          Row(
+            children: [
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _openProductPickerBottomSheet(field, themeColor, isDarkMode),
-                  icon: Icon(Icons.inventory_2_rounded, size: 16, color: themeColor),
-                  label: Text(
-                    'Katalog (${products.length})',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: themeColor),
+                child: ElevatedButton.icon(
+                  onPressed: () => _scanBarcodeForProduct(field, themeColor),
+                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 16, color: Colors.white),
+                  label: const Text(
+                    'Scan Barcode',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: themeColor.withOpacity(0.5)),
-                    backgroundColor: themeColor.withOpacity(0.06),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: themeColor,
+                    elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 9),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
                   ),
                 ),
               ),
+              if (products.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openProductPickerBottomSheet(field, themeColor, isDarkMode),
+                    icon: Icon(Icons.inventory_2_rounded, size: 16, color: themeColor),
+                    label: Text(
+                      'Katalog (${products.length})',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: themeColor),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: themeColor.withOpacity(0.5)),
+                      backgroundColor: themeColor.withOpacity(0.06),
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
-        ),
+          ),
+        ],
 
         // Preview Card jika produk teridentifikasi di database master produk
         if (matchedProduct != null) ...[

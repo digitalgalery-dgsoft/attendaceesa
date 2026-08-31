@@ -187,7 +187,7 @@ return new class extends Migration
                 'fields' => [
                     ['field_label' => 'Brand Produk Fonterra', 'field_name' => 'brand_produk', 'field_type' => 'dropdown', 'options' => ['Anlene Actifit / Gold / Total 10', 'Boneeto Cokelat / Vanila', 'Anchor Butter', 'Anchor Cheese'], 'is_required' => true],
                     ['field_label' => 'Nama SKU & Ukuran Kemasan', 'field_name' => 'sku_nama_produk', 'field_type' => 'text', 'placeholder' => 'Nama SKU dan gramasi produk', 'is_required' => true],
-                    ['field_label' => 'Tanggal Expired Date Terdekat pada Kemasan', 'field_name' => 'tanggal_expired', 'field_type' => 'date', 'is_required' => true],
+                    ['field_label' => 'Bulan & Tahun Expired Date Terdekat pada Kemasan', 'field_name' => 'tanggal_expired', 'field_type' => 'month_year', 'is_required' => true],
                     ['field_label' => 'Jumlah Stok pada Tanggal Expired Ini (Pcs)', 'field_name' => 'jumlah_stok_exp', 'field_type' => 'number', 'placeholder' => 'Jumlah pcs stok dengan tanggal expired ini', 'is_required' => true],
                     ['field_label' => 'Sisa Umur Simpan (Bulan Menuju Expired)', 'field_name' => 'selisih_bulan_exp', 'field_type' => 'number', 'placeholder' => 'Berapa bulan menuju expired', 'is_required' => true],
                     ['field_label' => 'Status Kategori Expired', 'field_name' => 'status_kategori_exp', 'field_type' => 'radio', 'options' => ['Aman (> 6 Bulan)', 'Warning (3 - 6 Bulan)', 'Kritis / Near Expired (< 3 Bulan)'], 'is_required' => true],

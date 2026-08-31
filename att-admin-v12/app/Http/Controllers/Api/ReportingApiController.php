@@ -194,6 +194,7 @@ class ReportingApiController extends Controller
                         'field_label' => $f->field_label,
                         'field_type' => $f->field_type,
                         'is_required' => (bool) $f->is_required,
+                        'is_readonly' => (bool) ($f->is_readonly ?? false),
                         'options' => $options,
                         'placeholder' => $f->placeholder,
                         'help_text' => $f->help_text,

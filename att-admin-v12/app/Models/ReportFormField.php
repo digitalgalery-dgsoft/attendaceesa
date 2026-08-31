@@ -17,6 +17,7 @@ class ReportFormField extends Model
         'options' => 'array',
         'validation_rules' => 'array',
         'is_required' => 'boolean',
+        'is_readonly' => 'boolean',
         'order_index' => 'integer',
     ];
 

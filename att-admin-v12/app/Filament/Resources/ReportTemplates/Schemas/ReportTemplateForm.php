@@ -154,7 +154,8 @@ class ReportTemplateForm
                                             'multi_photo' => '📸 Multi-Foto Kamera (Before/After/Cluster)',
                                             'signature' => '✍️ Tanda Tangan Digital (Signature Pad)',
                                             'barcode_scanner' => '🔍 Scan Barcode / QR Code',
-                                            'date' => '📅 Pilih Tanggal',
+                                            'month_year' => '🗓️ Pilih Bulan & Tahun (MM/YYYY - Expired Date)',
+                                            'date' => '📅 Pilih Tanggal Lengkap (DD/MM/YYYY)',
                                             'time' => '⏰ Pilih Jam / Waktu',
                                             'rating_star' => '⭐ Rating Bintang (1-5)',
                                             'slider' => '🎚️ Skala Slider (0-100)',
@@ -163,7 +164,7 @@ class ReportTemplateForm
                                         ->live()
                                         ->required(),
                                 ]),
-                                Grid::make(3)->schema([
+                                Grid::make(4)->schema([
                                     TextInput::make('placeholder')
                                         ->label('Placeholder / Teks Petunjuk')
                                         ->placeholder('Masukkan data...'),
@@ -172,6 +173,11 @@ class ReportTemplateForm
                                         ->placeholder('Contoh: Wajib foto tampak depan toko'),
                                     Toggle::make('is_required')
                                         ->label('Wajib Diisi (Mandatory)')
+                                        ->default(false)
+                                        ->inline(false),
+                                    Toggle::make('is_readonly')
+                                        ->label('Read Only (Hanya Baca)')
+                                        ->helperText('Otomatis terkunci / tidak bisa diedit user')
                                         ->default(false)
                                         ->inline(false),
                                 ]),
