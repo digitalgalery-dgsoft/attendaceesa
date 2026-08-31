@@ -666,9 +666,16 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Pengaturan per Jabatan di Admin Panel**:
       - Ditambahkan toggle `require_face_recognition` (boolean, default: true) pada menu *Master Data > Positions*.
       - Kolom indikator visual `Wajib Face AI` pada tabel daftar jabatan.
-    - **Kamera Liveness Wajib untuk Seluruh Pengambilan Foto Presensi**:
-      - Seluruh pengambilan foto presensi (baik jabatan wajib biometrik maupun opsional) **wajib melalui deteksi wajah AI & kedip mata (Liveness Detection)** secara real-time. Tombol jepret manual ditiadakan untuk menjaga integritas data absensi.
-      - Pembeda utama: Jabatan dengan status *Wajib Face Recognition* mewajibkan pencocokan/pendaftaran Foto Master Wajah, sedangkan status *Opsional* tetap memvalidasi bahwa subjek yang difoto adalah orang hidup yang berkedip secara langsung di depan kamera.
+    - **Standarisasi Kamera Liveness Wajib (Anti-Fraud & Anti-Spoofing)**:
+      - Seluruh pengambilan foto presensi (baik jabatan wajib biometrik maupun opsional) **wajib melalui deteksi wajah AI & kedip mata (Liveness Detection)** secara real-time.
+      - **Peniadaan Tombol Jepret Manual**: Tombol manual shutter ditiadakan dari kamera presensi agar karyawan tidak dapat mengambil foto sembarangan (misal: foto tembok, benda mati, atau foto cetak).
+      - **Matriks Kebijakan Presensi Wajah**:
+        | Fitur / Parameter | Wajib Face Recognition (Aktif) | Opsional Face Recognition (Non-Aktif) |
+        | :--- | :--- | :--- |
+        | **Kamera Presensi** | Wajib AI Liveness (Deteksi Wajah & Kedip) | Wajib AI Liveness (Deteksi Wajah & Kedip) |
+        | **Tombol Manual Shutter** | ❌ Ditiadakan | ❌ Ditiadakan |
+        | **Foto Master Wajah** | ⚠️ Wajib Terdaftar (Ada Notifikasi Wajib) | ℹ️ Bebas / Tidak Wajib Terdaftar |
+        | **Tujuan Keamanan** | Verifikasi Biometrik Identitas Penuh | Memastikan Kehadiran Fisik Orang Asli |
 
 26. **Sistem Registrasi & Notifikasi Wajah Master (Face Master Enrollment) (SELESAI 31 Agustus 2026, APK v1.0.109 - v1.0.110)**:
     - **Dashboard Banner & Notifikasi**:
