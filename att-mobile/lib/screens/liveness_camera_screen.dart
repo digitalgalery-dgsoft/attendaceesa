@@ -141,24 +141,24 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
         }
 
         if (leftEyeOpen != null && rightEyeOpen != null) {
-          if (leftEyeOpen > 0.7 && rightEyeOpen > 0.7) {
+          if (leftEyeOpen > 0.65 || rightEyeOpen > 0.65) {
             if (_isEyesClosed) {
               // Jika sebelumnya tertutup lalu terbuka lagi -> kedipan terjadi
               _hasBlinked = true;
               if (mounted) {
                 setState(() {
-                  _instruction = "✨ Kedipan Terdeteksi! Memproses...";
+                  _instruction = "✨ Wajah Terverifikasi! Mengambil foto...";
                 });
               }
               _captureAndReturn();
             } else {
               if (!_hasBlinked && mounted) {
                 setState(() {
-                  _instruction = "Silakan KEDIPKAN mata Anda 😉";
+                  _instruction = "Posisikan wajah & KEDIPKAN mata 😉";
                 });
               }
             }
-          } else if (leftEyeOpen < 0.2 && rightEyeOpen < 0.2) {
+          } else if (leftEyeOpen < 0.25 || rightEyeOpen < 0.25) {
             _isEyesClosed = true;
           }
         }
@@ -342,16 +342,14 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                   ),
                 ),
 
-                // Adaptive Mode Pill
+                // Liveness AI Mode Pill
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
-                    color: isRequired 
-                        ? const Color(0xFF0284C7).withValues(alpha: 0.85)
-                        : const Color(0xFFD97706).withValues(alpha: 0.85),
+                    color: const Color(0xFF0F52BA).withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isRequired ? Colors.cyanAccent.withValues(alpha: 0.5) : Colors.amberAccent.withValues(alpha: 0.5),
+                      color: const Color(0xFF38BDF8).withValues(alpha: 0.6),
                       width: 1,
                     ),
                     boxShadow: [
@@ -365,14 +363,14 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        isRequired ? Icons.verified_user : Icons.touch_app,
+                      const Icon(
+                        Icons.face_retouching_natural,
                         color: Colors.white,
-                        size: 14,
+                        size: 15,
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        isRequired ? 'Face Recog: Wajib' : 'Face Recog: Opsional',
+                        isRequired ? 'Face AI: Wajib (Jabatan)' : 'Face AI: Liveness Active',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11.5,
@@ -401,7 +399,7 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
 
           // ─── BOTTOM INSTRUCTIONS & CONTROLS ──────────────────────────────
           Positioned(
-            bottom: 30,
+            bottom: 35,
             left: 20,
             right: 20,
             child: Column(
@@ -448,41 +446,13 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
-                // Jika Opsional (atau tombol jepret manual disediakan)
-                if (!isRequired) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _captureAndReturn,
-                      icon: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
-                      label: const Text(
-                        'Jepret Foto Manual (Langsung)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        elevation: 4,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Jabatan Anda mendukung presensi tanpa deteksi kedipan.',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10.5),
-                  ),
-                ] else ...[
-                  // If required, we also show a small fallback after a few seconds if camera struggle
-                  Text(
-                    'Posisikan wajah Anda tepat di dalam lingkaran dan kedipkan mata.',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+                Text(
+                  'Posisikan wajah Anda tepat di dalam lingkaran dan kedipkan mata.',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
           ),

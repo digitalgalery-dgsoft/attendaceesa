@@ -272,14 +272,11 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   }
 
   Future<void> _submitAttendance() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final posData = authProvider.employeeData?['position'];
-    final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? true) : true;
-
-    if (isFaceRequired && _selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in')) {
+    if (_selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in')) {
       toastification.show(
         context: context,
-        title: const Text('Silakan ambil foto selfie verifikasi wajah terlebih dahulu'),
+        title: const Text('Foto Selfie Wajib'),
+        description: const Text('Silakan ambil foto selfie liveness detection terlebih dahulu.'),
         type: ToastificationType.warning,
         style: ToastificationStyle.flat,
         alignment: Alignment.topRight,
@@ -1310,31 +1307,29 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                               decoration: BoxDecoration(
                                 color: isFaceRequired
                                     ? (isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF))
-                                    : (isDarkMode ? const Color(0xFF272115) : const Color(0xFFFEF3C7)),
+                                    : (isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF)),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: isFaceRequired
-                                      ? const Color(0xFF38BDF8).withValues(alpha: 0.4)
-                                      : Colors.amber.shade300,
+                                  color: const Color(0xFF38BDF8).withValues(alpha: 0.4),
                                 ),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(
-                                    isFaceRequired ? Icons.verified_user : Icons.touch_app,
+                                  const Icon(
+                                    Icons.face_retouching_natural,
                                     size: 16,
-                                    color: isFaceRequired ? const Color(0xFF0284C7) : const Color(0xFFD97706),
+                                    color: Color(0xFF0284C7),
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       isFaceRequired
-                                          ? 'Face Recognition AI: Wajib ($posName)'
-                                          : 'Face Recognition: Opsional ($posName)',
-                                      style: TextStyle(
+                                          ? 'Face Recognition AI: Wajib Biometrik Master ($posName)'
+                                          : 'Foto Presensi: Liveness AI Detection ($posName)',
+                                      style: const TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
-                                        color: isFaceRequired ? const Color(0xFF0284C7) : const Color(0xFFB45309),
+                                        color: Color(0xFF0284C7),
                                       ),
                                     ),
                                   ),
