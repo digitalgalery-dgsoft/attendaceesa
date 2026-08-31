@@ -14,10 +14,35 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
 $action = $_GET['action'] ?? 'list';
+$error = null;
+$seedOutput = null;
 
 if ($action === 'seed') {
-    Artisan::call('db:seed', ['--class' => 'ReportTemplatePresetsSeeder', '--force' => true]);
-    $seedOutput = Artisan::output();
+    try {
+        Artisan::call('db:seed', ['--class' => 'ReportTemplatePresetsSeeder', '--force' => true]);
+        $seedOutput = Artisan::output();
+    } catch (\Throwable $e) {
+        $error = [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
+        ];
+    }
+}
+
+if ($action === 'migrate') {
+    try {
+        Artisan::call('migrate', ['--force' => true]);
+        $seedOutput = Artisan::output();
+    } catch (\Throwable $e) {
+        $error = [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
+        ];
+    }
 }
 
 $duluxPrincipals = Principal::where(function ($q) {
@@ -61,4 +86,5 @@ echo json_encode([
     }),
     'migrations' => $migrations,
     'seed_output' => $seedOutput ?? null,
+    'error' => $error,
 ], JSON_PRETTY_PRINT);
