@@ -352,7 +352,8 @@ class CreateWorkingGroup extends Page
             ->unique(fn($b) => trim(strtoupper($b->name)))
             ->pluck('name', 'id');
 
-        $principals = Principal::whereNotNull('name')
+        $principals = Principal::where('is_active', true)
+            ->whereNotNull('name')
             ->where('name', '!=', '')
             ->orderBy('name')
             ->get()

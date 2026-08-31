@@ -75,7 +75,7 @@ class WorkLocationsTable
             ])
             ->filters([
                 \Filament\Tables\Filters\SelectFilter::make('principal_id')
-                    ->relationship('principal', 'name')
+                    ->relationship('principal', 'name', fn ($query) => $query->where('is_active', true))
                     ->label('Prinsiple')
                     ->searchable()
                     ->preload(),

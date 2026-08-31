@@ -37,7 +37,7 @@ class EmployeeForm
                             ->dehydrateStateUsing(fn ($state) => \Illuminate\Support\Facades\Hash::make($state)),
                     ]),
                 Select::make('principal_id')
-                    ->relationship('principal', 'name')
+                    ->relationship('principal', 'name', fn ($query) => $query->where('is_active', true))
                     ->label('Prinsiple')
                     ->searchable()
                     ->preload()

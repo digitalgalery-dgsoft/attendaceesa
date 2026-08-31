@@ -79,7 +79,7 @@ class ProductsTable
             ->filters([
                 SelectFilter::make('principal_id')
                     ->label('Filter Prinsiple')
-                    ->relationship('principal', 'name')
+                    ->relationship('principal', 'name', fn ($query) => $query->where('is_active', true))
                     ->searchable()
                     ->preload(),
 

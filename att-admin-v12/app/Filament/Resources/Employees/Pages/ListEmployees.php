@@ -60,7 +60,7 @@ class ListEmployees extends ListRecords
                         ->searchable()
                         ->preload()
                         ->options(function () {
-                            $query = Principal::query();
+                            $query = Principal::where('is_active', true);
                             if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
                                 $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
                             }

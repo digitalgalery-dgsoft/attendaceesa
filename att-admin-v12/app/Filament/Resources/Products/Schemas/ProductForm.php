@@ -22,7 +22,7 @@ class ProductForm
                     ->schema([
                         Grid::make(2)->schema([
                             Select::make('principal_id')
-                                ->relationship('principal', 'name')
+                                ->relationship('principal', 'name', fn ($query) => $query->where('is_active', true))
                                 ->label('Prinsiple Brand')
                                 ->searchable()
                                 ->preload()

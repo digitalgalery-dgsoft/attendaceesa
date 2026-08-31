@@ -83,7 +83,7 @@ class VisitReportResource extends Resource
                                 ->label('BA / PIC yang Ditemui'),
                             Select::make('principal_id')
                                 ->label('Prinsiple')
-                                ->relationship('principal', 'name')
+                                ->relationship('principal', 'name', fn ($query) => $query->where('is_active', true))
                                 ->searchable()
                                 ->preload(),
                             Select::make('grooming_condition')

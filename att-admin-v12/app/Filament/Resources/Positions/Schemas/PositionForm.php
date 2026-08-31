@@ -15,7 +15,7 @@ class PositionForm
         return $schema
             ->components([
                 Select::make('principal_id')
-                    ->relationship('principal', 'name')
+                    ->relationship('principal', 'name', fn ($query) => $query->where('is_active', true))
                     ->label('Prinsiple')
                     ->searchable()
                     ->preload()

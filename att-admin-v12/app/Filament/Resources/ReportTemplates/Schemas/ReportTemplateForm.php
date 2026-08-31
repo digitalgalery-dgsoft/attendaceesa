@@ -28,7 +28,7 @@ class ReportTemplateForm
                     ->schema([
                         Grid::make(3)->schema([
                             Select::make('principals')
-                                ->relationship('principals', 'name', modifyQueryUsing: fn ($query) => $query->with('company'))
+                                ->relationship('principals', 'name', modifyQueryUsing: fn ($query) => $query->where('principals.is_active', true)->with('company'))
                                 ->getOptionLabelFromRecordUsing(fn (\App\Models\Principal $record) => $record->name . ($record->company ? " [{$record->company->name}]" : ''))
                                 ->label('Prinsiple Klien (Pilihan Multipel)')
                                 ->multiple()

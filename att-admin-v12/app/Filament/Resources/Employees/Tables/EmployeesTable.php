@@ -162,6 +162,7 @@ class EmployeesTable
                     ->searchable()
                     ->preload()
                     ->relationship('principal', 'name', function (\Illuminate\Database\Eloquent\Builder $query) {
+                        $query->where('is_active', true);
                         if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
                             $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
                         }

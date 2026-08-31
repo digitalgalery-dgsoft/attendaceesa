@@ -171,7 +171,7 @@ class ListItineraries extends Page
 
     public function getPrincipalOptionsProperty(): array
     {
-        $query = Principal::orderBy('name');
+        $query = Principal::where('is_active', true)->orderBy('name');
         if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
             $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
         }

@@ -124,7 +124,7 @@ class MeetingForm
                     ->schema([
                         Select::make('filter_principal_id')
                             ->label('Filter by Principal')
-                            ->options(Principal::pluck('name', 'id'))
+                            ->options(Principal::where('is_active', true)->pluck('name', 'id'))
                             ->searchable()
                             ->live()
                             ->dehydrated(false)

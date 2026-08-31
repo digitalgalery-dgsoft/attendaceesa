@@ -98,7 +98,7 @@ class ReportTemplatesTable
             ])
             ->filters([
                 SelectFilter::make('principals')
-                    ->relationship('principals', 'name')
+                    ->relationship('principals', 'name', fn ($query) => $query->where('principals.is_active', true))
                     ->label('Filter Prinsiple')
                     ->searchable()
                     ->preload(),

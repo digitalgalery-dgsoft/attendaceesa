@@ -130,7 +130,7 @@ class MandaysReport extends Page implements HasForms
                     Select::make('principal_id')
                         ->label('Prinsiple')
                         ->options(function () {
-                            $query = Principal::orderBy('name');
+                            $query = Principal::where('is_active', true)->orderBy('name');
                             if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
                                 $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
                             }

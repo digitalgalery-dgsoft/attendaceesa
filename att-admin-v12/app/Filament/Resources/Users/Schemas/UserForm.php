@@ -39,7 +39,7 @@ class UserForm
                     ->label('Prinsiple yang Di-handle')
                     ->helperText('Pilih prinsiple yang dapat diakses oleh user ini. Jika dikosongkan, user dapat mengakses seluruh prinsiple.')
                     ->multiple()
-                    ->relationship('principals', 'name')
+                    ->relationship('principals', 'name', fn ($query) => $query->where('principals.is_active', true))
                     ->preload()
                     ->searchable(),
                 \Filament\Forms\Components\Select::make('employee_id')
