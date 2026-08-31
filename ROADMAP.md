@@ -662,16 +662,15 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Pengajuan izin / cuti / sakit yang berstatus `pending` (belum disetujui) pada matriks kehadiran kini menampilkan badge kode **`LR`** dengan warna oranye/kuning (tidak dihitung sebagai Alpha).
       - Menampilkan subteks jenis izin (`Izin`, `Cuti`, `Sakit`) pada tampilan web dan output kode `LR` pada ekspor Excel matriks.
 
-25. **Sistem Face Recognition Adaptive per Jabatan Karyawan (SELESAI 31 Agustus 2026, APK v1.0.108)**:
+25. **Sistem Face Recognition Adaptive per Jabatan Karyawan (SELESAI 31 Agustus 2026, APK v1.0.108 - v1.0.110)**:
     - **Pengaturan per Jabatan di Admin Panel**:
       - Ditambahkan toggle `require_face_recognition` (boolean, default: true) pada menu *Master Data > Positions*.
       - Kolom indikator visual `Wajib Face AI` pada tabel daftar jabatan.
-    - **Kamera Liveness Adaptif di Mobile (`liveness_camera_screen.dart`)**:
-      - Status badge dinamis di bagian atas kamera: `Face Recog: Wajib` (Cyan) vs `Face Recog: Opsional` (Amber).
-      - Untuk jabatan opsional: Tersedia tombol prominent **"📸 Jepret Foto Manual (Langsung)"** tanpa kewajiban kedipan mata / liveness AI.
-      - Penyesuaian validasi unggah foto di `AttendanceController@store`.
+    - **Kamera Liveness Wajib untuk Seluruh Pengambilan Foto Presensi**:
+      - Seluruh pengambilan foto presensi (baik jabatan wajib biometrik maupun opsional) **wajib melalui deteksi wajah AI & kedip mata (Liveness Detection)** secara real-time. Tombol jepret manual ditiadakan untuk menjaga integritas data absensi.
+      - Pembeda utama: Jabatan dengan status *Wajib Face Recognition* mewajibkan pencocokan/pendaftaran Foto Master Wajah, sedangkan status *Opsional* tetap memvalidasi bahwa subjek yang difoto adalah orang hidup yang berkedip secara langsung di depan kamera.
 
-26. **Sistem Registrasi & Notifikasi Wajah Master (Face Master Enrollment) (SELESAI 31 Agustus 2026, APK v1.0.109)**:
+26. **Sistem Registrasi & Notifikasi Wajah Master (Face Master Enrollment) (SELESAI 31 Agustus 2026, APK v1.0.109 - v1.0.110)**:
     - **Dashboard Banner & Notifikasi**:
       - Untuk jabatan yang wajib Face Recognition dan belum memiliki foto master wajah, muncul **Banner Alert Merah / Oranye** di Dashboard: *"Registrasi Wajah Master Diperlukan (WAJIB)"* lengkap dengan tombol aksi langsung: **`📸 Daftarkan Wajah Master Sekarang`**.
       - Toast peringatan otomatis muncul saat aplikasi dibuka.
@@ -681,6 +680,9 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Monitoring Admin Panel**:
       - Label form edit karyawan disempurnakan menjadi **"Foto Master Wajah / Profil (Face Recognition Reference)"**.
       - Kolom `Face Master` dengan status boolean pada tabel daftar Karyawan (`EmployeesTable.php`).
+    - **Rilis APK v1.0.110**:
+      - Versi aplikasi dinaikkan ke **`v1.0.110+110`**.
+      - File APK rilis siap pasang berhasil dikompilasi: `app-release-1.0.110.apk` dan `app-release.apk` (106.0 MB).
 
 ---
 
