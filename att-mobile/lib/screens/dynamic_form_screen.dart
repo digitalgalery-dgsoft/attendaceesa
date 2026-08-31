@@ -2561,6 +2561,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       _buildProductInfoChip('Kategori: ${matchedProduct.category}', Colors.teal, isDarkMode),
                     if (matchedProduct.brand != null && matchedProduct.brand!.isNotEmpty)
                       _buildProductInfoChip('Brand: ${matchedProduct.brand}', Colors.indigo, isDarkMode),
+                    if (matchedProduct.minStock > 0)
+                      _buildProductInfoChip('Min Stock: ${matchedProduct.minStock} ${matchedProduct.uom}', Colors.amber.shade800, isDarkMode),
                     if (matchedProduct.formattedPrice != null && matchedProduct.formattedPrice!.isNotEmpty)
                       _buildProductInfoChip(matchedProduct.formattedPrice!, Colors.orange, isDarkMode),
                   ],
@@ -2777,13 +2779,48 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     }
 
-    if (autoCategoryResult != null) {
+    // 3. Auto-Fill Stock Minimal Standar jika ada field minimal_stock / min_stock / minimum_stock_qty / stok_minimal
+    int? autoMinStockResult;
+    for (final field in widget.template.fields) {
+      final fName = field.fieldName.toLowerCase();
+      final fLabel = field.fieldLabel.toLowerCase();
+
+      final isMinStockField = fName.contains('minimal_stock') ||
+          fName.contains('minimum_stock') ||
+          fName.contains('min_stock') ||
+          fName.contains('stok_minimal') ||
+          fName.contains('stock_minimal') ||
+          fName == 'min_stock_qty' ||
+          fLabel.contains('minimum stock') ||
+          fLabel.contains('minimal stock') ||
+          fLabel.contains('stok minimal') ||
+          fLabel.contains('stock minimal') ||
+          fLabel.contains('min stock');
+
+      if (field.id.toString() != targetFieldKey && isMinStockField) {
+        final minStockKey = field.id.toString();
+        final stockVal = product.minStock;
+        setState(() {
+          _formValues[minStockKey] = stockVal.toString();
+          _controllers[minStockKey]?.text = stockVal.toString();
+        });
+        autoMinStockResult = stockVal;
+        break;
+      }
+    }
+
+    if (autoCategoryResult != null || autoMinStockResult != null) {
+      final details = <String>[];
+      if (autoCategoryResult != null) details.add('Kategori: $autoCategoryResult');
+      if (autoKemasanResult != null) details.add('Kemasan: $autoKemasanResult');
+      if (autoMinStockResult != null && autoMinStockResult > 0) details.add('Min Stock: $autoMinStockResult ${product.uom}');
+
       toastification.show(
         context: context,
         type: ToastificationType.success,
         style: ToastificationStyle.flatColored,
         title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        description: Text('Kategori otomatis terpilih: $autoCategoryResult' + (autoKemasanResult != null ? ' | Kemasan: $autoKemasanResult' : ''), style: const TextStyle(fontSize: 12)),
+        description: Text(details.join(' | '), style: const TextStyle(fontSize: 12)),
         alignment: Alignment.topCenter,
         autoCloseDuration: const Duration(seconds: 3),
       );
@@ -3108,6 +3145,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                                                   _buildProductInfoChip(p.category!, Colors.teal, isDarkMode),
                                                 if (p.brand != null && p.brand!.isNotEmpty)
                                                   _buildProductInfoChip(p.brand!, Colors.indigo, isDarkMode),
+                                                if (p.minStock > 0)
+                                                  _buildProductInfoChip('Min: ${p.minStock} ${p.uom}', Colors.amber.shade800, isDarkMode),
                                               ],
                                             ),
                                           ],

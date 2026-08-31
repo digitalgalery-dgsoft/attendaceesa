@@ -125,6 +125,7 @@ class TemplateProductModel {
   final double price;
   final String? formattedPrice;
   final String uom;
+  final int minStock;
 
   TemplateProductModel({
     required this.id,
@@ -136,6 +137,7 @@ class TemplateProductModel {
     this.price = 0.0,
     this.formattedPrice,
     this.uom = 'Pcs',
+    this.minStock = 0,
   });
 
   factory TemplateProductModel.fromJson(Map<String, dynamic> json) {
@@ -149,6 +151,11 @@ class TemplateProductModel {
       price: json['price'] is num ? (json['price'] as num).toDouble() : double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
       formattedPrice: json['formatted_price'],
       uom: json['uom'] ?? 'Pcs',
+      minStock: json['min_stock'] is num
+          ? (json['min_stock'] as num).toInt()
+          : (json['minimal_stock'] is num
+              ? (json['minimal_stock'] as num).toInt()
+              : int.tryParse(json['min_stock']?.toString() ?? json['minimal_stock']?.toString() ?? '0') ?? 0),
     );
   }
 
@@ -163,6 +170,7 @@ class TemplateProductModel {
       'price': price,
       'formatted_price': formattedPrice,
       'uom': uom,
+      'min_stock': minStock,
     };
   }
 }

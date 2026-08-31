@@ -20,6 +20,7 @@ class Product extends Model
         'category',
         'brand',
         'price',
+        'min_stock',
         'uom',
         'image_path',
         'description',
@@ -29,7 +30,18 @@ class Product extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'price' => 'decimal:2',
+        'min_stock' => 'integer',
     ];
+
+    public function getMinimalStockAttribute(): int
+    {
+        return (int) ($this->min_stock ?? 0);
+    }
+
+    public function getMinimumStockAttribute(): int
+    {
+        return (int) ($this->min_stock ?? 0);
+    }
 
     public function principal(): BelongsTo
     {

@@ -381,6 +381,43 @@
         gap: 0.85rem;
     }
 
+    .form-grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 0.85rem;
+    }
+
+    @media (max-width: 640px) {
+        .form-grid-3 {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .stock-min-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.22rem 0.55rem;
+        background: #fef3c7;
+        color: #b45309;
+        border-radius: 9999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        border: 1px solid #fde68a;
+    }
+
+    .excel-file-icon-badge {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        background: #dcfce7;
+        color: #16a34a;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+
     /* Professional Photo Dropzone */
     .pro-upload-dropzone {
         border: 2px dashed #cbd5e1;
@@ -632,6 +669,7 @@
                             <th>Brand</th>
                             <th>Kategori</th>
                             <th>Harga Standar</th>
+                            <th>Stock Min</th>
                             <th>Satuan</th>
                             <th>Barcode</th>
                             <th style="text-align: center;">Aksi</th>
@@ -674,6 +712,12 @@
                                 <td>
                                     <span style="font-weight: 800; color: #16a34a;">
                                         {{ $prod->formatted_price }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="stock-min-badge" title="Stock Minimal Standar Toko">
+                                        <i class="fa-solid fa-boxes-stacked" style="font-size: 0.7rem; margin-right: 3px;"></i>
+                                        {{ $prod->min_stock ?? 0 }} {{ $prod->uom ?? 'Pcs' }}
                                     </span>
                                 </td>
                                 <td>
@@ -769,10 +813,14 @@
                     </div>
                 </div>
 
-                <div class="form-grid-2 form-group-row">
+                <div class="form-grid-3 form-group-row">
                     <div>
                         <label class="form-label-custom">Harga Standar (Rp)</label>
                         <input type="number" name="price" class="form-input-custom" placeholder="0" min="0">
+                    </div>
+                    <div>
+                        <label class="form-label-custom">Stock Minimal Toko</label>
+                        <input type="number" name="min_stock" class="form-input-custom" placeholder="0" min="0" value="0">
                     </div>
                     <div>
                         <label class="form-label-custom">Satuan Unit (UoM)</label>
@@ -860,10 +908,14 @@
                     </div>
                 </div>
 
-                <div class="form-grid-2 form-group-row">
+                <div class="form-grid-3 form-group-row">
                     <div>
                         <label class="form-label-custom">Harga Standar (Rp)</label>
                         <input type="number" id="edit_price" name="price" class="form-input-custom" min="0">
+                    </div>
+                    <div>
+                        <label class="form-label-custom">Stock Minimal Toko</label>
+                        <input type="number" id="edit_min_stock" name="min_stock" class="form-input-custom" min="0">
                     </div>
                     <div>
                         <label class="form-label-custom">Satuan Unit (UoM)</label>
@@ -931,7 +983,7 @@
                         Pastikan baris pertama (Header) berisi kolom berikut:
                         <br>
                         <code style="font-weight: 700; color: #0f172a; background: #e2e8f0; padding: 0.2rem 0.4rem; border-radius: 4px; display: inline-block; margin-top: 0.35rem;">
-                            nama_produk, kode_sku, barcode, brand, kategori, harga, satuan, deskripsi
+                            nama_produk, kode_sku, barcode, brand, kategori, harga, satuan, stok_minimal, deskripsi
                         </code>
                     </div>
                     <div style="margin-top: 0.85rem;">
@@ -941,9 +993,30 @@
                     </div>
                 </div>
 
+                <!-- Professional Excel/CSV Upload Dropzone -->
                 <div class="form-group-row">
-                    <label class="form-label-custom">Pilih File (.xlsx, .xls, atau .csv) <span style="color: #ef4444;">*</span></label>
-                    <input type="file" name="file" class="form-input-custom" accept=".xlsx,.xls,.csv,.txt" required>
+                    <label class="form-label-custom">Upload File Excel / CSV <span style="color: #ef4444;">*</span></label>
+                    <div class="pro-upload-dropzone" id="excel_dropzone" onclick="document.getElementById('import_excel_file_input').click()">
+                        <div class="pro-upload-icon" style="color: #16a34a; background: #f0fdf4;">
+                            <i class="fa-solid fa-file-excel"></i>
+                        </div>
+                        <div class="pro-upload-text-main">Klik untuk memilih atau seret file Excel/CSV ke sini</div>
+                        <div class="pro-upload-text-sub">Format yang didukung: <strong>.xlsx, .xls, .csv</strong> (Maks. 10MB)</div>
+                        <input type="file" id="import_excel_file_input" name="file" accept=".xlsx,.xls,.csv,.txt" style="display: none;" required onchange="handleExcelFilePreview(this)">
+                    </div>
+                    
+                    <div id="excel_preview_box" class="pro-preview-box">
+                        <div class="excel-file-icon-badge">
+                            <i class="fa-solid fa-file-excel"></i>
+                        </div>
+                        <div class="pro-preview-info">
+                            <div id="excel_preview_name" class="pro-preview-filename">-</div>
+                            <div id="excel_preview_size" class="pro-preview-filesize" style="font-size: 0.75rem; color: #16a34a; font-weight: 600;">-</div>
+                        </div>
+                        <button type="button" class="pro-preview-remove" onclick="removeExcelFilePreview()">
+                            <i class="fa-solid fa-xmark"></i> Hapus / Ganti
+                        </button>
+                    </div>
                 </div>
 
                 <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
@@ -964,6 +1037,7 @@
     }
 
     function openImportModal() {
+        removeExcelFilePreview();
         document.getElementById('modalImportProduct').classList.add('active');
     }
 
@@ -975,6 +1049,7 @@
         document.getElementById('edit_brand').value = prod.brand || '';
         document.getElementById('edit_category').value = prod.category || '';
         document.getElementById('edit_price').value = prod.price || 0;
+        document.getElementById('edit_min_stock').value = prod.min_stock || 0;
         document.getElementById('edit_uom').value = prod.uom || 'Pcs';
         document.getElementById('edit_description').value = prod.description || '';
 
@@ -1039,6 +1114,68 @@
         var box = document.getElementById(boxId);
         if (box) box.classList.remove('show');
     }
+
+    // Professional Excel File Preview Handler
+    function handleExcelFilePreview(input) {
+        var box = document.getElementById('excel_preview_box');
+        var dropzone = document.getElementById('excel_dropzone');
+        var nameElem = document.getElementById('excel_preview_name');
+        var sizeElem = document.getElementById('excel_preview_size');
+
+        if (input.files && input.files[0]) {
+            var file = input.files[0];
+
+            if (file.size > 10 * 1024 * 1024) {
+                alert('Ukuran file terlalu besar! Maksimal 10MB.');
+                input.value = '';
+                box.classList.remove('show');
+                return;
+            }
+
+            nameElem.textContent = file.name;
+            var sizeKB = (file.size / 1024).toFixed(1);
+            var sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            sizeElem.textContent = (file.size > 1024 * 1024 ? sizeMB + ' MB' : sizeKB + ' KB') + ' • Siap diimpor';
+            box.classList.add('show');
+            if (dropzone) dropzone.style.borderColor = '#16a34a';
+        } else {
+            box.classList.remove('show');
+            if (dropzone) dropzone.style.borderColor = '#cbd5e1';
+        }
+    }
+
+    function removeExcelFilePreview() {
+        var input = document.getElementById('import_excel_file_input');
+        if (input) input.value = '';
+        var box = document.getElementById('excel_preview_box');
+        if (box) box.classList.remove('show');
+        var dropzone = document.getElementById('excel_dropzone');
+        if (dropzone) dropzone.style.borderColor = '#cbd5e1';
+    }
+
+    // Drag and Drop listeners for dropzones
+    document.querySelectorAll('.pro-upload-dropzone').forEach(function (zone) {
+        zone.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            zone.classList.add('dragover');
+        });
+        zone.addEventListener('dragleave', function (e) {
+            zone.classList.remove('dragover');
+        });
+        zone.addEventListener('drop', function (e) {
+            e.preventDefault();
+            zone.classList.remove('dragover');
+            var input = zone.querySelector('input[type="file"]');
+            if (input && e.dataTransfer.files.length > 0) {
+                input.files = e.dataTransfer.files;
+                if (input.id === 'import_excel_file_input') {
+                    handleExcelFilePreview(input);
+                } else {
+                    input.dispatchEvent(new Event('change'));
+                }
+            }
+        });
+    });
 
     // Close on click outside card
     document.querySelectorAll('.portal-modal-overlay').forEach(function (overlay) {

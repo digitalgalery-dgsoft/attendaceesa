@@ -62,6 +62,13 @@ class ProductsTable
                     ->money('IDR', locale: 'id')
                     ->sortable(),
 
+                TextColumn::make('min_stock')
+                    ->label('Min Stock')
+                    ->numeric()
+                    ->badge()
+                    ->color('warning')
+                    ->sortable(),
+
                 TextColumn::make('uom')
                     ->label('Satuan')
                     ->toggleable(isToggledHiddenByDefault: true),

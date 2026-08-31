@@ -65,12 +65,19 @@ class ProductForm
                                 ->nullable()
                                 ->maxLength(100),
 
-                            Grid::make(2)->schema([
+                            Grid::make(3)->schema([
                                 TextInput::make('price')
                                     ->label('Harga Standar (Rupiah)')
                                     ->numeric()
                                     ->prefix('Rp')
                                     ->default(0)
+                                    ->required(),
+
+                                TextInput::make('min_stock')
+                                    ->label('Stock Minimal Toko (Qty)')
+                                    ->numeric()
+                                    ->default(0)
+                                    ->helperText('Nilai acuan standar stok minimal pada form OOS / field minimal_stock.')
                                     ->required(),
 
                                 TextInput::make('uom')

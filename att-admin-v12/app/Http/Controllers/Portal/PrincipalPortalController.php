@@ -610,6 +610,7 @@ class PrincipalPortalController extends Controller
             'brand' => 'nullable|string|max:100',
             'category' => 'nullable|string|max:100',
             'price' => 'nullable|numeric|min:0',
+            'min_stock' => 'nullable|integer|min:0',
             'uom' => 'nullable|string|max:50',
             'description' => 'nullable|string|max:1000',
             'image' => 'nullable|image|max:4096',
@@ -630,6 +631,7 @@ class PrincipalPortalController extends Controller
                 'brand' => !empty($validated['brand']) ? trim($validated['brand']) : null,
                 'category' => !empty($validated['category']) ? trim($validated['category']) : null,
                 'price' => $validated['price'] ?? 0,
+                'min_stock' => $validated['min_stock'] ?? 0,
                 'uom' => !empty($validated['uom']) ? trim($validated['uom']) : 'Pcs',
                 'description' => $validated['description'] ?? null,
                 'image_path' => $imagePath,
@@ -660,6 +662,7 @@ class PrincipalPortalController extends Controller
             'brand' => 'nullable|string|max:100',
             'category' => 'nullable|string|max:100',
             'price' => 'nullable|numeric|min:0',
+            'min_stock' => 'nullable|integer|min:0',
             'uom' => 'nullable|string|max:50',
             'description' => 'nullable|string|max:1000',
             'image' => 'nullable|image|max:4096',
@@ -676,6 +679,7 @@ class PrincipalPortalController extends Controller
             'brand' => !empty($validated['brand']) ? trim($validated['brand']) : null,
             'category' => !empty($validated['category']) ? trim($validated['category']) : null,
             'price' => $validated['price'] ?? 0,
+            'min_stock' => $validated['min_stock'] ?? 0,
             'uom' => !empty($validated['uom']) ? trim($validated['uom']) : 'Pcs',
             'description' => $validated['description'] ?? null,
         ]);
@@ -718,12 +722,12 @@ class PrincipalPortalController extends Controller
             fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM
 
             // Header format
-            fputcsv($handle, ['nama_produk', 'kode_sku', 'barcode', 'brand', 'kategori', 'harga', 'satuan', 'deskripsi']);
+            fputcsv($handle, ['nama_produk', 'kode_sku', 'barcode', 'brand', 'kategori', 'harga', 'satuan', 'stok_minimal', 'deskripsi']);
 
             // Sample rows
-            fputcsv($handle, ['SoKlin Liquid Antibacterial 720ml', 'WNG-SKL-LIQ-720', '8998866101102', 'SoKlin', 'Care / Detergent', '19500', 'Pouch', 'Deterjen cair konsentrat antibakteri']);
-            fputcsv($handle, ['Mie Sedaap Goreng Original 90g', 'WNG-MSD-GRG-90', '8998866200010', 'Mie Sedaap', 'Food & Beverage', '3200', 'Bks', 'Mie instan goreng bawang renyah']);
-            fputcsv($handle, ['Nuvo Family Soap 76g', 'LNW-NVO-MRH-76', '8998866600015', 'Nuvo', 'Personal Care', '4500', 'Pcs', 'Sabun mandi antibakteri']);
+            fputcsv($handle, ['SoKlin Liquid Antibacterial 720ml', 'WNG-SKL-LIQ-720', '8998866101102', 'SoKlin', 'Care / Detergent', '19500', 'Pouch', '12', 'Deterjen cair konsentrat antibakteri']);
+            fputcsv($handle, ['Mie Sedaap Goreng Original 90g', 'WNG-MSD-GRG-90', '8998866200010', 'Mie Sedaap', 'Food & Beverage', '3200', 'Bks', '40', 'Mie instan goreng bawang renyah']);
+            fputcsv($handle, ['Nuvo Family Soap 76g', 'LNW-NVO-MRH-76', '8998866600015', 'Nuvo', 'Personal Care', '4500', 'Pcs', '24', 'Sabun mandi antibakteri']);
 
             fclose($handle);
         };
@@ -822,6 +826,8 @@ class PrincipalPortalController extends Controller
             $category = $r['kategori'] ?? $r['category'] ?? null;
             $priceRaw = $r['harga'] ?? $r['price'] ?? $r['harga_standar'] ?? 0;
             $price = (float) preg_replace('/[^0-9.]/', '', (string)$priceRaw);
+            $minStockRaw = $r['stok_minimal'] ?? $r['min_stock'] ?? $r['minimal_stock'] ?? $r['minimum_stock'] ?? $r['stock_minimal'] ?? $r['min_stock_qty'] ?? $r['stok_min'] ?? 0;
+            $minStock = (int) preg_replace('/[^0-9]/', '', (string)$minStockRaw);
             $uom = $r['satuan'] ?? $r['uom'] ?? 'Pcs';
             $description = $r['deskripsi'] ?? $r['description'] ?? $r['keterangan'] ?? null;
 
@@ -835,6 +841,7 @@ class PrincipalPortalController extends Controller
                     'brand' => !empty($brand) ? trim((string)$brand) : null,
                     'category' => !empty($category) ? trim((string)$category) : null,
                     'price' => $price,
+                    'min_stock' => $minStock,
                     'uom' => !empty($uom) ? trim((string)$uom) : 'Pcs',
                     'description' => $description,
                     'is_active' => true,

@@ -213,6 +213,9 @@ class ReportingApiController extends Controller
                         'price' => (float) ($p->price ?? 0),
                         'formatted_price' => $p->formatted_price,
                         'uom' => $p->uom ?? 'Pcs',
+                        'min_stock' => (int) ($p->min_stock ?? 0),
+                        'minimal_stock' => (int) ($p->min_stock ?? 0),
+                        'minimum_stock' => (int) ($p->min_stock ?? 0),
                     ];
                 })->values(),
                 'fields' => $t->fields->map(function ($f) use ($productNames, $templateProducts) {
