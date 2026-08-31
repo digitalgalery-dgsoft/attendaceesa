@@ -1218,27 +1218,44 @@
 
     function syncConfigFromDomOrder() {
         var cards = document.querySelectorAll('#dashboard_canvas .widget-card');
-        var newWidgets = [];
+        if (!cards || cards.length === 0) return;
+
+        var idMap = {};
+        (currentDashboardConfig.widgets || []).forEach(function(w) {
+            idMap[w.id] = w;
+        });
+
+        var orderedWidgets = [];
         cards.forEach(function (card) {
-            var raw = card.getAttribute('data-widget-json');
-            if (raw) {
-                try {
-                    newWidgets.push(JSON.parse(raw));
-                } catch (e) {}
+            var wId = card.getAttribute('data-widget-id');
+            if (wId && idMap[wId]) {
+                orderedWidgets.push(idMap[wId]);
             }
         });
-        currentDashboardConfig.widgets = newWidgets;
+
+        // Pastikan widget baru yang belum ada di DOM tetap disertakan
+        (currentDashboardConfig.widgets || []).forEach(function(w) {
+            if (!orderedWidgets.some(function(ow) { return ow.id === w.id; })) {
+                orderedWidgets.push(w);
+            }
+        });
+
+        if (orderedWidgets.length > 0) {
+            currentDashboardConfig.widgets = orderedWidgets;
+        }
     }
 
     // Cycle Width: 3 -> 4 -> 6 -> 8 -> 12 -> 3
     function cycleWidgetWidth(wId) {
         var card = document.getElementById(wId);
         if (!card) return;
-        var raw = card.getAttribute('data-widget-json');
-        var w = raw ? JSON.parse(raw) : null;
-        if (!w) return;
 
-        var currentSpan = w.col_span || 6;
+        var currentSpan = 6;
+        var wIndex = (currentDashboardConfig.widgets || []).findIndex(function(w) { return w.id === wId; });
+        if (wIndex >= 0) {
+            currentSpan = currentDashboardConfig.widgets[wIndex].col_span || 6;
+        }
+
         var nextSpan = 6;
         if (currentSpan === 3) nextSpan = 4;
         else if (currentSpan === 4) nextSpan = 6;
@@ -1246,21 +1263,22 @@
         else if (currentSpan === 8) nextSpan = 12;
         else if (currentSpan === 12) nextSpan = 3;
 
-        w.col_span = nextSpan;
-        card.className = card.className.replace(/col-span-\d+/, 'col-span-' + nextSpan);
-        card.setAttribute('data-widget-json', JSON.stringify(w));
+        if (wIndex >= 0) {
+            currentDashboardConfig.widgets[wIndex].col_span = nextSpan;
+        }
 
+        card.className = card.className.replace(/col-span-\d+/, 'col-span-' + nextSpan);
         var spanBadge = card.querySelector('.studio-widget-toolbar span:nth-child(2)');
         if (spanBadge) spanBadge.textContent = nextSpan + '/12';
-
-        syncConfigFromDomOrder();
     }
 
     function deleteWidget(wId) {
         if (!confirm('Apakah Anda yakin ingin menghapus widget ini dari dashboard?')) return;
         var card = document.getElementById(wId);
         if (card) card.remove();
-        syncConfigFromDomOrder();
+        if (currentDashboardConfig.widgets) {
+            currentDashboardConfig.widgets = currentDashboardConfig.widgets.filter(function(w) { return w.id !== wId; });
+        }
     }
 
     // Modal Add / Edit Widget
@@ -1271,7 +1289,10 @@
         document.getElementById('cfg_title').value = '';
         document.getElementById('cfg_col_span').value = '6';
         document.getElementById('cfg_color').value = 'blue';
+        document.getElementById('cfg_dim_field').value = '_submitted_date';
+        document.getElementById('cfg_metric_field').value = '_submission';
         document.getElementById('cfg_aggregation').value = 'COUNT';
+        document.getElementById('cfg_icon').value = 'fa-chart-pie';
         document.getElementById('cfg_prefix').value = '';
         document.getElementById('cfg_suffix').value = '';
         handleWidgetTypeChange('kpi_card');
@@ -1354,24 +1375,30 @@
             suffix: suffix
         };
 
-        var widgets = currentDashboardConfig.widgets || [];
-        var idx = widgets.findIndex(function (w) { return w.id === wId; });
-        if (idx >= 0) {
-            widgets[idx] = widgetObj;
-        } else {
-            widgets.push(widgetObj);
+        if (!currentDashboardConfig.widgets) {
+            currentDashboardConfig.widgets = [];
         }
-        currentDashboardConfig.widgets = widgets;
+
+        var idx = currentDashboardConfig.widgets.findIndex(function (w) { return w.id === wId; });
+        if (idx >= 0) {
+            currentDashboardConfig.widgets[idx] = widgetObj;
+        } else {
+            currentDashboardConfig.widgets.push(widgetObj);
+        }
 
         closeWidgetModal();
         saveDashboardLayout(true);
     }
 
     // Save Dashboard Layout to Backend via AJAX
-    function saveDashboardLayout(autoReload) {
-        syncConfigFromDomOrder();
+    function saveDashboardLayout(skipSync) {
+        if (!skipSync) {
+            syncConfigFromDomOrder();
+        }
 
-        fetch('/portal/report/' + templateCode + '/dashboard-config?p=' + tenantPrincipalId, {
+        var saveUrl = "{{ route('portal.report.dashboard.save', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}";
+
+        fetch(saveUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1391,6 +1418,7 @@
             }
         })
         .catch(function (err) {
+            console.error(err);
             alert('❌ Terjadi kesalahan jaringan saat menyimpan tata letak.');
         });
     }
@@ -1399,7 +1427,9 @@
     function resetDashboardLayout() {
         if (!confirm('Kembalikan tata letak dashboard laporan ini ke tampilan standar bawaan?')) return;
 
-        fetch('/portal/report/' + templateCode + '/dashboard-reset?p=' + tenantPrincipalId, {
+        var resetUrl = "{{ route('portal.report.dashboard.reset', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}";
+
+        fetch(resetUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1416,6 +1446,7 @@
             }
         })
         .catch(function (err) {
+            console.error(err);
             alert('❌ Terjadi kesalahan saat mereset dashboard.');
         });
     }
