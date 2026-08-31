@@ -228,6 +228,19 @@
             color: #dbeafe;
             border-color: #3b82f6;
         }
+        .att-badge-lr {
+            background: #fef9c3;
+            color: #854d0e;
+            border: 1px solid #fde047;
+            font-weight: 800;
+            padding: 2px 7px;
+            letter-spacing: 0.5px;
+        }
+        .dark .att-badge-lr {
+            background: #713f12;
+            color: #fef08a;
+            border-color: #ca8a04;
+        }
         .att-badge-import {
             background: #f3e8ff;
             color: #7e22ce;
@@ -468,16 +481,21 @@
                                     @endphp
                                     <td style="text-align: center; background: {{ $isLate ? '#fffbeb' : (($isWeekend || $isNatHoliday || !$isDeptWorkDay) ? '#fdf2f2' : 'inherit') }};">
                                         @if ($activeLeave)
-                                            <div style="min-height: 48px; display: flex; align-items: center; justify-content: center;" title="{{ $activeLeave->notes ?? 'Izin Disetujui' }}">
-                                                @php
-                                                    $lType = strtolower($activeLeave->type);
-                                                @endphp
-                                                @if (in_array($lType, ['sakit', 'medical_leave']))
-                                                    <span class="att-badge att-badge-sick">Sakit</span>
-                                                @elseif (in_array($lType, ['cuti', 'annual_leave', 'cuti_peraturan']))
-                                                    <span class="att-badge att-badge-leave">Cuti</span>
+                                            <div class="roster-cell-clickable" wire:click="mountAction('viewDetails', { employee_id: {{ $employee->id }}, date: '{{ $dateStr }}' })" style="min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center;" title="{{ $activeLeave->status === 'pending' ? 'Leave Request (Pengajuan ' . ucfirst($activeLeave->type) . ' Menunggu Approval)' : ($activeLeave->notes ?? 'Izin Disetujui') }}">
+                                                @if ($activeLeave->status === 'pending')
+                                                    <span class="att-badge att-badge-lr" title="Leave Request / Izin Menunggu Approval">LR</span>
+                                                    <div style="font-size: 9.5px; color: #b45309; font-weight: 700; margin-top: 2px;">{{ ucfirst($activeLeave->type ?? 'Izin') }}</div>
                                                 @else
-                                                    <span class="att-badge att-badge-permit">Izin</span>
+                                                    @php
+                                                        $lType = strtolower($activeLeave->type);
+                                                    @endphp
+                                                    @if (in_array($lType, ['sakit', 'medical_leave']))
+                                                        <span class="att-badge att-badge-sick">Sakit</span>
+                                                    @elseif (in_array($lType, ['cuti', 'annual_leave', 'cuti_peraturan']))
+                                                        <span class="att-badge att-badge-leave">Cuti</span>
+                                                    @else
+                                                        <span class="att-badge att-badge-permit">Izin</span>
+                                                    @endif
                                                 @endif
                                             </div>
                                         @elseif ($att)

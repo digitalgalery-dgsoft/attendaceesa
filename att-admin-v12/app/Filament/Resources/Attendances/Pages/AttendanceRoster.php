@@ -334,7 +334,7 @@ class AttendanceRoster extends Page implements HasForms
             ->pluck('employee_id');
 
         $leaveEmpIds = DB::table('leave_requests')
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'pending'])
             ->where(function ($q) use ($startDateStr, $endDateStr) {
                 $q->whereBetween('start_date', [$startDateStr, $endDateStr])
                   ->orWhereBetween('end_date', [$startDateStr, $endDateStr])
@@ -487,7 +487,7 @@ class AttendanceRoster extends Page implements HasForms
 
             $leaves = DB::table('leave_requests')
                 ->whereIn('employee_id', $pagedEmployeeIds)
-                ->where('status', 'approved')
+                ->whereIn('status', ['approved', 'pending'])
                 ->where(function ($q) use ($startDateStr, $endDateStr) {
                     $q->whereBetween('start_date', [$startDateStr, $endDateStr])
                       ->orWhereBetween('end_date', [$startDateStr, $endDateStr])
@@ -496,7 +496,7 @@ class AttendanceRoster extends Page implements HasForms
                              ->where('end_date', '>=', $endDateStr);
                       });
                 })
-                ->select(['id', 'employee_id', 'start_date', 'end_date', 'type', 'notes'])
+                ->select(['id', 'employee_id', 'start_date', 'end_date', 'type', 'status', 'notes'])
                 ->get()
                 ->groupBy('employee_id');
         }
@@ -547,10 +547,10 @@ class AttendanceRoster extends Page implements HasForms
                 ])
                 ->get();
 
-            // Load approved leaves
+            // Load approved and pending leaves
             $allLeaves = DB::table('leave_requests')
                 ->whereIn('employee_id', $allEmpIds)
-                ->where('status', 'approved')
+                ->whereIn('status', ['approved', 'pending'])
                 ->where(function ($q) use ($startDateStr, $endDateStr) {
                     $q->whereBetween('start_date', [$startDateStr, $endDateStr])
                       ->orWhereBetween('end_date', [$startDateStr, $endDateStr])
@@ -559,7 +559,7 @@ class AttendanceRoster extends Page implements HasForms
                              ->where('end_date', '>=', $endDateStr);
                       });
                 })
-                ->select(['employee_id', 'start_date', 'end_date', 'type'])
+                ->select(['employee_id', 'start_date', 'end_date', 'type', 'status'])
                 ->get();
 
             // Count attendances (Present & Late & Explicit Leave/Absent)
@@ -620,8 +620,10 @@ class AttendanceRoster extends Page implements HasForms
                     if ($curStr >= $startDateStr && $curStr <= $endDateStr) {
                         $key = $l->employee_id . '_' . $curStr;
                         if (!isset($leaveMap[$key])) {
-                            $leaveMap[$key] = true;
-                            $summary['total_leave']++;
+                            $leaveMap[$key] = $l->status;
+                            if ($l->status === 'approved') {
+                                $summary['total_leave']++;
+                            }
                         }
                     }
                     $cur->addDay();
@@ -737,7 +739,7 @@ class AttendanceRoster extends Page implements HasForms
                     ->first();
 
                 $leaveRequest = LeaveRequest::where('employee_id', $arguments['employee_id'])
-                    ->where('status', 'approved')
+                    ->whereIn('status', ['approved', 'pending'])
                     ->whereDate('start_date', '<=', $arguments['date'])
                     ->whereDate('end_date', '>=', $arguments['date'])
                     ->first();

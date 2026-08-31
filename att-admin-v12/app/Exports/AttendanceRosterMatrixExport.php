@@ -101,7 +101,7 @@ class AttendanceRosterMatrixExport extends DefaultValueBinder implements FromArr
             ->pluck('employee_id');
 
         $leaveEmpIds = DB::table('leave_requests')
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'pending'])
             ->where(function ($q) use ($startDateStr, $endDateStr) {
                 $q->whereBetween('start_date', [$startDateStr, $endDateStr])
                   ->orWhereBetween('end_date', [$startDateStr, $endDateStr])
@@ -196,7 +196,7 @@ class AttendanceRosterMatrixExport extends DefaultValueBinder implements FromArr
         // Leaves
         $leaves = DB::table('leave_requests')
             ->whereIn('employee_id', $empIds)
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'pending'])
             ->where(function ($q) use ($startDateStr, $endDateStr) {
                 $q->whereBetween('start_date', [$startDateStr, $endDateStr])
                   ->orWhereBetween('end_date', [$startDateStr, $endDateStr])
@@ -205,7 +205,7 @@ class AttendanceRosterMatrixExport extends DefaultValueBinder implements FromArr
                          ->where('end_date', '>=', $endDateStr);
                   });
             })
-            ->select(['employee_id', 'start_date', 'end_date', 'type'])
+            ->select(['employee_id', 'start_date', 'end_date', 'type', 'status'])
             ->get()
             ->groupBy('employee_id');
 
@@ -250,15 +250,19 @@ class AttendanceRosterMatrixExport extends DefaultValueBinder implements FromArr
                 $cellText = '-';
 
                 if ($activeLeave) {
-                    $lType = strtolower($activeLeave->type);
-                    if (in_array($lType, ['sakit', 'medical_leave'])) {
-                        $cellText = 'SAKIT';
-                    } elseif (in_array($lType, ['cuti', 'annual_leave', 'cuti_peraturan'])) {
-                        $cellText = 'CUTI';
+                    if ($activeLeave->status === 'pending') {
+                        $cellText = 'LR';
                     } else {
-                        $cellText = 'IZIN';
+                        $lType = strtolower($activeLeave->type);
+                        if (in_array($lType, ['sakit', 'medical_leave'])) {
+                            $cellText = 'SAKIT';
+                        } elseif (in_array($lType, ['cuti', 'annual_leave', 'cuti_peraturan'])) {
+                            $cellText = 'CUTI';
+                        } else {
+                            $cellText = 'IZIN';
+                        }
+                        $totLeave++;
                     }
-                    $totLeave++;
                 } elseif ($att) {
                     $isLate = false;
                     $inTime = $att->checkin_at ? Carbon::parse($att->checkin_at)->timezone('Asia/Jakarta')->format('H:i') : '';
