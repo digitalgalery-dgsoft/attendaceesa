@@ -38,6 +38,8 @@ import 'package:att_mobile/screens/reporting_hub_screen.dart';
 import 'package:att_mobile/screens/request_location_screen.dart';
 import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/services/offline_sync_service.dart';
+import 'dart:io';
+import 'package:att_mobile/screens/liveness_camera_screen.dart';
 
 
 class DashboardScreen extends StatefulWidget {
@@ -72,6 +74,22 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         Provider.of<DynamicReportingProvider>(context, listen: false).fetchTemplates(authProvider.token!);
       }
       _syncLocationService(attProvider);
+
+      // Cek apakah jabatan wajib Face Recognition tapi foto master belum ada
+      final pos = authProvider.employeeData?['position'];
+      final bool isFaceReq = (pos is Map) ? (pos['require_face_recognition'] ?? true) : true;
+      final String? mPhoto = authProvider.employeeData?['photo'];
+      final bool hasPhoto = mPhoto != null && mPhoto.isNotEmpty && !mPhoto.contains('default.png');
+      if (isFaceReq && !hasPhoto && mounted) {
+        toastification.show(
+          context: context,
+          title: const Text('⚠️ Registrasi Wajah Master Diperlukan'),
+          description: Text('Jabatan Anda (${pos?['name'] ?? ''}) wajib Face Recognition. Silakan ambil foto master wajah Anda.'),
+          type: ToastificationType.warning,
+          style: ToastificationStyle.flat,
+          autoCloseDuration: const Duration(seconds: 6),
+        );
+      }
     });
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
@@ -88,6 +106,49 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         });
       }
     });
+  }
+
+  Future<void> _enrollMasterFace(BuildContext context) async {
+    final photoPath = await Navigator.push<String?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LivenessCameraScreen(isRequired: true),
+      ),
+    );
+
+    if (photoPath != null && mounted) {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final bytes = await File(photoPath).readAsBytes();
+
+      toastification.show(
+        context: context,
+        title: const Text('Mengunggah Foto Master Wajah...'),
+        type: ToastificationType.info,
+        autoCloseDuration: const Duration(seconds: 2),
+      );
+
+      final result = await auth.updateProfile({}, imageBytes: bytes, imageFilename: 'master_face.jpg');
+
+      if (mounted) {
+        if (result['success'] == true) {
+          toastification.show(
+            context: context,
+            title: const Text('Wajah Master Berhasil Didaftarkan!'),
+            description: const Text('Foto wajah Anda telah tersimpan sebagai referensi Face Recognition.'),
+            type: ToastificationType.success,
+            autoCloseDuration: const Duration(seconds: 4),
+          );
+        } else {
+          toastification.show(
+            context: context,
+            title: const Text('Gagal Menyimpan Wajah Master'),
+            description: Text(result['message'] ?? 'Terjadi kesalahan saat mengunggah foto.'),
+            type: ToastificationType.error,
+            autoCloseDuration: const Duration(seconds: 4),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _syncLocationService(AttendanceProvider attProvider) async {
@@ -448,6 +509,116 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
                 const SizedBox(height: 11),
 
+                // ─── BANNER REGISTRASI WAJAH MASTER ───────────────────────
+                Builder(builder: (context) {
+                  final position = authProvider.employeeData?['position'];
+                  final bool isFaceRequired = (position is Map) ? (position['require_face_recognition'] ?? true) : true;
+                  final String? masterPhoto = authProvider.employeeData?['photo'];
+                  final bool hasMasterPhoto = masterPhoto != null && masterPhoto.isNotEmpty && !masterPhoto.contains('default.png');
+
+                  if (!isFaceRequired || hasMasterPhoto) return const SizedBox.shrink();
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFFEF4444).withValues(alpha: 0.12),
+                          const Color(0xFFF97316).withValues(alpha: 0.08),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.red.shade400, width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withValues(alpha: 0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        )
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade600,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.face_retouching_natural, color: Colors.white, size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'Registrasi Wajah Master Diperlukan',
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: isDarkMode ? Colors.red.shade300 : Colors.red.shade800,
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.shade100,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'WAJIB',
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.red.shade800,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Jabatan Anda ($positionName) mewajibkan Face Recognition. Mohon daftarkan foto wajah Anda untuk absensi.',
+                                    style: TextStyle(fontSize: 10.5, color: subtitleColor),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () => _enrollMasterFace(context),
+                            icon: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                            label: const Text(
+                              '📸 Daftarkan Wajah Master Sekarang',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red.shade600,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+
                 // Menu Lainnya
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -491,6 +662,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     }},
                     {'title': locale.tr('menu_payslip'), 'icon': Icons.receipt_long, 'color': const Color(0xFF4A90E2), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const PayslipScreen())).then((_) { attProvider.loadDashboardData(); });
+                    }},
+                    {'title': 'Wajah Master', 'icon': Icons.face_retouching_natural, 'color': const Color(0xFF6366F1), 'onTap': () {
+                      _enrollMasterFace(context);
                     }},
                     {'title': 'Request Lokasi', 'icon': Icons.add_location_alt_rounded, 'color': const Color(0xFF10B981), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const RequestLocationScreen()));

@@ -11,6 +11,8 @@ import 'help_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'onboarding_screen.dart';
 import '../utils/constants.dart';
+import 'dart:io';
+import 'package:att_mobile/screens/liveness_camera_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -92,33 +94,159 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      if (!mounted) return;
+  Future<void> _enrollMasterFaceLiveness() async {
+    final photoPath = await Navigator.push<String?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LivenessCameraScreen(isRequired: true),
+      ),
+    );
+
+    if (photoPath != null && mounted) {
       final auth = Provider.of<AuthProvider>(context, listen: false);
-      final locale = Provider.of<LocaleProvider>(context, listen: false);
-      final bytes = await image.readAsBytes();
-      final result = await auth.updateProfile({}, imageBytes: bytes, imageFilename: image.name);
-      if (!mounted) return;
-      if (result['success']) {
-        toastification.show(
-          context: context,
-          title: Text(locale.tr('success')),
-          description: Text(result['message'] ?? 'Profile updated'),
-          type: ToastificationType.success,
-          autoCloseDuration: const Duration(seconds: 3),
-        );
-      } else {
-        toastification.show(
-          context: context,
-          title: Text(locale.tr('error')),
-          description: Text(result['message'] ?? 'Failed to update photo'),
-          type: ToastificationType.error,
-          autoCloseDuration: const Duration(seconds: 3),
-        );
+      final bytes = await File(photoPath).readAsBytes();
+
+      toastification.show(
+        context: context,
+        title: const Text('Menyimpan Foto Master Wajah...'),
+        type: ToastificationType.info,
+        autoCloseDuration: const Duration(seconds: 2),
+      );
+
+      final result = await auth.updateProfile({}, imageBytes: bytes, imageFilename: 'master_face.jpg');
+
+      if (mounted) {
+        if (result['success'] == true) {
+          toastification.show(
+            context: context,
+            title: const Text('Wajah Master Berhasil Disimpan!'),
+            description: const Text('Foto wajah Anda telah terdaftar sebagai referensi biometrik Face Recognition.'),
+            type: ToastificationType.success,
+            autoCloseDuration: const Duration(seconds: 4),
+          );
+        } else {
+          toastification.show(
+            context: context,
+            title: const Text('Gagal Menyimpan Wajah'),
+            description: Text(result['message'] ?? 'Terjadi kesalahan saat mengunggah foto.'),
+            type: ToastificationType.error,
+            autoCloseDuration: const Duration(seconds: 4),
+          );
+        }
       }
     }
+  }
+
+  void _pickImage() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF111C2D);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: bgColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade400,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Perbarui Foto Profil / Wajah Master',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.face_retouching_natural, color: Colors.purple),
+                ),
+                title: const Text('Ambil Foto Master (Deteksi AI & Liveness)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                subtitle: const Text('Direkomendasikan untuk verifikasi presensi Face Recognition', style: TextStyle(fontSize: 11.5)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _enrollMasterFaceLiveness();
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.camera_alt, color: Colors.blue),
+                ),
+                title: const Text('Kamera Biasa', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+                  if (image != null && mounted) {
+                    final auth = Provider.of<AuthProvider>(context, listen: false);
+                    final bytes = await image.readAsBytes();
+                    final result = await auth.updateProfile({}, imageBytes: bytes, imageFilename: image.name);
+                    if (mounted) {
+                      toastification.show(
+                        context: context,
+                        title: Text(result['success'] ? 'Foto berhasil diperbarui' : 'Gagal memperbarui foto'),
+                        type: result['success'] ? ToastificationType.success : ToastificationType.error,
+                        autoCloseDuration: const Duration(seconds: 3),
+                      );
+                    }
+                  }
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.photo_library, color: Colors.green),
+                ),
+                title: const Text('Pilih dari Galeri', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+                  if (image != null && mounted) {
+                    final auth = Provider.of<AuthProvider>(context, listen: false);
+                    final bytes = await image.readAsBytes();
+                    final result = await auth.updateProfile({}, imageBytes: bytes, imageFilename: image.name);
+                    if (mounted) {
+                      toastification.show(
+                        context: context,
+                        title: Text(result['success'] ? 'Foto berhasil diperbarui' : 'Gagal memperbarui foto'),
+                        type: result['success'] ? ToastificationType.success : ToastificationType.error,
+                        autoCloseDuration: const Duration(seconds: 3),
+                      );
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showChangePasswordSheet() {
@@ -511,6 +639,115 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 24),
+
+            // Foto Master Face ID Biometric Card
+            Builder(builder: (context) {
+              final auth = Provider.of<AuthProvider>(context);
+              final position = auth.employeeData?['position'];
+              final bool isFaceRequired = (position is Map) ? (position['require_face_recognition'] ?? true) : true;
+              final String? masterPhoto = auth.employeeData?['photo'];
+              final bool hasMasterPhoto = masterPhoto != null && masterPhoto.isNotEmpty && !masterPhoto.contains('default.png');
+
+              return Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 24),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: !hasMasterPhoto && isFaceRequired 
+                        ? Colors.red.shade300 
+                        : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                    width: !hasMasterPhoto && isFaceRequired ? 1.5 : 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.face_retouching_natural, color: primaryColor, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Foto Master Face Recognition',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Referensi biometrik wajah untuk verifikasi absensi',
+                                style: TextStyle(fontSize: 11, color: subtitleColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: hasMasterPhoto
+                            ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                            : (isFaceRequired ? const Color(0xFFEF4444).withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            hasMasterPhoto ? Icons.check_circle_rounded : (isFaceRequired ? Icons.warning_amber_rounded : Icons.info_outline),
+                            size: 16,
+                            color: hasMasterPhoto ? const Color(0xFF10B981) : (isFaceRequired ? const Color(0xFFEF4444) : Colors.grey),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              hasMasterPhoto
+                                  ? 'Wajah Master Terdaftar ✅'
+                                  : (isFaceRequired ? 'Belum Terdaftar ⚠️ (Wajib untuk Jabatan Anda)' : 'Belum Terdaftar (Opsional)'),
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: hasMasterPhoto ? const Color(0xFF10B981) : (isFaceRequired ? const Color(0xFFEF4444) : subtitleColor),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _pickImage,
+                        icon: const Icon(Icons.camera_enhance_rounded, size: 16),
+                        label: Text(
+                          hasMasterPhoto ? 'Perbarui Foto Master Wajah' : 'Daftarkan Foto Master Wajah',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: primaryColor,
+                          side: BorderSide(color: primaryColor),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
 
             // Account Security (Change Password & Functional Biometric Login)
             _buildSettingsSection(

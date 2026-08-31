@@ -98,6 +98,8 @@ class EmployeeForm
                 Textarea::make('address')
                     ->columnSpanFull(),
                 FileUpload::make('photo')
+                    ->label('Foto Master Wajah / Profil (Face Recognition Reference)')
+                    ->helperText('Foto wajah utama karyawan sebagai referensi verifikasi Face Recognition AI saat absensi.')
                     ->image()
                     ->disk('public')
                     ->directory('employees'),

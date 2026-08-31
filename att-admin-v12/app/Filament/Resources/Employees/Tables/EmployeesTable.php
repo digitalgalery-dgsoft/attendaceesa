@@ -25,6 +25,7 @@ class EmployeesTable
         return $table
             ->columns([
                 ImageColumn::make('photo')
+                    ->label('Foto Master')
                     ->circular()
                     ->getStateUsing(function ($record) {
                         if ($record->photo && \Illuminate\Support\Facades\Storage::disk('public')->exists($record->photo)) {
@@ -33,6 +34,12 @@ class EmployeesTable
                         return null;
                     })
                     ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->full_name) . '&background=7367F0&color=fff'),
+                IconColumn::make('has_face_master')
+                    ->label('Face Master')
+                    ->state(fn ($record) => !empty($record->photo))
+                    ->boolean()
+                    ->tooltip(fn ($record) => !empty($record->photo) ? 'Foto Master Wajah Terdaftar' : 'Belum Ada Foto Master')
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderBy('photo', $direction)),
                 TextColumn::make('employee_no')
                     ->label('NIK / No Karyawan')
                     ->searchable(query: function (Builder $query, string $search) {
