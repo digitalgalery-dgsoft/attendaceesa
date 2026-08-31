@@ -1113,6 +1113,51 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
+                              if (_selectedLocation != null) ...[
+                                const SizedBox(height: 6),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: [
+                                    if (_selectedLocation!['channel'] != null && _selectedLocation!['channel'].toString().isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                        decoration: BoxDecoration(
+                                          color: themeColor.withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'Tipe: ${_selectedLocation!['channel']}',
+                                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: themeColor),
+                                        ),
+                                      ),
+                                    if (_selectedLocation!['account'] != null && _selectedLocation!['account'].toString().isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                        decoration: BoxDecoration(
+                                          color: (isDarkMode ? Colors.teal.shade900 : const Color(0xFFE0F2F1)),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'Akun: ${_selectedLocation!['account']}',
+                                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.tealAccent : const Color(0xFF00796B)),
+                                        ),
+                                      ),
+                                    if (_selectedLocation!['area'] != null && _selectedLocation!['area'].toString().isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                        decoration: BoxDecoration(
+                                          color: (isDarkMode ? Colors.purple.shade900 : const Color(0xFFF3E5F5)),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'Area: ${_selectedLocation!['area']}',
+                                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.purpleAccent : const Color(0xFF7B1FA2)),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ),

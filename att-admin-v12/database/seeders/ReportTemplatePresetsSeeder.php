@@ -255,7 +255,6 @@ class ReportTemplatePresetsSeeder extends Seeder
         $template->principals()->sync($allDuluxIds);
 
         $fields = [
-            ['field_label' => 'Kategori / Akun Modern Trade (LSO)', 'field_name' => 'account_lso', 'field_type' => 'dropdown', 'options' => ['Ace Hardware', 'Depo Bangunan', 'Mitra 10', 'Mega Depo Bangunan', 'Modern Trade Lainnya'], 'is_required' => true],
             ['field_label' => 'Tipe Tinter / Warna Pasta Pewarna', 'field_name' => 'tipe_tinter_warna', 'field_type' => 'dropdown', 'options' => ['White (W1)', 'Black (B1)', 'Yellow Oxide (Y1)', 'Red Oxide (R1)', 'Organic Yellow (Y2)', 'Organic Red (R2)', 'Blue (BL)', 'Green (GR)', 'Magenta (MG)', 'Orange (OR)', 'Violet (VT)', 'Semua Warna / Full Set'], 'is_required' => true],
             ['field_label' => 'Kuantiti / Jumlah Kaleng Tinta Tinter', 'field_name' => 'qty_kaleng_tinta', 'field_type' => 'number', 'placeholder' => 'Jumlah kaleng tinter', 'is_required' => true],
             ['field_label' => 'Status Ketersediaan Tinter di Toko', 'field_name' => 'status_ketersediaan_tinter', 'field_type' => 'radio', 'options' => ['Stok Aman (Siap Oplos)', 'Stok Menipis (Perlu Order Ulang)', 'Stok Habis (Mesin Tidak Bisa Oplos)'], 'is_required' => true],
@@ -462,7 +461,6 @@ class ReportTemplatePresetsSeeder extends Seeder
         $template->principals()->sync($allDuluxIds);
 
         $fields = [
-            ['field_label' => 'Account Modern Trade (LSO)', 'field_name' => 'account_lso_oos', 'field_type' => 'dropdown', 'options' => ['Ace Hardware', 'Depo Bangunan', 'Mitra 10', 'Mega Depo Bangunan', 'BJ Home', 'Mitra 10 Express', 'Lainnya'], 'is_required' => true],
             ['field_label' => 'Pilih Produk Dulux yang Kosong di LSO', 'field_name' => 'produk_oos_lso', 'field_type' => 'product_select', 'is_required' => true],
             ['field_label' => 'Base / Color yang Kosong', 'field_name' => 'base_color_lso', 'field_type' => 'dropdown', 'options' => ['Base A', 'Base B', 'Base C', 'Base D', 'Ready Mix / Warna Jadi', 'Cat Dasar Primer'], 'is_required' => true],
             ['field_label' => 'Kemasan yang Kosong', 'field_name' => 'kemasan_oos_lso', 'field_type' => 'dropdown', 'options' => ['Tin (1L)', 'Galon (2.5L / 4-5Kg)', 'Pail (20L / 25Kg)', 'Semua Kemasan'], 'is_required' => true],
@@ -547,7 +545,6 @@ class ReportTemplatePresetsSeeder extends Seeder
         $template->principals()->sync($allDuluxIds);
 
         $fields = [
-            ['field_label' => 'Tipe Gerai / Toko', 'field_name' => 'tipe_toko', 'field_type' => 'radio', 'options' => ['SSO (Specialist / Traditional Store)', 'LSO (Modern Outlet / Depo Bahan Bangunan)'], 'is_required' => true],
             ['field_label' => 'Jumlah Total Customer Datang ke Toko Hari Ini', 'field_name' => 'jml_customer_datang', 'field_type' => 'number', 'placeholder' => 'Jumlah pengunjung toko', 'is_required' => true],
             ['field_label' => 'Jumlah Customer yang Membeli Cat (Semua Brand)', 'field_name' => 'jml_customer_beli_cat', 'field_type' => 'number', 'placeholder' => 'Jumlah pembeli cat', 'is_required' => true],
             ['field_label' => 'Jumlah Customer yang Membeli Produk Dulux / Catylac', 'field_name' => 'jml_customer_beli_dulux', 'field_type' => 'number', 'placeholder' => 'Jumlah pembeli Dulux', 'is_required' => true],
@@ -633,7 +630,6 @@ class ReportTemplatePresetsSeeder extends Seeder
         $template->principals()->sync($allDuluxIds);
 
         $fields = [
-            ['field_label' => 'Kategori / Tipe Gerai Toko', 'field_name' => 'kategori_toko_post', 'field_type' => 'radio', 'options' => ['SSO (Specialist Store)', 'LSO (Modern Trade Outlet)', 'MTI (Modern Trade Independent)'], 'is_required' => true],
             ['field_label' => 'Tipe Mesin Tinting POST di Toko', 'field_name' => 'tipe_mesin_post', 'field_type' => 'dropdown', 'options' => ['Mesin D200 (Automatic Tinting)', 'Mesin Discovery (Automatic Tinting)', 'Mesin XProtint (Automatic Tinting)', 'Mesin Element 2', 'Mesin Manual Dispenser', 'Toko Tidak Memiliki Mesin Tinting'], 'is_required' => true],
             ['field_label' => 'Nomor Seri / No Mesin POST Dulux', 'field_name' => 'no_mesin_post', 'field_type' => 'text', 'placeholder' => 'Contoh: POST-2022-JKT-042', 'is_required' => false],
             ['field_label' => 'Status Pemeriksaan Kebersihan Nozzle & Brush Cleaning', 'field_name' => 'status_nozzle_cleaning', 'field_type' => 'radio', 'options' => ['Nozzle Bersih & Sudah Dilakukan Brush Cleaning', 'Nozzle Tersumbat (Butuh Pembersihan Ekstra / Air Hangat)', 'Nozzle Rusak / Butuh Service Teknisi'], 'is_required' => true],
