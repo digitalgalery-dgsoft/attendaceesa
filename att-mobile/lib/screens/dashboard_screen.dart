@@ -35,6 +35,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:toastification/toastification.dart';
 import 'package:att_mobile/widgets/skeleton_loading.dart';
 import 'package:att_mobile/screens/reporting_hub_screen.dart';
+import 'package:att_mobile/screens/request_location_screen.dart';
 import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/services/offline_sync_service.dart';
 
@@ -490,6 +491,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     }},
                     {'title': locale.tr('menu_payslip'), 'icon': Icons.receipt_long, 'color': const Color(0xFF4A90E2), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const PayslipScreen())).then((_) { attProvider.loadDashboardData(); });
+                    }},
+                    {'title': 'Request Lokasi', 'icon': Icons.add_location_alt_rounded, 'color': const Color(0xFF10B981), 'onTap': () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const RequestLocationScreen()));
                     }},
                     {'title': locale.tr('menu_help'), 'icon': Icons.support_agent_rounded, 'color': const Color(0xFFE65100), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpScreen())).then((_) { attProvider.loadDashboardData(); });

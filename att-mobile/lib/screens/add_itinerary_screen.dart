@@ -6,6 +6,7 @@ import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/itinerary_provider.dart';
 import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/screens/attendance_location_screen.dart';
+import 'package:att_mobile/screens/request_location_screen.dart';
 
 class AddItineraryScreen extends StatefulWidget {
   final DateTime initialDate;
@@ -313,8 +314,35 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
                           });
                         },
                       ),
+
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const RequestLocationScreen()),
+                            );
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add_location_alt_outlined, size: 14, color: primaryColor),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Toko belum terdaftar? Request Lokasi Baru',
+                                  style: TextStyle(color: primaryColor, fontSize: 11.5, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                       
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
 
                       // Brand/Prinsiple Dropdown
                       DropdownButtonFormField<int>(

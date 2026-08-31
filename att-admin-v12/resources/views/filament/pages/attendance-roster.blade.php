@@ -217,6 +217,17 @@
             color: #64748b;
             border: 1px solid #cbd5e1;
         }
+        .att-badge-shift {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+            font-weight: 700;
+        }
+        .dark .att-badge-shift {
+            background: #1e3a8a;
+            color: #dbeafe;
+            border-color: #3b82f6;
+        }
         .att-badge-import {
             background: #f3e8ff;
             color: #7e22ce;
@@ -520,13 +531,49 @@
                                                 <span class="att-badge att-badge-off">Libur</span>
                                             </div>
                                         @elseif ($sched && in_array($sched->schedule_type, ['workday', 'remote', 'field']))
-                                            @if ($dateStr <= $todayStr)
+                                            @if ($dateStr < $todayStr)
                                                 <div style="min-height: 48px; display: flex; align-items: center; justify-content: center;" title="Jadwal kerja aktif namun tidak melakukan absensi">
                                                     <span class="att-badge att-badge-absent">Alpha</span>
                                                 </div>
+                                            @elseif ($dateStr === $todayStr)
+                                                @php
+                                                    $now = \Carbon\Carbon::now('Asia/Jakarta');
+                                                    $shiftStart = null;
+                                                    if (!empty($sched->shift_start_time)) {
+                                                        $shiftStart = \Carbon\Carbon::parse($dateStr . ' ' . $sched->shift_start_time, 'Asia/Jakarta');
+                                                    } elseif (!empty($sched->planned_start_at)) {
+                                                        $shiftStart = \Carbon\Carbon::parse($sched->planned_start_at, 'Asia/Jakarta');
+                                                    } else {
+                                                        $shiftStart = \Carbon\Carbon::parse($dateStr . ' 08:30:00', 'Asia/Jakarta');
+                                                    }
+                                                    $isShiftStarted = $now->greaterThanOrEqualTo($shiftStart);
+                                                @endphp
+
+                                                @if ($isShiftStarted)
+                                                    <div style="min-height: 48px; display: flex; align-items: center; justify-content: center;" title="Jadwal kerja aktif telah dimulai namun belum melakukan absensi">
+                                                        <span class="att-badge att-badge-absent">Alpha</span>
+                                                    </div>
+                                                @else
+                                                    <div class="roster-cell-clickable" wire:click="mountAction('viewDetails', { employee_id: {{ $employee->id }}, date: '{{ $dateStr }}' })" title="Jadwal: {{ $sched->shift_name ?? ($sched->shift_code ?? 'Shift') }} (Belum dimulai)">
+                                                        <span class="att-badge att-badge-shift">
+                                                            {{ $sched->shift_name ?? ($sched->shift_code ?? 'Shift') }}
+                                                        </span>
+                                                        @if (!empty($sched->shift_start_time))
+                                                            <div style="font-size: 10px; color: #64748b; font-weight: 600; margin-top: 2px;">
+                                                                Jam: {{ substr($sched->shift_start_time, 0, 5) }}
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                @endif
                                             @else
-                                                <div style="min-height: 48px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 11px;">
-                                                    -
+                                                <div style="min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center;" title="{{ $sched->shift_name ?? 'Jadwal Kerja' }}">
+                                                    @if (!empty($sched->shift_name) || !empty($sched->shift_code))
+                                                        <span style="font-size: 10.5px; color: #64748b; font-weight: 600;">
+                                                            {{ $sched->shift_code ?? $sched->shift_name }}
+                                                        </span>
+                                                    @else
+                                                        <span style="color: #94a3b8; font-size: 11px;">-</span>
+                                                    @endif
                                                 </div>
                                             @endif
                                         @else

@@ -220,43 +220,24 @@ class AttendanceRoster extends Page implements HasForms
                     return Excel::download(new AttendanceImportTemplateExport(), 'Template_Import_Attendance.xlsx');
                 }),
 
-            \pxlrbt\FilamentExcel\Actions\Pages\ExportAction::make('export_excel')
+            Action::make('export_excel')
                 ->label('Export Excel')
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('success')
-                ->exports([
-                    \pxlrbt\FilamentExcel\Exports\ExcelExport::make('table')
-                        ->modifyQueryUsing(function ($query, $livewire) {
-                            $startDate = Carbon::parse($livewire->filterData['filter_start_date'] ?? Carbon::now()->startOfMonth()->toDateString())->startOfDay();
-                            $endDate = Carbon::parse($livewire->filterData['filter_end_date'] ?? Carbon::now()->endOfMonth()->toDateString())->endOfDay();
-
-                            $query->whereBetween('attendance_date', [$startDate->toDateString(), $endDate->toDateString()]);
-
-                            if (!empty($livewire->filterData['filter_branch_id'])) {
-                                $query->whereHas('employee', fn($q) => $q->where('branch_id', $livewire->filterData['filter_branch_id']));
-                            }
-                            if (!empty($livewire->filterData['filter_principal_id'])) {
-                                $query->whereHas('employee', fn($q) => $q->where('principal_id', $livewire->filterData['filter_principal_id']));
-                            }
-                            if (!empty($livewire->filterData['filter_employee_id'])) {
-                                $query->where('employee_id', $livewire->filterData['filter_employee_id']);
-                            }
-
-                            return $query;
-                        })
-                        ->withColumns([
-                            \pxlrbt\FilamentExcel\Columns\Column::make('employee.full_name')->heading('Employee'),
-                            \pxlrbt\FilamentExcel\Columns\Column::make('employee.employee_no')->heading('NIK'),
-                            \pxlrbt\FilamentExcel\Columns\Column::make('attendance_date')->heading('Date'),
-                            \pxlrbt\FilamentExcel\Columns\Column::make('status')->heading('Status'),
-                            \pxlrbt\FilamentExcel\Columns\Column::make('checkin_at')->heading('Check-in At'),
-                            \pxlrbt\FilamentExcel\Columns\Column::make('checkout_at')->heading('Check-out At'),
-                            \pxlrbt\FilamentExcel\Columns\Column::make('work_duration_minutes')->heading('Work Duration (Mins)'),
-                            \pxlrbt\FilamentExcel\Columns\Column::make('late_minutes')->heading('Late (Mins)'),
-                            \pxlrbt\FilamentExcel\Columns\Column::make('early_leave_minutes')->heading('Early Leave (Mins)'),
-                            \pxlrbt\FilamentExcel\Columns\Column::make('overtime_minutes')->heading('Overtime (Mins)'),
-                        ])
-                ]),
+                ->action(function () {
+                    $startDate = Carbon::parse($this->filterData['filter_start_date'] ?? Carbon::now()->startOfMonth()->toDateString())->startOfDay();
+                    $endDate = Carbon::parse($this->filterData['filter_end_date'] ?? Carbon::now()->endOfMonth()->toDateString())->endOfDay();
+                    return Excel::download(
+                        new \App\Exports\AttendanceRosterMatrixExport(
+                            $startDate,
+                            $endDate,
+                            $this->filterData['filter_branch_id'] ?? null,
+                            $this->filterData['filter_principal_id'] ?? null,
+                            $this->filterData['filter_employee_id'] ?? null
+                        ),
+                        'Attendance_Roster_' . $startDate->format('Ymd') . '_' . $endDate->format('Ymd') . '.xlsx'
+                    );
+                }),
 
             Action::make('export_pdf')
                 ->label('Export PDF')
@@ -496,7 +477,9 @@ class AttendanceRoster extends Page implements HasForms
                     'employee_schedules.schedule_type',
                     'employee_schedules.planned_start_at',
                     'shifts.name as shift_name',
+                    'shifts.code as shift_code',
                     'shifts.start_time as shift_start_time',
+                    'shifts.end_time as shift_end_time',
                     'shifts.grace_checkin_minutes',
                 ])
                 ->get()
@@ -547,11 +530,21 @@ class AttendanceRoster extends Page implements HasForms
                 ])
                 ->get();
 
-            // Load schedules
+            // Load schedules with shift info
             $allScheds = DB::table('employee_schedules')
-                ->whereIn('employee_id', $allEmpIds)
+                ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
+                ->whereIn('employee_schedules.employee_id', $allEmpIds)
                 ->whereBetween('schedule_date', [$startDateStr, $endDateStr])
-                ->select(['employee_id', 'schedule_date', 'schedule_type'])
+                ->select([
+                    'employee_schedules.employee_id',
+                    'employee_schedules.schedule_date',
+                    'employee_schedules.schedule_type',
+                    'employee_schedules.planned_start_at',
+                    'shifts.name as shift_name',
+                    'shifts.code as shift_code',
+                    'shifts.start_time as shift_start_time',
+                    'shifts.grace_checkin_minutes',
+                ])
                 ->get();
 
             // Load approved leaves
@@ -637,6 +630,7 @@ class AttendanceRoster extends Page implements HasForms
 
             // Map employees dept_working_days
             $empWorkingDaysMap = $allEmployees->pluck('dept_working_days', 'id')->toArray();
+            $now = Carbon::now('Asia/Jakarta');
 
             // Count scheduled workdays that have passed (<= today) without checkin and without approved leave (Alpha)
             // ONLY if the day is an actual working day for the employee and NOT a holiday!
@@ -657,7 +651,24 @@ class AttendanceRoster extends Page implements HasForms
 
                         $key = $sched->employee_id . '_' . $sched->schedule_date;
                         if (!isset($attMap[$key]) && !isset($leaveMap[$key])) {
-                            $summary['total_absent']++;
+                            if ($sched->schedule_date < $todayStr) {
+                                // Past day without attendance -> Alpha
+                                $summary['total_absent']++;
+                            } elseif ($sched->schedule_date === $todayStr) {
+                                // Today: only count as absent if current time is >= shift start time
+                                $shiftStart = null;
+                                if (!empty($sched->shift_start_time)) {
+                                    $shiftStart = Carbon::parse($sched->schedule_date . ' ' . $sched->shift_start_time, 'Asia/Jakarta');
+                                } elseif (!empty($sched->planned_start_at)) {
+                                    $shiftStart = Carbon::parse($sched->planned_start_at, 'Asia/Jakarta');
+                                } else {
+                                    $shiftStart = Carbon::parse($sched->schedule_date . ' 08:30:00', 'Asia/Jakarta');
+                                }
+
+                                if ($now->greaterThanOrEqualTo($shiftStart)) {
+                                    $summary['total_absent']++;
+                                }
+                            }
                         }
                     }
                 }

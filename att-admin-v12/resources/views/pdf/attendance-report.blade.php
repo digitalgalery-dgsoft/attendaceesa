@@ -44,6 +44,7 @@
         .status-absent { color: red; }
         .status-late { color: orange; }
         .status-leave { color: blue; }
+        .status-shift { color: #0284c7; font-weight: bold; }
         .footer {
             margin-top: 40px;
             font-size: 10px;
@@ -81,8 +82,24 @@
                     </td>
                     <td>{{ \Carbon\Carbon::parse($attendance->attendance_date)->format('d M Y') }}</td>
                     <td>
-                        <span class="status-{{ strtolower($attendance->status) }}">
-                            {{ ucfirst($attendance->status) }}
+                        @php
+                            $statusDisplay = ucfirst($attendance->status);
+                            $statusClass = 'status-' . strtolower($attendance->status);
+                            $isToday = \Carbon\Carbon::parse($attendance->attendance_date)->isToday();
+                            
+                            if (in_array(strtolower($attendance->status), ['absent', 'alpha']) && $isToday) {
+                                $shift = $attendance->employeeSchedule?->shift;
+                                if ($shift && !empty($shift->start_time)) {
+                                    $shiftStart = \Carbon\Carbon::parse($attendance->attendance_date . ' ' . $shift->start_time, 'Asia/Jakarta');
+                                    if (\Carbon\Carbon::now('Asia/Jakarta')->lessThan($shiftStart)) {
+                                        $statusDisplay = ($shift->name ?? ($shift->code ?? 'Shift')) . ' (' . substr($shift->start_time, 0, 5) . ')';
+                                        $statusClass = 'status-shift';
+                                    }
+                                }
+                            }
+                        @endphp
+                        <span class="{{ $statusClass }}">
+                            {{ $statusDisplay }}
                         </span>
                     </td>
                     <td>{{ $attendance->checkin_at ? \Carbon\Carbon::parse($attendance->checkin_at)->format('H:i') : '-' }}</td>

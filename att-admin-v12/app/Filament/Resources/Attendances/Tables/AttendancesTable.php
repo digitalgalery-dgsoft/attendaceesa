@@ -35,7 +35,20 @@ class AttendancesTable
                     ->date()
                     ->sortable(),
                 TextColumn::make('status')
-                    ->badge(),
+                    ->badge()
+                    ->formatStateUsing(function ($state, $record) {
+                        $isToday = \Carbon\Carbon::parse($record->attendance_date)->isToday();
+                        if (in_array(strtolower($state ?? ''), ['absent', 'alpha']) && $isToday) {
+                            $shift = $record->employeeSchedule?->shift;
+                            if ($shift && !empty($shift->start_time)) {
+                                $shiftStart = \Carbon\Carbon::parse($record->attendance_date . ' ' . $shift->start_time, 'Asia/Jakarta');
+                                if (\Carbon\Carbon::now('Asia/Jakarta')->lessThan($shiftStart)) {
+                                    return $shift->name ?? ($shift->code ?? 'Shift');
+                                }
+                            }
+                        }
+                        return ucfirst($state ?? '-');
+                    }),
                 TextColumn::make('checkin_at')
                     ->dateTime()
                     ->sortable(),
