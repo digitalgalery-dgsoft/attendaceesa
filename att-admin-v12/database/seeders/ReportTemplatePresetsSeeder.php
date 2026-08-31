@@ -53,12 +53,17 @@ class ReportTemplatePresetsSeeder extends Seeder
         $primaryDulux = $duluxPrincipals->first();
         $allDuluxIds = $duluxPrincipals->pluck('id')->toArray();
 
-        // Seed 5 Template Resmi Dulux (ICI Paints)
+        // Seed 10 Template Resmi Dulux (ICI Paints / AkzoNobel)
+        $this->seedDuluxTinterLso($primaryDulux, $allDuluxIds);
+        $this->seedDuluxCbpPricing($primaryDulux, $allDuluxIds);
         $this->seedDuluxOfftakeTemplate($primaryDulux, $allDuluxIds);
-        $this->seedDuluxStockOosTemplate($primaryDulux, $allDuluxIds);
-        $this->seedDuluxMarketShareTemplate($primaryDulux, $allDuluxIds);
-        $this->seedDuluxTintingDisplayTemplate($primaryDulux, $allDuluxIds);
-        $this->seedDuluxDatabaseProfileTLTemplate($primaryDulux, $allDuluxIds);
+        $this->seedDuluxStockEndTemplate($primaryDulux, $allDuluxIds);
+        $this->seedDuluxOosSsoTemplate($primaryDulux, $allDuluxIds);
+        $this->seedDuluxOosLsoTemplate($primaryDulux, $allDuluxIds);
+        $this->seedDuluxDataPelangganTemplate($primaryDulux, $allDuluxIds);
+        $this->seedDuluxTrafikPembeliTemplate($primaryDulux, $allDuluxIds);
+        $this->seedDuluxRegistrasiMitraTemplate($primaryDulux, $allDuluxIds);
+        $this->seedDuluxDailyMaintenanceTemplate($primaryDulux, $allDuluxIds);
 
         // 2. Fonterra
         $fonterraPrincipals = Principal::where(function ($q) {
@@ -214,7 +219,86 @@ class ReportTemplatePresetsSeeder extends Seeder
     }
 
     /**
-     * 1. Template Offtake / Penjualan Harian Dulux
+     * 1. Tinter Report LSO Dulux
+     */
+    private function seedDuluxTinterLso(Principal $primaryDulux, array $allDuluxIds): void
+    {
+        $template = ReportTemplate::updateOrCreate(
+            ['code' => 'RPT-DULUX-TINTER-LSO'],
+            [
+                'principal_id' => $primaryDulux->id,
+                'title' => 'Laporan Tinter & Pasta Warna LSO Dulux',
+                'description' => 'Pencatatan mutasi dan ketersediaan stok pasta pewarna / tinter mesin tinting di modern store (Ace Hardware, Depo Bangunan, Mitra 10, dll).',
+                'category' => 'stock',
+                'require_gps' => true,
+                'require_signature' => false,
+                'is_active' => true,
+                'version' => 1,
+                'report_days' => [],
+            ]
+        );
+        $template->principals()->sync($allDuluxIds);
+
+        $fields = [
+            ['field_label' => 'Kategori / Akun Modern Trade (LSO)', 'field_name' => 'account_lso', 'field_type' => 'dropdown', 'options' => ['Ace Hardware', 'Depo Bangunan', 'Mitra 10', 'Mega Depo Bangunan', 'Modern Trade Lainnya'], 'is_required' => true],
+            ['field_label' => 'Tipe Tinter / Warna Pasta Pewarna', 'field_name' => 'tipe_tinter_warna', 'field_type' => 'dropdown', 'options' => ['White (W1)', 'Black (B1)', 'Yellow Oxide (Y1)', 'Red Oxide (R1)', 'Organic Yellow (Y2)', 'Organic Red (R2)', 'Blue (BL)', 'Green (GR)', 'Magenta (MG)', 'Orange (OR)', 'Violet (VT)', 'Semua Warna / Full Set'], 'is_required' => true],
+            ['field_label' => 'Kuantiti / Jumlah Kaleng Tinta Tinter', 'field_name' => 'qty_kaleng_tinta', 'field_type' => 'number', 'placeholder' => 'Jumlah kaleng tinter', 'is_required' => true],
+            ['field_label' => 'Status Ketersediaan Tinter di Toko', 'field_name' => 'status_ketersediaan_tinter', 'field_type' => 'radio', 'options' => ['Stok Aman (Siap Oplos)', 'Stok Menipis (Perlu Order Ulang)', 'Stok Habis (Mesin Tidak Bisa Oplos)'], 'is_required' => true],
+            ['field_label' => 'Foto Stok Tinter & Mesin Oplos LSO', 'field_name' => 'foto_stok_tinter', 'field_type' => 'camera_photo', 'is_required' => true],
+            ['field_label' => 'Catatan / Keterangan Tambahan Tinter', 'field_name' => 'catatan_tinter', 'field_type' => 'textarea', 'placeholder' => 'Keterangan status tinter atau request restock...', 'is_required' => false],
+        ];
+
+        foreach ($fields as $index => $field) {
+            ReportFormField::updateOrCreate(
+                ['report_template_id' => $template->id, 'field_name' => $field['field_name']],
+                array_merge($field, ['order_index' => $index + 1])
+            );
+        }
+    }
+
+    /**
+     * 2. CBP / New Pricing Dulux
+     */
+    private function seedDuluxCbpPricing(Principal $primaryDulux, array $allDuluxIds): void
+    {
+        $template = ReportTemplate::updateOrCreate(
+            ['code' => 'RPT-DULUX-CBP-PRICING'],
+            [
+                'principal_id' => $primaryDulux->id,
+                'title' => 'Laporan CBP (Consumer Buying Price) & Cek Harga Dulux',
+                'description' => 'Monitoring harga beli konsumen (CBP) produk Dulux, Catylac, serta harga brand kompetitor di toko (Maksimal diinput tgl 22 tiap bulan).',
+                'category' => 'pricing',
+                'require_gps' => true,
+                'require_signature' => false,
+                'is_active' => true,
+                'version' => 1,
+                'report_days' => [],
+            ]
+        );
+        $template->principals()->sync($allDuluxIds);
+
+        $fields = [
+            ['field_label' => 'Pilih Produk Dulux yang Dicek Harganya', 'field_name' => 'produk_dulux_cbp', 'field_type' => 'product_select', 'is_required' => true],
+            ['field_label' => 'Kemasan Produk', 'field_name' => 'kemasan_produk', 'field_type' => 'dropdown', 'options' => ['1 Liter / 1 Kg (Small Tin)', '2.5 Liter / 4 Kg / 5 Kg (Galon)', '20 Liter / 25 Kg (Pail Besar)'], 'is_required' => true],
+            ['field_label' => 'Harga Jual Toko ke Konsumen (CBP Dulux Rp)', 'field_name' => 'harga_cbp_dulux_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => true],
+            ['field_label' => 'Harga Jual Kompetitor Sejenis: JOTUN (Rp)', 'field_name' => 'harga_kompetitor_jotun_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => false],
+            ['field_label' => 'Harga Jual Kompetitor Sejenis: NIPPON PAINT (Rp)', 'field_name' => 'harga_kompetitor_nippon_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => false],
+            ['field_label' => 'Harga Jual Kompetitor Sejenis: AVIAN / NO DROP / LENKOTE (Rp)', 'field_name' => 'harga_kompetitor_avian_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => false],
+            ['field_label' => 'Harga Jual Kompetitor Sejenis: MOWILEX / LAINNYA (Rp)', 'field_name' => 'harga_kompetitor_mowilex_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => false],
+            ['field_label' => 'Program Promo Harga / Diskon Toko yang Berlaku', 'field_name' => 'program_promo_toko', 'field_type' => 'textarea', 'placeholder' => 'Tuliskan promo cashback, potongan harga toko, atau bundling...', 'is_required' => false],
+            ['field_label' => 'Foto Price Tag / Label Harga di Rak Toko', 'field_name' => 'foto_price_tag', 'field_type' => 'camera_photo', 'is_required' => true],
+        ];
+
+        foreach ($fields as $index => $field) {
+            ReportFormField::updateOrCreate(
+                ['report_template_id' => $template->id, 'field_name' => $field['field_name']],
+                array_merge($field, ['order_index' => $index + 1])
+            );
+        }
+    }
+
+    /**
+     * 3. Template Offtake / Penjualan Harian & Bukti Nota Dulux
      */
     private function seedDuluxOfftakeTemplate(Principal $primaryDulux, array $allDuluxIds): void
     {
@@ -222,28 +306,35 @@ class ReportTemplatePresetsSeeder extends Seeder
             ['code' => 'RPT-DULUX-OFFTAKE-01'],
             [
                 'principal_id' => $primaryDulux->id,
-                'title' => 'Laporan Offtake / Penjualan Harian Dulux',
-                'description' => 'Formulir pencatatan penjualan produk Dulux & Catylac harian oleh SPG/SPB/MD di toko.',
+                'title' => 'Laporan Offtake / Penjualan Harian & Bukti Nota Dulux',
+                'description' => 'Pencatatan penjualan harian produk Dulux & Catylac, bukti nota penjualan, dan traffic customer di toko.',
                 'category' => 'offtake',
                 'require_gps' => true,
                 'require_signature' => true,
                 'is_active' => true,
                 'version' => 1,
+                'report_days' => [],
             ]
         );
-
         $template->principals()->sync($allDuluxIds);
 
         $fields = [
-            ['field_label' => 'Kategori Produk Dulux / Catylac', 'field_name' => 'kategori_produk', 'field_type' => 'dropdown', 'options' => ['Dulux Interior (Pentalite / EasyClean / Ambiance)', 'Dulux Exterior (Weathershield / Powerflexx)', 'Catylac Cat Tembok Interior', 'Catylac Cat Tembok Exterior', 'Dulux Cat Dasar / Primer Alkali Resisting', 'Catylac Cat Dasar / Primer', 'Dulux Aquashield (Cat Pelapis Bocor)', 'Dulux Wood & Metal (Cat Kayu & Besi Gloss/Satin)'], 'is_required' => true],
-            ['field_label' => 'SKU / Nama Warna / Kode Warna', 'field_name' => 'sku_warna_produk', 'field_type' => 'text', 'placeholder' => 'Contoh: Dulux Pentalite Brilliant White 20L / 44556', 'is_required' => true],
-            ['field_label' => 'Kemasan Produk', 'field_name' => 'kemasan_produk', 'field_type' => 'dropdown', 'options' => ['1 Liter / 1 Kg (Kaleng Kecil)', '2.5 Liter / 4 Kg / 5 Kg (Galon)', '20 Liter / 25 Kg (Pail Besar)'], 'is_required' => true],
-            ['field_label' => 'Jumlah Terjual (Galon / Kaleng Kecil)', 'field_name' => 'qty_galon', 'field_type' => 'number', 'placeholder' => 'Jumlah kaleng/galon terjual', 'is_required' => false],
-            ['field_label' => 'Jumlah Terjual (Pail 20L / Besar)', 'field_name' => 'qty_pail', 'field_type' => 'number', 'placeholder' => 'Jumlah pail besar terjual', 'is_required' => false],
+            ['field_label' => 'Pilih Produk Terjual (Dulux / Catylac)', 'field_name' => 'produk_terjual', 'field_type' => 'product_select', 'is_required' => true],
+            ['field_label' => 'Kemasan Galon (Liter/Kg)', 'field_name' => 'kemasan_galon', 'field_type' => 'dropdown', 'options' => ['0.25 Liter', '0.75 Liter', '0.8 Liter', '0.9 Liter', '1 Liter', '2.5 Liter', '4 Kg', '5 Kg', 'Tidak Ada Galon'], 'is_required' => true],
+            ['field_label' => 'Jumlah Galon Terjual (Qty)', 'field_name' => 'qty_galon', 'field_type' => 'number', 'placeholder' => '0', 'default_value' => '0', 'is_required' => false],
+            ['field_label' => 'Kemasan Pail (Liter/Kg)', 'field_name' => 'kemasan_pail', 'field_type' => 'dropdown', 'options' => ['18.5 Liter', '20 Liter', '21 Liter', '22 Liter', '25 Kg', 'Tidak Ada Pail'], 'is_required' => true],
+            ['field_label' => 'Jumlah Pail Terjual (Qty)', 'field_name' => 'qty_pail', 'field_type' => 'number', 'placeholder' => '0', 'default_value' => '0', 'is_required' => false],
+            ['field_label' => 'Estimasi Total Volume Penjualan (Liter)', 'field_name' => 'total_volume_liter', 'field_type' => 'number', 'placeholder' => 'Total liter terjual', 'is_required' => true],
             ['field_label' => 'Total Nilai Penjualan (Rupiah)', 'field_name' => 'total_nilai_sales_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => true],
-            ['field_label' => 'Tipe Pembeli / Customer', 'field_name' => 'tipe_customer', 'field_type' => 'radio', 'options' => ['End User (Pemilik Rumah Langsung)', 'Tukang Cat / Mandor Bangunan', 'Kontraktor / Aplikator Proyek', 'Toko Pengecer / Retailer'], 'is_required' => true],
-            ['field_label' => 'Foto Bukti Nota / Struk Penjualan / Surat Jalan', 'field_name' => 'foto_nota_penjualan', 'field_type' => 'camera_photo', 'is_required' => true],
-            ['field_label' => 'Catatan Penjualan / Program Khusus', 'field_name' => 'catatan_penjualan', 'field_type' => 'textarea', 'placeholder' => 'Catatan tambahan terkait promo toko atau permintaan pembeli...', 'is_required' => false],
+            ['field_label' => 'Tipe Pembeli / Customer', 'field_name' => 'tipe_customer', 'field_type' => 'radio', 'options' => ['End User (Pemilik Rumah Langsung)', 'Tukang Cat / Mandor Bangunan', 'Kontraktor / Aplikator Proyek', 'Mitra Dulux Terdaftar', 'Toko Pengecer / Retailer'], 'is_required' => true],
+            ['field_label' => 'Foto Bukti Offtake Card / Nota Penjualan', 'field_name' => 'foto_nota_penjualan', 'field_type' => 'camera_photo', 'is_required' => true],
+            ['field_label' => 'Foto Nota Khusus Produk Promo (Aquashield / Weathershield / Ambiance / Catylac / PEP / PIP)', 'field_name' => 'foto_nota_promo_khusus', 'field_type' => 'multi_photo', 'is_required' => false],
+            ['field_label' => 'Jumlah Customer Datang ke Toko Hari Ini', 'field_name' => 'traffic_customer_datang', 'field_type' => 'number', 'placeholder' => 'Jumlah customer datang', 'is_required' => true],
+            ['field_label' => 'Jumlah Customer yang Membeli Cat', 'field_name' => 'traffic_customer_beli_cat', 'field_type' => 'number', 'placeholder' => 'Jumlah pembeli cat', 'is_required' => true],
+            ['field_label' => 'Jumlah Customer yang Membeli Dulux', 'field_name' => 'traffic_customer_beli_dulux', 'field_type' => 'number', 'placeholder' => 'Jumlah pembeli Dulux', 'is_required' => true],
+            ['field_label' => 'Jumlah Customer yang Ditawari Aquashield', 'field_name' => 'traffic_ditawari_aquashield', 'field_type' => 'number', 'placeholder' => 'Jumlah ditawari Aquashield', 'is_required' => false],
+            ['field_label' => 'Jumlah Customer yang Membeli Aquashield', 'field_name' => 'traffic_beli_aquashield', 'field_type' => 'number', 'placeholder' => 'Jumlah beli Aquashield', 'is_required' => false],
+            ['field_label' => 'Catatan Penjualan & Program Promo Toko', 'field_name' => 'catatan_penjualan', 'field_type' => 'textarea', 'placeholder' => 'Catatan tambahan transaksi hari ini...', 'is_required' => false],
         ];
 
         foreach ($fields as $index => $field) {
@@ -255,34 +346,35 @@ class ReportTemplatePresetsSeeder extends Seeder
     }
 
     /**
-     * 2. Template Cek Stok & OOS Dulux
+     * 4. Stock End Report Dulux
      */
-    private function seedDuluxStockOosTemplate(Principal $primaryDulux, array $allDuluxIds): void
+    private function seedDuluxStockEndTemplate(Principal $primaryDulux, array $allDuluxIds): void
     {
         $template = ReportTemplate::updateOrCreate(
-            ['code' => 'RPT-DULUX-STOCK-OOS-01'],
+            ['code' => 'RPT-DULUX-STOCK-END'],
             [
                 'principal_id' => $primaryDulux->id,
-                'title' => 'Laporan Cek Stok & OOS (Barang Kosong) Dulux',
-                'description' => 'Monitoring ketersediaan stok fisik produk Dulux & Catylac di rak toko serta pencatatan alasan barang kosong.',
+                'title' => 'Laporan Stock End (Stock Opname Bulanan) Dulux',
+                'description' => 'Pencatatan sisa stok fisik akhir bulan (Stock End) seluruh SKU Dulux & Catylac di toko (Mulai tgl 20 s/d 28).',
                 'category' => 'stock',
                 'require_gps' => true,
                 'require_signature' => false,
                 'is_active' => true,
                 'version' => 1,
+                'report_days' => [],
             ]
         );
-
         $template->principals()->sync($allDuluxIds);
 
         $fields = [
-            ['field_label' => 'Kategori Produk yang Dicek', 'field_name' => 'kategori_produk_stok', 'field_type' => 'dropdown', 'options' => ['Dulux Interior', 'Dulux Exterior', 'Catylac Interior', 'Catylac Exterior', 'Cat Dasar Primer', 'Aquashield', 'Wood & Metal'], 'is_required' => true],
-            ['field_label' => 'Total Stok Fisik Galon di Toko', 'field_name' => 'total_stok_galon', 'field_type' => 'number', 'placeholder' => 'Jumlah galon', 'is_required' => true],
-            ['field_label' => 'Total Stok Fisik Pail di Toko', 'field_name' => 'total_stok_pail', 'field_type' => 'number', 'placeholder' => 'Jumlah pail', 'is_required' => true],
-            ['field_label' => 'Status Ketersediaan Stok', 'field_name' => 'status_ketersediaan_stok', 'field_type' => 'radio', 'options' => ['Stok Aman / Ready Lengkap', 'Stok Menipis (Hampir Habis)', 'Out of Stock / Kosong Total'], 'is_required' => true],
-            ['field_label' => 'Penyebab Barang Kosong (Jika OOS)', 'field_name' => 'penyebab_oos', 'field_type' => 'dropdown', 'options' => ['Tidak Ada (Stok Ready)', 'Kosong di Distributor / DC Pusat', 'Keterlambatan Pengiriman PO Toko', 'Toko Over Limit Kredit / Piutang Tertahan', 'SKU Discontinue / Ganti Kemasan'], 'is_required' => true],
-            ['field_label' => 'Keterangan Order & Tanggapan PIC Toko', 'field_name' => 'keterangan_order_toko', 'field_type' => 'textarea', 'placeholder' => 'Apakah toko sudah buat PO atau menunggu jatuh tempo...', 'is_required' => false],
-            ['field_label' => 'Foto Rak Display & Gudang Stok Toko', 'field_name' => 'foto_gudang_rak_stok', 'field_type' => 'multi_photo', 'is_required' => true],
+            ['field_label' => 'Pilih Produk Dulux / Catylac yang Dicek', 'field_name' => 'produk_stock_end', 'field_type' => 'product_select', 'is_required' => true],
+            ['field_label' => 'Base / Tipe Warna', 'field_name' => 'base_warna', 'field_type' => 'dropdown', 'options' => ['Base A (Putih/Light)', 'Base B (Medium)', 'Base C (Dark)', 'Base D (Clear/Deep)', 'Ready Mix (Warna Jadi Pabrik)', 'Cat Dasar Primer'], 'is_required' => true],
+            ['field_label' => 'Stok Fisik Kemasan Galon (Qty)', 'field_name' => 'stok_qty_galon', 'field_type' => 'number', 'placeholder' => 'Jumlah galon', 'is_required' => true],
+            ['field_label' => 'Stok Fisik Kemasan Pail (Qty)', 'field_name' => 'stok_qty_pail', 'field_type' => 'number', 'placeholder' => 'Jumlah pail', 'is_required' => true],
+            ['field_label' => 'Estimasi Total Volume Stok di Toko (Liter)', 'field_name' => 'total_volume_stok_liter', 'field_type' => 'number', 'placeholder' => 'Total volume liter', 'is_required' => true],
+            ['field_label' => 'Status Akses Pengecekan Gudang Toko', 'field_name' => 'status_akses_gudang', 'field_type' => 'radio', 'options' => ['Full Access (Bisa Cek Rak & Gudang Toko Bebas)', 'Half Access (Hanya Cek Rak Depan Toko)', 'No Access (Toko Menolak Cek Fisik / Data Estimasi)'], 'is_required' => true],
+            ['field_label' => 'Foto Fisik Rak Display & Tumpukan Stok Gudang', 'field_name' => 'foto_stok_gudang', 'field_type' => 'multi_photo', 'is_required' => true],
+            ['field_label' => 'Keterangan / Kendala Stok Toko', 'field_name' => 'keterangan_stok_toko', 'field_type' => 'textarea', 'placeholder' => 'Catatan status stok lambat laku (slow moving) atau kelebihan stok...', 'is_required' => false],
         ];
 
         foreach ($fields as $index => $field) {
@@ -294,37 +386,35 @@ class ReportTemplatePresetsSeeder extends Seeder
     }
 
     /**
-     * 3. Template Market Share & Kompetitor Tracking Dulux
+     * 5. Out of Stock SSO Report Dulux (Hari Sabtu)
      */
-    private function seedDuluxMarketShareTemplate(Principal $primaryDulux, array $allDuluxIds): void
+    private function seedDuluxOosSsoTemplate(Principal $primaryDulux, array $allDuluxIds): void
     {
         $template = ReportTemplate::updateOrCreate(
-            ['code' => 'RPT-DULUX-MARKET-SHARE-01'],
+            ['code' => 'RPT-DULUX-OOS-SSO'],
             [
                 'principal_id' => $primaryDulux->id,
-                'title' => 'Laporan Market Share & Kompetitor Dulux',
-                'description' => 'Pencatatan estimasi nilai penjualan brand kompetitor cat (Jotun, Nippon, Mowilex, Avian, dll) di toko.',
-                'category' => 'competitor',
+                'title' => 'Laporan Out of Stock (OOS) SSO Dulux',
+                'description' => 'Pencatatan barang kosong (Out of Stock) di toko Specialist / Traditional (SSO) setiap hari Sabtu.',
+                'category' => 'stock',
                 'require_gps' => true,
                 'require_signature' => false,
                 'is_active' => true,
                 'version' => 1,
+                'report_days' => ['sabtu'],
             ]
         );
-
         $template->principals()->sync($allDuluxIds);
 
         $fields = [
-            ['field_label' => 'Total Penjualan DULUX Hari Ini (Rp)', 'field_name' => 'sales_dulux_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => true],
-            ['field_label' => 'Estimasi Penjualan JOTUN (Rp)', 'field_name' => 'sales_jotun_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => false],
-            ['field_label' => 'Estimasi Penjualan NIPPON PAINT (Rp)', 'field_name' => 'sales_nippon_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => false],
-            ['field_label' => 'Estimasi Penjualan MOWILEX (Rp)', 'field_name' => 'sales_mowilex_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => false],
-            ['field_label' => 'Estimasi Penjualan AVIAN / LENKOTE / SUNGUARD (Rp)', 'field_name' => 'sales_avian_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => false],
-            ['field_label' => 'Estimasi Penjualan DANAPAINTS / PROPAN / LAINNYA (Rp)', 'field_name' => 'sales_kompetitor_lainnya_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => false],
-            ['field_label' => 'Brand Cat Paling Laku di Toko Hari Ini', 'field_name' => 'brand_terlaris_toko', 'field_type' => 'dropdown', 'options' => ['DULUX / CATYLAC', 'JOTUN', 'NIPPON PAINT', 'MOWILEX', 'AVIAN / LENKOTE', 'PROPAN', 'DANAPAINTS', 'TOA'], 'is_required' => true],
-            ['field_label' => 'Alasan Konsumen Memilih Brand Kompetitor', 'field_name' => 'alasan_pilih_kompetitor', 'field_type' => 'dropdown', 'options' => ['Harga Kompetitor Lebih Murah / Promo Diskon', 'Program Hadiah Langsung / Cashback Tukang', 'Tukang Cat Sudah Terbiasa (Fanatik Brand Lain)', 'Stok Dulux di Toko Kosong / Tidak Tersedia', 'Display Kompetitor Lebih Menarik'], 'is_required' => false],
-            ['field_label' => 'Info Promo & Program Kompetitor yang Sedang Aktif', 'field_name' => 'info_promo_kompetitor', 'field_type' => 'textarea', 'placeholder' => 'Tuliskan rincian promo kompetitor di toko ini...', 'is_required' => false],
-            ['field_label' => 'Foto Display & Materi Promo Kompetitor', 'field_name' => 'foto_promo_kompetitor', 'field_type' => 'camera_photo', 'is_required' => false],
+            ['field_label' => 'Pilih Produk Dulux yang Mengalami OOS / Kosong', 'field_name' => 'produk_oos_sso', 'field_type' => 'product_select', 'is_required' => true],
+            ['field_label' => 'Base / Tipe Warna yang Kosong', 'field_name' => 'base_warna_oos', 'field_type' => 'dropdown', 'options' => ['Base A', 'Base B', 'Base C', 'Base D', 'Ready Mix / Warna Jadi', 'Alkali Primer', 'Semua Base'], 'is_required' => true],
+            ['field_label' => 'Kemasan / Size yang Kosong', 'field_name' => 'kemasan_size_oos', 'field_type' => 'dropdown', 'options' => ['Small Tin (1L/1Kg)', 'Galon (2.5L / 4-5Kg)', 'Pail (20L / 25Kg)', 'Semua Kemasan'], 'is_required' => true],
+            ['field_label' => 'Lama Kondisi Barang Kosong (Jumlah Hari)', 'field_name' => 'lama_oos_hari', 'field_type' => 'number', 'placeholder' => 'Contoh: 7 (hari)', 'is_required' => true],
+            ['field_label' => 'Saran Kuantiti Order ke Toko (Qty Galon/Pail)', 'field_name' => 'saran_qty_order', 'field_type' => 'number', 'placeholder' => 'Saran kuantiti order', 'is_required' => false],
+            ['field_label' => 'Penyebab / Alasan Out of Stock (OOS)', 'field_name' => 'alasan_oos_sso', 'field_type' => 'dropdown', 'options' => ['1. Sudah buka PO namun belum ada pengiriman ke toko', '2. Sudah buka PO namun kendala stock di distributor/pabrik', '3. Kendala pembayaran toko (limit kredit / kiriman diblokir)', '4. Barang sedang dalam proses pengiriman ke toko', '5. Toko belum bersedia reorder / menunggu omset'], 'is_required' => true],
+            ['field_label' => 'Foto Rak Kosong / Void Display Toko', 'field_name' => 'foto_rak_kosong', 'field_type' => 'camera_photo', 'is_required' => true],
+            ['field_label' => 'Tindak Lanjut & Rencana Order Toko', 'field_name' => 'tindak_lanjut_oos', 'field_type' => 'textarea', 'placeholder' => 'Kapan toko rencana order kembali atau hasil konfirmasi ke PIC toko...', 'is_required' => false],
         ];
 
         foreach ($fields as $index => $field) {
@@ -336,34 +426,35 @@ class ReportTemplatePresetsSeeder extends Seeder
     }
 
     /**
-     * 4. Template Mesin Oplos & Tinting Machine Dulux
+     * 6. Out of Stock LSO Report Dulux
      */
-    private function seedDuluxTintingDisplayTemplate(Principal $primaryDulux, array $allDuluxIds): void
+    private function seedDuluxOosLsoTemplate(Principal $primaryDulux, array $allDuluxIds): void
     {
         $template = ReportTemplate::updateOrCreate(
-            ['code' => 'RPT-DULUX-TINTING-DISPLAY-01'],
+            ['code' => 'RPT-DULUX-OOS-LSO'],
             [
                 'principal_id' => $primaryDulux->id,
-                'title' => 'Laporan Mesin Tinting & Display Toko Dulux',
-                'description' => 'Monitoring kondisi mesin oplos warna (Tinting Machine), stok pasta pewarna (colorant), dan kebersihan display Dulux.',
-                'category' => 'display',
+                'title' => 'Laporan Out of Stock (OOS) LSO Dulux',
+                'description' => 'Pencatatan barang kosong (Out of Stock) di gerai Modern Trade (LSO) setiap libur / 1x seminggu.',
+                'category' => 'stock',
                 'require_gps' => true,
                 'require_signature' => false,
                 'is_active' => true,
                 'version' => 1,
+                'report_days' => [],
             ]
         );
-
         $template->principals()->sync($allDuluxIds);
 
         $fields = [
-            ['field_label' => 'Kondisi Mesin Tinting Dulux', 'field_name' => 'kondisi_mesin_tinting', 'field_type' => 'radio', 'options' => ['Berfungsi Normal & Siap Digunakan', 'Nozzle Tersumbat / Butuh Kalibrasi', 'Software / Komputer Tinting Error', 'Mesin Rusak / Mati Total', 'Toko Tidak Memiliki Mesin Tinting'], 'is_required' => true],
-            ['field_label' => 'Ketersediaan Stok Pasta Pewarna (Colorant)', 'field_name' => 'stok_pasta_colorant', 'field_type' => 'radio', 'options' => ['Lengkap & Cukup untuk Oplos', 'Ada 1-2 Pasta Pewarna Menipis', 'Pasta Pewarna Utama Habis (Tidak Bisa Oplos)'], 'is_required' => true],
-            ['field_label' => 'Jumlah Kaleng Dioplos Hari Ini', 'field_name' => 'jumlah_kaleng_oplos_hari_ini', 'field_type' => 'number', 'placeholder' => 'Jumlah kaleng dioplos', 'is_required' => true],
-            ['field_label' => 'Kondisi Stand Kartu Warna & Display Rak', 'field_name' => 'kondisi_display_color_card', 'field_type' => 'radio', 'options' => ['Bersih, Rapi & Kartu Warna Lengkap', 'Kartu Warna Kurang / Banyak Sobek', 'Rak Display Kotor / Tertutup Barang Lain'], 'is_required' => true],
-            ['field_label' => 'Foto Mesin Tinting Dulux', 'field_name' => 'foto_mesin_tinting', 'field_type' => 'camera_photo', 'is_required' => true],
-            ['field_label' => 'Foto Rak Display & Color Card Dulux', 'field_name' => 'foto_display_rak', 'field_type' => 'camera_photo', 'is_required' => true],
-            ['field_label' => 'Catatan Kebutuhan Maintenance / Form Tambahan', 'field_name' => 'catatan_maintenance', 'field_type' => 'textarea', 'placeholder' => 'Tuliskan kendala teknis atau pasta yang perlu di-restock...', 'is_required' => false],
+            ['field_label' => 'Account Modern Trade (LSO)', 'field_name' => 'account_lso_oos', 'field_type' => 'dropdown', 'options' => ['Ace Hardware', 'Depo Bangunan', 'Mitra 10', 'Mega Depo Bangunan', 'BJ Home', 'Mitra 10 Express', 'Lainnya'], 'is_required' => true],
+            ['field_label' => 'Pilih Produk Dulux yang Kosong di LSO', 'field_name' => 'produk_oos_lso', 'field_type' => 'product_select', 'is_required' => true],
+            ['field_label' => 'Base / Color yang Kosong', 'field_name' => 'base_color_lso', 'field_type' => 'dropdown', 'options' => ['Base A', 'Base B', 'Base C', 'Base D', 'Ready Mix / Warna Jadi', 'Cat Dasar Primer'], 'is_required' => true],
+            ['field_label' => 'Kemasan yang Kosong', 'field_name' => 'kemasan_oos_lso', 'field_type' => 'dropdown', 'options' => ['Tin (1L)', 'Galon (2.5L / 4-5Kg)', 'Pail (20L / 25Kg)', 'Semua Kemasan'], 'is_required' => true],
+            ['field_label' => 'Keterangan Lama OOS (Hari)', 'field_name' => 'lama_oos_lso_hari', 'field_type' => 'number', 'placeholder' => 'Jumlah hari barang kosong', 'is_required' => true],
+            ['field_label' => 'Alasan Out of Stock (OOS) LSO', 'field_name' => 'alasan_oos_lso', 'field_type' => 'dropdown', 'options' => ['Stok DC / Hub Modern Trade Kosong', 'PO Toko Belum Diterbitkan Buyer', 'Keterlambatan Ekspedisi / Pengiriman Logistik', 'Barang Transit di Gudang Toko Belum Dipajang', 'Kendala Sistem Inventory Toko'], 'is_required' => true],
+            ['field_label' => 'Foto Rak Kosong di Modern Store LSO', 'field_name' => 'foto_rak_oos_lso', 'field_type' => 'camera_photo', 'is_required' => true],
+            ['field_label' => 'Catatan Koordinasi dengan Merchandiser / Buyer LSO', 'field_name' => 'catatan_koordinasi_lso', 'field_type' => 'textarea', 'placeholder' => 'Hasil follow up dengan PIC toko modern...', 'is_required' => false],
         ];
 
         foreach ($fields as $index => $field) {
@@ -375,37 +466,168 @@ class ReportTemplatePresetsSeeder extends Seeder
     }
 
     /**
-     * 5. Template Database Profil Toko & Kunjungan Team Leader (TL) Dulux
+     * 7. Data Pelanggan Dulux
      */
-    private function seedDuluxDatabaseProfileTLTemplate(Principal $primaryDulux, array $allDuluxIds): void
+    private function seedDuluxDataPelangganTemplate(Principal $primaryDulux, array $allDuluxIds): void
     {
         $template = ReportTemplate::updateOrCreate(
-            ['code' => 'RPT-DULUX-DATABASE-TL-01'],
+            ['code' => 'RPT-DULUX-DATABASE-PELANGGAN'],
             [
                 'principal_id' => $primaryDulux->id,
-                'title' => 'Laporan Kunjungan TL & Database Profil Toko Dulux',
-                'description' => 'Formulir survey profil toko cat/bangunan, evaluasi performa SPG Dulux, dan kesepakatan program promosi oleh Team Leader.',
+                'title' => 'Laporan Data Pelanggan & Konsumen Dulux',
+                'description' => 'Pendataan profil konsumen pembeli cat di toko, brand yang dicari vs brand yang dibeli, dan kebutuhan preview warna.',
+                'category' => 'general',
+                'require_gps' => true,
+                'require_signature' => false,
+                'is_active' => true,
+                'version' => 1,
+                'report_days' => [],
+            ]
+        );
+        $template->principals()->sync($allDuluxIds);
+
+        $fields = [
+            ['field_label' => 'Nama Lengkap Pelanggan', 'field_name' => 'nama_pelanggan', 'field_type' => 'text', 'placeholder' => 'Nama konsumen / pembeli', 'is_required' => true],
+            ['field_label' => 'Nomor HP / WhatsApp Pelanggan', 'field_name' => 'no_hp_pelanggan', 'field_type' => 'text', 'placeholder' => '08xxxxxxxxxx', 'is_required' => true],
+            ['field_label' => 'Alamat / Domisili Pelanggan', 'field_name' => 'alamat_pelanggan', 'field_type' => 'text', 'placeholder' => 'Alamat atau lokasi proyek konsumen', 'is_required' => false],
+            ['field_label' => 'Tipe / Kategori Pelanggan', 'field_name' => 'tipe_pelanggan', 'field_type' => 'radio', 'options' => ['Pemilik Rumah (End User)', 'Tukang Cat & Bangunan', 'Mandor Proyek', 'Kontraktor / Aplikator', 'Mitra Dulux Terdaftar'], 'is_required' => true],
+            ['field_label' => 'Tujuan Datang ke Toko', 'field_name' => 'tujuan_ke_toko', 'field_type' => 'dropdown', 'options' => ['Membeli Cat Dulux / Catylac', 'Membeli Cat Merk Lain', 'Membeli Bahan Bangunan Lainnya', 'Konsultasi / Tanya Warna', 'Komplain Produk'], 'is_required' => true],
+            ['field_label' => 'Brand Cat yang Awalnya Dicari / Ditanyakan', 'field_name' => 'brand_dicari', 'field_type' => 'text', 'placeholder' => 'Contoh: Dulux, Jotun, Nippon, No Drop...', 'is_required' => true],
+            ['field_label' => 'Brand Cat yang Akhirnya Dibeli', 'field_name' => 'brand_dibeli', 'field_type' => 'dropdown', 'options' => ['DULUX (Pentalite/Weathershield/EasyClean/Ambiance)', 'CATYLAC (Interior/Exterior/Plamur)', 'AQUASHIELD (Pelapis Anti Bocor)', 'JOTUN', 'NIPPON PAINT', 'AVIAN / NO DROP / LENKOTE', 'MOWILEX', 'PROPAN', 'Tidak Jadi Beli Cat'], 'is_required' => true],
+            ['field_label' => 'Alasan Konsumen Memilih Brand Tersebut', 'field_name' => 'alasan_pilih_brand', 'field_type' => 'dropdown', 'options' => ['Kualitas dan Daya Tahan Terbukti', 'Merk Terkenal / Rekomendasi Arsitek', 'Rekomendasi SPG / DC Dulux di Toko', 'Rekomendasi Pemilik / Karyawan Toko', 'Harga Lebih Terjangkau / Diskon Promo', 'Warna Sesuai Pilihan (Bisa Oplos)', 'Tukang Cat Terbiasa Pakai Merk Tersebut'], 'is_required' => true],
+            ['field_label' => 'Tipe Pekerjaan Pengecatan', 'field_name' => 'tipe_pengecatan', 'field_type' => 'radio', 'options' => ['Pengecatan Rumah Baru (Tembok Baru)', 'Pengecatan Ulang / Renovasi (Repainting)', 'Pengecatan Proyek Komersial / Ruko'], 'is_required' => true],
+            ['field_label' => 'Apakah Memerlukan Preview Warna Visualizer?', 'field_name' => 'memerlukan_preview', 'field_type' => 'radio', 'options' => ['Ya (Dibuatkan Visualisasi Warna / Demo)', 'Tidak (Sudah Memiliki Pilihan Warna Pasti)'], 'is_required' => true],
+            ['field_label' => 'Total Estimasi Nilai Pembelian (Rupiah)', 'field_name' => 'value_pembelian_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => true],
+            ['field_label' => 'Foto Interaksi Konsumen di Toko / Nota Belanja', 'field_name' => 'foto_interaksi_pelanggan', 'field_type' => 'camera_photo', 'is_required' => false],
+            ['field_label' => 'Catatan Khusus Pelanggan', 'field_name' => 'catatan_pelanggan', 'field_type' => 'textarea', 'placeholder' => 'Catatan preferensi warna atau rencana belanja lanjutan...', 'is_required' => false],
+        ];
+
+        foreach ($fields as $index => $field) {
+            ReportFormField::updateOrCreate(
+                ['report_template_id' => $template->id, 'field_name' => $field['field_name']],
+                array_merge($field, ['order_index' => $index + 1])
+            );
+        }
+    }
+
+    /**
+     * 8. Trafik Pembeli Toko Dulux
+     */
+    private function seedDuluxTrafikPembeliTemplate(Principal $primaryDulux, array $allDuluxIds): void
+    {
+        $template = ReportTemplate::updateOrCreate(
+            ['code' => 'RPT-DULUX-TRAFIK-PEMBELI'],
+            [
+                'principal_id' => $primaryDulux->id,
+                'title' => 'Laporan Trafik Pembeli Toko Dulux',
+                'description' => 'Pencatatan ringkas harian total pengunjung toko cat, pembeli cat umum, dan pembeli produk Dulux.',
+                'category' => 'general',
+                'require_gps' => true,
+                'require_signature' => false,
+                'is_active' => true,
+                'version' => 1,
+                'report_days' => [],
+            ]
+        );
+        $template->principals()->sync($allDuluxIds);
+
+        $fields = [
+            ['field_label' => 'Tipe Gerai / Toko', 'field_name' => 'tipe_toko', 'field_type' => 'radio', 'options' => ['SSO (Specialist / Traditional Store)', 'LSO (Modern Outlet / Depo Bahan Bangunan)'], 'is_required' => true],
+            ['field_label' => 'Jumlah Total Customer Datang ke Toko Hari Ini', 'field_name' => 'jml_customer_datang', 'field_type' => 'number', 'placeholder' => 'Jumlah pengunjung toko', 'is_required' => true],
+            ['field_label' => 'Jumlah Customer yang Membeli Cat (Semua Brand)', 'field_name' => 'jml_customer_beli_cat', 'field_type' => 'number', 'placeholder' => 'Jumlah pembeli cat', 'is_required' => true],
+            ['field_label' => 'Jumlah Customer yang Membeli Produk Dulux / Catylac', 'field_name' => 'jml_customer_beli_dulux', 'field_type' => 'number', 'placeholder' => 'Jumlah pembeli Dulux', 'is_required' => true],
+            ['field_label' => 'Estimasi Persentase Market Share Dulux di Toko Hari Ini (%)', 'field_name' => 'estimasi_market_share_persen', 'field_type' => 'number', 'placeholder' => 'Contoh: 60 (%)', 'is_required' => false],
+            ['field_label' => 'Kondisi Keramaian Toko Hari Ini', 'field_name' => 'kondisi_keramaian_toko', 'field_type' => 'radio', 'options' => ['Sangat Ramai (Banyak Pengunjung & Transaksi)', 'Normal / Sedang', 'Sepi (Faktor Cuaca Hujan / Hari Kerja)'], 'is_required' => true],
+            ['field_label' => 'Catatan Evaluasi Trafik Toko', 'field_name' => 'catatan_trafik_toko', 'field_type' => 'textarea', 'placeholder' => 'Catatan situasi toko hari ini...', 'is_required' => false],
+        ];
+
+        foreach ($fields as $index => $field) {
+            ReportFormField::updateOrCreate(
+                ['report_template_id' => $template->id, 'field_name' => $field['field_name']],
+                array_merge($field, ['order_index' => $index + 1])
+            );
+        }
+    }
+
+    /**
+     * 9. Registrasi New MD (Mitra Dulux)
+     */
+    private function seedDuluxRegistrasiMitraTemplate(Principal $primaryDulux, array $allDuluxIds): void
+    {
+        $template = ReportTemplate::updateOrCreate(
+            ['code' => 'RPT-DULUX-REGISTRASI-MITRA'],
+            [
+                'principal_id' => $primaryDulux->id,
+                'title' => 'Laporan Registrasi New MD (Mitra Dulux Non-Incentive)',
+                'description' => 'Formulir resmi pendaftaran anggota baru program Mitra Dulux untuk tukang cat, mandor, kontraktor, dan aplikator.',
                 'category' => 'survey',
                 'require_gps' => true,
                 'require_signature' => true,
                 'is_active' => true,
                 'version' => 1,
+                'report_days' => [],
             ]
         );
-
         $template->principals()->sync($allDuluxIds);
 
         $fields = [
-            ['field_label' => 'Nama Toko / Depo Bangunan', 'field_name' => 'nama_toko_depo', 'field_type' => 'text', 'placeholder' => 'Contoh: TB Sumber Rejeki Cat', 'is_required' => true],
-            ['field_label' => 'Tipe Toko / Channel', 'field_name' => 'tipe_toko_channel', 'field_type' => 'dropdown', 'options' => ['Paint Specialist (Toko Khusus Cat)', 'Modern Outlet / Depo Bahan Bangunan', 'Traditional Market (Toko Bahan Bangunan Biasa)', 'Retailer / Toko Grosir'], 'is_required' => true],
-            ['field_label' => 'Nama Owner / Kepala Toko (PIC)', 'field_name' => 'nama_owner_pic', 'field_type' => 'text', 'placeholder' => 'Nama PIC yang ditemui', 'is_required' => true],
-            ['field_label' => 'Nomor HP / WhatsApp Owner Toko', 'field_name' => 'no_hp_owner', 'field_type' => 'text', 'placeholder' => '08xxxxxxxxxx', 'is_required' => true],
-            ['field_label' => 'Kelas / Potensi Toko Dulux', 'field_name' => 'kelas_potensi_toko', 'field_type' => 'dropdown', 'options' => ['Kelas A (Platinum - Omset > 100 Jt/Bulan)', 'Kelas B (Gold - Omset 50 - 100 Jt/Bulan)', 'Kelas C (Silver - Omset 20 - 50 Jt/Bulan)', 'Kelas D (Bronze - Omset < 20 Jt/Bulan)'], 'is_required' => true],
-            ['field_label' => 'Evaluasi Kehadiran & Standby SPG Dulux', 'field_name' => 'evaluasi_kehadiran_spg', 'field_type' => 'radio', 'options' => ['SPG Hadir & Standby di Lokasi', 'SPG Izin / Sakit / Off', 'Toko Belum Ada Penempatan SPG'], 'is_required' => true],
-            ['field_label' => 'Evaluasi Kinerja & Pemahaman Produk SPG', 'field_name' => 'evaluasi_kinerja_spg', 'field_type' => 'dropdown', 'options' => ['Sangat Baik (Aktif Menawarkan & Paham Produk)', 'Cukup Baik (Standby & Menjawab Pertanyaan)', 'Perlu Pembinaan / Product Knowledge Training'], 'is_required' => false],
-            ['field_label' => 'Catatan Kesepakatan Program & Arahan TL', 'field_name' => 'catatan_arahan_tl', 'field_type' => 'textarea', 'placeholder' => 'Tuliskan hasil diskusi dengan pemilik toko dan instruksi untuk SPG...', 'is_required' => true],
-            ['field_label' => 'Foto Pertemuan dengan Owner Toko / Fasad Toko', 'field_name' => 'foto_pertemuan_toko', 'field_type' => 'camera_photo', 'is_required' => true],
-            ['field_label' => 'Tanda Tangan Digital Owner / PIC Toko', 'field_name' => 'tanda_tangan_owner_toko', 'field_type' => 'signature', 'is_required' => true],
+            ['field_label' => 'Nama Lengkap Mitra Dulux (Sesuai KTP)', 'field_name' => 'nama_lengkap_mitra', 'field_type' => 'text', 'placeholder' => 'Nama lengkap mitra', 'is_required' => true],
+            ['field_label' => 'Nomor KTP / SIM Resmi', 'field_name' => 'no_ktp_sim', 'field_type' => 'text', 'placeholder' => '16 digit NIK KTP / No SIM', 'is_required' => true],
+            ['field_label' => 'Foto Identitas Resmi (KTP / SIM Mitra)', 'field_name' => 'foto_identitas_resmi', 'field_type' => 'camera_photo', 'is_required' => true],
+            ['field_label' => 'Nomor Handphone untuk Telepon', 'field_name' => 'no_hp_telepon', 'field_type' => 'text', 'placeholder' => '08xxxxxxxxxx', 'is_required' => true],
+            ['field_label' => 'Nomor Handphone untuk WhatsApp', 'field_name' => 'no_hp_whatsapp', 'field_type' => 'text', 'placeholder' => '08xxxxxxxxxx', 'is_required' => true],
+            ['field_label' => 'Alamat Lengkap Sesuai KTP', 'field_name' => 'alamat_ktp', 'field_type' => 'textarea', 'placeholder' => 'Alamat lengkap mitra...', 'is_required' => true],
+            ['field_label' => 'Profesi / Keahlian Mitra', 'field_name' => 'profesi_mitra', 'field_type' => 'dropdown', 'options' => ['Mandor Bangunan', 'Tukang Cat Profesional', 'Kontraktor / Pemborong Bangunan', 'Aplikator Cat Khusus', 'Arsitek / Desainer Interior', 'Karyawan / Bagian Pembelian Toko'], 'is_required' => true],
+            ['field_label' => 'Jumlah Tukang Cat di Bawah Koordinasi Mitra', 'field_name' => 'jumlah_tukang_cat', 'field_type' => 'number', 'placeholder' => 'Jumlah anak buah / tukang', 'default_value' => '1', 'is_required' => false],
+            ['field_label' => 'Nama Proyek Pengecatan yang Sedang Dikerjakan', 'field_name' => 'nama_proyek_pengecatan', 'field_type' => 'text', 'placeholder' => 'Contoh: Rumah Tinggal Bpk. Hendra / Ruko 3 Lantai', 'is_required' => true],
+            ['field_label' => 'Estimasi Luas Bidang Pengecatan (m2)', 'field_name' => 'luas_bidang_pengecatan', 'field_type' => 'number', 'placeholder' => 'Luas m2', 'is_required' => false],
+            ['field_label' => 'Foto Proyek Pengecatan (Eksterior / Interior)', 'field_name' => 'foto_proyek_pengecatan', 'field_type' => 'camera_photo', 'is_required' => true],
+            ['field_label' => 'Foto Mitra Dulux Bersama Petugas DC / DGO di Toko', 'field_name' => 'foto_painter_bersama_dc', 'field_type' => 'camera_photo', 'is_required' => true],
+            ['field_label' => 'Foto Bukti Nota Pembelian Produk Dulux Pertama', 'field_name' => 'foto_bukti_nota_pertama', 'field_type' => 'camera_photo', 'is_required' => true],
+            ['field_label' => 'Tanda Tangan Digital Mitra Dulux', 'field_name' => 'tanda_tangan_mitra_dulux', 'field_type' => 'signature', 'is_required' => true],
+            ['field_label' => 'Catatan Rekomendasi Petugas DC / DGO', 'field_name' => 'catatan_rekomendasi_mitra', 'field_type' => 'textarea', 'placeholder' => 'Catatan potensi mitra Dulux dan loyalitas produk...', 'is_required' => false],
+        ];
+
+        foreach ($fields as $index => $field) {
+            ReportFormField::updateOrCreate(
+                ['report_template_id' => $template->id, 'field_name' => $field['field_name']],
+                array_merge($field, ['order_index' => $index + 1])
+            );
+        }
+    }
+
+    /**
+     * 10. Daily Maintenance POST Dulux
+     */
+    private function seedDuluxDailyMaintenanceTemplate(Principal $primaryDulux, array $allDuluxIds): void
+    {
+        $template = ReportTemplate::updateOrCreate(
+            ['code' => 'RPT-DULUX-DAILY-MAINTENANCE'],
+            [
+                'principal_id' => $primaryDulux->id,
+                'title' => 'Laporan Daily Maintenance POST & Mesin Tinting Dulux',
+                'description' => 'Kartu harian pemeriksaan & perawatan mesin tinting (POST Maintenance), nozzle cleaning, kalibrasi, dan program Mix2Win di toko.',
+                'category' => 'display',
+                'require_gps' => true,
+                'require_signature' => false,
+                'is_active' => true,
+                'version' => 1,
+                'report_days' => [],
+            ]
+        );
+        $template->principals()->sync($allDuluxIds);
+
+        $fields = [
+            ['field_label' => 'Kategori / Tipe Gerai Toko', 'field_name' => 'kategori_toko_post', 'field_type' => 'radio', 'options' => ['SSO (Specialist Store)', 'LSO (Modern Trade Outlet)', 'MTI (Modern Trade Independent)'], 'is_required' => true],
+            ['field_label' => 'Tipe Mesin Tinting POST di Toko', 'field_name' => 'tipe_mesin_post', 'field_type' => 'dropdown', 'options' => ['Mesin D200 (Automatic Tinting)', 'Mesin Discovery (Automatic Tinting)', 'Mesin XProtint (Automatic Tinting)', 'Mesin Element 2', 'Mesin Manual Dispenser', 'Toko Tidak Memiliki Mesin Tinting'], 'is_required' => true],
+            ['field_label' => 'Nomor Seri / No Mesin POST Dulux', 'field_name' => 'no_mesin_post', 'field_type' => 'text', 'placeholder' => 'Contoh: POST-2022-JKT-042', 'is_required' => false],
+            ['field_label' => 'Status Pemeriksaan Kebersihan Nozzle & Brush Cleaning', 'field_name' => 'status_nozzle_cleaning', 'field_type' => 'radio', 'options' => ['Nozzle Bersih & Sudah Dilakukan Brush Cleaning', 'Nozzle Tersumbat (Butuh Pembersihan Ekstra / Air Hangat)', 'Nozzle Rusak / Butuh Service Teknisi'], 'is_required' => true],
+            ['field_label' => 'Status Sirkulasi & Agitasi Pasta Tinter', 'field_name' => 'status_sirkulasi_tinter', 'field_type' => 'radio', 'options' => ['Sirkulasi & Pengadukan Tinter Berjalan Normal', 'Motor Agitasi Berisik / Butuh Pelumasan', 'Tinta Mengendap / Tidak Berputar'], 'is_required' => true],
+            ['field_label' => 'Status Software Tinting Komputer & Database Formula Warna', 'field_name' => 'status_software_komputer', 'field_type' => 'radio', 'options' => ['Software Normal & Database Formula Warna Terupdate', 'Software Error / Butuh Update Formula', 'Komputer / Monitor Mati'], 'is_required' => true],
+            ['field_label' => 'Status Partisipasi Program Mix2Win Toko', 'field_name' => 'status_program_mix2win', 'field_type' => 'radio', 'options' => ['Program Mix2Win Aktif & Kupon Tercetak Normal', 'Program Mix2Win Belum Diaktifkan Toko', 'Kendala Printer / Sambungan Internet Mix2Win'], 'is_required' => true],
+            ['field_label' => 'Foto Proses Brush Cleaning / Pembersihan Nozzle Mesin', 'field_name' => 'foto_brush_cleaning', 'field_type' => 'camera_photo', 'is_required' => true],
+            ['field_label' => 'Foto Mesin Tinting & Area Oplos Toko', 'field_name' => 'foto_mesin_tinting', 'field_type' => 'camera_photo', 'is_required' => true],
+            ['field_label' => 'Kesimpulan Kondisi Mesin & Rekomendasi Maintenance', 'field_name' => 'kesimpulan_maintenance', 'field_type' => 'textarea', 'placeholder' => 'Tuliskan kendala teknis atau pasta yang perlu di-restock teknisi...', 'is_required' => false],
         ];
 
         foreach ($fields as $index => $field) {

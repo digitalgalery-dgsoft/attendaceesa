@@ -611,9 +611,23 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Pembuatan relasi pivot `report_template_position` dan `report_template_employee` serta kolom `employee_id` di `report_template_assignments`.
       - Penugasan form di Filament Form Builder mendukung pemilihan multipel **Target Jabatan** (SPG, MD, TL, dll.) dan **Target Nama Employee Spesifik** (dengan NIK & Prinsiple).
       - Filter cerdas di backend API untuk memastikan karyawan hanya melihat form template yang relevan dengan tugasnya.
-    - **Build & Rilis APK v1.0.105**:
-      - Versi aplikasi dinaikkan ke **`v1.0.105+105`**.
-      - File APK rilis siap pasang dikompilasi: `att-mobile/build/app/outputs/flutter-apk/app-release-v1.0.105.apk`.
+20. **Integrasi 10 Form Template Pelaporan Resmi Dulux (ICI Paints / AkzoNobel) (SELESAI 31 Agustus 2026)**:
+    - **Penyelarasan 10 Formulir Resmi Dulux (JotForm)**:
+      1. `RPT-DULUX-TINTER-LSO`: Laporan Tinter & Pasta Warna LSO Dulux (Modern Trade: Ace Hardware, Depo Bangunan, Mitra 10).
+      2. `RPT-DULUX-CBP-PRICING`: Laporan CBP (Consumer Buying Price) & Cek Harga Dulux vs Kompetitor (Jotun, Nippon, Avian, Mowilex).
+      3. `RPT-DULUX-OFFTAKE-01`: Laporan Offtake / Penjualan Harian & Multi-Foto Nota Khusus (Aquashield, Weathershield, Ambiance, Catylac, PEP/PIP) serta metrik traffic customer.
+      4. `RPT-DULUX-STOCK-END`: Laporan Stock End (Stock Opname Bulanan tgl 20-28) dengan pilihan Base warna dan status akses gudang.
+      5. `RPT-DULUX-OOS-SSO`: Laporan Out of Stock (OOS) SSO dengan jadwal wajib hari Sabtu (`report_days = ['sabtu']`).
+      6. `RPT-DULUX-OOS-LSO`: Laporan Out of Stock (OOS) LSO untuk akun modern trade.
+      7. `RPT-DULUX-DATABASE-PELANGGAN`: Laporan Data Pelanggan & Konsumen (Profil, No HP, Tipe, Brand Dicari vs Brand Dibeli, Preview Visualizer).
+      8. `RPT-DULUX-TRAFIK-PEMBELI`: Laporan Trafik Pembeli Toko Dulux (Quick Traffic: Pengunjung, Pembeli Cat, Pembeli Dulux).
+      9. `RPT-DULUX-REGISTRASI-MITRA`: Laporan Registrasi New MD (Mitra Dulux Non-Incentive) dengan foto KTP, foto Painter + DC/DGO, foto proyek, nota pertama, dan TTD digital.
+      10. `RPT-DULUX-DAILY-MAINTENANCE`: Laporan Daily Maintenance POST & Mesin Tinting (Checklist D200/Discovery/XProtint, foto brush cleaning, status Mix2Win).
+    - **Standarisasi Input Data Otomatis**:
+      - Nama employee, area, jabatan, lokasi store/toko, dan alamat otomatis diambil dari data akun login & check-in lokasi aktif.
+      - Inputan produk tetap mengarah ke master produk Dulux (`product_select`) dengan opsi barcode scanner.
+    - **Migrasi & Seeder**:
+      - Migrasi `2026_08_31_100000_seed_all_dulux_official_templates.php` dan `ReportTemplatePresetsSeeder.php` telah disinkronkan.
 
 ---
 
@@ -624,4 +638,5 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Penambahan filter lanjutan pada laporan presensi dan ekspor data audit penyesuaian manual/import.
 2. **Peningkatan Skalabilitas & Media Storage:**
    - Integrasi penyimpanan awan (*Cloud Storage S3 / Spaces / GCS*) untuk media foto presensi dan laporan visit.
+
 
