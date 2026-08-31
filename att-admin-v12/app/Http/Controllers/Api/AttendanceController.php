@@ -294,6 +294,7 @@ class AttendanceController extends Controller
                         'message' => 'Catatan wajib diisi jika melakukan Check-in di Lokasi Terjadwal.'
                     ], 422);
                 }
+            }
             $allowedRadius = 100;
             if ($employee) {
                 $employee->loadMissing('position');
