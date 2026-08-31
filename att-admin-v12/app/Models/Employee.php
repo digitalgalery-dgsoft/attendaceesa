@@ -140,4 +140,25 @@ class Employee extends Authenticatable
     {
         return $this->employee_no;
     }
+
+    /**
+     * Get effective GPS radius in meters for this employee at a given location.
+     * Priority: Position radius (distance_lock_override) -> WorkLocation radius (radius_meter) -> Default 100m.
+     */
+    public function getEffectiveRadiusForLocation(?WorkLocation $location = null): int
+    {
+        if ($this->position && !empty($this->position->distance_lock_override) && (int) $this->position->distance_lock_override > 0) {
+            return (int) $this->position->distance_lock_override;
+        }
+
+        if ($location && !empty($location->radius_meter)) {
+            return (int) $location->radius_meter;
+        }
+
+        if ($this->workLocation && !empty($this->workLocation->radius_meter)) {
+            return (int) $this->workLocation->radius_meter;
+        }
+
+        return 100;
+    }
 }

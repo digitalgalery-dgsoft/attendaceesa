@@ -284,6 +284,9 @@ class AttendanceController extends Controller
                         'message' => 'Catatan wajib diisi jika melakukan Check-in di Lokasi Terjadwal.'
                     ], 422);
                 }
+            $allowedRadius = 100;
+            if ($employee) {
+                $employee->loadMissing('position');
             }
 
             if ($refLocation && $refLocation->latitude && $refLocation->longitude) {
@@ -291,7 +294,14 @@ class AttendanceController extends Controller
                     $request->latitude, $request->longitude,
                     $refLocation->latitude, $refLocation->longitude
                 );
-                $isInsideGeofence = ($distance <= ($refLocation->radius_meter ?? 100));
+
+                if ($employee && $employee->position && !empty($employee->position->distance_lock_override) && (int) $employee->position->distance_lock_override > 0) {
+                    $allowedRadius = (int) $employee->position->distance_lock_override;
+                } elseif (isset($refLocation->radius_meter) && (int) $refLocation->radius_meter > 0) {
+                    $allowedRadius = (int) $refLocation->radius_meter;
+                }
+
+                $isInsideGeofence = ($distance <= $allowedRadius);
             }
 
             // ─── VALIDASI BISNIS DULU, BARU BUAT LOG ──────────────────────────
@@ -300,7 +310,7 @@ class AttendanceController extends Controller
             if ($request->type === 'checkin') {
                 if ($refLocation && $refLocation->latitude && $refLocation->longitude && !$isInsideGeofence) {
                     $locName = isset($refLocation->name) ? $refLocation->name : 'kantor';
-                    return response()->json(['message' => 'Check-in ditolak: Anda berada di luar radius lokasi ' . $locName . ' (' . round($distance) . 'm). Radius maksimal: ' . ($refLocation->radius_meter ?? 100) . 'm'], 400);
+                    return response()->json(['message' => 'Check-in ditolak: Anda berada di luar radius lokasi ' . $locName . ' (' . round($distance) . 'm). Radius maksimal: ' . $allowedRadius . 'm'], 400);
                 }
 
                 if ($attendance) {
@@ -385,7 +395,7 @@ class AttendanceController extends Controller
 
                 if ($refLocation && $refLocation->latitude && $refLocation->longitude && !$isInsideGeofence) {
                     if (empty($request->note)) {
-                        return response()->json(['message' => 'Catatan/alasan wajib diisi karena Anda berada di luar radius lokasi kantor (' . round($distance) . 'm). Radius maksimal: ' . ($refLocation->radius_meter ?? 100) . 'm'], 400);
+                        return response()->json(['message' => 'Catatan/alasan wajib diisi karena Anda berada di luar radius lokasi kantor (' . round($distance) . 'm). Radius maksimal: ' . $allowedRadius . 'm'], 400);
                     }
                 }
 
@@ -515,8 +525,9 @@ class AttendanceController extends Controller
                             $request->latitude, $request->longitude,
                             $loc->latitude, $loc->longitude
                         );
-                        if ($dist > ($loc->radius_meter ?? 100)) {
-                            return response()->json(['message' => 'Di luar jangkauan lokasi Visit In! (' . round($dist) . 'm)'], 400);
+                        $allowedRadius = $loc->getEffectiveRadiusForEmployee($employee);
+                        if ($dist > $allowedRadius) {
+                            return response()->json(['message' => 'Di luar jangkauan lokasi Visit In! (' . round($dist) . 'm). Radius maksimal: ' . $allowedRadius . 'm'], 400);
                         }
                     }
                 }
@@ -572,9 +583,10 @@ class AttendanceController extends Controller
                                 $request->latitude, $request->longitude,
                                 $loc->latitude, $loc->longitude
                             );
-                            if ($dist > ($loc->radius_meter ?? 100)) {
+                            $allowedRadius = $loc->getEffectiveRadiusForEmployee($employee);
+                            if ($dist > $allowedRadius) {
                                 if (empty($request->note)) {
-                                    return response()->json(['message' => 'Catatan/alasan wajib diisi karena Anda berada di luar radius lokasi Visit In! (' . round($dist) . 'm)'], 400);
+                                    return response()->json(['message' => 'Catatan/alasan wajib diisi karena Anda berada di luar radius lokasi Visit In! (' . round($dist) . 'm). Radius maksimal: ' . $allowedRadius . 'm'], 400);
                                 }
                             }
                         }
@@ -719,7 +731,8 @@ class AttendanceController extends Controller
                         $request->latitude, $request->longitude,
                         $loc->latitude, $loc->longitude
                     );
-                    $isInsideGeofence = ($distance <= ($loc->radius_meter ?? 100));
+                    $allowedRadius = $loc->getEffectiveRadiusForEmployee($employee);
+                    $isInsideGeofence = ($distance <= $allowedRadius);
                 }
             }
 
@@ -1116,10 +1129,16 @@ class AttendanceController extends Controller
             ->first();
 
         if ($itinerary && $itinerary->items->count() > 0) {
+            $employee->loadMissing('position');
             $locations = $itinerary->items
                 ->map(fn($item) => $item->workLocation)
                 ->filter()
                 ->reject(fn($loc) => in_array((int) $loc->id, $visitedLocationIds))
+                ->map(function ($loc) use ($employee) {
+                    $arr = $loc->toArray();
+                    $arr['radius_meter'] = $loc->getEffectiveRadiusForEmployee($employee);
+                    return $arr;
+                })
                 ->values();
 
             return response()->json([

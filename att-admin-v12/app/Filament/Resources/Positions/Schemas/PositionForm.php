@@ -27,6 +27,12 @@ class PositionForm
                     ->afterStateHydrated(fn (TextInput $component, ?string $state) => empty($state) ? $component->state('POS-' . strtoupper(Str::random(5))) : null)
                     ->required()
                     ->unique(ignoreRecord: true),
+                TextInput::make('distance_lock_override')
+                    ->label('Radius GPS / Geofence (Meter)')
+                    ->numeric()
+                    ->suffix('Meter')
+                    ->placeholder('Ikuti Work Location (Default)')
+                    ->helperText('Batas toleransi radius presensi/laporan untuk jabatan ini. Kosongkan jika ingin mengikuti pengaturan radius dari masing-masing Work Location.'),
                 Toggle::make('allow_offline_mode')
                     ->label('Allow Offline Mode'),
                 Toggle::make('is_active')

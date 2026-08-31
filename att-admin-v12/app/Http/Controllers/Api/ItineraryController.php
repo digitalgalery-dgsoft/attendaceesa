@@ -88,6 +88,9 @@ class ItineraryController extends Controller
     public function availableWorkLocations(Request $request)
     {
         $employee = $request->user();
+        if ($employee) {
+            $employee->loadMissing('position');
+        }
         $today = Carbon::today('Asia/Jakarta')->toDateString();
 
         // Ambil ID lokasi yang sudah di-visit hari ini
@@ -109,9 +112,10 @@ class ItineraryController extends Controller
             ->whereNotIn('id', $visitedLocationIds)
             ->orderBy('name')
             ->get()
-            ->map(function ($loc) {
+            ->map(function ($loc) use ($employee) {
                 $data = $loc->toArray();
                 $data['area'] = $loc->branch ? $loc->branch->name : null;
+                $data['radius_meter'] = $loc->getEffectiveRadiusForEmployee($employee);
                 return $data;
             });
             

@@ -337,7 +337,20 @@ class ReportingApiController extends Controller
         }
 
         try {
-            DB::beginTransaction();
+            $employee->loadMissing('position');
+            $isWithinRadius = $request->boolean('is_within_radius', true);
+
+            if ($request->filled('latitude') && $request->filled('longitude') && $workLocationId) {
+                $targetLoc = \App\Models\WorkLocation::find($workLocationId);
+                if ($targetLoc && $targetLoc->latitude && $targetLoc->longitude) {
+                    $dist = $this->calculateDistance(
+                        (float) $request->latitude, (float) $request->longitude,
+                        (float) $targetLoc->latitude, (float) $targetLoc->longitude
+                    );
+                    $allowedRadius = $targetLoc->getEffectiveRadiusForEmployee($employee);
+                    $isWithinRadius = ($dist <= $allowedRadius);
+                }
+            }
 
             $submission = ReportSubmission::create([
                 'report_template_id' => $template->id,
@@ -350,7 +363,7 @@ class ReportingApiController extends Controller
                 'address' => $address,
                 'latitude' => $request->latitude,
                 'longitude' => $request->longitude,
-                'is_within_radius' => $request->boolean('is_within_radius', true),
+                'is_within_radius' => $isWithinRadius,
                 'status' => 'pending',
                 'submitted_at' => now(),
             ]);
@@ -477,15 +490,17 @@ class ReportingApiController extends Controller
         }
 
         // Ambil semua work location aktif (sama seperti form visit / availableWorkLocations)
+        $employee->loadMissing('position');
         $locations = \App\Models\WorkLocation::with(['branch', 'principal', 'company'])
             ->where('is_active', true)
             ->orderBy('name', 'asc')
             ->get()
-            ->map(function ($loc) use ($itineraryLocationIds) {
+            ->map(function ($loc) use ($itineraryLocationIds, $employee) {
                 $data = $loc->toArray();
                 $areaName = $loc->branch ? $loc->branch->name : ($loc->area ?: ($loc->region ?: 'Lainnya'));
                 $data['area'] = $areaName;
                 $data['is_today_itinerary'] = in_array((int)$loc->id, $itineraryLocationIds);
+                $data['radius_meter'] = $loc->getEffectiveRadiusForEmployee($employee);
                 return $data;
             });
 
@@ -1047,5 +1062,20 @@ class ReportingApiController extends Controller
         }
 
         return array_values(array_unique(array_filter($urls)));
+    }
+
+    private function calculateDistance(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earthRadius = 6371000;
+        $latDelta    = deg2rad($lat2 - $lat1);
+        $lonDelta    = deg2rad($lon2 - $lon1);
+
+        $a = sin($latDelta / 2) * sin($latDelta / 2) +
+             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
+             sin($lonDelta / 2) * sin($lonDelta / 2);
+
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+        return $earthRadius * $c;
     }
 }

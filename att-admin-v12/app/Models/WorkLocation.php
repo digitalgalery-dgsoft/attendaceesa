@@ -32,4 +32,17 @@ class WorkLocation extends Model
     {
         return $this->hasMany(Employee::class);
     }
+
+    /**
+     * Get effective GPS radius in meters for a specific employee.
+     * Priority: Position radius (distance_lock_override) -> WorkLocation radius (radius_meter) -> Default 100m.
+     */
+    public function getEffectiveRadiusForEmployee(?Employee $employee = null): int
+    {
+        if ($employee && $employee->position && !empty($employee->position->distance_lock_override) && (int) $employee->position->distance_lock_override > 0) {
+            return (int) $employee->position->distance_lock_override;
+        }
+
+        return (int) ($this->radius_meter ?? 100);
+    }
 }

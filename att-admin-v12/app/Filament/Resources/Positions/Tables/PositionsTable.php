@@ -26,6 +26,12 @@ class PositionsTable
                 TextColumn::make('level')
                     ->numeric()
                     ->sortable(),
+                TextColumn::make('distance_lock_override')
+                    ->label('Radius GPS')
+                    ->formatStateUsing(fn ($state) => $state ? $state . ' Meter' : 'Default (Lokasi)')
+                    ->badge()
+                    ->color(fn ($state) => $state ? 'primary' : 'gray')
+                    ->sortable(),
                 IconColumn::make('is_active')
                     ->boolean(),
                 TextColumn::make('created_at')
