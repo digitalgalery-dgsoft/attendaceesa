@@ -21,7 +21,21 @@ class Employee extends Authenticatable
         'odoo_id' => 'integer',
     ];
 
-    protected $appends = ['has_reporting_templates'];
+    protected $appends = ['has_reporting_templates', 'is_inhouse'];
+
+    public function getIsInhouseAttribute(): bool
+    {
+        if ($this->department && str_contains(strtolower($this->department->name), 'inhouse')) {
+            return true;
+        }
+        if (!$this->principal_id) {
+            return true;
+        }
+        if ($this->principal && $this->company && strtolower($this->principal->name) === strtolower($this->company->name)) {
+            return true;
+        }
+        return false;
+    }
 
     public function getHasReportingTemplatesAttribute(): bool
     {

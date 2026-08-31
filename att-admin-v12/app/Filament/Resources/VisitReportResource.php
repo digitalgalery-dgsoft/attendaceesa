@@ -76,6 +76,38 @@ class VisitReportResource extends Resource
                         ->maxLength(65535)
                         ->columnSpanFull(),
 
+                    Section::make('Evaluasi Toko & BA (Inhouse / Visit)')
+                        ->columns(2)
+                        ->schema([
+                            \Filament\Forms\Components\TextInput::make('met_with')
+                                ->label('BA / PIC yang Ditemui'),
+                            Select::make('principal_id')
+                                ->label('Prinsiple')
+                                ->relationship('principal', 'name')
+                                ->searchable()
+                                ->preload(),
+                            Select::make('grooming_condition')
+                                ->label('Kondisi Grooming BA')
+                                ->options([
+                                    'Sangat Rapi & Sesuai SOP' => 'Sangat Rapi & Sesuai SOP',
+                                    'Rapi' => 'Rapi',
+                                    'Kurang Rapi / Tidak Seragam' => 'Kurang Rapi / Tidak Seragam',
+                                    'Tidak Sesuai SOP' => 'Tidak Sesuai SOP',
+                                ])
+                                ->columnSpanFull(),
+                            Textarea::make('active_promo')
+                                ->label('Promo yang Berlangsung')
+                                ->rows(2),
+                            Textarea::make('oos_products')
+                                ->label('Barang yang Out of Stock (OOS)')
+                                ->rows(2),
+                            Textarea::make('other_issues')
+                                ->label('Issue / Catatan Lainnya')
+                                ->rows(2)
+                                ->columnSpanFull(),
+                        ])
+                        ->collapsible(),
+
                     Section::make('Issue & Resolution')
                         ->columns(2)
                         ->schema([

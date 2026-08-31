@@ -506,6 +506,11 @@ class AttendanceProvider with ChangeNotifier {
     }
   }
 
+  void markVisitReportFilled() {
+    _hasFilledVisitReport = true;
+    notifyListeners();
+  }
+
   Future<bool> submitVisitReport({
     required AuthProvider authProvider,
     String? issue,
@@ -514,6 +519,11 @@ class AttendanceProvider with ChangeNotifier {
     required String photoPath,
     required String metWith,
     required String position,
+    int? principalId,
+    String? groomingCondition,
+    String? activePromo,
+    String? oosProducts,
+    String? otherIssues,
     String? targetType,
     String? targetQty,
     String? actualQty,
@@ -549,6 +559,21 @@ class AttendanceProvider with ChangeNotifier {
 
       request.fields['met_with'] = metWith;
       request.fields['position'] = position;
+      if (principalId != null) {
+        request.fields['principal_id'] = principalId.toString();
+      }
+      if (groomingCondition != null && groomingCondition.isNotEmpty) {
+        request.fields['grooming_condition'] = groomingCondition;
+      }
+      if (activePromo != null && activePromo.isNotEmpty) {
+        request.fields['active_promo'] = activePromo;
+      }
+      if (oosProducts != null && oosProducts.isNotEmpty) {
+        request.fields['oos_products'] = oosProducts;
+      }
+      if (otherIssues != null && otherIssues.isNotEmpty) {
+        request.fields['other_issues'] = otherIssues;
+      }
       if (issue != null && issue.isNotEmpty) {
         request.fields['is_issue'] = '1';
         request.fields['issue'] = issue;
@@ -609,6 +634,11 @@ class AttendanceProvider with ChangeNotifier {
         'latitude': latitude.toString(),
         'longitude': longitude.toString(),
       };
+      if (principalId != null) fields['principal_id'] = principalId.toString();
+      if (groomingCondition != null && groomingCondition.isNotEmpty) fields['grooming_condition'] = groomingCondition;
+      if (activePromo != null && activePromo.isNotEmpty) fields['active_promo'] = activePromo;
+      if (oosProducts != null && oosProducts.isNotEmpty) fields['oos_products'] = oosProducts;
+      if (otherIssues != null && otherIssues.isNotEmpty) fields['other_issues'] = otherIssues;
       if (issue != null && issue.isNotEmpty) fields['issue'] = issue;
       if (actionTaken != null && actionTaken.isNotEmpty) fields['action_taken'] = actionTaken;
       if (notes != null && notes.isNotEmpty) fields['notes'] = notes;

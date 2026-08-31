@@ -20,19 +20,36 @@ class VisitReportScreen extends StatefulWidget {
 
 class _VisitReportScreenState extends State<VisitReportScreen> {
   final _formKey = GlobalKey<FormState>();
-  
+
+  // ─── 7 Point Inhouse Form Controllers ───
+  // 1. BA yang Ditemui
   final _metWithController = TextEditingController();
-  final _positionController = TextEditingController();
-  final _notesController = TextEditingController();
-  final _actionController = TextEditingController();
+  
+  // 2. Prinsiple
+  final _principalController = TextEditingController();
+  
+  // 3. Grooming bagaimana?
+  String _groomingCondition = 'Rapi';
+  
+  // 4. Target vs Actual Pencapaian
+  String _targetType = 'Target Qty';
   final _targetQtyController = TextEditingController();
   final _actualQtyController = TextEditingController();
   final _targetValueController = TextEditingController();
   final _actualValueController = TextEditingController();
-  String _targetType = 'Target Qty';
   DateTime? _deadline;
   
+  // 5. Promo yang berlangsung apa
+  final _activePromoController = TextEditingController();
+  
+  // 6. Barang yang OOS?
+  final _oosProductsController = TextEditingController();
+  
+  // 7. Issue lainnya
+  final _otherIssuesController = TextEditingController();
   bool _isIssue = false;
+  final _actionController = TextEditingController();
+
   XFile? _photoFile;
   bool _isSubmitting = false;
 
@@ -43,6 +60,17 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
   void initState() {
     super.initState();
     _startTimer();
+    _initDefaults();
+  }
+
+  void _initDefaults() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final principalName = auth.employeeData?['principal']?['name'] ?? auth.employeeData?['principal_name'];
+      if (principalName != null && principalName.toString().isNotEmpty) {
+        _principalController.text = principalName.toString();
+      }
+    });
   }
 
   void _startTimer() {
@@ -50,7 +78,7 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
     if (attProvider.visitStartTime != null) {
       _duration = DateTime.now().difference(attProvider.visitStartTime!);
     }
-    
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
@@ -68,13 +96,15 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
   void dispose() {
     _timer?.cancel();
     _metWithController.dispose();
-    _positionController.dispose();
-    _notesController.dispose();
-    _actionController.dispose();
+    _principalController.dispose();
     _targetQtyController.dispose();
     _actualQtyController.dispose();
     _targetValueController.dispose();
     _actualValueController.dispose();
+    _activePromoController.dispose();
+    _oosProductsController.dispose();
+    _otherIssuesController.dispose();
+    _actionController.dispose();
     super.dispose();
   }
 
@@ -83,7 +113,7 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
     try {
       final XFile? photo = await picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 50,
+        imageQuality: 60,
       );
       if (photo != null) {
         setState(() {
@@ -104,26 +134,23 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
   }
 
   Future<void> _submitReport() async {
-    if (!_formKey.currentState!.validate()) return;
-    
-    if (_deadline == null) {
+    if (!_formKey.currentState!.validate()) {
       toastification.show(
         context: context,
         type: ToastificationType.warning,
-        title: const Text('Perhatian'),
-        description: const Text('Silakan pilih Deadline terlebih dahulu'),
+        title: const Text('Lengkapi Form'),
+        description: const Text('Mohon isi kolom yang wajib diisi.'),
         autoCloseDuration: const Duration(seconds: 3),
       );
-      setState(() {}); // trigger error text update
       return;
     }
-    
+
     if (_photoFile == null) {
       toastification.show(
         context: context,
         type: ToastificationType.warning,
         title: const Text('Perhatian'),
-        description: const Text('Silakan ambil foto kunjungan terlebih dahulu'),
+        description: const Text('Silakan ambil foto bukti kunjungan terlebih dahulu'),
         autoCloseDuration: const Duration(seconds: 3),
       );
       return;
@@ -135,21 +162,25 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
-    
+
     try {
       final success = await attProvider.submitVisitReport(
         authProvider: authProvider,
-        issue: _isIssue ? _notesController.text : null,
-        actionTaken: _isIssue ? _actionController.text : null,
-        notes: !_isIssue ? _notesController.text : null,
+        metWith: _metWithController.text.trim(),
+        position: _principalController.text.trim().isNotEmpty ? 'Prinsiple: ${_principalController.text.trim()}' : 'BA Toko',
+        groomingCondition: _groomingCondition,
+        activePromo: _activePromoController.text.trim(),
+        oosProducts: _oosProductsController.text.trim(),
+        otherIssues: _otherIssuesController.text.trim(),
+        issue: _isIssue ? _otherIssuesController.text.trim() : null,
+        actionTaken: _isIssue ? _actionController.text.trim() : null,
+        notes: _otherIssuesController.text.trim(),
         photoPath: _photoFile!.path,
-        metWith: _metWithController.text,
-        position: _positionController.text,
         targetType: _targetType,
-        targetQty: _targetType == 'Target Qty' || _targetType == 'Keduanya' ? _targetQtyController.text : null,
-        actualQty: _targetType == 'Target Qty' || _targetType == 'Keduanya' ? _actualQtyController.text : null,
-        targetValue: _targetType == 'Target Value' || _targetType == 'Keduanya' ? _targetValueController.text : null,
-        actualValue: _targetType == 'Target Value' || _targetType == 'Keduanya' ? _actualValueController.text : null,
+        targetQty: (_targetType == 'Target Qty' || _targetType == 'Keduanya') ? _targetQtyController.text.trim() : null,
+        actualQty: (_targetType == 'Target Qty' || _targetType == 'Keduanya') ? _actualQtyController.text.trim() : null,
+        targetValue: (_targetType == 'Target Value' || _targetType == 'Keduanya') ? _targetValueController.text.trim() : null,
+        actualValue: (_targetType == 'Target Value' || _targetType == 'Keduanya') ? _actualValueController.text.trim() : null,
         deadline: _deadline != null ? DateFormat('yyyy-MM-dd').format(_deadline!) : null,
       );
 
@@ -178,13 +209,15 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
         );
       }
     } catch (e) {
-      toastification.show(
-        context: context,
-        type: ToastificationType.error,
-        title: const Text('Error'),
-        description: Text(e.toString()),
-        autoCloseDuration: const Duration(seconds: 3),
-      );
+      if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Error'),
+          description: Text(e.toString()),
+          autoCloseDuration: const Duration(seconds: 3),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -212,9 +245,10 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
     final auth = Provider.of<AuthProvider>(context);
     final repProvider = Provider.of<DynamicReportingProvider>(context);
     final primaryColor = auth.appColor ?? const Color(0xFF0F52BA);
-    final hasCustomReporting = (auth.employeeData?['has_reporting_templates'] == 1 ||
-        auth.employeeData?['has_reporting_templates'] == true) ||
-        (auth.employeeData?['principal_id'] != null && repProvider.templates.isNotEmpty);
+    final isRatecard = (auth.employeeData?['is_inhouse'] == false);
+    final hasCustomReporting = isRatecard &&
+        ((auth.employeeData?['has_reporting_templates'] == 1 || auth.employeeData?['has_reporting_templates'] == true) ||
+            (auth.employeeData?['principal_id'] != null && repProvider.templates.isNotEmpty));
 
     final inputDecoration = InputDecoration(
       filled: true,
@@ -250,10 +284,13 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
       child: Scaffold(
         backgroundColor: bgColor,
         appBar: AppBar(
-          title: Text('Laporan Visit', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+          title: Text(
+            isRatecard ? 'Laporan Kunjungan' : 'Laporan Visit Inhouse',
+            style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
+          ),
           backgroundColor: bgColor,
           elevation: 0,
-          automaticallyImplyLeading: false, // Hide back button
+          automaticallyImplyLeading: false,
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -265,23 +302,30 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                 // Timer Card
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.1),
+                    color: primaryColor.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: primaryColor.withOpacity(0.3)),
+                    border: Border.all(color: primaryColor.withOpacity(0.25)),
                   ),
                   child: Column(
                     children: [
-                      Text(
-                        'Durasi Visit',
-                        style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.timer_outlined, size: 16, color: primaryColor),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Durasi Visit Kunjungan',
+                            style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
                         _formatDuration(_duration),
                         style: TextStyle(
-                          fontSize: 32,
+                          fontSize: 30,
                           fontWeight: FontWeight.bold,
                           color: primaryColor,
                           letterSpacing: 2,
@@ -290,28 +334,27 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                     ],
                   ),
                 ),
-                
-                if (hasCustomReporting) ...[
-                  const SizedBox(height: 16),
 
-                  // Banner Buka Form Pelaporan Prinsiple (Dulux)
+                // Banner Pengalihan untuk Ratecard jika memiliki Custom Reporting
+                if (hasCustomReporting) ...[
+                  const SizedBox(height: 14),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.08),
+                      color: Colors.amber.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: primaryColor.withOpacity(0.25)),
+                      border: Border.all(color: Colors.amber.shade400.withOpacity(0.5)),
                     ),
                     child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: primaryColor.withOpacity(0.15),
+                            color: Colors.amber.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Icon(Icons.assignment_rounded, color: primaryColor, size: 22),
+                          child: const Icon(Icons.assignment_rounded, color: Colors.amber, size: 22),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -319,11 +362,11 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Form Pelaporan Prinsiple',
+                                'Form Pelaporan Prinsiple Tersedia',
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor),
                               ),
                               Text(
-                                'Isi laporan Offtake, Cek Stok/OOS, Market Share, dll',
+                                'Anda dapat mengisi form pelaporan spesifik prinsiple di menu Field Reporting.',
                                 style: TextStyle(fontSize: 11, color: subtitleColor),
                               ),
                             ],
@@ -343,12 +386,12 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                             );
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            backgroundColor: Colors.amber.shade700,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             elevation: 0,
                           ),
-                          child: const Text('Buka Form', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          child: const Text('Buka Reporting', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -356,44 +399,103 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                 ],
 
                 const SizedBox(height: 16),
-                
+
+                // ─── 7 POINT INHOUSE FORM SECTION ───
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Detail Pertemuan',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(Icons.playlist_add_check_circle_rounded, color: primaryColor, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Form Evaluasi Kunjungan Inhouse',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      
+                      const SizedBox(height: 18),
+
+                      // 1. BA yang Ditemui
+                      _buildSectionHeader('1. BA yang Ditemui', textColor, primaryColor),
+                      const SizedBox(height: 8),
                       TextFormField(
                         controller: _metWithController,
                         style: TextStyle(color: textColor),
-                        decoration: inputDecoration.copyWith(labelText: 'Bertemu Dengan *'),
-                        validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                        decoration: inputDecoration.copyWith(
+                          labelText: 'Nama BA / PIC yang Ditemui *',
+                          hintText: 'Contoh: Rina, Budi, dll',
+                        ),
+                        validator: (value) => value == null || value.trim().isEmpty ? 'Wajib diisi' : null,
                       ),
-                      const SizedBox(height: 16),
-                      
+                      const SizedBox(height: 18),
+
+                      // 2. Prinsiple apa
+                      _buildSectionHeader('2. Prinsiple apa', textColor, primaryColor),
+                      const SizedBox(height: 8),
                       TextFormField(
-                        controller: _positionController,
+                        controller: _principalController,
                         style: TextStyle(color: textColor),
-                        decoration: inputDecoration.copyWith(labelText: 'Jabatan *'),
-                        validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                        decoration: inputDecoration.copyWith(
+                          labelText: 'Nama Prinsiple / Brand *',
+                          hintText: 'Contoh: Dulux, Fonterra, Wings, dll',
+                        ),
+                        validator: (value) => value == null || value.trim().isEmpty ? 'Wajib diisi' : null,
                       ),
-                      
-                      const SizedBox(height: 16),
-                      
+                      const SizedBox(height: 18),
+
+                      // 3. Grooming bagaimana?
+                      _buildSectionHeader('3. Grooming bagaimana?', textColor, primaryColor),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: _groomingCondition,
+                        decoration: inputDecoration.copyWith(labelText: 'Kondisi Grooming BA *'),
+                        items: [
+                          'Sangat Rapi & Sesuai SOP',
+                          'Rapi',
+                          'Kurang Rapi / Tidak Seragam',
+                          'Tidak Sesuai SOP',
+                        ]
+                            .map((e) => DropdownMenuItem(value: e, child: Text(e, style: TextStyle(color: textColor, fontSize: 13))))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _groomingCondition = val;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 18),
+
+                      // 4. Target vs Actual Pencapaian
+                      _buildSectionHeader('4. Target vs Actual Pencapaian', textColor, primaryColor),
+                      const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         value: _targetType,
-                        decoration: inputDecoration.copyWith(labelText: 'Target Report *'),
+                        decoration: inputDecoration.copyWith(labelText: 'Tipe Target *'),
                         items: ['Target Qty', 'Target Value', 'Keduanya']
-                            .map((e) => DropdownMenuItem(value: e, child: Text(e, style: TextStyle(color: textColor))))
+                            .map((e) => DropdownMenuItem(value: e, child: Text(e, style: TextStyle(color: textColor, fontSize: 13))))
                             .toList(),
                         onChanged: (val) {
                           if (val != null) {
@@ -403,8 +505,8 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                           }
                         },
                       ),
-                      const SizedBox(height: 16),
-                      
+                      const SizedBox(height: 12),
+
                       if (_targetType == 'Target Qty' || _targetType == 'Keduanya') ...[
                         Row(
                           children: [
@@ -413,25 +515,29 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                                 controller: _targetQtyController,
                                 style: TextStyle(color: textColor),
                                 keyboardType: TextInputType.number,
-                                decoration: inputDecoration.copyWith(labelText: 'Target (Qty) *'),
-                                validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                                decoration: inputDecoration.copyWith(
+                                  labelText: 'Target (Qty)',
+                                  hintText: '0',
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: TextFormField(
                                 controller: _actualQtyController,
                                 style: TextStyle(color: textColor),
                                 keyboardType: TextInputType.number,
-                                decoration: inputDecoration.copyWith(labelText: 'Actual (Qty) *'),
-                                validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                                decoration: inputDecoration.copyWith(
+                                  labelText: 'Actual (Qty)',
+                                  hintText: '0',
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                       ],
-                      
+
                       if (_targetType == 'Target Value' || _targetType == 'Keduanya') ...[
                         Row(
                           children: [
@@ -440,25 +546,30 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                                 controller: _targetValueController,
                                 style: TextStyle(color: textColor),
                                 keyboardType: TextInputType.number,
-                                decoration: inputDecoration.copyWith(labelText: 'Target (Value) *'),
-                                validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                                decoration: inputDecoration.copyWith(
+                                  labelText: 'Target (Value Rp)',
+                                  hintText: 'Rp 0',
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: TextFormField(
                                 controller: _actualValueController,
                                 style: TextStyle(color: textColor),
                                 keyboardType: TextInputType.number,
-                                decoration: inputDecoration.copyWith(labelText: 'Actual (Value) *'),
-                                validator: (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
+                                decoration: inputDecoration.copyWith(
+                                  labelText: 'Actual (Value Rp)',
+                                  hintText: 'Rp 0',
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                       ],
-                      
+
+                      // Deadline target (opsional)
                       InkWell(
                         onTap: () async {
                           final date = await showDatePicker(
@@ -469,9 +580,9 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                             builder: (context, child) {
                               return Theme(
                                 data: Theme.of(context).copyWith(
-                                  colorScheme: isDarkMode 
-                                    ? ColorScheme.dark(primary: primaryColor, surface: cardColor)
-                                    : ColorScheme.light(primary: primaryColor),
+                                  colorScheme: isDarkMode
+                                      ? ColorScheme.dark(primary: primaryColor, surface: cardColor)
+                                      : ColorScheme.light(primary: primaryColor),
                                 ),
                                 child: child!,
                               );
@@ -485,26 +596,65 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                         },
                         child: InputDecorator(
                           decoration: inputDecoration.copyWith(
-                            labelText: 'Deadline *',
-                            errorText: _deadline == null ? 'Wajib diisi' : null,
+                            labelText: 'Deadline Evaluasi Target',
                           ),
                           child: Text(
-                            _deadline == null ? 'Pilih Deadline' : DateFormat('dd MMM yyyy').format(_deadline!),
-                            style: TextStyle(color: textColor),
+                            _deadline == null ? 'Pilih Deadline (Opsional)' : DateFormat('dd MMMM yyyy').format(_deadline!),
+                            style: TextStyle(color: _deadline == null ? subtitleColor : textColor),
                           ),
                         ),
                       ),
-                      
-                      const SizedBox(height: 24),
-                      Divider(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
-                      const SizedBox(height: 16),
-                      
+                      const SizedBox(height: 18),
+
+                      // 5. Promo yang Berlangsung apa
+                      _buildSectionHeader('5. Promo yang Berlangsung apa', textColor, primaryColor),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _activePromoController,
+                        style: TextStyle(color: textColor),
+                        maxLines: 2,
+                        decoration: inputDecoration.copyWith(
+                          labelText: 'Promo yang Sedang Berjalan',
+                          hintText: 'Contoh: Diskon 10% Dulux Weathershield, Gift tumbler, dll',
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+
+                      // 6. Barang yang OOS?
+                      _buildSectionHeader('6. Barang yang OOS?', textColor, primaryColor),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _oosProductsController,
+                        style: TextStyle(color: textColor),
+                        maxLines: 2,
+                        decoration: inputDecoration.copyWith(
+                          labelText: 'Barang yang Out of Stock (OOS)',
+                          hintText: 'Contoh: Pentalite 2.5L Brilliant White, Catylac 25kg, dll',
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+
+                      // 7. Issue lainnya
+                      _buildSectionHeader('7. Issue lainnya', textColor, primaryColor),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _otherIssuesController,
+                        style: TextStyle(color: textColor),
+                        maxLines: 3,
+                        decoration: inputDecoration.copyWith(
+                          labelText: 'Issue / Catatan Tambahan',
+                          hintText: 'Tuliskan isu lapangan atau catatan penting lainnya di sini...',
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Switch Ada Isu Kritis
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Apakah ada Issue?',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
+                            'Tandai sebagai Issue Penting / Masalah?',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: textColor, fontSize: 13),
                           ),
                           Switch(
                             value: _isIssue,
@@ -517,97 +667,119 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                           ),
                         ],
                       ),
-                      
+
                       if (_isIssue) ...[
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _notesController,
-                          style: TextStyle(color: textColor),
-                          decoration: inputDecoration.copyWith(labelText: 'Deskripsi Isu *'),
-                          maxLines: 3,
-                          validator: (value) => _isIssue && (value == null || value.isEmpty) ? 'Wajib diisi' : null,
-                        ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 10),
                         TextFormField(
                           controller: _actionController,
                           style: TextStyle(color: textColor),
-                          decoration: inputDecoration.copyWith(labelText: 'Action Taken'),
+                          decoration: inputDecoration.copyWith(
+                            labelText: 'Tindakan yang Diambil (Action Taken)',
+                            hintText: 'Tindakan sementara atau eskalasi...',
+                          ),
                           maxLines: 2,
-                        ),
-                      ] else ...[
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _notesController,
-                          style: TextStyle(color: textColor),
-                          decoration: inputDecoration.copyWith(labelText: 'Catatan Umum (Opsional)'),
-                          maxLines: 3,
                         ),
                       ],
                     ],
                   ),
                 ),
-                
-                const SizedBox(height: 24),
-                
-                // Photo
-                Text(
-                  'Foto Kunjungan *',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor),
-                ),
-                const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: _takePhoto,
-                  child: Container(
-                    height: 200,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: cardColor,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: _photoFile == null ? Colors.red.shade300 : Colors.transparent,
-                        width: 1,
+
+                const SizedBox(height: 20),
+
+                // Foto Bukti Kunjungan
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Foto Bukti Kunjungan & BA *',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor),
                       ),
-                    ),
-                    child: _photoFile != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Image.file(
-                              File(_photoFile!.path),
-                              fit: BoxFit.cover,
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: _takePhoto,
+                        child: Container(
+                          height: 190,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: isDarkMode ? const Color(0xFF2A2A3D) : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: _photoFile == null ? primaryColor.withOpacity(0.4) : Colors.transparent,
+                              width: 1.5,
+                              style: _photoFile == null ? BorderStyle.solid : BorderStyle.none,
                             ),
-                          )
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.camera_alt, size: 48, color: subtitleColor),
-                              const SizedBox(height: 8),
-                              Text('Ambil Foto Kamera', style: TextStyle(color: subtitleColor)),
-                            ],
                           ),
+                          child: _photoFile != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.file(
+                                    File(_photoFile!.path),
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: primaryColor.withOpacity(0.12),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(Icons.camera_alt_rounded, size: 36, color: primaryColor),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      'Ambil Foto Bukti Kunjungan',
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 13),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Arahkan kamera ke BA toko atau display produk',
+                                      style: TextStyle(color: subtitleColor, fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                
-                const SizedBox(height: 32),
-                
+
+                const SizedBox(height: 24),
+
                 // Submit Button
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
+                  height: 52,
                   child: ElevatedButton(
                     onPressed: _isSubmitting ? null : _submitReport,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 2,
                     ),
                     child: _isSubmitting
                         ? const SizedBox(
                             width: 24,
                             height: 24,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                           )
-                        : const Text('Submit & Visit-Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.check_circle_outline, size: 20),
+                              SizedBox(width: 8),
+                              Text('Submit Laporan & Visit-Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                            ],
+                          ),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -615,6 +787,17 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, Color textColor, Color primaryColor) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 13.5,
+        color: textColor,
       ),
     );
   }

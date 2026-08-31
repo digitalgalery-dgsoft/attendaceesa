@@ -29,6 +29,10 @@ class VisitReport extends Model
         'principal_id',
         'met_with',
         'position',
+        'grooming_condition',
+        'active_promo',
+        'oos_products',
+        'other_issues',
     ];
 
     protected $casts = [

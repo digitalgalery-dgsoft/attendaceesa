@@ -931,6 +931,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     setState(() => _isSubmitting = false);
 
     if (result['success'] == true && mounted) {
+      if (attProvider.isVisiting) {
+        attProvider.markVisitReportFilled();
+      }
       toastification.show(
         context: context,
         type: result['is_offline'] == true ? ToastificationType.info : ToastificationType.success,

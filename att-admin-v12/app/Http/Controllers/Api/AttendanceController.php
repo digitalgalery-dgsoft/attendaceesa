@@ -61,13 +61,20 @@ class AttendanceController extends Controller
 
         // Cek fallback Visit Schedule (Itinerary) jika belum ada roster reguler
         $itineraryCheckinItem = null;
+        $itineraryToday = \App\Models\Itinerary::where('employee_id', $employee->id)
+            ->where('date', $today)
+            ->with(['items.workLocation'])
+            ->first();
+
         if (!$schedule) {
             $itineraryCheckinItem = \App\Models\ItineraryItem::whereHas('itinerary', function($q) use ($employee, $today) {
                 $q->where('employee_id', $employee->id)->where('date', $today);
             })->where('is_checkin_location', true)->with('workLocation')->first();
         }
 
-        if (!$schedule && !$itineraryCheckinItem) {
+        $isRatecardWithItinerary = (!$employee->is_inhouse && $itineraryToday && $itineraryToday->items->count() > 0);
+
+        if (!$schedule && !$itineraryCheckinItem && !$isRatecardWithItinerary) {
             return response()->json([
                 'status'      => 'error',
                 'can_checkin' => false,
@@ -205,7 +212,10 @@ class AttendanceController extends Controller
                 })->where('is_checkin_location', true)->with('workLocation')->first();
             }
 
-            if (!$schedule && !$itineraryCheckinItem) {
+            $itineraryToday = \App\Models\Itinerary::where('employee_id', $employeeId)->where('date', $today)->first();
+            $isRatecardWithItinerary = (!$employee->is_inhouse && $itineraryToday);
+
+            if (!$schedule && !$itineraryCheckinItem && !$isRatecardWithItinerary) {
                 return response()->json([
                     'message' => 'Check-in ditolak: Anda tidak memiliki jadwal untuk hari ini. Silakan hubungi Admin.'
                 ], 403);
@@ -422,8 +432,6 @@ class AttendanceController extends Controller
                 return response()->json(['message' => 'Check-out successful', 'attendance' => $attendance]);
 
             } elseif ($request->type === 'visit_in') {
-                if (!$attendance) return response()->json(['message' => 'Must check in first'], 400);
-                
                 $itinerary = Itinerary::where('employee_id', $employeeId)
                     ->where('date', $today)
                     ->with(['items' => function($q) {
@@ -434,6 +442,31 @@ class AttendanceController extends Controller
                 if (!$itinerary) {
                     return response()->json(['message' => 'Visit ditolak: Anda tidak memiliki itinerary (jadwal kunjungan) hari ini.'], 403);
                 }
+
+                // ─── AUTO CHECK-IN UNTUK RATECARD PADA FIRST VISIT-IN ─────────────
+                if (!$attendance && (!$employee->is_inhouse || !$schedule)) {
+                    $attendance = Attendance::create([
+                        'employee_id'          => $employeeId,
+                        'employee_schedule_id' => $schedule?->id,
+                        'attendance_date'      => $today,
+                        'status'               => 'present',
+                        'checkin_at'           => $now,
+                        'late_minutes'         => 0,
+                    ]);
+
+                    try {
+                        TrackingHistory::create([
+                            'employee_id'   => $employeeId,
+                            'attendance_id' => $attendance->id,
+                            'latitude'      => $request->latitude,
+                            'longitude'     => $request->longitude,
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::warning('Failed to save initial tracking point: ' . $e->getMessage());
+                    }
+                }
+
+                if (!$attendance) return response()->json(['message' => 'Must check in first'], 400);
 
                 // ─── VALIDASI ATURAN ROUTING VISIT (WAJIB BERURUTAN) ───────────────────
                 if ($itinerary->is_strict_routing && $itinerary->items->isNotEmpty()) {
@@ -506,7 +539,12 @@ class AttendanceController extends Controller
                     'metadata'      => ['visit_location_id' => $request->visit_location_id],
                 ]);
 
-                return response()->json(['message' => 'Visit In successful']);
+                // Link checkin_log_id jika dibuat otomatis
+                if (empty($attendance->checkin_log_id)) {
+                    $attendance->update(['checkin_log_id' => $log->id]);
+                }
+
+                return response()->json(['message' => 'Visit In successful', 'attendance' => $attendance]);
 
             } elseif ($request->type === 'visit_out') {
                 if (!$attendance) return response()->json(['message' => 'Must check in first'], 400);
@@ -559,10 +597,26 @@ class AttendanceController extends Controller
                 $log->update([
                     'attendance_id' => $attendance->id,
                     'note'          => $request->note,
-                    'metadata'      => ['visit_type' => $request->visit_type],
+                    'metadata'      => [
+                        'visit_type'        => $request->visit_type,
+                        'visit_location_id' => $lastVisitIn->metadata['visit_location_id'] ?? null,
+                    ],
                 ]);
 
-                return response()->json(['message' => 'Visit Out successful']);
+                // ─── AUTO CHECK-OUT UNTUK RATECARD PADA VISIT-OUT ──────────────
+                if (!$employee->is_inhouse || !$schedule) {
+                    $workDuration = 0;
+                    if ($attendance->checkin_at) {
+                        $workDuration = $now->diffInMinutes(Carbon::parse($attendance->checkin_at));
+                    }
+                    $attendance->update([
+                        'checkout_at'           => $now->toDateTimeString(),
+                        'checkout_log_id'       => $log->id,
+                        'work_duration_minutes' => (int) $workDuration,
+                    ]);
+                }
+
+                return response()->json(['message' => 'Visit Out successful', 'attendance' => $attendance]);
             }
 
         } catch (\Exception $e) {
@@ -574,15 +628,20 @@ class AttendanceController extends Controller
     public function storeVisitReport(Request $request)
     {
         $request->validate([
-            'notes' => 'nullable|string', // Deskripsi Isu or General Notes
+            'notes' => 'nullable|string',
             'photo' => 'required|image|max:5120',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
-            'met_with' => 'required|string',
-            'position' => 'required|string',
-            'is_issue' => 'required|boolean',
+            'met_with' => 'nullable|string',
+            'position' => 'nullable|string',
+            'is_issue' => 'nullable|boolean',
             'action_taken' => 'nullable|string',
-            'itinerary_item_id' => 'nullable|integer', // Optional, if mobile has it
+            'itinerary_item_id' => 'nullable|integer',
+            'principal_id' => 'nullable|integer',
+            'grooming_condition' => 'nullable|string',
+            'active_promo' => 'nullable|string',
+            'oos_products' => 'nullable|string',
+            'other_issues' => 'nullable|string',
             'target_type' => 'nullable|string',
             'target_qty' => 'nullable|string',
             'actual_qty' => 'nullable|string',
@@ -606,7 +665,18 @@ class AttendanceController extends Controller
                 ->first();
 
             if (!$attendance) {
-                return response()->json(['message' => 'Harap Check-in terlebih dahulu sebelum melakukan visit'], 400);
+                // If ratecard without prior checkin, auto create attendance
+                if (!$employee->is_inhouse) {
+                    $attendance = Attendance::create([
+                        'employee_id'          => $employeeId,
+                        'attendance_date'      => $today,
+                        'status'               => 'present',
+                        'checkin_at'           => $now,
+                        'late_minutes'         => 0,
+                    ]);
+                } else {
+                    return response()->json(['message' => 'Harap Check-in terlebih dahulu sebelum melakukan visit'], 400);
+                }
             }
 
             // Find the last visit_in log
@@ -620,18 +690,23 @@ class AttendanceController extends Controller
             }
 
             $visitLocationId = $lastVisitIn->metadata['visit_location_id'] ?? null;
-            $principalId = null;
+            $principalId = $request->principal_id;
             
             // Try to find the associated itinerary item
             if ($request->itinerary_item_id) {
                 $item = \App\Models\ItineraryItem::find($request->itinerary_item_id);
-                if ($item) $principalId = $item->principal_id;
+                if ($item && !$principalId) $principalId = $item->principal_id;
             } elseif ($visitLocationId) {
                 // Find itinerary item for today that matches this location
                 $item = \App\Models\ItineraryItem::whereHas('itinerary', function ($q) use ($employeeId, $today) {
                     $q->where('employee_id', $employeeId)->where('date', $today);
                 })->where('work_location_id', $visitLocationId)->first();
-                if ($item) $principalId = $item->principal_id;
+                if ($item && !$principalId) $principalId = $item->principal_id;
+            }
+
+            // Fallback to employee principal_id if still null
+            if (!$principalId) {
+                $principalId = $employee->principal_id;
             }
 
             // Calculate distance for visit_out log
@@ -658,6 +733,10 @@ class AttendanceController extends Controller
                 'principal_id' => $principalId,
                 'met_with' => $request->met_with,
                 'position' => $request->position,
+                'grooming_condition' => $request->grooming_condition,
+                'active_promo' => $request->active_promo,
+                'oos_products' => $request->oos_products,
+                'other_issues' => $request->other_issues,
                 'issue' => $request->is_issue ? 'Ya' : 'Tidak',
                 'notes' => $request->notes,
                 'action_taken' => $request->is_issue ? $request->action_taken : null,
@@ -668,7 +747,7 @@ class AttendanceController extends Controller
                 'actual_value' => $request->actual_value,
                 'deadline' => $request->deadline,
                 'photo_path' => $path,
-                'status' => 'completed',
+                'status' => $request->is_issue ? 'open_issue' : 'completed',
             ]);
 
             // 2. Create automatic Visit Out Log
@@ -684,13 +763,26 @@ class AttendanceController extends Controller
                 'distance_from_location_meter' => $distance,
                 'source' => 'android',
                 'validation_status' => 'valid',
-                'note' => 'Report Submitted',
+                'note' => 'Report Submitted: ' . ($request->notes ?: 'Visit Inhouse Completed'),
                 'metadata' => [
                     'visit_report_id' => $visitReport->id,
                     'visit_location_id' => $visitLocationId,
-                    'visit_type' => 'store' // default for now
+                    'visit_type' => 'store'
                 ]
             ]);
+
+            // 3. Auto-update Check-Out on Attendance for Ratecard
+            if (!$employee->is_inhouse) {
+                $workDuration = 0;
+                if ($attendance->checkin_at) {
+                    $workDuration = $now->diffInMinutes(Carbon::parse($attendance->checkin_at));
+                }
+                $attendance->update([
+                    'checkout_at'           => $now->toDateTimeString(),
+                    'checkout_log_id'       => $log->id,
+                    'work_duration_minutes' => (int) $workDuration,
+                ]);
+            }
 
             return response()->json([
                 'status' => 'success',

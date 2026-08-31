@@ -786,111 +786,155 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     ],
                   ),
                   const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_in'))).then((_) { attProvider.loadDashboardData(); });
-                        } : null,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
-                          decoration: BoxDecoration(
-                            gradient: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit)
-                                ? LinearGradient(colors: [primaryColor, Colors.lightBlue.shade400])
-                                : LinearGradient(colors: [cardColor, cardColor]),
-                            border: Border.all(color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? Colors.transparent : Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 27, height: 27,
+                  Row(
+                    children: [
+                      // ─── 1. Tombol Visit-in (Dapat ditekan jika sudah check-in ATAU jika Ratecard punya jadwal visit) ───
+                      Builder(
+                        builder: (context) {
+                          final isRatecard = (authProvider.employeeData?['is_inhouse'] == false);
+                          final canDoVisitIn = !attProvider.isVisiting && (attProvider.isCheckedIn || (isRatecard && attProvider.canVisit));
+
+                          return Expanded(
+                            child: InkWell(
+                              onTap: canDoVisitIn ? () {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_in'))).then((_) { attProvider.loadDashboardData(); });
+                              } : null,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
                                 decoration: BoxDecoration(
-                                  color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? Colors.white.withOpacity(0.2) : elevatedColor,
-                                  borderRadius: BorderRadius.circular(8)
+                                  gradient: canDoVisitIn
+                                      ? LinearGradient(colors: [primaryColor, Colors.lightBlue.shade400])
+                                      : LinearGradient(colors: [cardColor, cardColor]),
+                                  border: Border.all(color: canDoVisitIn ? Colors.transparent : Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
-                                child: Icon(Icons.transfer_within_a_station, size: 14, color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? Colors.white : subtitleColor),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 27, height: 27,
+                                      decoration: BoxDecoration(
+                                        color: canDoVisitIn ? Colors.white.withOpacity(0.2) : elevatedColor,
+                                        borderRadius: BorderRadius.circular(8)
+                                      ),
+                                      child: Icon(Icons.transfer_within_a_station, size: 14, color: canDoVisitIn ? Colors.white : subtitleColor),
+                                    ),
+                                    const SizedBox(height: 7),
+                                    Text('Visit-in', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: canDoVisitIn ? Colors.white : textColor)),
+                                  ],
+                                ),
                               ),
-                              const SizedBox(height: 7),
-                              Text('Visit-in', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: (attProvider.isCheckedIn && !attProvider.isVisiting && attProvider.canVisit) ? Colors.white : textColor)),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        }
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: InkWell(
-                        onTap: (attProvider.isVisiting && !attProvider.hasFilledVisitReport && attProvider.canVisit) ? () async {
-                          final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => VisitReportScreen()));
-                          if (result == true) {
-                            attProvider.checkAttendanceStatus();
-                          }
-                        } : null,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
-                          decoration: BoxDecoration(
-                            gradient: (attProvider.isVisiting && !attProvider.hasFilledVisitReport && attProvider.canVisit)
-                                ? LinearGradient(colors: [primaryColor, Colors.purple.shade400])
-                                : LinearGradient(colors: [cardColor, cardColor]),
-                            border: Border.all(color: (attProvider.isVisiting && !attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.transparent : Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 27, height: 27,
+                      const SizedBox(width: 8),
+
+                      // ─── 2. Tombol Laporan (Mengunci ke Reporting Hub jika Ratecard with Templates, else Form Inhouse 7 Poin) ───
+                      Builder(
+                        builder: (context) {
+                          final canDoReport = attProvider.isVisiting && !attProvider.hasFilledVisitReport;
+                          final isRatecard = (authProvider.employeeData?['is_inhouse'] == false);
+                          final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+                          final hasReportingTemplates = (authProvider.employeeData?['has_reporting_templates'] == 1 ||
+                              authProvider.employeeData?['has_reporting_templates'] == true) ||
+                              (authProvider.employeeData?['principal_id'] != null && repProvider.templates.isNotEmpty);
+
+                          return Expanded(
+                            child: InkWell(
+                              onTap: canDoReport ? () async {
+                                if (isRatecard && hasReportingTemplates) {
+                                  // Lock ke Form Pelaporan Prinsiple (Reporting Hub)
+                                  final destinationName = attProvider.todayItinerary?['name']?.toString() ?? attProvider.todayItinerary?['destination']?.toString();
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ReportingHubScreen(
+                                        storeName: destinationName,
+                                      ),
+                                    ),
+                                  );
+                                  attProvider.loadDashboardData();
+                                } else {
+                                  // Buka Form Visit Inhouse (7 Poin)
+                                  final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const VisitReportScreen()));
+                                  if (result == true) {
+                                    attProvider.loadDashboardData();
+                                  }
+                                }
+                              } : null,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
                                 decoration: BoxDecoration(
-                                  color: (attProvider.isVisiting && !attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.white.withOpacity(0.2) : elevatedColor,
-                                  borderRadius: BorderRadius.circular(8)
+                                  gradient: canDoReport
+                                      ? LinearGradient(colors: [primaryColor, Colors.purple.shade400])
+                                      : LinearGradient(colors: [cardColor, cardColor]),
+                                  border: Border.all(color: canDoReport ? Colors.transparent : Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
-                                child: Icon(Icons.assignment, size: 14, color: (attProvider.isVisiting && !attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.white : subtitleColor),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 27, height: 27,
+                                      decoration: BoxDecoration(
+                                        color: canDoReport ? Colors.white.withOpacity(0.2) : elevatedColor,
+                                        borderRadius: BorderRadius.circular(8)
+                                      ),
+                                      child: Icon(Icons.assignment, size: 14, color: canDoReport ? Colors.white : subtitleColor),
+                                    ),
+                                    const SizedBox(height: 7),
+                                    Text('Laporan', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: canDoReport ? Colors.white : textColor)),
+                                  ],
+                                ),
                               ),
-                              const SizedBox(height: 7),
-                              Text('Laporan', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: (attProvider.isVisiting && !attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.white : textColor)),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        }
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: InkWell(
-                        onTap: (attProvider.isVisiting && attProvider.hasFilledVisitReport && attProvider.canVisit) ? () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_out'))).then((_) { attProvider.loadDashboardData(); });
-                        } : null,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
-                          decoration: BoxDecoration(
-                            gradient: (attProvider.isVisiting && attProvider.hasFilledVisitReport && attProvider.canVisit)
-                                ? LinearGradient(colors: [primaryColor, Colors.orange.shade400])
-                                : LinearGradient(colors: [cardColor, cardColor]),
-                            border: Border.all(color: (attProvider.isVisiting && attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.transparent : Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 27, height: 27,
+                      const SizedBox(width: 8),
+
+                      // ─── 3. Tombol Visit-out (Aktif setelah Laporan diisi) ───
+                      Builder(
+                        builder: (context) {
+                          final canDoVisitOut = attProvider.isVisiting && attProvider.hasFilledVisitReport;
+
+                          return Expanded(
+                            child: InkWell(
+                              onTap: canDoVisitOut ? () {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_out'))).then((_) { attProvider.loadDashboardData(); });
+                              } : null,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
                                 decoration: BoxDecoration(
-                                  color: (attProvider.isVisiting && attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.white.withOpacity(0.2) : elevatedColor,
-                                  borderRadius: BorderRadius.circular(8)
+                                  gradient: canDoVisitOut
+                                      ? LinearGradient(colors: [primaryColor, Colors.orange.shade400])
+                                      : LinearGradient(colors: [cardColor, cardColor]),
+                                  border: Border.all(color: canDoVisitOut ? Colors.transparent : Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
-                                child: Icon(Icons.directions_run, size: 14, color: (attProvider.isVisiting && attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.white : subtitleColor),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 27, height: 27,
+                                      decoration: BoxDecoration(
+                                        color: canDoVisitOut ? Colors.white.withOpacity(0.2) : elevatedColor,
+                                        borderRadius: BorderRadius.circular(8)
+                                      ),
+                                      child: Icon(Icons.directions_run, size: 14, color: canDoVisitOut ? Colors.white : subtitleColor),
+                                    ),
+                                    const SizedBox(height: 7),
+                                    Text('Visit-out', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: canDoVisitOut ? Colors.white : textColor)),
+                                  ],
+                                ),
                               ),
-                              const SizedBox(height: 7),
-                              Text('Visit-out', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: (attProvider.isVisiting && attProvider.hasFilledVisitReport && attProvider.canVisit) ? Colors.white : textColor)),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        }
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 const SizedBox(height: 15),
                 ],
 
