@@ -148,41 +148,14 @@ class WorkLocationForm
                             ])
                             ->action(function (array $data, $livewire) {
                                 $url = $data['gmaps_url'] ?? '';
-                                $lat = null;
-                                $lng = null;
-
                                 if (empty($url)) return;
 
-                                // Expand URL if it's a short link (goo.gl or maps.app.goo.gl)
-                                if (str_contains($url, 'goo.gl') || str_contains($url, 'maps.app.goo.gl')) {
-                                    try {
-                                        // Attempt to follow redirect to get the full URL
-                                        $response = \Illuminate\Support\Facades\Http::get($url);
-                                        $url = $response->effectiveUri() ?? $url;
-                                    } catch (\Exception $e) {
-                                        // Fallback to the original URL if request fails
-                                    }
-                                }
+                                $parsed = \App\Services\GoogleMapsService::parseCoordinates($url);
 
-                                $patterns = [
-                                    '/!3d(-?\d+\.?\d*).*?!4d(-?\d+\.?\d*)/',
-                                    '/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/',
-                                    '/place\/[^@]*@(-?\d+\.?\d*),(-?\d+\.?\d*)/',
-                                    '/mlat=(-?\d+\.?\d*).*?mlon=(-?\d+\.?\d*)/',
-                                    '/ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/',
-                                    '/@(-?\d+\.?\d*),(-?\d+\.?\d*)/',
-                                ];
-                                
-                                foreach ($patterns as $pattern) {
-                                    if (preg_match($pattern, (string)$url, $m)) {
-                                        $lat = $m[1];
-                                        $lng = $m[2];
-                                        break;
-                                    }
-                                }
-
-                                if ($lat && $lng) {
-                                    $livewire->dispatch('gmaps-coords-extracted', lat: (float)$lat, lng: (float)$lng);
+                                if ($parsed['success'] && !empty($parsed['latitude']) && !empty($parsed['longitude'])) {
+                                    $lat = (float) $parsed['latitude'];
+                                    $lng = (float) $parsed['longitude'];
+                                    $livewire->dispatch('gmaps-coords-extracted', lat: $lat, lng: $lng);
                                     \Filament\Notifications\Notification::make()
                                         ->title('✅ Koordinat berhasil ditemukan')
                                         ->body("Latitude: {$lat} \nLongitude: {$lng}")
@@ -191,7 +164,7 @@ class WorkLocationForm
                                 } else {
                                     \Filament\Notifications\Notification::make()
                                         ->title('❌ Gagal mengekstrak koordinat')
-                                        ->body('Format URL tidak dikenali. Coba gunakan format link yang berbeda atau pastikan link mengarah ke sebuah titik koordinat.')
+                                        ->body($parsed['message'] ?? 'Format URL tidak dikenali. Coba gunakan format link yang berbeda atau pastikan link mengarah ke sebuah titik koordinat.')
                                         ->danger()
                                         ->persistent()
                                         ->send();

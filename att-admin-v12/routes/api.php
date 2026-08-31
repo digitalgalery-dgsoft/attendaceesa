@@ -57,6 +57,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/itineraries', [ItineraryController::class, 'index']);
     Route::post('/itineraries', [ItineraryController::class, 'store']);
     Route::delete('/itineraries/{id}', [ItineraryController::class, 'destroy']);
+
+    // Location Request routes (Request New Location by Employee)
+    Route::get('/location-requests', [\App\Http\Controllers\Api\LocationRequestApiController::class, 'index']);
+    Route::post('/location-requests', [\App\Http\Controllers\Api\LocationRequestApiController::class, 'store']);
+    Route::post('/location-requests/parse-maps-url', [\App\Http\Controllers\Api\LocationRequestApiController::class, 'parseMapsUrl']);
     
     // Blast Infos
     Route::get('/blast-infos', [BlastInfoController::class, 'index']);
