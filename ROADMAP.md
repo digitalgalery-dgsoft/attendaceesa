@@ -594,9 +594,20 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Skrip Pembersih Otomatis Web Browser (`clean_server.php`)**:
       - Pembuatan endpoint pembersih `att-admin-v12/public/clean_server.php` dengan otentikasi token keamanan `dgsoft_rahasia_123`.
       - Dilengkapi kartu statistik visual persentase penggunaan disk sebelum vs sesudah dan log eksekusi pembersihan real-time.
-      - Telah dideploy dan aktif di server live: `https://appsend.my.id/clean_server.php?token=dgsoft_rahasia_123`.
+18. **Penyempurnaan Form Builder: Expired Date (Bulan & Tahun), Parameter Read Only & Rilis APK v1.0.104 (SELESAI 31 Agustus 2026)**:
+    - **Penyempurnaan Expired Date (Hanya Bulan & Tahun / `month_year`)**:
+      - Pembuatan tipe input baru `month_year` pada Form Builder Filament Admin (`🗓️ Pilih Bulan & Tahun (MM/YYYY - Expired Date)`).
+      - Migrasi database `2026_08_31_080000_add_is_readonly_and_update_month_year_fields.php` untuk mengonversi seluruh field expired date template (Fonterra, MamaSuka, Wings) menjadi `month_year`.
+      - Pembuatan widget Dialog Pemilih Bulan & Tahun interaktif di Flutter (`dynamic_form_screen.dart`) dengan pemilih tahun dan grid 12 bulan (Januari - Desember) berformat standar `MM/yyyy`.
+    - **Parameter "Read Only (Hanya Baca)" untuk Form Builder**:
+      - Kolom `is_readonly` (boolean) ditambahkan ke tabel `report_form_fields` dan schema Form Builder Filament Admin.
+      - Field yang diatur *Read Only* akan menampilkan badge status visual `🔒 Read Only` di aplikasi mobile dan mengunci input manual agar terproteksi dari perubahan manual oleh user saat terisi otomatis.
+    - **Build & Rilis APK v1.0.104**:
+      - Versi aplikasi dinaikkan ke **`v1.0.104+104`**.
+      - File APK rilis siap pasang dikompilasi: `att-mobile/build/app/outputs/flutter-apk/app-release-v1.0.104.apk`.
 
 ---
+
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)
 1. **Lanjutan Monitoring & Rekap Operasional:**
