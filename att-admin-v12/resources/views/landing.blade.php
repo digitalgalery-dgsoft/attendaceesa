@@ -88,10 +88,9 @@
         }
 
         .brand-logo-img {
-            height: 38px;
-            max-width: 140px;
+            height: 42px;
+            max-width: 180px;
             object-fit: contain;
-            border-radius: 8px;
         }
 
         .brand-badge {
@@ -699,12 +698,15 @@
     <nav>
         <a href="/" class="brand-link">
             @if(isset($setting) && $setting->logo_path)
-                <img src="/app-logo" alt="Logo" class="brand-logo-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                <div class="brand-badge" style="display: none;">ESA</div>
+                <img src="/app-logo" alt="{{ $setting->app_name ?? 'Logo' }}" class="brand-logo-img" onerror="this.style.display='none'; document.getElementById('nav-brand-fallback').style.display='flex';">
+                <div id="nav-brand-fallback" style="display: none; align-items: center; gap: 0.85rem;">
+                    <div class="brand-badge">ESA</div>
+                    <span>{{ $setting->app_name ?? 'ESA Groups' }}</span>
+                </div>
             @else
                 <div class="brand-badge">ESA</div>
+                <span>{{ $setting->app_name ?? 'ESA Groups' }}</span>
             @endif
-            <span>{{ $setting->app_name ?? 'ESA Groups' }}</span>
         </a>
 
         <ul class="nav-links">
@@ -1054,9 +1056,17 @@
     <!-- ─── FOOTER ───────────────────────────────────────────────────── -->
     <footer>
         <div class="footer-content">
-            <div class="footer-brand">
-                <div class="brand-badge" style="width: 30px; height: 30px; font-size: 0.8rem; border-radius: 8px;">ESA</div>
-                <span>{{ $setting->app_name ?? 'ESA Groups' }}</span>
+            <div class="footer-brand" style="display: flex; align-items: center; gap: 0.75rem;">
+                @if(isset($setting) && $setting->logo_path)
+                    <img src="/app-logo" alt="{{ $setting->app_name ?? 'Logo' }}" style="height: 32px; max-width: 140px; object-fit: contain;" onerror="this.style.display='none'; document.getElementById('footer-brand-fallback').style.display='flex';">
+                    <div id="footer-brand-fallback" style="display: none; align-items: center; gap: 0.75rem;">
+                        <div class="brand-badge" style="width: 30px; height: 30px; font-size: 0.8rem; border-radius: 8px;">ESA</div>
+                        <span>{{ $setting->app_name ?? 'ESA Groups' }}</span>
+                    </div>
+                @else
+                    <div class="brand-badge" style="width: 30px; height: 30px; font-size: 0.8rem; border-radius: 8px;">ESA</div>
+                    <span>{{ $setting->app_name ?? 'ESA Groups' }}</span>
+                @endif
             </div>
 
             <ul class="footer-links">
