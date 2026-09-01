@@ -39,23 +39,38 @@ class HelpdeskApiController extends Controller
     public function checkNik(Request $request)
     {
         $request->validate([
-            'nik' => 'required|string|trim',
+            'nik' => 'required|string',
         ]);
 
         $nik = trim($request->nik);
 
         $employee = Employee::where(function ($q) use ($nik) {
             $q->where('employee_no', $nik)
-              ->orWhere('email', $nik);
+              ->orWhereRaw('LOWER(employee_no) = ?', [strtolower($nik)])
+              ->orWhereRaw('LOWER(email) = ?', [strtolower($nik)]);
         })
         ->where('is_active', true)
         ->with(['company', 'principal', 'branch', 'department', 'position'])
+        ->orderByDesc('id')
         ->first();
 
         if (!$employee) {
+            $inactive = Employee::where(function ($q) use ($nik) {
+                $q->where('employee_no', $nik)
+                  ->orWhereRaw('LOWER(employee_no) = ?', [strtolower($nik)])
+                  ->orWhereRaw('LOWER(email) = ?', [strtolower($nik)]);
+            })->first();
+
+            if ($inactive) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Akun karyawan ' . ($inactive->name ?? $inactive->full_name) . ' (NIK: ' . $nik . ') saat ini berstatus NON-AKTIF. Silakan hubungi HR / Admin ESA untuk proses aktivasi.',
+                ], 422);
+            }
+
             return response()->json([
                 'status' => 'error',
-                'message' => 'Data Karyawan dengan NIK / Akun "' . $nik . '" tidak ditemukan atau berstatus non-aktif. Silakan periksa kembali NIK Anda.',
+                'message' => 'Data Karyawan dengan NIK / Akun "' . $nik . '" tidak ditemukan. Silakan periksa kembali nomor NIK Anda.',
             ], 404);
         }
 
