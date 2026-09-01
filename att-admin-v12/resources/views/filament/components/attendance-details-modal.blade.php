@@ -74,9 +74,9 @@
         ?? $attendance?->employeeSchedule?->workLocation?->name 
         ?? ($employee?->branch?->name ?? 'Belum Ditentukan');
     
-    $companyName = $schedule?->workLocation?->company?->name 
-        ?? $employee?->principal?->name 
-        ?? $employee?->company?->name;
+    $companyName = $employee?->principal?->name 
+        ?? $employee?->company?->name
+        ?? $schedule?->workLocation?->company?->name;
 
     $initials = $employee ? strtoupper(substr($employee->full_name, 0, 2)) : 'PR';
 @endphp
