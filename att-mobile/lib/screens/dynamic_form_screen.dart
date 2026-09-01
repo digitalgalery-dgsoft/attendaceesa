@@ -1477,12 +1477,30 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       case 'dropdown':
       case 'product':
       case 'product_select':
-        final effectiveOptions = field.options.isNotEmpty
-            ? field.options
+        List<String> effectiveOptions = field.options.isNotEmpty
+            ? List<String>.from(field.options)
             : widget.template.products.map((p) => p.name).toList();
 
+        // Dynamic Dependent Filter: Dulux Tinter Category (Dramatone vs Acotone)
+        if (fieldKey == 'tipe_tinter_warna' || field.fieldLabel.toLowerCase().contains('tipe tinter')) {
+          final selectedCategory = _formValues['kategori_tinter']?.toString() ?? 'Dramatone';
+          if (selectedCategory.toLowerCase().contains('acotone')) {
+            effectiveOptions = effectiveOptions.where((opt) => opt.toLowerCase().contains('acotone')).toList();
+          } else if (selectedCategory.toLowerCase().contains('dramatone')) {
+            effectiveOptions = effectiveOptions.where((opt) => !opt.toLowerCase().contains('acotone')).toList();
+          } else if (selectedCategory.toLowerCase().contains('tidak ada') || selectedCategory.toLowerCase().contains('non-tinting')) {
+            effectiveOptions = ['Tidak Ada Mesin Tinting / Non-Tinting'];
+          }
+        }
+
+        // Pastikan nilai value yang dipilih valid ada di daftar options
+        final currentDropdownVal = _formValues[fieldKey];
+        final validDropdownValue = (currentDropdownVal != null && effectiveOptions.contains(currentDropdownVal))
+            ? currentDropdownVal
+            : null;
+
         final dropdownWidget = DropdownButtonFormField<String>(
-          value: _formValues[fieldKey],
+          value: validDropdownValue,
           decoration: _inputDecoration(
             field.placeholder ?? 'Pilih salah satu opsi...',
             isFieldReadonly ? readonlyBgColor : elevatedColor,
@@ -1532,7 +1550,16 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               })
               .toList(),
           validator: (v) => (!isFieldReadonly && field.isRequired) && (v == null || v.isEmpty) ? locale.tr('required_field') : null,
-          onChanged: isFieldReadonly ? null : (v) => setState(() => _formValues[fieldKey] = v),
+          onChanged: isFieldReadonly
+              ? null
+              : (v) {
+                  setState(() {
+                    _formValues[fieldKey] = v;
+                    if (fieldKey == 'kategori_tinter') {
+                      _formValues['tipe_tinter_warna'] = null;
+                    }
+                  });
+                },
         );
 
         inputWidget = isFieldReadonly
@@ -1611,7 +1638,16 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 activeColor: isFieldReadonly ? subtitleColor : themeColor,
                 dense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                onChanged: isFieldReadonly ? null : (val) => setState(() => _formValues[fieldKey] = val),
+                onChanged: isFieldReadonly
+                    ? null
+                    : (val) {
+                        setState(() {
+                          _formValues[fieldKey] = val;
+                          if (fieldKey == 'kategori_tinter') {
+                            _formValues['tipe_tinter_warna'] = null;
+                          }
+                        });
+                      },
               ),
             );
           }).toList(),
