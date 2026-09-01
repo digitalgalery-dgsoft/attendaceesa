@@ -53,6 +53,11 @@ class ReportingApiController extends Controller
 
         $principalId = $employee->principal_id ?? $employee->department?->principal_id;
         
+        // Auto-heal Dulux template jika diperlukan
+        try {
+            ReportTemplate::syncDuluxMergedStockEnd();
+        } catch (\Throwable $e) {}
+
         // Cari semua template yang ditugaskan ke prinsiple karyawan ini
         $templatesQuery = ReportTemplate::with([
             'fields' => function ($q) {
