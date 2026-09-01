@@ -107,6 +107,26 @@ class ManageSettings extends Page implements HasForms
                             ->default(5)
                             ->required(),
                     ])->columns(2),
+                Section::make('Tampilan & Tema Mode Gelap (Dark Mode Customization)')
+                    ->description('Sesuaikan pengaturan mode gelap dan pilihan variasi warna latar belakang admin panel.')
+                    ->components([
+                        \Filament\Forms\Components\Toggle::make('dark_mode_enabled')
+                            ->label('Aktifkan Dukungan Mode Gelap (Dark Mode)')
+                            ->helperText('Jika diaktifkan, tombol penggantian Light/Dark mode akan aktif pada header.')
+                            ->default(true),
+                        \Filament\Forms\Components\Select::make('dark_mode_theme')
+                            ->label('Pilihan Variasi Warna Dark Mode')
+                            ->options([
+                                'dark_navy'    => '🌌 Dark Navy (Midnight Blue - Default Elegan)',
+                                'pitch_black'  => '⬛ Pitch Black (Pure AMOLED Black / Hitam Pekat)',
+                                'dark_grey'    => '🔘 Dark Grey (Charcoal / Abu-Abu Gelap Modern)',
+                                'dark_emerald' => '🌲 Dark Emerald (Deep Forest / Hijau Gelap Mewah)',
+                                'dark_purple'  => '🔮 Dark Purple (Royal Amethyst / Ungu Gelap)',
+                            ])
+                            ->default('dark_navy')
+                            ->required()
+                            ->helperText('Pilih nuansa warna gelap yang ingin diterapkan secara default pada panel admin saat mode gelap aktif.'),
+                    ])->columns(2),
                 Section::make('Pengaturan Foto Wajib')
                     ->components([
                         \Filament\Forms\Components\Toggle::make('require_checkin_photo')

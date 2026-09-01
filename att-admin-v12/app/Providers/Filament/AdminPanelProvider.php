@@ -34,13 +34,15 @@ class AdminPanelProvider extends PanelProvider
         $appName = $setting?->app_name ?? 'ESA Groups';
         $themeColor = $setting?->theme_color ?? '#0F52BA';
         $logoPath = $setting?->logo_path;
+        $darkModeEnabled = (bool) ($setting?->dark_mode_enabled ?? true);
+        $darkModeTheme = $setting?->dark_mode_theme ?? 'dark_navy';
 
         return $panel
             ->default()
             ->id('admin')
             ->path('admin')
             ->login(\App\Filament\Pages\Auth\Login::class)
-            ->darkMode(false)
+            ->darkMode($darkModeEnabled)
             ->maxContentWidth(Width::Full)
             ->sidebarCollapsibleOnDesktop()
             ->brandName($appName)
@@ -83,6 +85,18 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => '<link rel="preconnect" href="https://fonts.googleapis.com">
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
                 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+                <script>
+                    (function() {
+                        try {
+                            const savedTheme = localStorage.getItem(\'esa_dark_theme\') || \'' . $darkModeTheme . '\';
+                            document.documentElement.setAttribute(\'data-dark-theme\', savedTheme);
+                            const isDark = localStorage.getItem(\'theme\') === \'dark\' || (!(\'theme\' in localStorage) && window.matchMedia(\'(prefers-color-scheme: dark)\').matches);
+                            if (isDark) {
+                                document.documentElement.classList.add(\'dark\');
+                            }
+                        } catch(e) {}
+                    })();
+                </script>
                 <style>
                     /* GLOBAL OUTFIT TYPOGRAPHY & CLEAN PRINCIPAL PORTAL THEME */
                     * {
@@ -93,8 +107,76 @@ class AdminPanelProvider extends PanelProvider
                     .fi-body {
                         background-color: #f8fafc !important;
                     }
+
+                    /* ─── DYNAMIC DARK MODE PALETTES ─── */
+                    /* 1. DARK NAVY (Default Midnight Blue) */
+                    html[data-dark-theme="dark_navy"].dark,
+                    html.dark:not([data-dark-theme]) {
+                        --fi-bg-body: #0b1120 !important;
+                        --fi-bg-surface: #0f172a !important;
+                        --fi-bg-card: #1e293b !important;
+                        --fi-bg-input: #1e293b !important;
+                        --fi-border-main: #1e293b !important;
+                        --fi-border-subtle: #334155 !important;
+                        --fi-hover-bg: #1e293b !important;
+                        --fi-active-border: #3b82f6 !important;
+                        --fi-accent-gradient: linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(59, 130, 246, 0.12) 100%) !important;
+                    }
+
+                    /* 2. PITCH BLACK (Pure AMOLED Black / Hitam Pekat) */
+                    html[data-dark-theme="pitch_black"].dark {
+                        --fi-bg-body: #000000 !important;
+                        --fi-bg-surface: #0a0a0a !important;
+                        --fi-bg-card: #121212 !important;
+                        --fi-bg-input: #171717 !important;
+                        --fi-border-main: #262626 !important;
+                        --fi-border-subtle: #383838 !important;
+                        --fi-hover-bg: #1f1f1f !important;
+                        --fi-active-border: #60a5fa !important;
+                        --fi-accent-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%) !important;
+                    }
+
+                    /* 3. DARK GREY (Charcoal / Modern Anthracite / Abu-Abu Gelap) */
+                    html[data-dark-theme="dark_grey"].dark {
+                        --fi-bg-body: #18181b !important;
+                        --fi-bg-surface: #202023 !important;
+                        --fi-bg-card: #27272a !important;
+                        --fi-bg-input: #2d2d30 !important;
+                        --fi-border-main: #3f3f46 !important;
+                        --fi-border-subtle: #52525b !important;
+                        --fi-hover-bg: #323236 !important;
+                        --fi-active-border: #38bdf8 !important;
+                        --fi-accent-gradient: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(14, 165, 233, 0.08) 100%) !important;
+                    }
+
+                    /* 4. DARK EMERALD (Deep Forest / Hijau Gelap Mewah) */
+                    html[data-dark-theme="dark_emerald"].dark {
+                        --fi-bg-body: #022c22 !important;
+                        --fi-bg-surface: #064e3b !important;
+                        --fi-bg-card: #065f46 !important;
+                        --fi-bg-input: #047857 !important;
+                        --fi-border-main: #047857 !important;
+                        --fi-border-subtle: #059669 !important;
+                        --fi-hover-bg: #0f766e !important;
+                        --fi-active-border: #34d399 !important;
+                        --fi-accent-gradient: linear-gradient(135deg, rgba(52, 211, 153, 0.22) 0%, rgba(16, 185, 129, 0.1) 100%) !important;
+                    }
+
+                    /* 5. DARK PURPLE (Royal Amethyst / Ungu Gelap) */
+                    html[data-dark-theme="dark_purple"].dark {
+                        --fi-bg-body: #0f0728 !important;
+                        --fi-bg-surface: #1e1035 !important;
+                        --fi-bg-card: #2e1065 !important;
+                        --fi-bg-input: #3b0764 !important;
+                        --fi-border-main: #3b0764 !important;
+                        --fi-border-subtle: #581c87 !important;
+                        --fi-hover-bg: #4c1d95 !important;
+                        --fi-active-border: #c084fc !important;
+                        --fi-accent-gradient: linear-gradient(135deg, rgba(192, 132, 252, 0.22) 0%, rgba(168, 85, 247, 0.1) 100%) !important;
+                    }
+
                     .dark .fi-body {
-                        background-color: #0b1120 !important;
+                        background-color: var(--fi-bg-body) !important;
                     }
 
                     /* ─── CLEAN FILAMENT LOGIN PAGE STYLING ─── */
@@ -117,11 +199,11 @@ class AdminPanelProvider extends PanelProvider
                     }
 
                     .dark .fi-simple-layout {
-                        background-color: #f8fafc !important;
+                        background-color: var(--fi-bg-body) !important;
                     }
                     .dark .fi-simple-main {
-                        background-color: #ffffff !important;
-                        border-color: #e2e8f0 !important;
+                        background-color: var(--fi-bg-surface) !important;
+                        border-color: var(--fi-border-main) !important;
                     }
 
                     .fi-simple-header {
@@ -197,8 +279,8 @@ class AdminPanelProvider extends PanelProvider
                         box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
                     }
                     .dark aside.fi-sidebar {
-                        background-color: #0f172a !important;
-                        border-right-color: #1e293b !important;
+                        background-color: var(--fi-bg-surface) !important;
+                        border-right-color: var(--fi-border-main) !important;
                         box-shadow: none !important;
                     }
 
@@ -210,8 +292,8 @@ class AdminPanelProvider extends PanelProvider
                         padding-bottom: 1.15rem !important;
                     }
                     .dark .fi-sidebar-header {
-                        background-color: #0f172a !important;
-                        border-bottom-color: #1e293b !important;
+                        background-color: var(--fi-bg-surface) !important;
+                        border-bottom-color: var(--fi-border-main) !important;
                     }
                     .fi-sidebar-header .fi-logo {
                         color: #0f172a !important;
@@ -266,7 +348,7 @@ class AdminPanelProvider extends PanelProvider
                     }
                     .dark .fi-sidebar-item:hover > a,
                     .dark .fi-sidebar-item:hover > button {
-                        background-color: #1e293b !important;
+                        background-color: var(--fi-hover-bg) !important;
                     }
                     .fi-sidebar-item:hover .fi-sidebar-item-label {
                         color: #0f172a !important;
@@ -289,8 +371,8 @@ class AdminPanelProvider extends PanelProvider
                     }
                     .dark .fi-sidebar-item.fi-active > a,
                     .dark .fi-sidebar-item.fi-active > button {
-                        background: linear-gradient(135deg, rgba(37, 99, 235, 0.22) 0%, rgba(59, 130, 246, 0.12) 100%) !important;
-                        border-left: 3px solid #3b82f6 !important;
+                        background: var(--fi-accent-gradient) !important;
+                        border-left: 3px solid var(--fi-active-border) !important;
                     }
                     .fi-sidebar-item.fi-active .fi-sidebar-item-label {
                         color: #0F52BA !important;
@@ -313,8 +395,8 @@ class AdminPanelProvider extends PanelProvider
                         box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
                     }
                     .dark .fi-topbar {
-                        background-color: #0f172a !important;
-                        border-bottom-color: #1e293b !important;
+                        background-color: var(--fi-bg-surface) !important;
+                        border-bottom-color: var(--fi-border-main) !important;
                         box-shadow: none !important;
                     }
                     .fi-topbar .fi-logo {
@@ -335,10 +417,27 @@ class AdminPanelProvider extends PanelProvider
                     }
                     .dark .fi-section,
                     .dark .fi-ta-ctn,
-                    .dark .fi-wi-widget > div {
-                        border-color: #1e293b !important;
-                        background-color: #0f172a !important;
+                    .dark .fi-wi-widget > div,
+                    .dark .fi-modal-window,
+                    .dark .fi-dropdown-panel {
+                        border-color: var(--fi-border-main) !important;
+                        background-color: var(--fi-bg-surface) !important;
                         box-shadow: none !important;
+                    }
+                    .dark .fi-ta-header,
+                    .dark .fi-ta-header-toolbar,
+                    .dark .fi-modal-header,
+                    .dark .fi-modal-footer {
+                        background-color: var(--fi-bg-surface) !important;
+                        border-color: var(--fi-border-main) !important;
+                    }
+                    .dark .fi-ta-row:hover {
+                        background-color: var(--fi-hover-bg) !important;
+                    }
+                    .dark .fi-input-wrp,
+                    .dark .fi-select-input {
+                        background-color: var(--fi-bg-input) !important;
+                        border-color: var(--fi-border-subtle) !important;
                     }
 
                     /* BUTTONS & CONTROLS */
@@ -389,11 +488,14 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
                 fn (): string => \Illuminate\Support\Facades\Blade::render('
-                    <div style="display: flex; flex-direction: column; text-align: right; margin-right: 0.75rem; justify-content: center;">
-                        <span style="font-size: 0.875rem; font-weight: 700; line-height: 1.25; color: inherit; margin-bottom: 2px;">{{ auth()->user()->name }}</span>
-                        <span style="font-size: 0.75rem; color: #6b7280; text-transform: uppercase; line-height: 1.25;">
-                            {{ session()->has("impersonated_by") ? "Switch Mode" : (auth()->user()->roles->first()?->name ?? "User") }}
-                        </span>
+                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-right: 0.75rem;">
+                        ' . view('filament.partials.theme-switcher')->render() . '
+                        <div style="display: flex; flex-direction: column; text-align: right; justify-content: center;">
+                            <span style="font-size: 0.875rem; font-weight: 700; line-height: 1.25; color: inherit; margin-bottom: 2px;">{{ auth()->user()->name }}</span>
+                            <span style="font-size: 0.75rem; color: #6b7280; text-transform: uppercase; line-height: 1.25;">
+                                {{ session()->has("impersonated_by") ? "Switch Mode" : (auth()->user()->roles->first()?->name ?? "User") }}
+                            </span>
+                        </div>
                     </div>
                 ')
             )
