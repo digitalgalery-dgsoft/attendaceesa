@@ -726,7 +726,9 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       7. *Whitelabel Principal Portal*
       8. *Request Lokasi Toko Baru*
       9. *Extra Hours & Lembur Real-Time*
-      10. *Target Penjualan & Slip Gaji Digital*
+31. **Redesain Halaman Login Admin Panel (Clean Modern Aesthetic) (SELESAI 1 September 2026)**:
+    - **Penyelarasan Tampilan Clean Light Theme**: Menghilangkan dark theme gelap pada halaman login Admin Filament (`/admin/login`) dengan mengaktifkan `darkMode(false)` dan menyuntikkan custom CSS layout bernuansa terang elegan (`#F8FAFC`, kartu putih `#FFFFFF`, border `#E2E8F0`, rounded 24px, soft shadow).
+    - **Kustomisasi Header & Kontrol**: Membuat custom Login class `App\Filament\Pages\Auth\Login` dengan judul *"Masuk ke Admin Panel"* dan subjudul *"Sistem Presensi & Manajemen Kinerja Terintegrasi"*, input form modern, tombol gradient primary, serta link navigasi kembali ke halaman utama.
 
 ---
 

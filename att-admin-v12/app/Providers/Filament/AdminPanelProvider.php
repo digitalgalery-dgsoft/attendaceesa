@@ -39,7 +39,8 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login(\App\Filament\Pages\Auth\Login::class)
+            ->darkMode(false)
             ->maxContentWidth(Width::Full)
             ->sidebarCollapsibleOnDesktop()
             ->brandName($appName)
@@ -81,11 +82,11 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::HEAD_END,
                 fn (): string => '<link rel="preconnect" href="https://fonts.googleapis.com">
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-                <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+                <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
                 <style>
                     /* GLOBAL OUTFIT TYPOGRAPHY & CLEAN PRINCIPAL PORTAL THEME */
                     * {
-                        font-family: \'Outfit\', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                        font-family: \'Plus Jakarta Sans\', \'Outfit\', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
                     }
                     
                     /* Background body */
@@ -94,6 +95,99 @@ class AdminPanelProvider extends PanelProvider
                     }
                     .dark .fi-body {
                         background-color: #0b1120 !important;
+                    }
+
+                    /* ─── CLEAN FILAMENT LOGIN PAGE STYLING ─── */
+                    .fi-simple-layout {
+                        background-color: #f8fafc !important;
+                        background-image: 
+                            radial-gradient(circle at 12% 10%, rgba(79, 70, 229, 0.05) 0%, transparent 45%),
+                            radial-gradient(circle at 88% 85%, rgba(2, 132, 199, 0.05) 0%, transparent 45%) !important;
+                        background-attachment: fixed !important;
+                        min-height: 100vh !important;
+                    }
+
+                    .fi-simple-main {
+                        background-color: #ffffff !important;
+                        border: 1px solid #e2e8f0 !important;
+                        border-radius: 24px !important;
+                        box-shadow: 0 20px 35px -5px rgba(0, 0, 0, 0.06), 0 8px 12px -4px rgba(0, 0, 0, 0.03) !important;
+                        padding: 2.5rem 2.25rem !important;
+                        max-width: 440px !important;
+                    }
+
+                    .dark .fi-simple-layout {
+                        background-color: #f8fafc !important;
+                    }
+                    .dark .fi-simple-main {
+                        background-color: #ffffff !important;
+                        border-color: #e2e8f0 !important;
+                    }
+
+                    .fi-simple-header {
+                        margin-bottom: 2rem !important;
+                        text-align: center !important;
+                    }
+
+                    .fi-simple-header .fi-logo {
+                        font-size: 1.5rem !important;
+                        font-weight: 800 !important;
+                        color: #0f172a !important;
+                        margin-bottom: 0.5rem !important;
+                    }
+
+                    .fi-simple-header-heading {
+                        font-size: 1.55rem !important;
+                        font-weight: 800 !important;
+                        color: #0f172a !important;
+                        letter-spacing: -0.02em !important;
+                    }
+
+                    .fi-simple-header-subheading {
+                        font-size: 0.9rem !important;
+                        color: #64748b !important;
+                        margin-top: 0.4rem !important;
+                        line-height: 1.5 !important;
+                    }
+
+                    /* Simple Page Inputs */
+                    .fi-simple-main .fi-input-wrp {
+                        background-color: #ffffff !important;
+                        border: 1px solid #cbd5e1 !important;
+                        border-radius: 12px !important;
+                        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+                        transition: all 0.2s ease !important;
+                    }
+
+                    .fi-simple-main .fi-input-wrp:focus-within {
+                        border-color: #4F46E5 !important;
+                        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
+                    }
+
+                    .fi-simple-main label {
+                        font-size: 0.86rem !important;
+                        font-weight: 700 !important;
+                        color: #334155 !important;
+                    }
+
+                    /* Simple Page Button */
+                    .fi-simple-main button[type="submit"],
+                    .fi-simple-main .fi-btn-color-primary {
+                        background: linear-gradient(135deg, #4F46E5 0%, #0284C7 100%) !important;
+                        border-radius: 12px !important;
+                        padding: 0.85rem 1.5rem !important;
+                        font-size: 0.95rem !important;
+                        font-weight: 700 !important;
+                        color: #ffffff !important;
+                        box-shadow: 0 8px 20px -4px rgba(79, 70, 229, 0.4) !important;
+                        border: none !important;
+                        transition: all 0.25s ease !important;
+                    }
+
+                    .fi-simple-main button[type="submit"]:hover,
+                    .fi-simple-main .fi-btn-color-primary:hover {
+                        transform: translateY(-2px) !important;
+                        box-shadow: 0 12px 25px -4px rgba(79, 70, 229, 0.5) !important;
                     }
 
                     /* SIDEBAR CLEAN DESIGN */
@@ -260,6 +354,16 @@ class AdminPanelProvider extends PanelProvider
                     /* Custom logo override */
                     .fi-logo-custom-img { display: flex; align-items: center; }
                 </style>'
+            )
+            ->renderHook(
+                PanelsRenderHook::SIMPLE_PAGE_END,
+                fn (): string => \Illuminate\Support\Facades\Blade::render('
+                    <div style="text-align: center; margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid #f1f5f9;">
+                        <a href="/" style="font-size: 0.85rem; font-weight: 700; color: #4F46E5; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; transition: opacity 0.2s ease;" onmouseover="this.style.opacity=\'0.8\'" onmouseout="this.style.opacity=\'1\'">
+                            <span>← Kembali ke Halaman Utama</span>
+                        </a>
+                    </div>
+                ')
             )
             ->renderHook(
                 PanelsRenderHook::PAGE_START,
