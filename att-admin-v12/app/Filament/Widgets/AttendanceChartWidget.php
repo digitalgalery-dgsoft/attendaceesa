@@ -3,6 +3,10 @@
 namespace App\Filament\Widgets;
 
 use Filament\Widgets\ChartWidget;
+use Filament\Widgets\ChartWidget\Concerns\HasFiltersSchema;
+use Filament\Forms\Components\Select;
+use Filament\Schemas\Schema;
+use Filament\Actions\Action;
 use App\Models\Attendance;
 use App\Models\Principal;
 use App\Models\Branch;
@@ -11,6 +15,8 @@ use Illuminate\Support\Facades\DB;
 
 class AttendanceChartWidget extends ChartWidget
 {
+    use HasFiltersSchema;
+
     protected ?string $heading = 'Attendance Overview per Prinsiple';
     protected static ?int $sort = 3;
     protected int | string | array $columnSpan = 'full';
@@ -18,19 +24,45 @@ class AttendanceChartWidget extends ChartWidget
 
     protected string $view = 'filament.widgets.attendance-chart-widget';
 
-    public ?string $principal_id = '';
-    public ?string $branch_id = '';
-
-    public function updatedPrincipalId(): void
+    public function mount(): void
     {
-        $this->cachedData = null;
-        $this->updateChartData();
+        parent::mount();
+        $this->mountHasFiltersSchema();
     }
 
-    public function updatedBranchId(): void
+    public function filtersSchema(Schema $schema): Schema
     {
-        $this->cachedData = null;
-        $this->updateChartData();
+        return $schema
+            ->components([
+                Select::make('principal_id')
+                    ->label('Filter Prinsiple')
+                    ->placeholder('Semua Prinsiple')
+                    ->options($this->getPrincipalOptions())
+                    ->searchable()
+                    ->preload()
+                    ->live(),
+                Select::make('branch_id')
+                    ->label('Filter Area / Cabang')
+                    ->placeholder('Semua Area')
+                    ->options($this->getBranchOptions())
+                    ->searchable()
+                    ->preload()
+                    ->live(),
+            ]);
+    }
+
+    public function getFiltersTriggerAction(): Action
+    {
+        $hasActiveFilter = !empty($this->filters['principal_id']) || !empty($this->filters['branch_id']);
+
+        return Action::make('filter')
+            ->label($hasActiveFilter ? 'Filter: Aktif' : 'Filter Prinsiple & Area')
+            ->icon('heroicon-m-funnel')
+            ->color($hasActiveFilter ? 'primary' : 'gray')
+            ->badge($hasActiveFilter ? 'Aktif' : null)
+            ->badgeColor('primary')
+            ->button()
+            ->size('sm');
     }
 
     public function getPrincipalOptions(): array
@@ -43,7 +75,7 @@ class AttendanceChartWidget extends ChartWidget
             $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
         }
 
-        return ['' => 'Semua Prinsiple'] + $query->pluck('name', 'id')->toArray();
+        return $query->pluck('name', 'id')->toArray();
     }
 
     public function getBranchOptions(): array
@@ -54,7 +86,7 @@ class AttendanceChartWidget extends ChartWidget
             $query->whereIn('id', auth()->user()->getAccessibleBranchIds());
         }
 
-        return ['' => 'Semua Area'] + $query->pluck('name', 'id')->toArray();
+        return $query->pluck('name', 'id')->toArray();
     }
 
     protected function getOptions(): array
@@ -92,13 +124,16 @@ class AttendanceChartWidget extends ChartWidget
             $dateStrings[] = $date->toDateString();
         }
 
+        $principalId = $this->filters['principal_id'] ?? null;
+        $branchId = $this->filters['branch_id'] ?? null;
+
         // Query Prinsiple yang aktif dan memiliki karyawan
         $principalsQuery = Principal::where('is_active', true)
             ->whereHas('activeEmployees')
             ->orderBy('name');
 
-        if (!empty($this->principal_id)) {
-            $principalsQuery->where('id', $this->principal_id);
+        if (!empty($principalId)) {
+            $principalsQuery->where('id', $principalId);
         } elseif (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
             $principalsQuery->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
         }
@@ -107,8 +142,8 @@ class AttendanceChartWidget extends ChartWidget
 
         if ($principals->isEmpty()) {
             $fallbackQuery = Principal::where('is_active', true);
-            if (!empty($this->principal_id)) {
-                $fallbackQuery->where('id', $this->principal_id);
+            if (!empty($principalId)) {
+                $fallbackQuery->where('id', $principalId);
             }
             $principals = $fallbackQuery->limit(10)->get();
         }
@@ -141,8 +176,8 @@ class AttendanceChartWidget extends ChartWidget
             ->whereIn('employees.principal_id', $principals->pluck('id'))
             ->whereNull('employees.deleted_at');
 
-        if (!empty($this->branch_id)) {
-            $attQuery->where('employees.branch_id', $this->branch_id);
+        if (!empty($branchId)) {
+            $attQuery->where('employees.branch_id', $branchId);
         } elseif (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
             $attQuery->whereIn('employees.branch_id', auth()->user()->getAccessibleBranchIds());
         }
@@ -157,9 +192,7 @@ class AttendanceChartWidget extends ChartWidget
         }
 
         // Tentukan principal yang ditampilkan di chart:
-        // 1. Jika pilih spesifik prinsiple -> gambar prinsiple tersebut
-        // 2. Jika Semua Prinsiple -> hanya gambar prinsiple yang memiliki absensi > 0 di periode ini agar chart & tooltip tidak penuh garis nol
-        if (!empty($this->principal_id)) {
+        if (!empty($principalId)) {
             $targetPrincipals = $principals;
         } else {
             $targetPrincipals = $principals->filter(fn($p) => ($principalTotals[$p->id] ?? 0) > 0);
@@ -195,8 +228,8 @@ class AttendanceChartWidget extends ChartWidget
         if (empty($datasets)) {
             $overallCounts = [];
             $overallAttQuery = Attendance::whereBetween('attendance_date', [$dateStrings[0], end($dateStrings)]);
-            if (!empty($this->branch_id)) {
-                $overallAttQuery->whereHas('employee', fn($q) => $q->where('branch_id', $this->branch_id));
+            if (!empty($branchId)) {
+                $overallAttQuery->whereHas('employee', fn($q) => $q->where('branch_id', $branchId));
             }
             $overallAtt = $overallAttQuery->groupBy('attendance_date')
                 ->select('attendance_date', DB::raw('count(*) as total'))
