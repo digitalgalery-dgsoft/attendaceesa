@@ -228,7 +228,7 @@ class AttendanceController extends Controller
                 ], 403);
             }
 
-            // ─── UPLOAD FOTO ─────────────────────────────────────────────────
+            // ─── UPLOAD FOTO & VALIDASI FACE RECOGNITION ─────────────────────
             $path = null;
             $isFaceRequired = false;
             if ($employee) {
@@ -238,11 +238,33 @@ class AttendanceController extends Controller
                 }
             }
 
+            // Jika Face Recognition ON pada jabatan karyawan:
+            if ($isFaceRequired) {
+                // 1. Cek apakah karyawan sudah mendaftarkan Foto Master Wajah
+                $hasMasterPhoto = !empty($employee->photo) && !str_contains($employee->photo, 'default.png');
+                if (!$hasMasterPhoto) {
+                    return response()->json([
+                        'status' => 'error',
+                        'code' => 'FACE_MASTER_REQUIRED',
+                        'message' => 'Presensi ditolak: Jabatan Anda mewajibkan Face Recognition, namun Anda belum mendaftarkan Foto Master Wajah. Silakan daftarkan foto master wajah Anda terlebih dahulu di menu Profil.',
+                    ], 403);
+                }
+
+                // 2. Cek apakah foto selfie presensi diunggah
+                if (!$request->hasFile('photo') && in_array($request->type, ['checkin', 'visit_in', 'meet_in'])) {
+                    return response()->json([
+                        'status' => 'error',
+                        'code' => 'FACE_PHOTO_REQUIRED',
+                        'message' => 'Foto verifikasi selfie wajah wajib diunggah untuk presensi ini.',
+                    ], 400);
+                }
+            }
+
             if ($request->hasFile('photo')) {
                 $path = $request->file('photo')->store('attendances', 'public');
-            } elseif (in_array($request->type, ['checkin', 'visit_in'])) {
+            } elseif (in_array($request->type, ['checkin', 'visit_in', 'meet_in'])) {
                 if ($isFaceRequired) {
-                    return response()->json(['message' => 'Foto verifikasi wajah wajib diunggah untuk absen ini'], 400);
+                    return response()->json(['message' => 'Foto verifikasi wajah wajib diunggah untuk presensi ini.'], 400);
                 }
             }
 

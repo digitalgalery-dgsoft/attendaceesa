@@ -15,6 +15,7 @@ import 'liveness_camera_screen.dart';
 import 'package:att_mobile/utils/image_utils.dart';
 import 'package:att_mobile/models/meeting_model.dart';
 import 'meeting_report_screen.dart';
+import 'profile_screen.dart';
 
 class ScheduledLocationItem {
   final String id;
@@ -272,6 +273,25 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   }
 
   Future<void> _submitAttendance() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final posData = authProvider.employeeData?['position'];
+    final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? false) : false;
+    final String? masterPhoto = authProvider.employeeData?['photo'];
+    final bool hasMasterPhoto = masterPhoto != null && masterPhoto.isNotEmpty && !masterPhoto.contains('default.png');
+
+    if (isFaceRequired && !hasMasterPhoto) {
+      toastification.show(
+        context: context,
+        title: const Text('Wajib Master Wajah'),
+        description: const Text('Jabatan Anda mewajibkan Face Recognition, namun belum ada Foto Master Wajah terdaftar. Silakan daftarkan di menu Profil.'),
+        type: ToastificationType.error,
+        style: ToastificationStyle.flat,
+        alignment: Alignment.topRight,
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
     if (_selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in')) {
       toastification.show(
         context: context,
@@ -1376,7 +1396,40 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                                   final authProvider = Provider.of<AuthProvider>(context, listen: false);
                                   final posData = authProvider.employeeData?['position'];
                                   final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? false) : false;
+                                  final String? masterPhoto = authProvider.employeeData?['photo'];
+                                  final bool hasMasterPhoto = masterPhoto != null && masterPhoto.isNotEmpty && !masterPhoto.contains('default.png');
                                   final bool isPhotoMissing = isFaceRequired && _selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in');
+
+                                  if (isFaceRequired && !hasMasterPhoto) {
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(12),
+                                        gradient: const LinearGradient(
+                                          colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                                        ),
+                                      ),
+                                      child: ElevatedButton.icon(
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                                          );
+                                        },
+                                        icon: const Icon(Icons.face_retouching_natural, color: Colors.white, size: 18),
+                                        label: const Text(
+                                          'Daftarkan Master Wajah',
+                                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 12),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                          backgroundColor: Colors.transparent,
+                                          shadowColor: Colors.transparent,
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        ),
+                                      ),
+                                    );
+                                  }
 
                                   return Container(
                                     decoration: BoxDecoration(

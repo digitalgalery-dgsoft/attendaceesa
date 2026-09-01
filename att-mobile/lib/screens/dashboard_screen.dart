@@ -152,6 +152,67 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
   }
 
+  bool _checkFaceMasterOrBlock(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final pos = authProvider.employeeData?['position'];
+    final bool isFaceRequired = (pos is Map) ? (pos['require_face_recognition'] ?? false) : false;
+    final String? masterPhoto = authProvider.employeeData?['photo'];
+    final bool hasMasterPhoto = masterPhoto != null && masterPhoto.isNotEmpty && !masterPhoto.contains('default.png');
+
+    if (isFaceRequired && !hasMasterPhoto) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.face_retouching_natural, color: Colors.red.shade700, size: 24),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Wajib Master Wajah',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Jabatan Anda mewajibkan Face Recognition (Liveness AI), namun Anda belum mendaftarkan Foto Master Wajah.\n\nAnda TIDAK DAPAT melakukan Check-In / Presensi sebelum mendaftarkan foto master wajah Anda.',
+            style: TextStyle(fontSize: 13, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _enrollMasterFace(context);
+              },
+              icon: const Icon(Icons.camera_alt, size: 16),
+              label: const Text('Daftarkan Wajah Sekarang', style: TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _syncLocationService(AttendanceProvider attProvider) async {
     try {
       if (attProvider.isCheckedIn) {
@@ -870,6 +931,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         InkWell(
                           onTap: () {
                             if (attProvider.hasCheckedOutToday) return;
+                            if (!attProvider.isCheckedIn && !_checkFaceMasterOrBlock(context)) {
+                              return;
+                            }
                             if (!attProvider.canCheckin && !attProvider.isCheckedIn) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -979,6 +1043,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           return Expanded(
                             child: InkWell(
                               onTap: canDoVisitIn ? () {
+                                if (!_checkFaceMasterOrBlock(context)) return;
                                 Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_in'))).then((_) { attProvider.loadDashboardData(); });
                               } : null,
                               child: Container(
@@ -1663,6 +1728,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
                     return ElevatedButton.icon(
                       onPressed: () {
+                        if (!_checkFaceMasterOrBlock(context)) return;
                         if (!attProvider.isCheckedIn) {
                           toastification.show(
                             context: context,
