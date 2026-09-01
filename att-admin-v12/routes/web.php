@@ -32,20 +32,43 @@ Route::get('/portal-assets/logo/{id}', function ($id) {
     if (!$principal) abort(404);
     
     $path = $principal->logo_path ?: ($principal->logo ?? null);
+    
+    if (!$path && !empty($principal->subdomain)) {
+        $sibling = \App\Models\Principal::where('subdomain', $principal->subdomain)
+            ->where(function($q) {
+                $q->whereNotNull('logo_path')->where('logo_path', '!=', '')
+                  ->orWhereNotNull('logo')->where('logo', '!=', '');
+            })
+            ->first();
+        if ($sibling) {
+            $path = $sibling->logo_path ?: $sibling->logo;
+        }
+    }
+
     if (!$path) abort(404);
 
+    $cleanPath = ltrim(str_replace(['public/', 'storage/'], '', $path), '/');
+
     $candidates = [
+        storage_path('app/public/' . $cleanPath),
         storage_path('app/public/' . $path),
+        storage_path('app/private/' . $cleanPath),
         storage_path('app/private/' . $path),
+        storage_path('app/' . $cleanPath),
         storage_path('app/' . $path),
+        public_path('storage/' . $cleanPath),
         public_path('storage/' . $path),
+        public_path($path),
+        public_path($cleanPath),
+        base_path('storage/app/public/' . $cleanPath),
         base_path('storage/app/public/' . $path),
+        base_path('storage/app/' . $cleanPath),
         base_path('storage/app/' . $path),
     ];
 
     foreach ($candidates as $filePath) {
         if (file_exists($filePath) && !is_dir($filePath)) {
-            $mime = mime_content_type($filePath) ?: 'image/png';
+            $mime = @mime_content_type($filePath) ?: 'image/png';
             return response()->file($filePath, [
                 'Content-Type' => $mime,
                 'Cache-Control' => 'public, max-age=86400',
@@ -61,20 +84,43 @@ Route::get('/portal-assets/banner/{id}', function ($id) {
     if (!$principal) abort(404);
     
     $path = $principal->banner_path ?: ($principal->banner ?? null);
+    
+    if (!$path && !empty($principal->subdomain)) {
+        $sibling = \App\Models\Principal::where('subdomain', $principal->subdomain)
+            ->where(function($q) {
+                $q->whereNotNull('banner_path')->where('banner_path', '!=', '')
+                  ->orWhereNotNull('banner')->where('banner', '!=', '');
+            })
+            ->first();
+        if ($sibling) {
+            $path = $sibling->banner_path ?: $sibling->banner;
+        }
+    }
+
     if (!$path) abort(404);
 
+    $cleanPath = ltrim(str_replace(['public/', 'storage/'], '', $path), '/');
+
     $candidates = [
+        storage_path('app/public/' . $cleanPath),
         storage_path('app/public/' . $path),
+        storage_path('app/private/' . $cleanPath),
         storage_path('app/private/' . $path),
+        storage_path('app/' . $cleanPath),
         storage_path('app/' . $path),
+        public_path('storage/' . $cleanPath),
         public_path('storage/' . $path),
+        public_path($path),
+        public_path($cleanPath),
+        base_path('storage/app/public/' . $cleanPath),
         base_path('storage/app/public/' . $path),
+        base_path('storage/app/' . $cleanPath),
         base_path('storage/app/' . $path),
     ];
 
     foreach ($candidates as $filePath) {
         if (file_exists($filePath) && !is_dir($filePath)) {
-            $mime = mime_content_type($filePath) ?: 'image/jpeg';
+            $mime = @mime_content_type($filePath) ?: 'image/jpeg';
             return response()->file($filePath, [
                 'Content-Type' => $mime,
                 'Cache-Control' => 'public, max-age=86400',

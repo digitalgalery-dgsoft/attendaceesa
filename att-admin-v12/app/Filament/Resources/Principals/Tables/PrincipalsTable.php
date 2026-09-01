@@ -17,10 +17,12 @@ class PrincipalsTable
     {
         return $table
             ->columns([
-                ImageColumn::make('logo_path')
+                ImageColumn::make('logo_url')
                     ->label('Logo')
                     ->circular()
-                    ->defaultImageUrl(url('/assets/default-logo.png')),
+                    ->getStateUsing(fn ($record) => $record->logo_url)
+                    ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->name) . '&background=' . ltrim($record->theme_color ?: '0F52BA', '#') . '&color=fff')
+                    ->extraImgAttributes(['class' => 'object-contain bg-white shadow-xs p-0.5']),
                 TextColumn::make('name')
                     ->label('Nama Prinsiple')
                     ->searchable()
