@@ -119,39 +119,16 @@ class User extends Authenticatable implements FilamentUser
     public function getRedirectUrlAfterLogin(?string $preferredPrincipalId = null): string
     {
         if ($this->isPrincipalUser()) {
-            $principal = null;
-            if ($preferredPrincipalId) {
-                $principal = $this->principals()->where('principals.id', $preferredPrincipalId)->first()
-                           ?: Principal::where('id', $preferredPrincipalId)->where('is_active', true)->first();
-            }
-            if (!$principal) {
+            $targetId = $preferredPrincipalId;
+            
+            if (!$targetId) {
                 $principal = $this->principals()->first()
                            ?: Principal::where('is_active', true)->first();
+                $targetId = $principal?->id;
             }
 
-            $request = request();
-            $host = $request ? $request->getHost() : '';
-            $scheme = ($request && $request->isSecure()) ? 'https://' : 'http://';
-
-            if ($principal && !empty($principal->subdomain)) {
-                $subdomain = $principal->subdomain;
-                $baseDomain = config('app.url') ? parse_url(config('app.url'), PHP_URL_HOST) : 'appsend.my.id';
-                $baseDomain = preg_replace('/^www\./', '', $baseDomain ?: 'appsend.my.id');
-
-                if (str_starts_with($host, $subdomain . '.')) {
-                    return $preferredPrincipalId ? "/portal?p={$preferredPrincipalId}" : "/portal";
-                }
-
-                $subdomainHost = "{$subdomain}.{$baseDomain}";
-                $targetUrl = "{$scheme}{$subdomainHost}/portal";
-                if ($preferredPrincipalId) {
-                    $targetUrl .= "?p={$preferredPrincipalId}";
-                }
-                return $targetUrl;
-            }
-
-            if ($principal) {
-                return "/portal?p={$principal->id}";
+            if ($targetId) {
+                return "/portal?p={$targetId}";
             }
 
             return '/portal';
