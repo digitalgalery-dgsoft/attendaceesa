@@ -68,8 +68,8 @@ class ReportTemplatePresetsSeeder extends Seeder
             }
         }
 
-        // Seed 10 Template Resmi Dulux (ICI Paints / AkzoNobel)
-        $this->seedDuluxTinterLso($primaryDulux, $allDuluxIds);
+        // Seed 9 Template Resmi Dulux (ICI Paints / AkzoNobel) - Tinter telah disatukan ke Stock End
+        $this->removeDuluxTinterLso();
         $this->seedDuluxCbpPricing($primaryDulux, $allDuluxIds);
         $this->seedDuluxOfftakeTemplate($primaryDulux, $allDuluxIds);
         $this->seedDuluxStockEndTemplate($primaryDulux, $allDuluxIds);
@@ -234,25 +234,17 @@ class ReportTemplatePresetsSeeder extends Seeder
     }
 
     /**
-     * 1. Tinter Report LSO Dulux (Telah disatukan ke Stock End)
+     * 1. Hapus Laporan Tinter Terpisah (Telah disatukan ke Stock End)
      */
-    private function seedDuluxTinterLso(Principal $primaryDulux, array $allDuluxIds): void
+    private function removeDuluxTinterLso(): void
     {
-        $template = ReportTemplate::updateOrCreate(
-            ['code' => 'RPT-DULUX-TINTER-LSO'],
-            [
-                'principal_id' => $primaryDulux->id,
-                'title' => '[Disatukan ke Stock End] Laporan Tinter & Pasta Warna LSO Dulux',
-                'description' => 'Pencatatan mutasi dan ketersediaan stok pasta pewarna / tinter telah disatukan ke form Laporan Stock End & Tinter.',
-                'category' => 'stock',
-                'require_gps' => true,
-                'require_signature' => false,
-                'is_active' => false,
-                'version' => 1,
-                'report_days' => [],
-            ]
-        );
-        $template->principals()->detach();
+        $templates = ReportTemplate::where('code', 'RPT-DULUX-TINTER-LSO')->get();
+        foreach ($templates as $t) {
+            ReportFormField::where('report_template_id', $t->id)->delete();
+            $t->principals()->detach();
+            $t->assignments()->delete();
+            $t->delete();
+        }
     }
 
     /**
