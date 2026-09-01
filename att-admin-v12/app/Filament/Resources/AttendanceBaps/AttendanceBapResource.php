@@ -19,7 +19,7 @@ class AttendanceBapResource extends Resource
     protected static ?string $model = BapRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-check';
-    protected static string|\UnitEnum|null $navigationGroup = 'Attendance & Kehadiran';
+    protected static string|\UnitEnum|null $navigationGroup = 'Attendance & Time Management';
     protected static ?int $navigationSort = 3;
     protected static ?string $navigationLabel = 'Pengajuan BAP (Bukti Absen)';
     protected static ?string $modelLabel = 'Pengajuan BAP';

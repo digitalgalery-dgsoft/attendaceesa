@@ -26,7 +26,7 @@ class ExtraHourResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clock';
     protected static string|\UnitEnum|null $navigationGroup = 'Attendance & Time Management';
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 5;
     protected static ?string $navigationLabel = 'Extra Hours';
 
     public static function form(Schema $schema): Schema
