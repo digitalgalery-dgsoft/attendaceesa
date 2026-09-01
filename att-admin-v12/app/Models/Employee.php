@@ -35,6 +35,33 @@ class Employee extends Authenticatable
                     Principal::find($oldPrincipalId)?->syncActiveStatus();
                 }
             }
+
+            // Sinkronkan password ke seluruh record karyawan dengan NIK / Email sama
+            if ($employee->isDirty('password') && !empty($employee->password)) {
+                $pwd = $employee->password;
+                if (!empty($employee->employee_no)) {
+                    static::where('employee_no', $employee->employee_no)
+                        ->where('id', '!=', $employee->id)
+                        ->update(['password' => $pwd]);
+                }
+                if (!empty($employee->email)) {
+                    static::where('email', $employee->email)
+                        ->where('id', '!=', $employee->id)
+                        ->update(['password' => $pwd]);
+                }
+                if ($employee->user_id) {
+                    \App\Models\User::where('id', $employee->user_id)->update(['password' => $pwd]);
+                }
+            }
+
+            // Sinkronkan unlock device ke seluruh record karyawan dengan NIK sama jika device_id di-reset
+            if ($employee->isDirty('device_id') && empty($employee->device_id)) {
+                if (!empty($employee->employee_no)) {
+                    static::where('employee_no', $employee->employee_no)
+                        ->where('id', '!=', $employee->id)
+                        ->update(['device_id' => null, 'device_name' => null, 'fcm_token' => null]);
+                }
+            }
         });
 
         static::deleted(function ($employee) {

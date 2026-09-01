@@ -190,6 +190,16 @@ class LiveChat extends Page
         $employee->device_name = null;
         $employee->save();
 
+        // Sinkronkan unlock ke seluruh record dengan NIK yang sama
+        if (!empty($employee->employee_no)) {
+            Employee::where('employee_no', $employee->employee_no)
+                ->update(['device_id' => null, 'device_name' => null, 'fcm_token' => null]);
+        }
+        if (!empty($employee->email)) {
+            Employee::where('email', $employee->email)
+                ->update(['device_id' => null, 'device_name' => null, 'fcm_token' => null]);
+        }
+
         // Create automated system message in chat
         $autoMsg = "✅ [SISTEM HELPDESK] Perangkat HP Anda telah berhasil di-unlock oleh Admin. Silakan buka kembali aplikasi mobile dan lakukan login seperti biasa.";
         $message = ChatMessage::create([
@@ -211,6 +221,7 @@ class LiveChat extends Page
 
         \Filament\Notifications\Notification::make()
             ->title("Perangkat {$employee->name} Berhasil Di-Unlock")
+            ->body("Perangkat telah dibebaskan untuk seluruh akun NIK: {$employee->employee_no}.")
             ->success()
             ->send();
             
@@ -234,8 +245,31 @@ class LiveChat extends Page
             $defaultPassword = 'esa12345';
         }
 
-        $employee->password = \Illuminate\Support\Facades\Hash::make($defaultPassword);
+        $hashedPassword = \Illuminate\Support\Facades\Hash::make($defaultPassword);
+
+        // 1. Update record saat ini
+        $employee->password = $hashedPassword;
         $employee->save();
+
+        // 2. Sinkronkan ke SELURUH record karyawan dengan NIK / Email yang sama
+        if (!empty($employee->employee_no)) {
+            Employee::where('employee_no', $employee->employee_no)
+                ->update(['password' => $hashedPassword]);
+        }
+        if (!empty($employee->email)) {
+            Employee::where('email', $employee->email)
+                ->update(['password' => $hashedPassword]);
+        }
+
+        // 3. Sinkronkan ke akun User terkait jika ada
+        if ($employee->user_id) {
+            \App\Models\User::where('id', $employee->user_id)
+                ->update(['password' => $hashedPassword]);
+        }
+        if (!empty($employee->email)) {
+            \App\Models\User::where('email', $employee->email)
+                ->update(['password' => $hashedPassword]);
+        }
 
         // Create automated system message in chat
         $autoMsg = "✅ [SISTEM HELPDESK] Password akun Anda telah berhasil direset oleh Admin.\n🔑 Password Baru: {$defaultPassword}\nSilakan login menggunakan password di atas dan segera ubah kata sandi Anda di menu profil.";
@@ -258,6 +292,7 @@ class LiveChat extends Page
 
         \Filament\Notifications\Notification::make()
             ->title("Password {$employee->name} Berhasil Direset ke: {$defaultPassword}")
+            ->body("Password telah disinkronkan ke seluruh data akun terkait (NIK: {$employee->employee_no}).")
             ->success()
             ->send();
             
