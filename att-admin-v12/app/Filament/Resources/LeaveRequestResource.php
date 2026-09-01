@@ -57,8 +57,21 @@ class LeaveRequestResource extends Resource
                     'cuti_tahunan' => 'Cuti Tahunan',
                     'cuti_peraturan' => 'Cuti Peraturan',
                 ])
+                ->reactive()
                 ->visible(fn (Get $get) => $get('type') === 'cuti')
                 ->required(fn (Get $get) => $get('type') === 'cuti'),
+            Select::make('cuti_peraturan_type')
+                ->label('Kategori Cuti Peraturan')
+                ->options([
+                    'cuti_menikah'              => 'Cuti Menikah (Pernikahan Sendiri) - Maks 3 Hari',
+                    'cuti_menikahkan'           => 'Cuti Menikahkan / Khitan / Baptis Anak - Maks 2 Hari',
+                    'cuti_istri_melahirkan'     => 'Cuti Istri Melahirkan / Keguguran - Maks 2 Hari',
+                    'cuti_kematian_inti'        => 'Cuti Kematian (Suami/Istri/Anak/Ortu/Mertua) - Maks 2 Hari',
+                    'cuti_kematian_serumah'     => 'Cuti Kematian (Anggota Keluarga Serumah) - Maks 1 Hari',
+                    'cuti_melahirkan'           => 'Cuti Melahirkan (Prinsiple) - Maks 90 Hari',
+                ])
+                ->visible(fn (Get $get) => $get('type') === 'cuti' && $get('sub_type') === 'cuti_peraturan')
+                ->required(fn (Get $get) => $get('type') === 'cuti' && $get('sub_type') === 'cuti_peraturan'),
             DatePicker::make('start_date')
                 ->required(),
             DatePicker::make('end_date')
@@ -97,7 +110,20 @@ class LeaveRequestResource extends Resource
                     ->searchable(),
                 TextColumn::make('sub_type')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => $state ? ucwords(str_replace('_', ' ', $state)) : '-')
+                    ->formatStateUsing(function (?string $state, LeaveRequest $record): string {
+                        if ($record->cuti_peraturan_type) {
+                            return match ($record->cuti_peraturan_type) {
+                                'cuti_menikah'          => 'Cuti Menikah',
+                                'cuti_menikahkan'       => 'Cuti Menikahkan Anak',
+                                'cuti_istri_melahirkan' => 'Cuti Istri Melahirkan',
+                                'cuti_kematian_inti'    => 'Cuti Kematian Inti',
+                                'cuti_kematian_serumah' => 'Cuti Kematian Serumah',
+                                'cuti_melahirkan'       => 'Cuti Melahirkan',
+                                default                 => ucwords(str_replace('_', ' ', $record->cuti_peraturan_type)),
+                            };
+                        }
+                        return $state ? ucwords(str_replace('_', ' ', $state)) : '-';
+                    })
                     ->searchable(),
                 TextColumn::make('start_date')
                     ->date()
@@ -184,6 +210,20 @@ class LeaveRequestResource extends Resource
                             ->label('Sub Type')
                             ->badge()
                             ->formatStateUsing(fn (?string $state): string => $state ? ucwords(str_replace('_', ' ', $state)) : '-'),
+                        TextEntry::make('cuti_peraturan_type')
+                            ->label('Jenis Cuti Peraturan')
+                            ->badge()
+                            ->color('info')
+                            ->formatStateUsing(fn (?string $state): string => match ($state) {
+                                'cuti_menikah'          => 'Cuti Menikah (Pernikahan Sendiri)',
+                                'cuti_menikahkan'       => 'Cuti Menikahkan / Khitan / Baptis Anak',
+                                'cuti_istri_melahirkan' => 'Cuti Istri Melahirkan / Keguguran',
+                                'cuti_kematian_inti'    => 'Cuti Kematian (Suami/Istri/Anak/Ortu/Mertua)',
+                                'cuti_kematian_serumah' => 'Cuti Kematian (Anggota Keluarga Serumah)',
+                                'cuti_melahirkan'       => 'Cuti Melahirkan (Prinsiple)',
+                                default                 => $state ? ucwords(str_replace('_', ' ', $state)) : '-',
+                            })
+                            ->visible(fn ($record) => filled($record->cuti_peraturan_type)),
                         TextEntry::make('status')
                             ->label('Final Status')
                             ->badge()
