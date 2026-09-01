@@ -18,7 +18,7 @@ class RecentAttendancesWidget extends TableWidget
 
     public function table(Table $table): Table
     {
-        $query = Attendance::with(['employee', 'employeeSchedule.shift'])->latest();
+        $query = Attendance::with(['employee.principal', 'employee.branch', 'employeeSchedule.shift'])->latest();
         if (auth()->check() && !auth()->user()->isSuperAdmin()) {
             $query = \App\Traits\ScopesUserData::applyUserAccessScope($query);
         }
@@ -32,19 +32,31 @@ class RecentAttendancesWidget extends TableWidget
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
+                TextColumn::make('employee.principal.name')
+                    ->label('Prinsiple')
+                    ->badge()
+                    ->color('info')
+                    ->default('-')
+                    ->searchable(),
+                TextColumn::make('employee.branch.name')
+                    ->label('Area / Cabang')
+                    ->badge()
+                    ->color('warning')
+                    ->default('-')
+                    ->searchable(),
                 TextColumn::make('employeeSchedule.shift.name')
                     ->label('Shift')
                     ->badge()
                     ->default('-')
-                    ->color('info'),
+                    ->color('gray'),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'Hadir' => 'success',
-                        'Terlambat' => 'warning',
-                        'Izin' => 'info',
-                        'Sakit' => 'danger',
-                        'Alpha' => 'danger',
+                    ->color(fn (string $state): string => match (strtolower($state)) {
+                        'hadir', 'ontime' => 'success',
+                        'terlambat', 'late' => 'warning',
+                        'izin' => 'info',
+                        'sakit' => 'danger',
+                        'alpha' => 'danger',
                         default => 'gray',
                     }),
                 TextColumn::make('created_at')

@@ -4,6 +4,10 @@ namespace App\Filament\Widgets;
 
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\ChartWidget\Concerns\HasFiltersSchema;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
@@ -13,9 +17,11 @@ use App\Models\Branch;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
-class AttendanceChartWidget extends ChartWidget
+class AttendanceChartWidget extends ChartWidget implements HasActions, HasSchemas
 {
     use HasFiltersSchema;
+    use InteractsWithActions;
+    use InteractsWithSchemas;
 
     protected ?string $heading = 'Attendance Overview per Prinsiple';
     protected static ?int $sort = 3;
