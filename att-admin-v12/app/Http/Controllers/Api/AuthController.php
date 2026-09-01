@@ -21,76 +21,54 @@ class AuthController extends Controller
         $loginId = trim($request->email);
         $password = $request->password;
 
-        // Cari semua kandidat karyawan yang cocok berdasarkan email atau NIK
-        $candidates = Employee::where(function($query) use ($loginId) {
+        // Cari record karyawan yang berstatus AKTIF (is_active = true) berdasarkan email atau NIK
+        $employee = Employee::where(function($query) use ($loginId) {
                 $query->where('email', $loginId)
                       ->orWhere('employee_no', $loginId)
                       ->orWhereRaw('LOWER(email) = ?', [strtolower($loginId)])
                       ->orWhereRaw('LOWER(employee_no) = ?', [strtolower($loginId)]);
             })
+            ->where('is_active', true)
             ->with(['company', 'principal', 'branch', 'department', 'position', 'user'])
-            ->orderByDesc('is_active')
-            ->orderByDesc('id')
-            ->get();
+            ->first();
 
-        if ($candidates->isEmpty()) {
+        if (!$employee) {
+            // Cek apakah ada record yang berstatus non-aktif
+            $inactive = Employee::where(function($query) use ($loginId) {
+                    $query->where('email', $loginId)
+                          ->orWhere('employee_no', $loginId)
+                          ->orWhereRaw('LOWER(email) = ?', [strtolower($loginId)])
+                          ->orWhereRaw('LOWER(employee_no) = ?', [strtolower($loginId)]);
+                })
+                ->where('is_active', false)
+                ->first();
+
+            if ($inactive) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Akun karyawan tidak aktif. Silakan hubungi admin / HR.'
+                ], 403);
+            }
+
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Email atau NIK tidak terdaftar'
+                'message' => 'Email atau NIK tidak terdaftar.'
             ], 401);
         }
 
-        $employee = null;
-
-        // 1. Cek kecocokan password pada record aktif terlebih dahulu
-        foreach ($candidates as $cand) {
-            if ($cand->is_active) {
-                if (!empty($cand->password) && Hash::check($password, $cand->password)) {
-                    $employee = $cand;
-                    break;
-                }
-                if ($cand->user && !empty($cand->user->password) && Hash::check($password, $cand->user->password)) {
-                    $employee = $cand;
-                    break;
-                }
-            }
+        // Verifikasi password pada data employee aktif
+        $passwordValid = false;
+        if (!empty($employee->password) && Hash::check($password, $employee->password)) {
+            $passwordValid = true;
+        } elseif ($employee->user && !empty($employee->user->password) && Hash::check($password, $employee->user->password)) {
+            $passwordValid = true;
         }
 
-        // 2. Jika tidak ada yang cocok di record aktif, cek semua kandidat
-        if (!$employee) {
-            foreach ($candidates as $cand) {
-                if (!empty($cand->password) && Hash::check($password, $cand->password)) {
-                    $employee = $cand;
-                    break;
-                }
-                if ($cand->user && !empty($cand->user->password) && Hash::check($password, $cand->user->password)) {
-                    $employee = $cand;
-                    break;
-                }
-            }
-        }
-
-        // 3. Jika password tetap tidak cocok
-        if (!$employee) {
+        if (!$passwordValid) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Email atau password salah'
+                'message' => 'Email/NIK atau password salah.'
             ], 401);
-        }
-
-        // 4. Validasi status aktif akun
-        if (!$employee->is_active) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Akun karyawan tidak aktif. Silakan hubungi admin / HR.'
-            ], 403);
-        }
-
-        // 5. Self-healing: Sinkronkan password ke seluruh record NIK ini agar konsisten
-        if (!empty($employee->employee_no) && !empty($employee->password)) {
-            Employee::where('employee_no', $employee->employee_no)
-                ->where('id', '!=', $employee->id)
-                ->update(['password' => $employee->password]);
         }
 
         if ($request->filled('device_id')) {

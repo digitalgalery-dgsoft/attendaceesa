@@ -185,20 +185,15 @@ class LiveChat extends Page
             return;
         }
 
-        $employee->device_id = null;
-        $employee->fcm_token = null;
-        $employee->device_name = null;
-        $employee->save();
+        // Target record employee yang berstatus AKTIF
+        $targetEmployee = ($employee->is_active)
+            ? $employee
+            : (Employee::where('employee_no', $employee->employee_no)->where('is_active', true)->first() ?? $employee);
 
-        // Sinkronkan unlock ke seluruh record dengan NIK yang sama
-        if (!empty($employee->employee_no)) {
-            Employee::where('employee_no', $employee->employee_no)
-                ->update(['device_id' => null, 'device_name' => null, 'fcm_token' => null]);
-        }
-        if (!empty($employee->email)) {
-            Employee::where('email', $employee->email)
-                ->update(['device_id' => null, 'device_name' => null, 'fcm_token' => null]);
-        }
+        $targetEmployee->device_id = null;
+        $targetEmployee->fcm_token = null;
+        $targetEmployee->device_name = null;
+        $targetEmployee->save();
 
         // Create automated system message in chat
         $autoMsg = "✅ [SISTEM HELPDESK] Perangkat HP Anda telah berhasil di-unlock oleh Admin. Silakan buka kembali aplikasi mobile dan lakukan login seperti biasa.";
@@ -220,8 +215,8 @@ class LiveChat extends Page
         }
 
         \Filament\Notifications\Notification::make()
-            ->title("Perangkat {$employee->name} Berhasil Di-Unlock")
-            ->body("Perangkat telah dibebaskan untuk seluruh akun NIK: {$employee->employee_no}.")
+            ->title("Perangkat {$targetEmployee->name} Berhasil Di-Unlock")
+            ->body("Perangkat telah dibebaskan untuk akun aktif (NIK: {$targetEmployee->employee_no}).")
             ->success()
             ->send();
             
@@ -240,35 +235,25 @@ class LiveChat extends Page
             return;
         }
 
-        $defaultPassword = 'esa' . substr($employee->employee_no ?: '12345', -5);
+        // Target record employee yang berstatus AKTIF
+        $targetEmployee = ($employee->is_active)
+            ? $employee
+            : (Employee::where('employee_no', $employee->employee_no)->where('is_active', true)->first() ?? $employee);
+
+        $defaultPassword = 'esa' . substr($targetEmployee->employee_no ?: '12345', -5);
         if (strlen($defaultPassword) < 8) {
             $defaultPassword = 'esa12345';
         }
 
         $hashedPassword = \Illuminate\Support\Facades\Hash::make($defaultPassword);
 
-        // 1. Update record saat ini
-        $employee->password = $hashedPassword;
-        $employee->save();
+        // Update password khusus pada record employee yang aktif
+        $targetEmployee->password = $hashedPassword;
+        $targetEmployee->save();
 
-        // 2. Sinkronkan ke SELURUH record karyawan dengan NIK / Email yang sama
-        if (!empty($employee->employee_no)) {
-            Employee::where('employee_no', $employee->employee_no)
-                ->update(['password' => $hashedPassword]);
-        }
-        if (!empty($employee->email)) {
-            Employee::where('email', $employee->email)
-                ->update(['password' => $hashedPassword]);
-        }
-
-        // 3. Sinkronkan ke akun User terkait jika ada
-        if ($employee->user_id) {
-            \App\Models\User::where('id', $employee->user_id)
-                ->update(['password' => $hashedPassword]);
-        }
-        if (!empty($employee->email)) {
-            \App\Models\User::where('email', $employee->email)
-                ->update(['password' => $hashedPassword]);
+        // Sinkronkan ke akun User terkait jika ada
+        if ($targetEmployee->user_id) {
+            \App\Models\User::where('id', $targetEmployee->user_id)->update(['password' => $hashedPassword]);
         }
 
         // Create automated system message in chat
