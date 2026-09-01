@@ -65,7 +65,7 @@ class AttendanceChartWidget extends ChartWidget
                     'display' => false,
                 ],
                 'tooltip' => [
-                    'mode' => 'index',
+                    'mode' => 'nearest',
                     'intersect' => false,
                 ],
             ],
@@ -150,18 +150,34 @@ class AttendanceChartWidget extends ChartWidget
         $rawAttendances = $attQuery->groupBy('employees.principal_id', 'attendances.attendance_date')->get();
 
         $attendanceMap = [];
+        $principalTotals = [];
         foreach ($rawAttendances as $row) {
             $attendanceMap[$row->principal_id][$row->date] = (int)$row->total;
+            $principalTotals[$row->principal_id] = ($principalTotals[$row->principal_id] ?? 0) + (int)$row->total;
+        }
+
+        // Tentukan principal yang ditampilkan di chart:
+        // 1. Jika pilih spesifik prinsiple -> gambar prinsiple tersebut
+        // 2. Jika Semua Prinsiple -> hanya gambar prinsiple yang memiliki absensi > 0 di periode ini agar chart & tooltip tidak penuh garis nol
+        if (!empty($this->principal_id)) {
+            $targetPrincipals = $principals;
+        } else {
+            $targetPrincipals = $principals->filter(fn($p) => ($principalTotals[$p->id] ?? 0) > 0);
+            if ($targetPrincipals->isEmpty()) {
+                $targetPrincipals = $principals->take(5);
+            }
         }
 
         $datasets = [];
-        foreach ($principals as $index => $principal) {
+        $colorIndex = 0;
+        foreach ($targetPrincipals as $principal) {
             $counts = [];
             foreach ($dateStrings as $dateStr) {
                 $counts[] = $attendanceMap[$principal->id][$dateStr] ?? 0;
             }
 
-            $theme = $palette[$index % count($palette)];
+            $theme = $palette[$colorIndex % count($palette)];
+            $colorIndex++;
 
             $datasets[] = [
                 'label' => $principal->name,
