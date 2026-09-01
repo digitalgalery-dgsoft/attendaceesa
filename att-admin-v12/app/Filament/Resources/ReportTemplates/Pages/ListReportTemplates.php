@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ReportTemplates\Pages;
 
+use App\Filament\Resources\ReportTemplates\ReportTemplateResource;
 use App\Models\ReportTemplate;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
