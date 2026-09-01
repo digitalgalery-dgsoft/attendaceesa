@@ -26,10 +26,11 @@ class Employee extends Authenticatable
     protected static function booted(): void
     {
         static::saving(function ($employee) {
+            $nik = $employee->employee_no ?? $employee->nik;
             // Pastikan hanya ada 1 record NIK yang berstatus aktif di sistem
-            if ($employee->is_active && !empty($employee->nik)) {
-                static::withoutEvents(function () use ($employee) {
-                    static::where('nik', $employee->nik)
+            if ($employee->is_active && !empty($nik)) {
+                static::withoutEvents(function () use ($employee, $nik) {
+                    static::where('employee_no', $nik)
                         ->where('id', '!=', $employee->id ?? 0)
                         ->where('is_active', true)
                         ->update([
@@ -180,5 +181,55 @@ class Employee extends Authenticatable
         }
 
         return 100;
+    }
+
+    /**
+     * Deduplicate active employee records by NIK (employee_no).
+     * Keeps the most recently updated / linked record active and marks duplicates as resigned.
+     */
+    public static function deduplicateActiveRecords(): int
+    {
+        $duplicateNiks = \Illuminate\Support\Facades\DB::table('employees')
+            ->select('employee_no')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->whereNotNull('employee_no')
+            ->where('employee_no', '!=', '')
+            ->groupBy('employee_no')
+            ->havingRaw('count(*) > 1')
+            ->pluck('employee_no');
+
+        $totalDeactivated = 0;
+
+        foreach ($duplicateNiks as $nik) {
+            $records = \Illuminate\Support\Facades\DB::table('employees')
+                ->where('employee_no', $nik)
+                ->where('is_active', true)
+                ->whereNull('deleted_at')
+                ->orderByRaw('CASE WHEN user_id IS NOT NULL THEN 1 ELSE 0 END DESC')
+                ->orderByRaw("CASE WHEN employment_status != 'resigned' THEN 1 ELSE 0 END DESC")
+                ->orderByDesc('updated_at')
+                ->orderByDesc('id')
+                ->get();
+
+            if ($records->count() > 1) {
+                // Record pertama dipertahankan sebagai aktif
+                $primary = $records->shift();
+
+                // Sisa record duplikat dinonaktifkan
+                $duplicateIds = $records->pluck('id')->toArray();
+                $totalDeactivated += count($duplicateIds);
+
+                \Illuminate\Support\Facades\DB::table('employees')
+                    ->whereIn('id', $duplicateIds)
+                    ->update([
+                        'is_active' => false,
+                        'employment_status' => 'resigned',
+                        'updated_at' => now(),
+                    ]);
+            }
+        }
+
+        return $totalDeactivated;
     }
 }

@@ -131,6 +131,7 @@ return new class extends Migration
                 'latitude'     => -7.235519,
                 'longitude'    => 112.735520,
                 'radius_meter' => 150,
+                'type'         => 'office',
                 'company_id'   => $atbCompanyId,
                 'principal_id' => $atbPrincipalId,
                 'is_active'    => true,

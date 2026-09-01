@@ -23,9 +23,33 @@ class ListEmployees extends ListRecords
 {
     protected static string $resource = EmployeeResource::class;
 
+    public function mount(): void
+    {
+        parent::mount();
+        try {
+            Employee::deduplicateActiveRecords();
+        } catch (\Throwable $e) {}
+    }
+
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('deduplicate_niks')
+                ->label('Bersihkan Duplikat NIK')
+                ->icon('heroicon-o-sparkles')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Bersihkan Duplikasi Status Aktif NIK')
+                ->modalDescription('Sistem akan memeriksa seluruh karyawan dan memastikan hanya ada tepat 1 data aktif untuk setiap NIK. Data duplikat lama akan dinonaktifkan secara otomatis.')
+                ->action(function () {
+                    $cleaned = Employee::deduplicateActiveRecords();
+                    Notification::make()
+                        ->title('Duplikasi NIK Berhasil Dibersihkan')
+                        ->body("Sebanyak {$cleaned} data duplikat berhasil dinonaktifkan.")
+                        ->success()
+                        ->send();
+                }),
+
             Action::make('delete_resigned')
                 ->label('Hapus Karyawan Resign')
                 ->icon('heroicon-o-trash')
