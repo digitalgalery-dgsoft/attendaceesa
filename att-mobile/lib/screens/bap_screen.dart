@@ -280,57 +280,92 @@ class _BapScreenState extends State<BapScreen> {
     return Scaffold(
       backgroundColor: elevatedColor,
       appBar: AppBar(
-        title: const Text(
-          'Pengajuan BAP Absensi',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+        title: Text(
+          'Pengajuan BAP (Bukti Absen)',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 17,
+            color: textColor,
+          ),
         ),
         centerTitle: true,
         elevation: 0,
         backgroundColor: cardColor,
-        foregroundColor: textColor,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: elevatedColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.withOpacity(0.2)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildTabButton(
-                    title: 'Form Pengajuan',
-                    icon: Icons.edit_document,
-                    isSelected: _currentTab == 0,
-                    primaryColor: primaryColor,
-                    textColor: textColor,
-                    onTap: () => setState(() => _currentTab = 0),
-                  ),
-                ),
-                Expanded(
-                  child: _buildTabButton(
-                    title: 'Riwayat Pengajuan',
-                    icon: Icons.history,
-                    isSelected: _currentTab == 1,
-                    primaryColor: primaryColor,
-                    textColor: textColor,
-                    onTap: () {
-                      setState(() => _currentTab = 1);
-                      _fetchHistory();
-                    },
-                  ),
-                ),
-              ],
-            ),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: textColor, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh_rounded, color: textColor),
+            tooltip: 'Segarkan',
+            onPressed: () {
+              _fetchEligibleDates();
+              _fetchHistory();
+            },
           ),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Segmented Tab Selector
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isDarkMode ? Colors.white10 : Colors.grey.shade200,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildTabButton(
+                        title: 'Form Pengajuan',
+                        icon: Icons.edit_document,
+                        isSelected: _currentTab == 0,
+                        primaryColor: primaryColor,
+                        textColor: textColor,
+                        onTap: () => setState(() => _currentTab = 0),
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildTabButton(
+                        title: 'Riwayat Pengajuan',
+                        icon: Icons.history_rounded,
+                        isSelected: _currentTab == 1,
+                        primaryColor: primaryColor,
+                        textColor: textColor,
+                        onTap: () {
+                          setState(() => _currentTab = 1);
+                          _fetchHistory();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Tab Content
+            Expanded(
+              child: _currentTab == 0
+                  ? _buildFormTab(isDarkMode, cardColor, elevatedColor, textColor, subtitleColor, primaryColor)
+                  : _buildHistoryTab(isDarkMode, cardColor, elevatedColor, textColor, subtitleColor, primaryColor),
+            ),
+          ],
         ),
       ),
-      body: _currentTab == 0
-          ? _buildFormTab(isDarkMode, cardColor, elevatedColor, textColor, subtitleColor, primaryColor)
-          : _buildHistoryTab(isDarkMode, cardColor, elevatedColor, textColor, subtitleColor, primaryColor),
     );
   }
 

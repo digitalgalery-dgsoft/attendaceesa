@@ -730,6 +730,15 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Penyelarasan Tampilan Clean Light Theme**: Menghilangkan dark theme gelap pada halaman login Admin Filament (`/admin/login`) dengan mengaktifkan `darkMode(false)` dan menyuntikkan custom CSS layout bernuansa terang elegan (`#F8FAFC`, kartu putih `#FFFFFF`, border `#E2E8F0`, rounded 24px, soft shadow).
     - **Kustomisasi Header & Kontrol**: Membuat custom Login class `App\Filament\Pages\Auth\Login` dengan judul *"Masuk ke Admin Panel"* dan subjudul *"Sistem Presensi & Manajemen Kinerja Terintegrasi"*, input form modern, tombol gradient primary, serta link navigasi kembali ke halaman utama.
 
+32. **Penyempurnaan Header & Segmented Tab Layar Pengajuan BAP (SELESAI 1 September 2026, APK v1.0.112)**:
+    - **Resolusi Header Hilang di Mobile**: Memperbaiki `bap_screen.dart` dengan memisahkan AppBar dari Tab Selector. Menyediakan AppBar standar dengan judul tebal *"Pengajuan BAP (Bukti Absen)"*, tombol kembali (`arrow_back`), dan tombol segarkan data (`refresh`).
+    - **Segmented Tab Control**: Menempatkan tombol tab switch di bagian atas `body` berbalut kartu kontainer modern dan bayangan halus.
+    - **Rilis APK v1.0.112**: Versi mobile dinaikkan ke **`v1.0.112+112`**.
+
+33. **Direct Login Routing untuk Subdomain Portal Prinsiple (SELESAI 1 September 2026)**:
+    - **Bypass Landing Page Subdomain**: Ketika prinsiple/klien mengakses URL subdomain khusus (misal: `https://dulux.appsend.my.id/`), sistem langsung mengarahkan pengguna ke formulir login portal whitelabel (`TenantAuthController@showLoginForm`) tanpa perlu melalui landing page.
+    - **Auto-Redirect Dashboard**: Jika sesi pengguna sudah terotentikasi, sistem langsung mengarahkan ke dashboard portal (`/portal`).
+
 ---
 
 
