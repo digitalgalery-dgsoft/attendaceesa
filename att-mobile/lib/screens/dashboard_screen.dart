@@ -36,6 +36,7 @@ import 'package:toastification/toastification.dart';
 import 'package:att_mobile/widgets/skeleton_loading.dart';
 import 'package:att_mobile/screens/reporting_hub_screen.dart';
 import 'package:att_mobile/screens/request_location_screen.dart';
+import 'package:att_mobile/screens/bap_screen.dart';
 import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/services/offline_sync_service.dart';
 import 'dart:io';
@@ -668,6 +669,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     }},
                     {'title': 'Request Lokasi', 'icon': Icons.add_location_alt_rounded, 'color': const Color(0xFF10B981), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const RequestLocationScreen()));
+                    }},
+                    {'title': 'Pengajuan BAP', 'icon': Icons.assignment_turned_in_outlined, 'color': const Color(0xFF0284C7), 'onTap': () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const BapScreen())).then((_) { attProvider.loadDashboardData(); });
                     }},
                     {'title': locale.tr('menu_help'), 'icon': Icons.support_agent_rounded, 'color': const Color(0xFFE65100), 'onTap': () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpScreen())).then((_) { attProvider.loadDashboardData(); });

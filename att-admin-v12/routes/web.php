@@ -131,6 +131,45 @@ Route::get('/portal-assets/banner/{id}', function ($id) {
     abort(404);
 })->name('portal.banner');
 
+Route::get('/portal-assets/bap-evidence/{id}', function ($id) {
+    $bap = \App\Models\BapRequest::find($id);
+    if (!$bap) abort(404);
+    
+    $path = $bap->evidence_path;
+    if (!$path) abort(404);
+
+    $cleanPath = ltrim(str_replace(['public/', 'storage/'], '', $path), '/');
+
+    $candidates = [
+        storage_path('app/public/' . $cleanPath),
+        storage_path('app/public/' . $path),
+        storage_path('app/private/' . $cleanPath),
+        storage_path('app/private/' . $path),
+        storage_path('app/' . $cleanPath),
+        storage_path('app/' . $path),
+        public_path('storage/' . $cleanPath),
+        public_path('storage/' . $path),
+        public_path($path),
+        public_path($cleanPath),
+        base_path('storage/app/public/' . $cleanPath),
+        base_path('storage/app/public/' . $path),
+        base_path('storage/app/' . $cleanPath),
+        base_path('storage/app/' . $path),
+    ];
+
+    foreach ($candidates as $filePath) {
+        if (file_exists($filePath) && !is_dir($filePath)) {
+            $mime = @mime_content_type($filePath) ?: 'image/jpeg';
+            return response()->file($filePath, [
+                'Content-Type' => $mime,
+                'Cache-Control' => 'public, max-age=86400',
+            ]);
+        }
+    }
+
+    abort(404);
+})->name('bap.evidence');
+
 Route::get('/', function (\Illuminate\Http\Request $request) {
     $setting = Setting::first();
     

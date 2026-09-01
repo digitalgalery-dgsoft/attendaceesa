@@ -63,6 +63,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/location-requests', [\App\Http\Controllers\Api\LocationRequestApiController::class, 'store']);
     Route::post('/location-requests/parse-maps-url', [\App\Http\Controllers\Api\LocationRequestApiController::class, 'parseMapsUrl']);
     
+    // BAP routes (Berita Acara Presensi / Bukti Absensi Manual)
+    Route::get('/baps/eligible-dates', [\App\Http\Controllers\Api\BapApiController::class, 'eligibleDates']);
+    Route::post('/baps', [\App\Http\Controllers\Api\BapApiController::class, 'store']);
+    Route::get('/baps/history', [\App\Http\Controllers\Api\BapApiController::class, 'history']);
+    
     // Blast Infos
     Route::get('/blast-infos', [BlastInfoController::class, 'index']);
 

@@ -700,6 +700,23 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Pewarisan Logo Lintas Entitas (Subdomain Sibling Inheritance)**: Jika sebuah entitas prinsiple belum mengupload logo langsung (misal: PT ICI PAINT ALVA / TSM), sistem secara otomatis mewarisi (*inherit*) logo dari entitas saudara yang berada di bawah subdomain yang sama (`dulux.appsend.my.id`).
     - **Multi-Path Candidate Resolver**: Menyempurnakan resolver file aset di backend agar mendukung berbagai jalur penyimpanan fisik di server (public, private, storage symlink).
 
+29. **Fitur Pengajuan BAP / Bukti Absensi Manual (SELESAI 1 September 2026, APK v1.0.111)**:
+    - **Form Pengajuan 2-Tab di Mobile App (`bap_screen.dart`)**:
+      - **Tab 1 (Form Pengajuan)**: Pilihan tanggal terjadwal otomatis (roster/visit) yang belum absen dalam 30 hari terakhir, Time Picker jam masuk & jam pulang, dropdown 5 kategori kendala teknis (Aplikasi Error, Sinyal/GPS, HP Rusak/Baterai, Server Error, Lainnya), upload bukti screenshot kamera timestamp / GPS map camera dari Galeri/Kamera, dan textfield alasan detail kendala teknis.
+      - **Tab 2 (Riwayat Pengajuan)**: Kartu riwayat dengan badge status dinamis (Kuning: Menunggu Verifikasi, Hijau: Disetujui, Merah: Ditolak beserta alasan penolakan), jam masuk/pulang, dan dialog pembesar thumbnail bukti screenshot.
+    - **Admin Panel Filament (`AttendanceBapResource`)**:
+      - Menu baru **Attendance & Kehadiran > Pengajuan BAP (Bukti Absen)** dengan badge counter notifikasi pending.
+      - Aksi **Setujui (Approve)**: Otomatis mencatat/memperbarui record `attendances` menjadi `present` (hadir) beserta `attendance_logs` (`source: bap_manual`), menghilangkan status Alpha di laporan presensi.
+      - Aksi **Tolak (Reject)**: Modal input alasan penolakan dan push notifikasi ke aplikasi mobile.
+    - **Backend REST API**:
+      - `GET /api/baps/eligible-dates`: Mengambil tanggal jadwal belum absen tanpa duplikasi pengajuan.
+      - `POST /api/baps`: Validasi upload bukti dan input jam kerja.
+      - `GET /api/baps/history`: Daftar riwayat pengajuan karyawan.
+      - Route `/portal-assets/bap-evidence/{id}` untuk streaming preview file bukti yang aman.
+    - **Rilis APK v1.0.111**:
+      - Versi aplikasi dinaikkan ke **`v1.0.111+111`**.
+      - File APK rilis siap pasang berhasil dikompilasi: `app-release-1.0.111.apk` dan `app-release.apk` (106.2 MB).
+
 ---
 
 
