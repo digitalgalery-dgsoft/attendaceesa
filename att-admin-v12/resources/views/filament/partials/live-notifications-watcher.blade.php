@@ -130,3 +130,33 @@
     setTimeout(checkLiveChatNotifications, 2000);
 })();
 </script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+    .swal2-esa-popup {
+        font-family: inherit !important;
+        border-radius: 18px !important;
+        padding: 1.5rem !important;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+    .dark .swal2-esa-popup {
+        background: #1e293b !important;
+        color: #f1f5f9 !important;
+        border-color: #334155 !important;
+    }
+    .swal2-esa-btn-confirm {
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+        font-size: 0.88rem !important;
+        padding: 0.6rem 1.25rem !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+        transition: all 0.2s ease !important;
+    }
+    .swal2-esa-btn-cancel {
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        font-size: 0.88rem !important;
+        padding: 0.6rem 1.25rem !important;
+        transition: all 0.2s ease !important;
+    }
+</style>

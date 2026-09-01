@@ -505,6 +505,35 @@
                 max-height: 250px;
             }
         }
+
+        /* SweetAlert2 Custom Styling */
+        .swal2-esa-popup {
+            font-family: inherit !important;
+            border-radius: 18px !important;
+            padding: 1.5rem !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+            border: 1px solid #e2e8f0 !important;
+        }
+        .dark .swal2-esa-popup {
+            background: #1e293b !important;
+            color: #f1f5f9 !important;
+            border-color: #334155 !important;
+        }
+        .swal2-esa-btn-confirm {
+            border-radius: 10px !important;
+            font-weight: 700 !important;
+            font-size: 0.88rem !important;
+            padding: 0.6rem 1.25rem !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+            transition: all 0.2s ease !important;
+        }
+        .swal2-esa-btn-cancel {
+            border-radius: 10px !important;
+            font-weight: 600 !important;
+            font-size: 0.88rem !important;
+            padding: 0.6rem 1.25rem !important;
+            transition: all 0.2s ease !important;
+        }
     </style>
 
     <div class="live-chat-wrapper"
@@ -623,22 +652,20 @@
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                        {{-- Quick Helpdesk Actions --}}
+                        {{-- Quick Helpdesk Actions with SweetAlert2 --}}
                         @if($activeConversation->employee)
                             <button type="button"
-                                    wire:click="unlockDevice"
-                                    wire:confirm="Yakin ingin unlock perangkat HP untuk karyawan {{ $activeEmpName }}? Device ID akan dikosongkan dan pesan otomatis dikirim."
+                                    onclick="confirmUnlockDevice('{{ addslashes($activeEmpName) }}', '{{ addslashes($activeEmpNik) }}')"
                                     title="Kosongkan Device ID karyawan agar bisa login di HP baru"
-                                    style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.76rem; font-weight: 700; color: #0284c7; background: #e0f2fe; border: 1px solid #bae6fd; padding: 0.35rem 0.75rem; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;">
+                                    style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 700; color: #0284c7; background: #e0f2fe; border: 1px solid #bae6fd; padding: 0.4rem 0.85rem; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;">
                                 <i class="fa-solid fa-mobile-screen"></i>
                                 <span>Unlock Device</span>
                             </button>
 
                             <button type="button"
-                                    wire:click="resetPassword"
-                                    wire:confirm="Yakin ingin reset password untuk karyawan {{ $activeEmpName }}? Password default akan digenerate dan dikirim ke chat."
+                                    onclick="confirmResetPassword('{{ addslashes($activeEmpName) }}', '{{ addslashes($activeEmpNik) }}')"
                                     title="Reset password karyawan ke password standar"
-                                    style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.76rem; font-weight: 700; color: #854d0e; background: #fef9c3; border: 1px solid #fef08a; padding: 0.35rem 0.75rem; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;">
+                                    style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 700; color: #854d0e; background: #fef9c3; border: 1px solid #fef08a; padding: 0.4rem 0.85rem; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;">
                                 <i class="fa-solid fa-key"></i>
                                 <span>Reset Password</span>
                             </button>
@@ -747,4 +774,82 @@
             </div>
         </div>
     @endif
+
+    {{-- SweetAlert2 Library & Handlers --}}
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        function confirmUnlockDevice(empName, empNik) {
+            Swal.fire({
+                title: 'Konfirmasi Unlock Device',
+                html: `
+                    <div style="text-align: left; font-size: 0.92rem; color: #334155; line-height: 1.5;">
+                        <p style="margin: 0 0 10px 0;">Apakah Anda yakin ingin membuka kunci (unlock) perangkat HP untuk karyawan:</p>
+                        <div style="background: #f0f9ff; padding: 12px 14px; border-radius: 10px; border: 1px solid #bae6fd; margin-bottom: 12px;">
+                            <div style="font-weight: 800; font-size: 1.05rem; color: #0369a1;">${empName}</div>
+                            <div style="color: #0284c7; font-size: 0.82rem; margin-top: 2px;">NIK: ${empNik}</div>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #64748b; background: #f8fafc; padding: 8px 12px; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                            <i class="fa-solid fa-circle-info" style="color: #0284c7; margin-right: 4px;"></i>
+                            Device ID akan dibebaskan dan pesan konfirmasi otomatis unlock akan langsung dikirimkan ke ruang chat ini.
+                        </div>
+                    </div>
+                `,
+                icon: 'question',
+                iconColor: '#0284c7',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fa-solid fa-unlock" style="margin-right: 6px;"></i> Ya, Unlock Perangkat',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#0284c7',
+                cancelButtonColor: '#94a3b8',
+                reverseButtons: true,
+                focusCancel: true,
+                customClass: {
+                    popup: 'swal2-esa-popup',
+                    confirmButton: 'swal2-esa-btn-confirm',
+                    cancelButton: 'swal2-esa-btn-cancel'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    @this.call('unlockDevice');
+                }
+            });
+        }
+
+        function confirmResetPassword(empName, empNik) {
+            Swal.fire({
+                title: 'Konfirmasi Reset Password',
+                html: `
+                    <div style="text-align: left; font-size: 0.92rem; color: #334155; line-height: 1.5;">
+                        <p style="margin: 0 0 10px 0;">Apakah Anda yakin ingin mereset kata sandi akun mobile untuk karyawan:</p>
+                        <div style="background: #fefce8; padding: 12px 14px; border-radius: 10px; border: 1px solid #fef08a; margin-bottom: 12px;">
+                            <div style="font-weight: 800; font-size: 1.05rem; color: #854d0e;">${empName}</div>
+                            <div style="color: #a16207; font-size: 0.82rem; margin-top: 2px;">NIK: ${empNik}</div>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #64748b; background: #f8fafc; padding: 8px 12px; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                            <i class="fa-solid fa-key" style="color: #ca8a04; margin-right: 4px;"></i>
+                            Password baru standar akan dibuat otomatis dan langsung dikirimkan ke ruang chat ini.
+                        </div>
+                    </div>
+                `,
+                icon: 'warning',
+                iconColor: '#eab308',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fa-solid fa-key" style="margin-right: 6px;"></i> Ya, Reset Password',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#eab308',
+                cancelButtonColor: '#94a3b8',
+                reverseButtons: true,
+                focusCancel: true,
+                customClass: {
+                    popup: 'swal2-esa-popup',
+                    confirmButton: 'swal2-esa-btn-confirm',
+                    cancelButton: 'swal2-esa-btn-cancel'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    @this.call('resetPassword');
+                }
+            });
+        }
+    </script>
 </x-filament-panels::page>
