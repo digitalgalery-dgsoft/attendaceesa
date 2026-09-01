@@ -4,6 +4,9 @@ use App\Models\Principal;
 use App\Models\ReportFormField;
 use App\Models\ReportTemplate;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -12,7 +15,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // 1. Dapatkan Principal Dulux
+        // ─── 1. PASTIKAN FACE RECOGNITION OFF SECARA DEFAULT PADA SELURUH JABATAN ────
+        if (Schema::hasTable('positions') && Schema::hasColumn('positions', 'require_face_recognition')) {
+            try {
+                Schema::table('positions', function (Blueprint $table) {
+                    $table->boolean('require_face_recognition')->default(false)->change();
+                });
+            } catch (\Throwable $e) {}
+
+            DB::table('positions')->update(['require_face_recognition' => false]);
+        }
+
+        // ─── 2. SINKRONKAN FORM STOCK END DULUX (12 FIELD) & HAPUS FORM TINTER ───────
         $duluxPrincipals = Principal::where('name', 'LIKE', '%DULUX%')
             ->orWhere('name', 'LIKE', '%ICI%')
             ->orWhere('name', 'LIKE', '%AKZONOBEL%')
@@ -20,23 +34,21 @@ return new class extends Migration
             ->get();
 
         $allDuluxIds = $duluxPrincipals->pluck('id')->toArray();
-        $primaryDulux = $duluxPrincipals->first();
+        $primaryDulux = $duluxPrincipals->first() ?? Principal::first();
 
-        if (!$primaryDulux && Principal::count() > 0) {
-            $primaryDulux = Principal::first();
+        // Hapus total template Tinter
+        $tinterTemplates = ReportTemplate::where('code', 'RPT-DULUX-TINTER-LSO')
+            ->orWhere('title', 'LIKE', '%Laporan Tinter%')
+            ->get();
+
+        foreach ($tinterTemplates as $tinter) {
+            ReportFormField::where('report_template_id', $tinter->id)->delete();
+            $tinter->principals()->detach();
+            $tinter->assignments()->delete();
+            $tinter->delete();
         }
 
-        // 2. Nonaktifkan Laporan Tinter Terpisah (RPT-DULUX-TINTER-LSO) karena disatukan ke Stock End
-        $tinterLso = ReportTemplate::where('code', 'RPT-DULUX-TINTER-LSO')->first();
-        if ($tinterLso) {
-            $tinterLso->update([
-                'is_active' => false,
-                'title' => '[Disatukan ke Stock End] Laporan Tinter & Pasta Warna LSO Dulux',
-            ]);
-            $tinterLso->principals()->detach();
-        }
-
-        // 3. Gabungkan dan Perbarui Laporan Stock End (RPT-DULUX-STOCK-END)
+        // Cari atau buat Stock End
         $stockEnd = ReportTemplate::where('code', 'RPT-DULUX-STOCK-END')->first();
         if (!$stockEnd && $primaryDulux) {
             $stockEnd = ReportTemplate::create([
@@ -108,7 +120,6 @@ return new class extends Migration
                     'field_name' => 'produk_stock_end',
                     'field_type' => 'product_select',
                     'is_required' => true,
-                    'order_index' => 1,
                 ],
                 [
                     'field_label' => 'Base / Tipe Warna',
@@ -116,7 +127,6 @@ return new class extends Migration
                     'field_type' => 'dropdown',
                     'options' => ['Base A (Putih/Light)', 'Base B (Medium)', 'Base C (Dark)', 'Base D (Clear/Deep)', 'Ready Mix (Warna Jadi Pabrik)', 'Cat Dasar Primer'],
                     'is_required' => true,
-                    'order_index' => 2,
                 ],
                 [
                     'field_label' => 'Stok Fisik Kemasan Galon (Qty)',
@@ -124,7 +134,6 @@ return new class extends Migration
                     'field_type' => 'number',
                     'placeholder' => 'Jumlah galon',
                     'is_required' => true,
-                    'order_index' => 3,
                 ],
                 [
                     'field_label' => 'Stok Fisik Kemasan Pail (Qty)',
@@ -132,7 +141,6 @@ return new class extends Migration
                     'field_type' => 'number',
                     'placeholder' => 'Jumlah pail',
                     'is_required' => true,
-                    'order_index' => 4,
                 ],
                 [
                     'field_label' => 'Estimasi Total Volume Stok di Toko (Liter)',
@@ -140,7 +148,6 @@ return new class extends Migration
                     'field_type' => 'number',
                     'placeholder' => 'Total volume liter',
                     'is_required' => true,
-                    'order_index' => 5,
                 ],
                 [
                     'field_label' => 'Kategori Tinter / Mesin Tinting',
@@ -148,7 +155,6 @@ return new class extends Migration
                     'field_type' => 'dropdown',
                     'options' => ['Dramatone', 'Acotone', 'Tidak Ada Mesin / Non-Tinting'],
                     'is_required' => true,
-                    'order_index' => 6,
                 ],
                 [
                     'field_label' => 'Tipe Tinter / Warna Pasta Pewarna',
@@ -156,7 +162,6 @@ return new class extends Migration
                     'field_type' => 'dropdown',
                     'options' => $allTinterOptions,
                     'is_required' => true,
-                    'order_index' => 7,
                 ],
                 [
                     'field_label' => 'Kuantiti / Jumlah Kaleng Tinta Tinter',
@@ -164,7 +169,6 @@ return new class extends Migration
                     'field_type' => 'number',
                     'placeholder' => 'Jumlah kaleng tinter',
                     'is_required' => false,
-                    'order_index' => 8,
                 ],
                 [
                     'field_label' => 'Status Ketersediaan Tinter di Toko',
@@ -172,7 +176,6 @@ return new class extends Migration
                     'field_type' => 'radio',
                     'options' => ['Stok Aman (Siap Oplos)', 'Stok Menipis (Perlu Order Ulang)', 'Stok Habis (Mesin Tidak Bisa Oplos)', 'Tidak Ada Mesin'],
                     'is_required' => true,
-                    'order_index' => 9,
                 ],
                 [
                     'field_label' => 'Status Akses Pengecekan Gudang Toko',
@@ -180,14 +183,12 @@ return new class extends Migration
                     'field_type' => 'radio',
                     'options' => ['Full Access (Bisa Cek Rak & Gudang Toko Bebas)', 'Half Access (Hanya Cek Rak Depan Toko)', 'No Access (Toko Menolak Cek Fisik / Data Estimasi)'],
                     'is_required' => true,
-                    'order_index' => 10,
                 ],
                 [
                     'field_label' => 'Foto Fisik Rak Display, Tumpukan Stok Gudang & Mesin Tinter',
                     'field_name' => 'foto_stok_gudang',
                     'field_type' => 'multi_photo',
                     'is_required' => true,
-                    'order_index' => 11,
                 ],
                 [
                     'field_label' => 'Keterangan / Kendala Stok & Tinter Toko',
@@ -195,16 +196,16 @@ return new class extends Migration
                     'field_type' => 'textarea',
                     'placeholder' => 'Catatan status stok lambat laku (slow moving), kelebihan stok, atau request restock tinter...',
                     'is_required' => false,
-                    'order_index' => 12,
                 ],
             ];
 
-            // Rebuild fields
+            // Rebuild exactly 12 fields
             ReportFormField::where('report_template_id', $stockEnd->id)->delete();
 
-            foreach ($fields as $fieldData) {
+            foreach ($fields as $index => $fieldData) {
                 ReportFormField::create(array_merge($fieldData, [
                     'report_template_id' => $stockEnd->id,
+                    'order_index' => $index + 1,
                 ]));
             }
         }
@@ -215,6 +216,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Reversible if needed
+        //
     }
 };

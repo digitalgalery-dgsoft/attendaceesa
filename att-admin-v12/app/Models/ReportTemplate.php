@@ -252,7 +252,7 @@ class ReportTemplate extends Model
             ['field_label' => 'Stok Fisik Kemasan Galon (Qty)', 'field_name' => 'stok_qty_galon', 'field_type' => 'number', 'placeholder' => 'Jumlah galon', 'is_required' => true],
             ['field_label' => 'Stok Fisik Kemasan Pail (Qty)', 'field_name' => 'stok_qty_pail', 'field_type' => 'number', 'placeholder' => 'Jumlah pail', 'is_required' => true],
             ['field_label' => 'Estimasi Total Volume Stok di Toko (Liter)', 'field_name' => 'total_volume_stok_liter', 'field_type' => 'number', 'placeholder' => 'Total volume liter', 'is_required' => true],
-            ['field_label' => 'Kategori Tinter / Mesin Tinting', 'field_name' => 'kategori_tinter', 'field_type' => 'dropdown', 'options' => ['Dramatone', 'Acotone', 'Tidak Ada Mesin / Non-Tinting'], 'default_value' => 'Dramatone', 'is_required' => true],
+            ['field_label' => 'Kategori Tinter / Mesin Tinting', 'field_name' => 'kategori_tinter', 'field_type' => 'dropdown', 'options' => ['Dramatone', 'Acotone', 'Tidak Ada Mesin / Non-Tinting'], 'is_required' => true],
             ['field_label' => 'Tipe Tinter / Warna Pasta Pewarna', 'field_name' => 'tipe_tinter_warna', 'field_type' => 'dropdown', 'options' => $allTinterOptions, 'is_required' => true],
             ['field_label' => 'Kuantiti / Jumlah Kaleng Tinta Tinter', 'field_name' => 'qty_kaleng_tinta', 'field_type' => 'number', 'placeholder' => 'Jumlah kaleng tinter', 'is_required' => false],
             ['field_label' => 'Status Ketersediaan Tinter di Toko', 'field_name' => 'status_ketersediaan_tinter', 'field_type' => 'radio', 'options' => ['Stok Aman (Siap Oplos)', 'Stok Menipis (Perlu Order Ulang)', 'Stok Habis (Mesin Tidak Bisa Oplos)', 'Tidak Ada Mesin'], 'is_required' => true],

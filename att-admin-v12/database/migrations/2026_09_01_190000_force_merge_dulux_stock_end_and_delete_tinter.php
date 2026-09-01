@@ -150,7 +150,6 @@ return new class extends Migration
                     'field_name' => 'kategori_tinter',
                     'field_type' => 'dropdown',
                     'options' => ['Dramatone', 'Acotone', 'Tidak Ada Mesin / Non-Tinting'],
-                    'default_value' => 'Dramatone',
                     'is_required' => true,
                     'order_index' => 6,
                 ],
