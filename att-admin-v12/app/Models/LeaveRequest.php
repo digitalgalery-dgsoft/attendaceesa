@@ -45,4 +45,18 @@ class LeaveRequest extends Model
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
+
+    public function getAttachmentUrlAttribute(): ?string
+    {
+        if (empty($this->attachment_path)) {
+            return null;
+        }
+
+        if (str_starts_with($this->attachment_path, 'http://') || str_starts_with($this->attachment_path, 'https://')) {
+            return $this->attachment_path;
+        }
+
+        $cleanPath = ltrim(str_replace(['public/', 'storage/'], '', $this->attachment_path), '/');
+        return url('storage/' . $cleanPath);
+    }
 }

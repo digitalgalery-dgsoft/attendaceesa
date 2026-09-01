@@ -211,6 +211,74 @@ Route::get('/portal-assets/bap-evidence/{id}', function ($id) {
     abort(404);
 })->name('bap.evidence');
 
+Route::get('/attachment-stream/{id}', function ($id) {
+    $permit = \App\Models\LeaveRequest::find($id);
+    if (!$permit || !$permit->attachment_path) {
+        abort(404);
+    }
+
+    $path = $permit->attachment_path;
+    $cleanPath = ltrim(str_replace(['public/', 'storage/'], '', $path), '/');
+
+    $candidates = [
+        storage_path('app/public/' . $cleanPath),
+        storage_path('app/public/' . $path),
+        storage_path('app/' . $cleanPath),
+        storage_path('app/' . $path),
+        storage_path('app/private/' . $cleanPath),
+        storage_path('app/private/' . $path),
+        public_path('storage/' . $cleanPath),
+        public_path('storage/' . $path),
+        public_path($cleanPath),
+        public_path($path),
+        base_path('storage/app/public/' . $cleanPath),
+        base_path('storage/app/public/' . $path),
+    ];
+
+    foreach ($candidates as $filePath) {
+        if (file_exists($filePath) && !is_dir($filePath)) {
+            $mime = @mime_content_type($filePath) ?: 'image/jpeg';
+            return response()->file($filePath, [
+                'Content-Type' => $mime,
+                'Cache-Control' => 'public, max-age=86400',
+            ]);
+        }
+    }
+
+    abort(404);
+})->name('permit.attachment');
+
+Route::get('/storage/{path}', function ($path) {
+    $cleanPath = ltrim(str_replace(['public/', 'storage/'], '', $path), '/');
+
+    $candidates = [
+        storage_path('app/public/' . $cleanPath),
+        storage_path('app/public/' . $path),
+        storage_path('app/' . $cleanPath),
+        storage_path('app/' . $path),
+        storage_path('app/private/' . $cleanPath),
+        storage_path('app/private/' . $path),
+        public_path('storage/' . $cleanPath),
+        public_path('storage/' . $path),
+        public_path($cleanPath),
+        public_path($path),
+        base_path('storage/app/public/' . $cleanPath),
+        base_path('storage/app/public/' . $path),
+    ];
+
+    foreach ($candidates as $filePath) {
+        if (file_exists($filePath) && !is_dir($filePath)) {
+            $mime = @mime_content_type($filePath) ?: 'application/octet-stream';
+            return response()->file($filePath, [
+                'Content-Type' => $mime,
+                'Cache-Control' => 'public, max-age=86400',
+            ]);
+        }
+    }
+
+    abort(404);
+})->where('path', '.*')->name('storage.fallback');
+
 Route::get('/', function (\Illuminate\Http\Request $request) {
     $setting = Setting::first();
     

@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ImageEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Forms\Components\Select;
@@ -225,13 +226,11 @@ class LeaveRequestResource extends Resource
                     ]),
                 Section::make('Attachment')
                     ->schema([
-                        ImageEntry::make('attachment_path')
+                        ViewEntry::make('attachment_path')
                             ->hiddenLabel()
-                            ->disk('public')
-                            ->width('100%')
-                            ->height('auto'),
+                            ->view('filament.components.permit-attachment'),
                     ])
-                    ->visible(fn ($record) => $record->attachment_path !== null),
+                    ->visible(fn ($record) => !empty($record->attachment_path)),
             ]);
     }
 
