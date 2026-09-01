@@ -56,6 +56,14 @@ class ManageSettings extends Page implements HasForms
         $setting = Setting::first();
         if ($setting) {
             $this->form->fill($setting->toArray());
+            if (!empty($setting->dark_mode_theme)) {
+                $dbTheme = $setting->dark_mode_theme;
+                $this->js("
+                    localStorage.setItem('esa_dark_theme', '{$dbTheme}');
+                    document.documentElement.setAttribute('data-dark-theme', '{$dbTheme}');
+                    if (document.body) document.body.setAttribute('data-dark-theme', '{$dbTheme}');
+                ");
+            }
         } else {
             $this->form->fill();
         }
@@ -236,6 +244,14 @@ class ManageSettings extends Page implements HasForms
                 $firebase->sendNotification($tokens, 'Update Aplikasi Tersedia', "Versi {$setting->mobile_app_version} telah dirilis. Silakan update aplikasi Anda.");
             }
         }
+
+        $newTheme = $data['dark_mode_theme'] ?? 'dark_navy';
+        $this->js("
+            localStorage.setItem('esa_dark_theme', '{$newTheme}');
+            document.documentElement.setAttribute('data-dark-theme', '{$newTheme}');
+            if (document.body) document.body.setAttribute('data-dark-theme', '{$newTheme}');
+            window.dispatchEvent(new CustomEvent('esa-theme-changed', { detail: { theme: '{$newTheme}' } }));
+        ");
 
         Notification::make()
             ->success()

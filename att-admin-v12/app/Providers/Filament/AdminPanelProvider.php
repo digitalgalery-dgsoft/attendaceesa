@@ -82,102 +82,252 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => '<link rel="preconnect" href="https://fonts.googleapis.com">
-                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-                <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-                <script>
-                    (function() {
-                        try {
-                            const savedTheme = localStorage.getItem(\'esa_dark_theme\') || \'' . $darkModeTheme . '\';
-                            document.documentElement.setAttribute(\'data-dark-theme\', savedTheme);
-                            const isDark = localStorage.getItem(\'theme\') === \'dark\' || (!(\'theme\' in localStorage) && window.matchMedia(\'(prefers-color-scheme: dark)\').matches);
-                            if (isDark) {
-                                document.documentElement.classList.add(\'dark\');
-                            }
-                        } catch(e) {}
-                    })();
-                </script>
-                <style>
-                    /* GLOBAL OUTFIT TYPOGRAPHY & CLEAN PRINCIPAL PORTAL THEME */
-                    * {
-                        font-family: \'Plus Jakarta Sans\', \'Outfit\', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-                    }
-                    
-                    /* Background body */
-                    .fi-body {
-                        background-color: #f8fafc !important;
-                    }
+                function (): string {
+                    $setting = \Illuminate\Support\Facades\Schema::hasTable('settings') ? \App\Models\Setting::first() : null;
+                    $themeFromDb = $setting?->dark_mode_theme ?? 'pitch_black';
 
-                    /* ─── DYNAMIC DARK MODE PALETTES ─── */
-                    /* 1. DARK NAVY (Default Midnight Blue) */
-                    html[data-dark-theme="dark_navy"].dark,
-                    html.dark:not([data-dark-theme]) {
-                        --fi-bg-body: #0b1120 !important;
-                        --fi-bg-surface: #0f172a !important;
-                        --fi-bg-card: #1e293b !important;
-                        --fi-bg-input: #1e293b !important;
-                        --fi-border-main: #1e293b !important;
-                        --fi-border-subtle: #334155 !important;
-                        --fi-hover-bg: #1e293b !important;
-                        --fi-active-border: #3b82f6 !important;
-                        --fi-accent-gradient: linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(59, 130, 246, 0.12) 100%) !important;
-                    }
+                    return '<link rel="preconnect" href="https://fonts.googleapis.com">
+                    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+                    <script>
+                        (function() {
+                            try {
+                                const dbTheme = \'' . $themeFromDb . '\';
+                                let activeTheme = localStorage.getItem(\'esa_dark_theme\');
+                                if (!activeTheme || activeTheme === \'undefined\' || activeTheme === \'null\') {
+                                    activeTheme = dbTheme;
+                                    localStorage.setItem(\'esa_dark_theme\', dbTheme);
+                                }
+                                document.documentElement.setAttribute(\'data-dark-theme\', activeTheme);
+                                if (document.body) {
+                                    document.body.setAttribute(\'data-dark-theme\', activeTheme);
+                                }
+                                const isDark = localStorage.getItem(\'theme\') === \'dark\' || (!(\'theme\' in localStorage) && window.matchMedia(\'(prefers-color-scheme: dark)\').matches);
+                                if (isDark) {
+                                    document.documentElement.classList.add(\'dark\');
+                                    if (document.body) document.body.classList.add(\'dark\');
+                                }
+                            } catch(e) {}
+                        })();
+                    </script>
+                    <style>
+                        /* GLOBAL OUTFIT TYPOGRAPHY & CLEAN PRINCIPAL PORTAL THEME */
+                        * {
+                            font-family: \'Plus Jakarta Sans\', \'Outfit\', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                        }
+                        
+                        /* Background body */
+                        .fi-body {
+                            background-color: #f8fafc !important;
+                        }
 
-                    /* 2. PITCH BLACK (Pure AMOLED Black / Hitam Pekat) */
-                    html[data-dark-theme="pitch_black"].dark {
-                        --fi-bg-body: #000000 !important;
-                        --fi-bg-surface: #0a0a0a !important;
-                        --fi-bg-card: #121212 !important;
-                        --fi-bg-input: #171717 !important;
-                        --fi-border-main: #262626 !important;
-                        --fi-border-subtle: #383838 !important;
-                        --fi-hover-bg: #1f1f1f !important;
-                        --fi-active-border: #60a5fa !important;
-                        --fi-accent-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%) !important;
-                    }
+                        /* ══════════════════════════════════════════════════════════════
+                           THEME 1: PITCH BLACK (Pure AMOLED Black / Hitam Pekat)
+                           ══════════════════════════════════════════════════════════════ */
+                        html[data-dark-theme="pitch_black"].dark,
+                        html[data-dark-theme="pitch_black"] body.dark,
+                        body[data-dark-theme="pitch_black"].dark,
+                        html.dark[data-dark-theme="pitch_black"] {
+                            --fi-bg-body: #000000 !important;
+                            --fi-bg-surface: #0a0a0a !important;
+                            --fi-bg-card: #111111 !important;
+                            --fi-bg-input: #161616 !important;
+                            --fi-border-main: #222222 !important;
+                            --fi-border-subtle: #333333 !important;
+                            --fi-hover-bg: #1a1a1a !important;
+                            --fi-active-border: #60a5fa !important;
+                            --fi-accent-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 100%) !important;
+                        }
+                        html[data-dark-theme="pitch_black"].dark,
+                        html[data-dark-theme="pitch_black"].dark .fi-body,
+                        html[data-dark-theme="pitch_black"].dark .fi-main,
+                        html[data-dark-theme="pitch_black"].dark .fi-page,
+                        html[data-dark-theme="pitch_black"].dark .fi-simple-layout,
+                        html[data-dark-theme="pitch_black"].dark main {
+                            background-color: #000000 !important;
+                        }
+                        html[data-dark-theme="pitch_black"].dark aside.fi-sidebar,
+                        html[data-dark-theme="pitch_black"].dark .fi-sidebar-header,
+                        html[data-dark-theme="pitch_black"].dark .fi-topbar {
+                            background-color: #070707 !important;
+                            border-color: #1a1a1a !important;
+                        }
+                        html[data-dark-theme="pitch_black"].dark .fi-section,
+                        html[data-dark-theme="pitch_black"].dark .fi-card,
+                        html[data-dark-theme="pitch_black"].dark .fi-ta-ctn,
+                        html[data-dark-theme="pitch_black"].dark .fi-modal-window,
+                        html[data-dark-theme="pitch_black"].dark .fi-dropdown-panel,
+                        html[data-dark-theme="pitch_black"].dark .fi-wi-widget > div,
+                        html[data-dark-theme="pitch_black"].dark .fi-simple-main {
+                            background-color: #0d0d0d !important;
+                            border-color: #1f1f1f !important;
+                        }
+                        html[data-dark-theme="pitch_black"].dark .fi-ta-header,
+                        html[data-dark-theme="pitch_black"].dark .fi-ta-header-toolbar,
+                        html[data-dark-theme="pitch_black"].dark .fi-modal-header,
+                        html[data-dark-theme="pitch_black"].dark .fi-modal-footer {
+                            background-color: #0d0d0d !important;
+                            border-color: #1f1f1f !important;
+                        }
+                        html[data-dark-theme="pitch_black"].dark .fi-input-wrp,
+                        html[data-dark-theme="pitch_black"].dark .fi-select-input {
+                            background-color: #141414 !important;
+                            border-color: #2b2b2b !important;
+                        }
+                        html[data-dark-theme="pitch_black"].dark .fi-sidebar-item:hover > a,
+                        html[data-dark-theme="pitch_black"].dark .fi-sidebar-item:hover > button,
+                        html[data-dark-theme="pitch_black"].dark .fi-ta-row:hover {
+                            background-color: #171717 !important;
+                        }
 
-                    /* 3. DARK GREY (Charcoal / Modern Anthracite / Abu-Abu Gelap) */
-                    html[data-dark-theme="dark_grey"].dark {
-                        --fi-bg-body: #18181b !important;
-                        --fi-bg-surface: #202023 !important;
-                        --fi-bg-card: #27272a !important;
-                        --fi-bg-input: #2d2d30 !important;
-                        --fi-border-main: #3f3f46 !important;
-                        --fi-border-subtle: #52525b !important;
-                        --fi-hover-bg: #323236 !important;
-                        --fi-active-border: #38bdf8 !important;
-                        --fi-accent-gradient: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(14, 165, 233, 0.08) 100%) !important;
-                    }
+                        /* ══════════════════════════════════════════════════════════════
+                           THEME 2: DARK NAVY (Default Midnight Blue)
+                           ══════════════════════════════════════════════════════════════ */
+                        html[data-dark-theme="dark_navy"].dark,
+                        html.dark:not([data-dark-theme]) {
+                            --fi-bg-body: #0b1120 !important;
+                            --fi-bg-surface: #0f172a !important;
+                            --fi-bg-card: #1e293b !important;
+                            --fi-bg-input: #1e293b !important;
+                            --fi-border-main: #1e293b !important;
+                            --fi-border-subtle: #334155 !important;
+                            --fi-hover-bg: #1e293b !important;
+                            --fi-active-border: #3b82f6 !important;
+                            --fi-accent-gradient: linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(59, 130, 246, 0.12) 100%) !important;
+                        }
+                        html[data-dark-theme="dark_navy"].dark .fi-body,
+                        html[data-dark-theme="dark_navy"].dark .fi-main,
+                        html[data-dark-theme="dark_navy"].dark .fi-simple-layout {
+                            background-color: #0b1120 !important;
+                        }
+                        html[data-dark-theme="dark_navy"].dark aside.fi-sidebar,
+                        html[data-dark-theme="dark_navy"].dark .fi-sidebar-header,
+                        html[data-dark-theme="dark_navy"].dark .fi-topbar {
+                            background-color: #0f172a !important;
+                            border-color: #1e293b !important;
+                        }
+                        html[data-dark-theme="dark_navy"].dark .fi-section,
+                        html[data-dark-theme="dark_navy"].dark .fi-card,
+                        html[data-dark-theme="dark_navy"].dark .fi-ta-ctn,
+                        html[data-dark-theme="dark_navy"].dark .fi-modal-window,
+                        html[data-dark-theme="dark_navy"].dark .fi-dropdown-panel,
+                        html[data-dark-theme="dark_navy"].dark .fi-wi-widget > div,
+                        html[data-dark-theme="dark_navy"].dark .fi-simple-main {
+                            background-color: #0f172a !important;
+                            border-color: #1e293b !important;
+                        }
 
-                    /* 4. DARK EMERALD (Deep Forest / Hijau Gelap Mewah) */
-                    html[data-dark-theme="dark_emerald"].dark {
-                        --fi-bg-body: #022c22 !important;
-                        --fi-bg-surface: #064e3b !important;
-                        --fi-bg-card: #065f46 !important;
-                        --fi-bg-input: #047857 !important;
-                        --fi-border-main: #047857 !important;
-                        --fi-border-subtle: #059669 !important;
-                        --fi-hover-bg: #0f766e !important;
-                        --fi-active-border: #34d399 !important;
-                        --fi-accent-gradient: linear-gradient(135deg, rgba(52, 211, 153, 0.22) 0%, rgba(16, 185, 129, 0.1) 100%) !important;
-                    }
+                        /* ══════════════════════════════════════════════════════════════
+                           THEME 3: DARK GREY (Charcoal Slate / Abu-Abu Modern)
+                           ══════════════════════════════════════════════════════════════ */
+                        html[data-dark-theme="dark_grey"].dark {
+                            --fi-bg-body: #141416 !important;
+                            --fi-bg-surface: #1e1e22 !important;
+                            --fi-bg-card: #25252b !important;
+                            --fi-bg-input: #2a2a32 !important;
+                            --fi-border-main: #32323a !important;
+                            --fi-border-subtle: #454550 !important;
+                            --fi-hover-bg: #2d2d35 !important;
+                            --fi-active-border: #38bdf8 !important;
+                            --fi-accent-gradient: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(14, 165, 233, 0.08) 100%) !important;
+                        }
+                        html[data-dark-theme="dark_grey"].dark .fi-body,
+                        html[data-dark-theme="dark_grey"].dark .fi-main,
+                        html[data-dark-theme="dark_grey"].dark .fi-simple-layout {
+                            background-color: #141416 !important;
+                        }
+                        html[data-dark-theme="dark_grey"].dark aside.fi-sidebar,
+                        html[data-dark-theme="dark_grey"].dark .fi-sidebar-header,
+                        html[data-dark-theme="dark_grey"].dark .fi-topbar {
+                            background-color: #1a1a1e !important;
+                            border-color: #2b2b32 !important;
+                        }
+                        html[data-dark-theme="dark_grey"].dark .fi-section,
+                        html[data-dark-theme="dark_grey"].dark .fi-card,
+                        html[data-dark-theme="dark_grey"].dark .fi-ta-ctn,
+                        html[data-dark-theme="dark_grey"].dark .fi-modal-window,
+                        html[data-dark-theme="dark_grey"].dark .fi-dropdown-panel,
+                        html[data-dark-theme="dark_grey"].dark .fi-wi-widget > div,
+                        html[data-dark-theme="dark_grey"].dark .fi-simple-main {
+                            background-color: #222227 !important;
+                            border-color: #32323a !important;
+                        }
 
-                    /* 5. DARK PURPLE (Royal Amethyst / Ungu Gelap) */
-                    html[data-dark-theme="dark_purple"].dark {
-                        --fi-bg-body: #0f0728 !important;
-                        --fi-bg-surface: #1e1035 !important;
-                        --fi-bg-card: #2e1065 !important;
-                        --fi-bg-input: #3b0764 !important;
-                        --fi-border-main: #3b0764 !important;
-                        --fi-border-subtle: #581c87 !important;
-                        --fi-hover-bg: #4c1d95 !important;
-                        --fi-active-border: #c084fc !important;
-                        --fi-accent-gradient: linear-gradient(135deg, rgba(192, 132, 252, 0.22) 0%, rgba(168, 85, 247, 0.1) 100%) !important;
-                    }
+                        /* ══════════════════════════════════════════════════════════════
+                           THEME 4: DARK EMERALD (Deep Forest / Hijau Gelap Mewah)
+                           ══════════════════════════════════════════════════════════════ */
+                        html[data-dark-theme="dark_emerald"].dark {
+                            --fi-bg-body: #021a14 !important;
+                            --fi-bg-surface: #042920 !important;
+                            --fi-bg-card: #06392c !important;
+                            --fi-bg-input: #084c3b !important;
+                            --fi-border-main: #064e3b !important;
+                            --fi-border-subtle: #059669 !important;
+                            --fi-hover-bg: #074334 !important;
+                            --fi-active-border: #34d399 !important;
+                            --fi-accent-gradient: linear-gradient(135deg, rgba(52, 211, 153, 0.22) 0%, rgba(16, 185, 129, 0.1) 100%) !important;
+                        }
+                        html[data-dark-theme="dark_emerald"].dark .fi-body,
+                        html[data-dark-theme="dark_emerald"].dark .fi-main,
+                        html[data-dark-theme="dark_emerald"].dark .fi-simple-layout {
+                            background-color: #021a14 !important;
+                        }
+                        html[data-dark-theme="dark_emerald"].dark aside.fi-sidebar,
+                        html[data-dark-theme="dark_emerald"].dark .fi-sidebar-header,
+                        html[data-dark-theme="dark_emerald"].dark .fi-topbar {
+                            background-color: #042920 !important;
+                            border-color: #064e3b !important;
+                        }
+                        html[data-dark-theme="dark_emerald"].dark .fi-section,
+                        html[data-dark-theme="dark_emerald"].dark .fi-card,
+                        html[data-dark-theme="dark_emerald"].dark .fi-ta-ctn,
+                        html[data-dark-theme="dark_emerald"].dark .fi-modal-window,
+                        html[data-dark-theme="dark_emerald"].dark .fi-dropdown-panel,
+                        html[data-dark-theme="dark_emerald"].dark .fi-wi-widget > div,
+                        html[data-dark-theme="dark_emerald"].dark .fi-simple-main {
+                            background-color: #06392c !important;
+                            border-color: #075e47 !important;
+                        }
 
-                    .dark .fi-body {
-                        background-color: var(--fi-bg-body) !important;
-                    }
+                        /* ══════════════════════════════════════════════════════════════
+                           THEME 5: DARK PURPLE (Royal Amethyst / Ungu Gelap)
+                           ══════════════════════════════════════════════════════════════ */
+                        html[data-dark-theme="dark_purple"].dark {
+                            --fi-bg-body: #0b041a !important;
+                            --fi-bg-surface: #14082e !important;
+                            --fi-bg-card: #1f0d45 !important;
+                            --fi-bg-input: #29125c !important;
+                            --fi-border-main: #331770 !important;
+                            --fi-border-subtle: #581c87 !important;
+                            --fi-hover-bg: #2b135e !important;
+                            --fi-active-border: #c084fc !important;
+                            --fi-accent-gradient: linear-gradient(135deg, rgba(192, 132, 252, 0.22) 0%, rgba(168, 85, 247, 0.1) 100%) !important;
+                        }
+                        html[data-dark-theme="dark_purple"].dark .fi-body,
+                        html[data-dark-theme="dark_purple"].dark .fi-main,
+                        html[data-dark-theme="dark_purple"].dark .fi-simple-layout {
+                            background-color: #0b041a !important;
+                        }
+                        html[data-dark-theme="dark_purple"].dark aside.fi-sidebar,
+                        html[data-dark-theme="dark_purple"].dark .fi-sidebar-header,
+                        html[data-dark-theme="dark_purple"].dark .fi-topbar {
+                            background-color: #14082e !important;
+                            border-color: #2b135e !important;
+                        }
+                        html[data-dark-theme="dark_purple"].dark .fi-section,
+                        html[data-dark-theme="dark_purple"].dark .fi-card,
+                        html[data-dark-theme="dark_purple"].dark .fi-ta-ctn,
+                        html[data-dark-theme="dark_purple"].dark .fi-modal-window,
+                        html[data-dark-theme="dark_purple"].dark .fi-dropdown-panel,
+                        html[data-dark-theme="dark_purple"].dark .fi-wi-widget > div,
+                        html[data-dark-theme="dark_purple"].dark .fi-simple-main {
+                            background-color: #1f0d45 !important;
+                            border-color: #371878 !important;
+                        }
+
+                        .dark .fi-body {
+                            background-color: var(--fi-bg-body) !important;
+                        }
 
                     /* ─── CLEAN FILAMENT LOGIN PAGE STYLING ─── */
                     .fi-simple-layout {
@@ -452,7 +602,8 @@ class AdminPanelProvider extends PanelProvider
 
                     /* Custom logo override */
                     .fi-logo-custom-img { display: flex; align-items: center; }
-                </style>'
+                </style>';
+                }
             )
             ->renderHook(
                 PanelsRenderHook::SIMPLE_PAGE_END,
