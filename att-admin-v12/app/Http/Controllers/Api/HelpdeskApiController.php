@@ -174,22 +174,12 @@ class HelpdeskApiController extends Controller
             Log::error('Helpdesk chat broadcast error: ' . $e->getMessage());
         }
 
-        // Notify Admins
-        try {
-            $admins = User::all();
-            if ($admins->isNotEmpty()) {
-                foreach ($admins as $admin) {
-                    Notification::make()
-                        ->title("💬 Tiket Bantuan Baru: {$employeeName} ({$nik})")
-                        ->body("Kasus: {$issueLabel}\n\"" . Str::limit($userDesc, 60) . "\"")
-                        ->icon('heroicon-o-chat-bubble-left-right')
-                        ->success()
-                        ->sendToDatabase($admin);
-                }
-            }
-        } catch (\Throwable $e) {
-            Log::error('Helpdesk notification error: ' . $e->getMessage());
-        }
+        // Notify Admins synchronously to Filament Database Notifications & Live Toast
+        $this->notifyAdmins(
+            "💬 Tiket Bantuan: {$employeeName} ({$nik})",
+            "Kasus: {$issueLabel}\n\"" . Str::limit($userDesc, 70) . "\"",
+            'warning'
+        );
 
         $messages = $conversation->messages()->orderBy('created_at', 'asc')->get();
 
@@ -275,23 +265,13 @@ class HelpdeskApiController extends Controller
             Log::error('Helpdesk chat broadcast error: ' . $e->getMessage());
         }
 
-        // Notify Admins
-        try {
-            $employeeName = $employee->name ?? 'Karyawan';
-            $admins = User::all();
-            if ($admins->isNotEmpty()) {
-                foreach ($admins as $admin) {
-                    Notification::make()
-                        ->title("💬 Pesan bantuan dari {$employeeName}")
-                        ->body(Str::limit($request->message, 60))
-                        ->icon('heroicon-o-chat-bubble-left-right')
-                        ->info()
-                        ->sendToDatabase($admin);
-                }
-            }
-        } catch (\Throwable $e) {
-            Log::error('Helpdesk notification error: ' . $e->getMessage());
-        }
+        // Notify Admins synchronously to Filament Database Notifications & Live Toast
+        $employeeName = $employee->name ?? 'Karyawan';
+        $this->notifyAdmins(
+            "💬 Pesan bantuan dari {$employeeName}",
+            Str::limit($request->message, 70),
+            'info'
+        );
 
         return response()->json([
             'status' => 'success',
@@ -324,5 +304,51 @@ class HelpdeskApiController extends Controller
         }
 
         return response()->json(['status' => 'success']);
+    }
+
+    /**
+     * Dispatch database notification synchronously into notifications table.
+     */
+    protected function notifyAdmins(string $title, string $body, string $status = 'info')
+    {
+        try {
+            $admins = User::whereDoesntHave('principals')->get();
+            if ($admins->isEmpty()) {
+                $admins = User::all();
+            }
+
+            foreach ($admins as $admin) {
+                \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                    'id' => (string) Str::uuid(),
+                    'type' => 'Filament\Notifications\DatabaseNotification',
+                    'notifiable_type' => get_class($admin),
+                    'notifiable_id' => $admin->id,
+                    'data' => json_encode([
+                        'id' => (string) Str::uuid(),
+                        'title' => $title,
+                        'body' => $body,
+                        'icon' => 'heroicon-o-chat-bubble-left-right',
+                        'iconColor' => $status === 'warning' ? 'warning' : 'primary',
+                        'status' => $status,
+                        'duration' => 'persistent',
+                        'format' => 'filament',
+                        'actions' => [
+                            [
+                                'name' => 'open_chat',
+                                'label' => 'Buka Live Chat',
+                                'color' => 'primary',
+                                'url' => '/admin/live-chat',
+                                'shouldMarkAsRead' => true,
+                            ]
+                        ]
+                    ]),
+                    'read_at' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Helpdesk notification error: ' . $e->getMessage());
+        }
     }
 }

@@ -59,27 +59,48 @@ class ChatController extends Controller
             \Illuminate\Support\Facades\Log::error('Chat broadcast error: ' . $e->getMessage());
         }
 
-        // Kirim notifikasi database ke semua admin agar muncul di lonceng Filament
+        // Kirim notifikasi database ke semua admin agar muncul di lonceng Filament secara sinkron
         try {
-            $employee = $request->user(); // Employee model (Sanctum)
+            $employee = $request->user();
             $employeeName = $employee->full_name ?? $employee->name ?? 'Karyawan';
             
-            $admins = \App\Models\User::all();
-            \Illuminate\Support\Facades\Log::info('Sending Filament notification to ' . $admins->count() . ' admins for: ' . $employeeName);
-            
-            if ($admins->isNotEmpty()) {
-                foreach ($admins as $admin) {
-                    \Filament\Notifications\Notification::make()
-                        ->title('💬 Pesan baru dari ' . $employeeName)
-                        ->body(\Illuminate\Support\Str::limit($request->message, 50))
-                        ->icon('heroicon-o-chat-bubble-left-right')
-                        ->success()
-                        ->sendToDatabase($admin);
-                }
-                \Illuminate\Support\Facades\Log::info('Filament notification sent successfully.');
+            $admins = \App\Models\User::whereDoesntHave('principals')->get();
+            if ($admins->isEmpty()) {
+                $admins = \App\Models\User::all();
+            }
+
+            foreach ($admins as $admin) {
+                \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                    'id' => (string) \Illuminate\Support\Str::uuid(),
+                    'type' => 'Filament\Notifications\DatabaseNotification',
+                    'notifiable_type' => get_class($admin),
+                    'notifiable_id' => $admin->id,
+                    'data' => json_encode([
+                        'id' => (string) \Illuminate\Support\Str::uuid(),
+                        'title' => '💬 Pesan baru dari ' . $employeeName,
+                        'body' => \Illuminate\Support\Str::limit($request->message, 70),
+                        'icon' => 'heroicon-o-chat-bubble-left-right',
+                        'iconColor' => 'primary',
+                        'status' => 'info',
+                        'duration' => 'persistent',
+                        'format' => 'filament',
+                        'actions' => [
+                            [
+                                'name' => 'open_chat',
+                                'label' => 'Buka Live Chat',
+                                'color' => 'primary',
+                                'url' => '/admin/live-chat',
+                                'shouldMarkAsRead' => true,
+                            ]
+                        ]
+                    ]),
+                    'read_at' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Filament notification error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+            \Illuminate\Support\Facades\Log::error('Filament notification error: ' . $e->getMessage());
         }
 
         return response()->json([

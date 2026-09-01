@@ -333,6 +333,53 @@ Route::middleware(['web'])->group(function () {
     // Realtime SSE Terminal Streaming Route for Odoo Sync
     Route::get('/admin/odoo-sync/stream', [\App\Http\Controllers\OdooSyncStreamController::class, 'stream'])->name('admin.odoo-sync.stream');
 
+    // Poll unread chat messages & tickets for live toast notification in Admin Panel
+    Route::get('/admin/unread-helpdesk-chat', function () {
+        if (!auth()->check()) {
+            return response()->json(['unread_count' => 0, 'latest_message' => null]);
+        }
+
+        $latestMsg = \App\Models\ChatMessage::where('sender_type', 'employee')
+            ->orderByDesc('id')
+            ->first();
+
+        $unreadCount = \App\Models\ChatMessage::where('sender_type', 'employee')
+            ->where('is_read', false)
+            ->count();
+
+        $latestData = null;
+        if ($latestMsg) {
+            $conv = $latestMsg->conversation;
+            $employee = $conv?->employee;
+            $empName = $employee?->full_name ?? ($employee?->name ?? 'Karyawan');
+            $nik = $employee?->employee_no ?? '';
+            $isTicket = str_contains($latestMsg->message, '[TIKET BANTUAN KARYAWAN]');
+
+            $previewText = $latestMsg->message;
+            if ($isTicket) {
+                if (preg_match('/Kasus:\s*([^\n\r]+)/', $latestMsg->message, $m)) {
+                    $previewText = 'Tiket: ' . trim($m[1]);
+                }
+            }
+
+            $latestData = [
+                'id' => $latestMsg->id,
+                'conversation_id' => $latestMsg->conversation_id,
+                'employee_name' => $empName,
+                'employee_no' => $nik,
+                'message' => \Illuminate\Support\Str::limit($previewText, 80),
+                'is_ticket' => $isTicket,
+                'is_read' => (bool) $latestMsg->is_read,
+                'created_at' => $latestMsg->created_at?->diffForHumans() ?? 'Baru saja',
+            ];
+        }
+
+        return response()->json([
+            'unread_count' => $unreadCount,
+            'latest_message' => $latestData,
+        ]);
+    })->name('admin.unread-helpdesk-chat');
+
     // Start Impersonation
     Route::get('/admin/impersonate/{user}', function (\App\Models\User $user) {
         $currentUser = \Illuminate\Support\Facades\Auth::user();

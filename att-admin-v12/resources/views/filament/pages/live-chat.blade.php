@@ -550,7 +550,7 @@
                 <input type="text" wire:model.live.debounce.300ms="search" placeholder="🔍 Cari nama karyawan / NIK..." class="chat-search-input">
             </div>
 
-            <div class="chat-conv-list">
+            <div class="chat-conv-list" wire:poll.6s="$refresh">
                 @forelse($conversations as $conv)
                     @php
                         $latest = $conv->messages->first();
@@ -651,7 +651,7 @@
                 </div>
 
                 {{-- Messages List --}}
-                <div class="chat-messages-stream" x-ref="chatContainer">
+                <div class="chat-messages-stream" x-ref="chatContainer" wire:poll.3s="pollMessages">
                     @forelse($messages as $msg)
                         @php
                             $isAdmin = ($msg['sender_type'] ?? '') === 'admin';

@@ -397,6 +397,10 @@ class AdminPanelProvider extends PanelProvider
                     </div>
                 ')
             )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => view('filament.partials.live-notifications-watcher')->render()
+            )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
@@ -406,7 +410,7 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
             ])
             ->databaseNotifications()
-            ->databaseNotificationsPolling('30s')
+            ->databaseNotificationsPolling('10s')
             ->navigationGroups([
                 \Filament\Navigation\NavigationGroup::make()
                      ->label('Master Data'),

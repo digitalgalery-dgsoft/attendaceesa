@@ -106,7 +106,17 @@ class LiveChat extends Page
     public function pollMessages()
     {
         if ($this->activeConversationId) {
+            $oldCount = count($this->messages);
             $this->loadMessages();
+            $newCount = count($this->messages);
+
+            if ($newCount > $oldCount) {
+                ChatMessage::where('conversation_id', $this->activeConversationId)
+                    ->where('sender_type', 'employee')
+                    ->where('is_read', false)
+                    ->update(['is_read' => true]);
+                $this->dispatch('scroll-to-bottom');
+            }
         }
     }
 
