@@ -783,7 +783,7 @@
 
             <div class="topbar-right">
                 @php
-                    $allEntities = isset($tenantPrincipalsAll) ? $tenantPrincipalsAll->unique('name') : collect([$tenantPrincipal]);
+                    $allEntities = isset($tenantPrincipalsAll) ? $tenantPrincipalsAll->unique('id') : collect([$tenantPrincipal]);
                 @endphp
                 @if($allEntities->count() > 1)
                     <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">

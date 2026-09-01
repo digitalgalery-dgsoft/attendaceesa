@@ -36,7 +36,15 @@ class TenantAuthController extends Controller
         }
 
         $tenantPrincipalsAll = $request->attributes->get('tenant_principals_all')
-                            ?? (app()->bound('current_tenant_principals_all') ? app('current_tenant_principals_all') : collect([$tenantPrincipal]));
+                            ?? (app()->bound('current_tenant_principals_all') ? app('current_tenant_principals_all') : null);
+
+        if (!$tenantPrincipalsAll || $tenantPrincipalsAll->isEmpty()) {
+            if ($tenantPrincipal && !empty($tenantPrincipal->subdomain)) {
+                $tenantPrincipalsAll = Principal::where('subdomain', $tenantPrincipal->subdomain)->where('is_active', true)->orderBy('id')->get();
+            } else {
+                $tenantPrincipalsAll = collect($tenantPrincipal ? [$tenantPrincipal] : []);
+            }
+        }
 
         $setting = Setting::first();
 

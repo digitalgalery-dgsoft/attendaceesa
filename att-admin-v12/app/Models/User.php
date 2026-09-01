@@ -121,20 +121,40 @@ class User extends Authenticatable implements FilamentUser
         if ($this->isPrincipalUser()) {
             $principal = null;
             if ($preferredPrincipalId) {
-                $principal = $this->principals()->where('principals.id', $preferredPrincipalId)->first();
+                $principal = $this->principals()->where('principals.id', $preferredPrincipalId)->first()
+                           ?: Principal::where('id', $preferredPrincipalId)->where('is_active', true)->first();
             }
             if (!$principal) {
-                $principal = $this->principals()->first();
+                $principal = $this->principals()->first()
+                           ?: Principal::where('is_active', true)->first();
             }
-            if (!$principal) {
-                $principal = Principal::where('is_active', true)->first();
+
+            $request = request();
+            $host = $request ? $request->getHost() : '';
+            $scheme = ($request && $request->isSecure()) ? 'https://' : 'http://';
+
+            if ($principal && !empty($principal->subdomain)) {
+                $subdomain = $principal->subdomain;
+                $baseDomain = config('app.url') ? parse_url(config('app.url'), PHP_URL_HOST) : 'appsend.my.id';
+                $baseDomain = preg_replace('/^www\./', '', $baseDomain ?: 'appsend.my.id');
+
+                if (str_starts_with($host, $subdomain . '.')) {
+                    return $preferredPrincipalId ? "/portal?p={$preferredPrincipalId}" : "/portal";
+                }
+
+                $subdomainHost = "{$subdomain}.{$baseDomain}";
+                $targetUrl = "{$scheme}{$subdomainHost}/portal";
+                if ($preferredPrincipalId) {
+                    $targetUrl .= "?p={$preferredPrincipalId}";
+                }
+                return $targetUrl;
             }
 
             if ($principal) {
-                return route('portal.dashboard', ['p' => $principal->id]);
+                return "/portal?p={$principal->id}";
             }
 
-            return route('portal.dashboard');
+            return '/portal';
         }
 
         return '/admin';

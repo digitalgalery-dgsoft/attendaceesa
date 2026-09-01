@@ -163,6 +163,97 @@ class LiveChat extends Page
         $this->dispatch('scroll-to-bottom');
     }
 
+    public function unlockDevice(): void
+    {
+        if (!$this->activeConversationId) return;
+
+        $conversation = Conversation::with('employee')->find($this->activeConversationId);
+        $employee = $conversation?->employee;
+
+        if (!$employee) {
+            \Filament\Notifications\Notification::make()->title('Karyawan tidak ditemukan')->danger()->send();
+            return;
+        }
+
+        $employee->device_id = null;
+        $employee->fcm_token = null;
+        $employee->device_name = null;
+        $employee->save();
+
+        // Create automated system message in chat
+        $autoMsg = "✅ [SISTEM HELPDESK] Perangkat HP Anda telah berhasil di-unlock oleh Admin. Silakan buka kembali aplikasi mobile dan lakukan login seperti biasa.";
+        $message = ChatMessage::create([
+            'conversation_id' => $this->activeConversationId,
+            'sender_type' => 'admin',
+            'sender_id' => Auth::id(),
+            'message' => $autoMsg,
+            'is_read' => false,
+        ]);
+
+        Conversation::where('id', $this->activeConversationId)->touch();
+        $this->loadMessages();
+
+        try {
+            broadcast(new \App\Events\MessageSent($message))->toOthers();
+        } catch (\Throwable $e) {
+            Log::error('LiveChat unlock broadcast error: ' . $e->getMessage());
+        }
+
+        \Filament\Notifications\Notification::make()
+            ->title("Perangkat {$employee->name} Berhasil Di-Unlock")
+            ->success()
+            ->send();
+            
+        $this->dispatch('scroll-to-bottom');
+    }
+
+    public function resetPassword(): void
+    {
+        if (!$this->activeConversationId) return;
+
+        $conversation = Conversation::with('employee')->find($this->activeConversationId);
+        $employee = $conversation?->employee;
+
+        if (!$employee) {
+            \Filament\Notifications\Notification::make()->title('Karyawan tidak ditemukan')->danger()->send();
+            return;
+        }
+
+        $defaultPassword = 'esa' . substr($employee->employee_no ?: '12345', -5);
+        if (strlen($defaultPassword) < 8) {
+            $defaultPassword = 'esa12345';
+        }
+
+        $employee->password = \Illuminate\Support\Facades\Hash::make($defaultPassword);
+        $employee->save();
+
+        // Create automated system message in chat
+        $autoMsg = "✅ [SISTEM HELPDESK] Password akun Anda telah berhasil direset oleh Admin.\n🔑 Password Baru: {$defaultPassword}\nSilakan login menggunakan password di atas dan segera ubah kata sandi Anda di menu profil.";
+        $message = ChatMessage::create([
+            'conversation_id' => $this->activeConversationId,
+            'sender_type' => 'admin',
+            'sender_id' => Auth::id(),
+            'message' => $autoMsg,
+            'is_read' => false,
+        ]);
+
+        Conversation::where('id', $this->activeConversationId)->touch();
+        $this->loadMessages();
+
+        try {
+            broadcast(new \App\Events\MessageSent($message))->toOthers();
+        } catch (\Throwable $e) {
+            Log::error('LiveChat reset password broadcast error: ' . $e->getMessage());
+        }
+
+        \Filament\Notifications\Notification::make()
+            ->title("Password {$employee->name} Berhasil Direset ke: {$defaultPassword}")
+            ->success()
+            ->send();
+            
+        $this->dispatch('scroll-to-bottom');
+    }
+
     public function getConversations()
     {
         $query = Conversation::with([

@@ -745,6 +745,13 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Smart Redirect Admin & Super Admin**: Jika user yang masuk adalah internal Admin / HR / Super Admin, sistem secara otomatis mengarahkan ke *Admin Panel Filament* (`/admin`).
     - **Guard & Fallback Perlindungan**: Menambahkan custom `LoginResponse` dan dashboard interceptor di Filament sehingga user prinsiple tidak terdampar di halaman panel admin melainkan selalu dialihkan ke portal analitik mereka.
 
+35. **Live Chat Helpdesk Real-Time & Self-Service Login Assistance (SELESAI 1 September 2026, APK v1.0.113)**:
+    - **Input & Validasi NIK Terintegrasi**: Karyawan yang terkendala login dapat mengakses menu bantuan langsung dari bawah form login. Input NIK otomatis memunculkan kartu verifikasi data karyawan (Nama, Jabatan, Prinsiple/Cabang, dan status keterikatan perangkat HP).
+    - **Seleksi Kasus & Form Pembuka**: Karyawan memilih jenis kendala (*Unlock Device / Ganti HP* atau *Lupa Password / Reset PIN*) dan mengisi keterangan singkat sebelum memulai sesi obrolan.
+    - **Ruang Live Chat Real-Time**: Sesi chat helpdesk terbuka seketika dengan pesan tiket pembuka terstruktur. Dilengkapi auto-refresh dan event broadcast real-time.
+    - **Tombol Aksi Cepat 1-Klik Admin Panel**: Di Admin Live Chat (`/admin/live-chat`), Admin memiliki tombol aksi 1-klik `[Unlock Device]` (langsung membersihkan `device_id` & `fcm_token`) dan `[Reset Password]` (langsung mereset password dan mengirimkan pesan kredensial baru ke chat karyawan).
+    - **Rilis APK v1.0.113**: Versi mobile dinaikkan ke **`v1.0.113+113`**.
+
 ---
 
 

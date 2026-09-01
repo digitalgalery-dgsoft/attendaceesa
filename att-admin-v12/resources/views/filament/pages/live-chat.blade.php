@@ -622,7 +622,28 @@
                             </p>
                         </div>
                     </div>
-                    <div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                        {{-- Quick Helpdesk Actions --}}
+                        @if($activeConversation->employee)
+                            <button type="button"
+                                    wire:click="unlockDevice"
+                                    wire:confirm="Yakin ingin unlock perangkat HP untuk karyawan {{ $activeEmpName }}? Device ID akan dikosongkan dan pesan otomatis dikirim."
+                                    title="Kosongkan Device ID karyawan agar bisa login di HP baru"
+                                    style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.76rem; font-weight: 700; color: #0284c7; background: #e0f2fe; border: 1px solid #bae6fd; padding: 0.35rem 0.75rem; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;">
+                                <i class="fa-solid fa-mobile-screen"></i>
+                                <span>Unlock Device</span>
+                            </button>
+
+                            <button type="button"
+                                    wire:click="resetPassword"
+                                    wire:confirm="Yakin ingin reset password untuk karyawan {{ $activeEmpName }}? Password default akan digenerate dan dikirim ke chat."
+                                    title="Reset password karyawan ke password standar"
+                                    style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.76rem; font-weight: 700; color: #854d0e; background: #fef9c3; border: 1px solid #fef08a; padding: 0.35rem 0.75rem; border-radius: 8px; cursor: pointer; transition: all 0.15s ease;">
+                                <i class="fa-solid fa-key"></i>
+                                <span>Reset Password</span>
+                            </button>
+                        @endif
+
                         <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.75rem; font-weight: 700; color: #16a34a; background: #dcfce7; padding: 0.25rem 0.65rem; border-radius: 9999px;">
                             <span style="width: 6px; height: 6px; border-radius: 9999px; background: #16a34a;"></span> Terhubung
                         </span>

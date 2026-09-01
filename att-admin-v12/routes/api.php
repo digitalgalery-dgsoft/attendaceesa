@@ -26,6 +26,13 @@ Route::get('/settings', function () {
     ]);
 });
 
+// Helpdesk & Real-Time Login Assistance Routes (Public - NIK verified)
+Route::post('/helpdesk/check-nik', [\App\Http\Controllers\Api\HelpdeskApiController::class, 'checkNik']);
+Route::post('/helpdesk/initiate-chat', [\App\Http\Controllers\Api\HelpdeskApiController::class, 'initiateChat']);
+Route::get('/helpdesk/messages', [\App\Http\Controllers\Api\HelpdeskApiController::class, 'getMessages']);
+Route::post('/helpdesk/send-message', [\App\Http\Controllers\Api\HelpdeskApiController::class, 'sendMessage']);
+Route::post('/helpdesk/mark-read', [\App\Http\Controllers\Api\HelpdeskApiController::class, 'markAsRead']);
+
 Route::get('/permit/print/{id}', [PermitController::class, 'downloadPdf'])->name('api.permit.download')->middleware('signed');
 
 Route::middleware('auth:sanctum')->group(function () {

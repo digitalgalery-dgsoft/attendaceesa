@@ -40,6 +40,15 @@ class PrincipalPortalController extends Controller
         $tenantPrincipal = $request->attributes->get('tenant_principal')
                         ?? (app()->bound('current_tenant_principal') ? app('current_tenant_principal') : null);
 
+        $requestedId = $request->query('p') ?? $request->query('principal_id');
+
+        if ($requestedId) {
+            $found = Principal::where('id', (int) $requestedId)->where('is_active', true)->first();
+            if ($found) {
+                $tenantPrincipal = $found;
+            }
+        }
+
         if (!$tenantPrincipal && Auth::check()) {
             $user = Auth::user();
             if ($user->principals()->exists()) {
@@ -58,18 +67,31 @@ class PrincipalPortalController extends Controller
             $tenantPrincipal = Principal::where('is_active', true)->first();
         }
 
-        // Strictly scope data (Employees, Products, Submissions) to all division/branch codes of active entity
-        $tenantPrincipalIds = Principal::where('name', $tenantPrincipal->name)
-                                       ->where('is_active', true)
-                                       ->pluck('id')
-                                       ->toArray();
+        // Resolve all sibling / tenant principals
+        $tenantPrincipalsAll = $request->attributes->get('tenant_principals_all')
+                            ?? (app()->bound('current_tenant_principals_all') ? app('current_tenant_principals_all') : null);
 
-        if (empty($tenantPrincipalIds)) {
-            $tenantPrincipalIds = [$tenantPrincipal->id];
+        if (!$tenantPrincipalsAll || $tenantPrincipalsAll->isEmpty()) {
+            if ($tenantPrincipal && !empty($tenantPrincipal->subdomain)) {
+                $tenantPrincipalsAll = Principal::where('subdomain', $tenantPrincipal->subdomain)
+                                                ->where('is_active', true)
+                                                ->orderBy('id')
+                                                ->get();
+            } elseif (Auth::check() && Auth::user()->principals()->exists()) {
+                $tenantPrincipalsAll = Auth::user()->principals()->where('is_active', true)->orderBy('id')->get();
+            } else {
+                $tenantPrincipalsAll = collect($tenantPrincipal ? [$tenantPrincipal] : []);
+            }
         }
 
-        $tenantPrincipalsAll = $request->attributes->get('tenant_principals_all')
-                            ?? (app()->bound('current_tenant_principals_all') ? app('current_tenant_principals_all') : collect([$tenantPrincipal]));
+        // Strictly scope data (Employees, Products, Submissions) to active entity id
+        $tenantPrincipalIds = $tenantPrincipal
+            ? Principal::where('name', $tenantPrincipal->name)->where('is_active', true)->pluck('id')->toArray()
+            : [];
+
+        if (empty($tenantPrincipalIds) && $tenantPrincipal) {
+            $tenantPrincipalIds = [$tenantPrincipal->id];
+        }
 
         return [$tenantPrincipal, $tenantPrincipalIds, $tenantPrincipalsAll];
     }

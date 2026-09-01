@@ -374,7 +374,7 @@
 
             @if(isset($tenantPrincipalsAll) && $tenantPrincipalsAll->count() > 1)
             <div style="display: flex; justify-content: center; gap: 0.4rem; margin: 0.75rem 0 1.25rem; flex-wrap: wrap;">
-                @foreach($tenantPrincipalsAll->unique('name') as $ent)
+                @foreach($tenantPrincipalsAll->unique('id') as $ent)
                     @php
                         $entGradient = $ent->theme_gradient ?? 'linear-gradient(135deg, #0F52BA, #1E88E5)';
                     @endphp
