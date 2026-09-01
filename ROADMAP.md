@@ -713,9 +713,20 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - `POST /api/baps`: Validasi upload bukti dan input jam kerja.
       - `GET /api/baps/history`: Daftar riwayat pengajuan karyawan.
       - Route `/portal-assets/bap-evidence/{id}` untuk streaming preview file bukti yang aman.
-    - **Rilis APK v1.0.111**:
-      - Versi aplikasi dinaikkan ke **`v1.0.111+111`**.
-      - File APK rilis siap pasang berhasil dikompilasi: `app-release-1.0.111.apk` dan `app-release.apk` (106.2 MB).
+30. **Redesain Landing Page Utama (Clean Modern Enterprise) & Filter Karyawan Aktif (SELESAI 1 September 2026)**:
+    - **Filter Total Karyawan Aktif**: Menyesuaikan query statistik global di `routes/web.php` agar hanya menghitung karyawan aktif yang terlindungi (`where('is_active', true)->whereNull('deleted_at')`), serta prinsiple aktif dan lokasi kerja aktif.
+    - **Tampilan Clean & Modern SaaS**: Memperbarui antarmuka utama (`landing.blade.php`) dengan desain bernuansa bersih (light clean background, tipografi modern *Plus Jakarta Sans*, navbar responsif dengan logo fallback, dan CTA download APK langsung).
+    - **Katalog 10 Fitur Lengkap Sistem**: Menampilkan seluruh modul unggulan yang telah dibuat:
+      1. *Live Geofencing & GPS Tracking*
+      2. *AI Liveness Face Recognition*
+      3. *Dynamic Form Reporting Hub (10+ Templates)*
+      4. *Adaptive Roster & Multi-Shift Scheduling*
+      5. *Itinerary & Route Visit Management*
+      6. *BAP & Bukti Absensi Manual*
+      7. *Whitelabel Principal Portal*
+      8. *Request Lokasi Toko Baru*
+      9. *Extra Hours & Lembur Real-Time*
+      10. *Target Penjualan & Slip Gaji Digital*
 
 ---
 

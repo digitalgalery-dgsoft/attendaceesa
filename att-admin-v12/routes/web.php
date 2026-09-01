@@ -221,11 +221,12 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
         return view('landing_tenant', compact('setting', 'stats', 'tenantPrincipal', 'activeTemplates', 'tenantPrincipalsAll'));
     }
 
-    $stats = \Illuminate\Support\Facades\Cache::remember('global_landing_stats', 120, function () {
+    $stats = \Illuminate\Support\Facades\Cache::remember('global_landing_stats_active_v3', 60, function () {
         return [
-            'areas' => Area::count(),
-            'principals' => Principal::count(),
-            'employees' => Employee::count(),
+            'areas'      => Area::count(),
+            'principals' => Principal::where('is_active', true)->count(),
+            'employees'  => Employee::where('is_active', true)->whereNull('deleted_at')->count(),
+            'locations'  => \App\Models\WorkLocation::where('is_active', true)->count(),
         ];
     });
 
