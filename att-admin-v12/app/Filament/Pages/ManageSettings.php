@@ -13,6 +13,8 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Schemas\Components\Section;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Schema as DbSchema;
+use Illuminate\Database\Schema\Blueprint;
 
 class ManageSettings extends Page implements HasForms
 {
@@ -32,8 +34,25 @@ class ManageSettings extends Page implements HasForms
 
     public ?array $data = [];
 
+    public static function ensureColumnsExist(): void
+    {
+        if (DbSchema::hasTable('settings')) {
+            if (!DbSchema::hasColumn('settings', 'dark_mode_enabled')) {
+                DbSchema::table('settings', function (Blueprint $table) {
+                    $table->boolean('dark_mode_enabled')->default(true)->nullable();
+                });
+            }
+            if (!DbSchema::hasColumn('settings', 'dark_mode_theme')) {
+                DbSchema::table('settings', function (Blueprint $table) {
+                    $table->string('dark_mode_theme')->default('dark_navy')->nullable();
+                });
+            }
+        }
+    }
+
     public function mount(): void
     {
+        self::ensureColumnsExist();
         $setting = Setting::first();
         if ($setting) {
             $this->form->fill($setting->toArray());
@@ -197,6 +216,7 @@ class ManageSettings extends Page implements HasForms
 
     public function save(): void
     {
+        self::ensureColumnsExist();
         $data = $this->form->getState();
 
         $setting = Setting::first();
