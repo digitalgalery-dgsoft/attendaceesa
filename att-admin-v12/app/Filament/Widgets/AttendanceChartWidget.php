@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use Filament\Widgets\ChartWidget;
 use App\Models\Attendance;
 use App\Models\Principal;
+use App\Models\Branch;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -14,6 +15,70 @@ class AttendanceChartWidget extends ChartWidget
     protected static ?int $sort = 3;
     protected int | string | array $columnSpan = 'full';
     protected ?string $maxHeight = '360px';
+
+    protected string $view = 'filament.widgets.attendance-chart-widget';
+
+    public ?string $principal_id = '';
+    public ?string $branch_id = '';
+
+    public function updatedPrincipalId(): void
+    {
+        $this->cachedData = null;
+        $this->updateChartData();
+    }
+
+    public function updatedBranchId(): void
+    {
+        $this->cachedData = null;
+        $this->updateChartData();
+    }
+
+    public function getPrincipalOptions(): array
+    {
+        $query = Principal::where('is_active', true)
+            ->whereHas('activeEmployees')
+            ->orderBy('name');
+
+        if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+            $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
+        }
+
+        return ['' => 'Semua Prinsiple'] + $query->pluck('name', 'id')->toArray();
+    }
+
+    public function getBranchOptions(): array
+    {
+        $query = Branch::orderBy('name');
+
+        if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+            $query->whereIn('id', auth()->user()->getAccessibleBranchIds());
+        }
+
+        return ['' => 'Semua Area'] + $query->pluck('name', 'id')->toArray();
+    }
+
+    protected function getOptions(): array
+    {
+        return [
+            'plugins' => [
+                'legend' => [
+                    'display' => false,
+                ],
+                'tooltip' => [
+                    'mode' => 'index',
+                    'intersect' => false,
+                ],
+            ],
+            'scales' => [
+                'y' => [
+                    'beginAtZero' => true,
+                    'ticks' => [
+                        'precision' => 0,
+                    ],
+                ],
+            ],
+        ];
+    }
 
     protected function getData(): array
     {
@@ -32,14 +97,20 @@ class AttendanceChartWidget extends ChartWidget
             ->whereHas('activeEmployees')
             ->orderBy('name');
 
-        if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+        if (!empty($this->principal_id)) {
+            $principalsQuery->where('id', $this->principal_id);
+        } elseif (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
             $principalsQuery->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
         }
 
         $principals = $principalsQuery->get();
 
         if ($principals->isEmpty()) {
-            $principals = Principal::where('is_active', true)->limit(10)->get();
+            $fallbackQuery = Principal::where('is_active', true);
+            if (!empty($this->principal_id)) {
+                $fallbackQuery->where('id', $this->principal_id);
+            }
+            $principals = $fallbackQuery->limit(10)->get();
         }
 
         // Palette Warna Modern & Berbeda untuk Masing-Masing Prinsiple
@@ -59,7 +130,7 @@ class AttendanceChartWidget extends ChartWidget
         ];
 
         // Ambil Data Absensi per Principal dan Tanggal
-        $rawAttendances = DB::table('attendances')
+        $attQuery = DB::table('attendances')
             ->join('employees', 'attendances.employee_id', '=', 'employees.id')
             ->select(
                 'employees.principal_id',
@@ -68,9 +139,15 @@ class AttendanceChartWidget extends ChartWidget
             )
             ->whereBetween('attendances.attendance_date', [$dateStrings[0], end($dateStrings)])
             ->whereIn('employees.principal_id', $principals->pluck('id'))
-            ->whereNull('employees.deleted_at')
-            ->groupBy('employees.principal_id', 'attendances.attendance_date')
-            ->get();
+            ->whereNull('employees.deleted_at');
+
+        if (!empty($this->branch_id)) {
+            $attQuery->where('employees.branch_id', $this->branch_id);
+        } elseif (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+            $attQuery->whereIn('employees.branch_id', auth()->user()->getAccessibleBranchIds());
+        }
+
+        $rawAttendances = $attQuery->groupBy('employees.principal_id', 'attendances.attendance_date')->get();
 
         $attendanceMap = [];
         foreach ($rawAttendances as $row) {
@@ -101,8 +178,11 @@ class AttendanceChartWidget extends ChartWidget
 
         if (empty($datasets)) {
             $overallCounts = [];
-            $overallAtt = Attendance::whereBetween('attendance_date', [$dateStrings[0], end($dateStrings)])
-                ->groupBy('attendance_date')
+            $overallAttQuery = Attendance::whereBetween('attendance_date', [$dateStrings[0], end($dateStrings)]);
+            if (!empty($this->branch_id)) {
+                $overallAttQuery->whereHas('employee', fn($q) => $q->where('branch_id', $this->branch_id));
+            }
+            $overallAtt = $overallAttQuery->groupBy('attendance_date')
                 ->select('attendance_date', DB::raw('count(*) as total'))
                 ->pluck('total', 'attendance_date');
 
