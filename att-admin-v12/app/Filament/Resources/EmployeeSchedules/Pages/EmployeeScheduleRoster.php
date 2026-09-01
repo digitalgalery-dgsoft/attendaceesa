@@ -436,6 +436,121 @@ class EmployeeScheduleRoster extends Page implements HasForms
                     }
                     return Excel::download(new \App\Exports\EmployeeScheduleMatrixTemplateExport(), 'Template_Import_Jadwal_Per_Tanggal_Matrix.xlsx');
                 }),
+
+            Action::make('delete_schedules')
+                ->label('Hapus Jadwal Roster')
+                ->icon('heroicon-o-trash')
+                ->color('danger')
+                ->modalHeading('Hapus Jadwal Roster Karyawan')
+                ->modalDescription('Pilih kriteria jadwal roster yang ingin dihapus. Tindakan ini akan menghapus data jadwal kerja sesuai filter tanggal dan entitas yang dipilih.')
+                ->form([
+                    Select::make('principal_id')
+                        ->label('Prinsiple (Opsional)')
+                        ->options(function () {
+                            $query = Principal::where('is_active', true)->orderBy('name');
+                            if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+                                $query->whereIn('id', auth()->user()->getAccessiblePrincipalIds());
+                            }
+                            return $query->pluck('name', 'id');
+                        })
+                        ->searchable()
+                        ->placeholder('Semua Prinsiple / Pilih spesifik')
+                        ->live(),
+                    Select::make('branch_id')
+                        ->label('Area / Region (Opsional)')
+                        ->options(function () {
+                            $query = Branch::orderBy('name');
+                            if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasBranchRestriction()) {
+                                $query->whereIn('id', auth()->user()->getAccessibleBranchIds());
+                            }
+                            return $query->pluck('name', 'id');
+                        })
+                        ->searchable()
+                        ->placeholder('Semua Area / Pilih spesifik')
+                        ->live(),
+                    Select::make('employee_ids')
+                        ->label('Karyawan Spesifik (Opsional)')
+                        ->multiple()
+                        ->options(function ($get) {
+                            $query = Employee::where('is_active', 1);
+                            if (auth()->check()) {
+                                $query = \App\Traits\ScopesUserData::applyUserAccessScope($query);
+                            }
+                            if ($principalId = $get('principal_id')) {
+                                $query->where('principal_id', $principalId);
+                            }
+                            if ($branchId = $get('branch_id')) {
+                                $query->where('branch_id', $branchId);
+                            }
+                            return $query->orderBy('full_name')->pluck('full_name', 'id');
+                        })
+                        ->searchable()
+                        ->placeholder('Kosongkan untuk semua karyawan pada filter di atas'),
+                    DatePicker::make('start_date')
+                        ->label('Tanggal Mulai')
+                        ->default(fn () => $this->filterData['filter_start_date'] ?? Carbon::now()->startOfMonth()->toDateString())
+                        ->required(),
+                    DatePicker::make('end_date')
+                        ->label('Tanggal Akhir')
+                        ->default(fn () => $this->filterData['filter_end_date'] ?? Carbon::now()->endOfMonth()->toDateString())
+                        ->required()
+                        ->afterOrEqual('start_date'),
+                    Select::make('delete_scope')
+                        ->label('Tipe Jadwal yang Dihapus')
+                        ->options([
+                            'all' => 'Semua Jadwal (Hari Kerja & Libur)',
+                            'workday_only' => 'Hanya Hari Kerja (Workday / Remote / Field)',
+                            'dayoff_only' => 'Hanya Hari Libur (Dayoff)',
+                        ])
+                        ->default('all')
+                        ->required(),
+                ])
+                ->requiresConfirmation()
+                ->modalSubmitActionLabel('Ya, Hapus Jadwal Terpilih')
+                ->action(function (array $data): void {
+                    $startDate = Carbon::parse($data['start_date'])->toDateString();
+                    $endDate = Carbon::parse($data['end_date'])->toDateString();
+
+                    $query = EmployeeSchedule::whereBetween('schedule_date', [$startDate, $endDate]);
+
+                    if ($data['delete_scope'] === 'workday_only') {
+                        $query->whereIn('schedule_type', ['workday', 'remote', 'field']);
+                    } elseif ($data['delete_scope'] === 'dayoff_only') {
+                        $query->whereIn('schedule_type', ['dayoff', 'holiday']);
+                    }
+
+                    if (!empty($data['employee_ids'])) {
+                        $query->whereIn('employee_id', $data['employee_ids']);
+                    } else {
+                        $empQuery = Employee::query();
+                        if (auth()->check()) {
+                            $empQuery = \App\Traits\ScopesUserData::applyUserAccessScope($empQuery);
+                        }
+                        if (!empty($data['principal_id'])) {
+                            $empQuery->where('principal_id', $data['principal_id']);
+                        }
+                        if (!empty($data['branch_id'])) {
+                            $empQuery->where('branch_id', $data['branch_id']);
+                        }
+                        $empIds = $empQuery->pluck('id')->toArray();
+                        if (empty($empIds)) {
+                            Notification::make()
+                                ->title('Tidak ada data karyawan ditemukan.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+                        $query->whereIn('employee_id', $empIds);
+                    }
+
+                    $deletedCount = $query->delete();
+
+                    Notification::make()
+                        ->title('Jadwal Roster Berhasil Dihapus')
+                        ->body("Sebanyak {$deletedCount} data jadwal roster telah dihapus dari sistem.")
+                        ->success()
+                        ->send();
+                }),
         ];
     }
 
@@ -675,6 +790,7 @@ class EmployeeScheduleRoster extends Page implements HasForms
                         'dayoff' => 'Hari Libur (Dayoff)',
                         'remote' => 'Kerja Remote (WFH)',
                         'field' => 'Kerja Lapangan (Field)',
+                        'delete' => '🗑️ Hapus / Kosongkan Jadwal Tanggal Ini',
                     ])
                     ->required()
                     ->live(),
@@ -683,12 +799,14 @@ class EmployeeScheduleRoster extends Page implements HasForms
                     ->options(fn () => Shift::where('is_active', 1)->with('principal')->get()->mapWithKeys(fn ($s) => [$s->id => ($s->principal ? "[{$s->principal->name}] " : '') . $s->name]))
                     ->searchable()
                     ->preload()
-                    ->required(fn ($get) => in_array($get('schedule_type'), ['workday', 'remote', 'field'])),
+                    ->required(fn ($get) => in_array($get('schedule_type'), ['workday', 'remote', 'field']))
+                    ->visible(fn ($get) => in_array($get('schedule_type'), ['workday', 'remote', 'field'])),
                 Select::make('work_location_id')
                     ->label('Lokasi Kerja')
                     ->options(WorkLocation::pluck('name', 'id'))
                     ->searchable()
-                    ->required(fn ($get) => in_array($get('schedule_type'), ['workday', 'remote', 'field'])),
+                    ->required(fn ($get) => in_array($get('schedule_type'), ['workday', 'remote', 'field']))
+                    ->visible(fn ($get) => in_array($get('schedule_type'), ['workday', 'remote', 'field'])),
             ])
             ->fillForm(function (array $arguments): array {
                 $schedule = EmployeeSchedule::where('employee_id', $arguments['employee_id'])
@@ -703,6 +821,18 @@ class EmployeeScheduleRoster extends Page implements HasForms
                 ];
             })
             ->action(function (array $data): void {
+                if ($data['schedule_type'] === 'delete') {
+                    EmployeeSchedule::where('employee_id', $data['employee_id'])
+                        ->where('schedule_date', $data['schedule_date'])
+                        ->delete();
+
+                    Notification::make()
+                        ->title('Jadwal berhasil dihapus')
+                        ->success()
+                        ->send();
+                    return;
+                }
+
                 $schedule = EmployeeSchedule::firstOrNew([
                     'employee_id' => $data['employee_id'],
                     'schedule_date' => $data['schedule_date'],
@@ -737,6 +867,35 @@ class EmployeeScheduleRoster extends Page implements HasForms
 
                 Notification::make()
                     ->title('Jadwal berhasil diperbarui')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    public function deleteEmployeeSchedulesAction(): Action
+    {
+        return Action::make('deleteEmployeeSchedules')
+            ->hiddenLabel()
+            ->modalHeading(fn (array $arguments) => 'Hapus Seluruh Jadwal: ' . ($arguments['employee_name'] ?? 'Karyawan'))
+            ->modalDescription(function (array $arguments) {
+                $start = Carbon::parse($this->filterData['filter_start_date'] ?? Carbon::now()->startOfMonth())->format('d M Y');
+                $end = Carbon::parse($this->filterData['filter_end_date'] ?? Carbon::now()->endOfMonth())->format('d M Y');
+                return "Apakah Anda yakin ingin menghapus seluruh jadwal kerja karyawan ini untuk periode {$start} s/d {$end}?";
+            })
+            ->requiresConfirmation()
+            ->modalSubmitActionLabel('Ya, Hapus Semua Jadwal Periode Ini')
+            ->color('danger')
+            ->action(function (array $arguments): void {
+                $startDate = Carbon::parse($this->filterData['filter_start_date'] ?? Carbon::now()->startOfMonth())->toDateString();
+                $endDate = Carbon::parse($this->filterData['filter_end_date'] ?? Carbon::now()->endOfMonth())->toDateString();
+
+                $deleted = EmployeeSchedule::where('employee_id', $arguments['employee_id'])
+                    ->whereBetween('schedule_date', [$startDate, $endDate])
+                    ->delete();
+
+                Notification::make()
+                    ->title('Jadwal Karyawan Berhasil Dihapus')
+                    ->body("Sebanyak {$deleted} entri jadwal telah dihapus untuk karyawan terpilih.")
                     ->success()
                     ->send();
             });

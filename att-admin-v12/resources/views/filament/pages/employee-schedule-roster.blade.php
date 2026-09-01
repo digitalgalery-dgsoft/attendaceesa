@@ -375,6 +375,19 @@
                                                 <span style="font-weight: 600; color: #059669;">{{ $employee->position_name ?? 'N/A' }}</span> &bull; 
                                                 <span>{{ $employee->branch_name ?? ($employee->principal_name ?? '-') }}</span>
                                             </div>
+                                            <div style="margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                                                <button
+                                                    type="button"
+                                                    wire:click="mountAction('deleteEmployeeSchedules', { employee_id: {{ $employee->id }}, employee_name: '{{ addslashes($employee->full_name) }}' })"
+                                                    style="background: transparent; border: 1px solid #fecaca; cursor: pointer; padding: 2px 6px; border-radius: 4px; color: #dc2626; display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600; transition: all 0.2s;"
+                                                    onmouseover="this.style.background='#fee2e2'"
+                                                    onmouseout="this.style.background='transparent'"
+                                                    title="Hapus seluruh jadwal {{ $employee->full_name }} pada periode aktif"
+                                                >
+                                                    <x-filament::icon icon="heroicon-m-trash" style="width: 12px; height: 12px;" />
+                                                    <span>Hapus Jadwal</span>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </td>

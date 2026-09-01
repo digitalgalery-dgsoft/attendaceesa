@@ -25,6 +25,21 @@ class Employee extends Authenticatable
 
     protected static function booted(): void
     {
+        static::saving(function ($employee) {
+            // Pastikan hanya ada 1 record NIK yang berstatus aktif di sistem
+            if ($employee->is_active && !empty($employee->nik)) {
+                static::withoutEvents(function () use ($employee) {
+                    static::where('nik', $employee->nik)
+                        ->where('id', '!=', $employee->id ?? 0)
+                        ->where('is_active', true)
+                        ->update([
+                            'is_active' => false,
+                            'employment_status' => 'resigned',
+                        ]);
+                });
+            }
+        });
+
         static::saved(function ($employee) {
             if ($employee->principal_id) {
                 $employee->principal?->syncActiveStatus();
