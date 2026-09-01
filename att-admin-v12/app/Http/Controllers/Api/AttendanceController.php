@@ -230,7 +230,7 @@ class AttendanceController extends Controller
 
             // ─── UPLOAD FOTO ─────────────────────────────────────────────────
             $path = null;
-            $isFaceRequired = true;
+            $isFaceRequired = false;
             if ($employee) {
                 $employee->loadMissing('position');
                 if ($employee->position && isset($employee->position->require_face_recognition)) {

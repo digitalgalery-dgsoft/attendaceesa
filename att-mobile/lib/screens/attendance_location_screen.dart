@@ -254,7 +254,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   Future<void> _takeSelfie() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final posData = authProvider.employeeData?['position'];
-    final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? true) : true;
+    final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? false) : false;
 
     final String? photoPath = await Navigator.push(
       context,
@@ -1298,7 +1298,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                           builder: (context) {
                             final authProvider = Provider.of<AuthProvider>(context, listen: false);
                             final posData = authProvider.employeeData?['position'];
-                            final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? true) : true;
+                            final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? false) : false;
                             final posName = (posData is Map) ? (posData['name'] ?? 'Jabatan') : 'Jabatan';
 
                             return Container(
@@ -1375,7 +1375,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                                 builder: (context) {
                                   final authProvider = Provider.of<AuthProvider>(context, listen: false);
                                   final posData = authProvider.employeeData?['position'];
-                                  final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? true) : true;
+                                  final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? false) : false;
                                   final bool isPhotoMissing = isFaceRequired && _selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in');
 
                                   return Container(

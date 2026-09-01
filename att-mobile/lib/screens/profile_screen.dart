@@ -644,7 +644,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Builder(builder: (context) {
               final auth = Provider.of<AuthProvider>(context);
               final position = auth.employeeData?['position'];
-              final bool isFaceRequired = (position is Map) ? (position['require_face_recognition'] ?? true) : true;
+              final bool isFaceRequired = (position is Map) ? (position['require_face_recognition'] ?? false) : false;
               final String? masterPhoto = auth.employeeData?['photo'];
               final bool hasMasterPhoto = masterPhoto != null && masterPhoto.isNotEmpty && !masterPhoto.contains('default.png');
 

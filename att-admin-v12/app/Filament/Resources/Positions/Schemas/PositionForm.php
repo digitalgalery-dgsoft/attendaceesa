@@ -35,8 +35,8 @@ class PositionForm
                     ->helperText('Batas toleransi radius presensi/laporan untuk jabatan ini. Kosongkan jika ingin mengikuti pengaturan radius dari masing-masing Work Location.'),
                 Toggle::make('require_face_recognition')
                     ->label('Wajib Face Recognition (Liveness AI)')
-                    ->default(true)
-                    ->helperText('Jika aktif, karyawan dengan jabatan ini wajib verifikasi deteksi wajah & liveness AI saat presensi. Jika dinonaktifkan, deteksi wajah bersifat opsional/dapat langsung foto.'),
+                    ->default(false)
+                    ->helperText('Jika aktif, karyawan dengan jabatan ini wajib verifikasi deteksi wajah & liveness AI saat presensi. Secara default dinonaktifkan (opsional/dapat langsung foto presensi).'),
                 Toggle::make('allow_offline_mode')
                     ->label('Allow Offline Mode'),
                 Toggle::make('is_active')

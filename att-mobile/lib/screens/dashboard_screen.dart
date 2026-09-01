@@ -78,7 +78,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
       // Cek apakah jabatan wajib Face Recognition tapi foto master belum ada
       final pos = authProvider.employeeData?['position'];
-      final bool isFaceReq = (pos is Map) ? (pos['require_face_recognition'] ?? true) : true;
+      final bool isFaceReq = (pos is Map) ? (pos['require_face_recognition'] ?? false) : false;
       final String? mPhoto = authProvider.employeeData?['photo'];
       final bool hasPhoto = mPhoto != null && mPhoto.isNotEmpty && !mPhoto.contains('default.png');
       if (isFaceReq && !hasPhoto && mounted) {
@@ -513,7 +513,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 // ─── BANNER REGISTRASI WAJAH MASTER ───────────────────────
                 Builder(builder: (context) {
                   final position = authProvider.employeeData?['position'];
-                  final bool isFaceRequired = (position is Map) ? (position['require_face_recognition'] ?? true) : true;
+                  final bool isFaceRequired = (position is Map) ? (position['require_face_recognition'] ?? false) : false;
                   final String? masterPhoto = authProvider.employeeData?['photo'];
                   final bool hasMasterPhoto = masterPhoto != null && masterPhoto.isNotEmpty && !masterPhoto.contains('default.png');
 
