@@ -16,10 +16,15 @@ class DashboardStatsWidget extends BaseWidget
 
     protected function getStats(): array
     {
+        try {
+            \App\Models\Principal::syncAllActiveStatuses();
+        } catch (\Throwable $e) {}
+
         $employeeQuery = Employee::query()->where('is_active', true);
         $inactiveQuery = Employee::query()->where('is_active', false);
         $attendanceTodayQuery = Attendance::where('attendance_date', Carbon::today()->toDateString());
-        $principalQuery = \App\Models\Principal::query();
+        $activePrincipalQuery = \App\Models\Principal::query()->where('is_active', true);
+        $inactivePrincipalQuery = \App\Models\Principal::query()->where('is_active', false);
         $branchQuery = \App\Models\Branch::query();
 
         if (auth()->check() && !auth()->user()->isSuperAdmin()) {
@@ -35,14 +40,16 @@ class DashboardStatsWidget extends BaseWidget
                 $employeeQuery->whereIn('principal_id', $accessiblePrincipals);
                 $inactiveQuery->whereIn('principal_id', $accessiblePrincipals);
                 $attendanceTodayQuery->whereHas('employee', fn($q) => $q->whereIn('principal_id', $accessiblePrincipals));
-                $principalQuery->whereIn('id', $accessiblePrincipals);
+                $activePrincipalQuery->whereIn('id', $accessiblePrincipals);
+                $inactivePrincipalQuery->whereIn('id', $accessiblePrincipals);
             }
         }
 
         $activeEmployees = $employeeQuery->count();
         $inactiveEmployees = $inactiveQuery->count();
         $presentToday = $attendanceTodayQuery->count();
-        $totalPrincipals = $principalQuery->count();
+        $activePrincipals = $activePrincipalQuery->count();
+        $inactivePrincipals = $inactivePrincipalQuery->count();
         $totalAreas = $branchQuery->count();
 
         return [
@@ -54,8 +61,8 @@ class DashboardStatsWidget extends BaseWidget
                 ->description('Total check-in hari ini')
                 ->descriptionIcon('heroicon-m-check-badge')
                 ->color('primary'),
-            Stat::make('Total Principals', number_format($totalPrincipals))
-                ->description('Jumlah principal/klien')
+            Stat::make('Active Principals', number_format($activePrincipals))
+                ->description(number_format($inactivePrincipals) . ' Principal Non-Aktif')
                 ->descriptionIcon('heroicon-m-building-office-2')
                 ->color('info'),
             Stat::make('Total Areas', number_format($totalAreas))
