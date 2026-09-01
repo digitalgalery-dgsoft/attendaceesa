@@ -744,7 +744,7 @@
             <a href="{{ $apkDownloadUrl }}" class="btn-primary-cta" target="_blank" rel="noopener noreferrer">
                 <i class="fa-solid fa-download"></i>
                 <span>Download APK Mobile</span>
-                <span style="font-size: 0.75rem; background: rgba(255,255,255,0.22); padding: 0.2rem 0.5rem; border-radius: 6px;">v1.0.113</span>
+                <span style="font-size: 0.75rem; background: rgba(255,255,255,0.22); padding: 0.2rem 0.5rem; border-radius: 6px;">v1.0.114</span>
             </a>
 
             <a href="/admin" class="btn-secondary-cta">
@@ -1001,7 +1001,7 @@
         <div class="app-download-box">
             <div class="app-download-content">
                 <span class="app-badge-version">
-                    <i class="fa-brands fa-android"></i> Versi Rilis Terbaru v1.0.113
+                    <i class="fa-brands fa-android"></i> Versi Rilis Terbaru v1.0.114
                 </span>
                 <h2 class="app-download-title">Unduh Aplikasi Mobile ESA Groups Sekarang</h2>
                 <p class="app-download-desc">

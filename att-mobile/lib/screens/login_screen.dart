@@ -337,29 +337,52 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       );
                     },
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
                       decoration: BoxDecoration(
-                        color: primaryColor.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(12),
+                        color: primaryColor.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: primaryColor.withValues(alpha: 0.25),
+                          color: primaryColor.withValues(alpha: 0.2),
                         ),
                       ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.support_agent_rounded, color: primaryColor, size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Kendala Login? Bantuan Lupa Password / Unlock HP',
-                            style: TextStyle(
-                              color: primaryColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(Icons.support_agent_rounded, color: primaryColor, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Kendala Login?',
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  'Bantuan Lupa Password / Unlock HP',
+                                  style: TextStyle(
+                                    color: primaryColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          Icon(Icons.arrow_forward_ios_rounded, color: primaryColor.withValues(alpha: 0.5), size: 13),
                         ],
                       ),
                     ),
