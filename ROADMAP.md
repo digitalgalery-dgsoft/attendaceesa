@@ -691,6 +691,15 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Versi aplikasi dinaikkan ke **`v1.0.110+110`**.
       - File APK rilis siap pasang berhasil dikompilasi: `app-release-1.0.110.apk` dan `app-release.apk` (106.0 MB).
 
+27. **Perbaikan Syntax Token "catch" pada Endpoint Absensi Mobile (SELESAI 1 September 2026)**:
+    - Menutup bracket kurung kurawal `}` yang belum tertutup pada blok validasi `if ($request->type === 'checkin')` di `AttendanceController.php`.
+    - Mengeliminasi error `syntax error, unexpected token "catch"` saat karyawan melakukan Check-Out di aplikasi mobile.
+
+28. **Resolusi Tampilan Logo Prinsiple di Master Data Admin & Pewarisan Logo Subdomain (SELESAI 1 September 2026)**:
+    - **Penyelarasan Kolom Logo di Admin Panel**: Mengubah pemanggilan `ImageColumn` pada `PrincipalsTable.php` agar menggunakan accessor `logo_url` (`route('portal.logo')`) dengan fallback UI Avatar dinamis sesuai warna tema prinsiple.
+    - **Pewarisan Logo Lintas Entitas (Subdomain Sibling Inheritance)**: Jika sebuah entitas prinsiple belum mengupload logo langsung (misal: PT ICI PAINT ALVA / TSM), sistem secara otomatis mewarisi (*inherit*) logo dari entitas saudara yang berada di bawah subdomain yang sama (`dulux.appsend.my.id`).
+    - **Multi-Path Candidate Resolver**: Menyempurnakan resolver file aset di backend agar mendukung berbagai jalur penyimpanan fisik di server (public, private, storage symlink).
+
 ---
 
 
