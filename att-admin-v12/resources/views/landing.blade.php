@@ -699,7 +699,7 @@
     <nav>
         <a href="/" class="brand-link">
             @if(isset($setting) && $setting->logo_path)
-                <img src="{{ Storage::url($setting->logo_path) }}" alt="Logo" class="brand-logo-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <img src="/app-logo" alt="Logo" class="brand-logo-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                 <div class="brand-badge" style="display: none;">ESA</div>
             @else
                 <div class="brand-badge">ESA</div>

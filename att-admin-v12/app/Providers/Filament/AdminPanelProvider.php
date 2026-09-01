@@ -45,20 +45,49 @@ class AdminPanelProvider extends PanelProvider
             ->darkMode($darkModeEnabled)
             ->maxContentWidth(Width::Full)
             ->sidebarCollapsibleOnDesktop()
-            ->brandName($appName)
-            ->brandLogo(function () use ($logoPath): ?string {
-                if (!$logoPath) return null;
+            ->brandName(fn (): string => \App\Models\Setting::first()?->app_name ?? 'ESA Groups')
+            ->brandLogo(function (): ?string {
                 try {
-                    $disk = \Illuminate\Support\Facades\Storage::disk('public');
-                    if ($disk->exists($logoPath)) {
-                        $content = $disk->get($logoPath);
-                        $mime    = $disk->mimeType($logoPath) ?: 'image/png';
-                        return 'data:' . $mime . ';base64,' . base64_encode($content);
+                    $setting = \Illuminate\Support\Facades\Schema::hasTable('settings') ? \App\Models\Setting::first() : null;
+                    $path = $setting?->logo_path;
+                    if (!$path) return null;
+
+                    $cleanPath = ltrim(str_replace(['public/', 'storage/'], '', $path), '/');
+                    $candidates = [
+                        storage_path('app/public/' . $cleanPath),
+                        storage_path('app/public/' . $path),
+                        storage_path('app/public/logos/' . basename($path)),
+                        storage_path('app/' . $cleanPath),
+                        storage_path('app/' . $path),
+                        storage_path('app/logos/' . basename($path)),
+                        storage_path('app/private/' . $cleanPath),
+                        storage_path('app/private/' . $path),
+                        storage_path('app/private/logos/' . basename($path)),
+                        public_path('storage/' . $cleanPath),
+                        public_path('storage/' . $path),
+                        public_path('storage/logos/' . basename($path)),
+                        public_path($path),
+                        public_path($cleanPath),
+                        base_path('storage/app/public/' . $cleanPath),
+                        base_path('storage/app/public/' . $path),
+                        base_path('storage/app/' . $cleanPath),
+                        base_path('storage/app/' . $path),
+                    ];
+
+                    foreach ($candidates as $filePath) {
+                        if (file_exists($filePath) && !is_dir($filePath)) {
+                            $content = file_get_contents($filePath);
+                            $mime = @mime_content_type($filePath) ?: 'image/png';
+                            return 'data:' . $mime . ';base64,' . base64_encode($content);
+                        }
                     }
-                } catch (\Exception $e) {}
-                return null;
+
+                    return '/app-logo';
+                } catch (\Exception $e) {
+                    return null;
+                }
             })
-            ->brandLogoHeight($logoPath ? '2.5rem' : null)
+            ->brandLogoHeight('2.75rem')
             ->font('Outfit')
             ->colors([
                 'primary' => [

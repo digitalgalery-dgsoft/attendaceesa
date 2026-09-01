@@ -122,7 +122,9 @@ class ManageSettings extends Page implements HasForms
                         FileUpload::make('logo_path')
                             ->label('Application Logo')
                             ->image()
-                            ->directory('logos'),
+                            ->disk('public')
+                            ->directory('logos')
+                            ->visibility('public'),
                         TextInput::make('tracking_distance_meters')
                             ->label('Tracking Distance Filter (Meter)')
                             ->numeric()

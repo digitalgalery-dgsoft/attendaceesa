@@ -27,6 +27,47 @@ Route::get('/.well-known/acme-challenge/{token}', function ($token) {
     return response('acme challenge handler active', 404);
 });
 
+Route::get('/app-logo', function () {
+    $setting = \Illuminate\Support\Facades\Schema::hasTable('settings') ? \App\Models\Setting::first() : null;
+    $path = $setting?->logo_path;
+    if (!$path) abort(404);
+
+    $cleanPath = ltrim(str_replace(['public/', 'storage/'], '', $path), '/');
+
+    $candidates = [
+        storage_path('app/public/' . $cleanPath),
+        storage_path('app/public/' . $path),
+        storage_path('app/public/logos/' . basename($path)),
+        storage_path('app/' . $cleanPath),
+        storage_path('app/' . $path),
+        storage_path('app/logos/' . basename($path)),
+        storage_path('app/private/' . $cleanPath),
+        storage_path('app/private/' . $path),
+        storage_path('app/private/logos/' . basename($path)),
+        public_path('storage/' . $cleanPath),
+        public_path('storage/' . $path),
+        public_path('storage/logos/' . basename($path)),
+        public_path($path),
+        public_path($cleanPath),
+        base_path('storage/app/public/' . $cleanPath),
+        base_path('storage/app/public/' . $path),
+        base_path('storage/app/' . $cleanPath),
+        base_path('storage/app/' . $path),
+    ];
+
+    foreach ($candidates as $filePath) {
+        if (file_exists($filePath) && !is_dir($filePath)) {
+            $mime = @mime_content_type($filePath) ?: 'image/png';
+            return response()->file($filePath, [
+                'Content-Type' => $mime,
+                'Cache-Control' => 'public, max-age=86400',
+            ]);
+        }
+    }
+
+    abort(404);
+})->name('app.logo');
+
 Route::get('/portal-assets/logo/{id}', function ($id) {
     $principal = \App\Models\Principal::find($id);
     if (!$principal) abort(404);
