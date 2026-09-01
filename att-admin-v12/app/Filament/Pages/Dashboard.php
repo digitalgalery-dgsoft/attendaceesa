@@ -11,7 +11,7 @@ class Dashboard extends BaseDashboard
     {
         $user = Auth::user();
         if ($user && method_exists($user, 'isPrincipalUser') && $user->isPrincipalUser()) {
-            redirect($user->getRedirectUrlAfterLogin())->send();
+            $this->redirect($user->getRedirectUrlAfterLogin(), navigate: false);
             return;
         }
 
