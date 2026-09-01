@@ -99,6 +99,47 @@ class User extends Authenticatable implements FilamentUser
         return $this->principals()->pluck('principals.id')->toArray();
     }
 
+    public function isPrincipalUser(): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return false;
+        }
+
+        if ($this->hasRole('Principal PIC') || $this->hasRole('principal_pic') || $this->hasRole('Principal') || $this->hasRole('Client')) {
+            return true;
+        }
+
+        if ($this->principals()->exists() && !$this->hasRole('Admin') && !$this->hasRole('HR') && !$this->hasRole('Manager')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function getRedirectUrlAfterLogin(?string $preferredPrincipalId = null): string
+    {
+        if ($this->isPrincipalUser()) {
+            $principal = null;
+            if ($preferredPrincipalId) {
+                $principal = $this->principals()->where('principals.id', $preferredPrincipalId)->first();
+            }
+            if (!$principal) {
+                $principal = $this->principals()->first();
+            }
+            if (!$principal) {
+                $principal = Principal::where('is_active', true)->first();
+            }
+
+            if ($principal) {
+                return route('portal.dashboard', ['p' => $principal->id]);
+            }
+
+            return route('portal.dashboard');
+        }
+
+        return '/admin';
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
         return true;

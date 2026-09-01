@@ -739,6 +739,12 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Bypass Landing Page Subdomain**: Ketika prinsiple/klien mengakses URL subdomain khusus (misal: `https://dulux.appsend.my.id/`), sistem langsung mengarahkan pengguna ke formulir login portal whitelabel (`TenantAuthController@showLoginForm`) tanpa perlu melalui landing page.
     - **Auto-Redirect Dashboard**: Jika sesi pengguna sudah terotentikasi, sistem langsung mengarahkan ke dashboard portal (`/portal`).
 
+34. **Smart Single-Door Login System (Sistem Login Satu Pintu Cerdas) (SELESAI 1 September 2026)**:
+    - **Deteksi Role & Entitas Otomatis**: Pengguna dapat masuk melalui pintu login manapun (`/login` maupun `/admin/login`). Sistem secara cerdas mendeteksi tipe akun yang sedang melakukan autentikasi.
+    - **Smart Redirect User Prinsiple**: Jika user yang masuk adalah akun *Principal PIC / Client User*, sistem otomatis mengarahkan ke *Executive Dashboard Portal Prinsiple* (`/portal` dengan parameter entitas atau subdomain yang sesuai).
+    - **Smart Redirect Admin & Super Admin**: Jika user yang masuk adalah internal Admin / HR / Super Admin, sistem secara otomatis mengarahkan ke *Admin Panel Filament* (`/admin`).
+    - **Guard & Fallback Perlindungan**: Menambahkan custom `LoginResponse` dan dashboard interceptor di Filament sehingga user prinsiple tidak terdampar di halaman panel admin melainkan selalu dialihkan ke portal analitik mereka.
+
 ---
 
 

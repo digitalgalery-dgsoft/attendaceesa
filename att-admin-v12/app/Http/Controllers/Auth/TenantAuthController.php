@@ -12,6 +12,15 @@ class TenantAuthController extends Controller
 {
     public function showLoginForm(Request $request)
     {
+        if (Auth::check()) {
+            $user = Auth::user();
+            if ($user && method_exists($user, 'isPrincipalUser') && $user->isPrincipalUser()) {
+                $p = $request->query('p');
+                return redirect()->to($user->getRedirectUrlAfterLogin($p));
+            }
+            return redirect()->intended('/admin');
+        }
+
         $tenantPrincipal = $request->attributes->get('tenant_principal')
                         ?? (app()->bound('current_tenant_principal') ? app('current_tenant_principal') : null);
 
@@ -24,10 +33,6 @@ class TenantAuthController extends Controller
 
         if (!$tenantPrincipal) {
             $tenantPrincipal = Principal::where('is_active', true)->first();
-        }
-
-        if (Auth::check()) {
-            return redirect()->route('portal.dashboard', $request->query('p') ? ['p' => $request->query('p')] : []);
         }
 
         $tenantPrincipalsAll = $request->attributes->get('tenant_principals_all')
@@ -48,15 +53,21 @@ class TenantAuthController extends Controller
         $remember = $request->boolean('remember');
 
         if (Auth::attempt($credentials, $remember)) {
-            $p = $request->input('p') ?? $request->query('p');
             $request->session()->regenerate();
+            $user = Auth::user();
+            $p = $request->input('p') ?? $request->query('p');
+
             if ($p) {
                 $parts = explode('.', $request->getHost());
                 $subdomain = count($parts) >= 3 ? $parts[0] : 'wings';
                 $request->session()->put('tenant_principal_id_' . $subdomain, (int) $p);
             }
 
-            return redirect()->intended(route('portal.dashboard', $p ? ['p' => $p] : []));
+            if ($user && method_exists($user, 'isPrincipalUser') && $user->isPrincipalUser()) {
+                return redirect()->intended($user->getRedirectUrlAfterLogin($p));
+            }
+
+            return redirect()->intended('/admin');
         }
 
         return back()->withErrors([

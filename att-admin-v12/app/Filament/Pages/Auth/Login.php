@@ -9,11 +9,11 @@ class Login extends BaseLogin
 {
     public function getHeading(): string|Htmlable
     {
-        return 'Masuk ke Admin Panel';
+        return 'Masuk ke Sistem';
     }
 
     public function getSubheading(): string|Htmlable|null
     {
-        return 'Sistem Presensi & Manajemen Kinerja Terintegrasi';
+        return 'Portal Terintegrasi Admin & Reporting Prinsiple';
     }
 }
