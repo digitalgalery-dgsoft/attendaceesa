@@ -104,18 +104,16 @@ class Principal extends Model
 
     public function getLogoUrlAttribute(): ?string
     {
-        $path = $this->logo_path ?: ($this->logo ?? null);
+        $path = $this->logo_path;
 
         // Inherit from sibling under the same subdomain if not directly set
         if (!$path && !empty($this->subdomain)) {
             $sibling = static::where('subdomain', $this->subdomain)
-                ->where(function($q) {
-                    $q->whereNotNull('logo_path')->where('logo_path', '!=', '')
-                      ->orWhereNotNull('logo')->where('logo', '!=', '');
-                })
+                ->whereNotNull('logo_path')
+                ->where('logo_path', '!=', '')
                 ->first();
             if ($sibling) {
-                $path = $sibling->logo_path ?: $sibling->logo;
+                $path = $sibling->logo_path;
             }
         }
 
@@ -133,18 +131,16 @@ class Principal extends Model
 
     public function getBannerUrlAttribute(): ?string
     {
-        $path = $this->banner_path ?: ($this->banner ?? null);
+        $path = $this->banner_path;
 
         // Inherit from sibling under the same subdomain if not directly set
         if (!$path && !empty($this->subdomain)) {
             $sibling = static::where('subdomain', $this->subdomain)
-                ->where(function($q) {
-                    $q->whereNotNull('banner_path')->where('banner_path', '!=', '')
-                      ->orWhereNotNull('banner')->where('banner', '!=', '');
-                })
+                ->whereNotNull('banner_path')
+                ->where('banner_path', '!=', '')
                 ->first();
             if ($sibling) {
-                $path = $sibling->banner_path ?: $sibling->banner;
+                $path = $sibling->banner_path;
             }
         }
 
