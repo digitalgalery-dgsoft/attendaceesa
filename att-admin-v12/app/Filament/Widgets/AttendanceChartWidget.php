@@ -13,7 +13,7 @@ class AttendanceChartWidget extends ChartWidget
     protected ?string $heading = 'Attendance Overview per Prinsiple';
     protected static ?int $sort = 3;
     protected int | string | array $columnSpan = 'full';
-    protected static ?string $maxHeight = '360px';
+    protected ?string $maxHeight = '360px';
 
     protected function getData(): array
     {
