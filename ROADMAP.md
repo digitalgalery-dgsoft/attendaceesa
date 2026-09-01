@@ -750,7 +750,32 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Seleksi Kasus & Form Pembuka**: Karyawan memilih jenis kendala (*Unlock Device / Ganti HP* atau *Lupa Password / Reset PIN*) dan mengisi keterangan singkat sebelum memulai sesi obrolan.
     - **Ruang Live Chat Real-Time**: Sesi chat helpdesk terbuka seketika dengan pesan tiket pembuka terstruktur. Dilengkapi auto-refresh dan event broadcast real-time.
     - **Tombol Aksi Cepat 1-Klik Admin Panel**: Di Admin Live Chat (`/admin/live-chat`), Admin memiliki tombol aksi 1-klik `[Unlock Device]` (langsung membersihkan `device_id` & `fcm_token`) dan `[Reset Password]` (langsung mereset password dan mengirimkan pesan kredensial baru ke chat karyawan).
-    - **Rilis APK v1.0.113**: Versi mobile dinaikkan ke **`v1.0.113+113`**.
+36. **Penggabungan Form Reporting Dulux & Kategori Tinter (SELESAI 1 September 2026)**:
+    - **Penyatuan Form Stock End**: Menggabungkan form *Laporan Tinter & Pasta Warna LSO Dulux* ke dalam *Laporan Stock End Dulux*.
+    - **Kategori Dramatone & Acotone**: Menambahkan input pilihan kategori (*Dramatone* dan *Acotone*) dengan daftar varian tinter/pasta warna yang muncul secara dinamis sesuai kategori yang dipilih.
+    - **Pembersihan Template Lama**: Menghapus template terpisah `RPT-DULUX-TINTER-LSO` dan merekonstruksi 12 field inputan terintegrasi pada template `RPT-DULUX-STOCK-END`.
+    - **Fix PostgreSQL Column Issue**: Memperbaiki migrasi dan seeder agar kompatibel penuh dengan skema database PostgreSQL tanpa referensi kolom `default_value`.
+
+37. **Deduplikasi & Proteksi Integritas Data Karyawan (Single Active NIK) (SELESAI 1 September 2026)**:
+    - **Single Active NIK Rule**: Menambahkan hook otomatis pada model `Employee` (`saving` event) yang memastikan bahwa hanya ada 1 NIK aktif di seluruh sistem. Jika ada data baru atau pembaruan NIK, data ganda lama otomatis di-set non-aktif (`employment_status = resigned`).
+    - **Fitur Hapus Roster Karyawan**: Menambahkan aksi hapus (*Delete Action & Bulk Delete*) pada halaman *Employee Schedule Roster* di Admin Panel untuk membersihkan jadwal yang tidak lagi valid.
+
+38. **Pengaturan Face Recognition Default OFF & Wajib Master Wajah (SELESAI 1 September 2026, APK v1.0.114)**:
+    - **Default Face Recognition OFF**: Mengubah seluruh default pengaturan *Face Recognition* pada level jabatan/posisi (`Position`) menjadi `false` (Non-Aktif).
+    - **Aksi Massal Admin**: Menyediakan tombol aksi massal *"Set Semua Face Recognition OFF"* di Admin Panel untuk mereset seluruh posisi secara instan.
+    - **Validasi Wajib Master Wajah**: Jika fitur *Face Recognition* diaktifkan (ON) pada suatu jabatan, sistem di backend dan mobile app mewajibkan karyawan mendaftarkan foto master wajah terlebih dahulu. Karyawan diblokir dari Check-In / Visit-In / Meet-In dengan dialog panduan langsung ke menu pendaftaran foto profil master wajah.
+
+39. **Penyempurnaan Lampiran Bukti Permit/Cuti & Tampilan Cuti Peraturan (SELESAI 1 September 2026)**:
+    - **Resolusi Foto Lampiran Permit**: Memperbaiki masalah gambar bukti permit yang rusak (*broken icon*) pada halaman *View Leave Request* dengan membuat komponen `permit-attachment.blade.php` yang mendukung rendering foto (.jpg, .png) maupun dokumen PDF (.pdf).
+    - **Dedicated Streamer Route**: Menambahkan rute streaming langsung `/attachment-stream/{id}` dan fallback route `/storage/{path}` di `routes/web.php` untuk memastikan file lampiran selalu dapat diakses dan diunduh.
+    - **Tampilan Jenis Cuti Peraturan**: Menampilkan badge detail *Jenis Cuti Peraturan* (misal: *Cuti Menikah*, *Cuti Istri Melahirkan*, *Cuti Kematian*, dll.) pada halaman detail permit dan kolom tabel *Leave Requests*.
+
+40. **Modernisasi Dashboard, Statistik Prinsiple Aktif & Multi-Line Attendance Chart (SELESAI 1 September 2026)**:
+    - **Koreksi Statistik Active Principals**: Memperbaiki kartu statistik dashboard agar menghitung prinsiple yang aktif secara akurat dan melampirkan keterangan jumlah prinsiple non-aktif.
+    - **Attendance Overview Multi-Line Chart**: Mengubah grafik absensi menjadi *Line Chart* interaktif dengan palet warna unik untuk setiap prinsiple.
+    - **Pembersihan Legend & Tooltip**: Menghilangkan legenda 100+ entitas yang menumpuk di bawah chart dan menyaring tooltip *hover* hanya untuk prinsiple yang memiliki data absensi aktif (>0).
+    - **Native Searchable Filter Popover (Prinsiple & Area)**: Menambahkan tombol filter popover Filament (`HasFiltersSchema` + `InteractsWithActions`) yang bersih, dengan input dropdown pencarian teks langsung (*searchable autocomplete*) yang responsif dan bebas eror.
+    - **Kolom Prinsiple & Area di Recent Attendances**: Menambahkan kolom *Prinsiple* dan *Area / Cabang* pada tabel absensi terbaru di dashboard utama.
 
 ---
 
