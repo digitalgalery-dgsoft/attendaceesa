@@ -188,7 +188,7 @@ class LiveChat extends Page
         // Target record employee yang berstatus AKTIF
         $targetEmployee = ($employee->is_active)
             ? $employee
-            : (Employee::where('employee_no', $employee->employee_no)->where('is_active', true)->first() ?? $employee);
+            : (Employee::where('employee_no', $employee->employee_no)->where('is_active', true)->orderByDesc('id')->first() ?? $employee);
 
         $targetEmployee->device_id = null;
         $targetEmployee->fcm_token = null;
@@ -238,7 +238,7 @@ class LiveChat extends Page
         // Target record employee yang berstatus AKTIF
         $targetEmployee = ($employee->is_active)
             ? $employee
-            : (Employee::where('employee_no', $employee->employee_no)->where('is_active', true)->first() ?? $employee);
+            : (Employee::where('employee_no', $employee->employee_no)->where('is_active', true)->orderByDesc('id')->first() ?? $employee);
 
         $defaultPassword = 'esa' . substr($targetEmployee->employee_no ?: '12345', -5);
         if (strlen($defaultPassword) < 8) {

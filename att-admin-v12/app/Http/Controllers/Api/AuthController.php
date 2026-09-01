@@ -30,6 +30,7 @@ class AuthController extends Controller
             })
             ->where('is_active', true)
             ->with(['company', 'principal', 'branch', 'department', 'position', 'user'])
+            ->orderByDesc('id')
             ->first();
 
         if (!$employee) {
