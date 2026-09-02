@@ -377,6 +377,39 @@ Route::get('/migrate-now', function () {
     return \Illuminate\Support\Facades\Artisan::output();
 });
 
+Route::get('/cek-admin', function () {
+    try {
+        $users = \App\Models\User::all(['id', 'name', 'email']);
+        return response()->json([
+            'status' => 'success',
+            'users' => $users,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ], 500);
+    }
+});
+
+Route::get('/reset-admin', function () {
+    try {
+        $user = \App\Models\User::first();
+        if ($user) {
+            $user->password = \Illuminate\Support\Facades\Hash::make('AdminAKP2026!');
+            $user->save();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Password berhasil direset ke: AdminAKP2026!',
+                'email' => $user->email
+            ]);
+        }
+        return response()->json(['status' => 'error', 'message' => 'User admin belum ada']);
+    } catch (\Throwable $e) {
+        return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+    }
+});
+
 Route::get('/seed-templates-now', function () {
     try {
         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
