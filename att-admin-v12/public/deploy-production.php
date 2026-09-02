@@ -94,27 +94,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             if [ -d '{$srv['path']}' ]; then
                 \\cp -rf \$SRC_DIR/. {$srv['path']}/
+                chmod -R 777 {$srv['path']}/storage {$srv['path']}/bootstrap/cache 2>/dev/null || true
+                chown -R www:www {$srv['path']} 2>/dev/null || true
             fi
             if [ -d '/www/wwwroot/api.esa-solutions.id' ]; then
                 \\cp -rf \$SRC_DIR/. /www/wwwroot/api.esa-solutions.id/ 2>/dev/null || true
-                if [ ! -d '/www/wwwroot/api.esa-solutions.id/vendor' ] && [ -d '{$srv['path']}/vendor' ]; then
-                    ln -s {$srv['path']}/vendor /www/wwwroot/api.esa-solutions.id/vendor 2>/dev/null || true
-                fi
-                if [ ! -f '/www/wwwroot/api.esa-solutions.id/.env' ] && [ -f '{$srv['path']}/.env' ]; then
-                    cp {$srv['path']}/.env /www/wwwroot/api.esa-solutions.id/.env 2>/dev/null || true
-                fi
+                ln -sfn {$srv['path']}/vendor /www/wwwroot/api.esa-solutions.id/vendor 2>/dev/null || true
+                \\cp -f {$srv['path']}/.env /www/wwwroot/api.esa-solutions.id/.env 2>/dev/null || true
+                chmod -R 777 /www/wwwroot/api.esa-solutions.id/storage /www/wwwroot/api.esa-solutions.id/bootstrap/cache 2>/dev/null || true
+                chown -R www:www /www/wwwroot/api.esa-solutions.id 2>/dev/null || true
+                echo '<?php require __DIR__ . \"/public/index.php\";' > /www/wwwroot/api.esa-solutions.id/index.php
                 if [ -f '/www/wwwroot/api.esa-solutions.id/vendor/autoload.php' ]; then
                     cd /www/wwwroot/api.esa-solutions.id && /www/server/php/83/bin/php artisan optimize:clear 2>/dev/null || true
                 fi
             fi
             if [ -d '/www/wwwroot/amk.esa-solutions.id' ]; then
                 \\cp -rf \$SRC_DIR/. /www/wwwroot/amk.esa-solutions.id/ 2>/dev/null || true
-                if [ ! -d '/www/wwwroot/amk.esa-solutions.id/vendor' ] && [ -d '{$srv['path']}/vendor' ]; then
-                    ln -s {$srv['path']}/vendor /www/wwwroot/amk.esa-solutions.id/vendor 2>/dev/null || true
-                fi
-                if [ ! -f '/www/wwwroot/amk.esa-solutions.id/.env' ] && [ -f '{$srv['path']}/.env' ]; then
-                    cp {$srv['path']}/.env /www/wwwroot/amk.esa-solutions.id/.env 2>/dev/null || true
-                fi
+                ln -sfn {$srv['path']}/vendor /www/wwwroot/amk.esa-solutions.id/vendor 2>/dev/null || true
+                \\cp -f {$srv['path']}/.env /www/wwwroot/amk.esa-solutions.id/.env 2>/dev/null || true
+                chmod -R 777 /www/wwwroot/amk.esa-solutions.id/storage /www/wwwroot/amk.esa-solutions.id/bootstrap/cache 2>/dev/null || true
+                chown -R www:www /www/wwwroot/amk.esa-solutions.id 2>/dev/null || true
+                echo '<?php require __DIR__ . \"/public/index.php\";' > /www/wwwroot/amk.esa-solutions.id/index.php
                 if [ -f '/www/wwwroot/amk.esa-solutions.id/vendor/autoload.php' ]; then
                     cd /www/wwwroot/amk.esa-solutions.id && /www/server/php/83/bin/php artisan optimize:clear 2>/dev/null || true
                 fi
