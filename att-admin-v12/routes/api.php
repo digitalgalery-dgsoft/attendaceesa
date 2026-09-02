@@ -17,6 +17,8 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\SalesReportController;
 use App\Http\Controllers\Api\DashboardApiController;
 
+Route::post('/login', [AuthController::class, 'login']);
+
 Route::get('/ping', function () {
     return response()->json(['status' => 'pong', 'time' => now()->timestamp]);
 });
