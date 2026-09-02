@@ -30,17 +30,36 @@ Route::match(['get', 'post'], '/check', function () {
 });
 
 Route::get('/settings', function () {
+    $data = null;
     try {
-        $data = \Illuminate\Support\Facades\Cache::remember('public_system_setting', 60, function () {
-            return \App\Models\Setting::first();
+        $data = \Illuminate\Support\Facades\Cache::remember('public_app_system_setting_array_v2', 86400, function () {
+            $st = \App\Models\Setting::first();
+            return $st ? $st->toArray() : null;
         });
     } catch (\Throwable $e) {
+        // Fallback jika database sedang busy
+    }
+
+    if (empty($data) || !is_array($data) || empty($data['app_name'])) {
         $data = [
             'id' => 1,
             'app_name' => 'ESA Solutions',
             'theme_color' => '#0A192F',
+            'logo_path' => 'logos/01M1GJWJSCB0E7WCPPWZXBFB9F.png',
+            'require_checkin_photo' => true,
+            'require_checkout_photo' => true,
+            'require_visit_photo' => true,
+            'use_roster_principle' => false,
+            'lock_roster' => true,
+            'global_distance_lock' => 50,
+            'mobile_app_url' => null,
+            'tracking_interval_minutes' => 5,
+            'tracking_distance_meters' => 10,
+            'dark_mode_enabled' => true,
+            'dark_mode_theme' => 'dark_navy',
         ];
     }
+
     return response()->json([
         'status' => 'success',
         'data' => $data
