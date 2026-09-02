@@ -18,19 +18,19 @@ class SmartGatewayRelayService
             'amk' => [
                 'id' => 'amk',
                 'name' => 'Server 1 (PT AMK)',
-                'urls' => ['https://amk.esa-solutions.id'],
+                'urls' => ['http://38.103.170.235', 'https://amk.esa-solutions.id'],
                 'host' => 'amk.esa-solutions.id',
             ],
             'akp' => [
                 'id' => 'akp',
                 'name' => 'Server 2 (PT AKP)',
-                'urls' => ['https://akp.esa-solutions.id'],
+                'urls' => ['http://38.103.170.223', 'https://akp.esa-solutions.id'],
                 'host' => 'akp.esa-solutions.id',
             ],
             'atk' => [
                 'id' => 'atk',
                 'name' => 'Server 3 (PT ATK / Gabungan)',
-                'urls' => ['https://atk.esa-solutions.id'],
+                'urls' => ['http://38.103.170.224', 'https://atk.esa-solutions.id'],
                 'host' => 'atk.esa-solutions.id',
             ],
         ];
@@ -80,10 +80,13 @@ class SmartGatewayRelayService
                     foreach ($serverInfo['urls'] as $targetUrl) {
                         if (empty($targetUrl)) continue;
                         $endpoint = rtrim($targetUrl, '/') . '/api/login';
-                        $poolRequests[$serverKey . '|' . $targetUrl] = $pool->as($serverKey . '|' . $targetUrl)
-                            ->timeout(3)
-                            ->withoutVerifying()
-                            ->post($endpoint, $payload);
+                        $req = $pool->as($serverKey . '|' . $targetUrl)
+                            ->timeout(2)
+                            ->withoutVerifying();
+                        if (str_starts_with($targetUrl, 'http://38.')) {
+                            $req = $req->withHeaders(['Host' => $serverInfo['host']]);
+                        }
+                        $poolRequests[$serverKey . '|' . $targetUrl] = $req->post($endpoint, $payload);
                     }
                 }
                 return $poolRequests;

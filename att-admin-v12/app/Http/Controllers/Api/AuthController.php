@@ -24,9 +24,7 @@ class AuthController extends Controller
         // Cari record karyawan yang berstatus AKTIF (is_active = true) berdasarkan email atau NIK
         $employee = Employee::where(function($query) use ($loginId) {
                 $query->where('email', $loginId)
-                      ->orWhere('employee_no', $loginId)
-                      ->orWhereRaw('LOWER(email) = ?', [strtolower($loginId)])
-                      ->orWhereRaw('LOWER(employee_no) = ?', [strtolower($loginId)]);
+                      ->orWhere('employee_no', $loginId);
             })
             ->where('is_active', true)
             ->with(['company', 'principal', 'branch', 'department', 'position', 'user'])
