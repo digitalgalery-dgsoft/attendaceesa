@@ -931,11 +931,18 @@ class OdooSyncService
         ];
 
         // Safely merge attendances (unique by employee_id + attendance_date)
-        $this->safeMerge('attendances', 'employee_id', $primary->id, $duplicateIds, 'attendance_date');
+        $this->safeMergeAttendances($primary->id, $duplicateIds);
         
-        // Safely merge employee_schedules (unique by employee_id + date)
-        $this->safeMerge('employee_schedules', 'employee_id', $primary->id, $duplicateIds, 'date');
+        // Safely merge employee_schedules (unique by employee_id + schedule_date)
+        $this->safeMergeSchedules($primary->id, $duplicateIds);
 
+        // Update personal_access_tokens so mobile app logins continue working seamlessly
+        if (\Illuminate\Support\Facades\Schema::hasTable('personal_access_tokens')) {
+            \Illuminate\Support\Facades\DB::table('personal_access_tokens')
+                ->whereIn('tokenable_id', $duplicateIds)
+                ->where('tokenable_type', 'App\\Models\\Employee')
+                ->update(['tokenable_id' => $primary->id]);
+        }
 
         foreach ($tables as $t) {
             try {
@@ -974,28 +981,76 @@ class OdooSyncService
         }
     }
 
-    private function safeMerge($tableName, $foreignKey, $primaryId, $dupIds, $uniqueDateColumn): void
+    private function safeMergeAttendances(int $primaryId, array $dupIds): void
     {
-        if (!\Illuminate\Support\Facades\Schema::hasTable($tableName)) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('attendances')) {
             return;
         }
 
         foreach ($dupIds as $dupId) {
-            $orphanRecords = \Illuminate\Support\Facades\DB::table($tableName)->where($foreignKey, $dupId)->get();
+            $orphanRecords = \Illuminate\Support\Facades\DB::table('attendances')->where('employee_id', $dupId)->get();
             foreach ($orphanRecords as $record) {
-                $exists = \Illuminate\Support\Facades\DB::table($tableName)
-                    ->where($foreignKey, $primaryId)
-                    ->where($uniqueDateColumn, $record->{$uniqueDateColumn})
-                    ->exists();
+                $existing = \Illuminate\Support\Facades\DB::table('attendances')
+                    ->where('employee_id', $primaryId)
+                    ->where('attendance_date', $record->attendance_date)
+                    ->first();
 
-                if (!$exists) {
+                if (!$existing) {
                     try {
-                        \Illuminate\Support\Facades\DB::table($tableName)->where('id', $record->id)->update([
-                            $foreignKey => $primaryId
+                        \Illuminate\Support\Facades\DB::table('attendances')->where('id', $record->id)->update([
+                            'employee_id' => $primaryId
                         ]);
-                    } catch (\Exception $e) {
-                        Log::warning("Failed to merge {$tableName} ID {$record->id}: " . $e->getMessage());
+                    } catch (\Throwable $e) {
+                        Log::warning("Failed to merge attendance ID {$record->id}: " . $e->getMessage());
                     }
+                } else {
+                    $updates = [];
+                    if (empty($existing->checkin_at) && !empty($record->checkin_at)) {
+                        $updates['checkin_at'] = $record->checkin_at;
+                        $updates['status'] = $record->status;
+                        $updates['checkin_log_id'] = $record->checkin_log_id;
+                        $updates['late_minutes'] = $record->late_minutes;
+                    }
+                    if (empty($existing->checkout_at) && !empty($record->checkout_at)) {
+                        $updates['checkout_at'] = $record->checkout_at;
+                        $updates['checkout_log_id'] = $record->checkout_log_id;
+                        $updates['work_duration_minutes'] = $record->work_duration_minutes;
+                        $updates['early_leave_minutes'] = $record->early_leave_minutes;
+                        $updates['overtime_minutes'] = $record->overtime_minutes;
+                    }
+                    if (!empty($updates)) {
+                        \Illuminate\Support\Facades\DB::table('attendances')->where('id', $existing->id)->update($updates);
+                    }
+                    \Illuminate\Support\Facades\DB::table('attendances')->where('id', $record->id)->delete();
+                }
+            }
+        }
+    }
+
+    private function safeMergeSchedules(int $primaryId, array $dupIds): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('employee_schedules')) {
+            return;
+        }
+
+        foreach ($dupIds as $dupId) {
+            $orphanRecords = \Illuminate\Support\Facades\DB::table('employee_schedules')->where('employee_id', $dupId)->get();
+            foreach ($orphanRecords as $record) {
+                $existing = \Illuminate\Support\Facades\DB::table('employee_schedules')
+                    ->where('employee_id', $primaryId)
+                    ->where('schedule_date', $record->schedule_date)
+                    ->first();
+
+                if (!$existing) {
+                    try {
+                        \Illuminate\Support\Facades\DB::table('employee_schedules')->where('id', $record->id)->update([
+                            'employee_id' => $primaryId
+                        ]);
+                    } catch (\Throwable $e) {
+                        Log::warning("Failed to merge schedule ID {$record->id}: " . $e->getMessage());
+                    }
+                } else {
+                    \Illuminate\Support\Facades\DB::table('employee_schedules')->where('id', $record->id)->delete();
                 }
             }
         }
