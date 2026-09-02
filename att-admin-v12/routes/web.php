@@ -544,6 +544,16 @@ Route::get('/debug-sidebar', function () {
     }
 });
 
+Route::get('/check-log', function () {
+    $logFile = storage_path('logs/laravel.log');
+    if (!file_exists($logFile)) {
+        return 'laravel.log does not exist';
+    }
+    $lines = file($logFile);
+    $lastLines = array_slice($lines, -150);
+    return '<pre style="background:#111;color:#eee;padding:16px;white-space:pre-wrap;font-family:monospace;">' . htmlspecialchars(implode('', $lastLines)) . '</pre>';
+});
+
 Route::get('/seed-templates-now', function () {
     try {
         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
