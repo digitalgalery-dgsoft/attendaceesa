@@ -122,7 +122,7 @@
                             <div class="grid grid-cols-2 gap-5">
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-1">DB User</label>
-                                    <input type="text" name="db_user" value="{{ old('db_user', 'root') }}" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-3 bg-gray-50 focus:bg-white" required>
+                                    <input type="text" name="db_user" :value="dbType === 'pgsql' ? 'db_esa_akp' : 'root'" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-3 bg-gray-50 focus:bg-white" required>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-1">DB Password</label>
