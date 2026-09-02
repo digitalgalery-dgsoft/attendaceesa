@@ -135,24 +135,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 fi
             fi
 
+            PHP_BIN="php"
+            if [ -f "/www/server/php/83/bin/php" ]; then
+                PHP_BIN="/www/server/php/83/bin/php"
+            elif [ -f "/www/server/php/82/bin/php" ]; then
+                PHP_BIN="/www/server/php/82/bin/php"
+            fi
+
             echo '3. Merapikan aset Livewire & storage link...'
             cd {$srv['path']}
-            /www/server/php/83/bin/php artisan storage:link 2>/dev/null || true
-            /www/server/php/83/bin/php artisan livewire:publish --assets 2>/dev/null || true
+            \$PHP_BIN artisan storage:link 2>/dev/null || true
+            \$PHP_BIN artisan livewire:publish --assets 2>/dev/null || true
             mkdir -p public/livewire
             \\cp -rf vendor/livewire/livewire/dist/* public/livewire/ 2>/dev/null || true
             rm -f public/hot
 
-            " . ($runMigration ? "echo '4. Menjalankan Database Migration...' && /www/server/php/83/bin/php artisan migrate --force\n" : "") . "
-            " . ($runPrincipals ? "echo '4b. Menyinkronkan Relasi Principal...' && /www/server/php/83/bin/php artisan reporting:link-principals\n" : "") . "
-            " . ($runImportOfftake ? "echo '4c. Mengimpor Data Offtake Dulux 2025...' && /www/server/php/83/bin/php artisan dulux:import-offtake{$offtakeMonth}{$offtakeLimit}\n" : "") . "
+            " . ($runMigration ? "echo '4. Menjalankan Database Migration...' && \$PHP_BIN artisan migrate --force\n" : "") . "
+            " . ($runPrincipals ? "echo '4b. Menyinkronkan Relasi Principal...' && \$PHP_BIN artisan reporting:link-principals\n" : "") . "
+            " . ($runImportOfftake ? "echo '4c. Mengimpor Data Offtake Dulux 2025...' && \$PHP_BIN artisan dulux:import-offtake{$offtakeMonth}{$offtakeLimit} || true\n" : "") . "
 
             echo '5. Membersihkan cache...'
             chmod -R 777 storage bootstrap/cache 2>/dev/null || true
-            /www/server/php/83/bin/php artisan optimize:clear
+            \$PHP_BIN artisan optimize:clear
 
             echo '6. Me-restart PHP-FPM...'
-            /etc/init.d/php-fpm-83 restart 2>/dev/null || systemctl restart php-fpm-83 2>/dev/null || systemctl restart php-fpm 2>/dev/null || /www/server/php/83/sbin/php-fpm restart 2>/dev/null || true
+            /etc/init.d/php-fpm-83 restart 2>/dev/null || systemctl restart php-fpm-83 2>/dev/null || /etc/init.d/php-fpm-82 restart 2>/dev/null || systemctl restart php-fpm-82 2>/dev/null || true
             echo 'DEPLOY_SUCCESS_FLAG'
         ";
 
