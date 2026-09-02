@@ -84,10 +84,20 @@ class PrincipalPortalController extends Controller
             }
         }
 
-        // Strictly scope data (Employees, Products, Submissions) to active entity id
-        $tenantPrincipalIds = $tenantPrincipal
-            ? Principal::where('name', $tenantPrincipal->name)->where('is_active', true)->pluck('id')->toArray()
-            : [];
+        // Strictly scope data (Employees, Products, Submissions, Templates) to active entity ids
+        if ($tenantPrincipal && !empty($tenantPrincipal->subdomain)) {
+            $tenantPrincipalIds = Principal::where('subdomain', $tenantPrincipal->subdomain)
+                ->where('is_active', true)
+                ->pluck('id')
+                ->toArray();
+        } elseif ($tenantPrincipal) {
+            $tenantPrincipalIds = Principal::where('name', $tenantPrincipal->name)
+                ->where('is_active', true)
+                ->pluck('id')
+                ->toArray();
+        } else {
+            $tenantPrincipalIds = [];
+        }
 
         if (empty($tenantPrincipalIds) && $tenantPrincipal) {
             $tenantPrincipalIds = [$tenantPrincipal->id];
