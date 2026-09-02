@@ -26,10 +26,10 @@ class SmartGatewayRelayMiddleware
 
         $bearerToken = $request->bearerToken();
         if ($bearerToken) {
-            $targetServer = SmartGatewayRelayService::resolveTargetServer($bearerToken);
-            if ($targetServer) {
+            $targetInfo = SmartGatewayRelayService::resolveTargetServer($bearerToken);
+            if ($targetInfo) {
                 // Token berasal dari cluster peer server (AKP / ATK), teruskan request secara transparan
-                return SmartGatewayRelayService::relayRequest($request, $targetServer);
+                return SmartGatewayRelayService::relayRequest($request, $targetInfo);
             }
         }
 
