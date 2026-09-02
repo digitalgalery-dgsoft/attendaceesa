@@ -115,9 +115,21 @@ class InstallController extends Controller
                     $value = '"' . $value . '"';
                 }
 
+                $commentedPosition = strpos($env, "# {$key}=");
+                if ($commentedPosition === false) {
+                    $commentedPosition = strpos($env, "#{$key}=");
+                }
+
                 $keyPosition = strpos($env, "{$key}=");
 
-                if ($keyPosition !== false) {
+                if ($commentedPosition !== false && ($keyPosition === false || $commentedPosition < $keyPosition)) {
+                    $endOfLinePosition = strpos($env, "\n", $commentedPosition);
+                    if ($endOfLinePosition === false) {
+                        $endOfLinePosition = strlen($env);
+                    }
+                    $oldLine = substr($env, $commentedPosition, $endOfLinePosition - $commentedPosition);
+                    $env = str_replace($oldLine, "{$key}={$value}", $env);
+                } elseif ($keyPosition !== false) {
                     $endOfLinePosition = strpos($env, "\n", $keyPosition);
                     if ($endOfLinePosition === false) {
                         $endOfLinePosition = strlen($env);
