@@ -322,25 +322,38 @@ class PrincipalPortalController extends Controller
             }])
             ->firstOrFail();
 
-        // Filters
-        $month = (int) ($request->query('month') ?? Carbon::now()->month);
-        $year = (int) ($request->query('year') ?? Carbon::now()->year);
-        $search = $request->query('q');
-        $employeeId = $request->query('employee_id');
-        $locationId = $request->query('location_id');
+        // Filters: Rentang Bulan Awal s/d Bulan Akhir
+        $startMonth = (int) ($request->query('start_month') ?? $request->query('month') ?? Carbon::now()->month);
+        $startYear  = (int) ($request->query('start_year') ?? $request->query('year') ?? Carbon::now()->year);
+        $endMonth   = (int) ($request->query('end_month') ?? $startMonth);
+        $endYear    = (int) ($request->query('end_year') ?? $startYear);
 
-        $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
-        $endDate = $startDate->copy()->endOfMonth();
+        $startDate  = Carbon::createFromDate($startYear, $startMonth, 1)->startOfMonth();
+        $endDate    = Carbon::createFromDate($endYear, $endMonth, 1)->endOfMonth();
+
+        $selectedRegion     = $request->query('region');
+        $selectedAreaId     = $request->query('area_id') ?? $request->query('branch_id');
+        $selectedLocationId = $request->query('location_id') ?? $request->query('store_id');
+        $search             = $request->query('q');
 
         $query = ReportSubmission::where('report_submissions.report_template_id', $template->id)
             ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
-            ->with(['employee', 'workLocation', 'values.formField']);
+            ->with(['employee.branch', 'workLocation.branch', 'values.formField']);
 
-        if ($employeeId) {
-            $query->where('report_submissions.employee_id', $employeeId);
+        if ($selectedRegion) {
+            $query->where(function ($q) use ($selectedRegion) {
+                $q->whereHas('workLocation', fn($w) => $w->where('region', $selectedRegion))
+                  ->orWhereHas('employee.branch', fn($b) => $b->where('region', $selectedRegion));
+            });
         }
-        if ($locationId) {
-            $query->where('report_submissions.work_location_id', $locationId);
+        if ($selectedAreaId) {
+            $query->where(function ($q) use ($selectedAreaId) {
+                $q->whereHas('workLocation', fn($w) => $w->where('branch_id', $selectedAreaId))
+                  ->orWhereHas('employee', fn($e) => $e->where('branch_id', $selectedAreaId));
+            });
+        }
+        if ($selectedLocationId) {
+            $query->where('report_submissions.work_location_id', $selectedLocationId);
         }
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -410,25 +423,44 @@ class PrincipalPortalController extends Controller
                 $groups = [];
 
                 if ($dim === '_submitted_date') {
-                    $daysInMonth = $startDate->daysInMonth;
-                    for ($d = 1; $d <= $daysInMonth; $d++) {
-                        $dateLabel = Carbon::create($year, $month, $d)->translatedFormat('d M');
-                        $groups[$dateLabel] = 0;
-                    }
-                    foreach ($allFilteredSubmissions as $sub) {
-                        if ($sub->submitted_at) {
-                            $dateLabel = $sub->submitted_at->translatedFormat('d M');
-                            if (isset($groups[$dateLabel])) {
-                                if ($metric && $metric !== '_count' && $metric !== '_submission') {
-                                    $valNum = 0;
-                                    foreach ($sub->values as $v) {
-                                        if ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric)) {
-                                            $valNum += $v->value_number ?? (is_numeric($v->value_text) ? (float)$v->value_text : 0);
+                    // Group by Month or Day depending on range length
+                    $diffInMonths = $startDate->diffInMonths($endDate);
+                    if ($diffInMonths > 1) {
+                        $currentPeriod = $startDate->copy()->startOfMonth();
+                        while ($currentPeriod->lte($endDate)) {
+                            $label = $currentPeriod->translatedFormat('M Y');
+                            $groups[$label] = 0;
+                            $currentPeriod->addMonth();
+                        }
+                        foreach ($allFilteredSubmissions as $sub) {
+                            if ($sub->submitted_at) {
+                                $label = $sub->submitted_at->translatedFormat('M Y');
+                                if (isset($groups[$label])) {
+                                    $groups[$label] += 1;
+                                }
+                            }
+                        }
+                    } else {
+                        $daysInMonth = $startDate->daysInMonth;
+                        for ($d = 1; $d <= $daysInMonth; $d++) {
+                            $dateLabel = Carbon::create($startYear, $startMonth, $d)->translatedFormat('d M');
+                            $groups[$dateLabel] = 0;
+                        }
+                        foreach ($allFilteredSubmissions as $sub) {
+                            if ($sub->submitted_at) {
+                                $dateLabel = $sub->submitted_at->translatedFormat('d M');
+                                if (isset($groups[$dateLabel])) {
+                                    if ($metric && $metric !== '_count' && $metric !== '_submission') {
+                                        $valNum = 0;
+                                        foreach ($sub->values as $v) {
+                                            if ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric)) {
+                                                $valNum += $v->value_number ?? (is_numeric($v->value_text) ? (float)$v->value_text : 0);
+                                            }
                                         }
+                                        $groups[$dateLabel] += $valNum;
+                                    } else {
+                                        $groups[$dateLabel] += 1;
                                     }
-                                    $groups[$dateLabel] += $valNum;
-                                } else {
-                                    $groups[$dateLabel] += 1;
                                 }
                             }
                         }
@@ -517,8 +549,42 @@ class PrincipalPortalController extends Controller
             }
         }
 
-        $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)->orderBy('employees.full_name')->get();
-        $workLocations = WorkLocation::whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id')->orderBy('work_locations.name')->get();
+        // Dropdown Data for Region, Area, Store
+        $regions = WorkLocation::where(function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id');
+        })->whereNotNull('region')->where('region', '!=', '')->distinct()->orderBy('region')->pluck('region')->toArray();
+
+        if (empty($regions)) {
+            $regions = Branch::whereNotNull('region')->where('region', '!=', '')->distinct()->orderBy('region')->pluck('region')->toArray();
+        }
+
+        $areaQuery = Branch::query();
+        if ($selectedRegion) {
+            $areaQuery->where('region', $selectedRegion);
+        }
+        $areas = $areaQuery->where(function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('id', function($sub) use ($scopedPrincipalIds) {
+                $sub->select('branch_id')->from('employees')->whereIn('principal_id', $scopedPrincipalIds)->whereNotNull('branch_id');
+            })->orWhereIn('id', function($sub) use ($scopedPrincipalIds) {
+                $sub->select('branch_id')->from('work_locations')->whereIn('principal_id', $scopedPrincipalIds)->whereNotNull('branch_id');
+            });
+        })->orderBy('name')->get();
+
+        if ($areas->isEmpty()) {
+            $areas = Branch::orderBy('name')->get();
+        }
+
+        $storeQuery = WorkLocation::query();
+        if ($selectedRegion) {
+            $storeQuery->where('region', $selectedRegion);
+        }
+        if ($selectedAreaId) {
+            $storeQuery->where('branch_id', $selectedAreaId);
+        }
+        $workLocations = $storeQuery->where(function($q) use ($scopedPrincipalIds) {
+            $q->whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id');
+        })->orderBy('name')->get();
+
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();
 
@@ -531,12 +597,16 @@ class PrincipalPortalController extends Controller
             'submissions',
             'totalTemplateSubmissions',
             'uniqueStores',
-            'month',
-            'year',
+            'startMonth',
+            'startYear',
+            'endMonth',
+            'endYear',
             'search',
-            'employeeId',
-            'locationId',
-            'employees',
+            'selectedRegion',
+            'selectedAreaId',
+            'selectedLocationId',
+            'regions',
+            'areas',
             'workLocations',
             'setting',
             'dashboardConfig',
@@ -713,21 +783,44 @@ class PrincipalPortalController extends Controller
             ->with('fields')
             ->firstOrFail();
 
-        $month = (int) ($request->query('month') ?? Carbon::now()->month);
-        $year = (int) ($request->query('year') ?? Carbon::now()->year);
+        $startMonth = (int) ($request->query('start_month') ?? $request->query('month') ?? Carbon::now()->month);
+        $startYear  = (int) ($request->query('start_year') ?? $request->query('year') ?? Carbon::now()->year);
+        $endMonth   = (int) ($request->query('end_month') ?? $startMonth);
+        $endYear    = (int) ($request->query('end_year') ?? $startYear);
 
-        $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
-        $endDate = $startDate->copy()->endOfMonth();
+        $startDate  = Carbon::createFromDate($startYear, $startMonth, 1)->startOfMonth();
+        $endDate    = Carbon::createFromDate($endYear, $endMonth, 1)->endOfMonth();
 
-        $submissions = ReportSubmission::where('report_submissions.report_template_id', $template->id)
+        $selectedRegion     = $request->query('region');
+        $selectedAreaId     = $request->query('area_id') ?? $request->query('branch_id');
+        $selectedLocationId = $request->query('location_id') ?? $request->query('store_id');
+
+        $query = ReportSubmission::where('report_submissions.report_template_id', $template->id)
             ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
-            ->with(['employee', 'workLocation', 'values.formField'])
-            ->latest('report_submissions.submitted_at')
-            ->get();
+            ->with(['employee.branch', 'workLocation.branch', 'values.formField']);
 
+        if ($selectedRegion) {
+            $query->where(function ($q) use ($selectedRegion) {
+                $q->whereHas('workLocation', fn($w) => $w->where('region', $selectedRegion))
+                  ->orWhereHas('employee.branch', fn($b) => $b->where('region', $selectedRegion));
+            });
+        }
+        if ($selectedAreaId) {
+            $query->where(function ($q) use ($selectedAreaId) {
+                $q->whereHas('workLocation', fn($w) => $w->where('branch_id', $selectedAreaId))
+                  ->orWhereHas('employee', fn($e) => $e->where('branch_id', $selectedAreaId));
+            });
+        }
+        if ($selectedLocationId) {
+            $query->where('report_submissions.work_location_id', $selectedLocationId);
+        }
+
+        $submissions = $query->latest('report_submissions.submitted_at')->get();
+
+        $filename = "rekap-{$template->code}-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv";
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename=\"rekap-{$template->code}-{$year}-{$month}.csv\"",
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
             'Pragma' => 'no-cache',
             'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
             'Expires' => '0',
