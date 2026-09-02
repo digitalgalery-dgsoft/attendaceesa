@@ -108,9 +108,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo 'DEPLOY_SUCCESS_FLAG'
         ";
 
+        // Cek lokasi private key yang dapat dibaca oleh user web (www)
+        $keyOptions = "";
+        $possibleKeys = [
+            '/www/server/deploy_key/id_rsa',
+            '/www/wwwroot/appsend.my.id/storage/app/deploy_key',
+            (isset($_SERVER['HOME']) ? $_SERVER['HOME'] . '/.ssh/id_rsa' : ''),
+            '/root/.ssh/id_rsa',
+        ];
+        foreach ($possibleKeys as $pk) {
+            if (!empty($pk) && file_exists($pk) && is_readable($pk)) {
+                $keyOptions = "-i " . escapeshellarg($pk);
+                break;
+            }
+        }
+
         // Eksekusi via SSH
         $escapedScript = escapeshellarg($remoteScript);
-        $sshCmd = "ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@{$srv['ip']} {$escapedScript} 2>&1";
+        $sshCmd = "ssh {$keyOptions} -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@{$srv['ip']} {$escapedScript} 2>&1";
 
         $output = [];
         $returnVar = 0;

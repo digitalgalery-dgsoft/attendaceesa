@@ -26,6 +26,13 @@ else
     echo -e "${GREEN}✅ SSH Key sudah tersedia di ~/.ssh/id_rsa.pub${NC}"
 fi
 
+# Salin juga ke direktori yang bisa diakses user web server (www) untuk deploy via browser
+mkdir -p /www/server/deploy_key 2>/dev/null || true
+cp -f ~/.ssh/id_rsa* /www/server/deploy_key/ 2>/dev/null || true
+chown -R www:www /www/server/deploy_key 2>/dev/null || true
+chmod 600 /www/server/deploy_key/id_rsa 2>/dev/null || true
+chmod 644 /www/server/deploy_key/id_rsa.pub 2>/dev/null || true
+
 SERVERS=(
     "Server 1 (AMK)|38.103.170.235"
     "Server 2 (AKP)|38.103.170.223"
