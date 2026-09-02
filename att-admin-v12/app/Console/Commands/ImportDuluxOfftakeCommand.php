@@ -299,9 +299,16 @@ class ImportDuluxOfftakeCommand extends Command
 
     private function flushBatch(array $batchSubmissions, array $fieldIds, string $now): void
     {
-        DB::transaction(function () use ($batchSubmissions, $fieldIds, $now) {
+        $codes = array_map(fn($item) => $item['sub']['submission_code'], $batchSubmissions);
+        $existing = DB::table('report_submissions')->whereIn('submission_code', $codes)->pluck('id', 'submission_code')->toArray();
+
+        DB::transaction(function () use ($batchSubmissions, $fieldIds, $now, $existing) {
             foreach ($batchSubmissions as $item) {
-                // Insert submission or update if exists
+                $code = $item['sub']['submission_code'];
+                if (isset($existing[$code])) {
+                    continue; // Skip already imported row
+                }
+
                 $subId = DB::table('report_submissions')->insertGetId($item['sub']);
 
                 $insertVals = [];
