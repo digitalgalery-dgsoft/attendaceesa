@@ -269,5 +269,22 @@ class ReportTemplate extends Model
                 'order_index' => $index + 1,
             ]));
         }
+
+        // 4. Pastikan SELURUH Form Template Dulux / ICI terhubung ke Principal Dulux
+        if (!empty($allDuluxIds)) {
+            $allDuluxTemplates = static::where('code', 'LIKE', '%DULUX%')
+                ->orWhere('code', 'LIKE', '%ICI%')
+                ->orWhere('title', 'LIKE', '%Dulux%')
+                ->orWhere('title', 'LIKE', '%ICI%')
+                ->get();
+
+            foreach ($allDuluxTemplates as $tpl) {
+                if (empty($tpl->principal_id) && $primaryDulux) {
+                    $tpl->principal_id = $primaryDulux->id;
+                    $tpl->save();
+                }
+                $tpl->principals()->syncWithoutDetaching($allDuluxIds);
+            }
+        }
     }
 }

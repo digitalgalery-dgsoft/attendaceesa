@@ -103,7 +103,67 @@ class PrincipalPortalController extends Controller
             $tenantPrincipalIds = [$tenantPrincipal->id];
         }
 
+        if ($tenantPrincipal) {
+            $subdomain = strtolower($tenantPrincipal->subdomain ?? '');
+            $name = strtolower($tenantPrincipal->name ?? '');
+            if ($subdomain === 'dulux' || str_contains($name, 'ici') || str_contains($name, 'dulux')) {
+                try {
+                    ReportTemplate::syncDuluxMergedStockEnd();
+                } catch (\Throwable $e) {}
+            }
+        }
+
         return [$tenantPrincipal, $tenantPrincipalIds, $tenantPrincipalsAll];
+    }
+
+    /**
+     * Helper to retrieve active report templates for tenant principal
+     */
+    protected function getActiveTemplates(array $scopedPrincipalIds, ?Principal $tenantPrincipal = null)
+    {
+        return $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)
+            ->where('report_templates.is_active', true)
+            ->with('fields')
+            ->orderBy('report_templates.id')
+            ->get();
+    }
+
+    /**
+     * Base query for report templates belonging to the scoped principals
+     */
+    protected function getTemplateBaseQuery(array $scopedPrincipalIds, ?Principal $tenantPrincipal = null)
+    {
+        return ReportTemplate::where(function ($q) use ($scopedPrincipalIds, $tenantPrincipal) {
+            $q->whereHas('principals', function ($sub) use ($scopedPrincipalIds) {
+                $sub->whereIn('principals.id', $scopedPrincipalIds);
+            })->orWhereIn('report_templates.principal_id', $scopedPrincipalIds);
+
+            if ($tenantPrincipal) {
+                $subdomain = strtolower($tenantPrincipal->subdomain ?? '');
+                $name = strtolower($tenantPrincipal->name ?? '');
+
+                if ($subdomain === 'dulux' || str_contains($name, 'ici') || str_contains($name, 'dulux') || str_contains($name, 'akzonobel')) {
+                    $q->orWhere('report_templates.code', 'LIKE', '%DULUX%')
+                      ->orWhere('report_templates.code', 'LIKE', '%ICI%')
+                      ->orWhere('report_templates.title', 'LIKE', '%Dulux%')
+                      ->orWhere('report_templates.title', 'LIKE', '%ICI%');
+                } elseif ($subdomain === 'wings' || str_contains($name, 'wings') || str_contains($name, 'sayap')) {
+                    $q->orWhere('report_templates.code', 'LIKE', '%WINGS%')
+                      ->orWhere('report_templates.title', 'LIKE', '%Wings%');
+                } elseif ($subdomain === 'fonterra' || str_contains($name, 'fonterra') || str_contains($name, 'anlene')) {
+                    $q->orWhere('report_templates.code', 'LIKE', '%FONTERRA%')
+                      ->orWhere('report_templates.code', 'LIKE', '%ANLENE%')
+                      ->orWhere('report_templates.title', 'LIKE', '%Fonterra%');
+                } elseif ($subdomain === 'mamasuka' || str_contains($name, 'mamasuka') || str_contains($name, 'daesang')) {
+                    $q->orWhere('report_templates.code', 'LIKE', '%MAMASUKA%')
+                      ->orWhere('report_templates.code', 'LIKE', '%DAESANG%')
+                      ->orWhere('report_templates.title', 'LIKE', '%Mamasuka%');
+                } elseif ($subdomain === 'sidomuncul' || str_contains($name, 'sido') || str_contains($name, 'tolak angin')) {
+                    $q->orWhere('report_templates.code', 'LIKE', '%SIDO%')
+                      ->orWhere('report_templates.title', 'LIKE', '%Sido%');
+                }
+            }
+        });
     }
 
     /**
@@ -118,9 +178,7 @@ class PrincipalPortalController extends Controller
         }
 
         // Active report templates for this principal
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         // Filters
         $month = (int) ($request->query('month') ?? Carbon::now()->month);
@@ -310,13 +368,9 @@ class PrincipalPortalController extends Controller
             return redirect('/');
         }
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
-        $template = ReportTemplate::where('code', $code)
-            ->whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-                $q->whereIn('principals.id', $scopedPrincipalIds);
-            })
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
+        $template = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)
+            ->where('report_templates.code', $code)
             ->with(['fields' => function ($q) {
                 $q->orderBy('order_index');
             }])
@@ -625,10 +679,8 @@ class PrincipalPortalController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
-        $template = ReportTemplate::where('code', $code)
-            ->whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-                $q->whereIn('principals.id', $scopedPrincipalIds);
-            })
+        $template = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)
+            ->where('report_templates.code', $code)
             ->firstOrFail();
 
         $config = $request->input('dashboard_config');
@@ -661,10 +713,8 @@ class PrincipalPortalController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
-        $template = ReportTemplate::where('code', $code)
-            ->whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-                $q->whereIn('principals.id', $scopedPrincipalIds);
-            })
+        $template = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)
+            ->where('report_templates.code', $code)
             ->firstOrFail();
 
         $template->dashboard_config = null;
@@ -678,6 +728,7 @@ class PrincipalPortalController extends Controller
 
     /**
      * View detailed individual report submission on Principal Portal
+     */
     public function submissionDetail(Request $request, string $code, int $id)
     {
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
@@ -686,14 +737,10 @@ class PrincipalPortalController extends Controller
             return redirect('/');
         }
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
-        $template = ReportTemplate::where('code', $code)
-            ->whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-                $q->whereIn('principals.id', $scopedPrincipalIds);
-            })
+        $template = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)
+            ->where('report_templates.code', $code)
             ->with('fields')
             ->firstOrFail();
 
@@ -735,10 +782,8 @@ class PrincipalPortalController extends Controller
             return redirect('/');
         }
 
-        $template = ReportTemplate::where('code', $code)
-            ->whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-                $q->whereIn('principals.id', $scopedPrincipalIds);
-            })
+        $template = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)
+            ->where('report_templates.code', $code)
             ->firstOrFail();
 
         $submission = ReportSubmission::where('id', $id)
@@ -776,10 +821,8 @@ class PrincipalPortalController extends Controller
     {
         [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
 
-        $template = ReportTemplate::where('code', $code)
-            ->whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-                $q->whereIn('principals.id', $scopedPrincipalIds);
-            })
+        $template = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)
+            ->where('report_templates.code', $code)
             ->with('fields')
             ->firstOrFail();
 
@@ -879,9 +922,7 @@ class PrincipalPortalController extends Controller
             return redirect('/');
         }
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $search = $request->query('q');
         $category = $request->query('category');
@@ -1211,9 +1252,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $startDate = $request->query('start_date') ? Carbon::parse($request->query('start_date'))->startOfDay() : Carbon::now()->startOfMonth();
         $endDate = $request->query('end_date') ? Carbon::parse($request->query('end_date'))->endOfDay() : Carbon::now()->endOfMonth();
@@ -1324,9 +1363,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $search = $request->query('q');
         $branchId = $request->query('branch_id');
@@ -1383,9 +1420,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $search = $request->query('q');
         $branchId = $request->query('branch_id');
@@ -1448,9 +1483,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $assignedShiftIds = DB::table('employee_schedules')
             ->join('employees', 'employees.id', '=', 'employee_schedules.employee_id')
@@ -1484,9 +1517,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $search = $request->query('q');
         $query = Branch::whereIn('id', function($sub) use ($scopedPrincipalIds) {
@@ -1528,9 +1559,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $month = (int) ($request->query('month') ?? Carbon::now()->month);
         $year = (int) ($request->query('year') ?? Carbon::now()->year);
@@ -1874,9 +1903,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $search = $request->query('q');
         $status = $request->query('status');
@@ -1915,9 +1942,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $search = $request->query('q');
         $status = $request->query('status');
@@ -1956,9 +1981,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $today = Carbon::today()->format('Y-m-d');
         $search = $request->query('q');
@@ -2002,9 +2025,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $search = $request->query('q');
         $query = VisitReport::whereHas('employee', function($q) use ($scopedPrincipalIds) {
@@ -2040,9 +2061,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $month = (int) ($request->query('month') ?? Carbon::now()->month);
         $year = (int) ($request->query('year') ?? Carbon::now()->year);
@@ -2336,9 +2355,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $year = (int) ($request->query('year') ?? Carbon::now()->year);
         $branchId = $request->query('branch_id');
@@ -2398,9 +2415,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $month = (int) ($request->query('month') ?? Carbon::now()->month);
         $year = (int) ($request->query('year') ?? Carbon::now()->year);
@@ -2489,9 +2504,7 @@ class PrincipalPortalController extends Controller
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
-        $activeTemplates = ReportTemplate::whereHas('principals', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principals.id', $scopedPrincipalIds);
-        })->where('is_active', true)->with('fields')->orderBy('id')->get();
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
         $year = (int) ($request->query('year') ?? Carbon::now()->year);
 
