@@ -777,8 +777,51 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Native Searchable Filter Popover (Prinsiple & Area)**: Menambahkan tombol filter popover Filament (`HasFiltersSchema` + `InteractsWithActions`) yang bersih, dengan input dropdown pencarian teks langsung (*searchable autocomplete*) yang responsif dan bebas eror.
     - **Kolom Prinsiple & Area di Recent Attendances**: Menambahkan kolom *Prinsiple* dan *Area / Cabang* pada tabel absensi terbaru di dashboard utama.
 
----
+41. **Multi-Server Production Infrastructure & Full Activation (SELESAI 2 September 2026)**:
+    - **Aktivasi 3 Server Production Mandiri**:
+      - **Server 1 (PT AMK & Mobile API Gateway)**: IP `38.103.170.235` (Ubuntu 24.04, Nginx, PHP 8.3, PostgreSQL `db_esa_amk`). Domain aktif: `amk.dgsoft.web.id`, `api.dgsoft.web.id`.
+      - **Server 2 (PT AKP)**: IP `38.103.170.223` (AlmaLinux 8, Nginx, PHP 8.3, PostgreSQL `db_esa_akp`). Domain aktif: `akp.dgsoft.web.id`.
+      - **Server 3 (PT ATK / Gabungan)**: IP `38.103.170.224` (Rocky Linux 8, Nginx, PHP 8.3, PostgreSQL `db_esa_atk`). Domain aktif: `atk.dgsoft.web.id`.
+    - **Penyelesaian Masalah Lingkungan Server**:
+      - Konfigurasi aaPanel Nginx URL rewrite (`try_files $uri $uri/ /index.php?$query_string;`) untuk routing Laravel yang sempurna.
+      - Pembaruan Composer v2.8+ pada Rocky Linux 8 untuk runtime PHP 8.3.
+      - Penerbitan sertifikat SSL Let's Encrypt dengan HTTP-01 File Verification.
+      - Pengujian konektivitas PostgreSQL dan pengamanan izin direktori `storage/` dan `bootstrap/cache/`.
 
+42. **Cross-Server Auto-Sync API untuk Templat Formulir Laporan (SELESAI 2 September 2026)**:
+    - **Arsitektur Sinkronisasi Lintas Server**:
+      - File konfigurasi `config/esa_sync.php` memetakan endpoint ketiga server production dan shared secret token (`ESA_SYNC_SECRET`).
+      - Layanan `TemplateSyncService.php`: menangani proses serialisasi/ekspor skema templat dan field form laporan, impor aman (upsert), dan *HTTP broadcast* ke server peer.
+      - API Controller `TemplateSyncController.php`: mengekspos endpoint aman `POST /api/v1/sync/report-template` dan health check `GET /api/v1/sync/ping`.
+    - **Aksi 1-Klik di Filament Web Admin**:
+      - Menambahkan tombol aksi `syncToPeers` pada tabel templat laporan (`ReportTemplatesTable.php`) dan tombol header pada halaman edit templat (`EditReportTemplate.php`).
+      - Pengguna dapat mengedit templat laporan di satu server (misal Server AMK) dan mendistribusikannya secara otomatis ke Server AKP dan ATK secara real-time.
+
+43. **Perbaikan Multi-Tier Kolom Prinsiple Klien & Command Relasi (SELESAI 2 September 2026)**:
+    - **Multi-Tier Fallback Kolom Prinsiple**: Mengembangkan logika penampil data prinsiple klien pada tabel templat laporan (`ReportTemplatesTable.php`) dengan 3 lapis pemeriksaan:
+      1. Relasi Many-to-Many (`$record->principals`).
+      2. Relasi BelongsTo (`$record->principal`).
+      3. Penelusuran kata kunci nama templat terhadap master prinsiple (Fonterra, Dulux, Wings, MamaSuka, Sido Muncul).
+    - **Artisan Command & Endpoint Sinkronisasi**: Membuat command `php artisan reporting:link-principals` dan endpoint web `/fix-principals` untuk secara permanen memetakan relasi foreign key antara templat laporan dan prinsiple di database.
+
+44. **Sistem Master Auto-Deployment Terpadu (CLI & Web Console) (SELESAI 2 September 2026)**:
+    - **Web Console Deployment 1-Klik (`public/deploy-production.php`)**:
+      - Antarmuka web modern dark-mode dengan live streaming log seperti terminal asli.
+      - Menampilkan status kartu 3 server production beserta tombol eksekusi deploy paralel.
+      - Penanganan izin keamanan *open_basedir* dengan penempatan deploy key khusus di `storage/app/deploy_key/id_rsa`.
+      - Pembaruan otomatis script deploy server dev (`public/deploy.php`) terintegrasi dengan migrasi database dan sinkronisasi prinsiple.
+    - **Master CLI Script (`deploy.sh` & `deploy-all-production.sh`)**:
+      - Menu interaktif di terminal server development `appsend.my.id` untuk deploy lokal dev, deploy 3 server production, atau deploy semua server sekaligus.
+      - Skrip pairing kunci SSH otomatis (`setup-ssh-keys.sh`) untuk login tanpa password antar server.
+
+45. **Transisi Domain Utama Produksi (`esa-solutions.id`) & Whitelabel Portal Prinsiple (SELESAI 2 September 2026)**:
+    - **Panduan Migrasi Zero-Downtime**: Menyusun dokumen lengkap `PANDUAN_MIGRASI_SWITCH_DOMAIN_UTAMA_ESA.md` yang mencakup pemetaan DNS A Record, penambahan domain di aaPanel, penerbitan SSL, penyesuaian file `.env`, dan checklist verifikasi.
+    - **Penyelarasan Domain Portal Prinsiple**:
+      - Memperbarui schema form edit master prinsiple (`PrincipalForm.php`): mengubah domain suffix subdomain dari `.appsend.my.id` menjadi **`.esa-solutions.id`**.
+      - Memperbarui model `Principal.php` pada atribut `getPortalUrlAttribute()` agar mengarahkan link portal ke `https://{subdomain}.esa-solutions.id`.
+      - Menyesuaikan middleware `IdentifyTenantSubdomain` untuk mengenali subdomain kustom tenant dan melindungi subdomain reserved server internal (`amk`, `akp`, `atk`).
+
+---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)
 1. **Lanjutan Monitoring & Rekap Operasional:**
