@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 class SmartGatewayRelayService
 {
     /**
-     * Dapatkan daftar peer server cluster dengan fallback DNS & IP Direct
+     * Dapatkan daftar peer server cluster
      */
     public static function getPeerServers(): array
     {
@@ -18,19 +18,19 @@ class SmartGatewayRelayService
             'amk' => [
                 'id' => 'amk',
                 'name' => 'Server 1 (PT AMK)',
-                'urls' => ['https://amk.esa-solutions.id', 'https://amk.dgsoft.web.id', 'http://38.103.170.235'],
+                'urls' => ['https://amk.esa-solutions.id'],
                 'host' => 'amk.esa-solutions.id',
             ],
             'akp' => [
                 'id' => 'akp',
                 'name' => 'Server 2 (PT AKP)',
-                'urls' => ['https://akp.esa-solutions.id', 'https://akp.dgsoft.web.id', 'http://38.103.170.223'],
+                'urls' => ['https://akp.esa-solutions.id'],
                 'host' => 'akp.esa-solutions.id',
             ],
             'atk' => [
                 'id' => 'atk',
                 'name' => 'Server 3 (PT ATK / Gabungan)',
-                'urls' => ['https://atk.esa-solutions.id', 'https://atk.dgsoft.web.id', 'http://38.103.170.224'],
+                'urls' => ['https://atk.esa-solutions.id'],
                 'host' => 'atk.esa-solutions.id',
             ],
         ];
@@ -81,12 +81,7 @@ class SmartGatewayRelayService
                 }
                 try {
                     $endpoint = rtrim($targetUrl, '/') . '/api/login';
-                    $client = Http::timeout(4)->withoutVerifying();
-                    if (str_starts_with($targetUrl, 'http://38.')) {
-                        $client = $client->withHeaders(['Host' => $serverInfo['host']]);
-                    }
-
-                    $response = $client->post($endpoint, $payload);
+                    $response = Http::timeout(4)->withoutVerifying()->post($endpoint, $payload);
 
                     if ($response->successful()) {
                         $responseData = $response->json();
@@ -107,9 +102,14 @@ class SmartGatewayRelayService
                     } else {
                         $respJson = $response->json();
                         $msg = $respJson['message'] ?? '';
+                        // Jika peer server mengenali NIK dan memberikan error khusus (password salah / device lock / dll)
                         if ($response->status() === 401 || $response->status() === 403 || $response->status() === 422) {
                             if (!empty($msg) && !str_contains(strtolower($msg), 'tidak terdaftar')) {
                                 $candidateErrorResponse = response()->json($respJson, $response->status());
+                                // Jika device locked atau password spesifik, langsung kembalikan respon
+                                if (str_contains(strtolower($msg), 'perangkat') || str_contains(strtolower($msg), 'device')) {
+                                    return $candidateErrorResponse;
+                                }
                             }
                         }
                     }
@@ -159,7 +159,7 @@ class SmartGatewayRelayService
                 $headers[$headerKey] = implode(', ', $headerValues);
             }
 
-            if (!empty($targetHost) && str_starts_with($targetServer, 'http://38.')) {
+            if (!empty($targetHost)) {
                 $headers['Host'] = $targetHost;
             }
 

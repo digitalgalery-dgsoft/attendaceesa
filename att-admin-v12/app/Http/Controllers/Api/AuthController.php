@@ -40,35 +40,9 @@ class AuthController extends Controller
                 return $relayResponse;
             }
 
-            // Cek apakah ada record yang berstatus non-aktif lokal
-            $inactive = Employee::with('company')->where(function($query) use ($loginId) {
-                    $query->where('email', $loginId)
-                          ->orWhere('employee_no', $loginId)
-                          ->orWhereRaw('LOWER(email) = ?', [strtolower($loginId)])
-                          ->orWhereRaw('LOWER(employee_no) = ?', [strtolower($loginId)]);
-                })
-                ->where('is_active', false)
-                ->first();
-
-            if ($inactive) {
-                $compName = strtolower($inactive->company->name ?? '');
-                // Jika karyawan sebenarnya terdaftar di entitas lain (ATK/AKP), jangan blokir dengan pesan non-aktif lokal
-                if (str_contains($compName, 'anugrah') || str_contains($compName, 'talenta') || str_contains($compName, 'berkarya') || str_contains($compName, 'alva') || str_contains($compName, 'akp') || str_contains($compName, 'atk')) {
-                    return response()->json([
-                        'status'  => 'error',
-                        'message' => 'Email/NIK atau password salah.'
-                    ], 401);
-                }
-
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => 'Akun karyawan tidak aktif. Silakan hubungi admin / HR.'
-                ], 403);
-            }
-
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Email atau NIK tidak terdaftar.'
+                'message' => 'Email/NIK atau password salah.'
             ], 401);
         }
 
