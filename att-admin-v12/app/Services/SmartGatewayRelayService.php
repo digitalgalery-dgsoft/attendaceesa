@@ -15,11 +15,11 @@ class SmartGatewayRelayService
     public static function getPeerServers(): array
     {
         $allServers = [
-            'amk' => [
-                'id' => 'amk',
-                'name' => 'Server 1 (PT AMK)',
-                'urls' => ['https://amk.esa-solutions.id'],
-                'host' => 'amk.esa-solutions.id',
+            'atk' => [
+                'id' => 'atk',
+                'name' => 'Server 3 (PT ATK / Gabungan)',
+                'urls' => ['https://atk.esa-solutions.id'],
+                'host' => 'atk.esa-solutions.id',
             ],
             'akp' => [
                 'id' => 'akp',
@@ -27,11 +27,11 @@ class SmartGatewayRelayService
                 'urls' => ['https://akp.esa-solutions.id'],
                 'host' => 'akp.esa-solutions.id',
             ],
-            'atk' => [
-                'id' => 'atk',
-                'name' => 'Server 3 (PT ATK / Gabungan)',
-                'urls' => ['https://atk.esa-solutions.id'],
-                'host' => 'atk.esa-solutions.id',
+            'amk' => [
+                'id' => 'amk',
+                'name' => 'Server 1 (PT AMK)',
+                'urls' => ['https://amk.esa-solutions.id'],
+                'host' => 'amk.esa-solutions.id',
             ],
         ];
 
@@ -100,10 +100,8 @@ class SmartGatewayRelayService
                         $msg = $respJson['message'] ?? '';
                         if ($response->status() === 401 || $response->status() === 403 || $response->status() === 422) {
                             if (!empty($msg) && !str_contains(strtolower($msg), 'tidak terdaftar')) {
-                                $candidateErrorResponse = response()->json($respJson, $response->status());
-                                if (str_contains(strtolower($msg), 'perangkat') || str_contains(strtolower($msg), 'device')) {
-                                    return $candidateErrorResponse;
-                                }
+                                // Peer server mengenali NIK user! Kembalikan respon segera tanpa perlu mencoba server lain
+                                return response()->json($respJson, $response->status());
                             }
                         }
                     }
