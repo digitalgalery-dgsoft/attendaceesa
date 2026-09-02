@@ -13,7 +13,7 @@ graph TD
     GIT["🐙 GitHub Repository<br/>(digitalgalery-dgsoft/attendaceesa)"]
     S1["🏢 SERVER 1: PT AMK<br/>38.103.170.235"]
     S2["🏢 SERVER 2: PT AKP<br/>38.103.170.223"]
-    S3["🏢 SERVER 3: PT ATK<br/>38.103.170.219"]
+    S3["🏢 SERVER 3: PT ATK<br/>38.103.170.224"]
 
     DEV -->|1. Push Perubahan| GIT
     DEV -->|2. bash deploy-all-production.sh| S1

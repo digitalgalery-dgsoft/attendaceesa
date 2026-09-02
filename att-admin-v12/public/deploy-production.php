@@ -36,7 +36,7 @@ $servers = [
     [
         'id' => 'atk',
         'name' => 'Server 3: PT Anugrah Talenta Berkarya (ATK / Gabungan)',
-        'ip' => '38.103.170.219',
+        'ip' => '38.103.170.224',
         'path' => '/www/wwwroot/atk.dgsoft.web.id',
         'domain' => 'atk.dgsoft.web.id',
         'ping' => 'https://atk.dgsoft.web.id/api/v1/sync/ping',

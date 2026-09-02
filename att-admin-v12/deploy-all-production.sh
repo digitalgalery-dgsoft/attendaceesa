@@ -26,7 +26,7 @@ echo -e "Waktu Eksekusi:     ${YELLOW}$(date '+%Y-%m-%d %H:%M:%S')${NC}\n"
 SERVERS=(
     "amk|Server 1 (PT AMK)|38.103.170.235|/www/wwwroot/amk.dgsoft.web.id|https://amk.dgsoft.web.id/api/v1/sync/ping"
     "akp|Server 2 (PT AKP)|38.103.170.223|/www/wwwroot/akp.dgsoft.web.id|https://akp.dgsoft.web.id/api/v1/sync/ping"
-    "atk|Server 3 (PT ATK)|38.103.170.219|/www/wwwroot/atk.dgsoft.web.id|https://atk.dgsoft.web.id/api/v1/sync/ping"
+    "atk|Server 3 (PT ATK)|38.103.170.224|/www/wwwroot/atk.dgsoft.web.id|https://atk.dgsoft.web.id/api/v1/sync/ping"
 )
 
 # 1. Pastikan repo di server dev sudah ter-push ke GitHub

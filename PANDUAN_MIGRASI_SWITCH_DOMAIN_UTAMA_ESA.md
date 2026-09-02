@@ -13,7 +13,7 @@ Berikut adalah daftar IP resmi dari ketiga server production yang saat ini telah
 | :--- | :--- | :---: | :---: | :---: |
 | **SERVER 1 (PT AMK)** | Server Utama AMK & Gateway Mobile App | **`38.103.170.235`** | Ubuntu 24.04 / Nginx / PHP 8.3 | `db_esa_amk` |
 | **SERVER 2 (PT AKP)** | Server Operasional PT AKP | **`38.103.170.223`** | AlmaLinux 8 / Nginx / PHP 8.3 | `db_esa_akp` |
-| **SERVER 3 (PT ATK)** | Server Operasional ATK / ATB / ABO | **`38.103.170.219`** | Rocky Linux 8 / Nginx / PHP 8.3 | `db_esa_atk` |
+| **SERVER 3 (PT ATK)** | Server Operasional ATK / ATB / ABO | **`38.103.170.224`** | Rocky Linux 8 / Nginx / PHP 8.3 | `db_esa_atk` |
 
 ---
 
@@ -40,8 +40,8 @@ Tambahkan atau sesuaikan **DNS A Record** berikut:
 ### C. Routing ke Server 3 (PT ATK / Gabungan):
 | Tipe | Nama / Subdomain | Target / Nilai IP | TTL | Keterangan |
 | :---: | :--- | :---: | :---: | :--- |
-| **`A`** | **`atk`** | `38.103.170.219` | Auto / 300 | Web Admin & Portal PT ATK |
-| **`A`** | **`*.atk`** | `38.103.170.219` | Auto / 300 | Wildcard Portal Prinsiple ATK |
+| **`A`** | **`atk`** | `38.103.170.224` | Auto / 300 | Web Admin & Portal PT ATK |
+| **`A`** | **`*.atk`** | `38.103.170.224` | Auto / 300 | Wildcard Portal Prinsiple ATK |
 
 > [!TIP]
 > **Jika menggunakan Cloudflare:**  
@@ -68,7 +68,7 @@ Tambahkan domain ini:
 - `akp.esa-solution.id`
 *(Klik tombol **Add**).*
 
-### 3. Di aaPanel Server 3 (`38.103.170.219`):
+### 3. Di aaPanel Server 3 (`38.103.170.224`):
 Tambahkan domain ini:
 - `atk.esa-solution.id`
 *(Klik tombol **Add**).*

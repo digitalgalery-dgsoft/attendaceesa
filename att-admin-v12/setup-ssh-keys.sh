@@ -29,7 +29,7 @@ fi
 SERVERS=(
     "Server 1 (AMK)|38.103.170.235"
     "Server 2 (AKP)|38.103.170.223"
-    "Server 3 (ATK)|38.103.170.219"
+    "Server 3 (ATK)|38.103.170.224"
 )
 
 echo -e "\nSekarang kita akan mendaftarkan public key ke masing-masing server."
