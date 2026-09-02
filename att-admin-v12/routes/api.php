@@ -17,12 +17,33 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\SalesReportController;
 use App\Http\Controllers\Api\DashboardApiController;
 
-Route::post('/login', [AuthController::class, 'login']);
+Route::get('/ping', function () {
+    return response()->json(['status' => 'pong', 'time' => now()->timestamp]);
+});
+
+Route::get('/health', function () {
+    return response()->json(['status' => 'healthy', 'time' => now()->timestamp]);
+});
+
+Route::match(['get', 'post'], '/check', function () {
+    return response()->json(['status' => 'ok', 'app' => 'ESA Attendance']);
+});
 
 Route::get('/settings', function () {
+    try {
+        $data = \Illuminate\Support\Facades\Cache::remember('public_system_setting', 60, function () {
+            return \App\Models\Setting::first();
+        });
+    } catch (\Throwable $e) {
+        $data = [
+            'id' => 1,
+            'app_name' => 'ESA Solutions',
+            'theme_color' => '#0A192F',
+        ];
+    }
     return response()->json([
         'status' => 'success',
-        'data' => \App\Models\Setting::first()
+        'data' => $data
     ]);
 });
 

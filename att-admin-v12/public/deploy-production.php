@@ -135,10 +135,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             chmod -R 777 storage bootstrap/cache 2>/dev/null || true
             /www/server/php/83/bin/php artisan optimize:clear
 
-            echo '6. Me-restart PHP-FPM & PostgreSQL...'
-            /etc/init.d/php-fpm-83 restart 2>/dev/null || systemctl restart php-fpm-83 2>/dev/null || systemctl restart php-fpm 2>/dev/null || true
-            pkill -f 'postgres: db_esa' 2>/dev/null || true
-            systemctl restart postgresql 2>/dev/null || systemctl restart postgresql@* 2>/dev/null || /etc/init.d/postgresql restart 2>/dev/null || su - postgres -c 'pg_ctl restart -D /www/server/pgsql/data' 2>/dev/null || su - postgres -c 'systemctl restart postgresql' 2>/dev/null || true
+            echo '6. Me-restart PHP-FPM...'
+            /etc/init.d/php-fpm-83 restart 2>/dev/null || systemctl restart php-fpm-83 2>/dev/null || systemctl restart php-fpm 2>/dev/null || /www/server/php/83/sbin/php-fpm restart 2>/dev/null || true
             echo 'DEPLOY_SUCCESS_FLAG'
         ";
 

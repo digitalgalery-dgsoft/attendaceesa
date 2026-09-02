@@ -27,6 +27,18 @@ Route::get('/.well-known/acme-challenge/{token}', function ($token) {
     return response('acme challenge handler active', 404);
 });
 
+Route::get('/ping', function () {
+    return response('pong', 200, ['Content-Type' => 'text/plain']);
+});
+
+Route::get('/health', function () {
+    return response()->json(['status' => 'healthy', 'time' => now()->timestamp]);
+});
+
+Route::match(['get', 'post'], '/check', function () {
+    return response()->json(['status' => 'ok', 'app' => 'ESA Attendance']);
+});
+
 Route::get('/app-logo', function () {
     $setting = \Illuminate\Support\Facades\Schema::hasTable('settings') ? \App\Models\Setting::first() : null;
     $path = $setting?->logo_path;
