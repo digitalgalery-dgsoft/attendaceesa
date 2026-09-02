@@ -461,10 +461,16 @@ class PrincipalPortalController extends Controller
             });
         }
 
+        $totalTemplateSubmissions = (clone $query)->count();
+        $uniqueStores = (clone $query)->distinct('report_submissions.work_location_id')->count('report_submissions.work_location_id');
+        $uniqueEmployees = (clone $query)->distinct('report_submissions.employee_id')->count('report_submissions.employee_id');
+
         $submissions = $query->latest('report_submissions.submitted_at')->paginate(20);
-        $allFilteredSubmissions = (clone $query)->get();
-        $totalTemplateSubmissions = $allFilteredSubmissions->count();
-        $uniqueStores = $allFilteredSubmissions->pluck('work_location_id')->filter()->unique()->count();
+
+        // Hanya load collection ke memory jika dataset wajar (<= 1500 rows) agar tidak kehabisan RAM pada dataset besar
+        $allFilteredSubmissions = $totalTemplateSubmissions <= 1500 
+            ? (clone $query)->get() 
+            : collect();
 
         // Dynamic Dashboard Configuration & Widget Calculation Engine (Concept Odoo Studio)
         $dashboardConfig = $template->resolved_dashboard_config;
@@ -485,27 +491,61 @@ class PrincipalPortalController extends Controller
                 } elseif ($metric === '_unique_store' || $dim === 'work_location_id' || $metric === 'work_location_id') {
                     $val = $uniqueStores;
                 } elseif ($metric === '_unique_employee' || $dim === 'employee_id' || $metric === 'employee_id') {
-                    $val = $allFilteredSubmissions->pluck('employee_id')->filter()->unique()->count();
+                    $val = $uniqueEmployees;
                 } else {
-                    $values = collect();
-                    foreach ($allFilteredSubmissions as $sub) {
-                        foreach ($sub->values as $v) {
-                            if ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric)) {
-                                $num = $v->value_number ?? (is_numeric($v->value_text) ? (float) $v->value_text : null);
-                                if ($num !== null) $values->push($num);
+                    if ($totalTemplateSubmissions > 1500) {
+                        // High performance DB aggregation
+                        $valQuery = DB::table('report_submission_values')
+                            ->join('report_submissions', 'report_submission_values.report_submission_id', '=', 'report_submissions.id')
+                            ->where('report_submissions.report_template_id', $template->id)
+                            ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
+                            ->where('report_submission_values.field_name', $metric);
+
+                        if ($selectedRegion) {
+                            $valQuery->join('work_locations', 'report_submissions.work_location_id', '=', 'work_locations.id')
+                                     ->where('work_locations.region', $selectedRegion);
+                        }
+                        if ($selectedAreaId) {
+                            $valQuery->where('report_submissions.work_location_id', function($subQ) use ($selectedAreaId) {
+                                $subQ->select('id')->from('work_locations')->where('branch_id', $selectedAreaId);
+                            });
+                        }
+                        if ($selectedLocationId) {
+                            $valQuery->where('report_submissions.work_location_id', $selectedLocationId);
+                        }
+
+                        if ($agg === 'SUM') {
+                            $val = (float) $valQuery->sum('report_submission_values.value_number');
+                        } elseif ($agg === 'AVG') {
+                            $val = round((float) $valQuery->avg('report_submission_values.value_number'), 1);
+                        } elseif ($agg === 'MAX') {
+                            $val = (float) $valQuery->max('report_submission_values.value_number');
+                        } elseif ($agg === 'MIN') {
+                            $val = (float) $valQuery->min('report_submission_values.value_number');
+                        } else {
+                            $val = (int) $valQuery->count();
+                        }
+                    } else {
+                        $values = collect();
+                        foreach ($allFilteredSubmissions as $sub) {
+                            foreach ($sub->values as $v) {
+                                if ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric)) {
+                                    $num = $v->value_number ?? (is_numeric($v->value_text) ? (float) $v->value_text : null);
+                                    if ($num !== null) $values->push($num);
+                                }
                             }
                         }
-                    }
-                    if ($agg === 'SUM') {
-                        $val = $values->sum();
-                    } elseif ($agg === 'AVG') {
-                        $val = $values->count() > 0 ? round($values->avg(), 1) : 0;
-                    } elseif ($agg === 'MAX') {
-                        $val = $values->count() > 0 ? $values->max() : 0;
-                    } elseif ($agg === 'MIN') {
-                        $val = $values->count() > 0 ? $values->min() : 0;
-                    } else {
-                        $val = $values->count();
+                        if ($agg === 'SUM') {
+                            $val = $values->sum();
+                        } elseif ($agg === 'AVG') {
+                            $val = $values->count() > 0 ? round($values->avg(), 1) : 0;
+                        } elseif ($agg === 'MAX') {
+                            $val = $values->count() > 0 ? $values->max() : 0;
+                        } elseif ($agg === 'MIN') {
+                            $val = $values->count() > 0 ? $values->min() : 0;
+                        } else {
+                            $val = $values->count();
+                        }
                     }
                 }
                 $prefix = $w['prefix'] ?? '';
@@ -516,6 +556,59 @@ class PrincipalPortalController extends Controller
                 ];
             } elseif (in_array($type, ['bar_chart', 'donut_chart', 'pie_chart', 'line_chart', 'breakdown_table'])) {
                 $groups = [];
+
+                if ($totalTemplateSubmissions > 1500) {
+                    if ($dim === '_submitted_date') {
+                        $diffInMonths = $startDate->diffInMonths($endDate);
+                        if ($diffInMonths > 1) {
+                            $dateQuery = DB::table('report_submissions')
+                                ->where('report_template_id', $template->id)
+                                ->whereBetween('submitted_at', [$startDate, $endDate])
+                                ->selectRaw("TO_CHAR(submitted_at, 'YYYY-MM') as period_key, count(*) as total")
+                                ->groupBy('period_key')
+                                ->orderBy('period_key')
+                                ->pluck('total', 'period_key');
+                            
+                            $currentPeriod = $startDate->copy()->startOfMonth();
+                            while ($currentPeriod->lte($endDate)) {
+                                $k = $currentPeriod->format('Y-m');
+                                $label = $currentPeriod->translatedFormat('M Y');
+                                $groups[$label] = $dateQuery[$k] ?? 0;
+                                $currentPeriod->addMonth();
+                            }
+                        } else {
+                            $dateQuery = DB::table('report_submissions')
+                                ->where('report_template_id', $template->id)
+                                ->whereBetween('submitted_at', [$startDate, $endDate])
+                                ->selectRaw("TO_CHAR(submitted_at, 'YYYY-MM-DD') as day_key, count(*) as total")
+                                ->groupBy('day_key')
+                                ->orderBy('day_key')
+                                ->pluck('total', 'day_key');
+
+                            $daysInMonth = $startDate->daysInMonth;
+                            for ($d = 1; $d <= $daysInMonth; $d++) {
+                                $dayObj = Carbon::create($startYear, $startMonth, $d);
+                                $k = $dayObj->format('Y-m-d');
+                                $dateLabel = $dayObj->translatedFormat('d M');
+                                $groups[$dateLabel] = $dateQuery[$k] ?? 0;
+                            }
+                        }
+                    } else {
+                        // Group by field values
+                        $groupQuery = DB::table('report_submission_values')
+                            ->join('report_submissions', 'report_submission_values.report_submission_id', '=', 'report_submissions.id')
+                            ->where('report_submissions.report_template_id', $template->id)
+                            ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
+                            ->where('report_submission_values.field_name', $dim)
+                            ->selectRaw('report_submission_values.value_text as label, count(*) as total')
+                            ->groupBy('label')
+                            ->orderByDesc('total')
+                            ->limit(10)
+                            ->pluck('total', 'label')
+                            ->toArray();
+                        $groups = $groupQuery;
+                    }
+                } else {
 
                 if ($dim === '_submitted_date') {
                     // Group by Month or Day depending on range length

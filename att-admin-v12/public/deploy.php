@@ -42,6 +42,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan optimize:clear',
     ];
 
+    if (isset($_GET['import_offtake']) && $_GET['import_offtake'] === '1') {
+        $m = isset($_GET['month']) ? ' --month=' . intval($_GET['month']) : '';
+        $lim = isset($_GET['limit']) ? ' --limit=' . intval($_GET['limit']) : '';
+        $commands[] = '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan dulux:import-offtake' . $m . $lim;
+    }
+
     if (isset($_GET['seed']) && $_GET['seed'] === '1') {
         $commands[] = '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan db:seed --class=ReportTemplatePresetsSeeder --force';
     }

@@ -64,6 +64,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $runMigration = isset($_GET['migrate']) && $_GET['migrate'] === '1';
     $runPrincipals = isset($_GET['principals']) && $_GET['principals'] === '1';
+    $runImportOfftake = isset($_GET['import_offtake']) && $_GET['import_offtake'] === '1';
+    $offtakeMonth = isset($_GET['month']) ? ' --month=' . intval($_GET['month']) : '';
+    $offtakeLimit = isset($_GET['limit']) ? ' --limit=' . intval($_GET['limit']) : '';
 
     $successCount = 0;
 
@@ -142,6 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             " . ($runMigration ? "echo '4. Menjalankan Database Migration...' && /www/server/php/83/bin/php artisan migrate --force\n" : "") . "
             " . ($runPrincipals ? "echo '4b. Menyinkronkan Relasi Principal...' && /www/server/php/83/bin/php artisan reporting:link-principals\n" : "") . "
+            " . ($runImportOfftake ? "echo '4c. Mengimpor Data Offtake Dulux 2025...' && /www/server/php/83/bin/php artisan dulux:import-offtake{$offtakeMonth}{$offtakeLimit}\n" : "") . "
 
             echo '5. Membersihkan cache...'
             chmod -R 777 storage bootstrap/cache 2>/dev/null || true
