@@ -96,12 +96,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 \\cp -rf \$SRC_DIR/. {$srv['path']}/
             fi
             if [ -d '/www/wwwroot/api.esa-solutions.id' ]; then
-                \\cp -rf \$SRC_DIR/. /www/wwwroot/api.esa-solutions.id/
-                cd /www/wwwroot/api.esa-solutions.id && /www/server/php/83/bin/php artisan optimize:clear 2>/dev/null || true
+                \\cp -rf \$SRC_DIR/. /www/wwwroot/api.esa-solutions.id/ 2>/dev/null || true
+                if [ ! -d '/www/wwwroot/api.esa-solutions.id/vendor' ] && [ -d '{$srv['path']}/vendor' ]; then
+                    ln -s {$srv['path']}/vendor /www/wwwroot/api.esa-solutions.id/vendor 2>/dev/null || true
+                fi
+                if [ ! -f '/www/wwwroot/api.esa-solutions.id/.env' ] && [ -f '{$srv['path']}/.env' ]; then
+                    cp {$srv['path']}/.env /www/wwwroot/api.esa-solutions.id/.env 2>/dev/null || true
+                fi
+                if [ -f '/www/wwwroot/api.esa-solutions.id/vendor/autoload.php' ]; then
+                    cd /www/wwwroot/api.esa-solutions.id && /www/server/php/83/bin/php artisan optimize:clear 2>/dev/null || true
+                fi
             fi
             if [ -d '/www/wwwroot/amk.esa-solutions.id' ]; then
-                \\cp -rf \$SRC_DIR/. /www/wwwroot/amk.esa-solutions.id/
-                cd /www/wwwroot/amk.esa-solutions.id && /www/server/php/83/bin/php artisan optimize:clear 2>/dev/null || true
+                \\cp -rf \$SRC_DIR/. /www/wwwroot/amk.esa-solutions.id/ 2>/dev/null || true
+                if [ ! -d '/www/wwwroot/amk.esa-solutions.id/vendor' ] && [ -d '{$srv['path']}/vendor' ]; then
+                    ln -s {$srv['path']}/vendor /www/wwwroot/amk.esa-solutions.id/vendor 2>/dev/null || true
+                fi
+                if [ ! -f '/www/wwwroot/amk.esa-solutions.id/.env' ] && [ -f '{$srv['path']}/.env' ]; then
+                    cp {$srv['path']}/.env /www/wwwroot/amk.esa-solutions.id/.env 2>/dev/null || true
+                fi
+                if [ -f '/www/wwwroot/amk.esa-solutions.id/vendor/autoload.php' ]; then
+                    cd /www/wwwroot/amk.esa-solutions.id && /www/server/php/83/bin/php artisan optimize:clear 2>/dev/null || true
+                fi
             fi
 
             echo '3. Merapikan aset Livewire & storage link...'
