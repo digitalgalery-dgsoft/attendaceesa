@@ -87,15 +87,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             git reset --hard origin/main
 
             echo '2. Menyalin file ke {$srv['path']}...'
+            SRC_DIR="/root/att-admin-v12"
+            if [ -d "/root/att-admin-v12/att-admin-v12" ]; then
+                SRC_DIR="/root/att-admin-v12/att-admin-v12"
+            fi
+            
             if [ -d '{$srv['path']}' ]; then
-                \\cp -rf /root/att-admin-v12/att-admin-v12/. {$srv['path']}/
+                \\cp -rf \$SRC_DIR/. {$srv['path']}/
             fi
             if [ -d '/www/wwwroot/api.esa-solutions.id' ]; then
-                \\cp -rf /root/att-admin-v12/att-admin-v12/. /www/wwwroot/api.esa-solutions.id/
+                \\cp -rf \$SRC_DIR/. /www/wwwroot/api.esa-solutions.id/
                 cd /www/wwwroot/api.esa-solutions.id && /www/server/php/83/bin/php artisan optimize:clear 2>/dev/null || true
             fi
             if [ -d '/www/wwwroot/amk.esa-solutions.id' ]; then
-                \\cp -rf /root/att-admin-v12/att-admin-v12/. /www/wwwroot/amk.esa-solutions.id/
+                \\cp -rf \$SRC_DIR/. /www/wwwroot/amk.esa-solutions.id/
                 cd /www/wwwroot/amk.esa-solutions.id && /www/server/php/83/bin/php artisan optimize:clear 2>/dev/null || true
             fi
 

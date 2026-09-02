@@ -135,10 +135,15 @@ deploy_three_prod_servers() {
             git reset --hard origin/main
 
             # 2. Salin kode ke webroot
-            \cp -rf /root/att-admin-v12/att-admin-v12/. ${S_PATH}/
+            SRC_DIR="/root/att-admin-v12"
+            if [ -d "/root/att-admin-v12/att-admin-v12" ]; then
+                SRC_DIR="/root/att-admin-v12/att-admin-v12"
+            fi
+            \cp -rf $SRC_DIR/. ${S_PATH}/
 
             # 3. Setup aset & permission
             cd ${S_PATH}
+            chmod -R 777 storage bootstrap/cache 2>/dev/null || true
             php artisan storage:link 2>/dev/null || true
             php artisan livewire:publish --assets 2>/dev/null || true
             mkdir -p public/livewire
@@ -147,7 +152,7 @@ deploy_three_prod_servers() {
 
             # 4. Clear cache & reload PHP
             php artisan optimize:clear >/dev/null 2>&1
-            systemctl reload php-fpm-83 2>/dev/null || /etc/init.d/php-fpm-83 reload 2>/dev/null || true
+            /etc/init.d/php-fpm-83 restart 2>/dev/null || systemctl restart php-fpm-83 2>/dev/null || true
         "
 
         if ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=no "root@${S_IP}" "$REMOTE_CMD" 2>&1; then

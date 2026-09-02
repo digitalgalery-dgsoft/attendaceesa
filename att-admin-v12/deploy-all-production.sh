@@ -69,7 +69,11 @@ for item in "${SERVERS[@]}"; do
         git reset --hard origin/main
 
         # 2. Salin kode ke folder website
-        \cp -rf /root/att-admin-v12/att-admin-v12/. ${S_PATH}/
+        SRC_DIR="/root/att-admin-v12"
+        if [ -d "/root/att-admin-v12/att-admin-v12" ]; then
+            SRC_DIR="/root/att-admin-v12/att-admin-v12"
+        fi
+        \cp -rf $SRC_DIR/. ${S_PATH}/
 
         # 3. Setup aset & link storage
         cd ${S_PATH}
