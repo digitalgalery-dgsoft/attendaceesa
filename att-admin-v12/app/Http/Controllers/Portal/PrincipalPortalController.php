@@ -753,7 +753,7 @@ class PrincipalPortalController extends Controller
         }
         $areas = $areaQuery->orderBy('name')->get();
 
-        $storeQuery = WorkLocation::query()->select(['id', 'name', 'code', 'region', 'branch_id']);
+        $storeQuery = WorkLocation::query()->select(['id', 'name', 'region', 'branch_id']);
         if ($selectedRegion) {
             $storeQuery->where('region', $selectedRegion);
         }
@@ -766,6 +766,13 @@ class PrincipalPortalController extends Controller
         $workLocations = $storeQuery->where(function($q) use ($scopedPrincipalIds) {
             $q->whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id');
         })->orderBy('name')->get();
+
+        if ($selectedLocationId && !$workLocations->contains('id', $selectedLocationId)) {
+            $currentLoc = WorkLocation::select(['id', 'name', 'region', 'branch_id'])->find($selectedLocationId);
+            if ($currentLoc) {
+                $workLocations->prepend($currentLoc);
+            }
+        }
 
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();
