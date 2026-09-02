@@ -137,6 +137,10 @@ class ImportDuluxOfftakeCommand extends Command
                 $newLoc = WorkLocation::create([
                     'company_id' => $companyId,
                     'name' => $sName,
+                    'type' => 'client',
+                    'latitude' => -6.2000000,
+                    'longitude' => 106.8166667,
+                    'radius_meter' => 100,
                     'code' => $sap ?: null,
                     'region' => $sRow['region'] ?: null,
                     'branch_name' => $sRow['area'] ?: null,
