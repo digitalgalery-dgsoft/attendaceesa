@@ -64,9 +64,19 @@ class PrincipalsTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('name', 'asc')
             ->filters([
                 \Filament\Tables\Filters\TernaryFilter::make('is_active')
-                    ->label('Status Aktif'),
+                    ->label('Status Aktif')
+                    ->placeholder('Semua Status')
+                    ->trueLabel('Aktif Saja (Default)')
+                    ->falseLabel('Non-Aktif Saja')
+                    ->default(true),
+                \Filament\Tables\Filters\SelectFilter::make('company_id')
+                    ->label('Filter Company')
+                    ->relationship('company', 'name')
+                    ->preload()
+                    ->searchable(),
             ])
             ->recordActions([
                 EditAction::make(),
