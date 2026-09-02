@@ -91,17 +91,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             echo '3. Merapikan aset Livewire & storage link...'
             cd {$srv['path']}
-            php artisan storage:link 2>/dev/null || true
-            php artisan livewire:publish --assets 2>/dev/null || true
+            /www/server/php/83/bin/php artisan storage:link 2>/dev/null || true
+            /www/server/php/83/bin/php artisan livewire:publish --assets 2>/dev/null || true
             mkdir -p public/livewire
             \\cp -rf vendor/livewire/livewire/dist/* public/livewire/ 2>/dev/null || true
             rm -f public/hot
 
-            " . ($runMigration ? "echo '4. Menjalankan Database Migration...' && php artisan migrate --force\n" : "") . "
-            " . ($runPrincipals ? "echo '4b. Menyinkronkan Relasi Principal...' && php artisan reporting:link-principals\n" : "") . "
+            " . ($runMigration ? "echo '4. Menjalankan Database Migration...' && /www/server/php/83/bin/php artisan migrate --force\n" : "") . "
+            " . ($runPrincipals ? "echo '4b. Menyinkronkan Relasi Principal...' && /www/server/php/83/bin/php artisan reporting:link-principals\n" : "") . "
 
             echo '5. Membersihkan cache...'
-            php artisan optimize:clear
+            /www/server/php/83/bin/php artisan optimize:clear
 
             echo '6. Me-reload PHP-FPM...'
             systemctl reload php-fpm-83 2>/dev/null || /etc/init.d/php-fpm-83 reload 2>/dev/null || true
