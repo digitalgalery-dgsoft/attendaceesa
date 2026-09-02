@@ -32,6 +32,14 @@ class AuthController extends Controller
             ->first();
 
         if (!$employee) {
+            // Jika ini sudah merupakan request relay dari server cluster lain, jangan relay lagi untuk mencegah loop
+            if ($request->header('X-ESA-Gateway-Relay')) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Email atau NIK tidak terdaftar.'
+                ], 401);
+            }
+
             // Cek apakah karyawan terdaftar di peer server (AKP / ATK) melalui Smart Gateway Relay
             $relayResponse = \App\Services\SmartGatewayRelayService::attemptRelayLogin($request);
             if ($relayResponse) {

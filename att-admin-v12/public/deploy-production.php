@@ -78,10 +78,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Susun perintah remote
         $remoteScript = "
             set -e
-            echo '0. Memastikan DNS Cluster di /etc/hosts...'
-            grep -q 'atk.esa-solutions.id' /etc/hosts || echo '38.103.170.224 atk.esa-solutions.id' >> /etc/hosts
-            grep -q 'akp.esa-solutions.id' /etc/hosts || echo '38.103.170.223 akp.esa-solutions.id' >> /etc/hosts
-            grep -q 'amk.esa-solutions.id' /etc/hosts || echo '38.103.170.235 amk.esa-solutions.id api.esa-solutions.id' >> /etc/hosts
+            echo '0. Memastikan DNS Cluster di /etc/hosts (Membersihkan loopback)...'
+            sed -i '/atk\.esa-solutions\.id/d' /etc/hosts 2>/dev/null || true
+            sed -i '/akp\.esa-solutions\.id/d' /etc/hosts 2>/dev/null || true
+            sed -i '/amk\.esa-solutions\.id/d' /etc/hosts 2>/dev/null || true
+            sed -i '/api\.esa-solutions\.id/d' /etc/hosts 2>/dev/null || true
+            echo '38.103.170.224 atk.esa-solutions.id' >> /etc/hosts
+            echo '38.103.170.223 akp.esa-solutions.id' >> /etc/hosts
+            echo '38.103.170.235 amk.esa-solutions.id api.esa-solutions.id' >> /etc/hosts
 
             echo '1. Mengunduh kode terbaru dari GitHub...'
             if [ ! -d /root/att-admin-v12 ]; then

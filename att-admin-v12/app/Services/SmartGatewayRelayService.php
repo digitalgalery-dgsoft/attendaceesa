@@ -79,7 +79,9 @@ class SmartGatewayRelayService
                 if (empty($targetUrl)) continue;
                 try {
                     $endpoint = rtrim($targetUrl, '/') . '/api/login';
-                    $response = Http::timeout(3)->withoutVerifying()->post($endpoint, $payload);
+                    $response = Http::timeout(3)->withoutVerifying()->withHeaders([
+                        'X-ESA-Gateway-Relay' => '1',
+                    ])->post($endpoint, $payload);
 
                     if ($response->successful()) {
                         $responseData = $response->json();
