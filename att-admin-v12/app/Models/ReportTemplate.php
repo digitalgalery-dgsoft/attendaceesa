@@ -285,6 +285,36 @@ class ReportTemplate extends Model
                 }
                 $tpl->principals()->syncWithoutDetaching($allDuluxIds);
             }
+
+            // 5. Pastikan template non-Dulux (Mamasuka, Wings, dll) TIDAK terhubung ke Dulux
+            $nonDuluxTemplates = static::where('code', 'LIKE', '%MAMASUKA%')
+                ->orWhere('code', 'LIKE', '%DAESANG%')
+                ->orWhere('code', 'LIKE', '%WINGS%')
+                ->orWhere('code', 'LIKE', '%FONTERRA%')
+                ->orWhere('code', 'LIKE', '%SIDO%')
+                ->orWhere('title', 'LIKE', '%Mamasuka%')
+                ->get();
+
+            foreach ($nonDuluxTemplates as $nd) {
+                $nd->principals()->detach($allDuluxIds);
+                if (in_array($nd->principal_id, $allDuluxIds)) {
+                    $correctPrincipal = null;
+                    if (str_contains($nd->code, 'MAMASUKA') || str_contains($nd->code, 'DAESANG') || str_contains($nd->title, 'Mamasuka')) {
+                        $correctPrincipal = Principal::where('name', 'LIKE', '%MAMASUKA%')->orWhere('name', 'LIKE', '%DAESANG%')->first();
+                    } elseif (str_contains($nd->code, 'WINGS')) {
+                        $correctPrincipal = Principal::where('name', 'LIKE', '%WINGS%')->first();
+                    } elseif (str_contains($nd->code, 'FONTERRA')) {
+                        $correctPrincipal = Principal::where('name', 'LIKE', '%FONTERRA%')->first();
+                    } elseif (str_contains($nd->code, 'SIDO')) {
+                        $correctPrincipal = Principal::where('name', 'LIKE', '%SIDO%')->first();
+                    }
+                    $nd->principal_id = $correctPrincipal ? $correctPrincipal->id : null;
+                    $nd->save();
+                    if ($correctPrincipal) {
+                        $nd->principals()->syncWithoutDetaching([$correctPrincipal->id]);
+                    }
+                }
+            }
         }
     }
 }

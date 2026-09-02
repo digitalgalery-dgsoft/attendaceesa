@@ -134,35 +134,76 @@ class PrincipalPortalController extends Controller
     protected function getTemplateBaseQuery(array $scopedPrincipalIds, ?Principal $tenantPrincipal = null)
     {
         return ReportTemplate::where(function ($q) use ($scopedPrincipalIds, $tenantPrincipal) {
-            $q->whereHas('principals', function ($sub) use ($scopedPrincipalIds) {
-                $sub->whereIn('principals.id', $scopedPrincipalIds);
-            })->orWhereIn('report_templates.principal_id', $scopedPrincipalIds);
-
             if ($tenantPrincipal) {
                 $subdomain = strtolower($tenantPrincipal->subdomain ?? '');
                 $name = strtolower($tenantPrincipal->name ?? '');
 
                 if ($subdomain === 'dulux' || str_contains($name, 'ici') || str_contains($name, 'dulux') || str_contains($name, 'akzonobel')) {
-                    $q->orWhere('report_templates.code', 'LIKE', '%DULUX%')
-                      ->orWhere('report_templates.code', 'LIKE', '%ICI%')
-                      ->orWhere('report_templates.title', 'LIKE', '%Dulux%')
-                      ->orWhere('report_templates.title', 'LIKE', '%ICI%');
+                    $q->where(function ($sub) use ($scopedPrincipalIds) {
+                        $sub->whereHas('principals', fn($p) => $p->whereIn('principals.id', $scopedPrincipalIds))
+                            ->orWhereIn('report_templates.principal_id', $scopedPrincipalIds)
+                            ->orWhere('report_templates.code', 'LIKE', '%DULUX%')
+                            ->orWhere('report_templates.code', 'LIKE', '%ICI%')
+                            ->orWhere('report_templates.title', 'LIKE', '%Dulux%')
+                            ->orWhere('report_templates.title', 'LIKE', '%ICI%');
+                    })
+                    ->where('report_templates.code', 'NOT LIKE', '%MAMASUKA%')
+                    ->where('report_templates.code', 'NOT LIKE', '%DAESANG%')
+                    ->where('report_templates.code', 'NOT LIKE', '%WINGS%')
+                    ->where('report_templates.code', 'NOT LIKE', '%FONTERRA%')
+                    ->where('report_templates.code', 'NOT LIKE', '%ANLENE%')
+                    ->where('report_templates.code', 'NOT LIKE', '%SIDO%')
+                    ->where('report_templates.title', 'NOT LIKE', '%Mamasuka%');
+                    return;
                 } elseif ($subdomain === 'wings' || str_contains($name, 'wings') || str_contains($name, 'sayap')) {
-                    $q->orWhere('report_templates.code', 'LIKE', '%WINGS%')
-                      ->orWhere('report_templates.title', 'LIKE', '%Wings%');
+                    $q->where(function ($sub) use ($scopedPrincipalIds) {
+                        $sub->whereHas('principals', fn($p) => $p->whereIn('principals.id', $scopedPrincipalIds))
+                            ->orWhereIn('report_templates.principal_id', $scopedPrincipalIds)
+                            ->orWhere('report_templates.code', 'LIKE', '%WINGS%')
+                            ->orWhere('report_templates.title', 'LIKE', '%Wings%');
+                    })
+                    ->where('report_templates.code', 'NOT LIKE', '%DULUX%')
+                    ->where('report_templates.code', 'NOT LIKE', '%ICI%')
+                    ->where('report_templates.code', 'NOT LIKE', '%MAMASUKA%');
+                    return;
                 } elseif ($subdomain === 'fonterra' || str_contains($name, 'fonterra') || str_contains($name, 'anlene')) {
-                    $q->orWhere('report_templates.code', 'LIKE', '%FONTERRA%')
-                      ->orWhere('report_templates.code', 'LIKE', '%ANLENE%')
-                      ->orWhere('report_templates.title', 'LIKE', '%Fonterra%');
+                    $q->where(function ($sub) use ($scopedPrincipalIds) {
+                        $sub->whereHas('principals', fn($p) => $p->whereIn('principals.id', $scopedPrincipalIds))
+                            ->orWhereIn('report_templates.principal_id', $scopedPrincipalIds)
+                            ->orWhere('report_templates.code', 'LIKE', '%FONTERRA%')
+                            ->orWhere('report_templates.code', 'LIKE', '%ANLENE%')
+                            ->orWhere('report_templates.title', 'LIKE', '%Fonterra%');
+                    })
+                    ->where('report_templates.code', 'NOT LIKE', '%DULUX%')
+                    ->where('report_templates.code', 'NOT LIKE', '%ICI%');
+                    return;
                 } elseif ($subdomain === 'mamasuka' || str_contains($name, 'mamasuka') || str_contains($name, 'daesang')) {
-                    $q->orWhere('report_templates.code', 'LIKE', '%MAMASUKA%')
-                      ->orWhere('report_templates.code', 'LIKE', '%DAESANG%')
-                      ->orWhere('report_templates.title', 'LIKE', '%Mamasuka%');
+                    $q->where(function ($sub) use ($scopedPrincipalIds) {
+                        $sub->whereHas('principals', fn($p) => $p->whereIn('principals.id', $scopedPrincipalIds))
+                            ->orWhereIn('report_templates.principal_id', $scopedPrincipalIds)
+                            ->orWhere('report_templates.code', 'LIKE', '%MAMASUKA%')
+                            ->orWhere('report_templates.code', 'LIKE', '%DAESANG%')
+                            ->orWhere('report_templates.title', 'LIKE', '%Mamasuka%');
+                    })
+                    ->where('report_templates.code', 'NOT LIKE', '%DULUX%')
+                    ->where('report_templates.code', 'NOT LIKE', '%ICI%');
+                    return;
                 } elseif ($subdomain === 'sidomuncul' || str_contains($name, 'sido') || str_contains($name, 'tolak angin')) {
-                    $q->orWhere('report_templates.code', 'LIKE', '%SIDO%')
-                      ->orWhere('report_templates.title', 'LIKE', '%Sido%');
+                    $q->where(function ($sub) use ($scopedPrincipalIds) {
+                        $sub->whereHas('principals', fn($p) => $p->whereIn('principals.id', $scopedPrincipalIds))
+                            ->orWhereIn('report_templates.principal_id', $scopedPrincipalIds)
+                            ->orWhere('report_templates.code', 'LIKE', '%SIDO%')
+                            ->orWhere('report_templates.title', 'LIKE', '%Sido%');
+                    })
+                    ->where('report_templates.code', 'NOT LIKE', '%DULUX%')
+                    ->where('report_templates.code', 'NOT LIKE', '%ICI%');
+                    return;
                 }
             }
+
+            $q->whereHas('principals', function ($sub) use ($scopedPrincipalIds) {
+                $sub->whereIn('principals.id', $scopedPrincipalIds);
+            })->orWhereIn('report_templates.principal_id', $scopedPrincipalIds);
         });
     }
 
