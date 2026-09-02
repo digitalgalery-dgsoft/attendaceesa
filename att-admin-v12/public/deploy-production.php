@@ -87,6 +87,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo '38.103.170.223 akp.esa-solutions.id' >> /etc/hosts
             echo '38.103.170.235 amk.esa-solutions.id api.esa-solutions.id' >> /etc/hosts
 
+            echo 'DNS Check dulux.esa-solutions.id: '
+            host dulux.esa-solutions.id || nslookup dulux.esa-solutions.id || true
+
             echo '1. Mengunduh kode terbaru dari GitHub...'
             if [ ! -d /root/att-admin-v12 ]; then
                 git clone https://github.com/digitalgalery-dgsoft/attendaceesa.git /root/att-admin-v12
