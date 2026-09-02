@@ -135,6 +135,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 fi
             fi
 
+            echo '=== DIAGNOSTIC PHP & PGSQL ==='
+            echo \"PHP in PATH: \$(which php 2>/dev/null || echo 'none')\"
+            echo \"Available aaPanel PHP binaries:\"
+            ls -la /www/server/php/*/bin/php 2>/dev/null || true
+            echo \"pdo_pgsql.so locations:\"
+            find /www/server/php -name \"*pgsql*\" 2>/dev/null || true
+            for p in /www/server/php/*/bin/php; do
+                if [ -x \"\$p\" ]; then
+                    echo \"Testing \$p:\"
+                    \$p -m 2>/dev/null | grep -iE 'pdo|pgsql' || echo '  no pgsql'
+                fi
+            done
+            echo '================================'
+
             PHP_BIN=\"php\"
             for p in /www/server/php/83/bin/php /www/server/php/82/bin/php /www/server/php/81/bin/php /www/server/php/80/bin/php /usr/bin/php; do
                 if [ -x \"\$p\" ] && \$p -m 2>/dev/null | grep -qi pdo_pgsql; then
