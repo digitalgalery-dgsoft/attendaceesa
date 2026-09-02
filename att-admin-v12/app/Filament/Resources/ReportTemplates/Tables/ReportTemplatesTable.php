@@ -124,6 +124,42 @@ class ReportTemplatesTable
                     ->label('Status Aktif'),
             ])
             ->recordActions([
+                Action::make('syncToPeers')
+                    ->label('Sync ke Server Lain')
+                    ->icon('heroicon-o-arrow-path-rounded-square')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading('Sinkronkan Template ke Seluruh Server ESA')
+                    ->modalDescription(fn (ReportTemplate $record) => "Kirim template '{$record->title}' ({$record->code}) beserta seluruh pertanyaannya ke Server ESA lainnya (AMK, AKP, ATK)? Template di server tujuan akan otomatis diperbarui.")
+                    ->action(function (ReportTemplate $record) {
+                        $syncService = app(\App\Services\TemplateSyncService::class);
+                        $results = $syncService->syncToPeers($record);
+
+                        if (empty($results)) {
+                            Notification::make()
+                                ->title('Tidak Ada Server Tujuan Lain')
+                                ->body('Server saat ini adalah satu-satunya endpoint yang terkonfigurasi, atau tidak ada server tujuan lain.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        $allSuccess = true;
+                        $messages = [];
+                        foreach ($results as $res) {
+                            $statusIcon = $res['success'] ? '✅' : '❌';
+                            $messages[] = "{$statusIcon} {$res['name']}: {$res['message']}";
+                            if (!$res['success']) {
+                                $allSuccess = false;
+                            }
+                        }
+
+                        Notification::make()
+                            ->title($allSuccess ? 'Sinkronisasi Berhasil!' : 'Hasil Sinkronisasi')
+                            ->body(implode("\n", $messages))
+                            ->status($allSuccess ? 'success' : 'warning')
+                            ->send();
+                    }),
                 Action::make('clone')
                     ->label('Duplikasi')
                     ->icon('heroicon-o-document-duplicate')

@@ -136,4 +136,11 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::post('/v1/gateway/discover', [\App\Http\Controllers\Api\ServerGatewayController::class, 'discover']);
 Route::post('/v1/gateway/login', [\App\Http\Controllers\Api\ServerGatewayController::class, 'login']);
 
+// Cross-Server Template Synchronization Routes (Secure Token)
+Route::prefix('v1/sync')->group(function () {
+    Route::post('/report-template', [\App\Http\Controllers\Api\TemplateSyncController::class, 'syncReportTemplate']);
+    Route::get('/ping', [\App\Http\Controllers\Api\TemplateSyncController::class, 'ping']);
+});
+
+
 
