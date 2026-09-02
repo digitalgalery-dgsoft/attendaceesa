@@ -135,17 +135,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 fi
             fi
 
-            PHP_BIN="php"
+            PHP_BIN=\"php\"
             for p in /www/server/php/83/bin/php /www/server/php/82/bin/php /www/server/php/81/bin/php /www/server/php/80/bin/php /usr/bin/php; do
-                if [ -x "\$p" ] && \$p -m 2>/dev/null | grep -qi pdo_pgsql; then
-                    PHP_BIN="\$p"
+                if [ -x \"\$p\" ] && \$p -m 2>/dev/null | grep -qi pdo_pgsql; then
+                    PHP_BIN=\"\$p\"
                     break
                 fi
             done
-            if [ "\$PHP_BIN" = "php" ] && [ -f "/www/server/php/83/bin/php" ]; then
-                PHP_BIN="/www/server/php/83/bin/php"
+            if [ \"\$PHP_BIN\" = \"php\" ] && [ -f \"/www/server/php/83/bin/php\" ]; then
+                PHP_BIN=\"/www/server/php/83/bin/php\"
             fi
-            echo "Menggunakan PHP binary: \$PHP_BIN"
+            echo \"Menggunakan PHP binary: \$PHP_BIN\"
 
             echo '3. Merapikan aset Livewire & storage link...'
             cd {$srv['path']}
