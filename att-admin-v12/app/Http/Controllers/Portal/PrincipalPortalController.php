@@ -655,7 +655,7 @@ class PrincipalPortalController extends Controller
                     }
                 } elseif ($dim === '_employee' || $dim === 'employee_id') {
                     foreach ($allFilteredSubmissions as $sub) {
-                        $label = $sub->employee?->name ?? 'Tanpa Nama';
+                        $label = ($sub->employee && $sub->employee->name) ? $sub->employee->name : 'Tanpa Nama';
                         if (!isset($groups[$label])) $groups[$label] = 0;
                         if ($agg === 'COUNT' || empty($metric) || $metric === '_count') {
                             $groups[$label] += 1;
@@ -669,7 +669,7 @@ class PrincipalPortalController extends Controller
                     }
                 } elseif ($dim === '_store' || $dim === 'work_location_id') {
                     foreach ($allFilteredSubmissions as $sub) {
-                        $label = $sub->workLocation?->name ?? $sub->store_name ?? 'Toko Lainnya';
+                        $label = ($sub->workLocation && $sub->workLocation->name) ? $sub->workLocation->name : ($sub->store_name ?? 'Toko Lainnya');
                         if (!isset($groups[$label])) $groups[$label] = 0;
                         if ($agg === 'COUNT' || empty($metric) || $metric === '_count') {
                             $groups[$label] += 1;
@@ -712,6 +712,7 @@ class PrincipalPortalController extends Controller
                         }
                     }
                 }
+            }
 
                 if ($dim !== '_submitted_date') {
                     arsort($groups);
