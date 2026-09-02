@@ -913,7 +913,6 @@ class OdooSyncService
         }
 
         $tables = [
-            ['table' => 'attendances', 'column' => 'employee_id'],
             ['table' => 'attendance_logs', 'column' => 'employee_id'],
             ['table' => 'leave_requests', 'column' => 'employee_id'],
             ['table' => 'extra_hours', 'column' => 'employee_id'],
@@ -923,8 +922,20 @@ class OdooSyncService
             ['table' => 'work_targets', 'column' => 'employee_id'],
             ['table' => 'payslips', 'column' => 'employee_id'],
             ['table' => 'tracking_histories', 'column' => 'employee_id'],
+            ['table' => 'report_submissions', 'column' => 'employee_id'],
+            ['table' => 'meeting_participants', 'column' => 'employee_id'],
+            ['table' => 'meeting_attendances', 'column' => 'employee_id'],
+            ['table' => 'location_requests', 'column' => 'employee_id'],
+            ['table' => 'report_template_assignments', 'column' => 'employee_id'],
             ['table' => 'employees', 'column' => 'supervisor_id'],
         ];
+
+        // Safely merge attendances (unique by employee_id + attendance_date)
+        $this->safeMerge('attendances', 'employee_id', $primary->id, $duplicateIds, 'attendance_date');
+        
+        // Safely merge employee_schedules (unique by employee_id + date)
+        $this->safeMerge('employee_schedules', 'employee_id', $primary->id, $duplicateIds, 'date');
+
 
         foreach ($tables as $t) {
             try {
@@ -959,6 +970,33 @@ class OdooSyncService
                 $dup->forceDelete();
             } catch (\Exception $e) {
                 Log::warning("OdooSync delete duplicate employee ID {$dup->id} error: " . $e->getMessage());
+            }
+        }
+    }
+
+    private function safeMerge($tableName, $foreignKey, $primaryId, $dupIds, $uniqueDateColumn): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable($tableName)) {
+            return;
+        }
+
+        foreach ($dupIds as $dupId) {
+            $orphanRecords = \Illuminate\Support\Facades\DB::table($tableName)->where($foreignKey, $dupId)->get();
+            foreach ($orphanRecords as $record) {
+                $exists = \Illuminate\Support\Facades\DB::table($tableName)
+                    ->where($foreignKey, $primaryId)
+                    ->where($uniqueDateColumn, $record->{$uniqueDateColumn})
+                    ->exists();
+
+                if (!$exists) {
+                    try {
+                        \Illuminate\Support\Facades\DB::table($tableName)->where('id', $record->id)->update([
+                            $foreignKey => $primaryId
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::warning("Failed to merge {$tableName} ID {$record->id}: " . $e->getMessage());
+                    }
+                }
             }
         }
     }
