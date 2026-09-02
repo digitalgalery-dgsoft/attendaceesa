@@ -14,6 +14,11 @@ class IdentifyTenantSubdomain
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // 0. Jangan jalankan tenant identification jika sedang di halaman install atau belum terinstall
+        if ($request->is('install') || $request->is('install/*') || !file_exists(storage_path('app/.installed'))) {
+            return $next($request);
+        }
+
         $host = $request->getHost();
         $subdomain = null;
 
@@ -58,30 +63,35 @@ class IdentifyTenantSubdomain
 
         $principals = collect();
 
-        if ($subdomain) {
-            $principals = Principal::where(function ($q) use ($subdomain, $host) {
-                $q->where('subdomain', $subdomain)
-                  ->orWhere('custom_domain', $host);
-            })->where('is_active', true)->orderBy('id')->get();
-        } elseif ($requestedId) {
-            $pRecord = Principal::where('id', (int) $requestedId)->where('is_active', true)->first();
-            if ($pRecord) {
-                $principals = Principal::where('name', $pRecord->name)
-                    ->orWhere('id', $pRecord->id)
-                    ->where('is_active', true)
-                    ->get();
-            }
-        }
-
-        // Jika user login punya relasi banyak prinsiple, pastikan juga di-include jika relevan
-        if (auth()->check()) {
-            $user = auth()->user();
-            if ($user && method_exists($user, 'principals') && $user->principals()->exists()) {
-                $userPrincipals = $user->principals()->where('is_active', true)->get();
-                if ($principals->isEmpty()) {
-                    $principals = $userPrincipals;
+        try {
+            if ($subdomain) {
+                $principals = Principal::where(function ($q) use ($subdomain, $host) {
+                    $q->where('subdomain', $subdomain)
+                      ->orWhere('custom_domain', $host);
+                })->where('is_active', true)->orderBy('id')->get();
+            } elseif ($requestedId) {
+                $pRecord = Principal::where('id', (int) $requestedId)->where('is_active', true)->first();
+                if ($pRecord) {
+                    $principals = Principal::where('name', $pRecord->name)
+                        ->orWhere('id', $pRecord->id)
+                        ->where('is_active', true)
+                        ->get();
                 }
             }
+
+            // Jika user login punya relasi banyak prinsiple, pastikan juga di-include jika relevan
+            if (auth()->check()) {
+                $user = auth()->user();
+                if ($user && method_exists($user, 'principals') && $user->principals()->exists()) {
+                    $userPrincipals = $user->principals()->where('is_active', true)->get();
+                    if ($principals->isEmpty()) {
+                        $principals = $userPrincipals;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Database not ready or table does not exist
+            $principals = collect();
         }
 
         if ($principals->isNotEmpty()) {
