@@ -68,6 +68,8 @@ class SmartGatewayRelayService
             'fcm_token' => $request->input('fcm_token'),
         ];
 
+        $candidateErrorResponse = null;
+
         foreach ($peers as $serverKey => $serverInfo) {
             foreach ($serverInfo['urls'] as $targetUrl) {
                 if (empty($targetUrl)) {
@@ -92,6 +94,13 @@ class SmartGatewayRelayService
 
                         // Kembalikan response sukses dari peer server
                         return response()->json($responseData, $response->status());
+                    } else {
+                        $respJson = $response->json();
+                        $msg = $respJson['message'] ?? '';
+                        // Jika pesan error spesifik (password salah atau device locked), simpan sebagai kandidat error
+                        if (str_contains(strtolower($msg), 'password') || str_contains(strtolower($msg), 'perangkat') || str_contains(strtolower($msg), 'device')) {
+                            $candidateErrorResponse = response()->json($respJson, $response->status());
+                        }
                     }
                 } catch (\Throwable $e) {
                     Log::warning("SmartGatewayRelay login failed for {$targetUrl}: " . $e->getMessage());
@@ -99,7 +108,7 @@ class SmartGatewayRelayService
             }
         }
 
-        return null;
+        return $candidateErrorResponse;
     }
 
     /**
