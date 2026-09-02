@@ -497,6 +497,53 @@ Route::get('/fix-admin-access', function () {
     }
 });
 
+Route::get('/debug-sidebar', function () {
+    try {
+        $user = \App\Models\User::first();
+        if ($user) {
+            \Illuminate\Support\Facades\Auth::login($user);
+        }
+        
+        $panel = filament()->getPanel('admin');
+        $resources = $panel->getResources();
+        $pages = $panel->getPages();
+        $widgets = $panel->getWidgets();
+        
+        $navData = [];
+        try {
+            $navigation = $panel->getNavigation();
+            foreach ($navigation as $group) {
+                $groupLabel = $group->getLabel() ?: 'None';
+                $items = [];
+                foreach ($group->getItems() as $item) {
+                    $items[] = [
+                        'label' => $item->getLabel(),
+                        'url' => $item->getUrl(),
+                        'isActive' => $item->isActive(),
+                    ];
+                }
+                $navData[$groupLabel] = $items;
+            }
+        } catch (\Throwable $e) {
+            $navData = ['error' => $e->getMessage()];
+        }
+        
+        return response()->json([
+            'user' => $user?->email,
+            'isSuperAdmin' => $user?->isSuperAdmin(),
+            'hasRole_Super_Admin' => $user?->hasRole('Super Admin'),
+            'permissions_count' => $user?->getAllPermissions()->count(),
+            'resources_count' => count($resources),
+            'resources_sample' => array_slice($resources, 0, 10),
+            'pages_count' => count($pages),
+            'widgets_count' => count($widgets),
+            'navigation' => $navData,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json(['status' => 'error', 'message' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
+    }
+});
+
 Route::get('/seed-templates-now', function () {
     try {
         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
