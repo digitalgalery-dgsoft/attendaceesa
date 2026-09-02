@@ -111,9 +111,21 @@ class ImportDuluxOfftakeCommand extends Command
         $defaultEmpId = $defaultEmp ? $defaultEmp->id : null;
 
         // 3. Determine Months to Import
-        $targetMonth = (int) $this->option('month');
+        $targetMonthOpt = (string) $this->option('month');
         $limit = (int) $this->option('limit');
-        $months = $targetMonth > 0 ? [$targetMonth] : range(1, 12);
+        
+        if (!empty($targetMonthOpt)) {
+            if (str_contains($targetMonthOpt, '..')) {
+                [$startM, $endM] = explode('..', $targetMonthOpt);
+                $months = range((int)$startM, (int)$endM);
+            } elseif (str_contains($targetMonthOpt, ',')) {
+                $months = array_map('intval', explode(',', $targetMonthOpt));
+            } else {
+                $months = [(int)$targetMonthOpt];
+            }
+        } else {
+            $months = range(1, 12);
+        }
 
         $totalImported = 0;
         $batchSize = 1000;

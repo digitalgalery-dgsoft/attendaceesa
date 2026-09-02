@@ -65,23 +65,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $runMigration = isset($_GET['migrate']) && $_GET['migrate'] === '1';
     $runPrincipals = isset($_GET['principals']) && $_GET['principals'] === '1';
     $runImportOfftake = isset($_GET['import_offtake']) && $_GET['import_offtake'] === '1';
-    $offtakeMonth = isset($_GET['month']) ? ' --month=' . intval($_GET['month']) : '';
+    $targetServer = isset($_GET['server']) ? intval($_GET['server']) : (isset($_GET['only_server']) ? intval($_GET['only_server']) : 0);
+    $onlyImport = isset($_GET['only_import']) && $_GET['only_import'] === '1';
+    $offtakeMonth = isset($_GET['month']) ? ' --month=' . escapeshellarg($_GET['month']) : '';
     $offtakeLimit = isset($_GET['limit']) ? ' --limit=' . intval($_GET['limit']) : '';
 
     $successCount = 0;
 
     foreach ($servers as $idx => $srv) {
         $num = $idx + 1;
+        if ($targetServer > 0 && $num !== $targetServer) {
+            continue;
+        }
+
         echo "\n<span style=\"color: #fbc02d; font-weight: bold;\">----------------------------------------------------------------------</span>\n";
-        echo "<span style=\"color: #fbc02d; font-weight: bold;\">▶ [{$num}/3] DEPLOY KE {$srv['name']} ({$srv['ip']})</span>\n";
+        echo "<span style=\"color: #fbc02d; font-weight: bold;\">▶ [{$num}/3] " . ($onlyImport ? "IMPORT OFFTAKE PADA" : "DEPLOY KE") . " {$srv['name']} ({$srv['ip']})</span>\n";
         echo "<span style=\"color: #fbc02d; font-weight: bold;\">----------------------------------------------------------------------</span>\n";
         echo "<!--" . str_repeat(' ', 4096) . "-->";
         @flush();
 
         // Susun perintah remote
-        $remoteScript = "
-            set -e
-            echo '0. Memastikan DNS Cluster di /etc/hosts (Membersihkan loopback)...'
+        if ($onlyImport) {
+            $remoteScript = "
+                set -e
+                PHP_BIN=\"/www/server/php/83/bin/php -d extension=pgsql.so -d extension=pdo_pgsql.so\"
+                cd {$srv['path']}
+                echo '=== MENJALANKAN IMPORT OFFTAKE DULUX 2025 ==='
+                \$PHP_BIN artisan dulux:import-offtake{$offtakeMonth}{$offtakeLimit}
+                echo 'DEPLOY_SUCCESS_FLAG'
+            ";
+        } else {
+            $remoteScript = "
+                set -e
+                echo '0. Memastikan DNS Cluster di /etc/hosts (Membersihkan loopback)...'
             sed -i '/atk\.esa-solutions\.id/d' /etc/hosts 2>/dev/null || true
             sed -i '/akp\.esa-solutions\.id/d' /etc/hosts 2>/dev/null || true
             sed -i '/amk\.esa-solutions\.id/d' /etc/hosts 2>/dev/null || true
@@ -169,6 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             /etc/init.d/php-fpm-83 restart 2>/dev/null || systemctl restart php-fpm-83 2>/dev/null || /etc/init.d/php-fpm-82 restart 2>/dev/null || systemctl restart php-fpm-82 2>/dev/null || true
             echo 'DEPLOY_SUCCESS_FLAG'
         ";
+        }
 
         // Cek lokasi private key yang aman di dalam folder website (sesuai aturan open_basedir)
         $keyOptions = "";
