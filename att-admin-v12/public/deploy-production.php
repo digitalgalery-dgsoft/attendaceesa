@@ -22,24 +22,24 @@ $servers = [
         'name' => 'Server 1: PT Arina Multi Karya (AMK)',
         'ip' => '38.103.170.235',
         'path' => '/www/wwwroot/amk.dgsoft.web.id',
-        'domain' => 'amk.dgsoft.web.id',
-        'ping' => 'https://amk.dgsoft.web.id/api/v1/sync/ping',
+        'domain' => 'amk.esa-solutions.id',
+        'ping' => 'https://amk.esa-solutions.id/api/v1/sync/ping',
     ],
     [
         'id' => 'akp',
         'name' => 'Server 2: PT Alva Karya Perkasa (AKP)',
         'ip' => '38.103.170.223',
         'path' => '/www/wwwroot/akp.dgsoft.web.id',
-        'domain' => 'akp.dgsoft.web.id',
-        'ping' => 'https://akp.dgsoft.web.id/api/v1/sync/ping',
+        'domain' => 'akp.esa-solutions.id',
+        'ping' => 'https://akp.esa-solutions.id/api/v1/sync/ping',
     ],
     [
         'id' => 'atk',
         'name' => 'Server 3: PT Anugrah Talenta Berkarya (ATK / Gabungan)',
         'ip' => '38.103.170.224',
         'path' => '/www/wwwroot/atk.dgsoft.web.id',
-        'domain' => 'atk.dgsoft.web.id',
-        'ping' => 'https://atk.dgsoft.web.id/api/v1/sync/ping',
+        'domain' => 'atk.esa-solutions.id',
+        'ping' => 'https://atk.esa-solutions.id/api/v1/sync/ping',
     ],
 ];
 
@@ -87,7 +87,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             git reset --hard origin/main
 
             echo '2. Menyalin file ke {$srv['path']}...'
-            \\cp -rf /root/att-admin-v12/att-admin-v12/. {$srv['path']}/
+            if [ -d '{$srv['path']}' ]; then
+                \\cp -rf /root/att-admin-v12/att-admin-v12/. {$srv['path']}/
+            fi
+            if [ -d '/www/wwwroot/api.esa-solutions.id' ]; then
+                \\cp -rf /root/att-admin-v12/att-admin-v12/. /www/wwwroot/api.esa-solutions.id/
+                cd /www/wwwroot/api.esa-solutions.id && /www/server/php/83/bin/php artisan optimize:clear 2>/dev/null || true
+            fi
+            if [ -d '/www/wwwroot/amk.esa-solutions.id' ]; then
+                \\cp -rf /root/att-admin-v12/att-admin-v12/. /www/wwwroot/amk.esa-solutions.id/
+                cd /www/wwwroot/amk.esa-solutions.id && /www/server/php/83/bin/php artisan optimize:clear 2>/dev/null || true
+            fi
 
             echo '3. Merapikan aset Livewire & storage link...'
             cd {$srv['path']}
