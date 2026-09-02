@@ -21,12 +21,11 @@ class TemplateSyncService
         $fields = $template->fields->map(function (ReportFormField $f) {
             return [
                 'field_name' => $f->field_name,
-                'label' => $f->label,
+                'field_label' => $f->field_label ?? $f->label ?? $f->field_name,
+                'label' => $f->field_label ?? $f->label ?? $f->field_name,
                 'field_type' => $f->field_type,
                 'placeholder' => $f->placeholder,
-                'default_value' => $f->default_value,
                 'help_text' => $f->help_text,
-                'section' => $f->section,
                 'order_index' => $f->order_index,
                 'is_required' => (bool) $f->is_required,
                 'is_readonly' => (bool) $f->is_readonly,
@@ -129,12 +128,10 @@ class TemplateSyncService
                         'field_name' => $fieldName,
                     ],
                     [
-                        'label' => $f['label'] ?? $fieldName,
+                        'field_label' => $f['field_label'] ?? $f['label'] ?? $fieldName,
                         'field_type' => $f['field_type'] ?? 'text',
                         'placeholder' => $f['placeholder'] ?? null,
-                        'default_value' => $f['default_value'] ?? null,
                         'help_text' => $f['help_text'] ?? null,
-                        'section' => $f['section'] ?? null,
                         'order_index' => (int) ($f['order_index'] ?? 0),
                         'is_required' => (bool) ($f['is_required'] ?? false),
                         'is_readonly' => (bool) ($f['is_readonly'] ?? false),
