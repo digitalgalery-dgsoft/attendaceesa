@@ -497,6 +497,20 @@ Route::get('/fix-admin-access', function () {
     }
 });
 
+Route::get('/fix-principals', function () {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('reporting:link-principals');
+        $output = \Illuminate\Support\Facades\Artisan::output();
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Relasi Template ke Principal berhasil diperbaiki!',
+            'output' => $output,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+    }
+});
+
 Route::get('/debug-sidebar', function () {
     try {
         $user = \App\Models\User::first();

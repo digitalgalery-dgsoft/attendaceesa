@@ -31,11 +31,45 @@ class ReportTemplatesTable
                     ->label('Prinsiple Klien')
                     ->badge()
                     ->color('primary')
-                    ->getStateUsing(fn (ReportTemplate $record) => $record->principals->where('is_active', true)->pluck('name')->unique()->values()->toArray())
+                    ->getStateUsing(function (ReportTemplate $record) {
+                        // 1. Ambil dari relasi many-to-many
+                        $names = $record->principals->pluck('name')->filter()->unique()->values()->toArray();
+                        
+                        // 2. Jika belum ada di pivot, ambil dari relasi belongsTo (principal_id)
+                        if (empty($names) && $record->principal) {
+                            $names = [$record->principal->name];
+                        }
+                        
+                        // 3. Fallback cerdas berdasarkan kode atau judul template
+                        if (empty($names)) {
+                            $text = strtoupper($record->code . ' ' . $record->title);
+                            if (str_contains($text, 'FONTERRA') || str_contains($text, 'ANLENE') || str_contains($text, 'BONEETO') || str_contains($text, 'ANCHOR')) {
+                                return ['PT FONTERRA BRANDS INDONESIA'];
+                            }
+                            if (str_contains($text, 'DULUX') || str_contains($text, 'ICI') || str_contains($text, 'AKZONOBEL')) {
+                                return ['PT ICI PAINTS INDONESIA (DULUX)'];
+                            }
+                            if (str_contains($text, 'WINGS') || str_contains($text, 'SAYAP')) {
+                                return ['WINGS GROUP'];
+                            }
+                            if (str_contains($text, 'MAMASUKA') || str_contains($text, 'DAESANG') || str_contains($text, 'MIWON')) {
+                                return ['PT DAESANG AGUNG INDONESIA (MAMASUKA)'];
+                            }
+                            if (str_contains($text, 'SIDO') || str_contains($text, 'MUNCUL') || str_contains($text, 'TOLAK ANGIN')) {
+                                return ['PT INDUSTRI JAMU DAN FARMASI SIDO MUNCUL'];
+                            }
+                        }
+                        
+                        return $names;
+                    })
                     ->searchable(query: function ($query, string $search) {
-                        return $query->whereHas('principals', function ($q) use ($search) {
-                            $q->where('principals.is_active', true)
-                              ->where('principals.name', 'like', "%{$search}%");
+                        return $query->where(function ($q) use ($search) {
+                            $q->whereHas('principals', function ($sub) use ($search) {
+                                $sub->where('principals.name', 'like', "%{$search}%");
+                            })->orWhereHas('principal', function ($sub) use ($search) {
+                                $sub->where('principals.name', 'like', "%{$search}%");
+                            })->orWhere('title', 'like', "%{$search}%")
+                              ->orWhere('code', 'like', "%{$search}%");
                         });
                     }),
                 TextColumn::make('category')

@@ -1,0 +1,23 @@
+barang keluar otomatis sesuai kategori yang dipilih
+pilihan stok aman tidak perlu ditampilkan (hanya oos dan minimum stok)
+minimum stok sudah disetting dari web admin
+form laporan stok dan oos difokuskan ke OOS saja (khusus mencatat oos)
+pic toko tidak perlu
+tanggal estimasi po tidak perlu
+foto rak display tidak perlu ada di report oos
+nama pic, md dihapus
+sekali submit barang oos bisa lebih dari satu produk
+dicarikan cara untuk simpan sementara setiap input 1 produk, (misalkan jika sudah submit beberapa tapi ternyata koneksi putus / hp hang.
+
+PROMO KOMPETITOR
+cek barang berdasarkan barcode dan ketik kode barcode manual
+submit Harga normal vs promo (perlu dikaji ulang) untuk format numbering agar bisa dihitung melalui system
+di toko pertama, setelah check in, tidak perlu pilih toko lagi, sama dengan lokasi check in (kecuali untuk visit di lokasi yang lain.
+tipe
+master store ditambahkan jenis toko (MTKA, MTI dll)
+image recognition untuk membaca rak display
+ditambahkan dashboard analytic (filter sesuai dengan form report)
+diskusikan ulang untuk flow visit spg
+hauskan aktif(geofence) dan tidak wajib ttd
+
+
