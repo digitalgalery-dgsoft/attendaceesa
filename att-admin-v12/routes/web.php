@@ -450,6 +450,53 @@ Route::get('/test-login', function () {
     }
 });
 
+Route::get('/fix-admin-access', function () {
+    try {
+        // 1. Run migrations
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+
+        // 2. Run PermissionsSeeder
+        $permSeeder = new \Database\Seeders\PermissionsSeeder();
+        $permSeeder->run();
+
+        // 3. Clear permission cache
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
+        // 4. Ensure Super Admin role exists
+        $role = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'web']);
+        
+        // Give all permissions to Super Admin role
+        $allPermissions = \Spatie\Permission\Models\Permission::where('guard_name', 'web')->get();
+        $role->syncPermissions($allPermissions);
+
+        // 5. Assign to all users (or first user)
+        $user = \App\Models\User::first();
+        if ($user) {
+            $user->assignRole($role);
+        }
+
+        // 6. Seed preset templates and products
+        try {
+            (new \Database\Seeders\ReportTemplatePresetsSeeder())->run();
+            (new \Database\Seeders\ProductPresetsSeeder())->run();
+        } catch (\Throwable $e) {}
+
+        // 7. Clear caches
+        \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Role Super Admin dan seluruh hak akses menu (permissions) berhasil disinkronkan!',
+            'user' => $user?->email,
+            'roles' => $user?->getRoleNames(),
+            'permissions_count' => $user?->getAllPermissions()->count(),
+            'next_step' => 'Silakan buka kembali https://akp.dgsoft.web.id/admin'
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+    }
+});
+
 Route::get('/seed-templates-now', function () {
     try {
         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
