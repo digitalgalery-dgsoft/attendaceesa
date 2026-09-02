@@ -111,10 +111,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             " . ($runPrincipals ? "echo '4b. Menyinkronkan Relasi Principal...' && /www/server/php/83/bin/php artisan reporting:link-principals\n" : "") . "
 
             echo '5. Membersihkan cache...'
+            chmod -R 777 storage bootstrap/cache 2>/dev/null || true
             /www/server/php/83/bin/php artisan optimize:clear
 
-            echo '6. Me-reload PHP-FPM...'
-            systemctl reload php-fpm-83 2>/dev/null || /etc/init.d/php-fpm-83 reload 2>/dev/null || true
+            echo '6. Me-restart PHP-FPM...'
+            /etc/init.d/php-fpm-83 restart 2>/dev/null || systemctl restart php-fpm-83 2>/dev/null || systemctl restart php-fpm 2>/dev/null || true
             echo 'DEPLOY_SUCCESS_FLAG'
         ";
 
