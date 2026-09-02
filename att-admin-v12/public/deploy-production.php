@@ -78,6 +78,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Susun perintah remote
         $remoteScript = "
             set -e
+            echo '0. Memastikan DNS Cluster di /etc/hosts...'
+            grep -q 'atk.esa-solutions.id' /etc/hosts || echo '38.103.170.224 atk.esa-solutions.id' >> /etc/hosts
+            grep -q 'akp.esa-solutions.id' /etc/hosts || echo '38.103.170.223 akp.esa-solutions.id' >> /etc/hosts
+            grep -q 'amk.esa-solutions.id' /etc/hosts || echo '38.103.170.235 amk.esa-solutions.id api.esa-solutions.id' >> /etc/hosts
+
             echo '1. Mengunduh kode terbaru dari GitHub...'
             if [ ! -d /root/att-admin-v12 ]; then
                 git clone https://github.com/digitalgalery-dgsoft/attendaceesa.git /root/att-admin-v12

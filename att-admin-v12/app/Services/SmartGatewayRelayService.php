@@ -18,19 +18,19 @@ class SmartGatewayRelayService
             'amk' => [
                 'id' => 'amk',
                 'name' => 'Server 1 (PT AMK)',
-                'urls' => ['http://38.103.170.235', 'https://amk.esa-solutions.id'],
+                'urls' => ['https://amk.esa-solutions.id'],
                 'host' => 'amk.esa-solutions.id',
             ],
             'akp' => [
                 'id' => 'akp',
                 'name' => 'Server 2 (PT AKP)',
-                'urls' => ['http://38.103.170.223', 'https://akp.esa-solutions.id'],
+                'urls' => ['https://akp.esa-solutions.id'],
                 'host' => 'akp.esa-solutions.id',
             ],
             'atk' => [
                 'id' => 'atk',
                 'name' => 'Server 3 (PT ATK / Gabungan)',
-                'urls' => ['http://38.103.170.224', 'https://atk.esa-solutions.id'],
+                'urls' => ['https://atk.esa-solutions.id'],
                 'host' => 'atk.esa-solutions.id',
             ],
         ];
@@ -79,11 +79,7 @@ class SmartGatewayRelayService
                 if (empty($targetUrl)) continue;
                 try {
                     $endpoint = rtrim($targetUrl, '/') . '/api/login';
-                    $client = Http::timeout(2.5)->withoutVerifying();
-                    if (str_starts_with($targetUrl, 'http://38.')) {
-                        $client = $client->withHeaders(['Host' => $serverInfo['host'] ?? '']);
-                    }
-                    $response = $client->post($endpoint, $payload);
+                    $response = Http::timeout(3)->withoutVerifying()->post($endpoint, $payload);
 
                     if ($response->successful()) {
                         $responseData = $response->json();
