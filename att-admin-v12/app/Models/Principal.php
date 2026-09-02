@@ -91,8 +91,11 @@ class Principal extends Model
         if ($this->custom_domain) {
             return "https://{$this->custom_domain}";
         }
-        $sub = $this->subdomain ?: Str::slug($this->name);
-        return "https://{$sub}.appsend.my.id?p={$this->id}";
+        if (!$this->subdomain) {
+            return '';
+        }
+        $baseDomain = env('APP_PORTAL_BASE_DOMAIN', 'esa-solutions.id');
+        return "https://{$this->subdomain}.{$baseDomain}";
     }
 
     public function getThemeGradientAttribute(): string

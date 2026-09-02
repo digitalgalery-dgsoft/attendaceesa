@@ -40,7 +40,10 @@ class PrincipalForm
                             TextInput::make('subdomain')
                                 ->label('Subdomain Portal')
                                 ->prefix('https://')
-                                ->suffix('.appsend.my.id')
+                                ->suffix(function () {
+                                    $baseDomain = env('APP_PORTAL_BASE_DOMAIN', 'esa-solutions.id');
+                                    return '.' . $baseDomain;
+                                })
                                 ->placeholder('dulux')
                                 ->helperText('Subdomain portal login prinsiple (opsional, bisa dikosongkan jika tidak menggunakan portal subdomain).')
                                 ->nullable(),
@@ -52,7 +55,10 @@ class PrincipalForm
                     ]),
 
                 Section::make('Whitelabel Branding & Tampilan Portal')
-                    ->description('Kustomisasi tampilan portal mandiri prinsiple ({subdomain}.appsend.my.id).')
+                    ->description(function () {
+                        $baseDomain = env('APP_PORTAL_BASE_DOMAIN', 'esa-solutions.id');
+                        return "Kustomisasi tampilan portal mandiri prinsiple ({subdomain}.{$baseDomain}).";
+                    })
                     ->schema([
                         TextInput::make('portal_title')
                             ->label('Judul Header Portal')
@@ -88,7 +94,10 @@ class PrincipalForm
                             TextInput::make('custom_domain')
                                 ->label('Domain Kustom Mandiri (Opsional)')
                                 ->placeholder('portal.dulux.co.id')
-                                ->helperText('Kosongkan jika menggunakan subdomain bawaan .appsend.my.id'),
+                                ->helperText(function () {
+                                    $baseDomain = env('APP_PORTAL_BASE_DOMAIN', 'esa-solutions.id');
+                                    return "Kosongkan jika menggunakan subdomain bawaan .{$baseDomain}";
+                                }),
                             Toggle::make('is_active')
                                 ->label('Status Aktif')
                                 ->default(true)

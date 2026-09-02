@@ -22,11 +22,11 @@ class IdentifyTenantSubdomain
         $host = $request->getHost();
         $subdomain = null;
 
-        // 1. Cek domain format {subdomain}.appsend.my.id atau {subdomain}.localhost / test
+        // 1. Cek domain format {subdomain}.esa-solutions.id atau {subdomain}.appsend.my.id atau {subdomain}.localhost / test
         $parts = explode('.', $host);
         if (count($parts) >= 3) {
             $subdomain = $parts[0];
-            if (in_array($subdomain, ['www', 'admin', 'api', 'appsend', 'mail'])) {
+            if (in_array($subdomain, ['www', 'admin', 'api', 'appsend', 'mail', 'amk', 'akp', 'atk'])) {
                 $subdomain = null;
             }
         }
