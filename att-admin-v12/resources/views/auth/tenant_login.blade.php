@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $tenantPrincipal->name }} - Portal Login</title>
+    <title>{{ $tenantPrincipal?->name ?? 'Portal' }} - Portal Login</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,8 +12,8 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
     @php
-        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
-        $brandSecondary = $tenantPrincipal->theme_color_secondary ?? ($tenantPrincipal->theme_color ?? '#2563EB');
+        $brandColor = $tenantPrincipal?->theme_color ?? '#0F52BA';
+        $brandSecondary = $tenantPrincipal?->theme_color_secondary ?? ($tenantPrincipal?->theme_color ?? '#2563EB');
     @endphp
 
     <style>
