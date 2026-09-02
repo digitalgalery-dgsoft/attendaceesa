@@ -9,36 +9,21 @@ use App\Models\ReportFormField;
 use App\Models\Principal;
 use App\Models\WorkLocation;
 use App\Models\Employee;
-use PDO;
+use App\Models\Company;
 
 class ImportDuluxOfftakeCommand extends Command
 {
     protected $signature = 'dulux:import-offtake {--month= : Specific month to import (1-12)} {--limit=0 : Limit number of rows}';
-    protected $description = 'Import Dulux Offtake 2025 dataset from SQLite into Report Submissions';
+    protected $description = 'Import Dulux Offtake 2025 dataset from JSONL chunks into Report Submissions';
 
     public function handle(): int
     {
         $this->info("=== Starting Dulux Offtake 2025 Import ===");
 
-        $dataDir = storage_path('app/dulux_data');
-        $sqlitePath = $dataDir . '/offtake_2025.sqlite';
-        $gzPath = $dataDir . '/offtake_2025.sqlite.gz';
-
-        if (!file_exists($sqlitePath)) {
-            if (file_exists($gzPath)) {
-                $this->info("Decompressing offtake_2025.sqlite.gz...");
-                $fp_in = gzopen($gzPath, 'rb');
-                $fp_out = fopen($sqlitePath, 'wb');
-                while (!gzeof($fp_in)) {
-                    fwrite($fp_out, gzread($fp_in, 1024 * 1024 * 2));
-                }
-                fclose($fp_out);
-                gzclose($fp_in);
-                $this->info("Decompressed successfully!");
-            } else {
-                $this->error("File offtake_2025.sqlite or .sqlite.gz not found at {$dataDir}");
-                return 1;
-            }
+        $chunksDir = storage_path('app/dulux_data/chunks');
+        if (!is_dir($chunksDir)) {
+            $this->error("Chunks directory not found: {$chunksDir}");
+            return 1;
         }
 
         // 1. Locate Primary Dulux Principal & Template
@@ -72,7 +57,7 @@ class ImportDuluxOfftakeCommand extends Command
             ]);
         }
 
-        // Ensure fields exist
+        // Ensure form fields exist
         $fieldsMap = [
             'produk_terjual' => ['field_label' => 'Pilih Produk Terjual (Dulux / Catylac)', 'field_type' => 'product_select'],
             'kemasan_galon' => ['field_label' => 'Kemasan Galon (Liter/Kg)', 'field_type' => 'dropdown'],
@@ -102,16 +87,10 @@ class ImportDuluxOfftakeCommand extends Command
             $fieldIds[$name] = $f->id;
         }
 
-        // 2. Open SQLite Connection
-        $sqlite = new PDO("sqlite:" . $sqlitePath);
-        $sqlite->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        // 2. Cache Existing Work Locations & Employees
+        $this->info("Caching store locations...");
+        $companyId = Company::value('id') ?? 1;
 
-        // 3. Sync / Cache Stores (Work Locations)
-        $this->info("Syncing store locations...");
-        $stmtStores = $sqlite->query("SELECT DISTINCT name_store, sap, region, area, category_store FROM offtake_raw");
-        $storeMap = [];
-
-        // Pre-load existing work locations
         $existingLocations = WorkLocation::where('principal_id', $duluxPrincipal->id)
             ->orWhereNull('principal_id')
             ->get();
@@ -125,175 +104,179 @@ class ImportDuluxOfftakeCommand extends Command
             }
         }
 
-        $companyId = \App\Models\Company::value('id') ?? 1;
-
-        while ($sRow = $stmtStores->fetch(PDO::FETCH_ASSOC)) {
-            $sName = trim($sRow['name_store']);
-            $sap = trim($sRow['sap']);
-            $sUpper = strtoupper($sName);
-
-            $locId = $locByName[$sUpper] ?? ($locByCode[$sap] ?? null);
-            if (!$locId) {
-                $newLoc = WorkLocation::create([
-                    'company_id' => $companyId,
-                    'name' => $sName,
-                    'type' => 'client',
-                    'latitude' => -6.2000000,
-                    'longitude' => 106.8166667,
-                    'radius_meter' => 100,
-                    'code' => $sap ?: null,
-                    'region' => $sRow['region'] ?: null,
-                    'branch_name' => $sRow['area'] ?: null,
-                    'category' => $sRow['category_store'] ?: 'Blue Store',
-                    'principal_id' => $duluxPrincipal->id,
-                    'is_active' => true,
-                ]);
-                $locId = $newLoc->id;
-                $locByName[$sUpper] = $locId;
-                if ($sap) $locByCode[$sap] = $locId;
-            }
-            $storeMap[$sName] = $locId;
-        }
-        $this->info("Cached " . count($storeMap) . " stores.");
-
-        // Fallback default employee for submissions
         $defaultEmp = Employee::where('principal_id', $duluxPrincipal->id)->first();
         if (!$defaultEmp) {
             $defaultEmp = Employee::first();
         }
         $defaultEmpId = $defaultEmp ? $defaultEmp->id : null;
 
-        // 4. Query Raw Data from SQLite
+        // 3. Determine Months to Import
         $targetMonth = (int) $this->option('month');
         $limit = (int) $this->option('limit');
+        $months = $targetMonth > 0 ? [$targetMonth] : range(1, 12);
 
-        $whereClause = "WHERE year = 2025";
-        if ($targetMonth > 0) {
-            $whereClause .= " AND month = {$targetMonth}";
-        }
-        $limitClause = $limit > 0 ? "LIMIT {$limit}" : "";
-
-        $countStmt = $sqlite->query("SELECT count(*) as total FROM offtake_raw {$whereClause} {$limitClause}");
-        $totalToImport = (int) $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
-
-        $this->info("Ready to import {$totalToImport} rows for " . ($targetMonth > 0 ? "Month {$targetMonth}" : "All 12 Months 2025") . "...");
-
-        $queryStmt = $sqlite->query("SELECT * FROM offtake_raw {$whereClause} ORDER BY id ASC {$limitClause}");
-
-        $batchSubmissions = [];
-        $batchValues = [];
+        $totalImported = 0;
         $batchSize = 1000;
-        $importedCount = 0;
         $now = now()->toDateTimeString();
 
-        $progressBar = $this->output->createProgressBar($totalToImport);
-        $progressBar->start();
+        foreach ($months as $m) {
+            $mPad = str_pad($m, 2, '0', STR_PAD_LEFT);
+            $chunkFile = $chunksDir . "/offtake_2025_m{$mPad}.jsonl.gz";
 
-        while ($row = $queryStmt->fetch(PDO::FETCH_ASSOC)) {
-            $rawId = $row['id'];
-            $storeName = trim($row['name_store']);
-            $workLocId = $storeMap[$storeName] ?? null;
-            $transDate = $row['trans_date'] ?: '2025-01-01';
-            $submittedAt = $transDate . ' 12:00:00';
-            $verifiedAt = $transDate . ' 17:00:00';
-            $subCode = 'SUB-OFFTAKE-2025-' . str_pad($rawId, 7, '0', STR_PAD_LEFT);
-
-            // Submission Record
-            $subData = [
-                'report_template_id' => $template->id,
-                'principal_id' => $duluxPrincipal->id,
-                'employee_id' => $defaultEmpId,
-                'work_location_id' => $workLocId,
-                'submission_code' => $subCode,
-                'status' => 'approved',
-                'submitted_at' => $submittedAt,
-                'verified_at' => $verifiedAt,
-                'created_at' => $submittedAt,
-                'updated_at' => $now,
-            ];
-
-            // Values
-            $subBrand = trim($row['sub_brand'] ?: $row['brand']);
-            $kemasanGalon = trim($row['kemasan_galon'] ?: '');
-            $qtyGalon = (float) ($row['qty_galon'] ?: 0);
-            $kemasanPail = trim($row['kemasan_pail'] ?: '');
-            $qtyPail = (float) ($row['qty_pail'] ?: 0);
-            $volLiter = (float) ($row['volume_liter'] ?: 0);
-            $estValueRp = $volLiter > 0 ? round($volLiter * 58000, 2) : 0; // standard estimated price/L
-
-            $valuesData = [
-                [
-                    'field_name' => 'produk_terjual',
-                    'field_type' => 'product_select',
-                    'value_text' => $subBrand,
-                    'value_number' => null,
-                ],
-                [
-                    'field_name' => 'kemasan_galon',
-                    'field_type' => 'dropdown',
-                    'value_text' => !empty($kemasanGalon) ? $kemasanGalon . ' Liter/Kg' : 'Tidak Ada Galon',
-                    'value_number' => null,
-                ],
-                [
-                    'field_name' => 'qty_galon',
-                    'field_type' => 'number',
-                    'value_text' => (string) $qtyGalon,
-                    'value_number' => $qtyGalon,
-                ],
-                [
-                    'field_name' => 'kemasan_pail',
-                    'field_type' => 'dropdown',
-                    'value_text' => !empty($kemasanPail) ? $kemasanPail . ' Liter/Kg' : 'Tidak Ada Pail',
-                    'value_number' => null,
-                ],
-                [
-                    'field_name' => 'qty_pail',
-                    'field_type' => 'number',
-                    'value_text' => (string) $qtyPail,
-                    'value_number' => $qtyPail,
-                ],
-                [
-                    'field_name' => 'total_volume_liter',
-                    'field_type' => 'number',
-                    'value_text' => (string) $volLiter,
-                    'value_number' => $volLiter,
-                ],
-                [
-                    'field_name' => 'total_nilai_sales_rp',
-                    'field_type' => 'currency',
-                    'value_text' => (string) $estValueRp,
-                    'value_number' => $estValueRp,
-                ],
-                [
-                    'field_name' => 'tipe_customer',
-                    'field_type' => 'radio',
-                    'value_text' => 'End User (Pemilik Rumah Langsung)',
-                    'value_number' => null,
-                ],
-            ];
-
-            $batchSubmissions[] = [
-                'sub' => $subData,
-                'vals' => $valuesData,
-            ];
-
-            if (count($batchSubmissions) >= $batchSize) {
-                $this->flushBatch($batchSubmissions, $fieldIds, $now);
-                $importedCount += count($batchSubmissions);
-                $progressBar->advance(count($batchSubmissions));
-                $batchSubmissions = [];
+            if (!file_exists($chunkFile)) {
+                $this->warn("Chunk file not found: {$chunkFile}, skipping.");
+                continue;
             }
+
+            $this->info(PHP_EOL . "Importing Month {$m} from offtake_2025_m{$mPad}.jsonl.gz...");
+            $fp = gzopen($chunkFile, 'rb');
+            if (!$fp) {
+                $this->error("Failed to open {$chunkFile}");
+                continue;
+            }
+
+            $batchSubmissions = [];
+            $monthCount = 0;
+
+            while (!gzeof($fp)) {
+                $line = gzgets($fp);
+                if (!$line) continue;
+                $row = json_decode($line, true);
+                if (!$row) continue;
+
+                $rawId = $row['id'] ?? uniqid();
+                $storeName = trim($row['name_store'] ?? '');
+                $sap = trim($row['sap'] ?? '');
+                $sUpper = strtoupper($storeName);
+
+                // Find or create WorkLocation
+                $workLocId = $locByName[$sUpper] ?? ($locByCode[$sap] ?? null);
+                if (!$workLocId && !empty($storeName)) {
+                    $newLoc = WorkLocation::create([
+                        'company_id' => $companyId,
+                        'name' => $storeName,
+                        'type' => 'client',
+                        'latitude' => -6.2000000,
+                        'longitude' => 106.8166667,
+                        'radius_meter' => 100,
+                        'code' => $sap ?: null,
+                        'region' => $row['region'] ?: null,
+                        'branch_name' => $row['area'] ?: null,
+                        'category' => $row['category_store'] ?: 'Blue Store',
+                        'principal_id' => $duluxPrincipal->id,
+                        'is_active' => true,
+                    ]);
+                    $workLocId = $newLoc->id;
+                    $locByName[$sUpper] = $workLocId;
+                    if ($sap) $locByCode[$sap] = $workLocId;
+                }
+
+                $transDate = $row['trans_date'] ?: '2025-01-01';
+                $submittedAt = $transDate . ' 12:00:00';
+                $verifiedAt = $transDate . ' 17:00:00';
+                $subCode = 'SUB-OFFTAKE-2025-' . str_pad($rawId, 7, '0', STR_PAD_LEFT);
+
+                $subData = [
+                    'report_template_id' => $template->id,
+                    'principal_id' => $duluxPrincipal->id,
+                    'employee_id' => $defaultEmpId,
+                    'work_location_id' => $workLocId,
+                    'submission_code' => $subCode,
+                    'status' => 'approved',
+                    'submitted_at' => $submittedAt,
+                    'verified_at' => $verifiedAt,
+                    'created_at' => $submittedAt,
+                    'updated_at' => $now,
+                ];
+
+                $subBrand = trim($row['sub_brand'] ?: ($row['brand'] ?? 'Dulux'));
+                $kemasanGalon = trim($row['kemasan_galon'] ?: '');
+                $qtyGalon = (float) ($row['qty_galon'] ?: 0);
+                $kemasanPail = trim($row['kemasan_pail'] ?: '');
+                $qtyPail = (float) ($row['qty_pail'] ?: 0);
+                $volLiter = (float) ($row['volume_liter'] ?: 0);
+                $estValueRp = $volLiter > 0 ? round($volLiter * 58000, 2) : 0;
+
+                $valuesData = [
+                    [
+                        'field_name' => 'produk_terjual',
+                        'field_type' => 'product_select',
+                        'value_text' => $subBrand,
+                        'value_number' => null,
+                    ],
+                    [
+                        'field_name' => 'kemasan_galon',
+                        'field_type' => 'dropdown',
+                        'value_text' => !empty($kemasanGalon) ? $kemasanGalon . ' Liter/Kg' : 'Tidak Ada Galon',
+                        'value_number' => null,
+                    ],
+                    [
+                        'field_name' => 'qty_galon',
+                        'field_type' => 'number',
+                        'value_text' => (string) $qtyGalon,
+                        'value_number' => $qtyGalon,
+                    ],
+                    [
+                        'field_name' => 'kemasan_pail',
+                        'field_type' => 'dropdown',
+                        'value_text' => !empty($kemasanPail) ? $kemasanPail . ' Liter/Kg' : 'Tidak Ada Pail',
+                        'value_number' => null,
+                    ],
+                    [
+                        'field_name' => 'qty_pail',
+                        'field_type' => 'number',
+                        'value_text' => (string) $qtyPail,
+                        'value_number' => $qtyPail,
+                    ],
+                    [
+                        'field_name' => 'total_volume_liter',
+                        'field_type' => 'number',
+                        'value_text' => (string) $volLiter,
+                        'value_number' => $volLiter,
+                    ],
+                    [
+                        'field_name' => 'total_nilai_sales_rp',
+                        'field_type' => 'currency',
+                        'value_text' => (string) $estValueRp,
+                        'value_number' => $estValueRp,
+                    ],
+                    [
+                        'field_name' => 'tipe_customer',
+                        'field_type' => 'radio',
+                        'value_text' => 'End User (Pemilik Rumah Langsung)',
+                        'value_number' => null,
+                    ],
+                ];
+
+                $batchSubmissions[] = [
+                    'sub' => $subData,
+                    'vals' => $valuesData,
+                ];
+
+                if (count($batchSubmissions) >= $batchSize) {
+                    $this->flushBatch($batchSubmissions, $fieldIds, $now);
+                    $monthCount += count($batchSubmissions);
+                    $totalImported += count($batchSubmissions);
+                    $this->output->write(".");
+                    $batchSubmissions = [];
+                }
+
+                if ($limit > 0 && $totalImported >= $limit) {
+                    break 2;
+                }
+            }
+
+            if (!empty($batchSubmissions)) {
+                $this->flushBatch($batchSubmissions, $fieldIds, $now);
+                $monthCount += count($batchSubmissions);
+                $totalImported += count($batchSubmissions);
+            }
+
+            gzclose($fp);
+            $this->info(PHP_EOL . "Month {$m} Completed! ({$monthCount} rows processed)");
         }
 
-        if (!empty($batchSubmissions)) {
-            $this->flushBatch($batchSubmissions, $fieldIds, $now);
-            $importedCount += count($batchSubmissions);
-            $progressBar->advance(count($batchSubmissions));
-        }
-
-        $progressBar->finish();
-        $this->info(PHP_EOL . "=== Import Completed! Total {$importedCount} transactions imported into Report Submissions. ===");
-
+        $this->info(PHP_EOL . "=== Dulux Offtake Import Completed! Total {$totalImported} rows processed. ===");
         return 0;
     }
 
