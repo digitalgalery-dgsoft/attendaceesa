@@ -98,21 +98,21 @@
                             Koneksi Database
                         </h2>
                         <div class="space-y-5">
-                            <div>
+                            <div x-data="{ dbType: '{{ old('db_connection', 'pgsql') }}' }">
                                 <label class="block text-sm font-semibold text-gray-700 mb-1">Tipe Database (Driver)</label>
-                                <select name="db_connection" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-3 bg-gray-50 focus:bg-white" required>
-                                    <option value="pgsql" {{ old('db_connection', 'pgsql') == 'pgsql' ? 'selected' : '' }}>PostgreSQL (Disarankan)</option>
-                                    <option value="mysql" {{ old('db_connection') == 'mysql' ? 'selected' : '' }}>MySQL / MariaDB</option>
+                                <select name="db_connection" x-model="dbType" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-3 bg-gray-50 focus:bg-white" required>
+                                    <option value="pgsql">PostgreSQL (Disarankan)</option>
+                                    <option value="mysql">MySQL / MariaDB</option>
                                 </select>
-                            </div>
-                            <div class="grid grid-cols-2 gap-5">
-                                <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-1">DB Host</label>
-                                    <input type="text" name="db_host" value="{{ old('db_host', '127.0.0.1') }}" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-3 bg-gray-50 focus:bg-white" required>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-1">DB Port</label>
-                                    <input type="number" name="db_port" value="{{ old('db_port', '3306') }}" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-3 bg-gray-50 focus:bg-white" required>
+                                <div class="grid grid-cols-2 gap-5 mt-5">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-1">DB Host</label>
+                                        <input type="text" name="db_host" value="{{ old('db_host', '127.0.0.1') }}" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-3 bg-gray-50 focus:bg-white" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-1">DB Port</label>
+                                        <input type="number" name="db_port" :value="dbType === 'pgsql' ? 5432 : 3306" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-3 bg-gray-50 focus:bg-white" required>
+                                    </div>
                                 </div>
                             </div>
                             <div>
