@@ -108,16 +108,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo 'DEPLOY_SUCCESS_FLAG'
         ";
 
-        // Cek lokasi private key yang dapat dibaca oleh user web (www)
+        // Cek lokasi private key yang aman di dalam folder website (sesuai aturan open_basedir)
         $keyOptions = "";
+        $baseDir = dirname(__DIR__);
         $possibleKeys = [
+            $baseDir . '/storage/app/deploy_key/id_rsa',
+            $baseDir . '/storage/app/deploy_key',
+            $baseDir . '/.deploy_key/id_rsa',
             '/www/server/deploy_key/id_rsa',
-            '/www/wwwroot/appsend.my.id/storage/app/deploy_key',
-            (isset($_SERVER['HOME']) ? $_SERVER['HOME'] . '/.ssh/id_rsa' : ''),
-            '/root/.ssh/id_rsa',
         ];
         foreach ($possibleKeys as $pk) {
-            if (!empty($pk) && file_exists($pk) && is_readable($pk)) {
+            if (!empty($pk) && @file_exists($pk) && @is_readable($pk)) {
                 $keyOptions = "-i " . escapeshellarg($pk);
                 break;
             }
