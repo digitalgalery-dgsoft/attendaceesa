@@ -353,7 +353,7 @@ class PrincipalPortalController extends Controller
             ->get();
 
         $groupedEmployees = $employees->groupBy(function($emp) {
-            return $emp->branch?->name ?? 'Pusat / Seluruh Area';
+            return ($emp->branch && $emp->branch->name) ? $emp->branch->name : 'Pusat / Seluruh Area';
         });
 
         $workLocations = WorkLocation::whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id')->orderBy('work_locations.name')->get();

@@ -117,6 +117,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             git fetch origin main
             git reset --hard origin/main
 
+            echo '=== DAFTAR DIREKTORI DI /www/wwwroot/ ==='
+            ls -la /www/wwwroot/
+
+            echo '=== VHOST NGINX UNTUK DULUX ==='
+            grep -rn 'dulux.esa-solutions.id' /www/server/panel/vhost/nginx/ 2>/dev/null || true
+
             echo '2. Menyalin file ke {$srv['path']}...'
             SRC_DIR=\"/root/att-admin-v12\"
             if [ -d \"/root/att-admin-v12/att-admin-v12\" ]; then
@@ -128,28 +134,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 chmod -R 777 {$srv['path']}/storage {$srv['path']}/bootstrap/cache 2>/dev/null || true
                 chown -R www:www {$srv['path']} 2>/dev/null || true
             fi
-            if [ -d '/www/wwwroot/api.esa-solutions.id' ]; then
-                \\cp -rf \$SRC_DIR/. /www/wwwroot/api.esa-solutions.id/ 2>/dev/null || true
-                ln -sfn {$srv['path']}/vendor /www/wwwroot/api.esa-solutions.id/vendor 2>/dev/null || true
-                \\cp -f {$srv['path']}/.env /www/wwwroot/api.esa-solutions.id/.env 2>/dev/null || true
-                chmod -R 777 /www/wwwroot/api.esa-solutions.id/storage /www/wwwroot/api.esa-solutions.id/bootstrap/cache 2>/dev/null || true
-                chown -R www:www /www/wwwroot/api.esa-solutions.id 2>/dev/null || true
-                echo '<?php require __DIR__ . \"/public/index.php\";' > /www/wwwroot/api.esa-solutions.id/index.php
-                if [ -f '/www/wwwroot/api.esa-solutions.id/vendor/autoload.php' ]; then
-                    cd /www/wwwroot/api.esa-solutions.id && /www/server/php/83/bin/php artisan optimize:clear 2>/dev/null || true
+
+            # Sync ke semua website Laravel/aaPanel di /www/wwwroot/
+            echo '2b. Menyinkronkan ke seluruh virtual host di /www/wwwroot/...'
+            for site_dir in /www/wwwroot/*; do
+                if [ -d \"\$site_dir\" ] && [ \"\$site_dir\" != \"\$SRC_DIR\" ]; then
+                    if [ -f \"\$site_dir/artisan\" ] || [ -f \"\$site_dir/public/index.php\" ] || [ -d \"\$site_dir/app\" ]; then
+                        echo \"  ↳ Syncing code ke: \$site_dir\"
+                        \\cp -rf \$SRC_DIR/. \$site_dir/ 2>/dev/null || true
+                        if [ ! -d \"\$site_dir/vendor\" ] && [ -d \"{$srv['path']}/vendor\" ]; then
+                            ln -sfn {$srv['path']}/vendor \$site_dir/vendor 2>/dev/null || true
+                        fi
+                        if [ ! -f \"\$site_dir/.env\" ] && [ -f \"{$srv['path']}/.env\" ]; then
+                            \\cp -f {$srv['path']}/.env \$site_dir/.env 2>/dev/null || true
+                        fi
+                        chmod -R 777 \$site_dir/storage \$site_dir/bootstrap/cache 2>/dev/null || true
+                        chown -R www:www \$site_dir 2>/dev/null || true
+                        if [ -f \"\$site_dir/artisan\" ]; then
+                            /www/server/php/83/bin/php \$site_dir/artisan optimize:clear 2>/dev/null || true
+                        fi
+                    fi
                 fi
-            fi
-            if [ -d '/www/wwwroot/amk.esa-solutions.id' ]; then
-                \\cp -rf \$SRC_DIR/. /www/wwwroot/amk.esa-solutions.id/ 2>/dev/null || true
-                ln -sfn {$srv['path']}/vendor /www/wwwroot/amk.esa-solutions.id/vendor 2>/dev/null || true
-                \\cp -f {$srv['path']}/.env /www/wwwroot/amk.esa-solutions.id/.env 2>/dev/null || true
-                chmod -R 777 /www/wwwroot/amk.esa-solutions.id/storage /www/wwwroot/amk.esa-solutions.id/bootstrap/cache 2>/dev/null || true
-                chown -R www:www /www/wwwroot/amk.esa-solutions.id 2>/dev/null || true
-                echo '<?php require __DIR__ . \"/public/index.php\";' > /www/wwwroot/amk.esa-solutions.id/index.php
-                if [ -f '/www/wwwroot/amk.esa-solutions.id/vendor/autoload.php' ]; then
-                    cd /www/wwwroot/amk.esa-solutions.id && /www/server/php/83/bin/php artisan optimize:clear 2>/dev/null || true
-                fi
-            fi
+            done
+            echo '=== CEK SINTAKS PHP SELURUH PrincipalPortalController.php ==='
+            find /www/wwwroot -name 'PrincipalPortalController.php' -exec /www/server/php/83/bin/php -l {} \;
 
             # Pastikan ekstensi pgsql & pdo_pgsql aktif jika .so tersedia
             EXT_DIR=\$(/www/server/php/83/bin/php -r \"echo ini_get('extension_dir');\" 2>/dev/null || echo \"/www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831\")
