@@ -72,49 +72,61 @@ class SmartGatewayRelayService
             'fcm_token' => $request->input('fcm_token'),
         ];
 
+        // Eksekusi request login ke seluruh peer server secara PARALEL (konkuren)
+        try {
+            $responses = Http::pool(function (\Illuminate\Http\Client\Pool $pool) use ($peers, $payload) {
+                $poolRequests = [];
+                foreach ($peers as $serverKey => $serverInfo) {
+                    foreach ($serverInfo['urls'] as $targetUrl) {
+                        if (empty($targetUrl)) continue;
+                        $endpoint = rtrim($targetUrl, '/') . '/api/login';
+                        $poolRequests[$serverKey . '|' . $targetUrl] = $pool->as($serverKey . '|' . $targetUrl)
+                            ->timeout(3)
+                            ->withoutVerifying()
+                            ->post($endpoint, $payload);
+                    }
+                }
+                return $poolRequests;
+            });
+        } catch (\Throwable $e) {
+            Log::warning("SmartGatewayRelay pool error: " . $e->getMessage());
+            $responses = [];
+        }
+
         $candidateErrorResponse = null;
 
-        foreach ($peers as $serverKey => $serverInfo) {
-            foreach ($serverInfo['urls'] as $targetUrl) {
-                if (empty($targetUrl)) {
-                    continue;
+        foreach ($responses as $key => $response) {
+            if ($response instanceof \Throwable || !$response || !method_exists($response, 'successful')) {
+                continue;
+            }
+
+            [$serverKey, $targetUrl] = explode('|', $key, 2);
+            $serverInfo = $peers[$serverKey] ?? [];
+
+            if ($response->successful()) {
+                $responseData = $response->json();
+                $token = $responseData['data']['access_token'] ?? null;
+
+                if ($token) {
+                    Cache::put('gateway_relay_token_' . $token, [
+                        'target_server' => rtrim($targetUrl, '/'),
+                        'target_host' => $serverInfo['host'] ?? '',
+                        'server_key' => $serverKey,
+                        'employee_id' => $responseData['data']['employee_data']['id'] ?? null,
+                    ], now()->addDays(30));
                 }
-                try {
-                    $endpoint = rtrim($targetUrl, '/') . '/api/login';
-                    $response = Http::timeout(4)->withoutVerifying()->post($endpoint, $payload);
 
-                    if ($response->successful()) {
-                        $responseData = $response->json();
-                        $token = $responseData['data']['access_token'] ?? null;
-
-                        if ($token) {
-                            // Simpan token mapping di cache selama 30 hari
-                            Cache::put('gateway_relay_token_' . $token, [
-                                'target_server' => rtrim($targetUrl, '/'),
-                                'target_host' => $serverInfo['host'],
-                                'server_key' => $serverKey,
-                                'employee_id' => $responseData['data']['employee_data']['id'] ?? null,
-                            ], now()->addDays(30));
-                        }
-
-                        // Kembalikan response sukses dari peer server
-                        return response()->json($responseData, $response->status());
-                    } else {
-                        $respJson = $response->json();
-                        $msg = $respJson['message'] ?? '';
-                        // Jika peer server mengenali NIK dan memberikan error khusus (password salah / device lock / dll)
-                        if ($response->status() === 401 || $response->status() === 403 || $response->status() === 422) {
-                            if (!empty($msg) && !str_contains(strtolower($msg), 'tidak terdaftar')) {
-                                $candidateErrorResponse = response()->json($respJson, $response->status());
-                                // Jika device locked atau password spesifik, langsung kembalikan respon
-                                if (str_contains(strtolower($msg), 'perangkat') || str_contains(strtolower($msg), 'device')) {
-                                    return $candidateErrorResponse;
-                                }
-                            }
+                return response()->json($responseData, $response->status());
+            } else {
+                $respJson = $response->json();
+                $msg = $respJson['message'] ?? '';
+                if ($response->status() === 401 || $response->status() === 403 || $response->status() === 422) {
+                    if (!empty($msg) && !str_contains(strtolower($msg), 'tidak terdaftar')) {
+                        $candidateErrorResponse = response()->json($respJson, $response->status());
+                        if (str_contains(strtolower($msg), 'perangkat') || str_contains(strtolower($msg), 'device')) {
+                            return $candidateErrorResponse;
                         }
                     }
-                } catch (\Throwable $e) {
-                    Log::warning("SmartGatewayRelay login attempt failed for {$targetUrl}: " . $e->getMessage());
                 }
             }
         }
