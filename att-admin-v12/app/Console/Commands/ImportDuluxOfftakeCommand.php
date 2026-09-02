@@ -125,6 +125,8 @@ class ImportDuluxOfftakeCommand extends Command
             }
         }
 
+        $companyId = \App\Models\Company::value('id') ?? 1;
+
         while ($sRow = $stmtStores->fetch(PDO::FETCH_ASSOC)) {
             $sName = trim($sRow['name_store']);
             $sap = trim($sRow['sap']);
@@ -133,6 +135,7 @@ class ImportDuluxOfftakeCommand extends Command
             $locId = $locByName[$sUpper] ?? ($locByCode[$sap] ?? null);
             if (!$locId) {
                 $newLoc = WorkLocation::create([
+                    'company_id' => $companyId,
                     'name' => $sName,
                     'code' => $sap ?: null,
                     'region' => $sRow['region'] ?: null,
