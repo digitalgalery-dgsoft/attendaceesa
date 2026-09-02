@@ -135,31 +135,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 fi
             fi
 
-            echo '=== DIAGNOSTIC PHP & PGSQL ==='
-            echo \"PHP in PATH: \$(which php 2>/dev/null || echo 'none')\"
-            echo \"Available aaPanel PHP binaries:\"
-            ls -la /www/server/php/*/bin/php 2>/dev/null || true
-            echo \"pdo_pgsql.so locations:\"
-            find /www/server/php -name \"*pgsql*\" 2>/dev/null || true
-            for p in /www/server/php/*/bin/php; do
-                if [ -x \"\$p\" ]; then
-                    echo \"Testing \$p:\"
-                    \$p -m 2>/dev/null | grep -iE 'pdo|pgsql' || echo '  no pgsql'
+            # Pastikan ekstensi pgsql & pdo_pgsql aktif jika .so tersedia
+            EXT_DIR=\$(/www/server/php/83/bin/php -r \"echo ini_get('extension_dir');\" 2>/dev/null || echo \"/www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831\")
+            if [ -f \"\$EXT_DIR/pdo_pgsql.so\" ] || [ -f \"/www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/pdo_pgsql.so\" ]; then
+                if ! grep -q \"pdo_pgsql\" /www/server/php/83/etc/php.ini 2>/dev/null; then
+                    echo \"extension=pgsql\" >> /www/server/php/83/etc/php.ini
+                    echo \"extension=pdo_pgsql\" >> /www/server/php/83/etc/php.ini
                 fi
-            done
-            echo '================================'
-
-            PHP_BIN=\"php\"
-            for p in /www/server/php/83/bin/php /www/server/php/82/bin/php /www/server/php/81/bin/php /www/server/php/80/bin/php /usr/bin/php; do
-                if [ -x \"\$p\" ] && \$p -m 2>/dev/null | grep -qi pdo_pgsql; then
-                    PHP_BIN=\"\$p\"
-                    break
-                fi
-            done
-            if [ \"\$PHP_BIN\" = \"php\" ] && [ -f \"/www/server/php/83/bin/php\" ]; then
-                PHP_BIN=\"/www/server/php/83/bin/php\"
             fi
+
+            PHP_BIN=\"/www/server/php/83/bin/php -d extension=pgsql.so -d extension=pdo_pgsql.so\"
             echo \"Menggunakan PHP binary: \$PHP_BIN\"
+            echo \"Verifikasi pgsql pada PHP CLI:\"
+            \$PHP_BIN -m 2>/dev/null | grep -i pgsql || echo \"  PERINGATAN: pgsql belum terdeteksi\"
 
             echo '3. Merapikan aset Livewire & storage link...'
             cd {$srv['path']}
