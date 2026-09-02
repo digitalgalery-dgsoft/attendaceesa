@@ -55,6 +55,22 @@ class HelpdeskApiController extends Controller
         ->first();
 
         if (!$employee) {
+            // Cek ke peer servers (AKP / ATK)
+            $peers = \App\Services\SmartGatewayRelayService::getPeerServers();
+            foreach ($peers as $serverInfo) {
+                foreach ($serverInfo['urls'] as $targetUrl) {
+                    if (empty($targetUrl)) continue;
+                    try {
+                        $resp = \Illuminate\Support\Facades\Http::timeout(3)->withoutVerifying()->post(rtrim($targetUrl, '/') . '/api/helpdesk/check-nik', [
+                            'nik' => $nik
+                        ]);
+                        if ($resp->successful()) {
+                            return response()->json($resp->json(), $resp->status());
+                        }
+                    } catch (\Throwable $e) {}
+                }
+            }
+
             $inactive = Employee::where(function ($q) use ($nik) {
                 $q->where('employee_no', $nik)
                   ->orWhereRaw('LOWER(employee_no) = ?', [strtolower($nik)])

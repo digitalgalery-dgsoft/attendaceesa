@@ -19,20 +19,20 @@ return [
         'amk' => [
             'id' => 'amk',
             'name' => 'Server 1 (PT AMK)',
-            'base_url' => env('ESA_SERVER_AMK_URL', 'https://amk.dgsoft.web.id'),
-            'alt_url'  => 'https://amk.esa-solution.id',
+            'base_url' => env('ESA_SERVER_AMK_URL', 'https://amk.esa-solutions.id'),
+            'alt_url'  => 'https://amk.dgsoft.web.id',
         ],
         'akp' => [
             'id' => 'akp',
             'name' => 'Server 2 (PT AKP)',
-            'base_url' => env('ESA_SERVER_AKP_URL', 'https://akp.dgsoft.web.id'),
-            'alt_url'  => 'https://akp.esa-solution.id',
+            'base_url' => env('ESA_SERVER_AKP_URL', 'https://akp.esa-solutions.id'),
+            'alt_url'  => 'https://akp.dgsoft.web.id',
         ],
         'atk' => [
             'id' => 'atk',
             'name' => 'Server 3 (PT ATK / Gabungan)',
-            'base_url' => env('ESA_SERVER_ATK_URL', 'https://atk.dgsoft.web.id'),
-            'alt_url'  => 'https://atk.esa-solution.id',
+            'base_url' => env('ESA_SERVER_ATK_URL', 'https://atk.esa-solutions.id'),
+            'alt_url'  => 'https://atk.dgsoft.web.id',
         ],
     ],
 ];

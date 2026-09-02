@@ -34,7 +34,13 @@ class AuthController extends Controller
             ->first();
 
         if (!$employee) {
-            // Cek apakah ada record yang berstatus non-aktif
+            // Cek apakah karyawan terdaftar di peer server (AKP / ATK) melalui Smart Gateway Relay
+            $relayResponse = \App\Services\SmartGatewayRelayService::attemptRelayLogin($request);
+            if ($relayResponse) {
+                return $relayResponse;
+            }
+
+            // Cek apakah ada record yang berstatus non-aktif lokal
             $inactive = Employee::where(function($query) use ($loginId) {
                     $query->where('email', $loginId)
                           ->orWhere('employee_no', $loginId)
@@ -66,6 +72,12 @@ class AuthController extends Controller
         }
 
         if (!$passwordValid) {
+            // Jika password gagal di lokal, coba juga di peer server
+            $relayResponse = \App\Services\SmartGatewayRelayService::attemptRelayLogin($request);
+            if ($relayResponse) {
+                return $relayResponse;
+            }
+
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Email/NIK atau password salah.'
@@ -121,7 +133,14 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $bearerToken = $request->bearerToken();
+        if ($bearerToken) {
+            \Illuminate\Support\Facades\Cache::forget('gateway_relay_token_' . $bearerToken);
+        }
+
+        if ($request->user() && method_exists($request->user(), 'currentAccessToken') && $request->user()->currentAccessToken()) {
+            $request->user()->currentAccessToken()->delete();
+        }
 
         return response()->json([
             'status'  => 'success',
