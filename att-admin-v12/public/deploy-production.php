@@ -119,8 +119,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             chmod -R 777 storage bootstrap/cache 2>/dev/null || true
             /www/server/php/83/bin/php artisan optimize:clear
 
-            echo '6. Me-restart PHP-FPM...'
+            echo '6. Me-restart PHP-FPM & PostgreSQL...'
             /etc/init.d/php-fpm-83 restart 2>/dev/null || systemctl restart php-fpm-83 2>/dev/null || systemctl restart php-fpm 2>/dev/null || true
+            systemctl restart postgresql 2>/dev/null || /etc/init.d/postgresql restart 2>/dev/null || true
             echo 'DEPLOY_SUCCESS_FLAG'
         ";
 
