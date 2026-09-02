@@ -14,10 +14,16 @@ class TenantAuthController extends Controller
     {
         if (Auth::check()) {
             $user = Auth::user();
+            $p = $request->query('p') ?? $request->input('p');
+
             if ($user && method_exists($user, 'isPrincipalUser') && $user->isPrincipalUser()) {
-                $p = $request->query('p');
                 return redirect()->to($user->getRedirectUrlAfterLogin($p));
             }
+
+            if ($p) {
+                return redirect()->to("/portal?p={$p}");
+            }
+
             return redirect()->intended('/admin');
         }
 
@@ -73,6 +79,10 @@ class TenantAuthController extends Controller
 
             if ($user && method_exists($user, 'isPrincipalUser') && $user->isPrincipalUser()) {
                 return redirect()->intended($user->getRedirectUrlAfterLogin($p));
+            }
+
+            if ($p) {
+                return redirect()->intended("/portal?p={$p}");
             }
 
             return redirect()->intended('/admin');
