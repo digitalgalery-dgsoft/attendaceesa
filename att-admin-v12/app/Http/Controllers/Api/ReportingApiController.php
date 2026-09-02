@@ -129,8 +129,12 @@ class ReportingApiController extends Controller
             return true;
         })->values();
 
+        // Dapatkan WorkLocation / Toko aktif karyawan untuk auto-fill form (jika ada)
+        $targetStoreId = $request->query('store_id') ?? $request->query('location_id') ?? $employee->work_location_id;
+        $targetStore = $targetStoreId ? \App\Models\WorkLocation::find($targetStoreId) : null;
+
         // Format data template dan fields untuk konsumsi mobile
-        $formatted = $templates->map(function ($t) use ($employee, $allMatchingPrincipalIds) {
+        $formatted = $templates->map(function ($t) use ($employee, $allMatchingPrincipalIds, $targetStore) {
             $templateProducts = $t->products;
 
             // Jika template belum memiliki mapping produk spesifik di pivot table, cari otomatis dari master produk principal template / employee
@@ -223,13 +227,22 @@ class ReportingApiController extends Controller
                         'minimum_stock' => (int) ($p->min_stock ?? 0),
                     ];
                 })->values(),
-                'fields' => $t->fields->map(function ($f) use ($productNames, $templateProducts) {
+                'fields' => $t->fields->map(function ($f) use ($productNames, $templateProducts, $t, $targetStore) {
                     $options = $f->options ?? [];
 
                     // HANYA isi options dari productNames jika field_type adalah product_select dan opsi manual kosong
                     if ($f->field_type === 'product_select' && empty($options)) {
                         if (!empty($productNames)) {
                             $options = $productNames;
+                        }
+                    }
+
+                    $defaultValue = $f->default_value ?? null;
+                    if ($targetStore && $t->code === 'RPT-DULUX-DAILY-MAINTENANCE') {
+                        if ($f->field_name === 'tipe_mesin_post' && !empty($targetStore->machine_type)) {
+                            $defaultValue = $targetStore->machine_type;
+                        } elseif ($f->field_name === 'no_mesin_post' && !empty($targetStore->machine_serial_no)) {
+                            $defaultValue = $targetStore->machine_serial_no;
                         }
                     }
 
@@ -243,7 +256,7 @@ class ReportingApiController extends Controller
                         'options' => $options,
                         'placeholder' => $f->placeholder,
                         'help_text' => $f->help_text,
-                        'default_value' => $f->default_value ?? null,
+                        'default_value' => $defaultValue,
                         'validation_rules' => $f->validation_rules ?? [],
                         'order_index' => $f->order_index ?? 0,
                     ];
@@ -439,6 +452,28 @@ class ReportingApiController extends Controller
                     'value_json' => $valueJson,
                     'media_url' => $photoPath,
                 ]);
+            }
+
+            // Khusus Laporan Daily Maintenance Dulux: Simpan nomor seri & tipe mesin ke Master Toko (WorkLocation)
+            if ($template->code === 'RPT-DULUX-DAILY-MAINTENANCE' && $submission->work_location_id) {
+                try {
+                    $workLoc = \App\Models\WorkLocation::find($submission->work_location_id);
+                    if ($workLoc) {
+                        $tipeMesinVal = $submission->values()->where('field_name', 'tipe_mesin_post')->value('value_text');
+                        $noMesinVal = $submission->values()->where('field_name', 'no_mesin_post')->value('value_text');
+
+                        $updateData = [];
+                        if (!empty($tipeMesinVal)) {
+                            $updateData['machine_type'] = $tipeMesinVal;
+                        }
+                        if (!empty($noMesinVal)) {
+                            $updateData['machine_serial_no'] = $noMesinVal;
+                        }
+                        if (!empty($updateData)) {
+                            $workLoc->update($updateData);
+                        }
+                    }
+                } catch (\Throwable $e) {}
             }
 
             DB::commit();
