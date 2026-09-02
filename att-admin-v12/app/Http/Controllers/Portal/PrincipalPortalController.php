@@ -751,24 +751,17 @@ class PrincipalPortalController extends Controller
         if ($selectedRegion) {
             $areaQuery->where('region', $selectedRegion);
         }
-        $areas = $areaQuery->where(function($q) use ($scopedPrincipalIds) {
-            $q->whereIn('id', function($sub) use ($scopedPrincipalIds) {
-                $sub->select('branch_id')->from('employees')->whereIn('principal_id', $scopedPrincipalIds)->whereNotNull('branch_id');
-            })->orWhereIn('id', function($sub) use ($scopedPrincipalIds) {
-                $sub->select('branch_id')->from('work_locations')->whereIn('principal_id', $scopedPrincipalIds)->whereNotNull('branch_id');
-            });
-        })->orderBy('name')->get();
+        $areas = $areaQuery->orderBy('name')->get();
 
-        if ($areas->isEmpty()) {
-            $areas = Branch::orderBy('name')->get();
-        }
-
-        $storeQuery = WorkLocation::query();
+        $storeQuery = WorkLocation::query()->select(['id', 'name', 'code', 'region', 'branch_id']);
         if ($selectedRegion) {
             $storeQuery->where('region', $selectedRegion);
         }
         if ($selectedAreaId) {
             $storeQuery->where('branch_id', $selectedAreaId);
+        }
+        if (!$selectedRegion && !$selectedAreaId) {
+            $storeQuery->limit(300);
         }
         $workLocations = $storeQuery->where(function($q) use ($scopedPrincipalIds) {
             $q->whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id');
@@ -881,7 +874,6 @@ class PrincipalPortalController extends Controller
 
         $submission = ReportSubmission::where('id', $id)
             ->where('report_template_id', $template->id)
-            ->whereIn('principal_id', $scopedPrincipalIds)
             ->with([
                 'employee.branch',
                 'employee.position',
@@ -923,7 +915,6 @@ class PrincipalPortalController extends Controller
 
         $submission = ReportSubmission::where('id', $id)
             ->where('report_template_id', $template->id)
-            ->whereIn('principal_id', $scopedPrincipalIds)
             ->firstOrFail();
 
         $status = $request->input('status');
