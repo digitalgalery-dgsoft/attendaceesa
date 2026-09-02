@@ -87,9 +87,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             git reset --hard origin/main
 
             echo '2. Menyalin file ke {$srv['path']}...'
-            SRC_DIR="/root/att-admin-v12"
-            if [ -d "/root/att-admin-v12/att-admin-v12" ]; then
-                SRC_DIR="/root/att-admin-v12/att-admin-v12"
+            SRC_DIR=\"/root/att-admin-v12\"
+            if [ -d \"/root/att-admin-v12/att-admin-v12\" ]; then
+                SRC_DIR=\"/root/att-admin-v12/att-admin-v12\"
             fi
             
             if [ -d '{$srv['path']}' ]; then
