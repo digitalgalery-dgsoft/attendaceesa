@@ -259,7 +259,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
     final bool isFaceRequired = (posData is Map)
         ? (posData['require_face_recognition'] == true || posData['require_face_recognition'] == 1 || posData['require_face_recognition'] == '1')
         : false;
-    final String? masterPhoto = authProvider.employeeData?['photo'];
+    final String? masterPhoto = authProvider.employeeData?['photo_url'] ?? authProvider.employeeData?['photo'];
     final bool hasMasterPhoto = masterPhoto != null && masterPhoto.trim().isNotEmpty && !masterPhoto.contains('default.png') && !masterPhoto.contains('placeholder');
 
     if (isFaceRequired && !hasMasterPhoto) {
@@ -302,7 +302,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
     final bool isFaceRequired = (posData is Map)
         ? (posData['require_face_recognition'] == true || posData['require_face_recognition'] == 1 || posData['require_face_recognition'] == '1')
         : false;
-    final String? masterPhoto = authProvider.employeeData?['photo'];
+    final String? masterPhoto = authProvider.employeeData?['photo_url'] ?? authProvider.employeeData?['photo'];
     final bool hasMasterPhoto = masterPhoto != null && masterPhoto.trim().isNotEmpty && !masterPhoto.contains('default.png') && !masterPhoto.contains('placeholder');
 
     if (isFaceRequired && !hasMasterPhoto && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in')) {
@@ -1423,7 +1423,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                                   final authProvider = Provider.of<AuthProvider>(context, listen: false);
                                   final posData = authProvider.employeeData?['position'];
                                   final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? false) : false;
-                                  final String? masterPhoto = authProvider.employeeData?['photo'];
+                                  final String? masterPhoto = authProvider.employeeData?['photo_url'] ?? authProvider.employeeData?['photo'];
                                   final bool hasMasterPhoto = masterPhoto != null && masterPhoto.isNotEmpty && !masterPhoto.contains('default.png');
                                   final bool isPhotoMissing = isFaceRequired && _selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in');
 

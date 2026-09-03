@@ -205,18 +205,45 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
           });
         }
 
-        // ─── VALIDASI: JIKA WAJAH TIDAK COCOK (< 75%), BLOKIR CAPTURE ───
-        if (_masterProfile != null && !passSimilarity) {
-          _isEyesClosed = false; // Reset status mata tertutup agar kedipan orang lain tidak memicu capture
-          if (mounted) {
-            setState(() {
-              final simText = similarity != null ? "${similarity.toStringAsFixed(0)}%" : "0%";
-              _instruction = "❌ Wajah Tidak Sesuai ($simText < 75%)\nHarap gunakan wajah karyawan yang terdaftar!";
-            });
+        // ─── VALIDASI FACE RECOGNITION BIOMETRIK KETAT ───
+        if (widget.isRequired && !widget.isEnrollment) {
+          if (_isLoadingMaster) {
+            _isEyesClosed = false;
+            if (mounted) {
+              setState(() {
+                _instruction = "⏳ Memuat data master wajah...";
+              });
+            }
+            _isBusy = false;
+            return;
           }
-        } else {
-          // Wajah cocok (>= 75%) atau mode registrasi master: Cek kedipan mata
-          if (leftEyeOpen != null && rightEyeOpen != null) {
+
+          if (_masterProfile == null) {
+            _isEyesClosed = false;
+            if (mounted) {
+              setState(() {
+                _instruction = "❌ Master wajah tidak ditemukan / gagal dimuat.\nHarap periksa koneksi atau perbarui foto di menu Profil.";
+              });
+            }
+            _isBusy = false;
+            return;
+          }
+
+          if (!passSimilarity) {
+            _isEyesClosed = false; // Reset status mata tertutup agar kedipan orang lain tidak memicu capture
+            if (mounted) {
+              setState(() {
+                final simText = similarity != null ? "${similarity.toStringAsFixed(0)}%" : "0%";
+                _instruction = "❌ Wajah Tidak Sesuai ($simText < 75%)\nHarap gunakan wajah karyawan yang terdaftar!";
+              });
+            }
+            _isBusy = false;
+            return;
+          }
+        }
+
+        // Wajah cocok (>= 75%) atau mode registrasi master: Cek kedipan mata
+        if (leftEyeOpen != null && rightEyeOpen != null) {
             if (leftEyeOpen > 0.65 || rightEyeOpen > 0.65) {
               if (_isEyesClosed) {
                 // Kedipan berhasil!
@@ -247,7 +274,6 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
             }
           }
         }
-      }
     } catch (e) {
       debugPrint("Face detection error: $e");
     }

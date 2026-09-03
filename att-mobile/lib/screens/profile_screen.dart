@@ -14,6 +14,7 @@ import '../utils/constants.dart';
 import 'dart:io';
 import 'package:att_mobile/screens/liveness_camera_screen.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:att_mobile/services/face_matcher_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -133,6 +134,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (mounted) {
         if (result['success'] == true) {
+          await FaceMatcherService.clearCachedMasterProfile();
           await auth.tryAutoLogin();
           if (mounted) {
             setState(() {});
@@ -232,6 +234,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     }, imageBytes: bytes, imageFilename: image.name);
                     if (mounted) {
                       if (result['success']) {
+                        await FaceMatcherService.clearCachedMasterProfile();
                         await auth.tryAutoLogin();
                         if (mounted) setState(() {});
                       }
@@ -272,6 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     }, imageBytes: bytes, imageFilename: image.name);
                     if (mounted) {
                       if (result['success']) {
+                        await FaceMatcherService.clearCachedMasterProfile();
                         await auth.tryAutoLogin();
                         if (mounted) setState(() {});
                       }
@@ -578,11 +582,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final employeeName = auth.employeeData?['full_name'] ?? auth.user?['name'] ?? 'User';
     final branchName = auth.employeeData?['branch']?['name'] ?? 'Unknown Branch';
     final roleName = auth.employeeData?['position']?['name'] ?? auth.employeeData?['department']?['name'] ?? 'Employee';
-    final photo = auth.employeeData?['photo'];
+    final photo = auth.employeeData?['photo_url'] ?? auth.employeeData?['photo'];
 
     final primaryColor = auth.appColor ?? const Color(0xFF0F52BA);
     String primaryHex = primaryColor.value.toRadixString(16).substring(2).toUpperCase();
-    String imageUrl = 'https://ui-avatars.com/api/?name=$employeeName&background=$primaryHex&color=fff';
+    String imageUrl = 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(employeeName)}&background=$primaryHex&color=fff';
     if (photo != null && photo.toString().isNotEmpty) {
       imageUrl = Constants.getImageUrl(photo.toString());
     }
@@ -627,9 +631,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(color: isDarkMode ? Colors.grey.shade700 : const Color(0xFFE7EEFF), width: 3),
-                            image: DecorationImage(
-                              image: NetworkImage(imageUrl),
+                          ),
+                          child: ClipOval(
+                            child: Image.network(
+                              imageUrl,
                               fit: BoxFit.cover,
+                              width: 80,
+                              height: 80,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Image.network(
+                                  'https://ui-avatars.com/api/?name=${Uri.encodeComponent(employeeName)}&background=$primaryHex&color=fff',
+                                  fit: BoxFit.cover,
+                                  width: 80,
+                                  height: 80,
+                                );
+                              },
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+                              },
                             ),
                           ),
                         ),
@@ -688,7 +708,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               final auth = Provider.of<AuthProvider>(context);
               final position = auth.employeeData?['position'];
               final bool isFaceRequired = (position is Map) ? (position['require_face_recognition'] ?? false) : false;
-              final String? masterPhoto = auth.employeeData?['photo'];
+              final String? masterPhoto = auth.employeeData?['photo_url'] ?? auth.employeeData?['photo'];
               final bool hasMasterPhoto = masterPhoto != null && masterPhoto.isNotEmpty && !masterPhoto.contains('default.png');
 
               return Container(

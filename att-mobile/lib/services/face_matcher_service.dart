@@ -189,12 +189,36 @@ class FaceMatcherService {
         final tempDir = await getTemporaryDirectory();
         final cachedFile = File('${tempDir.path}/cached_master_face_${masterPhotoPathOrUrl.hashCode}.jpg');
 
-        if (!await cachedFile.exists()) {
-          final response = await http.get(Uri.parse(masterPhotoPathOrUrl)).timeout(const Duration(seconds: 10));
-          if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-            await cachedFile.writeAsBytes(response.bodyBytes);
-          } else {
-            debugPrint("Gagal mengunduh foto master wajah: HTTP ${response.statusCode}");
+        if (!await cachedFile.exists() || await cachedFile.length() < 1000) {
+          final List<String> urlsToTry = [masterPhotoPathOrUrl];
+          try {
+            final uri = Uri.parse(masterPhotoPathOrUrl);
+            final pathAndQuery = uri.path + (uri.hasQuery ? '?${uri.query}' : '');
+            for (final host in ['atk.esa-solutions.id', 'amk.esa-solutions.id', 'akp.esa-solutions.id']) {
+              final altUrl = 'https://$host$pathAndQuery';
+              if (!urlsToTry.contains(altUrl)) {
+                urlsToTry.add(altUrl);
+              }
+            }
+          } catch (_) {}
+
+          bool downloaded = false;
+          for (final url in urlsToTry) {
+            try {
+              final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 7));
+              if (response.statusCode == 200 && response.bodyBytes.length > 500) {
+                await cachedFile.writeAsBytes(response.bodyBytes);
+                downloaded = true;
+                debugPrint("Master face photo downloaded successfully from: $url");
+                break;
+              }
+            } catch (e) {
+              debugPrint("Failed to download master photo from $url: $e");
+            }
+          }
+
+          if (!downloaded) {
+            debugPrint("Gagal mengunduh foto master wajah dari seluruh endpoint.");
             return null;
           }
         }
@@ -236,5 +260,18 @@ class FaceMatcherService {
       debugPrint("Error saat memproses foto master wajah: $e");
       return null;
     }
+  }
+
+  /// Menghapus cache master wajah agar saat ada update foto baru, sistem mengunduh foto terbaru.
+  static Future<void> clearCachedMasterProfile() async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final files = tempDir.listSync();
+      for (final f in files) {
+        if (f is File && f.path.contains('cached_master_face_')) {
+          await f.delete();
+        }
+      }
+    } catch (_) {}
   }
 }

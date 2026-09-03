@@ -43,6 +43,7 @@ import 'package:att_mobile/services/offline_sync_service.dart';
 import 'dart:io';
 import 'package:att_mobile/screens/liveness_camera_screen.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:att_mobile/services/face_matcher_service.dart';
 
 
 class DashboardScreen extends StatefulWidget {
@@ -123,7 +124,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   bool _hasMasterPhoto(AuthProvider auth) {
-    final String? photo = auth.employeeData?['photo'];
+    final String? photo = auth.employeeData?['photo_url'] ?? auth.employeeData?['photo'];
     return photo != null && photo.trim().isNotEmpty && !photo.contains('default.png') && !photo.contains('placeholder');
   }
 
@@ -170,6 +171,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       if (mounted) {
         if (result['success'] == true) {
           // Segera refresh profil dan data dashboard agar status wajah dan tombol aktif seketika
+          await FaceMatcherService.clearCachedMasterProfile();
           await auth.tryAutoLogin();
           final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
           await attProvider.loadDashboardData();
@@ -503,13 +505,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           ),
                         ),
                         const SizedBox(width: 7),
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: elevatedColor,
-                          backgroundImage: (authProvider.employeeData?['photo'] != null && authProvider.employeeData!['photo'].toString().isNotEmpty)
-                              ? NetworkImage(Constants.getImageUrl(authProvider.employeeData!['photo']))
-                              : NetworkImage('https://ui-avatars.com/api/?name=${Uri.encodeComponent(employeeName)}&background=random') as ImageProvider,
-                        ),
+                        Builder(builder: (context) {
+                          final dashPhoto = authProvider.employeeData?['photo_url'] ?? authProvider.employeeData?['photo'];
+                          return CircleAvatar(
+                            radius: 16,
+                            backgroundColor: elevatedColor,
+                            backgroundImage: (dashPhoto != null && dashPhoto.toString().isNotEmpty)
+                                ? NetworkImage(Constants.getImageUrl(dashPhoto.toString()))
+                                : NetworkImage('https://ui-avatars.com/api/?name=${Uri.encodeComponent(employeeName)}&background=random') as ImageProvider,
+                          );
+                        }),
                       ],
                     ),
                   ],
@@ -616,7 +621,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 Builder(builder: (context) {
                   final position = authProvider.employeeData?['position'];
                   final bool isFaceRequired = (position is Map) ? (position['require_face_recognition'] ?? false) : false;
-                  final String? masterPhoto = authProvider.employeeData?['photo'];
+                  final String? masterPhoto = authProvider.employeeData?['photo_url'] ?? authProvider.employeeData?['photo'];
                   final bool hasMasterPhoto = masterPhoto != null && masterPhoto.isNotEmpty && !masterPhoto.contains('default.png');
 
                   if (!isFaceRequired || hasMasterPhoto) return const SizedBox.shrink();
