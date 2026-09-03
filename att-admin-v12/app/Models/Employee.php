@@ -91,9 +91,25 @@ class Employee extends Authenticatable
             return null;
         }
         if (str_starts_with($this->photo, 'http://') || str_starts_with($this->photo, 'https://')) {
-            return $this->photo;
+            $url = $this->photo;
+        } else {
+            $domainMap = [
+                1 => 'amk.esa-solutions.id',
+                2 => 'akp.esa-solutions.id',
+                3 => 'atk.esa-solutions.id',
+            ];
+            $domain = $domainMap[$this->company_id] ?? null;
+            if (!$domain) {
+                $host = request()?->getHost();
+                if ($host && !in_array($host, ['localhost', '127.0.0.1'])) {
+                    $domain = $host;
+                } else {
+                    $domain = 'appsend.my.id';
+                }
+            }
+            $url = 'https://' . $domain . '/storage/' . ltrim($this->photo, '/');
         }
-        return asset('storage/' . ltrim($this->photo, '/'));
+        return str_replace('esa-solution.id', 'esa-solutions.id', $url);
     }
 
     public function getHasReportingTemplatesAttribute(): bool
