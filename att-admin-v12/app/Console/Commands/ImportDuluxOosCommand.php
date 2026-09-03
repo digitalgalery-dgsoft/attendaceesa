@@ -217,7 +217,6 @@ class ImportDuluxOosCommand extends Command
                     'submission_code' => $code,
                     'record_data' => [
                         'report_template_id' => $template->id,
-                        'company_id' => $companyId,
                         'principal_id' => $duluxPrincipal->id,
                         'employee_id' => $defaultEmpId,
                         'work_location_id' => $workLocId,
