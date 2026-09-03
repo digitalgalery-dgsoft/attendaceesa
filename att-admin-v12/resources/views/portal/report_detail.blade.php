@@ -524,6 +524,43 @@
         letter-spacing: 0.5px;
     }
 
+    .ytd-store-table thead th {
+        background: var(--brand-primary) !important;
+        color: #ffffff !important;
+        border-bottom: none !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.5px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .ytd-tab-btn {
+        border: none;
+        padding: 0.5rem 1.15rem;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        background: transparent;
+        color: #64748b;
+    }
+
+    .ytd-tab-btn.active {
+        background: var(--brand-primary) !important;
+        color: #ffffff !important;
+        box-shadow: 0 2px 8px rgba(15, 82, 186, 0.25);
+    }
+
+    .ytd-tab-btn:not(.active):hover {
+        background: #ffffff;
+        color: var(--brand-primary);
+    }
+
     .custom-table td {
         padding: 0.95rem 1rem;
         border-bottom: 1px solid #f1f5f9;
@@ -813,67 +850,223 @@
     </form>
 
     @if(isset($isYtdReport) && $isYtdReport)
-        <div class="widget-content-card" style="margin-bottom: 1.5rem; border: 2px solid var(--brand-primary);">
-            <div class="widget-card-header" style="background: #f8fafc; margin: -1.25rem -1.5rem 1rem -1.5rem; padding: 1.25rem 1.5rem; border-top-left-radius: 14px; border-top-right-radius: 14px;">
-                <div class="widget-card-title" style="font-size: 1.2rem;">
-                    <i class="fa-solid fa-chart-column" style="color: var(--brand-primary); font-size: 1.4rem;"></i>
-                    YTD Comparison Laporan (Volume Liter)
+        <div class="widget-content-card" style="margin-bottom: 1.5rem; border: 2px solid var(--brand-primary); padding: 0; overflow: hidden;">
+            <div class="widget-card-header" style="background: #f8fafc; padding: 1.15rem 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem;">
+                <div>
+                    <div class="widget-card-title" style="font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-chart-column" style="color: var(--brand-primary); font-size: 1.35rem;"></i>
+                        YTD Comparison Laporan (Volume Liter)
+                    </div>
+                    <div class="widget-card-sub" style="font-size: 0.85rem; margin-top: 0.25rem;">
+                        Berdasarkan tanggal: 1 Jan - Akhir {{ Carbon\Carbon::create(null, $endMonth, 1)->translatedFormat('F') }} ({{ $endYear }} vs {{ $endYear - 1 }})
+                    </div>
                 </div>
-                <div class="widget-card-sub" style="font-size: 0.85rem; margin-top: 0.35rem;">
-                    Berdasarkan tanggal: 1 Jan - Akhir {{ Carbon\Carbon::create(null, $endMonth, 1)->translatedFormat('F') }} ({{ $endYear }} vs {{ $endYear - 1 }})
+
+                <!-- Tab Navigation -->
+                <div style="background: #e2e8f0; padding: 4px; border-radius: 10px; display: inline-flex; gap: 4px;">
+                    <button type="button" class="ytd-tab-btn active" id="btn_ytd_product" onclick="switchYtdTab('product')">
+                        <i class="fa-solid fa-boxes-stacked"></i> Berdasarkan Produk (Dulux / Catylac)
+                    </button>
+                    <button type="button" class="ytd-tab-btn" id="btn_ytd_store" onclick="switchYtdTab('store')">
+                        <i class="fa-solid fa-store"></i> Berdasarkan Store / Toko
+                    </button>
                 </div>
             </div>
 
-            <div class="dashboard-grid" style="margin-bottom: 0;">
-                <div class="col-span-7">
-                    <div class="table-container-card" style="box-shadow: none; border: 1px solid var(--border-color); padding: 0; border-radius: 12px; overflow: hidden;">
-                        <table class="custom-table ytd-comparison-table" style="margin-bottom: 0;">
+            <!-- Tab 1: Berdasarkan Produk (Dulux / Catylac) -->
+            <div id="ytd_pane_product" class="ytd-pane" style="padding: 1.5rem;">
+                <div class="dashboard-grid" style="margin-bottom: 0;">
+                    <div class="col-span-7">
+                        <div class="table-container-card" style="box-shadow: none; border: 1px solid var(--border-color); padding: 0; border-radius: 12px; overflow: hidden;">
+                            <table class="custom-table ytd-comparison-table" style="margin-bottom: 0;">
+                                <thead>
+                                    <tr style="background: var(--brand-primary);">
+                                        <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">DESKRIPSI</th>
+                                        <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">YTD {{ $endYear }}<br><span style="font-size: 0.72rem; font-weight: 500; color: rgba(255,255,255,0.85);">(Tahun Berjalan)</span></th>
+                                        <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: center; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">%</th>
+                                        <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">YTD {{ $endYear - 1 }}<br><span style="font-size: 0.72rem; font-weight: 500; color: rgba(255,255,255,0.85);">(Tahun Sebelumnya)</span></th>
+                                        <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">GROWTH</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if(!empty($ytdData['details']))
+                                        @foreach($ytdData['details'] as $row)
+                                            <tr>
+                                                <td style="font-weight: 700; color: var(--brand-primary);">{{ $row['brand'] }}</td>
+                                                <td style="text-align: right; font-weight: 700;">{{ number_format($row['cy_volume'], 2) }}</td>
+                                                <td style="text-align: center; font-weight: 600;">{{ number_format($row['percentage'], 1) }}%</td>
+                                                <td style="text-align: right; color: var(--text-muted);">{{ number_format($row['py_volume'], 2) }}</td>
+                                                <td style="text-align: right; font-weight: 700; color: {{ $row['growth'] > 0 ? '#10b981' : ($row['growth'] < 0 ? '#ef4444' : 'var(--text-muted)') }};">
+                                                    @if($row['growth'] > 0)<i class="fa-solid fa-arrow-trend-up"></i>@endif
+                                                    @if($row['growth'] < 0)<i class="fa-solid fa-arrow-trend-down"></i>@endif
+                                                    {{ number_format($row['growth'], 1) }}%
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                        <tr style="background: #f1f5f9; border-top: 2px solid var(--border-color);">
+                                            <td style="font-weight: 800; font-size: 0.95rem;">Total DC</td>
+                                            <td style="text-align: right; font-weight: 800; font-size: 0.95rem;">{{ number_format($ytdData['total']['cy_volume'], 2) }}</td>
+                                            <td style="text-align: center; font-weight: 800;">100%</td>
+                                            <td style="text-align: right; font-weight: 800; color: var(--text-muted);">{{ number_format($ytdData['total']['py_volume'], 2) }}</td>
+                                            <td style="text-align: right; font-weight: 800; font-size: 0.95rem; color: {{ $ytdData['total']['growth'] > 0 ? '#10b981' : ($ytdData['total']['growth'] < 0 ? '#ef4444' : 'var(--text-muted)') }};">
+                                                @if($ytdData['total']['growth'] > 0)<i class="fa-solid fa-arrow-trend-up"></i>@endif
+                                                @if($ytdData['total']['growth'] < 0)<i class="fa-solid fa-arrow-trend-down"></i>@endif
+                                                {{ number_format($ytdData['total']['growth'], 1) }}%
+                                            </td>
+                                        </tr>
+                                    @else
+                                        <tr>
+                                            <td colspan="5" style="text-align: center; padding: 2rem;">Belum ada data YTD untuk periode ini.</td>
+                                        </tr>
+                                    @endif
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-span-5">
+                        <div id="chart_ytd_comparison" style="min-height: 250px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Berdasarkan Store / Toko -->
+            <div id="ytd_pane_store" class="ytd-pane" style="display: none; padding: 1.5rem;">
+                <!-- Summary KPI Row -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+                    <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; display: flex; align-items: center; gap: 0.85rem;">
+                        <div style="width: 44px; height: 44px; border-radius: 8px; background: rgba(15, 82, 186, 0.12); color: var(--brand-primary); display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+                            <i class="fa-solid fa-store"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase;">Total Toko Aktif</div>
+                            <div style="font-size: 1.25rem; font-weight: 800; color: #1e293b;">{{ number_format($ytdData['stores']['total']['count'] ?? 0) }} Toko</div>
+                        </div>
+                    </div>
+
+                    <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; display: flex; align-items: center; gap: 0.85rem;">
+                        <div style="width: 44px; height: 44px; border-radius: 8px; background: rgba(16, 185, 129, 0.12); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+                            <i class="fa-solid fa-cubes-stacked"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase;">YTD {{ $endYear }} (Volume)</div>
+                            <div style="font-size: 1.25rem; font-weight: 800; color: #1e293b;">{{ number_format($ytdData['stores']['total']['cy_volume'] ?? 0, 2) }} <span style="font-size: 0.78rem; font-weight: 500; color: #64748b;">Liter</span></div>
+                        </div>
+                    </div>
+
+                    <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; display: flex; align-items: center; gap: 0.85rem;">
+                        <div style="width: 44px; height: 44px; border-radius: 8px; background: rgba(100, 116, 139, 0.12); color: #64748b; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase;">YTD {{ $endYear - 1 }} (Volume)</div>
+                            <div style="font-size: 1.25rem; font-weight: 800; color: #1e293b;">{{ number_format($ytdData['stores']['total']['py_volume'] ?? 0, 2) }} <span style="font-size: 0.78rem; font-weight: 500; color: #64748b;">Liter</span></div>
+                        </div>
+                    </div>
+
+                    <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; display: flex; align-items: center; gap: 0.85rem;">
+                        @php
+                            $stGrowth = $ytdData['stores']['total']['growth'] ?? 0;
+                        @endphp
+                        <div style="width: 44px; height: 44px; border-radius: 8px; background: {{ $stGrowth >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)' }}; color: {{ $stGrowth >= 0 ? '#10b981' : '#ef4444' }}; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+                            <i class="fa-solid {{ $stGrowth >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down' }}"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase;">Overall Growth</div>
+                            <div style="font-size: 1.25rem; font-weight: 800; color: {{ $stGrowth >= 0 ? '#10b981' : '#ef4444' }};">
+                                {{ number_format($stGrowth, 1) }}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart Top 10 Stores -->
+                <div style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                    <div style="font-weight: 700; font-size: 0.95rem; color: #1e293b; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
+                        <span><i class="fa-solid fa-ranking-star" style="color: #f59e0b;"></i> Top 10 Store / Toko Tertinggi (Volume Liter YTD {{ $endYear }} vs {{ $endYear - 1 }})</span>
+                        <span style="font-size: 0.75rem; font-weight: 500; color: #64748b;">Diurutkan dari volume terbesar</span>
+                    </div>
+                    <div id="chart_ytd_store" style="min-height: 340px;"></div>
+                </div>
+
+                <!-- Full Store Table with Live Search and CSV Export -->
+                <div class="table-container-card" style="box-shadow: none; border: 1px solid var(--border-color); padding: 0; border-radius: 12px; overflow: hidden;">
+                    <!-- Filter Toolbar -->
+                    <div style="background: #f8fafc; padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--border-color); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-grow: 1; max-width: 450px;">
+                            <i class="fa-solid fa-magnifying-glass" style="color: #94a3b8;"></i>
+                            <input type="text" id="storeSearchInput" onkeyup="filterStoreTable()" placeholder="Cari nama toko, kode SAP, atau area..." style="width: 100%; padding: 0.45rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 7px; font-size: 0.85rem; outline: none;">
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <span style="font-size: 0.8rem; font-weight: 600; color: #64748b;">
+                                Menampilkan <span id="filteredStoreCount" style="font-weight: 800; color: var(--brand-primary);">{{ number_format(count($ytdData['stores']['details'] ?? [])) }}</span> dari {{ number_format(count($ytdData['stores']['details'] ?? [])) }} Toko
+                            </span>
+                            <button type="button" onclick="exportStoreYtdToCsv()" class="btn btn-sm" style="background: #10b981; color: #ffffff; font-weight: 700; border-radius: 7px; padding: 0.42rem 0.85rem; border: none; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);">
+                                <i class="fa-solid fa-file-excel"></i> Export CSV
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Scrollable Table -->
+                    <div style="max-height: 500px; overflow-y: auto; overflow-x: auto;">
+                        <table class="custom-table ytd-store-table" id="storeYtdTable" style="margin-bottom: 0;">
                             <thead>
                                 <tr style="background: var(--brand-primary);">
-                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">DESKRIPSI</th>
-                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">YTD {{ $endYear }}<br><span style="font-size: 0.72rem; font-weight: 500; color: rgba(255,255,255,0.85);">(Tahun Berjalan)</span></th>
-                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: center; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">%</th>
-                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">YTD {{ $endYear - 1 }}<br><span style="font-size: 0.72rem; font-weight: 500; color: rgba(255,255,255,0.85);">(Tahun Sebelumnya)</span></th>
-                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">GROWTH</th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 60px; text-align: center;">NO</th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 110px;">KODE SAP</th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem;">NAMA TOKO / STORE</th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 120px;">KATEGORI</th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 140px;">AREA / REGION</th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem;">YTD {{ $endYear }}<br><span style="font-size: 0.72rem; font-weight: 500; color: rgba(255,255,255,0.85);">(Tahun Berjalan)</span></th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: center; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 75px;">%</th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem;">YTD {{ $endYear - 1 }}<br><span style="font-size: 0.72rem; font-weight: 500; color: rgba(255,255,255,0.85);">(Tahun Sebelumnya)</span></th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 100px;">GROWTH</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @if(!empty($ytdData['details']))
-                                    @foreach($ytdData['details'] as $row)
+                                @if(!empty($ytdData['stores']['details']))
+                                    @php $no = 1; @endphp
+                                    @foreach($ytdData['stores']['details'] as $sRow)
                                         <tr>
-                                            <td style="font-weight: 700; color: var(--brand-primary);">{{ $row['brand'] }}</td>
-                                            <td style="text-align: right; font-weight: 700;">{{ number_format($row['cy_volume'], 2) }}</td>
-                                            <td style="text-align: center; font-weight: 600;">{{ number_format($row['percentage'], 1) }}%</td>
-                                            <td style="text-align: right; color: var(--text-muted);">{{ number_format($row['py_volume'], 2) }}</td>
-                                            <td style="text-align: right; font-weight: 700; color: {{ $row['growth'] > 0 ? '#10b981' : ($row['growth'] < 0 ? '#ef4444' : 'var(--text-muted)') }};">
-                                                @if($row['growth'] > 0)<i class="fa-solid fa-arrow-trend-up"></i>@endif
-                                                @if($row['growth'] < 0)<i class="fa-solid fa-arrow-trend-down"></i>@endif
-                                                {{ number_format($row['growth'], 1) }}%
+                                            <td style="text-align: center; font-weight: 700; color: #64748b; font-size: 0.8rem;">{{ $no++ }}</td>
+                                            <td style="font-weight: 600; font-family: monospace; font-size: 0.85rem; color: #475569;">{{ $sRow['store_code'] }}</td>
+                                            <td style="font-weight: 700; color: #1e293b;">
+                                                {{ $sRow['store_name'] }}
+                                            </td>
+                                            <td>
+                                                <span style="background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 4px;">
+                                                    {{ $sRow['category'] }}
+                                                </span>
+                                            </td>
+                                            <td style="font-size: 0.82rem; color: #64748b;">{{ $sRow['region'] }}</td>
+                                            <td style="text-align: right; font-weight: 700; color: var(--brand-primary);">{{ number_format($sRow['cy_volume'], 2) }}</td>
+                                            <td style="text-align: center; font-weight: 600; font-size: 0.82rem;">{{ number_format($sRow['percentage'], 2) }}%</td>
+                                            <td style="text-align: right; color: var(--text-muted);">{{ number_format($sRow['py_volume'], 2) }}</td>
+                                            <td style="text-align: right; font-weight: 700; font-size: 0.85rem; color: {{ $sRow['growth'] > 0 ? '#10b981' : ($sRow['growth'] < 0 ? '#ef4444' : 'var(--text-muted)') }};">
+                                                @if($sRow['growth'] > 0)<i class="fa-solid fa-arrow-trend-up"></i>@endif
+                                                @if($sRow['growth'] < 0)<i class="fa-solid fa-arrow-trend-down"></i>@endif
+                                                {{ number_format($sRow['growth'], 1) }}%
                                             </td>
                                         </tr>
                                     @endforeach
-                                    <tr style="background: #f1f5f9; border-top: 2px solid var(--border-color);">
-                                        <td style="font-weight: 800; font-size: 0.95rem;">Total DC</td>
-                                        <td style="text-align: right; font-weight: 800; font-size: 0.95rem;">{{ number_format($ytdData['total']['cy_volume'], 2) }}</td>
+                                    <tr style="background: #f1f5f9; border-top: 2px solid var(--border-color);" class="no-filter">
+                                        <td colspan="5" style="font-weight: 800; font-size: 0.95rem; text-align: right; padding-right: 1.5rem;">TOTAL KESELURUHAN ({{ count($ytdData['stores']['details']) }} TOKO):</td>
+                                        <td style="text-align: right; font-weight: 800; font-size: 0.95rem; color: var(--brand-primary);">{{ number_format($ytdData['stores']['total']['cy_volume'], 2) }}</td>
                                         <td style="text-align: center; font-weight: 800;">100%</td>
-                                        <td style="text-align: right; font-weight: 800; color: var(--text-muted);">{{ number_format($ytdData['total']['py_volume'], 2) }}</td>
-                                        <td style="text-align: right; font-weight: 800; font-size: 0.95rem; color: {{ $ytdData['total']['growth'] > 0 ? '#10b981' : ($ytdData['total']['growth'] < 0 ? '#ef4444' : 'var(--text-muted)') }};">
-                                            @if($ytdData['total']['growth'] > 0)<i class="fa-solid fa-arrow-trend-up"></i>@endif
-                                            @if($ytdData['total']['growth'] < 0)<i class="fa-solid fa-arrow-trend-down"></i>@endif
-                                            {{ number_format($ytdData['total']['growth'], 1) }}%
+                                        <td style="text-align: right; font-weight: 800; color: var(--text-muted);">{{ number_format($ytdData['stores']['total']['py_volume'], 2) }}</td>
+                                        <td style="text-align: right; font-weight: 800; font-size: 0.95rem; color: {{ ($ytdData['stores']['total']['growth'] ?? 0) >= 0 ? '#10b981' : '#ef4444' }};">
+                                            @if(($ytdData['stores']['total']['growth'] ?? 0) > 0)<i class="fa-solid fa-arrow-trend-up"></i>@endif
+                                            @if(($ytdData['stores']['total']['growth'] ?? 0) < 0)<i class="fa-solid fa-arrow-trend-down"></i>@endif
+                                            {{ number_format($ytdData['stores']['total']['growth'] ?? 0, 1) }}%
                                         </td>
                                     </tr>
                                 @else
-                                    <tr>
-                                        <td colspan="5" style="text-align: center; padding: 2rem;">Belum ada data YTD untuk periode ini.</td>
+                                    <tr class="no-filter">
+                                        <td colspan="9" style="text-align: center; padding: 2rem;">Belum ada data toko untuk periode ini.</td>
                                     </tr>
                                 @endif
                             </tbody>
                         </table>
                     </div>
-                </div>
-                <div class="col-span-5">
-                    <div id="chart_ytd_comparison" style="min-height: 250px;"></div>
                 </div>
             </div>
         </div>
@@ -1423,75 +1616,230 @@
         }
     }
 
-    // ====== YTD CHART RENDERING ======
-    @if(isset($isYtdReport) && $isYtdReport && !empty($ytdData['details']))
-    document.addEventListener('DOMContentLoaded', function() {
-        var ytdCategories = {!! json_encode(array_column($ytdData['details'], 'brand')) !!};
-        var cyData = {!! json_encode(array_column($ytdData['details'], 'cy_volume')) !!};
-        var pyData = {!! json_encode(array_column($ytdData['details'], 'py_volume')) !!};
-        
-        var ytdOptions = {
-            series: [{
-                name: 'YTD {{ $endYear }}',
-                data: cyData
-            }, {
-                name: 'YTD {{ $endYear - 1 }}',
-                data: pyData
-            }],
-            chart: {
-                type: 'bar',
-                height: 280,
-                toolbar: { show: false },
-                fontFamily: 'Outfit, sans-serif'
-            },
-            plotOptions: {
-                bar: {
-                    horizontal: false,
-                    columnWidth: '55%',
-                    endingShape: 'rounded',
-                    borderRadius: 4
-                },
-            },
-            dataLabels: {
-                enabled: false
-            },
-            stroke: {
-                show: true,
-                width: 2,
-                colors: ['transparent']
-            },
-            xaxis: {
-                categories: ytdCategories,
-                labels: { style: { fontWeight: 600 } }
-            },
-            yaxis: {
-                title: { text: 'Volume (Liter)', style: { fontWeight: 600 } },
-                labels: {
-                    formatter: function (val) {
-                        if (val >= 1000) return (val/1000).toFixed(1) + "k";
-                        return val.toFixed(0);
-                    }
+    // ====== YTD CHART & TAB FUNCTIONALITY ======
+    function switchYtdTab(tab) {
+        var btnProd = document.getElementById('btn_ytd_product');
+        var btnStore = document.getElementById('btn_ytd_store');
+        var paneProd = document.getElementById('ytd_pane_product');
+        var paneStore = document.getElementById('ytd_pane_store');
+
+        if (!btnProd || !btnStore || !paneProd || !paneStore) return;
+
+        if (tab === 'product') {
+            btnProd.classList.add('active');
+            btnStore.classList.remove('active');
+            paneProd.style.display = 'block';
+            paneStore.style.display = 'none';
+        } else {
+            btnStore.classList.add('active');
+            btnProd.classList.remove('active');
+            paneStore.style.display = 'block';
+            paneProd.style.display = 'none';
+
+            setTimeout(function() {
+                window.dispatchEvent(new Event('resize'));
+                if (window.storeChartInstance) {
+                    window.storeChartInstance.resize();
                 }
-            },
-            fill: {
-                opacity: 1
-            },
-            tooltip: {
-                y: {
-                    formatter: function (val) {
-                        return val.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " Liter"
-                    }
-                }
-            },
-            colors: ['var(--brand-primary)', '#cbd5e1'],
-            legend: {
-                position: 'top',
-                horizontalAlign: 'right'
+            }, 60);
+        }
+    }
+
+    function filterStoreTable() {
+        var input = document.getElementById('storeSearchInput');
+        if (!input) return;
+        var filter = input.value.toLowerCase().trim();
+        var table = document.getElementById('storeYtdTable');
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        var trs = tbody.querySelectorAll('tr:not(.no-filter)');
+        var visibleCount = 0;
+
+        for (var i = 0; i < trs.length; i++) {
+            var row = trs[i];
+            var text = row.textContent.toLowerCase();
+            if (text.indexOf(filter) > -1) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
             }
-        };
+        }
+
+        var countBadge = document.getElementById('filteredStoreCount');
+        if (countBadge) countBadge.textContent = visibleCount.toLocaleString('id-ID');
+    }
+
+    function exportStoreYtdToCsv() {
+        var table = document.getElementById('storeYtdTable');
+        if (!table) return;
+        var trs = table.querySelectorAll('tr');
+        var csv = [];
         
-        var ytdChart = new ApexCharts(document.querySelector("#chart_ytd_comparison"), ytdOptions);
-        ytdChart.render();
+        for (var i = 0; i < trs.length; i++) {
+            if (trs[i].style.display === 'none') continue;
+            var row = [];
+            var cols = trs[i].querySelectorAll('th, td');
+            for (var j = 0; j < cols.length; j++) {
+                var text = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, ' ').replace(/"/g, '""').trim();
+                row.push('"' + text + '"');
+            }
+            if (row.length > 0) {
+                csv.push(row.join(','));
+            }
+        }
+
+        var blob = new Blob(["\uFEFF" + csv.join("\r\n")], { type: 'text/csv;charset=utf-8;' });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "YTD_Store_Comparison_{{ $template->code }}_{{ $endYear }}.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    @if(isset($isYtdReport) && $isYtdReport)
+    document.addEventListener('DOMContentLoaded', function() {
+        // 1. Render Product Comparison Chart
+        @if(!empty($ytdData['details']))
+            var ytdCategories = {!! json_encode(array_column($ytdData['details'], 'brand')) !!};
+            var cyData = {!! json_encode(array_column($ytdData['details'], 'cy_volume')) !!};
+            var pyData = {!! json_encode(array_column($ytdData['details'], 'py_volume')) !!};
+            
+            var ytdOptions = {
+                series: [{
+                    name: 'YTD {{ $endYear }}',
+                    data: cyData
+                }, {
+                    name: 'YTD {{ $endYear - 1 }}',
+                    data: pyData
+                }],
+                chart: {
+                    type: 'bar',
+                    height: 280,
+                    toolbar: { show: false },
+                    fontFamily: 'Outfit, sans-serif'
+                },
+                plotOptions: {
+                    bar: {
+                        horizontal: false,
+                        columnWidth: '55%',
+                        endingShape: 'rounded',
+                        borderRadius: 4
+                    },
+                },
+                dataLabels: {
+                    enabled: false
+                },
+                stroke: {
+                    show: true,
+                    width: 2,
+                    colors: ['transparent']
+                },
+                xaxis: {
+                    categories: ytdCategories,
+                    labels: { style: { fontWeight: 600 } }
+                },
+                yaxis: {
+                    title: { text: 'Volume (Liter)', style: { fontWeight: 600 } },
+                    labels: {
+                        formatter: function (val) {
+                            if (val >= 1000) return (val/1000).toFixed(1) + "k";
+                            return val.toFixed(0);
+                        }
+                    }
+                },
+                fill: {
+                    opacity: 1
+                },
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
+                            return val.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " Liter"
+                        }
+                    }
+                },
+                colors: ['var(--brand-primary)', '#cbd5e1'],
+                legend: {
+                    position: 'top',
+                    horizontalAlign: 'right'
+                }
+            };
+            
+            var ytdChart = new ApexCharts(document.querySelector("#chart_ytd_comparison"), ytdOptions);
+            ytdChart.render();
+        @endif
+
+        // 2. Render Top 10 Store Comparison Chart
+        @if(!empty($ytdData['stores']['top10']))
+            var topStores = {!! json_encode($ytdData['stores']['top10']) !!};
+            var storeCategories = topStores.map(function(s) { return s.store_name; });
+            var storeCyData = topStores.map(function(s) { return s.cy_volume; });
+            var storePyData = topStores.map(function(s) { return s.py_volume; });
+
+            var storeOptions = {
+                series: [{
+                    name: 'YTD {{ $endYear }}',
+                    data: storeCyData
+                }, {
+                    name: 'YTD {{ $endYear - 1 }}',
+                    data: storePyData
+                }],
+                chart: {
+                    type: 'bar',
+                    height: 350,
+                    toolbar: { show: false },
+                    fontFamily: 'Outfit, sans-serif'
+                },
+                plotOptions: {
+                    bar: {
+                        horizontal: true,
+                        barHeight: '65%',
+                        borderRadius: 4
+                    }
+                },
+                dataLabels: {
+                    enabled: false
+                },
+                stroke: {
+                    show: true,
+                    width: 1,
+                    colors: ['#fff']
+                },
+                xaxis: {
+                    labels: {
+                        formatter: function (val) {
+                            if (val >= 1000) return (val/1000).toFixed(1) + "k";
+                            return val.toFixed(0);
+                        }
+                    },
+                    title: { text: 'Volume (Liter)', style: { fontWeight: 600 } }
+                },
+                yaxis: {
+                    labels: {
+                        maxWidth: 220,
+                        style: { fontWeight: 600 }
+                    }
+                },
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
+                            return val.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " Liter"
+                        }
+                    }
+                },
+                colors: ['var(--brand-primary)', '#94a3b8'],
+                legend: {
+                    position: 'top',
+                    horizontalAlign: 'right'
+                }
+            };
+
+            window.storeChartInstance = new ApexCharts(document.querySelector("#chart_ytd_store"), storeOptions);
+            window.storeChartInstance.render();
+        @endif
     });
     @endif
 

@@ -755,7 +755,7 @@ class PrincipalPortalController extends Controller
             $productField = $template->code === 'RPT-DULUX-OFFTAKE-01' ? 'produk_terjual' : 'produk_stock_end';
             $brandPrefix = $template->code === 'RPT-DULUX-OFFTAKE-01' ? 'Offtake' : 'Stock';
             
-            $cacheKeyYtd = 'ytd_report_' . md5($template->id . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+            $cacheKeyYtd = 'ytd_report_v2_' . md5($template->id . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
             
             $ytdData = Cache::remember($cacheKeyYtd, 300, function() use ($template, $metricField, $productField, $brandPrefix, $endYear, $endMonth, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
                 $driver = DB::connection()->getDriverName();
@@ -853,6 +853,140 @@ class PrincipalPortalController extends Controller
                 foreach ($results as &$r) {
                     $r['percentage'] = $totalCy > 0 ? ($r['cy_volume'] / $totalCy) * 100 : 0;
                 }
+                unset($r);
+
+                // --- Store / Toko Level YTD Calculation ---
+                $calcStoreYtd = function($start, $end) use ($template, $metricField, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $driver) {
+                    $q = DB::table('report_submissions')
+                        ->join('report_submission_values as rsv_metric', function($j) use ($metricField) {
+                            $j->on('report_submissions.id', '=', 'rsv_metric.report_submission_id')
+                              ->where('rsv_metric.field_name', '=', $metricField);
+                        })
+                        ->leftJoin('work_locations', 'report_submissions.work_location_id', '=', 'work_locations.id')
+                        ->where('report_submissions.report_template_id', $template->id)
+                        ->whereBetween('report_submissions.submitted_at', [$start, $end]);
+
+                    if ($selectedRegion) {
+                        $q->where('work_locations.region', $selectedRegion);
+                    }
+                    if ($selectedAreaId) {
+                        $q->where('work_locations.branch_id', $selectedAreaId);
+                    }
+                    if ($selectedLocationId) {
+                        $q->where('report_submissions.work_location_id', $selectedLocationId);
+                    }
+                    if ($search) {
+                        $likeOp = $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
+                        $q->where(function ($subQ) use ($search, $likeOp) {
+                            $subQ->whereIn('report_submissions.employee_id', function ($eQ) use ($search, $likeOp) {
+                                $eQ->select('id')->from('employees')
+                                   ->where('full_name', $likeOp, "%{$search}%")
+                                   ->orWhere('employee_no', $likeOp, "%{$search}%");
+                            })->orWhere('work_locations.name', $likeOp, "%{$search}%")
+                              ->orWhere('work_locations.code', $likeOp, "%{$search}%");
+                        });
+                    }
+
+                    return $q->selectRaw("
+                            report_submissions.work_location_id,
+                            COALESCE(work_locations.name, 'Toko Tanpa Nama') as store_name,
+                            COALESCE(work_locations.code, '-') as store_code,
+                            COALESCE(work_locations.region, '-') as region,
+                            COALESCE(work_locations.branch_name, '-') as branch_name,
+                            COALESCE(work_locations.category, 'Blue Store') as category,
+                            SUM(COALESCE(rsv_metric.value_number, 0)) as total_vol
+                        ")
+                        ->groupBy('report_submissions.work_location_id', 'work_locations.name', 'work_locations.code', 'work_locations.region', 'work_locations.branch_name', 'work_locations.category')
+                        ->get();
+                };
+
+                $cyStores = $calcStoreYtd($cyStart, $cyEnd);
+                $pyStores = $calcStoreYtd($pyStart, $pyEnd);
+
+                $storeMap = [];
+                foreach ($cyStores as $row) {
+                    $key = $row->work_location_id ? 'id_' . $row->work_location_id : 'name_' . mb_strtolower(trim($row->store_name));
+                    $storeMap[$key] = [
+                        'work_location_id' => $row->work_location_id,
+                        'store_name' => $row->store_name,
+                        'store_code' => $row->store_code,
+                        'region' => $row->region !== '-' ? $row->region : ($row->branch_name !== '-' ? $row->branch_name : '-'),
+                        'category' => $row->category,
+                        'cy_volume' => (float) $row->total_vol,
+                        'py_volume' => 0.0,
+                    ];
+                }
+
+                foreach ($pyStores as $row) {
+                    $key = $row->work_location_id ? 'id_' . $row->work_location_id : 'name_' . mb_strtolower(trim($row->store_name));
+                    if (isset($storeMap[$key])) {
+                        $storeMap[$key]['py_volume'] = (float) $row->total_vol;
+                        if ($storeMap[$key]['store_code'] === '-' && $row->store_code !== '-') {
+                            $storeMap[$key]['store_code'] = $row->store_code;
+                        }
+                        if ($storeMap[$key]['region'] === '-' && ($row->region !== '-' || $row->branch_name !== '-')) {
+                            $storeMap[$key]['region'] = $row->region !== '-' ? $row->region : $row->branch_name;
+                        }
+                    } else {
+                        $storeMap[$key] = [
+                            'work_location_id' => $row->work_location_id,
+                            'store_name' => $row->store_name,
+                            'store_code' => $row->store_code,
+                            'region' => $row->region !== '-' ? $row->region : ($row->branch_name !== '-' ? $row->branch_name : '-'),
+                            'category' => $row->category,
+                            'cy_volume' => 0.0,
+                            'py_volume' => (float) $row->total_vol,
+                        ];
+                    }
+                }
+
+                $storeDetails = [];
+                $totalStoreCy = 0;
+                $totalStorePy = 0;
+
+                foreach ($storeMap as $s) {
+                    $cy = $s['cy_volume'];
+                    $py = $s['py_volume'];
+                    $totalStoreCy += $cy;
+                    $totalStorePy += $py;
+
+                    $growth = 0;
+                    if ($py > 0) {
+                        $growth = (($cy - $py) / $py) * 100;
+                    } elseif ($cy > 0) {
+                        $growth = 100;
+                    }
+
+                    $storeDetails[] = [
+                        'work_location_id' => $s['work_location_id'],
+                        'store_name' => $s['store_name'],
+                        'store_code' => $s['store_code'],
+                        'region' => $s['region'],
+                        'category' => $s['category'],
+                        'cy_volume' => $cy,
+                        'py_volume' => $py,
+                        'growth' => $growth,
+                        'percentage' => 0,
+                    ];
+                }
+
+                foreach ($storeDetails as &$sd) {
+                    $sd['percentage'] = $totalStoreCy > 0 ? ($sd['cy_volume'] / $totalStoreCy) * 100 : 0;
+                }
+                unset($sd);
+
+                usort($storeDetails, function($a, $b) {
+                    return $b['cy_volume'] <=> $a['cy_volume'];
+                });
+
+                $totalStoreGrowth = 0;
+                if ($totalStorePy > 0) {
+                    $totalStoreGrowth = (($totalStoreCy - $totalStorePy) / $totalStorePy) * 100;
+                } elseif ($totalStoreCy > 0) {
+                    $totalStoreGrowth = 100;
+                }
+
+                $top10Stores = array_slice($storeDetails, 0, 10);
 
                 return [
                     'details' => $results,
@@ -862,6 +996,17 @@ class PrincipalPortalController extends Controller
                         'py_volume' => $totalPy,
                         'growth' => $totalGrowth,
                         'percentage' => 100
+                    ],
+                    'stores' => [
+                        'details' => $storeDetails,
+                        'total' => [
+                            'count' => count($storeDetails),
+                            'cy_volume' => $totalStoreCy,
+                            'py_volume' => $totalStorePy,
+                            'growth' => $totalStoreGrowth,
+                            'percentage' => 100
+                        ],
+                        'top10' => $top10Stores
                     ]
                 ];
             });
