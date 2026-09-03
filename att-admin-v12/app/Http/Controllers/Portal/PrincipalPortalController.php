@@ -501,12 +501,9 @@ class PrincipalPortalController extends Controller
         $itemsQuery = ReportSubmission::where('report_submissions.report_template_id', $template->id)
             ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
             ->with([
-                'employee:id,full_name,employee_no,branch_id',
-                'employee.branch:id,name,region',
-                'workLocation:id,name,code,region,branch_id',
-                'workLocation.branch:id,name,region',
-                'values:id,report_submission_id,report_form_field_id,field_name,field_type,value_text,value_number,media_url',
-                'values.formField:id,report_template_id,field_name,field_label,field_type'
+                'employee.branch',
+                'workLocation.branch',
+                'values.formField'
             ]);
 
         if ($selectedRegion) {
