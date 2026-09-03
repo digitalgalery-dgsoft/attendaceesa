@@ -937,7 +937,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               ),
                             ),
                           ],
-                                          Builder(
+                        ),
+                        const SizedBox(height: 12),
+                        Builder(
                           builder: (context) {
                             final bool isFaceBlockedForCheckin = !attProvider.isCheckedIn && _isFaceBlocked(authProvider);
 
@@ -1771,7 +1773,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       );
                     }
 
-                    final bool isFaceBlockedForMeet = _isFaceBlocked(authProvider);
+                    final auth = Provider.of<AuthProvider>(context, listen: false);
+                    final bool isFaceBlockedForMeet = _isFaceBlocked(auth);
 
                     if (isFaceBlockedForMeet) {
                       return ElevatedButton.icon(

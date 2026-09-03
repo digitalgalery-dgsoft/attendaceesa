@@ -16,6 +16,7 @@ import 'package:att_mobile/utils/image_utils.dart';
 import 'package:att_mobile/models/meeting_model.dart';
 import 'meeting_report_screen.dart';
 import 'profile_screen.dart';
+import 'package:att_mobile/utils/constants.dart';
 
 class ScheduledLocationItem {
   final String id;
