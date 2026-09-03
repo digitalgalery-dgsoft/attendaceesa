@@ -223,6 +223,48 @@ Route::get('/portal-assets/bap-evidence/{id}', function ($id) {
     abort(404);
 })->name('bap.evidence');
 
+Route::get('/storage/{folder}/{filename}', function ($folder, $filename) {
+    $cleanPath = $folder . '/' . $filename;
+    $candidates = [
+        storage_path('app/public/' . $cleanPath),
+        public_path('storage/' . $cleanPath),
+        base_path('storage/app/public/' . $cleanPath),
+    ];
+
+    foreach ($candidates as $filePath) {
+        if (file_exists($filePath) && !is_dir($filePath)) {
+            $mime = @mime_content_type($filePath) ?: 'image/jpeg';
+            return response()->file($filePath, [
+                'Content-Type' => $mime,
+                'Cache-Control' => 'public, max-age=86400',
+            ]);
+        }
+    }
+
+    // Cluster fallback: Jika file tidak ada di server ini, cari ke peer cluster server
+    $peers = [
+        'https://atk.esa-solutions.id/storage/' . $cleanPath,
+        'https://amk.esa-solutions.id/storage/' . $cleanPath,
+        'https://akp.esa-solutions.id/storage/' . $cleanPath,
+    ];
+
+    foreach ($peers as $peerUrl) {
+        $ch = curl_init($peerUrl);
+        curl_setopt($ch, CURLOPT_NOBODY, true);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($code === 200) {
+            return redirect()->away($peerUrl);
+        }
+    }
+
+    abort(404);
+})->where('filename', '.*');
+
 Route::get('/attachment-stream/{id}', function ($id) {
     $permit = \App\Models\LeaveRequest::find($id);
     if (!$permit || !$permit->attachment_path) {

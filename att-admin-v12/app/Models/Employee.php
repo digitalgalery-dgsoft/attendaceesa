@@ -21,7 +21,7 @@ class Employee extends Authenticatable
         'odoo_id' => 'integer',
     ];
 
-    protected $appends = ['has_reporting_templates', 'is_inhouse'];
+    protected $appends = ['has_reporting_templates', 'is_inhouse', 'photo_url'];
 
     protected static function booted(): void
     {
@@ -83,6 +83,17 @@ class Employee extends Authenticatable
             return true;
         }
         return false;
+    }
+
+    public function getPhotoUrlAttribute(): ?string
+    {
+        if (empty($this->photo)) {
+            return null;
+        }
+        if (str_starts_with($this->photo, 'http://') || str_starts_with($this->photo, 'https://')) {
+            return $this->photo;
+        }
+        return asset('storage/' . ltrim($this->photo, '/'));
     }
 
     public function getHasReportingTemplatesAttribute(): bool
