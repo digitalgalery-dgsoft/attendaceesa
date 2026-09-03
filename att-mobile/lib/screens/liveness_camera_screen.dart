@@ -561,8 +561,8 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                           _currentSimilarity == null
                               ? 'Mencocokkan Wajah...'
                               : (_isSimilarityPassed
-                                  ? 'Kecocokan: ${_currentSimilarity!.toStringAsFixed(0)}% (Memenuhi Syarat \u226575%)'
-                                  : 'Kecocokan: ${_currentSimilarity!.toStringAsFixed(0)}% (Tidak Sesuai, Min 75%)'),
+                                  ? 'Kecocokan: ${_currentSimilarity!.toStringAsFixed(0)}% (Memenuhi Syarat \u2265${FaceMatcherService.defaultThreshold.toStringAsFixed(0)}%)'
+                                  : 'Kecocokan: ${_currentSimilarity!.toStringAsFixed(0)}% (Tidak Sesuai, Min ${FaceMatcherService.defaultThreshold.toStringAsFixed(0)}%)'),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
