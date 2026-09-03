@@ -882,21 +882,19 @@ class PrincipalPortalController extends Controller
                                 $eQ->select('id')->from('employees')
                                    ->where('full_name', $likeOp, "%{$search}%")
                                    ->orWhere('employee_no', $likeOp, "%{$search}%");
-                            })->orWhere('work_locations.name', $likeOp, "%{$search}%")
-                              ->orWhere('work_locations.code', $likeOp, "%{$search}%");
+                            })->orWhere('work_locations.name', $likeOp, "%{$search}%");
                         });
                     }
 
                     return $q->selectRaw("
                             report_submissions.work_location_id,
                             COALESCE(work_locations.name, 'Toko Tanpa Nama') as store_name,
-                            COALESCE(work_locations.code, '-') as store_code,
                             COALESCE(work_locations.region, '-') as region,
-                            COALESCE(work_locations.branch_name, '-') as branch_name,
-                            COALESCE(work_locations.category, 'Blue Store') as category,
+                            COALESCE(work_locations.area, '-') as area_name,
+                            COALESCE(work_locations.channel, 'Retail') as channel,
                             SUM(COALESCE(rsv_metric.value_number, 0)) as total_vol
                         ")
-                        ->groupBy('report_submissions.work_location_id', 'work_locations.name', 'work_locations.code', 'work_locations.region', 'work_locations.branch_name', 'work_locations.category')
+                        ->groupBy('report_submissions.work_location_id', 'work_locations.name', 'work_locations.region', 'work_locations.area', 'work_locations.channel')
                         ->get();
                 };
 
@@ -909,9 +907,9 @@ class PrincipalPortalController extends Controller
                     $storeMap[$key] = [
                         'work_location_id' => $row->work_location_id,
                         'store_name' => $row->store_name,
-                        'store_code' => $row->store_code,
-                        'region' => $row->region !== '-' ? $row->region : ($row->branch_name !== '-' ? $row->branch_name : '-'),
-                        'category' => $row->category,
+                        'region' => $row->region !== '-' ? $row->region : ($row->area_name !== '-' ? $row->area_name : '-'),
+                        'area' => $row->area_name,
+                        'channel' => $row->channel,
                         'cy_volume' => (float) $row->total_vol,
                         'py_volume' => 0.0,
                     ];
@@ -921,19 +919,16 @@ class PrincipalPortalController extends Controller
                     $key = $row->work_location_id ? 'id_' . $row->work_location_id : 'name_' . mb_strtolower(trim($row->store_name));
                     if (isset($storeMap[$key])) {
                         $storeMap[$key]['py_volume'] = (float) $row->total_vol;
-                        if ($storeMap[$key]['store_code'] === '-' && $row->store_code !== '-') {
-                            $storeMap[$key]['store_code'] = $row->store_code;
-                        }
-                        if ($storeMap[$key]['region'] === '-' && ($row->region !== '-' || $row->branch_name !== '-')) {
-                            $storeMap[$key]['region'] = $row->region !== '-' ? $row->region : $row->branch_name;
+                        if ($storeMap[$key]['region'] === '-' && ($row->region !== '-' || $row->area_name !== '-')) {
+                            $storeMap[$key]['region'] = $row->region !== '-' ? $row->region : $row->area_name;
                         }
                     } else {
                         $storeMap[$key] = [
                             'work_location_id' => $row->work_location_id,
                             'store_name' => $row->store_name,
-                            'store_code' => $row->store_code,
-                            'region' => $row->region !== '-' ? $row->region : ($row->branch_name !== '-' ? $row->branch_name : '-'),
-                            'category' => $row->category,
+                            'region' => $row->region !== '-' ? $row->region : ($row->area_name !== '-' ? $row->area_name : '-'),
+                            'area' => $row->area_name,
+                            'channel' => $row->channel,
                             'cy_volume' => 0.0,
                             'py_volume' => (float) $row->total_vol,
                         ];
@@ -960,9 +955,9 @@ class PrincipalPortalController extends Controller
                     $storeDetails[] = [
                         'work_location_id' => $s['work_location_id'],
                         'store_name' => $s['store_name'],
-                        'store_code' => $s['store_code'],
                         'region' => $s['region'],
-                        'category' => $s['category'],
+                        'area' => $s['area'],
+                        'channel' => $s['channel'],
                         'cy_volume' => $cy,
                         'py_volume' => $py,
                         'growth' => $growth,

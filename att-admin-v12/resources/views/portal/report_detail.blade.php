@@ -1012,10 +1012,10 @@
                             <thead>
                                 <tr style="background: var(--brand-primary);">
                                     <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 60px; text-align: center;">NO</th>
-                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 110px;">KODE SAP</th>
                                     <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem;">NAMA TOKO / STORE</th>
-                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 120px;">KATEGORI</th>
-                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 140px;">AREA / REGION</th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 140px;">REGION</th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 140px;">AREA</th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 110px;">CHANNEL</th>
                                     <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem;">YTD {{ $endYear }}<br><span style="font-size: 0.72rem; font-weight: 500; color: rgba(255,255,255,0.85);">(Tahun Berjalan)</span></th>
                                     <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: center; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem; width: 75px;">%</th>
                                     <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; padding: 0.85rem 1rem;">YTD {{ $endYear - 1 }}<br><span style="font-size: 0.72rem; font-weight: 500; color: rgba(255,255,255,0.85);">(Tahun Sebelumnya)</span></th>
@@ -1028,16 +1028,16 @@
                                     @foreach($ytdData['stores']['details'] as $sRow)
                                         <tr>
                                             <td style="text-align: center; font-weight: 700; color: #64748b; font-size: 0.8rem;">{{ $no++ }}</td>
-                                            <td style="font-weight: 600; font-family: monospace; font-size: 0.85rem; color: #475569;">{{ $sRow['store_code'] }}</td>
                                             <td style="font-weight: 700; color: #1e293b;">
                                                 {{ $sRow['store_name'] }}
                                             </td>
+                                            <td style="font-size: 0.82rem; color: #475569; font-weight: 500;">{{ $sRow['region'] }}</td>
+                                            <td style="font-size: 0.82rem; color: #64748b;">{{ $sRow['area'] }}</td>
                                             <td>
                                                 <span style="background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 4px;">
-                                                    {{ $sRow['category'] }}
+                                                    {{ $sRow['channel'] }}
                                                 </span>
                                             </td>
-                                            <td style="font-size: 0.82rem; color: #64748b;">{{ $sRow['region'] }}</td>
                                             <td style="text-align: right; font-weight: 700; color: var(--brand-primary);">{{ number_format($sRow['cy_volume'], 2) }}</td>
                                             <td style="text-align: center; font-weight: 600; font-size: 0.82rem;">{{ number_format($sRow['percentage'], 2) }}%</td>
                                             <td style="text-align: right; color: var(--text-muted);">{{ number_format($sRow['py_volume'], 2) }}</td>
