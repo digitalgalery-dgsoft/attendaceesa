@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\Company;
 use App\Models\Employee;
 use App\Models\Principal;
 use App\Models\ReportFormField;
@@ -89,7 +90,9 @@ class ImportDuluxStockCommand extends Command
 
         $this->info("Form fields terdaftar: " . count($fieldIds) . " field.");
 
-        // 4. Dapatkan Default Employee untuk submitter
+        // 4. Dapatkan Default Employee & Company untuk submitter & work locations
+        $companyId = Company::value('id') ?? 1;
+
         $defaultEmp = Employee::whereIn('principal_id', $allDuluxIds)->first();
         if (!$defaultEmp) {
             $defaultEmp = Employee::first();
@@ -97,7 +100,10 @@ class ImportDuluxStockCommand extends Command
         $defaultEmpId = $defaultEmp ? $defaultEmp->id : null;
 
         // 5. Cache WorkLocation berdasarkan SAP (code) dan Nama Toko
-        $duluxLocations = WorkLocation::whereIn('principal_id', $allDuluxIds)->get();
+        $duluxLocations = WorkLocation::whereIn('principal_id', $allDuluxIds)
+            ->orWhereNull('principal_id')
+            ->get();
+
         $locByName = [];
         $locByCode = [];
         foreach ($duluxLocations as $loc) {
@@ -177,6 +183,7 @@ class ImportDuluxStockCommand extends Command
                     $workLocId = $locByName[strtoupper($storeName)];
                 } else {
                     $newLoc = WorkLocation::create([
+                        'company_id' => $companyId,
                         'name' => $storeName ?: ('Toko Dulux ' . $sap),
                         'code' => $sap ?: null,
                         'region' => $region ?: null,
