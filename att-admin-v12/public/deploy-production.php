@@ -104,13 +104,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         @flush();
 
         // Susun perintah remote
+        $runClean = isset($_GET['clean']) && $_GET['clean'] === '1' ? ' --clean' : '';
         if ($onlyImport) {
             $remoteScript = "
                 set -e
                 PHP_BIN=\"/www/server/php/83/bin/php -d extension=pgsql.so -d extension=pdo_pgsql.so\"
                 cd {$srv['path']}
                 echo '=== MENJALANKAN IMPORT {$importTitle} ==='
-                \$PHP_BIN artisan {$importCmd}{$offtakeYear}{$offtakeMonth}{$offtakeLimit}
+                \$PHP_BIN artisan {$importCmd}{$offtakeYear}{$offtakeMonth}{$offtakeLimit}{$runClean}
                 echo 'DEPLOY_SUCCESS_FLAG'
             ";
         } else {

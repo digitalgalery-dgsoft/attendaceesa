@@ -24,7 +24,8 @@ class ImportDuluxOosCommand extends Command
     protected $signature = 'dulux:import-oos
                             {--year=2026 : Tahun dataset (2026)}
                             {--month= : Bulan spesifik (1..7 atau 1,2,3)}
-                            {--limit=0 : Batasi jumlah record yang diimpor}';
+                            {--limit=0 : Batasi jumlah record yang diimpor}
+                            {--clean : Hapus data OOS sebelumnya untuk template ini}';
 
     /**
      * The console command description.
@@ -41,6 +42,7 @@ class ImportDuluxOosCommand extends Command
         $year = (int) ($this->option('year') ?: 2026);
         $monthOpt = (string) $this->option('month');
         $limit = (int) $this->option('limit');
+        $clean = (bool) $this->option('clean');
 
         $this->info("=== Memulai Impor Dataset Dulux Out of Stock (OOS) Tahun {$year} ===");
 
@@ -48,15 +50,10 @@ class ImportDuluxOosCommand extends Command
         $duluxPrincipal = Principal::where('name', 'LIKE', '%DULUX%')
             ->orWhere('name', 'LIKE', '%ICI%')
             ->orWhere('name', 'LIKE', '%AKZONOBEL%')
-            ->orWhere('subdomain', 'dulux')
             ->first();
 
         if (!$duluxPrincipal) {
-            $duluxPrincipal = Principal::first();
-        }
-
-        if (!$duluxPrincipal) {
-            $this->error('Principal tidak ditemukan di database.');
+            $this->error("Principal Dulux tidak ditemukan.");
             return 1;
         }
 
@@ -65,22 +62,23 @@ class ImportDuluxOosCommand extends Command
             ->orWhere('name', 'LIKE', '%AKZONOBEL%')
             ->pluck('id')
             ->toArray();
-        if (!in_array($duluxPrincipal->id, $allDuluxIds)) {
-            $allDuluxIds[] = $duluxPrincipal->id;
-        }
 
         $this->info("Principal terpilih: {$duluxPrincipal->name} (ID: {$duluxPrincipal->id})");
 
-        // 2. Dapatkan Template Form RPT-DULUX-OOS-SSO
+        // 2. Dapatkan Template OOS
         $template = ReportTemplate::where('code', 'RPT-DULUX-OOS-SSO')->first();
         if (!$template) {
-            $this->error("Template dengan kode 'RPT-DULUX-OOS-SSO' tidak ditemukan.");
+            $template = ReportTemplate::where('code', 'LIKE', '%OOS%')->first();
+        }
+
+        if (!$template) {
+            $this->error("Template Laporan OOS Dulux tidak ditemukan.");
             return 1;
         }
 
-        $this->info("Template terpilih: {$template->title} (ID: {$template->id})");
+        $this->info("Template terpilih: {$template->name} (ID: {$template->id})");
 
-        // 3. Mapping Form Fields
+        // 3. Mapping form fields
         $fields = ReportFormField::where('report_template_id', $template->id)->get();
         $fieldIds = [];
         $fieldTypes = [];
@@ -91,19 +89,36 @@ class ImportDuluxOosCommand extends Command
 
         $this->info("Form fields terdaftar: " . count($fieldIds) . " field.");
 
-        // 3b. Bersihkan incomplete submission tanpa values jika ada kegagalan sebelumnya
-        $orphanedIds = DB::table('report_submissions')
-            ->where('report_template_id', $template->id)
-            ->where('submission_code', 'LIKE', 'SUB-DULUX-OOS-%')
-            ->whereNotIn('id', function($q) {
-                $q->select('report_submission_id')->from('report_submission_values');
-            })
-            ->pluck('id')
-            ->toArray();
+        // 3b. Handle Clean / Incomplete submission cleanup
+        if ($clean) {
+            $this->info("Membersihkan seluruh data OOS yang ada untuk template ID {$template->id}...");
+            $existingSubIds = DB::table('report_submissions')
+                ->where('report_template_id', $template->id)
+                ->pluck('id')
+                ->toArray();
+            if (!empty($existingSubIds)) {
+                foreach (array_chunk($existingSubIds, 2000) as $chunkIds) {
+                    DB::table('report_submission_values')->whereIn('report_submission_id', $chunkIds)->delete();
+                }
+                foreach (array_chunk($existingSubIds, 2000) as $chunkIds) {
+                    DB::table('report_submissions')->whereIn('id', $chunkIds)->delete();
+                }
+            }
+            $this->info("Data lama berhasil dibersihkan.");
+        } else {
+            $orphanedDeleted = DB::table('report_submissions')
+                ->where('report_template_id', $template->id)
+                ->where('submission_code', 'LIKE', 'SUB-DULUX-OOS-%')
+                ->whereNotExists(function ($q) {
+                    $q->select(DB::raw(1))
+                        ->from('report_submission_values')
+                        ->whereColumn('report_submission_values.report_submission_id', 'report_submissions.id');
+                })
+                ->delete();
 
-        if (!empty($orphanedIds)) {
-            DB::table('report_submissions')->whereIn('id', $orphanedIds)->delete();
-            $this->info("Membersihkan " . count($orphanedIds) . " submission yang belum memiliki values.");
+            if ($orphanedDeleted > 0) {
+                $this->info("Membersihkan {$orphanedDeleted} submission tanpa values.");
+            }
         }
 
         // 4. Dapatkan Default Employee & Company
@@ -115,21 +130,20 @@ class ImportDuluxOosCommand extends Command
         }
         $defaultEmpId = $defaultEmp ? $defaultEmp->id : null;
 
-        // 5. Cache WorkLocation berdasarkan SAP (code) dan Nama Toko
-        $duluxLocations = WorkLocation::whereIn('principal_id', $allDuluxIds)
-            ->orWhereNull('principal_id')
-            ->get();
-
+        // 5. Cache SELURUH WorkLocation (cepat dan lengkap)
+        $allLocations = DB::table('work_locations')->select('id', 'name', 'code')->get();
         $locByName = [];
         $locByCode = [];
-        foreach ($duluxLocations as $loc) {
-            $locByName[strtoupper(trim($loc->name))] = $loc->id;
+        foreach ($allLocations as $loc) {
+            if ($loc->name) {
+                $locByName[strtoupper(trim($loc->name))] = $loc->id;
+            }
             if ($loc->code) {
                 $locByCode[trim($loc->code)] = $loc->id;
             }
         }
 
-        $this->info("Cache lokasi awal: " . count($locByCode) . " lokasi dengan kode SAP.");
+        $this->info("Cache lokasi lengkap: " . count($locByCode) . " lokasi berkode, " . count($locByName) . " nama lokasi.");
 
         // 6. Tentukan bulan target
         $targetMonths = [];
