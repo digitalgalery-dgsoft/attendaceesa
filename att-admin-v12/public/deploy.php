@@ -13,7 +13,63 @@ if (!isset($_GET['token']) || $_GET['token'] !== $secretToken) {
     die("Akses Ditolak.");
 }
 
-// Handler khusus upload file APK baru
+// Info endpoint
+if (isset($_GET['info']) && $_GET['token'] === $secretToken) {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'upload_max_filesize' => ini_get('upload_max_filesize'),
+        'post_max_size' => ini_get('post_max_size'),
+        'memory_limit' => ini_get('memory_limit'),
+        'apk_size' => file_exists('/www/wwwroot/appsend.my.id/public/app-release.apk') ? filesize('/www/wwwroot/appsend.my.id/public/app-release.apk') : 0,
+        'apk_mtime' => file_exists('/www/wwwroot/appsend.my.id/public/app-release.apk') ? date('Y-m-d H:i:s', filemtime('/www/wwwroot/appsend.my.id/public/app-release.apk')) : null,
+    ]);
+    exit;
+}
+
+// Handler chunked upload untuk file APK besar
+if (isset($_GET['chunk_upload']) && $_GET['token'] === $secretToken) {
+    $chunkIndex = intval($_POST['chunk_index'] ?? 0);
+    $totalChunks = intval($_POST['total_chunks'] ?? 1);
+    $filename = basename($_POST['filename'] ?? 'app-release.apk');
+    $tempDir = sys_get_temp_dir() . '/apk_chunks';
+    if (!is_dir($tempDir)) @mkdir($tempDir, 0777, true);
+    
+    $chunkFile = $tempDir . '/' . $filename . '.part' . $chunkIndex;
+    if (isset($_FILES['chunk']) && is_uploaded_file($_FILES['chunk']['tmp_name'])) {
+        move_uploaded_file($_FILES['chunk']['tmp_name'], $chunkFile);
+    } elseif (!empty($_POST['data'])) {
+        file_put_contents($chunkFile, base64_decode($_POST['data']));
+    }
+    
+    if ($chunkIndex === $totalChunks - 1) {
+        $target1 = '/www/wwwroot/appsend.my.id/public/' . $filename;
+        $target2 = '/www/wwwroot/appsend.my.id/' . $filename;
+        $out = fopen($target1, 'wb');
+        for ($i = 0; $i < $totalChunks; $i++) {
+            $part = $tempDir . '/' . $filename . '.part' . $i;
+            if (file_exists($part)) {
+                $in = fopen($part, 'rb');
+                while ($buff = fread($in, 1048576)) {
+                    fwrite($out, $buff);
+                }
+                fclose($in);
+                @unlink($part);
+            }
+        }
+        fclose($out);
+        @chmod($target1, 0644);
+        @copy($target1, $target2);
+        @chmod($target2, 0644);
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'success', 'size' => filesize($target1), 'md5' => md5_file($target1)]);
+        exit;
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'chunk_saved', 'chunk' => $chunkIndex]);
+    exit;
+}
+
+// Handler khusus upload file APK baru (single file)
 if (isset($_GET['upload_apk']) && $_GET['upload_apk'] === '1' && isset($_FILES['apk'])) {
     $target1 = '/www/wwwroot/appsend.my.id/public/app-release.apk';
     $target2 = '/www/wwwroot/appsend.my.id/app-release.apk';
