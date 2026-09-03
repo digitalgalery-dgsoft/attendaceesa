@@ -306,16 +306,205 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
         return app(\App\Http\Controllers\Auth\TenantAuthController::class)->showLoginForm($request);
     }
 
-    $stats = \Illuminate\Support\Facades\Cache::remember('global_landing_stats_active_v3', 60, function () {
-        return [
-            'areas'      => Area::count(),
-            'principals' => Principal::where('is_active', true)->count(),
-            'employees'  => Employee::where('is_active', true)->whereNull('deleted_at')->count(),
-            'locations'  => \App\Models\WorkLocation::where('is_active', true)->count(),
-        ];
+    $host = $request->getHost();
+    $baseDomain = env('APP_PORTAL_BASE_DOMAIN', 'esa-solutions.id');
+    if (str_contains($host, 'esa-solutions.id')) {
+        $baseDomain = 'esa-solutions.id';
+    } elseif (str_contains($host, 'appsend.my.id')) {
+        $baseDomain = 'appsend.my.id';
+    } elseif (str_contains($host, 'dgsoft.web.id')) {
+        $baseDomain = 'dgsoft.web.id';
+    }
+
+    $parts = explode('.', $host);
+    $subdomainPrefix = count($parts) >= 3 ? strtolower($parts[0]) : null;
+    $isEntityServer = in_array($subdomainPrefix, ['amk', 'akp', 'atk']);
+    $entityCode = $isEntityServer ? $subdomainPrefix : null;
+    $isMainDomain = !$isEntityServer;
+
+    $entityMeta = [
+        'amk' => [
+            'name' => 'PT Arina Multi Karya',
+            'code' => 'AMK',
+            'color' => '#2563EB',
+            'color_secondary' => '#1D4ED8',
+            'tag' => 'Server 1 - HRIS & Presensi Dedicated',
+        ],
+        'akp' => [
+            'name' => 'PT Alva Karya Perkasa',
+            'code' => 'AKP',
+            'color' => '#0284C7',
+            'color_secondary' => '#0369A1',
+            'tag' => 'Server 2 - HRIS & Presensi Dedicated',
+        ],
+        'atk' => [
+            'name' => 'PT Anugrah Talenta Berkarya',
+            'code' => 'ATK / ATB / ABO',
+            'color' => '#7C3AED',
+            'color_secondary' => '#6D28D9',
+            'tag' => 'Server 3 - HRIS & Presensi Gabungan',
+        ],
+    ];
+    $currentEntity = $entityCode && isset($entityMeta[$entityCode]) ? $entityMeta[$entityCode] : null;
+
+    $serverNodes = [
+        [
+            'code' => 'amk',
+            'subdomain' => 'amk',
+            'name' => 'PT Arina Multi Karya',
+            'short_name' => 'AMK',
+            'tag' => 'Server 1 - HRIS & Presensi Dedicated',
+            'category' => 'company',
+            'color' => '#2563EB',
+            'color_secondary' => '#1D4ED8',
+            'icon' => 'fa-solid fa-building-user',
+            'ip' => '38.103.170.235',
+            'desc' => 'Infrastruktur cloud presensi, verifikasi wajah AI biometrik, dan sistem HRIS karyawan PT Arina Multi Karya.',
+            'url' => "https://amk.{$baseDomain}",
+            'admin_url' => "https://amk.{$baseDomain}/admin",
+            'login_url' => "https://amk.{$baseDomain}/login",
+            'status' => 'Live Node',
+            'features' => ['AI Liveness Face', 'GPS Geofencing', 'Admin Panel AMK'],
+        ],
+        [
+            'code' => 'akp',
+            'subdomain' => 'akp',
+            'name' => 'PT Alva Karya Perkasa',
+            'short_name' => 'AKP',
+            'tag' => 'Server 2 - HRIS & Presensi Dedicated',
+            'category' => 'company',
+            'color' => '#0284C7',
+            'color_secondary' => '#0369A1',
+            'icon' => 'fa-solid fa-briefcase',
+            'ip' => '38.103.170.223',
+            'desc' => 'Klaster dedicated operasional kehadiran, manajemen roster shift, dan perizinan karyawan PT Alva Karya Perkasa.',
+            'url' => "https://akp.{$baseDomain}",
+            'admin_url' => "https://akp.{$baseDomain}/admin",
+            'login_url' => "https://akp.{$baseDomain}/login",
+            'status' => 'Live Node',
+            'features' => ['Roster Multi-Shift', 'Form BAP Manual', 'Admin Panel AKP'],
+        ],
+        [
+            'code' => 'atk',
+            'subdomain' => 'atk',
+            'name' => 'PT Anugrah Talenta Berkarya',
+            'short_name' => 'ATK / ATB / ABO',
+            'tag' => 'Server 3 - HRIS & Presensi Gabungan',
+            'category' => 'company',
+            'color' => '#7C3AED',
+            'color_secondary' => '#6D28D9',
+            'icon' => 'fa-solid fa-people-roof',
+            'ip' => '38.103.170.224',
+            'desc' => 'Infrastruktur terpadu melayani multi-entitas PT Anugrah Talenta Berkarya, PT Anugrah Terpercaya Kerja, dan PT Abadi Berkat Odelia.',
+            'url' => "https://atk.{$baseDomain}",
+            'admin_url' => "https://atk.{$baseDomain}/admin",
+            'login_url' => "https://atk.{$baseDomain}/login",
+            'status' => 'Live Node',
+            'features' => ['Multi-Company Setup', 'Tracking Rute Sales', 'Admin Panel ATK'],
+        ],
+    ];
+
+    $systemServices = [
+        [
+            'code' => 'api',
+            'subdomain' => 'api',
+            'name' => 'Smart Gateway Relay API',
+            'short_name' => 'ESA API Relay',
+            'tag' => 'Gateway & Cross-Server Sync',
+            'category' => 'system',
+            'color' => '#4F46E5',
+            'color_secondary' => '#3730A3',
+            'icon' => 'fa-solid fa-network-wired',
+            'desc' => 'Central routing engine untuk sinkronisasi data presensi mobile real-time lintas 3 server cloud dan integrasi webhook enterprise.',
+            'url' => "https://api.{$baseDomain}",
+            'status' => 'Active Gateway',
+            'features' => ['Signed HMAC Auth', 'Sub-second Sync', 'Failover Routing'],
+        ],
+        [
+            'code' => 'storage',
+            'subdomain' => 'storage',
+            'name' => 'ESA Media & Document CDN',
+            'short_name' => 'ESA Storage CDN',
+            'tag' => 'Private Vault & Evidence Storage',
+            'category' => 'system',
+            'color' => '#0D9488',
+            'color_secondary' => '#0F766E',
+            'icon' => 'fa-solid fa-database',
+            'desc' => 'Distribusi foto verifikasi kehadiran AI kamera, dokumen dispensasi/BAP, struk lembur, dan banner principal.',
+            'url' => "https://storage.{$baseDomain}",
+            'status' => 'Edge Storage',
+            'features' => ['Encrypted Vault', 'High-Speed CDN', 'Auto-Archive'],
+        ],
+    ];
+
+    $registeredPrincipals = \Illuminate\Support\Facades\Cache::remember('global_landing_principals_subdomains_v2', 300, function () {
+        try {
+            $principals = Principal::where('is_active', true)
+                ->whereNotNull('subdomain')
+                ->where('subdomain', '!=', '')
+                ->orderBy('name')
+                ->get()
+                ->unique('subdomain');
+
+            if ($principals->isNotEmpty()) {
+                return $principals;
+            }
+        } catch (\Throwable $e) {
+            // fallback
+        }
+
+        return collect([
+            (object)[
+                'id' => 1,
+                'name' => 'Dulux (PT ICI Paints Indonesia)',
+                'subdomain' => 'dulux',
+                'theme_color' => '#004B93',
+                'theme_color_secondary' => '#008479',
+                'description' => 'Portal pelaporan resmi Dulux: audit stok akhir, display toko, out-of-stock (OOS), dan monitoring CBP tim promotor.',
+                'logo_path' => null,
+            ],
+            (object)[
+                'id' => 2,
+                'name' => 'Fonterra Brands Indonesia',
+                'subdomain' => 'fonterra',
+                'theme_color' => '#002D72',
+                'theme_color_secondary' => '#0088CE',
+                'description' => 'Monitoring kehadiran SPG & MD, pelaporan retail dairy, dan performa brand Anchor, Anlene, serta Boneeto.',
+                'logo_path' => null,
+            ],
+            (object)[
+                'id' => 3,
+                'name' => 'MamaSuka (PT Jico Agung)',
+                'subdomain' => 'mamasuka',
+                'theme_color' => '#D9251D',
+                'theme_color_secondary' => '#F39200',
+                'description' => 'Rekap kunjungan toko harian, audit display toko, tracking itinerari sales, dan bukti absensi lapangan.',
+                'logo_path' => null,
+            ],
+            (object)[
+                'id' => 4,
+                'name' => 'Wings Group / Lion Wings',
+                'subdomain' => 'wings',
+                'theme_color' => '#E11D48',
+                'theme_color_secondary' => '#9F1239',
+                'description' => 'Dashboard performa distribusi FMCG, pembagian gift giveaway promosi, dan pelaporan sales promotor lapangan.',
+                'logo_path' => null,
+            ],
+        ]);
     });
 
-    return view('landing', compact('setting', 'stats'));
+    return view('landing', compact(
+        'setting', 
+        'stats', 
+        'serverNodes', 
+        'systemServices', 
+        'registeredPrincipals', 
+        'baseDomain',
+        'isMainDomain',
+        'isEntityServer',
+        'entityCode',
+        'currentEntity'
+    ));
 });
 
 // Whitelabel Tenant Portal Auth Routes
