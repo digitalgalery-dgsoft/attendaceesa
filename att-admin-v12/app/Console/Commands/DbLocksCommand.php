@@ -7,11 +7,20 @@ use Illuminate\Support\Facades\DB;
 
 class DbLocksCommand extends Command
 {
-    protected $signature = 'db:locks {--kill : Terminate hanging queries}';
+    protected $signature = 'db:locks {--kill : Terminate hanging queries} {--vacuum : Run VACUUM ANALYZE on report tables}';
     protected $description = 'Check and manage active database locks/queries';
 
     public function handle(): int
     {
+        if ($this->option('vacuum')) {
+            $this->info("Running VACUUM ANALYZE on report tables...");
+            $t = microtime(true);
+            DB::statement('VACUUM ANALYZE report_submissions');
+            DB::statement('VACUUM ANALYZE report_submission_values');
+            $this->info("VACUUM ANALYZE completed in " . round(microtime(true) - $t, 2) . "s");
+            return 0;
+        }
+
         $this->info("Checking active PostgreSQL connections & queries...");
 
         $queries = DB::select("

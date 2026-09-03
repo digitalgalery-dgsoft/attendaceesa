@@ -53,6 +53,13 @@ class BenchReportCommand extends Command
             ->get();
         $this->line("4. Items (20 rows with relations) in: " . round(microtime(true) - $t3, 4) . "s");
 
+        $tSubIds = microtime(true);
+        $submissionIds = DB::table('report_submissions')
+            ->where('report_template_id', $template->id)
+            ->whereBetween('submitted_at', [$startDate, $endDate])
+            ->pluck('id')->toArray();
+        $this->line("4b. Plucked " . count($submissionIds) . " submission IDs in: " . round(microtime(true) - $tSubIds, 4) . "s");
+
         $t4 = microtime(true);
         $dashboardConfig = $template->resolved_dashboard_config;
         $widgets = $dashboardConfig['widgets'] ?? [];
@@ -70,11 +77,9 @@ class BenchReportCommand extends Command
                 } elseif ($metric === '_unique_store') {
                     $val = $row->store_count;
                 } else {
-                    $val = DB::table('report_submission_values')
-                        ->join('report_submissions', 'report_submission_values.report_submission_id', '=', 'report_submissions.id')
-                        ->where('report_submissions.report_template_id', $template->id)
-                        ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
-                        ->where('report_submission_values.field_name', $metric)
+                    $val = empty($submissionIds) ? 0 : DB::table('report_submission_values')
+                        ->where('field_name', $metric)
+                        ->whereIn('report_submission_id', $submissionIds)
                         ->count();
                 }
                 $this->line("val: {$val} in: " . round(microtime(true) - $tw, 4) . "s");
@@ -87,12 +92,10 @@ class BenchReportCommand extends Command
                         ->groupBy('d')->get();
                     $this->line("rows: " . count($res) . " in: " . round(microtime(true) - $tw, 4) . "s");
                 } else {
-                    $res = DB::table('report_submission_values')
-                        ->join('report_submissions', 'report_submission_values.report_submission_id', '=', 'report_submissions.id')
-                        ->where('report_submissions.report_template_id', $template->id)
-                        ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
-                        ->where('report_submission_values.field_name', $dim)
-                        ->selectRaw('report_submission_values.value_text as label, count(*) as total')
+                    $res = empty($submissionIds) ? [] : DB::table('report_submission_values')
+                        ->where('field_name', $dim)
+                        ->whereIn('report_submission_id', $submissionIds)
+                        ->selectRaw('value_text as label, count(*) as total')
                         ->groupBy('label')
                         ->orderByDesc('total')
                         ->limit(10)
