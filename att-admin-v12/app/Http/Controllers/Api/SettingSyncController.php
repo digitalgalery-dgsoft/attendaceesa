@@ -33,7 +33,17 @@ class SettingSyncController extends Controller
         }
 
         // 2. Validasi Struktur Payload
-        $payload = $request->all();
+        $payload = $request->json()->all();
+        if (empty($payload)) {
+            $payload = $request->all();
+        }
+        if (is_string($payload)) {
+            $payload = json_decode($payload, true) ?: [];
+        }
+        if (isset($payload['settings']) && is_string($payload['settings'])) {
+            $payload['settings'] = json_decode($payload['settings'], true) ?: [];
+        }
+
         if (empty($payload['settings']) || !is_array($payload['settings'])) {
             return response()->json([
                 'status' => 'error',
