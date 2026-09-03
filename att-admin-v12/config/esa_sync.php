@@ -16,6 +16,12 @@ return [
     |--------------------------------------------------------------------------
     */
     'servers' => [
+        'gateway' => [
+            'id' => 'gateway',
+            'name' => 'Gateway Server (appsend.my.id)',
+            'base_url' => env('ESA_SERVER_GATEWAY_URL', 'https://appsend.my.id'),
+            'alt_url'  => null,
+        ],
         'amk' => [
             'id' => 'amk',
             'name' => 'Server 1 (PT AMK)',

@@ -32,12 +32,19 @@ Route::match(['get', 'post'], '/check', function () {
 });
 
 Route::get('/settings', function () {
+    $bypassCache = request()->has('_t') || request()->header('Cache-Control') === 'no-cache';
     $data = null;
     try {
-        $data = \Illuminate\Support\Facades\Cache::remember('public_app_system_setting_array_v2', 86400, function () {
+        if ($bypassCache) {
+            \Illuminate\Support\Facades\Cache::forget('public_app_system_setting_array_v2');
             $st = \App\Models\Setting::first();
-            return $st ? $st->toArray() : null;
-        });
+            $data = $st ? $st->toArray() : null;
+        } else {
+            $data = \Illuminate\Support\Facades\Cache::remember('public_app_system_setting_array_v2', 300, function () {
+                $st = \App\Models\Setting::first();
+                return $st ? $st->toArray() : null;
+            });
+        }
     } catch (\Throwable $e) {
         // Fallback jika database sedang busy
     }

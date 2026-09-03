@@ -115,6 +115,8 @@ class SettingSyncService
         $filtered = array_intersect_key($incoming, array_flip($this->syncableFields));
 
         $setting = Setting::first();
+        $oldVersion = $setting ? $setting->mobile_app_version : null;
+
         if ($setting) {
             $setting->update($filtered);
         } else {
@@ -124,6 +126,31 @@ class SettingSyncService
         // Bersihkan cache pengaturan publik dan landing
         Cache::forget('public_app_system_setting_array_v2');
         Cache::forget('global_landing_stats_active_v3');
+
+        // Kirim Push Notification FCM ke seluruh karyawan aktif entitas ini
+        if (!empty($setting->mobile_app_version) && ($oldVersion !== $setting->mobile_app_version || !empty($setting->is_force_update))) {
+            try {
+                $tokens = \App\Models\Employee::whereNotNull('fcm_token')->where('is_active', true)->pluck('fcm_token')->toArray();
+                $tokens = array_unique(array_filter($tokens));
+                if (!empty($tokens)) {
+                    $firebase = new \App\Services\FirebaseService();
+                    $firebase->sendNotification(
+                        $tokens,
+                        'Update Aplikasi Tersedia',
+                        "Versi {$setting->mobile_app_version} telah dirilis. Silakan update aplikasi Anda untuk kelancaran absensi.",
+                        [
+                            'type' => 'app_update',
+                            'version' => (string) $setting->mobile_app_version,
+                            'url' => (string) ($setting->mobile_app_url ?? 'https://appsend.my.id/app-release.apk'),
+                            'is_force' => $setting->is_force_update ? '1' : '0',
+                        ]
+                    );
+                    Log::info("FCM Update berhasil dikirim ke " . count($tokens) . " karyawan pada server ini untuk versi {$setting->mobile_app_version}.");
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Gagal kirim FCM update pada applyIncomingSettings: ' . $e->getMessage());
+            }
+        }
 
         return $setting;
     }
