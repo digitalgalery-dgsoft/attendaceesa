@@ -130,20 +130,21 @@ class ImportDuluxOosCommand extends Command
         }
         $defaultEmpId = $defaultEmp ? $defaultEmp->id : null;
 
-        // 5. Cache SELURUH WorkLocation (cepat dan lengkap)
-        $allLocations = DB::table('work_locations')->select('id', 'name', 'code')->get();
+        // 5. Cache WorkLocation yang aman
+        $existingLocations = WorkLocation::whereIn('principal_id', $allDuluxIds)
+            ->orWhereNull('principal_id')
+            ->get();
+
         $locByName = [];
         $locByCode = [];
-        foreach ($allLocations as $loc) {
-            if ($loc->name) {
-                $locByName[strtoupper(trim($loc->name))] = $loc->id;
-            }
-            if ($loc->code) {
+        foreach ($existingLocations as $loc) {
+            $locByName[strtoupper(trim($loc->name))] = $loc->id;
+            if (!empty($loc->code)) {
                 $locByCode[trim($loc->code)] = $loc->id;
             }
         }
 
-        $this->info("Cache lokasi lengkap: " . count($locByCode) . " lokasi berkode, " . count($locByName) . " nama lokasi.");
+        $this->info("Cache lokasi: " . count($locByName) . " toko berhasil dimuat ke memori.");
 
         // 6. Tentukan bulan target
         $targetMonths = [];
@@ -228,10 +229,8 @@ class ImportDuluxOosCommand extends Command
                         'latitude' => -6.2000000,
                         'longitude' => 106.8166667,
                         'radius_meter' => 100,
-                        'code' => $sap ?: null,
                         'region' => $region ?: null,
-                        'branch_name' => $area ?: null,
-                        'category' => ($row['channel_toko'] === 'LSO') ? 'Modern Trade (LSO)' : 'Traditional Store (SSO)',
+                        'area' => $area ?: null,
                         'principal_id' => $duluxPrincipal->id,
                         'is_active' => true,
                     ]);
