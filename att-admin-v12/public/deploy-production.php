@@ -105,7 +105,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Susun perintah remote
         $runClean = isset($_GET['clean']) && $_GET['clean'] === '1' ? ' --clean' : '';
-        if ($onlyImport) {
+        $artisanCmd = isset($_GET['artisan_cmd']) ? trim($_GET['artisan_cmd']) : '';
+        if (!empty($artisanCmd)) {
+            $remoteScript = "
+                PHP_BIN=\"/www/server/php/83/bin/php -d extension=pgsql.so -d extension=pdo_pgsql.so\"
+                cd {$srv['path']}
+                echo '=== MENJALANKAN ARTISAN COMMAND: {$artisanCmd} ==='
+                \$PHP_BIN artisan {$artisanCmd}
+                echo 'DEPLOY_SUCCESS_FLAG'
+            ";
+        } elseif ($onlyImport) {
             $remoteScript = "
                 set -e
                 PHP_BIN=\"/www/server/php/83/bin/php -d extension=pgsql.so -d extension=pdo_pgsql.so\"
