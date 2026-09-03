@@ -11,6 +11,7 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 | **Portal Principal Dulux (PT ICI Paints Indonesia)** | 🟢 Aktif / Live | `https://dulux.esa-solutions.id/portal` |
 | **Impor Data Historis Offtake 2025** | 🟢 Selesai (100%) | 843.455 baris data (Jan–Des 2025) berhasil dimigrasi |
 | **Ekstraksi & Impor Data Offtake 2026** | 🟢 Selesai (100%) | 439.819 baris data (Jan–Jul 2026) berhasil diproses ke JSONL chunks & SQLite |
+| **Ekstraksi & Impor Data CBP 2026** | 🟢 Selesai (100%) | 117.012 baris monitoring harga (Jan–Jul 2026) di-stream ke JSONL chunks, SQLite & DB |
 | **Penyesuaian Formulir Pelaporan ICI Paint** | 🟢 Selesai (100%) | CBP, OOS LSO/SSO, Data Pelanggan, Daily Maintenance |
 | **Optimasi Performa & Query Skala Besar** | 🟢 Selesai | Mengakomodasi 14.000+ store & jutaan data submission |
 | **UI/UX Loading Screen Layar Tengah** | 🟢 Selesai | Animasi glassmorphism & dual-orbit loader otomatis |
@@ -33,6 +34,7 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
   - Subbrand dan kemasan kompetitor (Tin/Kaleng, Galon, Pail) dibuat dinamis dengan master list merk & subbrand.
   - Inputan promo harga / diskon mendukung pilihan nominal (Rp) dan persentase (%).
   - Inputan upload foto bukti dihapus untuk mempercepat input petugas di lapangan.
+  - **Migrasi Data CBP 2026**: 117.012 baris transaksi monitoring harga riil (Januari – Juli 2026) dari 7 file bulanan Excel diolah menggunakan parser XMLReader/ZipArchive streaming ke 7 chunk JSONL terkompresi dan SQLite database.
 - [x] **Laporan OOS - SSO (Out of Stock - Share of Shelf)**:
   - Inputan kemasan kosong dihapus.
   - Pilihan upload foto bukti dihapus.

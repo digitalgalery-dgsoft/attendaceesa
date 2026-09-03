@@ -31,3 +31,6 @@ frankenphp
 frankenphp-worker.php
 rr
 .rr.yaml
+
+/storage/scratch/
+/storage/app/dulux_data/*.sqlite

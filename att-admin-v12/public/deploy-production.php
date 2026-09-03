@@ -65,6 +65,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $runMigration = isset($_GET['migrate']) && $_GET['migrate'] === '1';
     $runPrincipals = isset($_GET['principals']) && $_GET['principals'] === '1';
     $runImportOfftake = isset($_GET['import_offtake']) && $_GET['import_offtake'] === '1';
+    $runImportCbp = (isset($_GET['import_cbp']) && $_GET['import_cbp'] === '1') || (isset($_GET['type']) && $_GET['type'] === 'cbp');
+    $importCmd = $runImportCbp ? 'dulux:import-cbp' : 'dulux:import-offtake';
+    $importTitle = $runImportCbp ? 'CBP DULUX' : 'OFFTAKE DULUX';
+
     $targetServer = isset($_GET['server']) ? intval($_GET['server']) : (isset($_GET['only_server']) ? intval($_GET['only_server']) : 0);
     $onlyImport = isset($_GET['only_import']) && $_GET['only_import'] === '1';
     $offtakeYear = isset($_GET['year']) ? ' --year=' . escapeshellarg($_GET['year']) : '';
@@ -80,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         echo "\n<span style=\"color: #fbc02d; font-weight: bold;\">----------------------------------------------------------------------</span>\n";
-        echo "<span style=\"color: #fbc02d; font-weight: bold;\">▶ [{$num}/3] " . ($onlyImport ? "IMPORT OFFTAKE PADA" : "DEPLOY KE") . " {$srv['name']} ({$srv['ip']})</span>\n";
+        echo "<span style=\"color: #fbc02d; font-weight: bold;\">▶ [{$num}/3] " . ($onlyImport ? "IMPORT {$importTitle} PADA" : "DEPLOY KE") . " {$srv['name']} ({$srv['ip']})</span>\n";
         echo "<span style=\"color: #fbc02d; font-weight: bold;\">----------------------------------------------------------------------</span>\n";
         echo "<!--" . str_repeat(' ', 4096) . "-->";
         @flush();
@@ -91,8 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 set -e
                 PHP_BIN=\"/www/server/php/83/bin/php -d extension=pgsql.so -d extension=pdo_pgsql.so\"
                 cd {$srv['path']}
-                echo '=== MENJALANKAN IMPORT OFFTAKE DULUX ==='
-                \$PHP_BIN artisan dulux:import-offtake{$offtakeYear}{$offtakeMonth}{$offtakeLimit}
+                echo '=== MENJALANKAN IMPORT {$importTitle} ==='
+                \$PHP_BIN artisan {$importCmd}{$offtakeYear}{$offtakeMonth}{$offtakeLimit}
                 echo 'DEPLOY_SUCCESS_FLAG'
             ";
         } else {
