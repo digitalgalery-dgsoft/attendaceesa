@@ -378,7 +378,7 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
             'color' => '#2563EB',
             'color_secondary' => '#1D4ED8',
             'icon' => 'fa-solid fa-building-user',
-            'ip' => '38.103.170.235',
+            'ip' => '38.68.69.225',
             'desc' => 'Infrastruktur cloud presensi, verifikasi wajah AI biometrik, dan sistem HRIS karyawan PT Arina Multi Karya.',
             'url' => "https://amk.{$baseDomain}",
             'admin_url' => "https://amk.{$baseDomain}/admin",
