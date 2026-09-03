@@ -817,7 +817,7 @@
     <!-- =============================================================== -->
     <!-- PROFESSIONAL PORTAL LOADING SCREEN OVERLAY -->
     <!-- =============================================================== -->
-    <div id="portalLoadingOverlay" class="portal-loading-overlay" aria-hidden="true">
+    <div id="portalLoadingOverlay" class="portal-loading-overlay active" aria-hidden="false">
         <div class="portal-loading-card">
             <!-- Animated Ambient Glow -->
             <div class="portal-loading-glow"></div>
@@ -842,7 +842,7 @@
 
             <!-- Text & Status Message -->
             <div class="portal-loading-text-group">
-                <h4 id="portalLoadingTitle" class="portal-loading-title">Memuat Data Laporan...</h4>
+                <h4 id="portalLoadingTitle" class="portal-loading-title">Memuat Halaman Portal...</h4>
                 <p id="portalLoadingSubtitle" class="portal-loading-subtitle">
                     Sedang memproses dan menyajikan data dari server, mohon tunggu
                     <span class="loading-dots"><span>.</span><span>.</span><span>.</span></span>
@@ -1130,7 +1130,7 @@
             if (safetyTimer) clearTimeout(safetyTimer);
             safetyTimer = setTimeout(function() {
                 window.hidePortalLoader();
-            }, 60000);
+            }, 15000);
         };
 
         window.hidePortalLoader = function() {
@@ -1140,26 +1140,53 @@
             if (safetyTimer) clearTimeout(safetyTimer);
         };
 
-        // Auto-hide when page is restored from Back-Forward Cache (bfcache)
-        window.addEventListener('pageshow', function() {
-            window.hidePortalLoader();
-        });
+        // Smoothly dismiss loader on page ready / restore
+        function dismissInitialLoader() {
+            setTimeout(function() {
+                window.hidePortalLoader();
+            }, 180);
+        }
 
-        // Auto-attach to forms (filters, search, status updates)
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            dismissInitialLoader();
+        } else {
+            document.addEventListener('DOMContentLoaded', dismissInitialLoader);
+        }
+        window.addEventListener('load', window.hidePortalLoader);
+        window.addEventListener('pageshow', window.hidePortalLoader);
+
+        // Auto-attach to all forms (filters, searches, actions)
         document.addEventListener('submit', function(e) {
             const form = e.target;
-            if (form && !form.hasAttribute('data-no-loader')) {
-                if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
-                    return;
-                }
-                const isFilter = form.classList.contains('filter-bar') || form.querySelector('[name="region"], [name="area_id"], [name="location_id"], [name="start_month"]');
-                const title = isFilter ? 'Menerapkan Filter Laporan...' : 'Memproses Permintaan...';
-                const sub = isFilter ? 'Sedang menyaring dan memuat ribuan data sesuai kriteria' : 'Mohon tunggu sejenak';
-                window.showPortalLoader(title, sub);
+            if (!form || form.hasAttribute('data-no-loader') || form.closest('[data-no-loader]')) return;
+
+            if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+                return;
             }
+
+            if (form.action && form.action.includes('logout')) {
+                window.showPortalLoader('Keluar dari Akun...', 'Mengakhiri sesi portal principal secara aman');
+                return;
+            }
+
+            const isFilter = form.classList.contains('filter-bar') || form.querySelector('[name="region"], [name="area_id"], [name="location_id"], [name="start_month"], [name="start_date"]');
+            const isSearch = form.querySelector('[name="search"], [name="q"], [name="keyword"]');
+
+            let title = 'Memproses Permintaan...';
+            let sub = 'Sedang memuat data dari server, mohon tunggu';
+
+            if (isFilter) {
+                title = 'Menerapkan Filter Laporan...';
+                sub = 'Sedang menyaring dan memuat ribuan data transaksi sesuai kriteria';
+            } else if (isSearch) {
+                title = 'Mencari Data...';
+                sub = 'Sedang mencocokkan parameter pencarian dengan database';
+            }
+
+            window.showPortalLoader(title, sub);
         });
 
-        // Auto-attach to select dropdowns with onchange="this.form.submit()"
+        // Auto-attach to dropdowns with onchange="this.form.submit()"
         document.addEventListener('change', function(e) {
             const target = e.target;
             if (target && target.tagName === 'SELECT' && target.form && target.getAttribute('onchange') && target.getAttribute('onchange').includes('submit')) {
@@ -1167,53 +1194,82 @@
                 if (target.name === 'region') label = 'Region Toko';
                 else if (target.name === 'area_id') label = 'Area / Cabang';
                 else if (target.name === 'location_id') label = 'Outlet / Toko';
-                else if (target.name.includes('month') || target.name.includes('year')) label = 'Rentang Periode';
+                else if (target.name.includes('month') || target.name.includes('year') || target.name.includes('date')) label = 'Rentang Periode';
 
                 window.showPortalLoader('Memperbarui ' + label + '...', 'Sedang mengambil data laporan terkini dari server');
             }
         });
 
-        // Auto-attach to pagination, export, and report navigation links
+        // Universal link click listener across all pages & menus
         document.addEventListener('click', function(e) {
             const link = e.target.closest('a');
             if (!link) return;
 
-            // Ignore modifier keys / middle click / external targets
+            // Ignore modifier keys / middle click / external targets / downloads / bootstrap toggles
             if (e.ctrlKey || e.shiftKey || e.metaKey || e.which === 2) return;
-            if (link.target === '_blank' || link.hasAttribute('download')) return;
+            if (link.target === '_blank' || link.hasAttribute('download') || link.hasAttribute('data-no-loader') || link.closest('[data-no-loader]')) return;
+            if (link.hasAttribute('data-bs-toggle') || link.hasAttribute('data-toggle')) return;
 
             const href = link.getAttribute('href');
-            if (!href || href === '#' || href.startsWith('javascript:')) return;
+            if (!href || href === '#' || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('tel:') || href.startsWith('mailto:')) return;
 
-            // Pagination links
-            if (link.closest('.pagination') || link.closest('.custom-pagination') || link.classList.contains('page-link')) {
-                window.showPortalLoader('Memuat Halaman...', 'Sedang mengambil baris data laporan berikutnya');
+            // 1. Sidebar menu navigation (All Modules & Reports)
+            if (link.closest('.sidebar-nav-item') || link.classList.contains('sidebar-nav-item')) {
+                const navText = link.querySelector('.nav-text')?.textContent?.trim() || 'Modul Portal';
+                window.showPortalLoader('Membuka ' + navText + '...', 'Sedang menyiapkan data dan antarmuka modul');
                 return;
             }
 
-            // Export Excel links
+            // 2. Pagination links
+            if (link.closest('.pagination') || link.closest('.custom-pagination') || link.classList.contains('page-link')) {
+                window.showPortalLoader('Memuat Halaman Data...', 'Sedang mengambil baris data laporan berikutnya');
+                return;
+            }
+
+            // 3. Export Excel links (auto-hide after 7s because file downloads do not reload page)
             if (link.classList.contains('btn-export-excel') || href.includes('/export')) {
                 window.showPortalLoader('Menyiapkan Ekspor Data...', 'Sedang menyusun baris data ke format Excel');
-                setTimeout(window.hidePortalLoader, 10000);
+                setTimeout(window.hidePortalLoader, 7000);
                 return;
             }
 
-            // Reset filter links
+            // 4. Reset filter links
             if (link.title === 'Reset Filter' || href.includes('reset') || (link.textContent && link.textContent.trim().toLowerCase() === 'reset')) {
                 window.showPortalLoader('Mereset Filter...', 'Mengembalikan parameter filter ke kondisi awal');
                 return;
             }
 
-            // Detail submission button
+            // 5. Detail submission buttons
             if (href.includes('/submission/')) {
                 window.showPortalLoader('Membuka Rincian Laporan...', 'Memuat seluruh isian formulir dan foto bukti');
                 return;
             }
 
-            // Sidebar report template links
-            if (link.closest('.sidebar-menu-item') || link.classList.contains('sidebar-link')) {
-                window.showPortalLoader('Membuka Laporan...', 'Menyiapkan widget analitik dan data transaksi');
+            // 6. Tenant / Principal switcher pills
+            if (link.classList.contains('tenant-selector-pill') || link.closest('.tenant-selector-pill')) {
+                window.showPortalLoader('Beralih Principal...', 'Menyiapkan data dan hak akses portal principal');
                 return;
+            }
+
+            // 7. Sidebar brand / Logo click
+            if (link.closest('.sidebar-brand') || link.classList.contains('sidebar-brand')) {
+                window.showPortalLoader('Membuka Dashboard Utama...', 'Menyiapkan ringkasan performa dan analitik');
+                return;
+            }
+
+            // 8. Breadcrumb navigation
+            if (link.closest('.topbar-breadcrumb')) {
+                window.showPortalLoader('Navigasi ke ' + (link.textContent?.trim() || 'Halaman') + '...', 'Menyiapkan tampilan halaman');
+                return;
+            }
+
+            // 9. Any other internal link within the portal
+            const isInternal = href.startsWith('/') || href.includes(window.location.host);
+            if (isInternal && !link.closest('form')) {
+                const rawText = link.getAttribute('title') || link.innerText?.trim() || '';
+                const cleanText = rawText.replace(/\s+/g, ' ').trim();
+                const displayTitle = (cleanText && cleanText.length < 30) ? ('Memuat ' + cleanText + '...') : 'Memuat Halaman Portal...';
+                window.showPortalLoader(displayTitle, 'Sedang menghubungkan ke server aman, mohon tunggu');
             }
         });
     })();
