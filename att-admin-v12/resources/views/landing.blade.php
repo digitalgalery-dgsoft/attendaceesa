@@ -2166,23 +2166,33 @@
                         @endforeach
                     @endif
 
-                    @if(isset($registeredPrincipals) && $registeredPrincipals->isNotEmpty())
+                    @if(!empty($registeredPrincipals))
                         @foreach($registeredPrincipals as $p)
+                        @php
+                            $pSub = is_array($p) ? ($p['subdomain'] ?? '') : ($p->subdomain ?? '');
+                            $pName = is_array($p) ? ($p['name'] ?? '') : ($p->name ?? '');
+                            $pColor = (is_array($p) ? ($p['theme_color'] ?? null) : ($p->theme_color ?? null)) ?: '#0F52BA';
+                            $pColorSec = (is_array($p) ? ($p['theme_color_secondary'] ?? null) : ($p->theme_color_secondary ?? null)) ?: '#2563EB';
+                            $pDesc = is_array($p) ? ($p['description'] ?? null) : ($p->description ?? null);
+                            if (empty($pDesc)) {
+                                $pDesc = "Portal monitoring data kehadiran, formulir kunjungan, audit toko, dan performa tim promotor {$pName}.";
+                            }
+                        @endphp
                         {
-                            subdomain: '{{ $p->subdomain }}',
-                            host: '{{ $p->subdomain }}.{{ $baseDomain ?? 'esa-solutions.id' }}',
-                            name: '{{ $p->name }}',
-                            shortName: '{{ strtoupper($p->subdomain) }}',
+                            subdomain: '{{ $pSub }}',
+                            host: '{{ $pSub }}.{{ $baseDomain ?? 'esa-solutions.id' }}',
+                            name: '{{ $pName }}',
+                            shortName: '{{ strtoupper($pSub) }}',
                             category: 'principal',
                             categoryLabel: 'Portal Principal / Klien',
                             status: 'Live Portal',
-                            color: '{{ $p->theme_color ?: '#0F52BA' }}',
-                            colorSecondary: '{{ $p->theme_color_secondary ?: '#2563EB' }}',
+                            color: '{{ $pColor }}',
+                            colorSecondary: '{{ $pColorSec }}',
                             icon: 'fa-solid fa-store',
-                            initials: '{{ strtoupper(substr($p->subdomain, 0, 2)) }}',
-                            desc: '{{ addslashes($p->description ?? "Portal monitoring data kehadiran, formulir kunjungan, audit toko, dan performa tim promotor {$p->name}.") }}',
-                            url: 'https://{{ $p->subdomain }}.{{ $baseDomain ?? 'esa-solutions.id' }}',
-                            loginUrl: 'https://{{ $p->subdomain }}.{{ $baseDomain ?? 'esa-solutions.id' }}/login',
+                            initials: '{{ strtoupper(substr($pSub, 0, 2)) }}',
+                            desc: '{{ addslashes($pDesc) }}',
+                            url: 'https://{{ $pSub }}.{{ $baseDomain ?? 'esa-solutions.id' }}',
+                            loginUrl: 'https://{{ $pSub }}.{{ $baseDomain ?? 'esa-solutions.id' }}/login',
                             adminUrl: '',
                             features: ['Whitelabel Portal', 'Dynamic Reporting', 'Rekap Kehadiran', 'Ekspor Excel']
                         },

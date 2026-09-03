@@ -455,24 +455,33 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
         ],
     ];
 
-    $registeredPrincipals = \Illuminate\Support\Facades\Cache::remember('global_landing_principals_subdomains_v2', 300, function () {
+    $registeredPrincipals = \Illuminate\Support\Facades\Cache::remember('global_landing_principals_plain_v4', 300, function () {
         try {
-            $principals = Principal::where('is_active', true)
+            $records = Principal::where('is_active', true)
                 ->whereNotNull('subdomain')
                 ->where('subdomain', '!=', '')
                 ->orderBy('name')
-                ->get()
-                ->unique('subdomain');
+                ->get();
 
-            if ($principals->isNotEmpty()) {
-                return $principals;
+            if ($records->isNotEmpty()) {
+                return $records->unique('subdomain')->map(function ($p) {
+                    return [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'subdomain' => $p->subdomain,
+                        'theme_color' => $p->theme_color ?: '#0F52BA',
+                        'theme_color_secondary' => $p->theme_color_secondary ?: '#2563EB',
+                        'description' => $p->description,
+                        'logo_path' => $p->logo_path,
+                    ];
+                })->values()->toArray();
             }
         } catch (\Throwable $e) {
             // fallback
         }
 
-        return collect([
-            (object)[
+        return [
+            [
                 'id' => 1,
                 'name' => 'Dulux (PT ICI Paints Indonesia)',
                 'subdomain' => 'dulux',
@@ -481,7 +490,7 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
                 'description' => 'Portal pelaporan resmi Dulux: audit stok akhir, display toko, out-of-stock (OOS), dan monitoring CBP tim promotor.',
                 'logo_path' => null,
             ],
-            (object)[
+            [
                 'id' => 2,
                 'name' => 'Fonterra Brands Indonesia',
                 'subdomain' => 'fonterra',
@@ -490,7 +499,7 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
                 'description' => 'Monitoring kehadiran SPG & MD, pelaporan retail dairy, dan performa brand Anchor, Anlene, serta Boneeto.',
                 'logo_path' => null,
             ],
-            (object)[
+            [
                 'id' => 3,
                 'name' => 'MamaSuka (PT Jico Agung)',
                 'subdomain' => 'mamasuka',
@@ -499,7 +508,7 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
                 'description' => 'Rekap kunjungan toko harian, audit display toko, tracking itinerari sales, dan bukti absensi lapangan.',
                 'logo_path' => null,
             ],
-            (object)[
+            [
                 'id' => 4,
                 'name' => 'Wings Group / Lion Wings',
                 'subdomain' => 'wings',
@@ -508,7 +517,7 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
                 'description' => 'Dashboard performa distribusi FMCG, pembagian gift giveaway promosi, dan pelaporan sales promotor lapangan.',
                 'logo_path' => null,
             ],
-        ]);
+        ];
     });
 
     return view('landing', compact(
