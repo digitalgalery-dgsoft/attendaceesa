@@ -347,6 +347,24 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
     ];
     $currentEntity = $entityCode && isset($entityMeta[$entityCode]) ? $entityMeta[$entityCode] : null;
 
+    $stats = \Illuminate\Support\Facades\Cache::remember('global_landing_stats_active_v3', 60, function () {
+        try {
+            return [
+                'areas'      => Area::count(),
+                'principals' => Principal::where('is_active', true)->count(),
+                'employees'  => Employee::where('is_active', true)->whereNull('deleted_at')->count(),
+                'locations'  => \App\Models\WorkLocation::where('is_active', true)->count(),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'areas'      => 0,
+                'principals' => 0,
+                'employees'  => 0,
+                'locations'  => 0,
+            ];
+        }
+    });
+
     $serverNodes = [
         [
             'code' => 'amk',
