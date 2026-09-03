@@ -91,6 +91,21 @@ class ImportDuluxOosCommand extends Command
 
         $this->info("Form fields terdaftar: " . count($fieldIds) . " field.");
 
+        // 3b. Bersihkan incomplete submission tanpa values jika ada kegagalan sebelumnya
+        $orphanedIds = DB::table('report_submissions')
+            ->where('report_template_id', $template->id)
+            ->where('submission_code', 'LIKE', 'SUB-DULUX-OOS-%')
+            ->whereNotIn('id', function($q) {
+                $q->select('report_submission_id')->from('report_submission_values');
+            })
+            ->pluck('id')
+            ->toArray();
+
+        if (!empty($orphanedIds)) {
+            DB::table('report_submissions')->whereIn('id', $orphanedIds)->delete();
+            $this->info("Membersihkan " . count($orphanedIds) . " submission yang belum memiliki values.");
+        }
+
         // 4. Dapatkan Default Employee & Company
         $companyId = Company::value('id') ?? 1;
 
@@ -233,7 +248,7 @@ class ImportDuluxOosCommand extends Command
                 $monthCount++;
 
                 if (count($batchSubmissions) >= $batchSize || ($limit > 0 && $monthCount >= $limit)) {
-                    $this->flushOosBatch($batchSubmissions, $fieldIds, $now);
+                    $this->flushOosBatch($batchSubmissions, $fieldIds, $fieldTypes, $now);
                     $totalImported += count($batchSubmissions);
                     $this->output->write('.');
                     $batchSubmissions = [];
@@ -245,7 +260,7 @@ class ImportDuluxOosCommand extends Command
             }
 
             if (!empty($batchSubmissions)) {
-                $this->flushOosBatch($batchSubmissions, $fieldIds, $now);
+                $this->flushOosBatch($batchSubmissions, $fieldIds, $fieldTypes, $now);
                 $totalImported += count($batchSubmissions);
                 $this->output->write('.');
             }
@@ -264,7 +279,7 @@ class ImportDuluxOosCommand extends Command
     /**
      * Flush batch submission dan values ke database
      */
-    protected function flushOosBatch(array &$batch, array $fieldIds, string $now): void
+    protected function flushOosBatch(array &$batch, array $fieldIds, array $fieldTypes, string $now): void
     {
         if (empty($batch)) {
             return;
@@ -301,31 +316,40 @@ class ImportDuluxOosCommand extends Command
             $channelLabel = ($raw['channel_toko'] === 'LSO') ? 'Modern Outlet / Toko Modern (LSO)' : 'Specialist Traditional Store (SSO)';
 
             $fieldValueMappings = [
-                'channel_toko' => $channelLabel,
-                'week' => $raw['week'] ?? null,
-                'produk_oos' => $raw['product_name'] ?? null,
-                'base_warna_oos' => $raw['base_color'] ?? null,
-                'kemasan_size_oos' => $raw['kemasan'] ?? null,
-                'lama_oos_hari' => $raw['lama_oos_hari'] ?? 0,
-                'saran_qty_order' => $raw['saran_qty_order'] ?? 0,
-                'alasan_oos' => $raw['alasan_oos'] ?? null,
-                'status_ketersediaan' => $statusKetersediaan,
-                'account_lso' => $raw['account_lso'] ?? null,
-                'rsm_area' => $raw['rsm_area'] ?? null,
-                'id_member_derp' => $raw['id_member_derp'] ?? null,
+                'channel_toko' => ['text' => $channelLabel, 'num' => null],
+                'week' => ['text' => (string)($raw['week'] ?? ''), 'num' => !empty($raw['week']) ? (float)$raw['week'] : null],
+                'produk_oos' => ['text' => $raw['product_name'] ?? '', 'num' => null],
+                'base_warna_oos' => ['text' => $raw['base_color'] ?? '', 'num' => null],
+                'kemasan_size_oos' => ['text' => $raw['kemasan'] ?? '', 'num' => null],
+                'lama_oos_hari' => ['text' => (string)($raw['lama_oos_hari'] ?? 0), 'num' => (float)($raw['lama_oos_hari'] ?? 0)],
+                'saran_qty_order' => ['text' => (string)($raw['saran_qty_order'] ?? 0), 'num' => (float)($raw['saran_qty_order'] ?? 0)],
+                'alasan_oos' => ['text' => $raw['alasan_oos'] ?? '', 'num' => null],
+                'status_ketersediaan' => ['text' => $statusKetersediaan, 'num' => null],
+                'account_lso' => ['text' => $raw['account_lso'] ?? '', 'num' => null],
+                'rsm_area' => ['text' => $raw['rsm_area'] ?? '', 'num' => null],
+                'id_member_derp' => ['text' => $raw['id_member_derp'] ?? '', 'num' => null],
             ];
 
-            foreach ($fieldValueMappings as $fieldName => $val) {
-                if ($val === null || $val === '' || !isset($fieldIds[$fieldName])) {
+            foreach ($fieldValueMappings as $fieldName => $valData) {
+                if ($valData['text'] === '' && $valData['num'] === null) {
+                    continue;
+                }
+                if (!isset($fieldIds[$fieldName])) {
                     continue;
                 }
 
                 $fId = $fieldIds[$fieldName];
+                $fType = $fieldTypes[$fieldName] ?? 'text';
+
                 $valuesBatch[] = [
                     'report_submission_id' => $subId,
                     'report_form_field_id' => $fId,
-                    'value' => (string) $val,
-                    'created_at' => $now,
+                    'field_name' => $fieldName,
+                    'field_type' => $fType,
+                    'value_text' => $valData['text'] !== '' ? $valData['text'] : null,
+                    'value_number' => $valData['num'],
+                    'value_json' => null,
+                    'created_at' => $item['record_data']['submitted_at'] ?? $now,
                     'updated_at' => $now,
                 ];
             }
