@@ -210,6 +210,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             \\cp -rf vendor/livewire/livewire/dist/* public/livewire/ 2>/dev/null || true
             rm -f public/hot
 
+            echo '3b. Memeriksa ketersediaan file app-release.apk...'
+            if [ ! -f \"{$srv['path']}/public/app-release.apk\" ] || [ \$(stat -c%s \"{$srv['path']}/public/app-release.apk\" 2>/dev/null || echo 0) -lt 10000000 ]; then
+                echo '  ↳ Mengunduh file APK dari server master (appsend.my.id)...'
+                curl -skL -m 120 'https://appsend.my.id/app-release.apk' -o \"{$srv['path']}/public/app-release.apk\" 2>/dev/null || true
+                chmod 644 \"{$srv['path']}/public/app-release.apk\" 2>/dev/null || true
+            fi
+            if [ -d '/www/wwwroot/esa-solutions.id/public' ] && [ -f \"{$srv['path']}/public/app-release.apk\" ]; then
+                cp -f \"{$srv['path']}/public/app-release.apk\" '/www/wwwroot/esa-solutions.id/public/app-release.apk' 2>/dev/null || true
+                chmod 644 '/www/wwwroot/esa-solutions.id/public/app-release.apk' 2>/dev/null || true
+            fi
+
             " . ($runMigration ? "echo '4. Menjalankan Database Migration...' && (\$PHP_BIN artisan migrate --force || true)\n" : "") . "
             " . ($runPrincipals ? "echo '4b. Menyinkronkan Relasi Principal...' && (\$PHP_BIN artisan reporting:link-principals || true)\n" : "") . "
             " . ($runImportOfftake ? "echo '4c. Mengimpor Data Offtake Dulux...' && (\$PHP_BIN artisan dulux:import-offtake{$offtakeYear}{$offtakeMonth}{$offtakeLimit} || true)\n" : "") . "

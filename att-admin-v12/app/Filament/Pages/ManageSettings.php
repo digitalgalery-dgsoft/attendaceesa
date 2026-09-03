@@ -255,9 +255,29 @@ class ManageSettings extends Page implements HasForms
             window.dispatchEvent(new CustomEvent('esa-theme-changed', { detail: { theme: '{$newTheme}' } }));
         ");
 
+        // Auto-sync setting ke server ESA lainnya (Peer Servers)
+        $syncedMessage = '';
+        try {
+            $syncService = app(\App\Services\SettingSyncService::class);
+            $syncResults = $syncService->syncToPeers($data);
+
+            $syncedServers = [];
+            foreach ($syncResults as $res) {
+                if (!empty($res['success'])) {
+                    $syncedServers[] = $res['name'];
+                }
+            }
+
+            if (!empty($syncedServers)) {
+                $syncedMessage = ' & otomatis tersinkron ke ' . implode(', ', $syncedServers);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Setting peer sync failed: ' . $e->getMessage());
+        }
+
         Notification::make()
             ->success()
-            ->title('Settings saved successfully.')
+            ->title('Settings saved successfully' . $syncedMessage . '.')
             ->send();
             
         // Reload page to reflect new theme

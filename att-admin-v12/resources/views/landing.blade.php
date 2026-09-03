@@ -1503,7 +1503,9 @@
             @if(isset($isEntityServer) && $isEntityServer)
                 <li><a href="#statistik"><i class="fa-solid fa-chart-pie"></i> Statistik</a></li>
             @endif
-            <li><a href="#download"><i class="fa-solid fa-mobile-screen"></i> Download Aplikasi</a></li>
+            @if(!isset($isEntityServer) || !$isEntityServer)
+                <li><a href="#download"><i class="fa-solid fa-mobile-screen"></i> Download Aplikasi</a></li>
+            @endif
             <li><a href="/login"><i class="fa-solid fa-id-card-clip"></i> Portal Login</a></li>
         </ul>
 
@@ -1553,38 +1555,47 @@
             @endif
         </p>
 
-        <!-- Download Buttons (Android & iOS) + Quick Actions in Hero -->
+        <!-- Action Buttons in Hero -->
         <div class="hero-cta-group">
-            <!-- 1. Tombol Download Android -->
-            <a href="{{ $apkDownloadUrl }}" class="btn-download-android" target="_blank" rel="noopener noreferrer">
-                <i class="fa-brands fa-android"></i>
-                <div class="btn-cta-text">
-                    <span class="btn-cta-sub">Unduh untuk</span>
-                    <span class="btn-cta-main">Android (APK)</span>
-                </div>
-                <span style="font-size: 0.72rem; background: rgba(255,255,255,0.18); padding: 0.15rem 0.45rem; border-radius: 6px; margin-left: 0.2rem;">v1.0.114</span>
-            </a>
-
-            <!-- 2. Tombol Download iOS (Under Development Notice) -->
-            <button type="button" class="btn-download-ios" @click="showIosNotice()">
-                <i class="fa-brands fa-apple"></i>
-                <div class="btn-cta-text">
-                    <span class="btn-cta-sub">Tersedia di</span>
-                    <span class="btn-cta-main">Apple iOS</span>
-                </div>
-                <span class="badge-dev-tag">Dev</span>
-            </button>
-
-            <!-- 3. Tombol Portal Hub (hanya di main domain) / Admin Console -->
             @if(!isset($isEntityServer) || !$isEntityServer)
+                <!-- 1. Tombol Download Android (HANYA DI DOMAIN UTAMA) -->
+                <a href="{{ $apkDownloadUrl }}" class="btn-download-android" target="_blank" rel="noopener noreferrer">
+                    <i class="fa-brands fa-android"></i>
+                    <div class="btn-cta-text">
+                        <span class="btn-cta-sub">Unduh untuk</span>
+                        <span class="btn-cta-main">Android (APK)</span>
+                    </div>
+                    <span style="font-size: 0.72rem; background: rgba(255,255,255,0.18); padding: 0.15rem 0.45rem; border-radius: 6px; margin-left: 0.2rem;">v1.0.114</span>
+                </a>
+
+                <!-- 2. Tombol Download iOS (HANYA DI DOMAIN UTAMA) -->
+                <button type="button" class="btn-download-ios" @click="showIosNotice()">
+                    <i class="fa-brands fa-apple"></i>
+                    <div class="btn-cta-text">
+                        <span class="btn-cta-sub">Tersedia di</span>
+                        <span class="btn-cta-main">Apple iOS</span>
+                    </div>
+                    <span class="badge-dev-tag">Dev</span>
+                </button>
+
+                <!-- 3. Tombol Portal Hub -->
                 <a href="#subdomain-hub" class="btn-hero-portal-hub">
                     <i class="fa-solid fa-cubes"></i>
                     <span>Akses Subdomain</span>
                     <i class="fa-solid fa-arrow-down" style="font-size: 0.82rem;"></i>
                 </a>
             @else
+                <!-- Pada Server Entitas (AMK, AKP, ATK): Tombol Download Dihilangkan, Fokus ke Login & Admin -->
+                <a href="/login" class="btn-download-android" style="background: linear-gradient(135deg, {{ $currentEntity['color'] ?? '#2563EB' }} 0%, {{ $currentEntity['color_secondary'] ?? '#1D4ED8' }} 100%);">
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                    <div class="btn-cta-text">
+                        <span class="btn-cta-sub">Portal Karyawan</span>
+                        <span class="btn-cta-main">Login Presensi</span>
+                    </div>
+                </a>
+
                 <a href="/admin" class="btn-hero-admin">
-                    <i class="fa-solid fa-gauge-high" style="color: var(--brand-primary);"></i>
+                    <i class="fa-solid fa-gauge-high" style="color: {{ $currentEntity['color'] ?? 'var(--brand-primary)' }};"></i>
                     <span>Admin Panel</span>
                 </a>
             @endif
@@ -1987,7 +1998,8 @@
         </div>
     </main>
 
-    <!-- ─── DOWNLOAD APPLICATION BOX SECTION (2 JENIS: ANDROID & IOS) ── -->
+    <!-- ─── DOWNLOAD APPLICATION BOX SECTION (HANYA DITAMPILKAN DI DOMAIN UTAMA) ── -->
+    @if(!isset($isEntityServer) || !$isEntityServer)
     <section id="download" class="section-wrap" style="padding-top: 1rem;">
         <div class="app-download-box">
             <div class="app-download-content">
@@ -2059,6 +2071,7 @@
             </div>
         </div>
     </section>
+    @endif
 
     <!-- ─── FOOTER ───────────────────────────────────────────────────── -->
     <footer>
@@ -2109,11 +2122,15 @@
 
             <!-- Download & Navigasi -->
             <div>
-                <h4 class="footer-col-title">Aplikasi Mobile</h4>
+                <h4 class="footer-col-title">{{ (!isset($isEntityServer) || !$isEntityServer) ? 'Aplikasi Mobile' : 'Navigasi Portal' }}</h4>
                 <ul class="footer-list">
-                    <li><a href="{{ $apkDownloadUrl }}" target="_blank"><i class="fa-brands fa-android" style="color: #10B981;"></i> Download Android APK</a></li>
-                    <li><a href="javascript:void(0)" @click="showIosNotice()"><i class="fa-brands fa-apple"></i> Apple iOS (Under Dev)</a></li>
-                    <li><a href="/login"><i class="fa-solid fa-right-to-bracket"></i> Login Whitelabel Portal</a></li>
+                    @if(!isset($isEntityServer) || !$isEntityServer)
+                        <li><a href="{{ $apkDownloadUrl }}" target="_blank"><i class="fa-brands fa-android" style="color: #10B981;"></i> Download Android APK</a></li>
+                        <li><a href="javascript:void(0)" @click="showIosNotice()"><i class="fa-brands fa-apple"></i> Apple iOS (Under Dev)</a></li>
+                    @else
+                        <li><a href="https://{{ $baseDomain ?? 'esa-solutions.id' }}/#download" target="_blank"><i class="fa-solid fa-mobile-screen-button" style="color: #10B981;"></i> Unduh APK di Portal Pusat</a></li>
+                    @endif
+                    <li><a href="/login"><i class="fa-solid fa-right-to-bracket"></i> Login Portal</a></li>
                     <li><a href="/admin"><i class="fa-solid fa-shield-halved"></i> Admin Master Console</a></li>
                 </ul>
             </div>
