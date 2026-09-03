@@ -68,8 +68,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $runImportCbp = (isset($_GET['import_cbp']) && $_GET['import_cbp'] === '1') || (isset($_GET['type']) && $_GET['type'] === 'cbp');
     $runImportStock = (isset($_GET['import_stock']) && $_GET['import_stock'] === '1') || (isset($_GET['type']) && $_GET['type'] === 'stock');
     $runImportOos = (isset($_GET['import_oos']) && $_GET['import_oos'] === '1') || (isset($_GET['type']) && $_GET['type'] === 'oos');
+    $runImportDaily = (isset($_GET['import_daily']) && $_GET['import_daily'] === '1') || (isset($_GET['type']) && in_array($_GET['type'], ['daily', 'maintenance', 'daily_maintenance']));
 
-    if ($runImportOos) {
+    if ($runImportDaily) {
+        $importCmd = 'dulux:import-daily-maintenance';
+        $importTitle = 'DAILY MAINTENANCE DULUX';
+    } elseif ($runImportOos) {
         $importCmd = 'dulux:import-oos';
         $importTitle = 'OOS DULUX (LSO & SSO)';
     } elseif ($runImportStock) {
