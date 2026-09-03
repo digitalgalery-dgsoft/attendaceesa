@@ -468,8 +468,8 @@ class PrincipalPortalController extends Controller
                 $q->where(function ($subQ) use ($search, $likeOp) {
                     $subQ->whereIn('report_submissions.employee_id', function ($eQ) use ($search, $likeOp) {
                         $eQ->select('id')->from('employees')
-                           ->where('name', $likeOp, "%{$search}%")
-                           ->orWhere('nik', $likeOp, "%{$search}%");
+                           ->where('full_name', $likeOp, "%{$search}%")
+                           ->orWhere('employee_no', $likeOp, "%{$search}%");
                     })->orWhereIn('report_submissions.work_location_id', function ($wQ) use ($search, $likeOp) {
                         $wQ->select('id')->from('work_locations')
                            ->where('name', $likeOp, "%{$search}%");
@@ -501,7 +501,7 @@ class PrincipalPortalController extends Controller
         $itemsQuery = ReportSubmission::where('report_submissions.report_template_id', $template->id)
             ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
             ->with([
-                'employee:id,name,nik,branch_id',
+                'employee:id,full_name,employee_no,branch_id',
                 'employee.branch:id,name,region',
                 'workLocation:id,name,code,region,branch_id',
                 'workLocation.branch:id,name,region',
@@ -522,8 +522,8 @@ class PrincipalPortalController extends Controller
             $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
             $itemsQuery->where(function ($q) use ($search, $likeOp) {
                 $q->whereHas('employee', function ($sub) use ($search, $likeOp) {
-                    $sub->where('employees.name', $likeOp, "%{$search}%")
-                        ->orWhere('employees.nik', $likeOp, "%{$search}%");
+                    $sub->where('employees.full_name', $likeOp, "%{$search}%")
+                        ->orWhere('employees.employee_no', $likeOp, "%{$search}%");
                 })->orWhereHas('workLocation', function ($sub) use ($search, $likeOp) {
                     $sub->where('work_locations.name', $likeOp, "%{$search}%");
                 });
