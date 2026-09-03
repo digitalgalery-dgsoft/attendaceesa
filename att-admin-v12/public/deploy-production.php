@@ -66,8 +66,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $runPrincipals = isset($_GET['principals']) && $_GET['principals'] === '1';
     $runImportOfftake = isset($_GET['import_offtake']) && $_GET['import_offtake'] === '1';
     $runImportCbp = (isset($_GET['import_cbp']) && $_GET['import_cbp'] === '1') || (isset($_GET['type']) && $_GET['type'] === 'cbp');
-    $importCmd = $runImportCbp ? 'dulux:import-cbp' : 'dulux:import-offtake';
-    $importTitle = $runImportCbp ? 'CBP DULUX' : 'OFFTAKE DULUX';
+    $runImportStock = (isset($_GET['import_stock']) && $_GET['import_stock'] === '1') || (isset($_GET['type']) && $_GET['type'] === 'stock');
+
+    if ($runImportStock) {
+        $importCmd = 'dulux:import-stock';
+        $importTitle = 'STOCK END DULUX';
+    } elseif ($runImportCbp) {
+        $importCmd = 'dulux:import-cbp';
+        $importTitle = 'CBP DULUX';
+    } else {
+        $importCmd = 'dulux:import-offtake';
+        $importTitle = 'OFFTAKE DULUX';
+    }
 
     $targetServer = isset($_GET['server']) ? intval($_GET['server']) : (isset($_GET['only_server']) ? intval($_GET['only_server']) : 0);
     $onlyImport = isset($_GET['only_import']) && $_GET['only_import'] === '1';

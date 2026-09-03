@@ -12,7 +12,8 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 | **Impor Data Historis Offtake 2025** | 🟢 Selesai (100%) | 843.455 baris data (Jan–Des 2025) berhasil dimigrasi |
 | **Ekstraksi & Impor Data Offtake 2026** | 🟢 Selesai (100%) | 439.819 baris data (Jan–Jul 2026) berhasil diproses ke JSONL chunks & SQLite |
 | **Ekstraksi & Impor Data CBP 2026** | 🟢 Selesai (100%) | 117.012 baris monitoring harga (Jan–Jul 2026) di-stream ke JSONL chunks, SQLite & DB |
-| **Penyesuaian Formulir Pelaporan ICI Paint** | 🟢 Selesai (100%) | CBP, OOS LSO/SSO, Data Pelanggan, Daily Maintenance |
+| **Ekstraksi & Impor Data Stock End 2026** | 🟢 Selesai (100%) | 85.967 baris data stock fisik & tinter (Jan–Jul 2026, 28,3M L) ke JSONL chunks & DB |
+| **Penyesuaian Formulir Pelaporan ICI Paint** | 🟢 Selesai (100%) | CBP, OOS LSO/SSO, Data Pelanggan, Stock End & Tinter |
 | **Optimasi Performa & Query Skala Besar** | 🟢 Selesai | Mengakomodasi 14.000+ store & jutaan data submission |
 | **UI/UX Loading Screen Layar Tengah** | 🟢 Selesai | Animasi glassmorphism & dual-orbit loader otomatis |
 | **Pipeline Otomatisasi Deploy Multi-Server** | 🟢 Aktif | CI/CD sync multi-vhost + auto syntax check (`php -l`) |
