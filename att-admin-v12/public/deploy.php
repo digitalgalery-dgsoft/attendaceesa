@@ -43,9 +43,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
 
     if (isset($_GET['import_offtake']) && $_GET['import_offtake'] === '1') {
-        $m = isset($_GET['month']) ? ' --month=' . intval($_GET['month']) : '';
+        $y = isset($_GET['year']) ? ' --year=' . intval($_GET['year']) : '';
+        $m = isset($_GET['month']) ? ' --month=' . escapeshellarg($_GET['month']) : '';
         $lim = isset($_GET['limit']) ? ' --limit=' . intval($_GET['limit']) : '';
-        $commands[] = '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan dulux:import-offtake' . $m . $lim;
+        $commands[] = '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan dulux:import-offtake' . $y . $m . $lim;
     }
 
     if (isset($_GET['seed']) && $_GET['seed'] === '1') {

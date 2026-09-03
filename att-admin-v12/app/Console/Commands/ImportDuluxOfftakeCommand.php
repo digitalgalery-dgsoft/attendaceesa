@@ -13,12 +13,13 @@ use App\Models\Company;
 
 class ImportDuluxOfftakeCommand extends Command
 {
-    protected $signature = 'dulux:import-offtake {--month= : Specific month to import (1-12)} {--limit=0 : Limit number of rows}';
-    protected $description = 'Import Dulux Offtake 2025 dataset from JSONL chunks into Report Submissions';
+    protected $signature = 'dulux:import-offtake {--year=2026 : Target year to import (2025 or 2026)} {--month= : Specific month to import (1-12)} {--limit=0 : Limit number of rows}';
+    protected $description = 'Import Dulux Offtake dataset from JSONL chunks into Report Submissions';
 
     public function handle(): int
     {
-        $this->info("=== Starting Dulux Offtake 2025 Import ===");
+        $targetYear = (int) ($this->option('year') ?: 2026);
+        $this->info("=== Starting Dulux Offtake {$targetYear} Import ===");
 
         $chunksDir = storage_path('app/dulux_data/chunks');
         if (!is_dir($chunksDir)) {
@@ -124,7 +125,17 @@ class ImportDuluxOfftakeCommand extends Command
                 $months = [(int)$targetMonthOpt];
             }
         } else {
-            $months = range(1, 12);
+            // Dynamically discover available month chunks for the target year
+            $months = [];
+            for ($i = 1; $i <= 12; $i++) {
+                $mP = str_pad($i, 2, '0', STR_PAD_LEFT);
+                if (file_exists($chunksDir . "/offtake_{$targetYear}_m{$mP}.jsonl.gz")) {
+                    $months[] = $i;
+                }
+            }
+            if (empty($months)) {
+                $months = range(1, 12);
+            }
         }
 
         $totalImported = 0;
@@ -133,14 +144,14 @@ class ImportDuluxOfftakeCommand extends Command
 
         foreach ($months as $m) {
             $mPad = str_pad($m, 2, '0', STR_PAD_LEFT);
-            $chunkFile = $chunksDir . "/offtake_2025_m{$mPad}.jsonl.gz";
+            $chunkFile = $chunksDir . "/offtake_{$targetYear}_m{$mPad}.jsonl.gz";
 
             if (!file_exists($chunkFile)) {
                 $this->warn("Chunk file not found: {$chunkFile}, skipping.");
                 continue;
             }
 
-            $this->info(PHP_EOL . "Importing Month {$m} from offtake_2025_m{$mPad}.jsonl.gz...");
+            $this->info(PHP_EOL . "Importing Year {$targetYear} Month {$m} from offtake_{$targetYear}_m{$mPad}.jsonl.gz...");
             $fp = gzopen($chunkFile, 'rb');
             if (!$fp) {
                 $this->error("Failed to open {$chunkFile}");
@@ -183,10 +194,10 @@ class ImportDuluxOfftakeCommand extends Command
                     if ($sap) $locByCode[$sap] = $workLocId;
                 }
 
-                $transDate = $row['trans_date'] ?: '2025-01-01';
+                $transDate = $row['trans_date'] ?: ($targetYear . '-01-01');
                 $submittedAt = $transDate . ' 12:00:00';
                 $verifiedAt = $transDate . ' 17:00:00';
-                $subCode = 'SUB-OFFTAKE-2025-' . str_pad($rawId, 7, '0', STR_PAD_LEFT);
+                $subCode = "SUB-OFFTAKE-{$targetYear}-" . str_pad($rawId, 7, '0', STR_PAD_LEFT);
 
                 $subData = [
                     'report_template_id' => $template->id,

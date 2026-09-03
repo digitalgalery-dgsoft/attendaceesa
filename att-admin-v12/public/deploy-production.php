@@ -67,6 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $runImportOfftake = isset($_GET['import_offtake']) && $_GET['import_offtake'] === '1';
     $targetServer = isset($_GET['server']) ? intval($_GET['server']) : (isset($_GET['only_server']) ? intval($_GET['only_server']) : 0);
     $onlyImport = isset($_GET['only_import']) && $_GET['only_import'] === '1';
+    $offtakeYear = isset($_GET['year']) ? ' --year=' . escapeshellarg($_GET['year']) : '';
     $offtakeMonth = isset($_GET['month']) ? ' --month=' . escapeshellarg($_GET['month']) : '';
     $offtakeLimit = isset($_GET['limit']) ? ' --limit=' . intval($_GET['limit']) : '';
 
@@ -90,8 +91,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 set -e
                 PHP_BIN=\"/www/server/php/83/bin/php -d extension=pgsql.so -d extension=pdo_pgsql.so\"
                 cd {$srv['path']}
-                echo '=== MENJALANKAN IMPORT OFFTAKE DULUX 2025 ==='
-                \$PHP_BIN artisan dulux:import-offtake{$offtakeMonth}{$offtakeLimit}
+                echo '=== MENJALANKAN IMPORT OFFTAKE DULUX ==='
+                \$PHP_BIN artisan dulux:import-offtake{$offtakeYear}{$offtakeMonth}{$offtakeLimit}
                 echo 'DEPLOY_SUCCESS_FLAG'
             ";
         } else {
@@ -183,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             " . ($runMigration ? "echo '4. Menjalankan Database Migration...' && (\$PHP_BIN artisan migrate --force || true)\n" : "") . "
             " . ($runPrincipals ? "echo '4b. Menyinkronkan Relasi Principal...' && (\$PHP_BIN artisan reporting:link-principals || true)\n" : "") . "
-            " . ($runImportOfftake ? "echo '4c. Mengimpor Data Offtake Dulux 2025...' && (\$PHP_BIN artisan dulux:import-offtake{$offtakeMonth}{$offtakeLimit} || true)\n" : "") . "
+            " . ($runImportOfftake ? "echo '4c. Mengimpor Data Offtake Dulux...' && (\$PHP_BIN artisan dulux:import-offtake{$offtakeYear}{$offtakeMonth}{$offtakeLimit} || true)\n" : "") . "
 
             echo '5. Membersihkan cache...'
             chmod -R 777 storage bootstrap/cache 2>/dev/null || true

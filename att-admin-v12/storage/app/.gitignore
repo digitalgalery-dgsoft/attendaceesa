@@ -1,4 +1,7 @@
 *
 !private/
 !public/
+!dulux_data/
+!dulux_data/**
+dulux_data/*.sqlite
 !.gitignore

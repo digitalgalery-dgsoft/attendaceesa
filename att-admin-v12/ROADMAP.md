@@ -10,6 +10,7 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 | :--- | :---: | :--- |
 | **Portal Principal Dulux (PT ICI Paints Indonesia)** | 🟢 Aktif / Live | `https://dulux.esa-solutions.id/portal` |
 | **Impor Data Historis Offtake 2025** | 🟢 Selesai (100%) | 843.455 baris data (Jan–Des 2025) berhasil dimigrasi |
+| **Ekstraksi & Impor Data Offtake 2026** | 🟢 Selesai (100%) | 439.819 baris data (Jan–Jul 2026) berhasil diproses ke JSONL chunks & SQLite |
 | **Penyesuaian Formulir Pelaporan ICI Paint** | 🟢 Selesai (100%) | CBP, OOS LSO/SSO, Data Pelanggan, Daily Maintenance |
 | **Optimasi Performa & Query Skala Besar** | 🟢 Selesai | Mengakomodasi 14.000+ store & jutaan data submission |
 | **UI/UX Loading Screen Layar Tengah** | 🟢 Selesai | Animasi glassmorphism & dual-orbit loader otomatis |
@@ -66,6 +67,28 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
   - **November 2025**: 65.143 baris
   - **Desember 2025**: 68.808 baris
   - **Total**: **843.455 record laporan** tersimpan di tabel `report_submissions` dan `report_submission_values`.
+
+---
+
+### 3.1 Pemrosesan & Impor Data Laporan Offtake Tahun 2026 (439.819 Baris)
+- [x] **Parsing File Sumber**: Mengolah file arsip `Raw Offtake 2026.xlsx` (55.4 MB) menggunakan streaming XML berkecepatan tinggi (`build_offtake_2026.php`).
+- [x] **Normalisasi Kolom & Koreksi Data**:
+  - Menyesuaikan pergeseran kolom (Area di Kolom F, Store di Kolom I, SAP di Kolom J, Sub Brand di Kolom L, Brand di Kolom O, Kemasan Galon/Pail di Q/T, Volume di Kolom X).
+  - Mengoreksi 8.864 baris yang salah ketik tahun 2025 pada Kolom B menjadi tahun 2026 berdasarkan tanggal transaksi riil (Kolom A).
+- [x] **Generasi Dataset & Chunking Terkompresi**:
+  - Membangun SQLite database `storage/app/dulux_data/offtake_2026.sqlite` (84.6 MB) & `offtake_2026.sqlite.gz` (17.5 MB).
+  - Membagi dataset menjadi 7 file batch bulanan terkompresi di `storage/app/dulux_data/chunks/`:
+    - **Januari 2026**: 65.046 baris | Volume: 1.756.563,13 L | Chunk: 0.84 MB
+    - **Februari 2026**: 66.577 baris | Volume: 2.125.002,81 L | Chunk: 0.86 MB
+    - **Maret 2026**: 58.529 baris | Volume: 1.664.950,57 L | Chunk: 0.74 MB
+    - **April 2026**: 57.537 baris | Volume: 1.914.587,11 L | Chunk: 0.76 MB
+    - **Mei 2026**: 61.530 baris | Volume: 2.026.805,76 L | Chunk: 0.81 MB
+    - **Juni 2026**: 62.666 baris | Volume: 2.147.997,50 L | Chunk: 0.82 MB
+    - **Juli 2026**: 67.934 baris | Volume: 2.273.081,99 L | Chunk: 0.88 MB
+    - **Total**: **439.819 baris** | **13.908.988,86 Liter** | **629 Toko Unik**
+- [x] **Peningkatan Artisan Command & Skrip Deploy**:
+  - `ImportDuluxOfftakeCommand.php` diperbarui mendukung opsi `--year=2026` (atau `--year=2025`) dan deteksi otomatis file chunk.
+  - Skrip deploy produksi `public/deploy-production.php` dan `public/deploy.php` mendukung parameter `year` untuk eksekusi fleksibel.
 
 ---
 
