@@ -477,16 +477,22 @@ class PrincipalPortalController extends Controller
                 });
             }
 
-            return $q->selectRaw('
+            $row = $q->selectRaw('
                 COUNT(*) as total_count,
                 COUNT(DISTINCT report_submissions.work_location_id) as store_count,
                 COUNT(DISTINCT report_submissions.employee_id) as emp_count
             ')->first();
+
+            return [
+                'total_count' => (int) ($row->total_count ?? 0),
+                'store_count' => (int) ($row->store_count ?? 0),
+                'emp_count'   => (int) ($row->emp_count ?? 0),
+            ];
         });
 
-        $totalTemplateSubmissions = (int) ($stats->total_count ?? 0);
-        $uniqueStores = (int) ($stats->store_count ?? 0);
-        $uniqueEmployees = (int) ($stats->emp_count ?? 0);
+        $totalTemplateSubmissions = is_array($stats) ? (int) ($stats['total_count'] ?? 0) : (int) ($stats->total_count ?? 0);
+        $uniqueStores = is_array($stats) ? (int) ($stats['store_count'] ?? 0) : (int) ($stats->store_count ?? 0);
+        $uniqueEmployees = is_array($stats) ? (int) ($stats['emp_count'] ?? 0) : (int) ($stats->emp_count ?? 0);
 
         // Optimasi Pagination Item: ambil relasi kolom terdefinisi saja & gunakan LengthAwarePaginator agar bebas query count ganda
         $page = (int) $request->query('page', 1);
@@ -683,9 +689,9 @@ class PrincipalPortalController extends Controller
             return $results;
         });
 
-        // Dropdown Data for Region & Area (Cached 30 Menit)
-        $cacheKeyFilters = 'rep_filters_' . implode('_', $scopedPrincipalIds) . '_' . ($selectedRegion ?: 'all');
-        [$regions, $areas] = Cache::remember($cacheKeyFilters, 1800, function() use ($scopedPrincipalIds, $selectedRegion) {
+        // Dropdown Data for Region (Cached 30 Menit)
+        $cacheKeyRegions = 'rep_filters_reg_' . implode('_', $scopedPrincipalIds);
+        $regions = Cache::remember($cacheKeyRegions, 1800, function() use ($scopedPrincipalIds) {
             $regs = WorkLocation::where(function($q) use ($scopedPrincipalIds) {
                 $q->whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id');
             })->whereNotNull('region')->where('region', '!=', '')->distinct()->orderBy('region')->pluck('region')->toArray();
@@ -694,14 +700,14 @@ class PrincipalPortalController extends Controller
                 $regs = Branch::whereNotNull('region')->where('region', '!=', '')->distinct()->orderBy('region')->pluck('region')->toArray();
             }
 
-            $areaQ = Branch::query();
-            if ($selectedRegion) {
-                $areaQ->where('region', $selectedRegion);
-            }
-            $ars = $areaQ->orderBy('name')->get();
-
-            return [$regs, $ars];
+            return $regs;
         });
+
+        $areaQuery = Branch::query();
+        if ($selectedRegion) {
+            $areaQuery->where('region', $selectedRegion);
+        }
+        $areas = $areaQuery->orderBy('name')->get();
 
         $storeQuery = WorkLocation::query()->select(['id', 'name', 'region', 'branch_id']);
         if ($selectedRegion) {
