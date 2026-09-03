@@ -804,6 +804,73 @@
         </div>
     </form>
 
+    @if(isset($isYtdReport) && $isYtdReport)
+        <div class="widget-content-card" style="margin-bottom: 1.5rem; border: 2px solid var(--brand-primary);">
+            <div class="widget-card-header" style="background: #f8fafc; margin: -1.25rem -1.5rem 1rem -1.5rem; padding: 1.25rem 1.5rem; border-top-left-radius: 14px; border-top-right-radius: 14px;">
+                <div class="widget-card-title" style="font-size: 1.2rem;">
+                    <i class="fa-solid fa-chart-column" style="color: var(--brand-primary); font-size: 1.4rem;"></i>
+                    YTD Comparison Laporan (Volume Liter)
+                </div>
+                <div class="widget-card-sub" style="font-size: 0.85rem; margin-top: 0.35rem;">
+                    Berdasarkan tanggal: 1 Jan - Akhir {{ Carbon\Carbon::create(null, $endMonth, 1)->translatedFormat('F') }} ({{ $endYear }} vs {{ $endYear - 1 }})
+                </div>
+            </div>
+
+            <div class="dashboard-grid" style="margin-bottom: 0;">
+                <div class="col-span-7">
+                    <div class="table-container-card" style="box-shadow: none; border: 1px solid var(--border-color); padding: 0; border-radius: 12px; overflow: hidden;">
+                        <table class="custom-table" style="margin-bottom: 0;">
+                            <thead>
+                                <tr style="background: var(--brand-primary); color: white;">
+                                    <th style="color: white; border-bottom: none; font-size: 0.8rem;">Deskripsi</th>
+                                    <th style="color: white; text-align: right; border-bottom: none; font-size: 0.8rem;">YTD {{ $endYear }}<br><small>(Tahun Berjalan)</small></th>
+                                    <th style="color: white; text-align: center; border-bottom: none; font-size: 0.8rem;">%</th>
+                                    <th style="color: white; text-align: right; border-bottom: none; font-size: 0.8rem;">YTD {{ $endYear - 1 }}<br><small>(Tahun Sebelumnya)</small></th>
+                                    <th style="color: white; text-align: right; border-bottom: none; font-size: 0.8rem;">Growth</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if(!empty($ytdData['details']))
+                                    @foreach($ytdData['details'] as $row)
+                                        <tr>
+                                            <td style="font-weight: 700; color: var(--brand-primary);">{{ $row['brand'] }}</td>
+                                            <td style="text-align: right; font-weight: 700;">{{ number_format($row['cy_volume'], 2) }}</td>
+                                            <td style="text-align: center; font-weight: 600;">{{ number_format($row['percentage'], 1) }}%</td>
+                                            <td style="text-align: right; color: var(--text-muted);">{{ number_format($row['py_volume'], 2) }}</td>
+                                            <td style="text-align: right; font-weight: 700; color: {{ $row['growth'] > 0 ? '#10b981' : ($row['growth'] < 0 ? '#ef4444' : 'var(--text-muted)') }};">
+                                                @if($row['growth'] > 0)<i class="fa-solid fa-arrow-trend-up"></i>@endif
+                                                @if($row['growth'] < 0)<i class="fa-solid fa-arrow-trend-down"></i>@endif
+                                                {{ number_format($row['growth'], 1) }}%
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                    <tr style="background: #f1f5f9; border-top: 2px solid var(--border-color);">
+                                        <td style="font-weight: 800; font-size: 0.95rem;">Total DC</td>
+                                        <td style="text-align: right; font-weight: 800; font-size: 0.95rem;">{{ number_format($ytdData['total']['cy_volume'], 2) }}</td>
+                                        <td style="text-align: center; font-weight: 800;">100%</td>
+                                        <td style="text-align: right; font-weight: 800; color: var(--text-muted);">{{ number_format($ytdData['total']['py_volume'], 2) }}</td>
+                                        <td style="text-align: right; font-weight: 800; font-size: 0.95rem; color: {{ $ytdData['total']['growth'] > 0 ? '#10b981' : ($ytdData['total']['growth'] < 0 ? '#ef4444' : 'var(--text-muted)') }};">
+                                            @if($ytdData['total']['growth'] > 0)<i class="fa-solid fa-arrow-trend-up"></i>@endif
+                                            @if($ytdData['total']['growth'] < 0)<i class="fa-solid fa-arrow-trend-down"></i>@endif
+                                            {{ number_format($ytdData['total']['growth'], 1) }}%
+                                        </td>
+                                    </tr>
+                                @else
+                                    <tr>
+                                        <td colspan="5" style="text-align: center; padding: 2rem;">Belum ada data YTD untuk periode ini.</td>
+                                    </tr>
+                                @endif
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-span-5">
+                    <div id="chart_ytd_comparison" style="min-height: 250px;"></div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Dynamic 12-Column Dashboard Canvas (Sortable in Studio Mode) -->
     <div id="dashboard_canvas" class="dashboard-grid">
         @php
@@ -1347,6 +1414,78 @@
             currentDashboardConfig.widgets = currentDashboardConfig.widgets.filter(function(w) { return w.id !== wId; });
         }
     }
+
+    // ====== YTD CHART RENDERING ======
+    @if(isset($isYtdReport) && $isYtdReport && !empty($ytdData['details']))
+    document.addEventListener('DOMContentLoaded', function() {
+        var ytdCategories = {!! json_encode(array_column($ytdData['details'], 'brand')) !!};
+        var cyData = {!! json_encode(array_column($ytdData['details'], 'cy_volume')) !!};
+        var pyData = {!! json_encode(array_column($ytdData['details'], 'py_volume')) !!};
+        
+        var ytdOptions = {
+            series: [{
+                name: 'YTD {{ $endYear }}',
+                data: cyData
+            }, {
+                name: 'YTD {{ $endYear - 1 }}',
+                data: pyData
+            }],
+            chart: {
+                type: 'bar',
+                height: 280,
+                toolbar: { show: false },
+                fontFamily: 'Outfit, sans-serif'
+            },
+            plotOptions: {
+                bar: {
+                    horizontal: false,
+                    columnWidth: '55%',
+                    endingShape: 'rounded',
+                    borderRadius: 4
+                },
+            },
+            dataLabels: {
+                enabled: false
+            },
+            stroke: {
+                show: true,
+                width: 2,
+                colors: ['transparent']
+            },
+            xaxis: {
+                categories: ytdCategories,
+                labels: { style: { fontWeight: 600 } }
+            },
+            yaxis: {
+                title: { text: 'Volume (Liter)', style: { fontWeight: 600 } },
+                labels: {
+                    formatter: function (val) {
+                        if (val >= 1000) return (val/1000).toFixed(1) + "k";
+                        return val.toFixed(0);
+                    }
+                }
+            },
+            fill: {
+                opacity: 1
+            },
+            tooltip: {
+                y: {
+                    formatter: function (val) {
+                        return val.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " Liter"
+                    }
+                }
+            },
+            colors: ['var(--brand-primary)', '#cbd5e1'],
+            legend: {
+                position: 'top',
+                horizontalAlign: 'right'
+            }
+        };
+        
+        var ytdChart = new ApexCharts(document.querySelector("#chart_ytd_comparison"), ytdOptions);
+        ytdChart.render();
+    });
+    @endif
 
     // Modal Add / Edit Widget
     function openAddWidgetModal() {

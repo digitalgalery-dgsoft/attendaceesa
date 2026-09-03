@@ -549,38 +549,38 @@ class PrincipalPortalController extends Controller
             $results = [];
             $driver = DB::connection()->getDriverName();
 
-            // Ultra-Fast Submission ID Pluck untuk filtering nilai form submission (mengurangi beban join 1000x)
-            $subIdsQuery = DB::table('report_submissions')
-                ->where('report_submissions.report_template_id', $template->id)
-                ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate]);
+            // Helper function to apply common filters to any report_submissions query
+            $applySubFilters = function($query) use ($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $driver) {
+                $query->where('report_submissions.report_template_id', $template->id)
+                      ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate]);
 
-            if ($selectedRegion) {
-                $subIdsQuery->join('work_locations as wl_reg', 'report_submissions.work_location_id', '=', 'wl_reg.id')
-                            ->where('wl_reg.region', $selectedRegion);
-            }
-            if ($selectedAreaId) {
-                $subIdsQuery->where('report_submissions.work_location_id', function($subQ) use ($selectedAreaId) {
-                    $subQ->select('id')->from('work_locations')->where('branch_id', $selectedAreaId);
-                });
-            }
-            if ($selectedLocationId) {
-                $subIdsQuery->where('report_submissions.work_location_id', $selectedLocationId);
-            }
-            if ($search) {
-                $likeOp = $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
-                $subIdsQuery->where(function ($subQ) use ($search, $likeOp) {
-                    $subQ->whereIn('report_submissions.employee_id', function ($eQ) use ($search, $likeOp) {
-                        $eQ->select('id')->from('employees')
-                           ->where('full_name', $likeOp, "%{$search}%")
-                           ->orWhere('employee_no', $likeOp, "%{$search}%");
-                    })->orWhereIn('report_submissions.work_location_id', function ($wQ) use ($search, $likeOp) {
-                        $wQ->select('id')->from('work_locations')
-                           ->where('name', $likeOp, "%{$search}%");
+                if ($selectedRegion) {
+                    $query->join('work_locations as wl_reg', 'report_submissions.work_location_id', '=', 'wl_reg.id')
+                          ->where('wl_reg.region', $selectedRegion);
+                }
+                if ($selectedAreaId) {
+                    $query->where('report_submissions.work_location_id', function($subQ) use ($selectedAreaId) {
+                        $subQ->select('id')->from('work_locations')->where('branch_id', $selectedAreaId);
                     });
-                });
-            }
-
-            $submissionIds = $subIdsQuery->pluck('report_submissions.id')->toArray();
+                }
+                if ($selectedLocationId) {
+                    $query->where('report_submissions.work_location_id', $selectedLocationId);
+                }
+                if ($search) {
+                    $likeOp = $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
+                    $query->where(function ($subQ) use ($search, $likeOp) {
+                        $subQ->whereIn('report_submissions.employee_id', function ($eQ) use ($search, $likeOp) {
+                            $eQ->select('id')->from('employees')
+                               ->where('full_name', $likeOp, "%{$search}%")
+                               ->orWhere('employee_no', $likeOp, "%{$search}%");
+                        })->orWhereIn('report_submissions.work_location_id', function ($wQ) use ($search, $likeOp) {
+                            $wQ->select('id')->from('work_locations')
+                               ->where('name', $likeOp, "%{$search}%");
+                        });
+                    });
+                }
+                return $query;
+            };
 
             foreach ($widgets as $w) {
                 $wId = $w['id'] ?? uniqid('w_');
@@ -598,24 +598,22 @@ class PrincipalPortalController extends Controller
                     } elseif ($metric === '_unique_employee' || $dim === 'employee_id' || $metric === 'employee_id') {
                         $val = $uniqueEmployees;
                     } else {
-                        if (empty($submissionIds)) {
-                            $val = 0;
-                        } else {
-                            $valQuery = DB::table('report_submission_values')
-                                ->where('field_name', $metric)
-                                ->whereIn('report_submission_id', $submissionIds);
+                        $valQuery = DB::table('report_submission_values')
+                            ->where('report_submission_values.field_name', $metric)
+                            ->whereIn('report_submission_values.report_submission_id', function($subQ) use ($applySubFilters) {
+                                $applySubFilters($subQ->select('report_submissions.id')->from('report_submissions'));
+                            });
 
-                            if ($agg === 'SUM') {
-                                $val = (float) $valQuery->sum('value_number');
-                            } elseif ($agg === 'AVG') {
-                                $val = round((float) $valQuery->avg('value_number'), 1);
-                            } elseif ($agg === 'MAX') {
-                                $val = (float) $valQuery->max('value_number');
-                            } elseif ($agg === 'MIN') {
-                                $val = (float) $valQuery->min('value_number');
-                            } else {
-                                $val = (int) $valQuery->count();
-                            }
+                        if ($agg === 'SUM') {
+                            $val = (float) $valQuery->sum('report_submission_values.value_number');
+                        } elseif ($agg === 'AVG') {
+                            $val = round((float) $valQuery->avg('report_submission_values.value_number'), 1);
+                        } elseif ($agg === 'MAX') {
+                            $val = (float) $valQuery->max('report_submission_values.value_number');
+                        } elseif ($agg === 'MIN') {
+                            $val = (float) $valQuery->min('report_submission_values.value_number');
+                        } else {
+                            $val = (int) $valQuery->count();
                         }
                     }
 
@@ -631,14 +629,10 @@ class PrincipalPortalController extends Controller
                     if ($dim === '_submitted_date') {
                         $diffInMonths = $startDate->diffInMonths($endDate);
                         if ($diffInMonths > 1) {
-                            $periodExpr = $driver === 'pgsql' ? "TO_CHAR(submitted_at, 'YYYY-MM')" : "DATE_FORMAT(submitted_at, '%Y-%m')";
-                            $dateQuery = DB::table('report_submissions')
-                                ->where('report_template_id', $template->id)
-                                ->whereBetween('submitted_at', [$startDate, $endDate]);
-                            if (!empty($submissionIds)) {
-                                $dateQuery->whereIn('id', $submissionIds);
-                            }
-                            $dateQuery = $dateQuery->selectRaw("{$periodExpr} as period_key, count(*) as total")
+                            $periodExpr = $driver === 'pgsql' ? "TO_CHAR(report_submissions.submitted_at, 'YYYY-MM')" : "DATE_FORMAT(report_submissions.submitted_at, '%Y-%m')";
+                            $dateQuery = DB::table('report_submissions');
+                            $applySubFilters($dateQuery);
+                            $dateResults = $dateQuery->selectRaw("{$periodExpr} as period_key, count(*) as total")
                                 ->groupBy('period_key')
                                 ->orderBy('period_key')
                                 ->pluck('total', 'period_key');
@@ -647,18 +641,14 @@ class PrincipalPortalController extends Controller
                             while ($currentPeriod->lte($endDate)) {
                                 $k = $currentPeriod->format('Y-m');
                                 $label = $currentPeriod->translatedFormat('M Y');
-                                $groups[$label] = $dateQuery[$k] ?? 0;
+                                $groups[$label] = $dateResults[$k] ?? 0;
                                 $currentPeriod->addMonth();
                             }
                         } else {
-                            $dayExpr = $driver === 'pgsql' ? "TO_CHAR(submitted_at, 'YYYY-MM-DD')" : "DATE_FORMAT(submitted_at, '%Y-%m-%d')";
-                            $dateQuery = DB::table('report_submissions')
-                                ->where('report_template_id', $template->id)
-                                ->whereBetween('submitted_at', [$startDate, $endDate]);
-                            if (!empty($submissionIds)) {
-                                $dateQuery->whereIn('id', $submissionIds);
-                            }
-                            $dateQuery = $dateQuery->selectRaw("{$dayExpr} as day_key, count(*) as total")
+                            $dayExpr = $driver === 'pgsql' ? "TO_CHAR(report_submissions.submitted_at, 'YYYY-MM-DD')" : "DATE_FORMAT(report_submissions.submitted_at, '%Y-%m-%d')";
+                            $dateQuery = DB::table('report_submissions');
+                            $applySubFilters($dateQuery);
+                            $dateResults = $dateQuery->selectRaw("{$dayExpr} as day_key, count(*) as total")
                                 ->groupBy('day_key')
                                 ->orderBy('day_key')
                                 ->pluck('total', 'day_key');
@@ -668,25 +658,23 @@ class PrincipalPortalController extends Controller
                                 $dayObj = Carbon::create($startYear, $startMonth, $d);
                                 $k = $dayObj->format('Y-m-d');
                                 $dateLabel = $dayObj->translatedFormat('d M');
-                                $groups[$dateLabel] = $dateQuery[$k] ?? 0;
+                                $groups[$dateLabel] = $dateResults[$k] ?? 0;
                             }
                         }
                     } else {
                         // Group by field values
-                        if (empty($submissionIds)) {
-                            $groups = [];
-                        } else {
-                            $groupQuery = DB::table('report_submission_values')
-                                ->where('field_name', $dim)
-                                ->whereIn('report_submission_id', $submissionIds)
-                                ->selectRaw('value_text as label, count(*) as total')
-                                ->groupBy('label')
-                                ->orderByDesc('total')
-                                ->limit(10)
-                                ->pluck('total', 'label')
-                                ->toArray();
-                            $groups = $groupQuery;
-                        }
+                        $groupQuery = DB::table('report_submission_values')
+                            ->where('report_submission_values.field_name', $dim)
+                            ->whereIn('report_submission_values.report_submission_id', function($subQ) use ($applySubFilters) {
+                                $applySubFilters($subQ->select('report_submissions.id')->from('report_submissions'));
+                            })
+                            ->selectRaw('report_submission_values.value_text as label, count(*) as total')
+                            ->groupBy('label')
+                            ->orderByDesc('total')
+                            ->limit(10)
+                            ->pluck('total', 'label')
+                            ->toArray();
+                        $groups = $groupQuery;
                     }
 
                     if ($dim !== '_submitted_date') {
@@ -757,6 +745,129 @@ class PrincipalPortalController extends Controller
             }
         }
 
+        // --- YTD Custom Report Logic for Offtake and Stock End ---
+        $isYtdReport = false;
+        $ytdData = [];
+        
+        if (in_array($template->code, ['RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-STOCK-END'])) {
+            $isYtdReport = true;
+            $metricField = $template->code === 'RPT-DULUX-OFFTAKE-01' ? 'total_volume_liter' : 'total_volume_stok_liter';
+            $productField = $template->code === 'RPT-DULUX-OFFTAKE-01' ? 'produk_terjual' : 'produk_stock_end';
+            $brandPrefix = $template->code === 'RPT-DULUX-OFFTAKE-01' ? 'Offtake' : 'Stock';
+            
+            $cacheKeyYtd = 'ytd_report_' . md5($template->id . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+            
+            $ytdData = Cache::remember($cacheKeyYtd, 300, function() use ($template, $metricField, $productField, $brandPrefix, $endYear, $endMonth, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
+                $driver = DB::connection()->getDriverName();
+
+                // Determine Current Year Range (1 Jan to end of selected month)
+                $cyStart = \Carbon\Carbon::create($endYear, 1, 1)->startOfDay();
+                $cyEnd = \Carbon\Carbon::create($endYear, $endMonth, 1)->endOfMonth()->endOfDay();
+                
+                // Determine Previous Year Range (1 Jan to end of selected month previous year)
+                $pyStart = \Carbon\Carbon::create($endYear - 1, 1, 1)->startOfDay();
+                $pyEnd = \Carbon\Carbon::create($endYear - 1, $endMonth, 1)->endOfMonth()->endOfDay();
+                
+                $calcYtd = function($start, $end) use ($template, $metricField, $productField, $brandPrefix, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $driver) {
+                    $q = DB::table('report_submissions')
+                        ->join('report_submission_values as rsv_metric', function($j) use ($metricField) {
+                            $j->on('report_submissions.id', '=', 'rsv_metric.report_submission_id')
+                              ->where('rsv_metric.field_name', '=', $metricField);
+                        })
+                        ->leftJoin('report_submission_values as rsv_prod', function($j) use ($productField) {
+                            $j->on('report_submissions.id', '=', 'rsv_prod.report_submission_id')
+                              ->where('rsv_prod.field_name', '=', $productField);
+                        })
+                        ->where('report_submissions.report_template_id', $template->id)
+                        ->whereBetween('report_submissions.submitted_at', [$start, $end]);
+
+                    if ($selectedRegion) {
+                        $q->join('work_locations as wl_reg', 'report_submissions.work_location_id', '=', 'wl_reg.id')
+                          ->where('wl_reg.region', $selectedRegion);
+                    }
+                    if ($selectedAreaId) {
+                        $q->whereIn('report_submissions.work_location_id', function($subQ) use ($selectedAreaId) {
+                            $subQ->select('id')->from('work_locations')->where('branch_id', $selectedAreaId);
+                        });
+                    }
+                    if ($selectedLocationId) {
+                        $q->where('report_submissions.work_location_id', $selectedLocationId);
+                    }
+                    if ($search) {
+                        $likeOp = $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
+                        $q->where(function ($subQ) use ($search, $likeOp) {
+                            $subQ->whereIn('report_submissions.employee_id', function ($eQ) use ($search, $likeOp) {
+                                $eQ->select('id')->from('employees')
+                                   ->where('full_name', $likeOp, "%{$search}%")
+                                   ->orWhere('employee_no', $likeOp, "%{$search}%");
+                            })->orWhereIn('report_submissions.work_location_id', function ($wQ) use ($search, $likeOp) {
+                                $wQ->select('id')->from('work_locations')
+                                   ->where('name', $likeOp, "%{$search}%");
+                            });
+                        });
+                    }
+
+                    $caseExpr = "CASE WHEN rsv_prod.value_text ILIKE '%Catylac%' THEN '{$brandPrefix} Catylac' ELSE '{$brandPrefix} Dulux' END";
+                    return $q->selectRaw("{$caseExpr} as brand, SUM(COALESCE(rsv_metric.value_number, 0)) as total_vol")
+                             ->groupByRaw($caseExpr)
+                             ->pluck('total_vol', 'brand')
+                             ->toArray();
+                };
+
+                $cyData = $calcYtd($cyStart, $cyEnd);
+                $pyData = $calcYtd($pyStart, $pyEnd);
+
+                $allBrands = ["{$brandPrefix} Dulux", "{$brandPrefix} Catylac"];
+                $results = [];
+                $totalCy = 0;
+                $totalPy = 0;
+
+                foreach ($allBrands as $brand) {
+                    $cyVol = (float) ($cyData[$brand] ?? 0);
+                    $pyVol = (float) ($pyData[$brand] ?? 0);
+                    $totalCy += $cyVol;
+                    $totalPy += $pyVol;
+
+                    $growth = 0;
+                    if ($pyVol > 0) {
+                        $growth = (($cyVol - $pyVol) / $pyVol) * 100;
+                    } elseif ($cyVol > 0) {
+                        $growth = 100;
+                    }
+
+                    $results[] = [
+                        'brand' => $brand,
+                        'cy_volume' => $cyVol,
+                        'py_volume' => $pyVol,
+                        'growth' => $growth
+                    ];
+                }
+
+                $totalGrowth = 0;
+                if ($totalPy > 0) {
+                    $totalGrowth = (($totalCy - $totalPy) / $totalPy) * 100;
+                } elseif ($totalCy > 0) {
+                    $totalGrowth = 100;
+                }
+
+                foreach ($results as &$r) {
+                    $r['percentage'] = $totalCy > 0 ? ($r['cy_volume'] / $totalCy) * 100 : 0;
+                }
+
+                return [
+                    'details' => $results,
+                    'total' => [
+                        'brand' => 'Total DC',
+                        'cy_volume' => $totalCy,
+                        'py_volume' => $totalPy,
+                        'growth' => $totalGrowth,
+                        'percentage' => 100
+                    ]
+                ];
+            });
+        }
+        // --------------------------------------------------------
+
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();
 
@@ -782,7 +893,9 @@ class PrincipalPortalController extends Controller
             'workLocations',
             'setting',
             'dashboardConfig',
-            'widgetResults'
+            'widgetResults',
+            'isYtdReport',
+            'ytdData'
         ));
     }
 
