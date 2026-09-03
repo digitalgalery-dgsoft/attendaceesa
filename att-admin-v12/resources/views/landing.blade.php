@@ -1506,7 +1506,9 @@
             @if(!isset($isEntityServer) || !$isEntityServer)
                 <li><a href="#download"><i class="fa-solid fa-mobile-screen"></i> Download Aplikasi</a></li>
             @endif
-            <li><a href="/login"><i class="fa-solid fa-id-card-clip"></i> Portal Login</a></li>
+            @if(!isset($isEntityServer) || !$isEntityServer)
+                <li><a href="/login"><i class="fa-solid fa-id-card-clip"></i> Portal Login</a></li>
+            @endif
         </ul>
 
         <div class="nav-actions">
@@ -1514,11 +1516,6 @@
                 <a href="#subdomain-hub" class="btn-nav-portal">
                     <i class="fa-solid fa-compass" style="color: var(--brand-primary);"></i>
                     <span>Pilih Portal</span>
-                </a>
-            @else
-                <a href="/login" class="btn-nav-portal">
-                    <i class="fa-solid fa-right-to-bracket" style="color: var(--brand-primary);"></i>
-                    <span>Login Karyawan</span>
                 </a>
             @endif
             <a href="/admin" class="btn-nav-login">
@@ -1555,51 +1552,37 @@
             @endif
         </p>
 
-        <!-- Action Buttons in Hero -->
+        @if(!isset($isEntityServer) || !$isEntityServer)
+        <!-- Action Buttons in Hero (Hanya di Web Utama) -->
         <div class="hero-cta-group">
-            @if(!isset($isEntityServer) || !$isEntityServer)
-                <!-- 1. Tombol Download Android (HANYA DI DOMAIN UTAMA) -->
-                <a href="{{ $apkDownloadUrl }}" class="btn-download-android" target="_blank" rel="noopener noreferrer">
-                    <i class="fa-brands fa-android"></i>
-                    <div class="btn-cta-text">
-                        <span class="btn-cta-sub">Unduh untuk</span>
-                        <span class="btn-cta-main">Android (APK)</span>
-                    </div>
-                    <span style="font-size: 0.72rem; background: rgba(255,255,255,0.18); padding: 0.15rem 0.45rem; border-radius: 6px; margin-left: 0.2rem;">v1.0.114</span>
-                </a>
+            <!-- 1. Tombol Download Android (HANYA DI DOMAIN UTAMA) -->
+            <a href="{{ $apkDownloadUrl }}" class="btn-download-android" target="_blank" rel="noopener noreferrer">
+                <i class="fa-brands fa-android"></i>
+                <div class="btn-cta-text">
+                    <span class="btn-cta-sub">Unduh untuk</span>
+                    <span class="btn-cta-main">Android (APK)</span>
+                </div>
+                <span style="font-size: 0.72rem; background: rgba(255,255,255,0.18); padding: 0.15rem 0.45rem; border-radius: 6px; margin-left: 0.2rem;">v1.0.114</span>
+            </a>
 
-                <!-- 2. Tombol Download iOS (HANYA DI DOMAIN UTAMA) -->
-                <button type="button" class="btn-download-ios" @click="showIosNotice()">
-                    <i class="fa-brands fa-apple"></i>
-                    <div class="btn-cta-text">
-                        <span class="btn-cta-sub">Tersedia di</span>
-                        <span class="btn-cta-main">Apple iOS</span>
-                    </div>
-                    <span class="badge-dev-tag">Dev</span>
-                </button>
+            <!-- 2. Tombol Download iOS (HANYA DI DOMAIN UTAMA) -->
+            <button type="button" class="btn-download-ios" @click="showIosNotice()">
+                <i class="fa-brands fa-apple"></i>
+                <div class="btn-cta-text">
+                    <span class="btn-cta-sub">Tersedia di</span>
+                    <span class="btn-cta-main">Apple iOS</span>
+                </div>
+                <span class="badge-dev-tag">Dev</span>
+            </button>
 
-                <!-- 3. Tombol Portal Hub -->
-                <a href="#subdomain-hub" class="btn-hero-portal-hub">
-                    <i class="fa-solid fa-cubes"></i>
-                    <span>Akses Subdomain</span>
-                    <i class="fa-solid fa-arrow-down" style="font-size: 0.82rem;"></i>
-                </a>
-            @else
-                <!-- Pada Server Entitas (AMK, AKP, ATK): Tombol Download Dihilangkan, Fokus ke Login & Admin -->
-                <a href="/login" class="btn-download-android" style="background: linear-gradient(135deg, {{ $currentEntity['color'] ?? '#2563EB' }} 0%, {{ $currentEntity['color_secondary'] ?? '#1D4ED8' }} 100%);">
-                    <i class="fa-solid fa-right-to-bracket"></i>
-                    <div class="btn-cta-text">
-                        <span class="btn-cta-sub">Portal Karyawan</span>
-                        <span class="btn-cta-main">Login Presensi</span>
-                    </div>
-                </a>
-
-                <a href="/admin" class="btn-hero-admin">
-                    <i class="fa-solid fa-gauge-high" style="color: {{ $currentEntity['color'] ?? 'var(--brand-primary)' }};"></i>
-                    <span>Admin Panel</span>
-                </a>
-            @endif
+            <!-- 3. Tombol Portal Hub -->
+            <a href="#subdomain-hub" class="btn-hero-portal-hub">
+                <i class="fa-solid fa-cubes"></i>
+                <span>Akses Subdomain</span>
+                <i class="fa-solid fa-arrow-down" style="font-size: 0.82rem;"></i>
+            </a>
         </div>
+        @endif
 
         <!-- ─── STATISTIK LIVE OPERASIONAL (HANYA UNTUK SERVER ENTITAS) ── -->
         @if(isset($isEntityServer) && $isEntityServer && !empty($stats))
@@ -2130,7 +2113,9 @@
                     @else
                         <li><a href="https://{{ $baseDomain ?? 'esa-solutions.id' }}/#download" target="_blank"><i class="fa-solid fa-mobile-screen-button" style="color: #10B981;"></i> Unduh APK di Portal Pusat</a></li>
                     @endif
-                    <li><a href="/login"><i class="fa-solid fa-right-to-bracket"></i> Login Portal</a></li>
+                    @if(!isset($isEntityServer) || !$isEntityServer)
+                        <li><a href="/login"><i class="fa-solid fa-right-to-bracket"></i> Login Portal</a></li>
+                    @endif
                     <li><a href="/admin"><i class="fa-solid fa-shield-halved"></i> Admin Master Console</a></li>
                 </ul>
             </div>
