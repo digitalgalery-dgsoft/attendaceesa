@@ -18,7 +18,7 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 | **UI/UX Loading Screen Layar Tengah** | 🟢 Selesai | Animasi glassmorphism & dual-orbit loader otomatis |
 | **AI Biometrik Wajah Mobile (v1.0.119)** | 🟢 Rilis & Live | Rekalibrasi 24 landmarks, threshold 75%, +20.6% separation margin |
 | **Resolusi CPU Overload & Looping Cluster** | 🟢 Selesai (100%) | Eliminasi rekursif cURL loop `/storage`, beban server kembali stabil 1-3% |
-| **Migrasi Konfigurasi IP Server 1 AMK** | 🟢 Diperbarui | Transisi IP ke `38.68.69.225`, konfigurasi cluster & deploy terupdate |
+| **Konfirmasi IP Publik Server 1 AMK** | 🟢 Live di 38.103.170.235 | Klarifikasi IP inbound publik (38.103.170.235) vs NAT egress aaPanel |
 | **Pipeline Otomatisasi Deploy Multi-Server** | 🟢 Aktif | CI/CD sync multi-vhost + auto syntax check (`php -l`) |
 
 ---
@@ -172,15 +172,15 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 
 ---
 
-### 9. Pembaruan Konfigurasi & Migrasi IP Server 1 (PT AMK)
-- [x] **Transisi IP Address Node Server 1**:
-  - Mengupdate IP Server 1 AMK (Jagoan Hosting / Beon Intermedia) dari IP lama `38.103.170.235` ke IP baru **`38.68.69.225`**.
-- [x] **Sinkronisasi Kode & Konfigurasi Cluster**:
-  - `public/deploy-production.php`: Menyesuaikan target deployment IP dan entri `/etc/hosts` cluster ke `38.68.69.225`.
-  - `config/multiserver.php`: Menyesuaikan `SERVER_1_INTERNAL_IP` ke `38.68.69.225`.
-  - `routes/web.php`: Menyesuaikan IP node Server 1 pada landing page portal cluster (`commit 785d05a`).
-- [x] **Verifikasi Jaringan & Port Firewall**:
-  - Panduan membuka port 80 (HTTP) dan port 443 (HTTPS) pada UFW/iptables dan modul Security aaPanel untuk memastikan akses publik `amk.esa-solutions.id` dapat dijangkau dari internet luar.
+### 9. Klarifikasi & Resolusi IP Server 1 AMK (38.103.170.235 vs 38.68.69.225)
+- [x] **Investigasi Perbedaan IP Dashboard VPS vs aaPanel**:
+  - Ditemukan mengapa aaPanel menampilkan `38.68.69.225`: aaPanel mendeteksi IP keluar (*outbound egress / NAT gateway*) server saat melakukan ping keluar ke API Baota/ipify.
+  - Sedangkan IP publik fisik yang mendengarkan koneksi masuk (*inbound listening interface*) sesuai dashboard VPS Jagoan Hosting adalah **`38.103.170.235`**.
+- [x] **Verifikasi Normalisasi DNS**:
+  - Mengarahkan domain `amk.esa-solutions.id` kembali ke IP aslinya `38.103.170.235`.
+  - Website `https://amk.esa-solutions.id` langsung dapat diakses normal, cepat, dan lancar (HTTP 200 OK).
+- [x] **Penyesuaian Konfigurasi Cluster**:
+  - Memastikan seluruh skrip deploy (`deploy-production.php`), konfigurasi multi-server (`config/multiserver.php`), dan landing page cluster tetap konsisten menggunakan IP resmi `38.103.170.235`.
 
 ---
 

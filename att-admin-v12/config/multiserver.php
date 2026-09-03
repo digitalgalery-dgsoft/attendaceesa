@@ -22,7 +22,7 @@ return [
             'code' => 'AMK',
             'public_url' => env('SERVER_1_PUBLIC_URL', 'https://amk.esa-solutions.id'),
             'api_base_url' => env('SERVER_1_API_URL', 'https://amk.esa-solutions.id/api'),
-            'internal_ip' => env('SERVER_1_INTERNAL_IP', '38.68.69.225'),
+            'internal_ip' => env('SERVER_1_INTERNAL_IP', '38.103.170.235'),
             'companies' => [
                 'PT Arina Multi Karya',
                 'Arina Multi Karya',

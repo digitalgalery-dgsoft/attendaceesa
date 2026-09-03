@@ -20,7 +20,7 @@ $servers = [
     [
         'id' => 'amk',
         'name' => 'Server 1: PT Arina Multi Karya (AMK)',
-        'ip' => '38.68.69.225',
+        'ip' => '38.103.170.235',
         'path' => '/www/wwwroot/amk.dgsoft.web.id',
         'domain' => 'amk.esa-solutions.id',
         'ping' => 'https://amk.esa-solutions.id/api/v1/sync/ping',
@@ -137,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             sed -i '/api\.esa-solutions\.id/d' /etc/hosts 2>/dev/null || true
             echo '38.103.170.224 atk.esa-solutions.id' >> /etc/hosts
             echo '38.103.170.223 akp.esa-solutions.id' >> /etc/hosts
-            echo '38.68.69.225 amk.esa-solutions.id api.esa-solutions.id' >> /etc/hosts
+            echo '38.103.170.235 amk.esa-solutions.id api.esa-solutions.id' >> /etc/hosts
 
             echo 'DNS Check dulux.esa-solutions.id: '
             host dulux.esa-solutions.id || nslookup dulux.esa-solutions.id || true
