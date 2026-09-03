@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\Employee;
 use App\Models\Principal;
 use App\Models\ReportFormField;
 use App\Models\ReportTemplate;
-use App\Models\Store;
-use App\Models\User;
+use App\Models\WorkLocation;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -37,28 +37,37 @@ class ImportDuluxStockCommand extends Command
     public function handle(): int
     {
         $year = (int) ($this->option('year') ?: 2026);
-        $monthOpt = $this->option('month');
+        $monthOpt = (string) $this->option('month');
         $limit = (int) $this->option('limit');
 
         $this->info("=== Memulai Impor Dataset Dulux Stock End Tahun {$year} ===");
 
         // 1. Dapatkan Principal Dulux
-        $principal = Principal::where('name', 'LIKE', '%DULUX%')
+        $duluxPrincipal = Principal::where('name', 'LIKE', '%DULUX%')
             ->orWhere('name', 'LIKE', '%ICI%')
             ->orWhere('name', 'LIKE', '%AKZONOBEL%')
             ->orWhere('subdomain', 'dulux')
             ->first();
 
-        if (!$principal) {
-            $principal = Principal::first();
+        if (!$duluxPrincipal) {
+            $duluxPrincipal = Principal::first();
         }
 
-        if (!$principal) {
+        if (!$duluxPrincipal) {
             $this->error('Principal tidak ditemukan di database.');
             return 1;
         }
 
-        $this->info("Principal terpilih: {$principal->name} (ID: {$principal->id})");
+        $allDuluxIds = Principal::where('name', 'LIKE', '%DULUX%')
+            ->orWhere('name', 'LIKE', '%ICI%')
+            ->orWhere('name', 'LIKE', '%AKZONOBEL%')
+            ->pluck('id')
+            ->toArray();
+        if (!in_array($duluxPrincipal->id, $allDuluxIds)) {
+            $allDuluxIds[] = $duluxPrincipal->id;
+        }
+
+        $this->info("Principal terpilih: {$duluxPrincipal->name} (ID: {$duluxPrincipal->id})");
 
         // 2. Dapatkan Template Form RPT-DULUX-STOCK-END
         $template = ReportTemplate::where('code', 'RPT-DULUX-STOCK-END')->first();
@@ -80,28 +89,29 @@ class ImportDuluxStockCommand extends Command
 
         $this->info("Form fields terdaftar: " . count($fieldIds) . " field.");
 
-        // 4. Dapatkan Default User untuk submitter
-        $defaultUser = User::where('principal_id', $principal->id)->first();
-        if (!$defaultUser) {
-            $defaultUser = User::first();
+        // 4. Dapatkan Default Employee untuk submitter
+        $defaultEmp = Employee::whereIn('principal_id', $allDuluxIds)->first();
+        if (!$defaultEmp) {
+            $defaultEmp = Employee::first();
+        }
+        $defaultEmpId = $defaultEmp ? $defaultEmp->id : null;
+
+        // 5. Cache WorkLocation berdasarkan SAP (code) dan Nama Toko
+        $duluxLocations = WorkLocation::whereIn('principal_id', $allDuluxIds)->get();
+        $locByName = [];
+        $locByCode = [];
+        foreach ($duluxLocations as $loc) {
+            $locByName[strtoupper(trim($loc->name))] = $loc->id;
+            if ($loc->code) {
+                $locByCode[trim($loc->code)] = $loc->id;
+            }
         }
 
-        if (!$defaultUser) {
-            $this->error('Tidak ada user di database untuk submitter.');
-            return 1;
-        }
-
-        // 5. Cache Store berdasarkan SAP (store_code)
-        $storeCache = Store::where('principal_id', $principal->id)
-            ->whereNotNull('store_code')
-            ->pluck('id', 'store_code')
-            ->toArray();
-
-        $this->info("Cache toko awal: " . count($storeCache) . " toko dengan kode SAP.");
+        $this->info("Cache lokasi awal: " . count($locByCode) . " lokasi dengan kode SAP.");
 
         // 6. Tentukan bulan yang akan diproses
         $targetMonths = [];
-        if ($monthOpt) {
+        if (!empty($monthOpt)) {
             if (str_contains($monthOpt, '..')) {
                 [$startM, $endM] = explode('..', $monthOpt);
                 for ($m = (int) $startM; $m <= (int) $endM; $m++) {
@@ -160,22 +170,24 @@ class ImportDuluxStockCommand extends Command
                 $rsmArea = trim((string) ($row['rsm_area'] ?? ''));
                 $derp = trim((string) ($row['derp'] ?? ''));
 
-                $storeId = null;
-                if ($sap !== '') {
-                    if (isset($storeCache[$sap])) {
-                        $storeId = $storeCache[$sap];
-                    } else {
-                        $newStore = Store::create([
-                            'name' => $storeName ?: ('Toko Dulux ' . $sap),
-                            'store_code' => $sap,
-                            'address' => $area ? ($area . ', ' . $region) : 'Alamat Toko Dulux',
-                            'city' => $area ?: 'Indonesia',
-                            'principal_id' => $principal->id,
-                            'is_active' => true,
-                        ]);
-                        $storeId = $newStore->id;
-                        $storeCache[$sap] = $storeId;
-                    }
+                $workLocId = null;
+                if ($sap !== '' && isset($locByCode[$sap])) {
+                    $workLocId = $locByCode[$sap];
+                } elseif ($storeName !== '' && isset($locByName[strtoupper($storeName)])) {
+                    $workLocId = $locByName[strtoupper($storeName)];
+                } else {
+                    $newLoc = WorkLocation::create([
+                        'name' => $storeName ?: ('Toko Dulux ' . $sap),
+                        'code' => $sap ?: null,
+                        'region' => $region ?: null,
+                        'branch_name' => $area ?: null,
+                        'category' => 'Retail Store',
+                        'principal_id' => $duluxPrincipal->id,
+                        'is_active' => true,
+                    ]);
+                    $workLocId = $newLoc->id;
+                    if ($storeName !== '') $locByName[strtoupper($storeName)] = $workLocId;
+                    if ($sap !== '') $locByCode[$sap] = $workLocId;
                 }
 
                 // Normalisasi Akses Gudang
@@ -204,36 +216,19 @@ class ImportDuluxStockCommand extends Command
                 $volumeLiter = (float) ($row['volume_liter'] ?? 0.0);
                 $conf = (float) ($row['conf'] ?? 1.0);
 
-                // Buat ringkasan KV form_values
-                $valuesKv = [
-                    'produk_stock_end' => $produk,
-                    'brand_cat' => $brand,
-                    'base_warna' => $baseWarna,
-                    'kemasan_galon' => $kemasanGalon,
-                    'stok_qty_galon' => $qtyGalon,
-                    'kemasan_pail' => $kemasanPail,
-                    'stok_qty_pail' => $qtyPail,
-                    'total_volume_stok_liter' => $volumeLiter,
-                    'konversi_faktor' => $conf,
-                    'kategori_tinter' => 'Tidak Ada Mesin / Non-Tinting',
-                    'tipe_tinter_warna' => 'Semua Warna Dramatone / Full Set',
-                    'qty_kaleng_tinta' => 0,
-                    'status_ketersediaan_tinter' => 'Stok Aman (Siap Oplos)',
-                    'status_akses_gudang' => $statusAkses,
-                    'derp_member_id' => $derp,
-                    'keterangan_stok_toko' => "Area: {$area} | Region: {$region} | RSM: {$rsmArea}",
-                ];
+                $subDate = $row['submission_date'] ?: sprintf('%04d-%02d-20 12:00:00', $year, $m);
+                $verifDate = $row['tgl_catat'] ?: sprintf('%04d-%02d-20 17:00:00', $year, $m);
 
                 $subData = [
                     'report_template_id' => $template->id,
-                    'store_id' => $storeId,
-                    'user_id' => $defaultUser->id,
+                    'principal_id' => $duluxPrincipal->id,
+                    'employee_id' => $defaultEmpId,
+                    'work_location_id' => $workLocId,
                     'submission_code' => $row['submission_code'],
-                    'submitted_at' => $row['submission_date'],
-                    'verified_at' => $row['submission_date'],
-                    'status' => 'verified',
-                    'form_values' => json_encode($valuesKv, JSON_UNESCAPED_UNICODE),
-                    'created_at' => $row['submission_date'],
+                    'status' => 'approved',
+                    'submitted_at' => $subDate,
+                    'verified_at' => $verifDate,
+                    'created_at' => $subDate,
                     'updated_at' => $now,
                 ];
 
