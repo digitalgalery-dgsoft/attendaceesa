@@ -247,7 +247,8 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   }
 
   void importUpdateManagerAndCheck(BuildContext context) {
-     att_mobile_update_manager.UpdateManager.checkForUpdate(context);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    att_mobile_update_manager.UpdateManager.checkForUpdate(context, authToken: auth.token);
   }
 
   @override

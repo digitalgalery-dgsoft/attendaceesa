@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:dio/dio.dart';
@@ -9,30 +8,53 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class UpdateManager {
-  static Future<void> checkForUpdate(BuildContext context) async {
+  static bool _isChecking = false;
+  static bool _isDialogShowing = false;
+
+  static Future<void> checkForUpdate(BuildContext context, {String? authToken}) async {
+    if (_isChecking || _isDialogShowing) return;
+    _isChecking = true;
     try {
-      // Fetch settings from API
-      final response = await http.get(Uri.parse('${Constants.baseUrl}/settings'));
+      // Fetch settings from API with cache-busting
+      final uri = Uri.parse('${Constants.baseUrl}/settings?_t=${DateTime.now().millisecondsSinceEpoch}');
+      final headers = <String, String>{
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Accept': 'application/json',
+      };
+      if (authToken != null && authToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $authToken';
+      }
+
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
-        final data = json.decode(response.body)['data'];
+        final decoded = json.decode(response.body);
+        final data = decoded['data'];
+        if (data == null) return;
         
-        final String? serverVersion = data['mobile_app_version'];
-        final String? downloadUrl = data['mobile_app_url'];
-        final bool isForceUpdate = data['is_force_update'] == 1 || data['is_force_update'] == true;
+        final String? serverVersion = data['mobile_app_version']?.toString();
+        final String? downloadUrl = data['mobile_app_url']?.toString();
+        final bool isForceUpdate = data['is_force_update'] == 1 || data['is_force_update'] == true || data['is_force_update'] == '1';
+
+        debugPrint('[UpdateManager] BaseURL: ${Constants.baseUrl}, ServerVersion: $serverVersion, DownloadUrl: $downloadUrl, Force: $isForceUpdate');
 
         if (serverVersion != null && serverVersion.isNotEmpty && downloadUrl != null && downloadUrl.isNotEmpty) {
           final packageInfo = await PackageInfo.fromPlatform();
           final String currentVersion = packageInfo.version;
+          debugPrint('[UpdateManager] Local Version: $currentVersion vs Server: $serverVersion');
 
           if (_isUpdateAvailable(currentVersion, serverVersion)) {
-            if (context.mounted) {
+            if (context.mounted && !_isDialogShowing) {
+              _isDialogShowing = true;
               _showUpdateDialog(context, serverVersion, downloadUrl, isForceUpdate);
             }
           }
         }
       }
     } catch (e) {
-      debugPrint('Error checking for update: $e');
+      debugPrint('[UpdateManager] Error checking for update: $e');
+    } finally {
+      _isChecking = false;
     }
   }
 
@@ -62,17 +84,24 @@ class UpdateManager {
       builder: (context) {
         return PopScope(
           canPop: !isForceUpdate,
+          onPopInvokedWithResult: (didPop, result) {
+            _isDialogShowing = false;
+          },
           child: AlertDialog(
             title: const Text('Update Tersedia'),
-            content: Text('Versi terbaru ($newVersion) telah tersedia. Silakan update aplikasi Anda untuk pengalaman yang lebih baik.'),
+            content: Text('Versi terbaru ($newVersion) telah tersedia. Silakan update aplikasi Anda untuk kelancaran absensi dan kestabilan sistem.'),
             actions: [
               if (!isForceUpdate)
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    _isDialogShowing = false;
+                    Navigator.pop(context);
+                  },
                   child: const Text('Nanti'),
                 ),
               ElevatedButton(
                 onPressed: () {
+                  _isDialogShowing = false;
                   if (!isForceUpdate) Navigator.pop(context);
                   _downloadAndInstall(context, url);
                 },
@@ -82,7 +111,9 @@ class UpdateManager {
           ),
         );
       },
-    );
+    ).then((_) {
+      _isDialogShowing = false;
+    });
   }
 
   static Future<void> _downloadAndInstall(BuildContext context, String url) async {
