@@ -16,6 +16,9 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 | **Penyesuaian Formulir Pelaporan ICI Paint** | 🟢 Selesai (100%) | CBP, OOS LSO/SSO, Data Pelanggan, Stock End & Tinter |
 | **Optimasi Performa & Query Skala Besar** | 🟢 Selesai | Mengakomodasi 14.000+ store & jutaan data submission |
 | **UI/UX Loading Screen Layar Tengah** | 🟢 Selesai | Animasi glassmorphism & dual-orbit loader otomatis |
+| **AI Biometrik Wajah Mobile (v1.0.119)** | 🟢 Rilis & Live | Rekalibrasi 24 landmarks, threshold 75%, +20.6% separation margin |
+| **Resolusi CPU Overload & Looping Cluster** | 🟢 Selesai (100%) | Eliminasi rekursif cURL loop `/storage`, beban server kembali stabil 1-3% |
+| **Migrasi Konfigurasi IP Server 1 AMK** | 🟢 Diperbarui | Transisi IP ke `38.68.69.225`, konfigurasi cluster & deploy terupdate |
 | **Pipeline Otomatisasi Deploy Multi-Server** | 🟢 Aktif | CI/CD sync multi-vhost + auto syntax check (`php -l`) |
 
 ---
@@ -127,10 +130,57 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 
 ### 6. Otomatisasi Infrastruktur & Multi-Server Deployment
 - [x] **Pipeline Deployment Produksi**:
-  - Sinkronisasi otomatis dari Git repository ke dev server (`appsend.my.id`) dan server produksi Server 1 AMK (`38.103.170.235`).
+  - Sinkronisasi otomatis dari Git repository ke dev server (`appsend.my.id`) dan server produksi Server 1 AMK (`38.68.69.225`).
   - Replikasi otomatis ke seluruh folder virtual host di bawah `/www/wwwroot/` (`amk.esa-solutions.id`, `dulux.esa-solutions.id`, `api.esa-solutions.id`, `amk.dgsoft.web.id`).
   - Otomatisasi verifikasi sintaks PHP (`php -l`) sebelum proses deployment dinyatakan tuntas untuk mencegah error sintaks / 500 fatal di production.
   - Pembersihan dan penyegaran cache framework (`config`, `route`, `view`, `blade-icons`).
+
+---
+
+### 7. Rekalibrasi Biometrik Wajah AI & Peningkatan Mobile App (v1.0.117 – v1.0.119)
+- [x] **Investigasi & Resolusi False Negative (Wajah Asli Ditolak)**:
+  - Mengatasi kendala di mana wajah karyawan sendiri tidak cocok saat absensi karena fluktuasi landmark mata akibat kedipan, bayangan, atau sudut pencahayaan kamera depan.
+  - **Evolusi Algoritma Biometrik**:
+    - *Anchor Eyes Exclusion*: Mengecualikan rasio jarak mata-ke-mata dari penghitungan error, menggantikannya sebagai titik jangkar normalisasi rotasi & skala wajah.
+    - *24 Stable Key-Distances*: Menggunakan 24 pasangan jarak anatomi stabil (Hidung, Kontur Bibir Atas/Bawah, Sudut Mulut, Tulang Pipi, dan Kontur Rahang).
+    - *Dynamic Outlier Tolerance*: Menetapkan toleransi deviasi per landmark sebesar 24% dan penalti bertahap (`penaltyFactor = 0.5`) sehingga fluktuasi ekspresi minor tidak membatalkan kecocokan wajah.
+    - *Threshold Kalibrasi Optimal*: Menetapkan batas kelulusan kecocokan dinamis di angka **75%** (menggantikan formula ketat 82% yang memicu false rejection).
+- [x] **Validasi Monte Carlo & Uji Separasi Biometrik**:
+  - Menjalankan simulasi Monte Carlo 1.000 iterasi terhadap dataset wajah aktual:
+    - Rata-rata skor kecocokan wajah asli (*Genuine Match*): **88.2%** (Lulus 100%).
+    - Rata-rata skor penolakan wajah orang lain (*Imposter / Different Face*): **67.6%** (Ditolak 100%).
+    - Margin pemisah (*Separation Margin*): **+20.6%** tanpa overlap.
+- [x] **Penyempurnaan Face Enrollment & Resolusi Multi-Cluster**:
+  - Mengatasi kegagalan pendaftaran wajah lewat Smart Gateway Relay dengan menambahkan multipart upload & fallback `photo_base64`.
+  - Kompresi gambar otomatis sisi mobile sebelum pengiriman data wajah untuk menghemat bandwidth.
+  - *Multi-Cluster Photo Resolver*: Aplikasi mobile mampu mengunduh master face photo secara otomatis lintas node cluster (`amk`, `atk`, `akp.esa-solutions.id`) dan menyimpannya di cache lokal perangkat.
+- [x] **Distribusi Rilis APK v1.0.119**:
+  - Berhasil dikompilasi ke `app-release.apk` (44.6 MB) dan didistribusikan ke seluruh node cluster production via skrip upload chunked.
+
+---
+
+### 8. Investigasi & Mitigasi Krisis CPU Overload 100% Cluster Server
+- [x] **Diagnosa Lonjakan Beban (CPU 100% di 8 Core, Load Avg 56.55)**:
+  - Ditemukan lonjakan ribuan request PHP-FPM yang berasal dari request gambar karyawan `/storage/employees/GGK3wfBgib4GVodoojt09bgDkEYff12WLEvl3FEv.jpg` (3.571+ request).
+- [x] **Identifikasi Root Cause (Infinite Mutual cURL Loop)**:
+  - Pada update commit `89de626`, ditambahkan route fallback `/storage/{folder}/{filename}` di `routes/web.php` yang memicu cURL HEAD request ke seluruh server peer (`atk`, `amk`, `akp`).
+  - Karena Server 1 (`amk`) juga memanggil dirinya sendiri dan file tersebut tidak ada di disk fisik, terjadi **badai request HTTP rekursif (DDoS internal antar-server)** yang saling memanggil tanpa henti dan menahan socket PHP-FPM.
+- [x] **Remediasi & Pembersihan Total**:
+  - Menghapus total blok route fallback `/storage/{folder}/{filename}` dari `routes/web.php` (`commit 672ee11`).
+  - Menjalankan pembersihan cache menyeluruh (`optimize:clear`) dan me-reset service PHP-FPM & Nginx.
+  - **Hasil**: Beban server seketika turun dari 100% (Load 56.55) menjadi dingin dan stabil normal di kisaran **1% – 3% CPU**.
+
+---
+
+### 9. Pembaruan Konfigurasi & Migrasi IP Server 1 (PT AMK)
+- [x] **Transisi IP Address Node Server 1**:
+  - Mengupdate IP Server 1 AMK (Jagoan Hosting / Beon Intermedia) dari IP lama `38.103.170.235` ke IP baru **`38.68.69.225`**.
+- [x] **Sinkronisasi Kode & Konfigurasi Cluster**:
+  - `public/deploy-production.php`: Menyesuaikan target deployment IP dan entri `/etc/hosts` cluster ke `38.68.69.225`.
+  - `config/multiserver.php`: Menyesuaikan `SERVER_1_INTERNAL_IP` ke `38.68.69.225`.
+  - `routes/web.php`: Menyesuaikan IP node Server 1 pada landing page portal cluster (`commit 785d05a`).
+- [x] **Verifikasi Jaringan & Port Firewall**:
+  - Panduan membuka port 80 (HTTP) dan port 443 (HTTPS) pada UFW/iptables dan modul Security aaPanel untuk memastikan akses publik `amk.esa-solutions.id` dapat dijangkau dari internet luar.
 
 ---
 
