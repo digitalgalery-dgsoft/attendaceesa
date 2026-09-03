@@ -545,9 +545,42 @@ class PrincipalPortalController extends Controller
         
         $widgetsCacheKey = 'rep_widgets_' . md5($template->id . '_' . $startDate->toDateString() . '_' . $endDate->toDateString() . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
         
-        $widgetResults = Cache::remember($widgetsCacheKey, 300, function() use ($widgets, $totalTemplateSubmissions, $uniqueStores, $uniqueEmployees, $template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $startYear, $startMonth) {
+        $widgetResults = Cache::remember($widgetsCacheKey, 300, function() use ($widgets, $totalTemplateSubmissions, $uniqueStores, $uniqueEmployees, $template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $startYear, $startMonth, $search) {
             $results = [];
             $driver = DB::connection()->getDriverName();
+
+            // Ultra-Fast Submission ID Pluck untuk filtering nilai form submission (mengurangi beban join 1000x)
+            $subIdsQuery = DB::table('report_submissions')
+                ->where('report_submissions.report_template_id', $template->id)
+                ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate]);
+
+            if ($selectedRegion) {
+                $subIdsQuery->join('work_locations as wl_reg', 'report_submissions.work_location_id', '=', 'wl_reg.id')
+                            ->where('wl_reg.region', $selectedRegion);
+            }
+            if ($selectedAreaId) {
+                $subIdsQuery->where('report_submissions.work_location_id', function($subQ) use ($selectedAreaId) {
+                    $subQ->select('id')->from('work_locations')->where('branch_id', $selectedAreaId);
+                });
+            }
+            if ($selectedLocationId) {
+                $subIdsQuery->where('report_submissions.work_location_id', $selectedLocationId);
+            }
+            if ($search) {
+                $likeOp = $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
+                $subIdsQuery->where(function ($subQ) use ($search, $likeOp) {
+                    $subQ->whereIn('report_submissions.employee_id', function ($eQ) use ($search, $likeOp) {
+                        $eQ->select('id')->from('employees')
+                           ->where('full_name', $likeOp, "%{$search}%")
+                           ->orWhere('employee_no', $likeOp, "%{$search}%");
+                    })->orWhereIn('report_submissions.work_location_id', function ($wQ) use ($search, $likeOp) {
+                        $wQ->select('id')->from('work_locations')
+                           ->where('name', $likeOp, "%{$search}%");
+                    });
+                });
+            }
+
+            $submissionIds = $subIdsQuery->pluck('report_submissions.id')->toArray();
 
             foreach ($widgets as $w) {
                 $wId = $w['id'] ?? uniqid('w_');
@@ -565,35 +598,24 @@ class PrincipalPortalController extends Controller
                     } elseif ($metric === '_unique_employee' || $dim === 'employee_id' || $metric === 'employee_id') {
                         $val = $uniqueEmployees;
                     } else {
-                        $valQuery = DB::table('report_submission_values')
-                            ->join('report_submissions', 'report_submission_values.report_submission_id', '=', 'report_submissions.id')
-                            ->where('report_submissions.report_template_id', $template->id)
-                            ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
-                            ->where('report_submission_values.field_name', $metric);
-
-                        if ($selectedRegion) {
-                            $valQuery->join('work_locations', 'report_submissions.work_location_id', '=', 'work_locations.id')
-                                     ->where('work_locations.region', $selectedRegion);
-                        }
-                        if ($selectedAreaId) {
-                            $valQuery->where('report_submissions.work_location_id', function($subQ) use ($selectedAreaId) {
-                                $subQ->select('id')->from('work_locations')->where('branch_id', $selectedAreaId);
-                            });
-                        }
-                        if ($selectedLocationId) {
-                            $valQuery->where('report_submissions.work_location_id', $selectedLocationId);
-                        }
-
-                        if ($agg === 'SUM') {
-                            $val = (float) $valQuery->sum('report_submission_values.value_number');
-                        } elseif ($agg === 'AVG') {
-                            $val = round((float) $valQuery->avg('report_submission_values.value_number'), 1);
-                        } elseif ($agg === 'MAX') {
-                            $val = (float) $valQuery->max('report_submission_values.value_number');
-                        } elseif ($agg === 'MIN') {
-                            $val = (float) $valQuery->min('report_submission_values.value_number');
+                        if (empty($submissionIds)) {
+                            $val = 0;
                         } else {
-                            $val = (int) $valQuery->count();
+                            $valQuery = DB::table('report_submission_values')
+                                ->where('field_name', $metric)
+                                ->whereIn('report_submission_id', $submissionIds);
+
+                            if ($agg === 'SUM') {
+                                $val = (float) $valQuery->sum('value_number');
+                            } elseif ($agg === 'AVG') {
+                                $val = round((float) $valQuery->avg('value_number'), 1);
+                            } elseif ($agg === 'MAX') {
+                                $val = (float) $valQuery->max('value_number');
+                            } elseif ($agg === 'MIN') {
+                                $val = (float) $valQuery->min('value_number');
+                            } else {
+                                $val = (int) $valQuery->count();
+                            }
                         }
                     }
 
@@ -612,8 +634,11 @@ class PrincipalPortalController extends Controller
                             $periodExpr = $driver === 'pgsql' ? "TO_CHAR(submitted_at, 'YYYY-MM')" : "DATE_FORMAT(submitted_at, '%Y-%m')";
                             $dateQuery = DB::table('report_submissions')
                                 ->where('report_template_id', $template->id)
-                                ->whereBetween('submitted_at', [$startDate, $endDate])
-                                ->selectRaw("{$periodExpr} as period_key, count(*) as total")
+                                ->whereBetween('submitted_at', [$startDate, $endDate]);
+                            if (!empty($submissionIds)) {
+                                $dateQuery->whereIn('id', $submissionIds);
+                            }
+                            $dateQuery = $dateQuery->selectRaw("{$periodExpr} as period_key, count(*) as total")
                                 ->groupBy('period_key')
                                 ->orderBy('period_key')
                                 ->pluck('total', 'period_key');
@@ -629,8 +654,11 @@ class PrincipalPortalController extends Controller
                             $dayExpr = $driver === 'pgsql' ? "TO_CHAR(submitted_at, 'YYYY-MM-DD')" : "DATE_FORMAT(submitted_at, '%Y-%m-%d')";
                             $dateQuery = DB::table('report_submissions')
                                 ->where('report_template_id', $template->id)
-                                ->whereBetween('submitted_at', [$startDate, $endDate])
-                                ->selectRaw("{$dayExpr} as day_key, count(*) as total")
+                                ->whereBetween('submitted_at', [$startDate, $endDate]);
+                            if (!empty($submissionIds)) {
+                                $dateQuery->whereIn('id', $submissionIds);
+                            }
+                            $dateQuery = $dateQuery->selectRaw("{$dayExpr} as day_key, count(*) as total")
                                 ->groupBy('day_key')
                                 ->orderBy('day_key')
                                 ->pluck('total', 'day_key');
@@ -645,18 +673,20 @@ class PrincipalPortalController extends Controller
                         }
                     } else {
                         // Group by field values
-                        $groupQuery = DB::table('report_submission_values')
-                            ->join('report_submissions', 'report_submission_values.report_submission_id', '=', 'report_submissions.id')
-                            ->where('report_submissions.report_template_id', $template->id)
-                            ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
-                            ->where('report_submission_values.field_name', $dim)
-                            ->selectRaw('report_submission_values.value_text as label, count(*) as total')
-                            ->groupBy('label')
-                            ->orderByDesc('total')
-                            ->limit(10)
-                            ->pluck('total', 'label')
-                            ->toArray();
-                        $groups = $groupQuery;
+                        if (empty($submissionIds)) {
+                            $groups = [];
+                        } else {
+                            $groupQuery = DB::table('report_submission_values')
+                                ->where('field_name', $dim)
+                                ->whereIn('report_submission_id', $submissionIds)
+                                ->selectRaw('value_text as label, count(*) as total')
+                                ->groupBy('label')
+                                ->orderByDesc('total')
+                                ->limit(10)
+                                ->pluck('total', 'label')
+                                ->toArray();
+                            $groups = $groupQuery;
+                        }
                     }
 
                     if ($dim !== '_submitted_date') {
