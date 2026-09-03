@@ -146,7 +146,8 @@ class AuthController extends Controller
             'timezone' => 'nullable|string',
             'current_password' => 'nullable|string',
             'password' => 'nullable|string|min:6|confirmed',
-            'photo' => 'nullable|image|max:2048',
+            'photo' => 'nullable|max:10240',
+            'photo_base64' => 'nullable|string',
         ]);
 
         // Update password if provided
@@ -168,6 +169,9 @@ class AuthController extends Controller
             $employee->timezone = $request->timezone;
         }
 
+        $photoSaved = false;
+
+        // 1. Cek upload file multipart
         if ($request->hasFile('photo')) {
             // Delete old photo if it exists and not default
             if ($employee->photo && \Illuminate\Support\Facades\Storage::disk('public')->exists($employee->photo)) {
@@ -175,9 +179,35 @@ class AuthController extends Controller
             }
             $path = $request->file('photo')->store('employees', 'public');
             $employee->photo = $path;
+            $photoSaved = true;
+        } 
+        // 2. Cek fallback base64 string (untuk proteksi gateway relay)
+        elseif ($request->filled('photo_base64')) {
+            $base64Data = $request->photo_base64;
+            if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $type)) {
+                $base64Data = substr($base64Data, strpos($base64Data, ',') + 1);
+            }
+            $decoded = base64_decode($base64Data);
+            if ($decoded !== false && strlen($decoded) > 100) {
+                if ($employee->photo && \Illuminate\Support\Facades\Storage::disk('public')->exists($employee->photo)) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($employee->photo);
+                }
+                $filename = 'employees/master_' . $employee->id . '_' . time() . '.jpg';
+                \Illuminate\Support\Facades\Storage::disk('public')->put($filename, $decoded);
+                $employee->photo = $filename;
+                $photoSaved = true;
+            }
+        } 
+        // 3. Jika client menyatakan kirim foto tapi kedua cara di atas gagal
+        elseif ($request->filled('has_photo_payload')) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal menerima file foto master wajah dari perangkat Anda. Silakan coba lagi.'
+            ], 422);
         }
 
         $employee->save();
+        $employee->refresh();
         $employee->load(['company', 'principal', 'branch', 'department', 'position']);
 
         return response()->json([

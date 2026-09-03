@@ -13,6 +13,7 @@ import 'onboarding_screen.dart';
 import '../utils/constants.dart';
 import 'dart:io';
 import 'package:att_mobile/screens/liveness_camera_screen.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -104,19 +105,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (photoPath != null && mounted) {
       final auth = Provider.of<AuthProvider>(context, listen: false);
-      final bytes = await File(photoPath).readAsBytes();
 
       toastification.show(
         context: context,
-        title: const Text('Menyimpan Foto Master Wajah...'),
+        title: const Text('Mengompresi & Menyimpan Wajah...'),
         type: ToastificationType.info,
         autoCloseDuration: const Duration(seconds: 2),
       );
 
-      final result = await auth.updateProfile({}, imageBytes: bytes, imageFilename: 'master_face.jpg');
+      List<int> bytes;
+      try {
+        final compressed = await FlutterImageCompress.compressWithFile(
+          photoPath,
+          minWidth: 960,
+          minHeight: 960,
+          quality: 85,
+          format: CompressFormat.jpeg,
+        );
+        bytes = compressed ?? await File(photoPath).readAsBytes();
+      } catch (_) {
+        bytes = await File(photoPath).readAsBytes();
+      }
+
+      final result = await auth.updateProfile({
+        'has_photo_payload': '1',
+      }, imageBytes: bytes, imageFilename: 'master_face.jpg');
 
       if (mounted) {
         if (result['success'] == true) {
+          await auth.tryAutoLogin();
+          if (mounted) {
+            setState(() {});
+          }
+
           toastification.show(
             context: context,
             title: const Text('Wajah Master Berhasil Disimpan!'),
@@ -197,12 +218,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 title: const Text('Kamera Biasa', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                 onTap: () async {
                   Navigator.pop(ctx);
-                  final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+                  final XFile? image = await _picker.pickImage(
+                    source: ImageSource.camera,
+                    imageQuality: 85,
+                    maxWidth: 1080,
+                    maxHeight: 1080,
+                  );
                   if (image != null && mounted) {
                     final auth = Provider.of<AuthProvider>(context, listen: false);
                     final bytes = await image.readAsBytes();
-                    final result = await auth.updateProfile({}, imageBytes: bytes, imageFilename: image.name);
+                    final result = await auth.updateProfile({
+                      'has_photo_payload': '1',
+                    }, imageBytes: bytes, imageFilename: image.name);
                     if (mounted) {
+                      if (result['success']) {
+                        await auth.tryAutoLogin();
+                        if (mounted) setState(() {});
+                      }
                       toastification.show(
                         context: context,
                         title: Text(result['success'] ? 'Foto berhasil diperbarui' : 'Gagal memperbarui foto'),
@@ -226,12 +258,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 title: const Text('Pilih dari Galeri', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                 onTap: () async {
                   Navigator.pop(ctx);
-                  final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+                  final XFile? image = await _picker.pickImage(
+                    source: ImageSource.gallery,
+                    imageQuality: 85,
+                    maxWidth: 1080,
+                    maxHeight: 1080,
+                  );
                   if (image != null && mounted) {
                     final auth = Provider.of<AuthProvider>(context, listen: false);
                     final bytes = await image.readAsBytes();
-                    final result = await auth.updateProfile({}, imageBytes: bytes, imageFilename: image.name);
+                    final result = await auth.updateProfile({
+                      'has_photo_payload': '1',
+                    }, imageBytes: bytes, imageFilename: image.name);
                     if (mounted) {
+                      if (result['success']) {
+                        await auth.tryAutoLogin();
+                        if (mounted) setState(() {});
+                      }
                       toastification.show(
                         context: context,
                         title: Text(result['success'] ? 'Foto berhasil diperbarui' : 'Gagal memperbarui foto'),

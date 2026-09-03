@@ -256,8 +256,10 @@ class AuthProvider with ChangeNotifier {
         request.fields[key] = value;
       });
 
-      // Add image if exists
+      // Add image if exists (both multipart file and base64 fallback for gateway relay safety)
       if (imageBytes != null && imageFilename != null) {
+        request.fields['has_photo_payload'] = '1';
+        request.fields['photo_base64'] = base64Encode(imageBytes);
         request.files.add(http.MultipartFile.fromBytes(
           'photo', 
           imageBytes, 

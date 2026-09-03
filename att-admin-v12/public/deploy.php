@@ -13,6 +13,25 @@ if (!isset($_GET['token']) || $_GET['token'] !== $secretToken) {
     die("Akses Ditolak.");
 }
 
+// Handler khusus upload file APK baru
+if (isset($_GET['upload_apk']) && $_GET['upload_apk'] === '1' && isset($_FILES['apk'])) {
+    $target1 = '/www/wwwroot/appsend.my.id/public/app-release.apk';
+    $target2 = '/www/wwwroot/appsend.my.id/app-release.apk';
+    if (move_uploaded_file($_FILES['apk']['tmp_name'], $target1)) {
+        @chmod($target1, 0644);
+        @copy($target1, $target2);
+        @chmod($target2, 0644);
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'success', 'size' => filesize($target1), 'md5' => md5_file($target1)]);
+        exit;
+    } else {
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'message' => 'Gagal memindahkan file upload']);
+        exit;
+    }
+}
+
 // Jika request adalah POST, jalankan proses deploy (streaming output)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Bersihkan semua output buffer yang mungkin aktif

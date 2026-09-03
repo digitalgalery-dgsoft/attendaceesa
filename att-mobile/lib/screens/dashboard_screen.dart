@@ -42,6 +42,7 @@ import 'package:att_mobile/utils/update_manager.dart';
 import 'package:att_mobile/services/offline_sync_service.dart';
 import 'dart:io';
 import 'package:att_mobile/screens/liveness_camera_screen.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 
 class DashboardScreen extends StatefulWidget {
@@ -140,19 +141,42 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
     if (photoPath != null && mounted) {
       final auth = Provider.of<AuthProvider>(context, listen: false);
-      final bytes = await File(photoPath).readAsBytes();
 
       toastification.show(
         context: context,
-        title: const Text('Mengunggah Foto Master Wajah...'),
+        title: const Text('Mengompresi & Mengunggah Foto Wajah...'),
         type: ToastificationType.info,
         autoCloseDuration: const Duration(seconds: 2),
       );
 
-      final result = await auth.updateProfile({}, imageBytes: bytes, imageFilename: 'master_face.jpg');
+      List<int> bytes;
+      try {
+        final compressed = await FlutterImageCompress.compressWithFile(
+          photoPath,
+          minWidth: 960,
+          minHeight: 960,
+          quality: 85,
+          format: CompressFormat.jpeg,
+        );
+        bytes = compressed ?? await File(photoPath).readAsBytes();
+      } catch (_) {
+        bytes = await File(photoPath).readAsBytes();
+      }
+
+      final result = await auth.updateProfile({
+        'has_photo_payload': '1',
+      }, imageBytes: bytes, imageFilename: 'master_face.jpg');
 
       if (mounted) {
         if (result['success'] == true) {
+          // Segera refresh profil dan data dashboard agar status wajah dan tombol aktif seketika
+          await auth.tryAutoLogin();
+          final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+          await attProvider.loadDashboardData();
+          if (mounted) {
+            setState(() {});
+          }
+
           toastification.show(
             context: context,
             title: const Text('Wajah Master Berhasil Didaftarkan!'),

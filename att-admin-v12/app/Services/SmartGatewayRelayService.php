@@ -157,10 +157,20 @@ class SmartGatewayRelayService
                 $headers['Host'] = $targetHost;
             }
 
+            $hasFiles = $request->hasFile('*') || !empty($request->allFiles());
+            if ($hasFiles) {
+                // WAJIB: Hapus Content-Type agar Guzzle men-generate boundary multipart-nya sendiri secara valid
+                foreach (array_keys($headers) as $k) {
+                    if (strtolower($k) === 'content-type') {
+                        unset($headers[$k]);
+                    }
+                }
+            }
+
             $httpClient = Http::timeout(30)->withoutVerifying()->withHeaders($headers);
 
-            // Jika ada file attachment (misal upload foto absensi / visit / permit / BAP)
-            if ($request->hasFile('*') || !empty($request->allFiles())) {
+            // Jika ada file attachment (misal upload foto absensi / visit / permit / BAP / profile)
+            if ($hasFiles) {
                 foreach ($request->allFiles() as $name => $fileOrFiles) {
                     if (is_array($fileOrFiles)) {
                         foreach ($fileOrFiles as $idx => $f) {
