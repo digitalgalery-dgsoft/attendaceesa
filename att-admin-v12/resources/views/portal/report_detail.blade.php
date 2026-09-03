@@ -516,6 +516,14 @@
         white-space: nowrap;
     }
 
+    .ytd-comparison-table thead th {
+        background: var(--brand-primary) !important;
+        color: #ffffff !important;
+        border-bottom: none !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.5px;
+    }
+
     .custom-table td {
         padding: 0.95rem 1rem;
         border-bottom: 1px solid #f1f5f9;
@@ -819,14 +827,14 @@
             <div class="dashboard-grid" style="margin-bottom: 0;">
                 <div class="col-span-7">
                     <div class="table-container-card" style="box-shadow: none; border: 1px solid var(--border-color); padding: 0; border-radius: 12px; overflow: hidden;">
-                        <table class="custom-table" style="margin-bottom: 0;">
+                        <table class="custom-table ytd-comparison-table" style="margin-bottom: 0;">
                             <thead>
-                                <tr style="background: var(--brand-primary); color: white;">
-                                    <th style="color: white; border-bottom: none; font-size: 0.8rem;">Deskripsi</th>
-                                    <th style="color: white; text-align: right; border-bottom: none; font-size: 0.8rem;">YTD {{ $endYear }}<br><small>(Tahun Berjalan)</small></th>
-                                    <th style="color: white; text-align: center; border-bottom: none; font-size: 0.8rem;">%</th>
-                                    <th style="color: white; text-align: right; border-bottom: none; font-size: 0.8rem;">YTD {{ $endYear - 1 }}<br><small>(Tahun Sebelumnya)</small></th>
-                                    <th style="color: white; text-align: right; border-bottom: none; font-size: 0.8rem;">Growth</th>
+                                <tr style="background: var(--brand-primary);">
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">DESKRIPSI</th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">YTD {{ $endYear }}<br><span style="font-size: 0.72rem; font-weight: 500; color: rgba(255,255,255,0.85);">(Tahun Berjalan)</span></th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: center; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">%</th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">YTD {{ $endYear - 1 }}<br><span style="font-size: 0.72rem; font-weight: 500; color: rgba(255,255,255,0.85);">(Tahun Sebelumnya)</span></th>
+                                    <th style="background: var(--brand-primary) !important; color: #ffffff !important; text-align: right; border: none !important; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px; padding: 0.9rem 1rem;">GROWTH</th>
                                 </tr>
                             </thead>
                             <tbody>
