@@ -1500,7 +1500,9 @@
                 </li>
             @endif
             <li><a href="#fitur"><i class="fa-solid fa-layer-group"></i> Fitur Sistem</a></li>
-            <li><a href="#statistik"><i class="fa-solid fa-chart-pie"></i> Statistik</a></li>
+            @if(isset($isEntityServer) && $isEntityServer)
+                <li><a href="#statistik"><i class="fa-solid fa-chart-pie"></i> Statistik</a></li>
+            @endif
             <li><a href="#download"><i class="fa-solid fa-mobile-screen"></i> Download Aplikasi</a></li>
             <li><a href="/login"><i class="fa-solid fa-id-card-clip"></i> Portal Login</a></li>
         </ul>
@@ -1588,7 +1590,8 @@
             @endif
         </div>
 
-        <!-- ─── STATISTIK LIVE OPERASIONAL ────────────────────────────── -->
+        <!-- ─── STATISTIK LIVE OPERASIONAL (HANYA UNTUK SERVER ENTITAS) ── -->
+        @if(isset($isEntityServer) && $isEntityServer && !empty($stats))
         <section id="statistik" class="stats-grid">
             <div class="stat-card blue">
                 <div class="stat-icon-wrap">
@@ -1626,6 +1629,7 @@
                 <div class="stat-desc">Titik geofence radius tervalidasi</div>
             </div>
         </section>
+        @endif
     </header>
 
     <!-- ─── SUBDOMAIN ACCESS HUB SECTION (HANYA DITAMPILKAN PADA DOMAIN UTAMA) ── -->
@@ -1659,11 +1663,6 @@
                             <i class="fa-solid fa-store"></i>
                             <span>Portal Principal / Mitra</span>
                             <span class="badge-count" x-text="items.filter(i => i.category === 'principal').length"></span>
-                        </button>
-                        <button type="button" class="tab-btn" :class="{ 'active': activeTab === 'system' }" @click="activeTab = 'system'">
-                            <i class="fa-solid fa-server"></i>
-                            <span>Infrastruktur & API</span>
-                            <span class="badge-count" x-text="items.filter(i => i.category === 'system').length"></span>
                         </button>
                     </div>
 
@@ -2094,7 +2093,6 @@
                     <li><a href="https://amk.{{ $baseDomain ?? 'esa-solutions.id' }}" target="_blank"><i class="fa-solid fa-angle-right" style="font-size:0.75rem;"></i> PT Arina Multi Karya</a></li>
                     <li><a href="https://akp.{{ $baseDomain ?? 'esa-solutions.id' }}" target="_blank"><i class="fa-solid fa-angle-right" style="font-size:0.75rem;"></i> PT Alva Karya Perkasa</a></li>
                     <li><a href="https://atk.{{ $baseDomain ?? 'esa-solutions.id' }}" target="_blank"><i class="fa-solid fa-angle-right" style="font-size:0.75rem;"></i> PT Anugrah Talenta Berkarya</a></li>
-                    <li><a href="https://api.{{ $baseDomain ?? 'esa-solutions.id' }}" target="_blank"><i class="fa-solid fa-angle-right" style="font-size:0.75rem;"></i> Smart Gateway API</a></li>
                 </ul>
             </div>
 
@@ -2195,29 +2193,6 @@
                             loginUrl: 'https://{{ $pSub }}.{{ $baseDomain ?? 'esa-solutions.id' }}/login',
                             adminUrl: '',
                             features: ['Whitelabel Portal', 'Dynamic Reporting', 'Rekap Kehadiran', 'Ekspor Excel']
-                        },
-                        @endforeach
-                    @endif
-
-                    @if(isset($systemServices) && count($systemServices) > 0)
-                        @foreach($systemServices as $sys)
-                        {
-                            subdomain: '{{ $sys['subdomain'] }}',
-                            host: '{{ $sys['subdomain'] }}.{{ $baseDomain ?? 'esa-solutions.id' }}',
-                            name: '{{ $sys['name'] }}',
-                            shortName: '{{ $sys['short_name'] }}',
-                            category: 'system',
-                            categoryLabel: 'Infrastruktur Cloud',
-                            status: '{{ $sys['status'] }}',
-                            color: '{{ $sys['color'] }}',
-                            colorSecondary: '{{ $sys['color_secondary'] }}',
-                            icon: '{{ $sys['icon'] }}',
-                            initials: '{{ strtoupper(substr($sys['code'], 0, 2)) }}',
-                            desc: '{{ addslashes($sys['desc']) }}',
-                            url: '{{ $sys['url'] }}',
-                            loginUrl: '',
-                            adminUrl: '',
-                            features: {!! json_encode($sys['features']) !!}
                         },
                         @endforeach
                     @endif

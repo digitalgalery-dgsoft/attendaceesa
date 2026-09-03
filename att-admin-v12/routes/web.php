@@ -347,7 +347,7 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
     ];
     $currentEntity = $entityCode && isset($entityMeta[$entityCode]) ? $entityMeta[$entityCode] : null;
 
-    $stats = \Illuminate\Support\Facades\Cache::remember('global_landing_stats_active_v3', 60, function () {
+    $stats = $isEntityServer ? \Illuminate\Support\Facades\Cache::remember('global_landing_stats_active_v3', 60, function () {
         try {
             return [
                 'areas'      => Area::count(),
@@ -363,7 +363,7 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
                 'locations'  => 0,
             ];
         }
-    });
+    }) : null;
 
     $serverNodes = [
         [
@@ -419,39 +419,6 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
             'login_url' => "https://atk.{$baseDomain}/login",
             'status' => 'Live Node',
             'features' => ['Multi-Company Setup', 'Tracking Rute Sales', 'Admin Panel ATK'],
-        ],
-    ];
-
-    $systemServices = [
-        [
-            'code' => 'api',
-            'subdomain' => 'api',
-            'name' => 'Smart Gateway Relay API',
-            'short_name' => 'ESA API Relay',
-            'tag' => 'Gateway & Cross-Server Sync',
-            'category' => 'system',
-            'color' => '#4F46E5',
-            'color_secondary' => '#3730A3',
-            'icon' => 'fa-solid fa-network-wired',
-            'desc' => 'Central routing engine untuk sinkronisasi data presensi mobile real-time lintas 3 server cloud dan integrasi webhook enterprise.',
-            'url' => "https://api.{$baseDomain}",
-            'status' => 'Active Gateway',
-            'features' => ['Signed HMAC Auth', 'Sub-second Sync', 'Failover Routing'],
-        ],
-        [
-            'code' => 'storage',
-            'subdomain' => 'storage',
-            'name' => 'ESA Media & Document CDN',
-            'short_name' => 'ESA Storage CDN',
-            'tag' => 'Private Vault & Evidence Storage',
-            'category' => 'system',
-            'color' => '#0D9488',
-            'color_secondary' => '#0F766E',
-            'icon' => 'fa-solid fa-database',
-            'desc' => 'Distribusi foto verifikasi kehadiran AI kamera, dokumen dispensasi/BAP, struk lembur, dan banner principal.',
-            'url' => "https://storage.{$baseDomain}",
-            'status' => 'Edge Storage',
-            'features' => ['Encrypted Vault', 'High-Speed CDN', 'Auto-Archive'],
         ],
     ];
 
@@ -524,7 +491,6 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
         'setting', 
         'stats', 
         'serverNodes', 
-        'systemServices', 
         'registeredPrincipals', 
         'baseDomain',
         'isMainDomain',
