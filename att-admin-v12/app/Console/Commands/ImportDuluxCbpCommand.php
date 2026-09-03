@@ -393,8 +393,11 @@ class ImportDuluxCbpCommand extends Command
                     $insertVals[] = [
                         'report_submission_id' => $subId,
                         'report_form_field_id' => $fieldIds[$fName],
+                        'field_name' => $fName,
+                        'field_type' => $val['field_type'],
                         'value_text' => $val['value_text'],
                         'value_number' => $val['value_number'],
+                        'value_json' => null,
                         'created_at' => $item['sub']['submitted_at'],
                         'updated_at' => $now,
                     ];
