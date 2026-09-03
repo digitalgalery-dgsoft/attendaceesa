@@ -77,15 +77,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       _syncLocationService(attProvider);
 
       // Cek apakah jabatan wajib Face Recognition tapi foto master belum ada
+      final bool isFaceReq = _isFaceRequired(authProvider);
+      final bool hasPhoto = _hasMasterPhoto(authProvider);
       final pos = authProvider.employeeData?['position'];
-      final bool isFaceReq = (pos is Map) ? (pos['require_face_recognition'] ?? false) : false;
-      final String? mPhoto = authProvider.employeeData?['photo'];
-      final bool hasPhoto = mPhoto != null && mPhoto.isNotEmpty && !mPhoto.contains('default.png');
       if (isFaceReq && !hasPhoto && mounted) {
         toastification.show(
           context: context,
           title: const Text('⚠️ Registrasi Wajah Master Diperlukan'),
-          description: Text('Jabatan Anda (${pos?['name'] ?? ''}) wajib Face Recognition. Silakan ambil foto master wajah Anda.'),
+          description: Text('Jabatan Anda (${pos is Map ? (pos['name'] ?? '') : ''}) wajib Face Recognition. Silakan ambil foto master wajah Anda.'),
           type: ToastificationType.warning,
           style: ToastificationStyle.flat,
           autoCloseDuration: const Duration(seconds: 6),
@@ -109,11 +108,27 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     });
   }
 
+  bool _isFaceRequired(AuthProvider auth) {
+    final pos = auth.employeeData?['position'];
+    if (pos is! Map) return false;
+    final val = pos['require_face_recognition'];
+    return val == true || val == 1 || val == '1';
+  }
+
+  bool _hasMasterPhoto(AuthProvider auth) {
+    final String? photo = auth.employeeData?['photo'];
+    return photo != null && photo.trim().isNotEmpty && !photo.contains('default.png') && !photo.contains('placeholder');
+  }
+
+  bool _isFaceBlocked(AuthProvider auth) {
+    return _isFaceRequired(auth) && !_hasMasterPhoto(auth);
+  }
+
   Future<void> _enrollMasterFace(BuildContext context) async {
     final photoPath = await Navigator.push<String?>(
       context,
       MaterialPageRoute(
-        builder: (_) => const LivenessCameraScreen(isRequired: true),
+        builder: (_) => const LivenessCameraScreen(isRequired: true, isEnrollment: true),
       ),
     );
 
@@ -154,12 +169,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   bool _checkFaceMasterOrBlock(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final pos = authProvider.employeeData?['position'];
-    final bool isFaceRequired = (pos is Map) ? (pos['require_face_recognition'] ?? false) : false;
-    final String? masterPhoto = authProvider.employeeData?['photo'];
-    final bool hasMasterPhoto = masterPhoto != null && masterPhoto.isNotEmpty && !masterPhoto.contains('default.png');
 
-    if (isFaceRequired && !hasMasterPhoto) {
+    if (_isFaceBlocked(authProvider)) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -926,79 +937,90 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               ),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 12),
-                        InkWell(
-                          onTap: () {
-                            if (attProvider.hasCheckedOutToday) return;
-                            if (!attProvider.isCheckedIn && !_checkFaceMasterOrBlock(context)) {
-                              return;
-                            }
-                            if (!attProvider.canCheckin && !attProvider.isCheckedIn) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(attProvider.checkinBlockMessage.isNotEmpty
-                                      ? attProvider.checkinBlockMessage
-                                      : 'Anda tidak memiliki jadwal kerja untuk hari ini. Silakan hubungi Admin.'),
-                                  backgroundColor: Colors.red,
+                                          Builder(
+                          builder: (context) {
+                            final bool isFaceBlockedForCheckin = !attProvider.isCheckedIn && _isFaceBlocked(authProvider);
+
+                            return InkWell(
+                              onTap: () {
+                                if (attProvider.hasCheckedOutToday) return;
+                                if (isFaceBlockedForCheckin) {
+                                  _checkFaceMasterOrBlock(context);
+                                  return;
+                                }
+                                if (!attProvider.canCheckin && !attProvider.isCheckedIn) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(attProvider.checkinBlockMessage.isNotEmpty
+                                          ? attProvider.checkinBlockMessage
+                                          : 'Anda tidak memiliki jadwal kerja untuk hari ini. Silakan hubungi Admin.'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+                                if (attProvider.isCheckedIn) {
+                                  if (attProvider.isVisiting) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Selesaikan laporan kunjungan (visit-out) Anda terlebih dahulu.'), backgroundColor: Colors.orange),
+                                    );
+                                    return;
+                                  }
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkout'))).then((_) { attProvider.loadDashboardData(); });
+                                } else {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkin'))).then((_) { attProvider.loadDashboardData(); });
+                                }
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  gradient: attProvider.hasCheckedOutToday
+                                      ? const LinearGradient(colors: [Colors.grey, Colors.grey])
+                                      : isFaceBlockedForCheckin
+                                          ? LinearGradient(colors: [Colors.grey.shade500, Colors.grey.shade600])
+                                          : (!attProvider.canCheckin && !attProvider.isCheckedIn)
+                                              ? LinearGradient(colors: [Colors.grey.shade500, Colors.grey.shade600])
+                                              : (attProvider.isCheckedIn && attProvider.isVisiting)
+                                                  ? const LinearGradient(colors: [Colors.grey, Colors.grey])
+                                                  : LinearGradient(
+                                                      colors: [
+                                                        primaryColor,
+                                                        attProvider.isCheckedIn ? Colors.red.shade400 : Colors.green.shade400
+                                                      ],
+                                                    ),
+                                  borderRadius: BorderRadius.circular(13),
                                 ),
-                              );
-                              return;
-                            }
-                            if (attProvider.isCheckedIn) {
-                              if (attProvider.isVisiting) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Selesaikan laporan kunjungan (visit-out) Anda terlebih dahulu.'), backgroundColor: Colors.orange),
-                                );
-                                return;
-                              }
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkout'))).then((_) { attProvider.loadDashboardData(); });
-                            } else {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkin'))).then((_) { attProvider.loadDashboardData(); });
-                            }
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              gradient: attProvider.hasCheckedOutToday
-                                  ? const LinearGradient(colors: [Colors.grey, Colors.grey])
-                                  : (!attProvider.canCheckin && !attProvider.isCheckedIn)
-                                      ? LinearGradient(colors: [Colors.grey.shade500, Colors.grey.shade600])
-                                      : (attProvider.isCheckedIn && attProvider.isVisiting)
-                                          ? const LinearGradient(colors: [Colors.grey, Colors.grey])
-                                          : LinearGradient(
-                                              colors: [
-                                                primaryColor,
-                                                attProvider.isCheckedIn ? Colors.red.shade400 : Colors.green.shade400
-                                              ],
-                                            ),
-                              borderRadius: BorderRadius.circular(13),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  attProvider.hasCheckedOutToday
-                                      ? Icons.done_all
-                                      : (attProvider.isCheckedIn
-                                          ? Icons.logout
-                                          : (attProvider.canCheckin ? Icons.login : Icons.event_busy)),
-                                  color: Colors.white,
-                                  size: 14,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      attProvider.hasCheckedOutToday
+                                          ? Icons.done_all
+                                          : isFaceBlockedForCheckin
+                                              ? Icons.face_retouching_off
+                                              : (attProvider.isCheckedIn
+                                                  ? Icons.logout
+                                                  : (attProvider.canCheckin ? Icons.login : Icons.event_busy)),
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      attProvider.hasCheckedOutToday
+                                          ? 'Selesai Bekerja'
+                                          : isFaceBlockedForCheckin
+                                              ? 'Check-in Dinonaktifkan (Wajib Master Wajah)'
+                                              : (attProvider.isCheckedIn
+                                                  ? 'Check-out Sekarang'
+                                                  : (attProvider.canCheckin ? 'Check-in Sekarang' : 'Tidak Ada Jadwal Kerja')),
+                                      style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold)
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  attProvider.hasCheckedOutToday
-                                      ? 'Selesai Bekerja'
-                                      : (attProvider.isCheckedIn
-                                          ? 'Check-out Sekarang'
-                                          : (attProvider.canCheckin ? 'Check-in Sekarang' : 'Tidak Ada Jadwal Kerja')),
-                                  style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold)
-                                ),
-                              ],
-                            ),
-                          ),
+                              ),
+                            );
+                          }
                         ),
                         const SizedBox(height: 8),
                         Row(
@@ -1011,11 +1033,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   ? 'Sedang bekerja sejak $checkinTime • Durasi: $duration'
                                   : (attProvider.hasCheckedOutToday
                                       ? 'Selesai bekerja • Durasi: $duration'
-                                      : (attProvider.canCheckin ? 'Belum check-in' : 'Tidak ada jadwal hari ini')),
+                                      : (_isFaceBlocked(authProvider)
+                                          ? 'Kewajiban Face Recognition aktif • Wajib master wajah'
+                                          : (attProvider.canCheckin ? 'Belum check-in' : 'Tidak ada jadwal hari ini'))),
                               style: TextStyle(fontSize: 9, color: subtitleColor, fontWeight: FontWeight.bold)
                             ),
                           ],
-                        )
+                        ),
                       ],
                     ),
                   );
@@ -1038,21 +1062,29 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       Builder(
                         builder: (context) {
                           final isRatecard = (authProvider.employeeData?['is_inhouse'] == false);
-                          final canDoVisitIn = !attProvider.isVisiting && (attProvider.isCheckedIn || (isRatecard && attProvider.canVisit));
+                          final isFaceBlocked = _isFaceBlocked(authProvider);
+                          final canDoVisitIn = !isFaceBlocked && !attProvider.isVisiting && (attProvider.isCheckedIn || (isRatecard && attProvider.canVisit));
 
                           return Expanded(
                             child: InkWell(
-                              onTap: canDoVisitIn ? () {
-                                if (!_checkFaceMasterOrBlock(context)) return;
-                                Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_in'))).then((_) { attProvider.loadDashboardData(); });
-                              } : null,
+                              onTap: isFaceBlocked
+                                  ? () => _checkFaceMasterOrBlock(context)
+                                  : (canDoVisitIn
+                                      ? () {
+                                          Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_in'))).then((_) { attProvider.loadDashboardData(); });
+                                        }
+                                      : null),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
                                 decoration: BoxDecoration(
                                   gradient: canDoVisitIn
                                       ? LinearGradient(colors: [primaryColor, Colors.lightBlue.shade400])
                                       : LinearGradient(colors: [cardColor, cardColor]),
-                                  border: Border.all(color: canDoVisitIn ? Colors.transparent : Colors.grey.shade300),
+                                  border: Border.all(
+                                    color: canDoVisitIn
+                                        ? Colors.transparent
+                                        : (isFaceBlocked ? Colors.red.shade300 : Colors.grey.shade300),
+                                  ),
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                                 child: Column(
@@ -1061,13 +1093,26 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                     Container(
                                       width: 27, height: 27,
                                       decoration: BoxDecoration(
-                                        color: canDoVisitIn ? Colors.white.withOpacity(0.2) : elevatedColor,
+                                        color: canDoVisitIn
+                                            ? Colors.white.withOpacity(0.2)
+                                            : (isFaceBlocked ? Colors.red.shade50 : elevatedColor),
                                         borderRadius: BorderRadius.circular(8)
                                       ),
-                                      child: Icon(Icons.transfer_within_a_station, size: 14, color: canDoVisitIn ? Colors.white : subtitleColor),
+                                      child: Icon(
+                                        isFaceBlocked ? Icons.face_retouching_off : Icons.transfer_within_a_station,
+                                        size: 14,
+                                        color: canDoVisitIn ? Colors.white : (isFaceBlocked ? Colors.red.shade500 : subtitleColor),
+                                      ),
                                     ),
                                     const SizedBox(height: 7),
-                                    Text('Visit-in', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: canDoVisitIn ? Colors.white : textColor)),
+                                    Text(
+                                      isFaceBlocked ? 'Wajib Master' : 'Visit-in',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: canDoVisitIn ? Colors.white : (isFaceBlocked ? Colors.red.shade500 : textColor),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -1726,9 +1771,23 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       );
                     }
 
+                    final bool isFaceBlockedForMeet = _isFaceBlocked(authProvider);
+
+                    if (isFaceBlockedForMeet) {
+                      return ElevatedButton.icon(
+                        onPressed: () => _checkFaceMasterOrBlock(context),
+                        icon: const Icon(Icons.face_retouching_off, size: 14, color: Colors.white70),
+                        label: const Text('Meet-In (Wajib Master)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white70)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade500,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      );
+                    }
+
                     return ElevatedButton.icon(
                       onPressed: () {
-                        if (!_checkFaceMasterOrBlock(context)) return;
                         if (!attProvider.isCheckedIn) {
                           toastification.show(
                             context: context,

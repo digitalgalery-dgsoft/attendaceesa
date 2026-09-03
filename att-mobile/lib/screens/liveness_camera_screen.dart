@@ -3,13 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:flutter/services.dart';
+import '../services/face_matcher_service.dart';
 
 class LivenessCameraScreen extends StatefulWidget {
   final bool isRequired;
+  final String? masterPhotoUrl;
+  final bool isEnrollment;
 
   const LivenessCameraScreen({
     Key? key,
     this.isRequired = true,
+    this.masterPhotoUrl,
+    this.isEnrollment = false,
   }) : super(key: key);
 
   @override
@@ -22,6 +27,7 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
     options: FaceDetectorOptions(
       enableClassification: true, // Untuk deteksi kedipan (mata terbuka)
       enableTracking: true,
+      enableLandmarks: true,      // Untuk biometrik koordinat wajah
       performanceMode: FaceDetectorMode.fast,
     ),
   );
@@ -34,6 +40,13 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
   bool _isEyesClosed = false;
   bool _isCapturing = false;
 
+  // Face Matching State
+  FaceBiometricProfile? _masterProfile;
+  bool _isLoadingMaster = false;
+  double? _currentSimilarity;
+  bool _isSimilarityPassed = false;
+  String? _masterError;
+
   int _cameraIndex = -1;
   List<CameraDescription> _cameras = [];
 
@@ -41,6 +54,40 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
   void initState() {
     super.initState();
     _initializeCamera();
+    if (!widget.isEnrollment && widget.masterPhotoUrl != null && widget.masterPhotoUrl!.isNotEmpty) {
+      _loadMasterFaceProfile();
+    }
+  }
+
+  Future<void> _loadMasterFaceProfile() async {
+    setState(() {
+      _isLoadingMaster = true;
+      _instruction = "Memuat data master wajah...";
+    });
+
+    try {
+      final profile = await FaceMatcherService.loadMasterProfile(widget.masterPhotoUrl!);
+      if (mounted) {
+        setState(() {
+          _masterProfile = profile;
+          _isLoadingMaster = false;
+          if (profile == null) {
+            _masterError = "Wajah pada foto master tidak terdeteksi. Silakan perbarui di Profil.";
+            _instruction = "⚠️ Foto master tidak valid. Perbarui di menu Profil.";
+          } else {
+            _instruction = "Arahkan wajah ke dalam frame";
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading master face: $e");
+      if (mounted) {
+        setState(() {
+          _isLoadingMaster = false;
+          _masterError = "Gagal memproses master wajah: $e";
+        });
+      }
+    }
   }
 
   Future<void> _initializeCamera() async {
@@ -110,7 +157,7 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
   }
 
   Future<void> _processCameraImage(CameraImage image) async {
-    if (!_canProcess || _isBusy || _isCapturing) return;
+    if (!_canProcess || _isBusy || _isCapturing || _isLoadingMaster) return;
     _isBusy = true;
 
     final inputImage = _inputImageFromCameraImage(image);
@@ -125,41 +172,79 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
         if (mounted) {
           setState(() {
             _isFaceDetected = false;
+            _currentSimilarity = null;
+            _isSimilarityPassed = false;
             _instruction = "Wajah tidak terdeteksi di dalam frame";
           });
         }
       } else {
-        // Ambil wajah pertama (atau terbesar)
+        // Ambil wajah pertama
         final face = faces.first;
         final leftEyeOpen = face.leftEyeOpenProbability;
         final rightEyeOpen = face.rightEyeOpenProbability;
 
+        // ─── BIOMETRIC COMPARISON (JIKA MASTER PHOTO TERSEDIA) ───
+        bool passSimilarity = true;
+        double? similarity;
+
+        if (_masterProfile != null) {
+          final liveProfile = FaceMatcherService.extractProfile(face);
+          if (liveProfile != null) {
+            similarity = _masterProfile!.compareWith(liveProfile);
+            passSimilarity = similarity >= 75.0;
+          } else {
+            passSimilarity = false;
+          }
+        }
+
         if (mounted) {
           setState(() {
             _isFaceDetected = true;
+            _currentSimilarity = similarity;
+            _isSimilarityPassed = passSimilarity;
           });
         }
 
-        if (leftEyeOpen != null && rightEyeOpen != null) {
-          if (leftEyeOpen > 0.65 || rightEyeOpen > 0.65) {
-            if (_isEyesClosed) {
-              // Jika sebelumnya tertutup lalu terbuka lagi -> kedipan terjadi
-              _hasBlinked = true;
-              if (mounted) {
-                setState(() {
-                  _instruction = "✨ Wajah Terverifikasi! Mengambil foto...";
-                });
+        // ─── VALIDASI: JIKA WAJAH TIDAK COCOK (< 75%), BLOKIR CAPTURE ───
+        if (_masterProfile != null && !passSimilarity) {
+          _isEyesClosed = false; // Reset status mata tertutup agar kedipan orang lain tidak memicu capture
+          if (mounted) {
+            setState(() {
+              final simText = similarity != null ? "${similarity.toStringAsFixed(0)}%" : "0%";
+              _instruction = "❌ Wajah Tidak Sesuai ($simText < 75%)\nHarap gunakan wajah karyawan yang terdaftar!";
+            });
+          }
+        } else {
+          // Wajah cocok (>= 75%) atau mode registrasi master: Cek kedipan mata
+          if (leftEyeOpen != null && rightEyeOpen != null) {
+            if (leftEyeOpen > 0.65 || rightEyeOpen > 0.65) {
+              if (_isEyesClosed) {
+                // Kedipan berhasil!
+                _hasBlinked = true;
+                if (mounted) {
+                  setState(() {
+                    if (similarity != null) {
+                      _instruction = "✨ Wajah Cocok (${similarity.toStringAsFixed(0)}%)! Mengambil foto...";
+                    } else {
+                      _instruction = "✨ Wajah Terverifikasi! Mengambil foto...";
+                    }
+                  });
+                }
+                _captureAndReturn();
+              } else {
+                if (!_hasBlinked && mounted) {
+                  setState(() {
+                    if (similarity != null) {
+                      _instruction = "✨ Wajah Cocok (${similarity.toStringAsFixed(0)}%)!\nSilakan KEDIPKAN MATA 😉";
+                    } else {
+                      _instruction = "Posisikan wajah & KEDIPKAN mata 😉";
+                    }
+                  });
+                }
               }
-              _captureAndReturn();
-            } else {
-              if (!_hasBlinked && mounted) {
-                setState(() {
-                  _instruction = "Posisikan wajah & KEDIPKAN mata 😉";
-                });
-              }
+            } else if (leftEyeOpen < 0.25 || rightEyeOpen < 0.25) {
+              _isEyesClosed = true;
             }
-          } else if (leftEyeOpen < 0.25 || rightEyeOpen < 0.25) {
-            _isEyesClosed = true;
           }
         }
       }
@@ -239,7 +324,7 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
 
   Uint8List _concatenatePlanes(List<Plane> planes) {
     final WriteBuffer allBytes = WriteBuffer();
-    for (final Plane plane in planes) {
+    for (var plane in planes) {
       allBytes.putUint8List(plane.bytes);
     }
     return allBytes.done().buffer.asUint8List();
@@ -256,6 +341,19 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
   @override
   Widget build(BuildContext context) {
     final isRequired = widget.isRequired;
+
+    Color ovalBorderColor;
+    if (!_isFaceDetected) {
+      ovalBorderColor = Colors.white.withValues(alpha: 0.3);
+    } else if (_masterProfile != null) {
+      if (!_isSimilarityPassed) {
+        ovalBorderColor = Colors.redAccent;
+      } else {
+        ovalBorderColor = _hasBlinked ? Colors.greenAccent : const Color(0xFF10B981);
+      }
+    } else {
+      ovalBorderColor = _hasBlinked ? Colors.greenAccent : const Color(0xFF38BDF8);
+    }
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -302,22 +400,21 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
           // ─── BORDER OVAL HIGHLIGHT ───────────────────────────────────────
           Align(
             alignment: const Alignment(0.0, -0.2),
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
               height: 354,
               width: 294,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(160),
                 border: Border.all(
-                  color: _isFaceDetected 
-                      ? (_hasBlinked ? Colors.greenAccent : const Color(0xFF38BDF8))
-                      : Colors.white.withValues(alpha: 0.3),
-                  width: 3,
+                  color: ovalBorderColor,
+                  width: 3.5,
                 ),
                 boxShadow: _isFaceDetected
                     ? [
                         BoxShadow(
-                          color: (_hasBlinked ? Colors.greenAccent : const Color(0xFF38BDF8)).withValues(alpha: 0.4),
-                          blurRadius: 16,
+                          color: ovalBorderColor.withValues(alpha: 0.45),
+                          blurRadius: 18,
                           spreadRadius: 2,
                         )
                       ]
@@ -331,68 +428,124 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
             top: MediaQuery.of(context).padding.top + 8,
             left: 16,
             right: 16,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
-                CircleAvatar(
-                  backgroundColor: Colors.black.withValues(alpha: 0.5),
-                  child: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white, size: 22),
-                    onPressed: () => Navigator.pop(context, null),
-                  ),
-                ),
-
-                // Liveness AI Mode Pill
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F52BA).withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: const Color(0xFF38BDF8).withValues(alpha: 0.6),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      )
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.face_retouching_natural,
-                        color: Colors.white,
-                        size: 15,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.black.withValues(alpha: 0.5),
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white, size: 22),
+                        onPressed: () => Navigator.pop(context, null),
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        isRequired ? 'Face AI: Wajib (Jabatan)' : 'Face AI: Liveness Active',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.3,
+                    ),
+
+                    // Liveness AI Mode Pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: widget.isEnrollment 
+                            ? const Color(0xFF059669).withValues(alpha: 0.85)
+                            : const Color(0xFF0F52BA).withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: widget.isEnrollment ? const Color(0xFF34D399) : const Color(0xFF38BDF8),
+                          width: 1,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          )
+                        ],
                       ),
-                    ],
-                  ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            widget.isEnrollment ? Icons.badge_outlined : Icons.face_retouching_natural,
+                            color: Colors.white,
+                            size: 15,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            widget.isEnrollment
+                                ? 'Perekaman Wajah Master'
+                                : (isRequired ? 'Face AI: Wajib (Jabatan)' : 'Face AI: Liveness Active'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Switch camera button
+                    if (_cameras.length > 1)
+                      CircleAvatar(
+                        backgroundColor: Colors.black.withValues(alpha: 0.5),
+                        child: IconButton(
+                          icon: const Icon(Icons.flip_camera_ios, color: Colors.white, size: 20),
+                          onPressed: _switchCamera,
+                        ),
+                      )
+                    else
+                      const SizedBox(width: 40),
+                  ],
                 ),
 
-                // Switch camera button
-                if (_cameras.length > 1)
-                  CircleAvatar(
-                    backgroundColor: Colors.black.withValues(alpha: 0.5),
-                    child: IconButton(
-                      icon: const Icon(Icons.flip_camera_ios, color: Colors.white, size: 20),
-                      onPressed: _switchCamera,
+                // ─── BIOMETRIC SIMILARITY BADGE (JIKA MODE VERIFIKASI) ───
+                if (_masterProfile != null) ...[
+                  const SizedBox(height: 10),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _currentSimilarity == null
+                          ? Colors.black.withValues(alpha: 0.6)
+                          : (_isSimilarityPassed
+                              ? const Color(0xFF059669).withValues(alpha: 0.9)
+                              : const Color(0xFFDC2626).withValues(alpha: 0.9)),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _currentSimilarity == null
+                            ? Colors.white24
+                            : (_isSimilarityPassed ? Colors.greenAccent : Colors.redAccent),
+                        width: 1.2,
+                      ),
                     ),
-                  )
-                else
-                  const SizedBox(width: 40),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _currentSimilarity == null
+                              ? Icons.search
+                              : (_isSimilarityPassed ? Icons.check_circle : Icons.cancel),
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _currentSimilarity == null
+                              ? 'Mencocokkan Wajah...'
+                              : (_isSimilarityPassed
+                                  ? 'Kecocokan: ${_currentSimilarity!.toStringAsFixed(0)}% (Memenuhi Syarat \u226575%)'
+                                  : 'Kecocokan: ${_currentSimilarity!.toStringAsFixed(0)}% (Tidak Sesuai, Min 75%)'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -406,14 +559,19 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Teks Instruksi Glassmorphism
-                Container(
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.75),
+                    color: (_masterProfile != null && _isFaceDetected && !_isSimilarityPassed)
+                        ? Colors.red.shade900.withValues(alpha: 0.85)
+                        : Colors.black.withValues(alpha: 0.75),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      width: 1,
+                      color: (_masterProfile != null && _isFaceDetected && !_isSimilarityPassed)
+                          ? Colors.redAccent
+                          : Colors.white.withValues(alpha: 0.15),
+                      width: 1.2,
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -427,9 +585,17 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       if (_isFaceDetected)
-                        const Padding(
-                          padding: EdgeInsets.only(right: 8.0),
-                          child: Icon(Icons.face, color: Color(0xFF38BDF8), size: 20),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: Icon(
+                            _masterProfile != null && !_isSimilarityPassed
+                                ? Icons.warning_amber_rounded
+                                : Icons.face,
+                            color: _masterProfile != null && !_isSimilarityPassed
+                                ? Colors.yellowAccent
+                                : const Color(0xFF38BDF8),
+                            size: 20,
+                          ),
                         ),
                       Flexible(
                         child: Text(
@@ -437,8 +603,9 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: _isFaceDetected ? Colors.white : Colors.white70,
-                            fontSize: 14,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.bold,
+                            height: 1.3,
                           ),
                         ),
                       ),
@@ -449,7 +616,9 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                 const SizedBox(height: 12),
 
                 Text(
-                  'Posisikan wajah Anda tepat di dalam lingkaran dan kedipkan mata.',
+                  _masterProfile != null
+                      ? 'Wajah harus sesuai dengan Master Wajah terdaftar (\u226575%) lalu kedipkan mata.'
+                      : 'Posisikan wajah Anda tepat di dalam lingkaran dan kedipkan mata.',
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11),
                   textAlign: TextAlign.center,
                 ),

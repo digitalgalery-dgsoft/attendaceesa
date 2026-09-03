@@ -241,7 +241,7 @@ class AttendanceController extends Controller
             // Jika Face Recognition ON pada jabatan karyawan:
             if ($isFaceRequired) {
                 // 1. Cek apakah karyawan sudah mendaftarkan Foto Master Wajah
-                $hasMasterPhoto = !empty($employee->photo) && !str_contains($employee->photo, 'default.png');
+                $hasMasterPhoto = !empty($employee->photo) && !str_contains($employee->photo, 'default.png') && !str_contains($employee->photo, 'placeholder');
                 if (!$hasMasterPhoto) {
                     return response()->json([
                         'status' => 'error',

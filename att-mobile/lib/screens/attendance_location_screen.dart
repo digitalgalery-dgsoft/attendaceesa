@@ -255,12 +255,35 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   Future<void> _takeSelfie() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final posData = authProvider.employeeData?['position'];
-    final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? false) : false;
+    final bool isFaceRequired = (posData is Map)
+        ? (posData['require_face_recognition'] == true || posData['require_face_recognition'] == 1 || posData['require_face_recognition'] == '1')
+        : false;
+    final String? masterPhoto = authProvider.employeeData?['photo'];
+    final bool hasMasterPhoto = masterPhoto != null && masterPhoto.trim().isNotEmpty && !masterPhoto.contains('default.png') && !masterPhoto.contains('placeholder');
+
+    if (isFaceRequired && !hasMasterPhoto) {
+      toastification.show(
+        context: context,
+        title: const Text('⚠️ Wajib Master Wajah'),
+        description: const Text('Jabatan Anda mewajibkan Face Recognition. Daftarkan foto master wajah Anda terlebih dahulu di menu Profil.'),
+        type: ToastificationType.error,
+        style: ToastificationStyle.flat,
+        alignment: Alignment.topRight,
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    final String? masterPhotoUrl = hasMasterPhoto ? Constants.getImageUrl(masterPhoto!) : null;
 
     final String? photoPath = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => LivenessCameraScreen(isRequired: isFaceRequired),
+        builder: (_) => LivenessCameraScreen(
+          isRequired: isFaceRequired,
+          isEnrollment: false,
+          masterPhotoUrl: masterPhotoUrl,
+        ),
       ),
     );
 
@@ -275,15 +298,17 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   Future<void> _submitAttendance() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final posData = authProvider.employeeData?['position'];
-    final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? false) : false;
+    final bool isFaceRequired = (posData is Map)
+        ? (posData['require_face_recognition'] == true || posData['require_face_recognition'] == 1 || posData['require_face_recognition'] == '1')
+        : false;
     final String? masterPhoto = authProvider.employeeData?['photo'];
-    final bool hasMasterPhoto = masterPhoto != null && masterPhoto.isNotEmpty && !masterPhoto.contains('default.png');
+    final bool hasMasterPhoto = masterPhoto != null && masterPhoto.trim().isNotEmpty && !masterPhoto.contains('default.png') && !masterPhoto.contains('placeholder');
 
-    if (isFaceRequired && !hasMasterPhoto) {
+    if (isFaceRequired && !hasMasterPhoto && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in')) {
       toastification.show(
         context: context,
-        title: const Text('Wajib Master Wajah'),
-        description: const Text('Jabatan Anda mewajibkan Face Recognition, namun belum ada Foto Master Wajah terdaftar. Silakan daftarkan di menu Profil.'),
+        title: const Text('⚠️ Presensi Ditolak'),
+        description: const Text('Jabatan Anda mewajibkan Face Recognition, namun belum mendaftarkan Master Wajah. Silakan buka menu Profil untuk mendaftar.'),
         type: ToastificationType.error,
         style: ToastificationStyle.flat,
         alignment: Alignment.topRight,
@@ -291,6 +316,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
       );
       return;
     }
+
 
     if (_selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in')) {
       toastification.show(

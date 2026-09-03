@@ -98,7 +98,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final photoPath = await Navigator.push<String?>(
       context,
       MaterialPageRoute(
-        builder: (_) => const LivenessCameraScreen(isRequired: true),
+        builder: (_) => const LivenessCameraScreen(isRequired: true, isEnrollment: true),
       ),
     );
 

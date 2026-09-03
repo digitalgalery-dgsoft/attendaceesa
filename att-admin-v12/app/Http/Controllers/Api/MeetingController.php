@@ -114,6 +114,26 @@ class MeetingController extends Controller
             ], 403);
         }
 
+        // Validasi Face Recognition
+        $employee->loadMissing('position');
+        if ($employee->position && !empty($employee->position->require_face_recognition)) {
+            $hasMasterPhoto = !empty($employee->photo) && !str_contains($employee->photo, 'default.png') && !str_contains($employee->photo, 'placeholder');
+            if (!$hasMasterPhoto) {
+                return response()->json([
+                    'status' => 'error',
+                    'code' => 'FACE_MASTER_REQUIRED',
+                    'message' => 'Meet-In ditolak: Jabatan Anda mewajibkan Face Recognition, namun Anda belum mendaftarkan Foto Master Wajah. Silakan daftarkan foto master wajah Anda terlebih dahulu di menu Profil.',
+                ], 403);
+            }
+            if (!$request->hasFile('photo')) {
+                return response()->json([
+                    'status' => 'error',
+                    'code' => 'FACE_PHOTO_REQUIRED',
+                    'message' => 'Foto verifikasi selfie wajah wajib diunggah untuk Meet-In.',
+                ], 400);
+            }
+        }
+
         // Cek apakah sudah pernah Meet-In
         $existing = MeetingAttendance::where('meeting_id', $meeting->id)
             ->where('employee_id', $employee->id)
