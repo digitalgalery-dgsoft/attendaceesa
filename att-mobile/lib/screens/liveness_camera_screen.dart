@@ -191,7 +191,7 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
           final liveProfile = FaceMatcherService.extractProfile(face);
           if (liveProfile != null) {
             similarity = _masterProfile!.compareWith(liveProfile);
-            passSimilarity = similarity >= 75.0;
+            passSimilarity = similarity >= FaceMatcherService.defaultThreshold;
           } else {
             passSimilarity = false;
           }
@@ -234,7 +234,8 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
             if (mounted) {
               setState(() {
                 final simText = similarity != null ? "${similarity.toStringAsFixed(0)}%" : "0%";
-                _instruction = "❌ Wajah Tidak Sesuai ($simText < 75%)\nHarap gunakan wajah karyawan yang terdaftar!";
+                final threshText = "${FaceMatcherService.defaultThreshold.toStringAsFixed(0)}%";
+                _instruction = "❌ Wajah Tidak Sesuai ($simText < $threshText)\nHarap gunakan wajah karyawan yang terdaftar!";
               });
             }
             _isBusy = false;
@@ -643,7 +644,7 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
 
                 Text(
                   _masterProfile != null
-                      ? 'Wajah harus sesuai dengan Master Wajah terdaftar (\u226575%) lalu kedipkan mata.'
+                      ? 'Wajah harus sesuai dengan Master Wajah terdaftar (\u2265${FaceMatcherService.defaultThreshold.toStringAsFixed(0)}%) lalu kedipkan mata.'
                       : 'Posisikan wajah Anda tepat di dalam lingkaran dan kedipkan mata.',
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11),
                   textAlign: TextAlign.center,

@@ -32,22 +32,24 @@ class FaceBiometricProfile {
   double compareWith(FaceBiometricProfile other) {
     // 1. Bandingkan rasio-rasio geometrik wajah
     final ratioDiffs = <double>[];
+    final rawDiffs = <double>[];
 
     void addRatioDiff(double a, double b, double maxTolerance) {
       if (a > 0 && b > 0) {
         final diff = (a - b).abs() / max(a, b);
+        rawDiffs.add(diff);
         final score = (1.0 - (diff / maxTolerance)).clamp(0.0, 1.0);
         ratioDiffs.add(score);
       }
     }
 
-    // Toleransi variasi sudut/ekspresi wajar
-    addRatioDiff(noseToEyeRatio, other.noseToEyeRatio, 0.28);
-    addRatioDiff(mouthToNoseRatio, other.mouthToNoseRatio, 0.32);
-    addRatioDiff(eyeToMouthRatio, other.eyeToMouthRatio, 0.25);
-    addRatioDiff(mouthWidthRatio, other.mouthWidthRatio, 0.30);
-    addRatioDiff(cheekWidthRatio, other.cheekWidthRatio, 0.28);
-    addRatioDiff(faceAspectRatio, other.faceAspectRatio, 0.25);
+    // Toleransi variasi sudut/ekspresi ketat dan presisi
+    addRatioDiff(noseToEyeRatio, other.noseToEyeRatio, 0.18);
+    addRatioDiff(mouthToNoseRatio, other.mouthToNoseRatio, 0.20);
+    addRatioDiff(eyeToMouthRatio, other.eyeToMouthRatio, 0.16);
+    addRatioDiff(mouthWidthRatio, other.mouthWidthRatio, 0.20);
+    addRatioDiff(cheekWidthRatio, other.cheekWidthRatio, 0.18);
+    addRatioDiff(faceAspectRatio, other.faceAspectRatio, 0.18);
 
     double ratioScore = 0.5;
     if (ratioDiffs.isNotEmpty) {
@@ -55,15 +57,20 @@ class FaceBiometricProfile {
     }
 
     // 2. Bandingkan jarak koordinat landmark kanonikal (Euclidean distance)
+    // PENTING: Kecualikan anchor point mata (leftEye & rightEye) karena posisinya 
+    // selalu dinormalisasi ke (-50,0) dan (+50,0) sehingga jaraknya selalu 0 (skor 100% artifisial).
     final landmarkScores = <double>[];
     for (final entry in canonicalLandmarks.entries) {
+      if (entry.key == FaceLandmarkType.leftEye || entry.key == FaceLandmarkType.rightEye) {
+        continue; // Abaikan titik jangkar mata
+      }
       final otherPoint = other.canonicalLandmarks[entry.key];
       if (otherPoint != null) {
         final p1 = entry.value;
         final p2 = otherPoint;
         final dist = sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
-        // Dalam kanonikal di mana jarak mata = 100 unit, deviasi > 28 unit dianggap beda orang
-        final score = (1.0 - (dist / 28.0)).clamp(0.0, 1.0);
+        // Deviasi koordinat landmark di atas 18 unit dianggap berbeda orang
+        final score = (1.0 - (dist / 18.0)).clamp(0.0, 1.0);
         landmarkScores.add(score);
       }
     }
@@ -73,13 +80,25 @@ class FaceBiometricProfile {
       landmarkScore = landmarkScores.reduce((a, b) => a + b) / landmarkScores.length;
     }
 
-    // Bobot: 40% perbandingan rasio + 60% perbandingan posisi relatif landmark
-    final combinedScore = (0.40 * ratioScore + 0.60 * landmarkScore) * 100.0;
+    // 3. Outlier Penalty: Jika ada fitur kunci yang sangat melenceng (> 20%),
+    // kenakan penalti non-linear sehingga wajah yang "hanya agak mirip" tertolak.
+    double penalty = 1.0;
+    for (final diff in rawDiffs) {
+      if (diff > 0.20) {
+        penalty *= (1.0 - (diff - 0.20) * 1.5).clamp(0.65, 1.0);
+      }
+    }
+
+    // Bobot seimbang: 45% rasio proporsi geometrik + 55% posisi relatif landmark non-anchor
+    final baseScore = 0.45 * ratioScore + 0.55 * landmarkScore;
+    final combinedScore = (baseScore * penalty) * 100.0;
     return combinedScore.clamp(0.0, 100.0);
   }
 }
 
 class FaceMatcherService {
+  /// Ambang batas persentase kemiripan wajah minimum untuk lolos validasi biometrik
+  static const double defaultThreshold = 82.0;
   /// Ekstraksi profil biometrik kanonikal dari objek Face ML Kit.
   static FaceBiometricProfile? extractProfile(Face face) {
     final leftEye = face.landmarks[FaceLandmarkType.leftEye];
