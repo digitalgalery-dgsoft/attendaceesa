@@ -325,6 +325,238 @@
         .back-link:hover {
             color: var(--brand-primary);
         }
+
+        /* ===============================================================
+           PROFESSIONAL LOGIN LOADING SCREEN STYLES
+           =============================================================== */
+        .portal-loading-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 999999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                        visibility 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .portal-loading-overlay.active {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: all;
+        }
+
+        .portal-loading-card {
+            position: relative;
+            width: 90%;
+            max-width: 420px;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(255, 255, 255, 0.85);
+            box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.3),
+                        0 0 0 1px rgba(0, 0, 0, 0.05),
+                        0 12px 32px -4px var(--brand-glow, rgba(15, 82, 186, 0.25));
+            border-radius: 24px;
+            padding: 2.25rem 2rem 1.65rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            overflow: hidden;
+            transform: scale(0.92) translateY(14px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .portal-loading-overlay.active .portal-loading-card {
+            transform: scale(1) translateY(0);
+        }
+
+        .portal-loading-glow {
+            position: absolute;
+            top: -45px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, var(--brand-glow, rgba(15, 82, 186, 0.3)) 0%, rgba(255, 255, 255, 0) 70%);
+            border-radius: 50%;
+            filter: blur(25px);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .portal-spinner-wrapper {
+            position: relative;
+            width: 92px;
+            height: 92px;
+            margin-bottom: 1.35rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+        }
+
+        .portal-spinner-outer {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            border-top-color: var(--brand-primary, #0F52BA);
+            border-right-color: var(--brand-secondary, #2563EB);
+            animation: portalSpin 1.1s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
+        }
+
+        .portal-spinner-inner {
+            position: absolute;
+            inset: 7px;
+            border-radius: 50%;
+            border: 2px dashed rgba(15, 82, 186, 0.3);
+            border-bottom-color: var(--brand-primary, #0F52BA);
+            animation: portalSpinReverse 2.2s linear infinite;
+        }
+
+        .portal-spinner-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            animation: portalPulse 2s ease-in-out infinite;
+            z-index: 2;
+        }
+
+        .portal-spinner-logo {
+            max-width: 34px;
+            max-height: 34px;
+            object-fit: contain;
+        }
+
+        .portal-spinner-fallback {
+            color: var(--brand-primary, #0F52BA);
+            font-size: 1.35rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .portal-loading-text-group {
+            position: relative;
+            z-index: 1;
+            margin-bottom: 1.25rem;
+            max-width: 320px;
+        }
+
+        .portal-loading-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #0f172a;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.35rem;
+        }
+
+        .portal-loading-subtitle {
+            font-size: 0.85rem;
+            color: #64748b;
+            line-height: 1.45;
+            font-weight: 500;
+        }
+
+        .loading-dots span {
+            display: inline-block;
+            animation: loadingDots 1.4s infinite;
+            font-weight: 800;
+        }
+        .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        .portal-loading-progress-track {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            height: 6px;
+            background: #f1f5f9;
+            border-radius: 999px;
+            overflow: hidden;
+            margin-bottom: 1.15rem;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+        }
+
+        .portal-loading-progress-bar {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: -40%;
+            width: 45%;
+            background: var(--brand-gradient, linear-gradient(90deg, #0F52BA, #3b82f6));
+            border-radius: 999px;
+            box-shadow: 0 0 12px var(--brand-glow, rgba(15, 82, 186, 0.4));
+            animation: portalIndeterminate 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        .portal-loading-meta {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 0.74rem;
+            color: #94a3b8;
+            font-weight: 600;
+            padding-top: 0.75rem;
+            border-top: 1px dashed #e2e8f0;
+        }
+
+        .portal-meta-brand {
+            color: var(--brand-primary, #0F52BA);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 700;
+        }
+
+        .portal-meta-tip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        @keyframes portalSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes portalSpinReverse {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(-360deg); }
+        }
+
+        @keyframes portalPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes portalIndeterminate {
+            0% { left: -45%; width: 35%; }
+            50% { left: 25%; width: 60%; }
+            100% { left: 105%; width: 40%; }
+        }
+
+        @keyframes loadingDots {
+            0%, 20% { opacity: 0; transform: translateY(0); }
+            50% { opacity: 1; transform: translateY(-2px); }
+            80%, 100% { opacity: 0; transform: translateY(0); }
+        }
     </style>
 </head>
 <body x-data="{
@@ -497,6 +729,69 @@
                 this.classList.toggle('fa-eye-slash');
             });
         }
+
+        // Professional Login Loading Screen Animation
+        const loginForm = document.querySelector('form[action*="login"]');
+        const loginOverlay = document.getElementById('loginLoadingOverlay');
+
+        if (loginForm && loginOverlay) {
+            loginForm.addEventListener('submit', function(e) {
+                if (typeof loginForm.checkValidity === 'function' && !loginForm.checkValidity()) {
+                    return;
+                }
+                loginOverlay.classList.add('active');
+                loginOverlay.setAttribute('aria-hidden', 'false');
+            });
+        }
     </script>
+
+    <!-- PROFESSIONAL LOGIN LOADING SCREEN OVERLAY -->
+    <div id="loginLoadingOverlay" class="portal-loading-overlay" aria-hidden="true">
+        <div class="portal-loading-card">
+            <!-- Animated Ambient Glow -->
+            <div class="portal-loading-glow"></div>
+
+            <!-- Modern Dual-Orbit Spinner -->
+            <div class="portal-spinner-wrapper">
+                <div class="portal-spinner-outer"></div>
+                <div class="portal-spinner-inner"></div>
+                <div class="portal-spinner-icon">
+                    @if(!empty($tenantPrincipal->logo_url))
+                        <img src="{{ $tenantPrincipal->logo_url }}" alt="Logo" class="portal-spinner-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="portal-spinner-fallback" style="display: none;">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </div>
+                    @else
+                        <div class="portal-spinner-fallback">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            <!-- Text & Status Message -->
+            <div class="portal-loading-text-group">
+                <h4 id="loginLoadingTitle" class="portal-loading-title">
+                    <span x-show="lang === 'en'">Authenticating Account...</span>
+                    <span x-show="lang === 'id'" x-cloak>Memverifikasi Kredensial...</span>
+                </h4>
+                <p id="loginLoadingSubtitle" class="portal-loading-subtitle">
+                    <span x-show="lang === 'en'">Connecting to secure server, please wait</span>
+                    <span x-show="lang === 'id'" x-cloak>Sedang menghubungkan ke server aman, mohon tunggu</span>
+                    <span class="loading-dots"><span>.</span><span>.</span><span>.</span></span>
+                </p>
+            </div>
+
+            <!-- Shimmering Indeterminate Progress Bar -->
+            <div class="portal-loading-progress-track">
+                <div class="portal-loading-progress-bar"></div>
+            </div>
+
+            <div class="portal-loading-meta">
+                <span class="portal-meta-brand"><i class="fa-solid fa-shield-halved"></i> {{ $tenantPrincipal->name ?? 'Portal Principal' }}</span>
+                <span class="portal-meta-tip"><i class="fa-solid fa-lock" style="font-size: 0.7rem;"></i> Enkripsi SSL 256-Bit</span>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

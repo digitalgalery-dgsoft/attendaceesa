@@ -26,7 +26,9 @@ use App\Models\WorkingGroupMember;
 use App\Models\WorkingGroupRule;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -103,15 +105,6 @@ class PrincipalPortalController extends Controller
             $tenantPrincipalIds = [$tenantPrincipal->id];
         }
 
-        if ($tenantPrincipal) {
-            $subdomain = strtolower($tenantPrincipal->subdomain ?? '');
-            $name = strtolower($tenantPrincipal->name ?? '');
-            if ($subdomain === 'dulux' || str_contains($name, 'ici') || str_contains($name, 'dulux')) {
-                try {
-                    ReportTemplate::syncDuluxMergedStockEnd();
-                } catch (\Throwable $e) {}
-            }
-        }
 
         return [$tenantPrincipal, $tenantPrincipalIds, $tenantPrincipalsAll];
     }
@@ -418,8 +411,27 @@ class PrincipalPortalController extends Controller
             ->firstOrFail();
 
         // Filters: Rentang Bulan Awal s/d Bulan Akhir
-        $startMonth = (int) ($request->query('start_month') ?? $request->query('month') ?? Carbon::now()->month);
-        $startYear  = (int) ($request->query('start_year') ?? $request->query('year') ?? Carbon::now()->year);
+        $hasExplicitDate = $request->has('start_month') || $request->has('month');
+        $startMonth = (int) ($request->query('start_month') ?? $request->query('month') ?? 0);
+        $startYear  = (int) ($request->query('start_year') ?? $request->query('year') ?? 0);
+
+        // Jika tidak ditentukan di request, pilih secara cerdas bulan terakhir yang memiliki data pada template ini
+        if (!$hasExplicitDate || $startMonth <= 0 || $startYear <= 0) {
+            $latestSubDate = Cache::remember("rep_tpl_latest_date_{$template->id}", 600, function() use ($template) {
+                return DB::table('report_submissions')
+                    ->where('report_template_id', $template->id)
+                    ->max('submitted_at');
+            });
+            if ($latestSubDate) {
+                $c = Carbon::parse($latestSubDate);
+                $startMonth = $c->month;
+                $startYear  = $c->year;
+            } else {
+                $startMonth = Carbon::now()->month;
+                $startYear  = Carbon::now()->year;
+            }
+        }
+
         $endMonth   = (int) ($request->query('end_month') ?? $startMonth);
         $endYear    = (int) ($request->query('end_year') ?? $startYear);
 
@@ -431,70 +443,125 @@ class PrincipalPortalController extends Controller
         $selectedLocationId = $request->query('location_id') ?? $request->query('store_id');
         $search             = $request->query('q');
 
-        $query = ReportSubmission::where('report_submissions.report_template_id', $template->id)
+        // Optimasi Query Statistik Ringkasan (Combined Count dalam 1 Query + Cache 5 Menit)
+        $statsCacheKey = 'rep_stats_' . md5($template->id . '_' . $startDate->toDateString() . '_' . $endDate->toDateString() . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+        
+        $stats = Cache::remember($statsCacheKey, 300, function() use ($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
+            $q = DB::table('report_submissions')
+                ->where('report_submissions.report_template_id', $template->id)
+                ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate]);
+
+            if ($selectedRegion) {
+                $q->join('work_locations as wl_reg', 'report_submissions.work_location_id', '=', 'wl_reg.id')
+                  ->where('wl_reg.region', $selectedRegion);
+            }
+            if ($selectedAreaId) {
+                $q->where('report_submissions.work_location_id', function($subQ) use ($selectedAreaId) {
+                    $subQ->select('id')->from('work_locations')->where('branch_id', $selectedAreaId);
+                });
+            }
+            if ($selectedLocationId) {
+                $q->where('report_submissions.work_location_id', $selectedLocationId);
+            }
+            if ($search) {
+                $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+                $q->where(function ($subQ) use ($search, $likeOp) {
+                    $subQ->whereIn('report_submissions.employee_id', function ($eQ) use ($search, $likeOp) {
+                        $eQ->select('id')->from('employees')
+                           ->where('name', $likeOp, "%{$search}%")
+                           ->orWhere('nik', $likeOp, "%{$search}%");
+                    })->orWhereIn('report_submissions.work_location_id', function ($wQ) use ($search, $likeOp) {
+                        $wQ->select('id')->from('work_locations')
+                           ->where('name', $likeOp, "%{$search}%");
+                    });
+                });
+            }
+
+            return $q->selectRaw('
+                COUNT(*) as total_count,
+                COUNT(DISTINCT report_submissions.work_location_id) as store_count,
+                COUNT(DISTINCT report_submissions.employee_id) as emp_count
+            ')->first();
+        });
+
+        $totalTemplateSubmissions = (int) ($stats->total_count ?? 0);
+        $uniqueStores = (int) ($stats->store_count ?? 0);
+        $uniqueEmployees = (int) ($stats->emp_count ?? 0);
+
+        // Optimasi Pagination Item: ambil relasi kolom terdefinisi saja & gunakan LengthAwarePaginator agar bebas query count ganda
+        $page = (int) $request->query('page', 1);
+        $perPage = 20;
+
+        $itemsQuery = ReportSubmission::where('report_submissions.report_template_id', $template->id)
             ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
-            ->with(['employee.branch', 'workLocation.branch', 'values.formField']);
+            ->with([
+                'employee:id,name,nik,branch_id',
+                'employee.branch:id,name,region',
+                'workLocation:id,name,code,region,branch_id',
+                'workLocation.branch:id,name,region',
+                'values:id,report_submission_id,report_form_field_id,field_name,field_type,value_text,value_number,media_url',
+                'values.formField:id,report_template_id,field_name,field_label,field_type'
+            ]);
 
         if ($selectedRegion) {
-            $query->where(function ($q) use ($selectedRegion) {
-                $q->whereHas('workLocation', fn($w) => $w->where('region', $selectedRegion))
-                  ->orWhereHas('employee.branch', fn($b) => $b->where('region', $selectedRegion));
-            });
+            $itemsQuery->whereHas('workLocation', fn($w) => $w->where('region', $selectedRegion));
         }
         if ($selectedAreaId) {
-            $query->where(function ($q) use ($selectedAreaId) {
-                $q->whereHas('workLocation', fn($w) => $w->where('branch_id', $selectedAreaId))
-                  ->orWhereHas('employee', fn($e) => $e->where('branch_id', $selectedAreaId));
-            });
+            $itemsQuery->whereHas('workLocation', fn($w) => $w->where('branch_id', $selectedAreaId));
         }
         if ($selectedLocationId) {
-            $query->where('report_submissions.work_location_id', $selectedLocationId);
+            $itemsQuery->where('report_submissions.work_location_id', $selectedLocationId);
         }
         if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->whereHas('employee', function ($sub) use ($search) {
-                    $sub->where('employees.name', 'LIKE', "%{$search}%")
-                        ->orWhere('employees.nik', 'LIKE', "%{$search}%");
-                })->orWhereHas('workLocation', function ($sub) use ($search) {
-                    $sub->where('work_locations.name', 'LIKE', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $itemsQuery->where(function ($q) use ($search, $likeOp) {
+                $q->whereHas('employee', function ($sub) use ($search, $likeOp) {
+                    $sub->where('employees.name', $likeOp, "%{$search}%")
+                        ->orWhere('employees.nik', $likeOp, "%{$search}%");
+                })->orWhereHas('workLocation', function ($sub) use ($search, $likeOp) {
+                    $sub->where('work_locations.name', $likeOp, "%{$search}%");
                 });
             });
         }
 
-        $totalTemplateSubmissions = (clone $query)->count();
-        $uniqueStores = (clone $query)->distinct('report_submissions.work_location_id')->count('report_submissions.work_location_id');
-        $uniqueEmployees = (clone $query)->distinct('report_submissions.employee_id')->count('report_submissions.employee_id');
+        $items = $itemsQuery->latest('report_submissions.submitted_at')
+            ->forPage($page, $perPage)
+            ->get();
 
-        $submissions = $query->latest('report_submissions.submitted_at')->paginate(20);
+        $submissions = new LengthAwarePaginator(
+            $items,
+            $totalTemplateSubmissions,
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
-        // Hanya load collection ke memory jika dataset wajar (<= 1500 rows) agar tidak kehabisan RAM pada dataset besar
-        $allFilteredSubmissions = $totalTemplateSubmissions <= 1500 
-            ? (clone $query)->get() 
-            : collect();
-
-        // Dynamic Dashboard Configuration & Widget Calculation Engine (Concept Odoo Studio)
+        // Dynamic Dashboard Configuration & Widget Calculation Engine (Cached 5 Menit)
         $dashboardConfig = $template->resolved_dashboard_config;
         $widgets = $dashboardConfig['widgets'] ?? [];
-        $widgetResults = [];
+        
+        $widgetsCacheKey = 'rep_widgets_' . md5($template->id . '_' . $startDate->toDateString() . '_' . $endDate->toDateString() . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+        
+        $widgetResults = Cache::remember($widgetsCacheKey, 300, function() use ($widgets, $totalTemplateSubmissions, $uniqueStores, $uniqueEmployees, $template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $startYear, $startMonth) {
+            $results = [];
+            $driver = DB::connection()->getDriverName();
 
-        foreach ($widgets as $w) {
-            $wId = $w['id'] ?? uniqid('w_');
-            $type = $w['type'] ?? 'kpi_card';
-            $dim = $w['dimension_field'] ?? null;
-            $metric = $w['metric_field'] ?? null;
-            $agg = strtoupper($w['aggregation'] ?? 'COUNT');
+            foreach ($widgets as $w) {
+                $wId = $w['id'] ?? uniqid('w_');
+                $type = $w['type'] ?? 'kpi_card';
+                $dim = $w['dimension_field'] ?? null;
+                $metric = $w['metric_field'] ?? null;
+                $agg = strtoupper($w['aggregation'] ?? 'COUNT');
 
-            if ($type === 'kpi_card') {
-                $val = 0;
-                if ($metric === '_submission' || $dim === '_total_count' || empty($metric)) {
-                    $val = $totalTemplateSubmissions;
-                } elseif ($metric === '_unique_store' || $dim === 'work_location_id' || $metric === 'work_location_id') {
-                    $val = $uniqueStores;
-                } elseif ($metric === '_unique_employee' || $dim === 'employee_id' || $metric === 'employee_id') {
-                    $val = $uniqueEmployees;
-                } else {
-                    if ($totalTemplateSubmissions > 1500) {
-                        // High performance DB aggregation
+                if ($type === 'kpi_card') {
+                    $val = 0;
+                    if ($metric === '_submission' || $dim === '_total_count' || empty($metric)) {
+                        $val = $totalTemplateSubmissions;
+                    } elseif ($metric === '_unique_store' || $dim === 'work_location_id' || $metric === 'work_location_id') {
+                        $val = $uniqueStores;
+                    } elseif ($metric === '_unique_employee' || $dim === 'employee_id' || $metric === 'employee_id') {
+                        $val = $uniqueEmployees;
+                    } else {
                         $valQuery = DB::table('report_submission_values')
                             ->join('report_submissions', 'report_submission_values.report_submission_id', '=', 'report_submissions.id')
                             ->where('report_submissions.report_template_id', $template->id)
@@ -525,46 +592,25 @@ class PrincipalPortalController extends Controller
                         } else {
                             $val = (int) $valQuery->count();
                         }
-                    } else {
-                        $values = collect();
-                        foreach ($allFilteredSubmissions as $sub) {
-                            foreach ($sub->values as $v) {
-                                if ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric)) {
-                                    $num = $v->value_number ?? (is_numeric($v->value_text) ? (float) $v->value_text : null);
-                                    if ($num !== null) $values->push($num);
-                                }
-                            }
-                        }
-                        if ($agg === 'SUM') {
-                            $val = $values->sum();
-                        } elseif ($agg === 'AVG') {
-                            $val = $values->count() > 0 ? round($values->avg(), 1) : 0;
-                        } elseif ($agg === 'MAX') {
-                            $val = $values->count() > 0 ? $values->max() : 0;
-                        } elseif ($agg === 'MIN') {
-                            $val = $values->count() > 0 ? $values->min() : 0;
-                        } else {
-                            $val = $values->count();
-                        }
                     }
-                }
-                $prefix = $w['prefix'] ?? '';
-                $suffix = $w['suffix'] ?? '';
-                $widgetResults[$wId] = [
-                    'value' => $val,
-                    'formatted_value' => $prefix . number_format($val, $val == (int)$val ? 0 : 2, ',', '.') . $suffix,
-                ];
-            } elseif (in_array($type, ['bar_chart', 'donut_chart', 'pie_chart', 'line_chart', 'breakdown_table'])) {
-                $groups = [];
 
-                if ($totalTemplateSubmissions > 1500) {
+                    $prefix = $w['prefix'] ?? '';
+                    $suffix = $w['suffix'] ?? '';
+                    $results[$wId] = [
+                        'value' => $val,
+                        'formatted_value' => $prefix . number_format($val, $val == (int)$val ? 0 : 2, ',', '.') . $suffix,
+                    ];
+                } elseif (in_array($type, ['bar_chart', 'donut_chart', 'pie_chart', 'line_chart', 'breakdown_table'])) {
+                    $groups = [];
+
                     if ($dim === '_submitted_date') {
                         $diffInMonths = $startDate->diffInMonths($endDate);
                         if ($diffInMonths > 1) {
+                            $periodExpr = $driver === 'pgsql' ? "TO_CHAR(submitted_at, 'YYYY-MM')" : "DATE_FORMAT(submitted_at, '%Y-%m')";
                             $dateQuery = DB::table('report_submissions')
                                 ->where('report_template_id', $template->id)
                                 ->whereBetween('submitted_at', [$startDate, $endDate])
-                                ->selectRaw("TO_CHAR(submitted_at, 'YYYY-MM') as period_key, count(*) as total")
+                                ->selectRaw("{$periodExpr} as period_key, count(*) as total")
                                 ->groupBy('period_key')
                                 ->orderBy('period_key')
                                 ->pluck('total', 'period_key');
@@ -577,10 +623,11 @@ class PrincipalPortalController extends Controller
                                 $currentPeriod->addMonth();
                             }
                         } else {
+                            $dayExpr = $driver === 'pgsql' ? "TO_CHAR(submitted_at, 'YYYY-MM-DD')" : "DATE_FORMAT(submitted_at, '%Y-%m-%d')";
                             $dateQuery = DB::table('report_submissions')
                                 ->where('report_template_id', $template->id)
                                 ->whereBetween('submitted_at', [$startDate, $endDate])
-                                ->selectRaw("TO_CHAR(submitted_at, 'YYYY-MM-DD') as day_key, count(*) as total")
+                                ->selectRaw("{$dayExpr} as day_key, count(*) as total")
                                 ->groupBy('day_key')
                                 ->orderBy('day_key')
                                 ->pluck('total', 'day_key');
@@ -608,150 +655,53 @@ class PrincipalPortalController extends Controller
                             ->toArray();
                         $groups = $groupQuery;
                     }
-                } else {
 
-                if ($dim === '_submitted_date') {
-                    // Group by Month or Day depending on range length
-                    $diffInMonths = $startDate->diffInMonths($endDate);
-                    if ($diffInMonths > 1) {
-                        $currentPeriod = $startDate->copy()->startOfMonth();
-                        while ($currentPeriod->lte($endDate)) {
-                            $label = $currentPeriod->translatedFormat('M Y');
-                            $groups[$label] = 0;
-                            $currentPeriod->addMonth();
-                        }
-                        foreach ($allFilteredSubmissions as $sub) {
-                            if ($sub->submitted_at) {
-                                $label = $sub->submitted_at->translatedFormat('M Y');
-                                if (isset($groups[$label])) {
-                                    $groups[$label] += 1;
-                                }
+                    if ($dim !== '_submitted_date') {
+                        arsort($groups);
+                        if (count($groups) > 10) {
+                            $topGroups = array_slice($groups, 0, 10, true);
+                            $otherSum = array_sum(array_slice($groups, 10));
+                            if ($otherSum > 0 && in_array($type, ['donut_chart', 'pie_chart'])) {
+                                $topGroups['Lainnya'] = $otherSum;
                             }
-                        }
-                    } else {
-                        $daysInMonth = $startDate->daysInMonth;
-                        for ($d = 1; $d <= $daysInMonth; $d++) {
-                            $dateLabel = Carbon::create($startYear, $startMonth, $d)->translatedFormat('d M');
-                            $groups[$dateLabel] = 0;
-                        }
-                        foreach ($allFilteredSubmissions as $sub) {
-                            if ($sub->submitted_at) {
-                                $dateLabel = $sub->submitted_at->translatedFormat('d M');
-                                if (isset($groups[$dateLabel])) {
-                                    if ($metric && $metric !== '_count' && $metric !== '_submission') {
-                                        $valNum = 0;
-                                        foreach ($sub->values as $v) {
-                                            if ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric)) {
-                                                $valNum += $v->value_number ?? (is_numeric($v->value_text) ? (float)$v->value_text : 0);
-                                            }
-                                        }
-                                        $groups[$dateLabel] += $valNum;
-                                    } else {
-                                        $groups[$dateLabel] += 1;
-                                    }
-                                }
-                            }
+                            $groups = $topGroups;
                         }
                     }
-                } elseif ($dim === '_employee' || $dim === 'employee_id') {
-                    foreach ($allFilteredSubmissions as $sub) {
-                        $label = ($sub->employee && $sub->employee->name) ? $sub->employee->name : 'Tanpa Nama';
-                        if (!isset($groups[$label])) $groups[$label] = 0;
-                        if ($agg === 'COUNT' || empty($metric) || $metric === '_count') {
-                            $groups[$label] += 1;
-                        } else {
-                            foreach ($sub->values as $v) {
-                                if ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric)) {
-                                    $groups[$label] += ($v->value_number ?? (is_numeric($v->value_text) ? (float)$v->value_text : 0));
-                                }
-                            }
-                        }
-                    }
-                } elseif ($dim === '_store' || $dim === 'work_location_id') {
-                    foreach ($allFilteredSubmissions as $sub) {
-                        $label = ($sub->workLocation && $sub->workLocation->name) ? $sub->workLocation->name : ($sub->store_name ?? 'Toko Lainnya');
-                        if (!isset($groups[$label])) $groups[$label] = 0;
-                        if ($agg === 'COUNT' || empty($metric) || $metric === '_count') {
-                            $groups[$label] += 1;
-                        } else {
-                            foreach ($sub->values as $v) {
-                                if ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric)) {
-                                    $groups[$label] += ($v->value_number ?? (is_numeric($v->value_text) ? (float)$v->value_text : 0));
-                                }
-                            }
-                        }
-                    }
-                } elseif ($dim === '_status') {
-                    foreach ($allFilteredSubmissions as $sub) {
-                        $label = ucfirst($sub->status ?? 'pending');
-                        if (!isset($groups[$label])) $groups[$label] = 0;
-                        $groups[$label] += 1;
-                    }
-                } else {
-                    foreach ($allFilteredSubmissions as $sub) {
-                        $dimVal = null;
-                        $measureVal = 1;
 
-                        foreach ($sub->values as $v) {
-                            if ($v->field_name === $dim || ($v->formField && $v->formField->field_name === $dim)) {
-                                $dimVal = $v->value_text ?? $v->value_number;
-                            }
-                            if ($metric && ($v->field_name === $metric || ($v->formField && $v->formField->field_name === $metric))) {
-                                $measureVal = $v->value_number ?? (is_numeric($v->value_text) ? (float)$v->value_text : 1);
-                            }
-                        }
+                    $categories = array_keys($groups);
+                    $seriesData = array_values($groups);
 
-                        if (!empty($dimVal)) {
-                            $dimStr = (string) $dimVal;
-                            if (!isset($groups[$dimStr])) $groups[$dimStr] = 0;
-                            if ($agg === 'COUNT') {
-                                $groups[$dimStr] += 1;
-                            } else {
-                                $groups[$dimStr] += $measureVal;
-                            }
-                        }
-                    }
+                    $results[$wId] = [
+                        'categories' => $categories,
+                        'series' => $seriesData,
+                        'groups' => $groups,
+                        'total' => array_sum($seriesData),
+                    ];
                 }
             }
 
-                if ($dim !== '_submitted_date') {
-                    arsort($groups);
-                    if (count($groups) > 10) {
-                        $topGroups = array_slice($groups, 0, 10, true);
-                        $otherSum = array_sum(array_slice($groups, 10));
-                        if ($otherSum > 0 && in_array($type, ['donut_chart', 'pie_chart'])) {
-                            $topGroups['Lainnya'] = $otherSum;
-                        }
-                        $groups = $topGroups;
-                    }
-                }
+            return $results;
+        });
 
-                $categories = array_keys($groups);
-                $seriesData = array_values($groups);
+        // Dropdown Data for Region & Area (Cached 30 Menit)
+        $cacheKeyFilters = 'rep_filters_' . implode('_', $scopedPrincipalIds) . '_' . ($selectedRegion ?: 'all');
+        [$regions, $areas] = Cache::remember($cacheKeyFilters, 1800, function() use ($scopedPrincipalIds, $selectedRegion) {
+            $regs = WorkLocation::where(function($q) use ($scopedPrincipalIds) {
+                $q->whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id');
+            })->whereNotNull('region')->where('region', '!=', '')->distinct()->orderBy('region')->pluck('region')->toArray();
 
-                $widgetResults[$wId] = [
-                    'categories' => $categories,
-                    'series' => $seriesData,
-                    'groups' => $groups,
-                    'total' => array_sum($seriesData),
-                ];
+            if (empty($regs)) {
+                $regs = Branch::whereNotNull('region')->where('region', '!=', '')->distinct()->orderBy('region')->pluck('region')->toArray();
             }
-        }
 
-        // Dropdown Data for Region, Area, Store
-        $regions = WorkLocation::where(function($q) use ($scopedPrincipalIds) {
-            $q->whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id');
-        })->whereNotNull('region')->where('region', '!=', '')->distinct()->orderBy('region')->pluck('region')->toArray();
+            $areaQ = Branch::query();
+            if ($selectedRegion) {
+                $areaQ->where('region', $selectedRegion);
+            }
+            $ars = $areaQ->orderBy('name')->get();
 
-        if (empty($regions)) {
-            $regions = Branch::whereNotNull('region')->where('region', '!=', '')->distinct()->orderBy('region')->pluck('region')->toArray();
-        }
-
-        $areaQuery = Branch::query();
-        if ($selectedRegion) {
-            $areaQuery->where('region', $selectedRegion);
-        }
-        $areas = $areaQuery->orderBy('name')->get();
+            return [$regs, $ars];
+        });
 
         $storeQuery = WorkLocation::query()->select(['id', 'name', 'region', 'branch_id']);
         if ($selectedRegion) {
