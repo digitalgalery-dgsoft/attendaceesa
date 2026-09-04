@@ -559,6 +559,157 @@ class PrincipalPortalController extends Controller
         }
 
         $isOfftakeReport = ($template->code === 'RPT-DULUX-OFFTAKE-01');
+        $isStockReport   = ($template->code === 'RPT-DULUX-STOCK-END');
+
+        // --- Stock End Custom Handling (Pivotable Store Volume, SCM / Summ & Raw Submissions from stock_2026.sqlite) ---
+        if ($isStockReport) {
+            $sqlitePath = storage_path('app/dulux_data/stock_2026.sqlite');
+            $gzPath     = storage_path('app/dulux_data/stock_2026.sqlite.gz');
+
+            // Auto-extract if .sqlite does not exist or corrupted (< 1MB) but .sqlite.gz exists
+            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+                if (file_exists($gzPath)) {
+                    try {
+                        $zp = gzopen($gzPath, 'rb');
+                        $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                        $fp = fopen($tmpPath, 'wb');
+                        if ($zp && $fp) {
+                            while (!gzeof($zp)) {
+                                fwrite($fp, gzread($zp, 524288));
+                            }
+                            gzclose($zp);
+                            fclose($fp);
+                            @rename($tmpPath, $sqlitePath);
+                            @chmod($sqlitePath, 0666);
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::error("Auto-extraction of stock_2026.sqlite.gz failed: " . $e->getMessage());
+                    }
+                }
+            }
+
+            // Regions directly from stock_raw
+            $regions = Cache::remember('stock_filter_regions_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT region FROM stock_raw WHERE region IS NOT NULL AND region != '' ORDER BY region");
+                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                } catch (\Throwable $e) {
+                    return ['R1', 'R2', 'R3', 'R4'];
+                }
+            });
+
+            // Areas directly from stock_raw
+            $areas = Cache::remember('stock_filter_areas_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT region, MIN(area) as area_name FROM stock_raw WHERE area IS NOT NULL AND area != '' GROUP BY region, UPPER(TRIM(area)) ORDER BY area_name ASC");
+                    $rawAreas = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                    $result = [];
+                    foreach ($rawAreas as $a) {
+                        $result[] = [
+                            'id' => $a['area_name'],
+                            'name' => ucwords(strtolower($a['area_name'])),
+                            'region' => $a['region']
+                        ];
+                    }
+                    return $result;
+                } catch (\Throwable $e) {
+                    return [];
+                }
+            });
+
+            // Stores directly from stock_raw
+            $workLocations = Cache::remember('stock_filter_stores_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT region, MIN(area) as area, sap, store_name FROM stock_raw WHERE store_name IS NOT NULL AND store_name != '' GROUP BY store_name ORDER BY store_name ASC");
+                    $rawStores = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                    $result = [];
+                    foreach ($rawStores as $s) {
+                        $result[] = [
+                            'id' => $s['store_name'],
+                            'name' => $s['store_name'],
+                            'region' => $s['region'],
+                            'area' => $s['area'],
+                            'sap' => $s['sap']
+                        ];
+                    }
+                    return $result;
+                } catch (\Throwable $e) {
+                    return [];
+                }
+            });
+
+            $stockPage = max(1, (int)$request->query('page', 1));
+            $summPage  = max(1, (int)$request->query('summ_page', 1));
+            $rawPage   = max(1, (int)$request->query('raw_page', 1));
+            $activeTab = $request->query('tab', 'pivot');
+
+            $stockData = $this->calculateStockDashboardData(
+                $template,
+                $startMonth,
+                $startYear,
+                $endMonth,
+                $endYear,
+                $selectedRegion,
+                $selectedAreaId,
+                $selectedLocationId,
+                $search,
+                $stockPage,
+                $summPage,
+                $rawPage,
+                50
+            );
+
+            $totalTemplateSubmissions = 0;
+            $uniqueStores = 0;
+            $submissions = new LengthAwarePaginator([], 0, 20, 1);
+            $dashboardConfig = [];
+            $widgetResults = [];
+            $isYtdReport = true;
+            $ytdData = $this->calculateStockYtdData(
+                $template,
+                $endMonth,
+                $endYear,
+                $selectedRegion,
+                $selectedAreaId,
+                $selectedLocationId,
+                $search
+            );
+
+            return view('portal.report_detail', compact(
+                'tenantPrincipal',
+                'tenantPrincipalsAll',
+                'brandColor',
+                'activeTemplates',
+                'template',
+                'submissions',
+                'totalTemplateSubmissions',
+                'uniqueStores',
+                'startMonth',
+                'startYear',
+                'endMonth',
+                'endYear',
+                'search',
+                'selectedRegion',
+                'selectedAreaId',
+                'selectedLocationId',
+                'regions',
+                'areas',
+                'workLocations',
+                'setting',
+                'dashboardConfig',
+                'widgetResults',
+                'isYtdReport',
+                'ytdData',
+                'isCbpReport',
+                'isOfftakeReport',
+                'isStockReport',
+                'stockData',
+                'activeTab'
+            ));
+        }
 
         // --- Offtake Custom Handling (Sheet 2 Store Volume Pivot & Sheet 1 Raw Data from offtake_2026.sqlite) ---
         if ($isOfftakeReport) {
@@ -1871,6 +2022,276 @@ class PrincipalPortalController extends Controller
                         }
                         $footerRow[] = round((float)($grand['total_vol'] ?? 0), 2);
                         fputcsv($handle, $footerRow);
+                    }
+
+                    fclose($handle);
+                };
+
+                return response()->stream($callback, 200, $headers);
+            }
+        }
+
+        // Custom Streamed CSV Export for Dulux Stock End Report (Pivotable, Summ SCM, Raw Submissions)
+        if ($template->code === 'RPT-DULUX-STOCK-END') {
+            $sqlitePath = storage_path('app/dulux_data/stock_2026.sqlite');
+            $gzPath     = storage_path('app/dulux_data/stock_2026.sqlite.gz');
+            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+                if (file_exists($gzPath)) {
+                    try {
+                        $zp = gzopen($gzPath, 'rb');
+                        $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                        $fp = fopen($tmpPath, 'wb');
+                        if ($zp && $fp) {
+                            while (!gzeof($zp)) {
+                                fwrite($fp, gzread($zp, 524288));
+                            }
+                            gzclose($zp);
+                            fclose($fp);
+                            @rename($tmpPath, $sqlitePath);
+                            @chmod($sqlitePath, 0666);
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::error("Auto-extraction of stock_2026.sqlite.gz failed: " . $e->getMessage());
+                    }
+                }
+            }
+
+            if (file_exists($sqlitePath)) {
+                $exportType = $request->query('export_type', 'stock_pivot');
+                $filename = match($exportType) {
+                    'stock_raw' => "raw-data-stock-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv",
+                    'stock_summ' => "ringkasan-scm-stock-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv",
+                    'stock_ytd_stores' => "ytd-stock-stores-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv",
+                    default => "rekap-volume-stock-toko-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv"
+                };
+
+                $headers = [
+                    'Content-Type' => 'text/csv; charset=UTF-8',
+                    'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                    'Pragma' => 'no-cache',
+                    'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+                    'Expires' => '0',
+                ];
+
+                $callback = function () use ($sqlitePath, $startMonth, $endMonth, $startYear, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $request, $exportType) {
+                    $handle = fopen('php://output', 'w');
+                    fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
+                    $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
+                    $search = $request->query('q');
+
+                    $sMonth = max(1, min(12, (int)$startMonth));
+                    $eMonth = max(1, min(12, (int)$endMonth));
+                    if ($sMonth > $eMonth) {
+                        $tmp = $sMonth; $sMonth = $eMonth; $eMonth = $tmp;
+                    }
+
+                    $where = ["month BETWEEN ? AND ?"];
+                    $params = [$sMonth, $eMonth];
+
+                    if ($selectedRegion) {
+                        $where[] = "region = ?";
+                        $params[] = $selectedRegion;
+                    }
+                    if ($selectedAreaName) {
+                        $where[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
+                        $params[] = $selectedAreaName;
+                    }
+                    if ($selectedStoreName) {
+                        $where[] = "store_name = ?";
+                        $params[] = $selectedStoreName;
+                    }
+                    if ($search) {
+                        $where[] = "(store_name LIKE ? OR sap LIKE ? OR brand LIKE ? OR produk LIKE ?)";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                    }
+                    $whereSql = implode(' AND ', $where);
+
+                    if ($exportType === 'stock_raw') {
+                        // 16 Columns matching Excel Submissions sheet
+                        $headerRow = [
+                            'Submission Date', 'Tanggal Pencatatan Stok', 'Region', 'Area', 'SAP', 'Nama Toko',
+                            'Keterangan', 'Brand', 'Produk', 'Warna', 'Kemasan Galon', 'Kuantiti Galon',
+                            'Kemasan Pail', 'Kuantiti Pail', 'Vol (Liter)', 'conf'
+                        ];
+                        fputcsv($handle, $headerRow);
+
+                        $stmt = $pdo->prepare("
+                            SELECT submission_date, tgl_catat, region, area, sap, store_name,
+                                   keterangan, brand, produk, warna, kemasan_galon, qty_galon,
+                                   kemasan_pail, qty_pail, volume_liter, conf
+                            FROM stock_raw
+                            WHERE $whereSql
+                            ORDER BY submission_date ASC, id ASC
+                        ");
+                        $stmt->execute($params);
+                        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                            fputcsv($handle, [
+                                $row['submission_date'] ?? '',
+                                $row['tgl_catat'] ?? '',
+                                $row['region'] ?? '',
+                                $row['area'] ?? '',
+                                $row['sap'] ?? '',
+                                $row['store_name'] ?? '',
+                                $row['keterangan'] ?? '',
+                                $row['brand'] ?? '',
+                                $row['produk'] ?? '',
+                                $row['warna'] ?? '',
+                                $row['kemasan_galon'] ?? '',
+                                $row['qty_galon'] ?? '',
+                                $row['kemasan_pail'] ?? '',
+                                $row['qty_pail'] ?? '',
+                                $row['volume_liter'] ?? '',
+                                $row['conf'] ?? ''
+                            ]);
+                        }
+                    } elseif ($exportType === 'stock_summ') {
+                        // Summ / SCM format
+                        $offtakeSqlite = storage_path('app/dulux_data/offtake_2026.sqlite');
+                        $hasOfftake = file_exists($offtakeSqlite);
+                        if ($hasOfftake) {
+                            try {
+                                $pdo->exec("ATTACH DATABASE '{$offtakeSqlite}' AS offtake_db");
+                            } catch (\Throwable $e) {
+                                $hasOfftake = false;
+                            }
+                        }
+
+                        $headerRow = [
+                            'No', 'SAP', 'Nama Toko', 'Region', 'Area', 'Category Store',
+                            'Stock End (L)', 'Offtake (L)', 'SCM (Stock Cover Month)'
+                        ];
+                        fputcsv($handle, $headerRow);
+
+                        if ($hasOfftake) {
+                            $summSql = "
+                                SELECT s.sap, s.store_name, MIN(s.region) as region, MIN(s.area) as area,
+                                       MIN(s.derp) as category_store,
+                                       SUM(s.volume_liter) as stock_vol,
+                                       COALESCE(o.offtake_vol, 0) as offtake_vol,
+                                       CASE WHEN COALESCE(o.offtake_vol, 0) > 0 THEN ROUND(SUM(s.volume_liter) / o.offtake_vol, 2) ELSE 0 END as scm
+                                FROM stock_raw s
+                                LEFT JOIN (
+                                    SELECT sap, SUM(volume_liter) as offtake_vol
+                                    FROM offtake_db.offtake_raw
+                                    WHERE month BETWEEN {$sMonth} AND {$eMonth}
+                                    GROUP BY sap
+                                ) o ON s.sap = o.sap
+                                WHERE {$whereSql}
+                                GROUP BY s.sap, s.store_name
+                                ORDER BY CAST(s.sap AS INTEGER) ASC, s.sap ASC
+                            ";
+                        } else {
+                            $summSql = "
+                                SELECT sap, store_name, MIN(region) as region, MIN(area) as area,
+                                       MIN(derp) as category_store,
+                                       SUM(volume_liter) as stock_vol,
+                                       0 as offtake_vol,
+                                       0 as scm
+                                FROM stock_raw
+                                WHERE {$whereSql}
+                                GROUP BY sap, store_name
+                                ORDER BY CAST(sap AS INTEGER) ASC, sap ASC
+                            ";
+                        }
+
+                        $stmt = $pdo->prepare($summSql);
+                        $stmt->execute($params);
+                        $no = 1;
+                        $totStock = 0;
+                        $totOfftake = 0;
+
+                        while ($s = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                            $stk = (float)($s['stock_vol'] ?? 0);
+                            $off = (float)($s['offtake_vol'] ?? 0);
+                            $scm = (float)($s['scm'] ?? 0);
+                            $totStock += $stk;
+                            $totOfftake += $off;
+
+                            fputcsv($handle, [
+                                $no++,
+                                $s['sap'],
+                                $s['store_name'],
+                                $s['region'],
+                                $s['area'],
+                                !empty($s['category_store']) ? $s['category_store'] : 'Retail',
+                                round($stk, 2),
+                                round($off, 2),
+                                round($scm, 2)
+                            ]);
+                        }
+
+                        $totScm = $totOfftake > 0 ? round($totStock / $totOfftake, 2) : 0;
+                        fputcsv($handle, [
+                            '', 'Grand Total', 'Seluruh Toko Terfilter', '', '', '',
+                            round($totStock, 2),
+                            round($totOfftake, 2),
+                            round($totScm, 2)
+                        ]);
+                    } else {
+                        // stock_pivot: Pivotable format
+                        $headerRow = [
+                            'No', 'SAP', 'Nama Toko', 'Region', 'Area',
+                            'Dulux (L)', 'Catylac Smart Choice (L)', 'Catylac (L)', 'Grand Total (L)'
+                        ];
+                        fputcsv($handle, $headerRow);
+
+                        $storeSql = "
+                            SELECT sap, store_name, MIN(region) as region, MIN(area) as area,
+                                   SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as vol_dulux,
+                                   SUM(CASE WHEN brand = 'Catylac Smart Choice' THEN volume_liter ELSE 0 END) as vol_catylac_smart_choice,
+                                   SUM(CASE WHEN brand = 'Catylac' THEN volume_liter ELSE 0 END) as vol_catylac,
+                                   SUM(volume_liter) as total_vol
+                            FROM stock_raw
+                            WHERE $whereSql
+                            GROUP BY sap, store_name
+                            ORDER BY CAST(sap AS INTEGER) ASC, sap ASC
+                        ";
+                        $stmt = $pdo->prepare($storeSql);
+                        $stmt->execute($params);
+
+                        $no = 1;
+                        $totDulux = 0;
+                        $totSmart = 0;
+                        $totCatylac = 0;
+                        $totGrand = 0;
+
+                        while ($s = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                            $d = (float)($s['vol_dulux'] ?? 0);
+                            $sc = (float)($s['vol_catylac_smart_choice'] ?? 0);
+                            $c = (float)($s['vol_catylac'] ?? 0);
+                            $t = (float)($s['total_vol'] ?? 0);
+
+                            $totDulux += $d;
+                            $totSmart += $sc;
+                            $totCatylac += $c;
+                            $totGrand += $t;
+
+                            fputcsv($handle, [
+                                $no++,
+                                $s['sap'],
+                                $s['store_name'],
+                                $s['region'],
+                                $s['area'],
+                                round($d, 2),
+                                round($sc, 2),
+                                round($c, 2),
+                                round($t, 2)
+                            ]);
+                        }
+
+                        fputcsv($handle, [
+                            '', 'Grand Total', 'Seluruh Toko Terfilter', '', '',
+                            round($totDulux, 2),
+                            round($totSmart, 2),
+                            round($totCatylac, 2),
+                            round($totGrand, 2)
+                        ]);
                     }
 
                     fclose($handle);
@@ -3597,6 +4018,537 @@ class PrincipalPortalController extends Controller
             'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
             'turnoverRows', 'year', 'setting'
         ));
+    }
+
+    /**
+     * Calculate Dulux Stock End Data (Pivotable Store Volume, SCM / Summ & Raw Data Submissions)
+     */
+    protected function calculateStockDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $stockPage = 1, $summPage = 1, $rawPage = 1, $perPage = 50)
+    {
+        $sqlitePath = storage_path('app/dulux_data/stock_2026.sqlite');
+        $gzPath     = storage_path('app/dulux_data/stock_2026.sqlite.gz');
+
+        // Auto-extract if .sqlite does not exist or corrupted (< 1MB) but .sqlite.gz exists
+        if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+            if (file_exists($gzPath)) {
+                try {
+                    $zp = gzopen($gzPath, 'rb');
+                    $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                    $fp = fopen($tmpPath, 'wb');
+                    if ($zp && $fp) {
+                        while (!gzeof($zp)) {
+                            fwrite($fp, gzread($zp, 524288));
+                        }
+                        gzclose($zp);
+                        fclose($fp);
+                        @rename($tmpPath, $sqlitePath);
+                        @chmod($sqlitePath, 0666);
+                    }
+                } catch (\Throwable $e) {
+                    \Log::error("Auto-extraction of stock_2026.sqlite.gz failed: " . $e->getMessage());
+                }
+            }
+        }
+
+        if (!file_exists($sqlitePath)) {
+            return [
+                'months' => [],
+                'pivot' => ['stores' => [], 'grand_total' => [], 'total_stores' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                'summ' => ['stores' => [], 'grand_total' => [], 'total_stores' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                'raw' => ['rows' => [], 'total_records' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
+            ];
+        }
+
+        $sMonth = max(1, min(12, (int)$startMonth));
+        $eMonth = max(1, min(12, (int)$endMonth));
+        if ($sMonth > $eMonth) {
+            $tmp = $sMonth;
+            $sMonth = $eMonth;
+            $eMonth = $tmp;
+        }
+
+        $monthNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret',
+            4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli',
+            8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $activeMonths = [];
+        for ($m = $sMonth; $m <= $eMonth; $m++) {
+            if ($m >= 1 && $m <= 7) {
+                $activeMonths[$m] = $monthNames[$m] . ' ' . $endYear;
+            }
+        }
+        if (empty($activeMonths)) {
+            for ($m = 1; $m <= 7; $m++) {
+                $activeMonths[$m] = $monthNames[$m] . ' ' . $endYear;
+            }
+            $sMonth = 1;
+            $eMonth = 7;
+        }
+
+        $cacheKey = 'stock_dash_v1_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $endYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search . '_' . $stockPage . '_' . $summPage . '_' . $rawPage);
+
+        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sMonth, $eMonth, $activeMonths, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $stockPage, $summPage, $rawPage, $perPage) {
+            try {
+                $pdo = new \PDO("sqlite:" . $sqlitePath);
+                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+                $where = ["month BETWEEN ? AND ?"];
+                $params = [$sMonth, $eMonth];
+
+                if ($selectedRegion) {
+                    $where[] = "region = ?";
+                    $params[] = $selectedRegion;
+                }
+                if ($selectedAreaId) {
+                    $where[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
+                    $params[] = $selectedAreaId;
+                }
+                if ($selectedLocationId) {
+                    $where[] = "store_name = ?";
+                    $params[] = $selectedLocationId;
+                }
+                if ($search) {
+                    $where[] = "(store_name LIKE ? OR sap LIKE ? OR brand LIKE ? OR produk LIKE ?)";
+                    $params[] = "%{$search}%";
+                    $params[] = "%{$search}%";
+                    $params[] = "%{$search}%";
+                    $params[] = "%{$search}%";
+                }
+                $whereSql = implode(' AND ', $where);
+
+                // 1. Pivotable: Grouped by SAP, Store Name with breakdown Dulux, Catylac Smart Choice, Catylac, Grand Total
+                $pivotGrandSql = "
+                    SELECT SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as grand_total_dulux,
+                           SUM(CASE WHEN brand = 'Catylac Smart Choice' THEN volume_liter ELSE 0 END) as grand_total_catylac_sc,
+                           SUM(CASE WHEN brand = 'Catylac' THEN volume_liter ELSE 0 END) as grand_total_catylac,
+                           SUM(volume_liter) as grand_total_all
+                    FROM stock_raw
+                    WHERE $whereSql
+                ";
+                $pivotGrandStmt = $pdo->prepare($pivotGrandSql);
+                $pivotGrandStmt->execute($params);
+                $pivotGrand = $pivotGrandStmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+                $countPivotSql = "SELECT COUNT(DISTINCT sap || '---' || store_name) FROM stock_raw WHERE $whereSql";
+                $countPivotStmt = $pdo->prepare($countPivotSql);
+                $countPivotStmt->execute($params);
+                $totalPivotStores = (int)$countPivotStmt->fetchColumn();
+
+                $pivotOffset = ($stockPage - 1) * $perPage;
+                $pivotStoreSql = "
+                    SELECT sap, store_name, MIN(region) as region, MIN(area) as area,
+                           SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_vol,
+                           SUM(CASE WHEN brand = 'Catylac Smart Choice' THEN volume_liter ELSE 0 END) as catylac_sc_vol,
+                           SUM(CASE WHEN brand = 'Catylac' THEN volume_liter ELSE 0 END) as catylac_vol,
+                           SUM(volume_liter) as total_vol
+                    FROM stock_raw
+                    WHERE $whereSql
+                    GROUP BY sap, store_name
+                    ORDER BY CAST(sap AS INTEGER) ASC, sap ASC
+                    LIMIT $perPage OFFSET $pivotOffset
+                ";
+                $pivotStoreStmt = $pdo->prepare($pivotStoreSql);
+                $pivotStoreStmt->execute($params);
+                $pivotStores = $pivotStoreStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 2. Summ: SCM calculation (Stock Cover Month = Stock / Offtake)
+                $offtakeSqlite = storage_path('app/dulux_data/offtake_2026.sqlite');
+                $hasOfftake = file_exists($offtakeSqlite);
+                if ($hasOfftake) {
+                    try {
+                        $pdo->exec("ATTACH DATABASE '{$offtakeSqlite}' AS offtake_db");
+                    } catch (\Throwable $e) {
+                        $hasOfftake = false;
+                    }
+                }
+
+                $summOffset = ($summPage - 1) * $perPage;
+                if ($hasOfftake) {
+                    $summSql = "
+                        SELECT s.sap, s.store_name, MIN(s.region) as region, MIN(s.area) as area,
+                               MIN(s.derp) as category_store,
+                               SUM(CASE WHEN s.brand = 'Dulux' THEN s.volume_liter ELSE 0 END) as dulux_stock,
+                               SUM(CASE WHEN s.brand LIKE '%Catylac%' THEN s.volume_liter ELSE 0 END) as catylac_stock,
+                               SUM(s.volume_liter) as total_stock,
+                               COALESCE(o.dulux_offtake, 0) as dulux_offtake,
+                               COALESCE(o.catylac_offtake, 0) as catylac_offtake,
+                               COALESCE(o.total_offtake, 0) as total_offtake
+                        FROM stock_raw s
+                        LEFT JOIN (
+                            SELECT sap,
+                                   SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_offtake,
+                                   SUM(CASE WHEN brand LIKE '%Catylac%' THEN volume_liter ELSE 0 END) as catylac_offtake,
+                                   SUM(volume_liter) as total_offtake
+                            FROM offtake_db.offtake_raw
+                            WHERE month BETWEEN {$sMonth} AND {$eMonth}
+                            GROUP BY sap
+                        ) o ON s.sap = o.sap
+                        WHERE {$whereSql}
+                        GROUP BY s.sap, s.store_name
+                        ORDER BY CAST(s.sap AS INTEGER) ASC, s.sap ASC
+                        LIMIT $perPage OFFSET $summOffset
+                    ";
+
+                    $summGrandSql = "
+                        SELECT SUM(s.volume_liter) as total_stock,
+                               COALESCE(SUM(o.total_offtake), 0) as total_offtake
+                        FROM stock_raw s
+                        LEFT JOIN (
+                            SELECT sap, SUM(volume_liter) as total_offtake
+                            FROM offtake_db.offtake_raw
+                            WHERE month BETWEEN {$sMonth} AND {$eMonth}
+                            GROUP BY sap
+                        ) o ON s.sap = o.sap
+                        WHERE {$whereSql}
+                    ";
+                } else {
+                    $summSql = "
+                        SELECT sap, store_name, MIN(region) as region, MIN(area) as area,
+                               MIN(derp) as category_store,
+                               SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_stock,
+                               SUM(CASE WHEN brand LIKE '%Catylac%' THEN volume_liter ELSE 0 END) as catylac_stock,
+                               SUM(volume_liter) as total_stock,
+                               0 as dulux_offtake,
+                               0 as catylac_offtake,
+                               0 as total_offtake
+                        FROM stock_raw
+                        WHERE {$whereSql}
+                        GROUP BY sap, store_name
+                        ORDER BY CAST(sap AS INTEGER) ASC, sap ASC
+                        LIMIT $perPage OFFSET $summOffset
+                    ";
+
+                    $summGrandSql = "
+                        SELECT SUM(volume_liter) as total_stock, 0 as total_offtake
+                        FROM stock_raw
+                        WHERE {$whereSql}
+                    ";
+                }
+
+                $summStmt = $pdo->prepare($summSql);
+                $summStmt->execute($params);
+                $summStores = $summStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                $summGrandStmt = $pdo->prepare($summGrandSql);
+                $summGrandStmt->execute($params);
+                $summGrand = $summGrandStmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+                $totStk = (float)($summGrand['total_stock'] ?? 0);
+                $totOff = (float)($summGrand['total_offtake'] ?? 0);
+                $avgScm = $totOff > 0 ? round($totStk / $totOff, 2) : 0;
+
+                // 3. Raw Data Submissions (16 Columns matching Excel)
+                $rawOffset = ($rawPage - 1) * $perPage;
+                $rawCountSql = "SELECT COUNT(*) FROM stock_raw WHERE $whereSql";
+                $rawCountStmt = $pdo->prepare($rawCountSql);
+                $rawCountStmt->execute($params);
+                $totalRaw = (int)$rawCountStmt->fetchColumn();
+
+                $rawSql = "
+                    SELECT submission_date, tgl_catat, region, area, sap, store_name,
+                           keterangan, brand, produk, warna, kemasan_galon, qty_galon,
+                           kemasan_pail, qty_pail, volume_liter, conf
+                    FROM stock_raw
+                    WHERE $whereSql
+                    ORDER BY submission_date DESC, id DESC
+                    LIMIT $perPage OFFSET $rawOffset
+                ";
+                $rawStmt = $pdo->prepare($rawSql);
+                $rawStmt->execute($params);
+                $rawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                return [
+                    'months' => $activeMonths,
+                    'pivotable' => [
+                        'rows' => $pivotStores,
+                        'grand_total_dulux' => (float)($pivotGrand['grand_total_dulux'] ?? 0),
+                        'grand_total_catylac_sc' => (float)($pivotGrand['grand_total_catylac_sc'] ?? 0),
+                        'grand_total_catylac' => (float)($pivotGrand['grand_total_catylac'] ?? 0),
+                        'grand_total_all' => (float)($pivotGrand['grand_total_all'] ?? 0),
+                        'total_stores' => $totalPivotStores,
+                        'total' => $totalPivotStores,
+                        'page' => $stockPage,
+                        'per_page' => $perPage,
+                        'total_pages' => (int)ceil($totalPivotStores / $perPage),
+                        'from' => $totalPivotStores > 0 ? ($pivotOffset + 1) : 0,
+                        'to' => min($pivotOffset + $perPage, $totalPivotStores),
+                    ],
+                    'summ' => [
+                        'rows' => $summStores,
+                        'total_stock' => $totStk,
+                        'total_offtake' => $totOff,
+                        'avg_scm' => $avgScm,
+                        'total_stores' => $totalPivotStores,
+                        'total' => $totalPivotStores,
+                        'page' => $summPage,
+                        'per_page' => $perPage,
+                        'total_pages' => (int)ceil($totalPivotStores / $perPage),
+                        'from' => $totalPivotStores > 0 ? ($summOffset + 1) : 0,
+                        'to' => min($summOffset + $perPage, $totalPivotStores),
+                    ],
+                    'submissions' => [
+                        'rows' => $rawRows,
+                        'total' => $totalRaw,
+                        'page' => $rawPage,
+                        'per_page' => $perPage,
+                        'total_pages' => (int)ceil($totalRaw / $perPage),
+                        'from' => $totalRaw > 0 ? ($rawOffset + 1) : 0,
+                        'to' => min($rawOffset + $perPage, $totalRaw),
+                    ]
+                ];
+            } catch (\Throwable $e) {
+                \Log::error("Failed to calculate Stock Dashboard: " . $e->getMessage());
+                return [
+                    'months' => $activeMonths,
+                    'pivotable' => ['rows' => [], 'grand_total_dulux' => 0, 'grand_total_catylac_sc' => 0, 'grand_total_catylac' => 0, 'grand_total_all' => 0, 'total_stores' => 0, 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                    'summ' => ['rows' => [], 'total_stock' => 0, 'total_offtake' => 0, 'avg_scm' => 0, 'total_stores' => 0, 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                    'submissions' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
+                ];
+            }
+        });
+    }
+
+    /**
+     * Calculate Dulux Stock End YTD Comparison (Current Year vs Previous Year)
+     */
+    protected function calculateStockYtdData($template, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+    {
+        $p26 = storage_path('app/dulux_data/stock_2026.sqlite');
+        $p25 = storage_path('app/dulux_data/stock_2025.sqlite');
+        $gz25 = storage_path('app/dulux_data/stock_2025.sqlite.gz');
+
+        // Auto-extract 2025 if missing or corrupted (< 1MB) but .gz exists
+        if (!file_exists($p25) || filesize($p25) < 1000000) {
+            if (file_exists($gz25)) {
+                try {
+                    $zp = gzopen($gz25, 'rb');
+                    $tmpPath = $p25 . '.tmp.' . uniqid();
+                    $fp = fopen($tmpPath, 'wb');
+                    if ($zp && $fp) {
+                        while (!gzeof($zp)) {
+                            fwrite($fp, gzread($zp, 524288));
+                        }
+                        gzclose($zp);
+                        fclose($fp);
+                        @rename($tmpPath, $p25);
+                        @chmod($p25, 0666);
+                    }
+                } catch (\Throwable $e) {
+                    \Log::error("Auto-extraction of stock_2025.sqlite.gz failed: " . $e->getMessage());
+                }
+            }
+        }
+
+        if (!file_exists($p26)) {
+            return [
+                'details' => [],
+                'total' => ['brand' => 'Total DC', 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0, 'percentage' => 100],
+                'stores' => ['total' => ['count' => 0, 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0], 'top10' => [], 'details' => []]
+            ];
+        }
+
+        $eMonth = max(1, min(12, (int)$endMonth));
+        $cacheKey = 'stock_ytd_v1_' . md5($template->id . '_' . $eMonth . '_' . $endYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+
+        return Cache::remember($cacheKey, 600, function() use ($p26, $p25, $eMonth, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
+            try {
+                $pdo = new \PDO("sqlite:" . $p26);
+                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+                $has2025 = file_exists($p25);
+                if ($has2025) {
+                    $pdo->exec("ATTACH DATABASE '{$p25}' AS db25");
+                }
+
+                $whereCy = ["month BETWEEN 1 AND ?"];
+                $paramsCy = [$eMonth];
+                $wherePy = ["month BETWEEN 1 AND ?"];
+                $paramsPy = [$eMonth];
+
+                if ($selectedRegion) {
+                    $whereCy[] = "region = ?";
+                    $paramsCy[] = $selectedRegion;
+                    $wherePy[] = "region = ?";
+                    $paramsPy[] = $selectedRegion;
+                }
+                if ($selectedAreaId) {
+                    $whereCy[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
+                    $paramsCy[] = $selectedAreaId;
+                    $wherePy[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
+                    $paramsPy[] = $selectedAreaId;
+                }
+                if ($selectedLocationId) {
+                    $whereCy[] = "store_name = ?";
+                    $paramsCy[] = $selectedLocationId;
+                    $wherePy[] = "store_name = ?";
+                    $paramsPy[] = $selectedLocationId;
+                }
+                if ($search) {
+                    $whereCy[] = "(store_name LIKE ? OR sap LIKE ? OR brand LIKE ? OR produk LIKE ?)";
+                    $paramsCy[] = "%{$search}%";
+                    $paramsCy[] = "%{$search}%";
+                    $paramsCy[] = "%{$search}%";
+                    $paramsCy[] = "%{$search}%";
+                    $wherePy[] = "(store_name LIKE ? OR sap LIKE ? OR brand LIKE ? OR produk LIKE ?)";
+                    $paramsPy[] = "%{$search}%";
+                    $paramsPy[] = "%{$search}%";
+                    $paramsPy[] = "%{$search}%";
+                    $paramsPy[] = "%{$search}%";
+                }
+
+                $whereCySql = implode(' AND ', $whereCy);
+                $wherePySql = implode(' AND ', $wherePy);
+
+                // 1. Product / Brand Comparison
+                $brandStmtCy = $pdo->prepare("
+                    SELECT 
+                        CASE WHEN brand LIKE '%Catylac%' THEN 'Stock Catylac' ELSE 'Stock Dulux' END as brand_group,
+                        SUM(volume_liter) as vol
+                    FROM stock_raw
+                    WHERE $whereCySql
+                    GROUP BY brand_group
+                ");
+                $brandStmtCy->execute($paramsCy);
+                $cyBrands = $brandStmtCy->fetchAll(\PDO::FETCH_KEY_PAIR);
+
+                $pyBrands = [];
+                if ($has2025) {
+                    try {
+                        $brandStmtPy = $pdo->prepare("
+                            SELECT 
+                                CASE WHEN brand LIKE '%Catylac%' THEN 'Stock Catylac' ELSE 'Stock Dulux' END as brand_group,
+                                SUM(volume_liter) as vol
+                            FROM db25.stock_raw
+                            WHERE $wherePySql
+                            GROUP BY brand_group
+                        ");
+                        $brandStmtPy->execute($paramsPy);
+                        $pyBrands = $brandStmtPy->fetchAll(\PDO::FETCH_KEY_PAIR);
+                    } catch (\Throwable $e) {
+                        \Log::warning("Stock YTD db25 brand query failed: " . $e->getMessage());
+                    }
+                }
+
+                $allBrands = ['Stock Dulux', 'Stock Catylac'];
+                $details = [];
+                $totalCy = 0;
+                $totalPy = 0;
+
+                foreach ($allBrands as $brand) {
+                    $cyVol = (float)($cyBrands[$brand] ?? 0);
+                    $pyVol = (float)($pyBrands[$brand] ?? 0);
+                    $totalCy += $cyVol;
+                    $totalPy += $pyVol;
+                    $growth = $pyVol > 0 ? (($cyVol - $pyVol) / $pyVol) * 100 : ($cyVol > 0 ? 100 : 0);
+                    $details[] = [
+                        'brand' => $brand,
+                        'cy_volume' => $cyVol,
+                        'py_volume' => $pyVol,
+                        'growth' => $growth,
+                        'percentage' => 0
+                    ];
+                }
+
+                foreach ($details as &$d) {
+                    $d['percentage'] = $totalCy > 0 ? ($d['cy_volume'] / $totalCy) * 100 : 0;
+                }
+                unset($d);
+
+                $totalGrowth = $totalPy > 0 ? (($totalCy - $totalPy) / $totalPy) * 100 : ($totalCy > 0 ? 100 : 0);
+                $totalRow = [
+                    'brand' => 'Total DC',
+                    'cy_volume' => $totalCy,
+                    'py_volume' => $totalPy,
+                    'growth' => $totalGrowth,
+                    'percentage' => 100
+                ];
+
+                // 2. Store Comparison
+                $storeStmtCy = $pdo->prepare("
+                    SELECT sap, store_name, MIN(region) as region, MIN(area) as area, MIN(derp) as channel, SUM(volume_liter) as cy_vol
+                    FROM stock_raw
+                    WHERE $whereCySql
+                    GROUP BY sap, store_name
+                ");
+                $storeStmtCy->execute($paramsCy);
+                $cyStoresRaw = $storeStmtCy->fetchAll(\PDO::FETCH_ASSOC);
+
+                $pyStoresMap = [];
+                if ($has2025) {
+                    try {
+                        $storeStmtPy = $pdo->prepare("
+                            SELECT sap, store_name, SUM(volume_liter) as py_vol
+                            FROM db25.stock_raw
+                            WHERE $wherePySql
+                            GROUP BY sap, store_name
+                        ");
+                        $storeStmtPy->execute($paramsPy);
+                        while ($r = $storeStmtPy->fetch(\PDO::FETCH_ASSOC)) {
+                            $key = $r['sap'] ? 'sap_' . trim($r['sap']) : 'name_' . strtoupper(trim($r['store_name']));
+                            $pyStoresMap[$key] = (float)$r['py_vol'];
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::warning("Stock YTD db25 store query failed: " . $e->getMessage());
+                    }
+                }
+
+                $storeDetails = [];
+                $totalStoreCy = 0;
+                $totalStorePy = 0;
+
+                foreach ($cyStoresRaw as $s) {
+                    $sapKey = $s['sap'] ? 'sap_' . trim($s['sap']) : 'name_' . strtoupper(trim($s['store_name']));
+                    $cyVol = (float)$s['cy_vol'];
+                    $pyVol = (float)($pyStoresMap[$sapKey] ?? 0);
+                    $growth = $pyVol > 0 ? (($cyVol - $pyVol) / $pyVol) * 100 : ($cyVol > 0 ? 100 : 0);
+                    $totalStoreCy += $cyVol;
+                    $totalStorePy += $pyVol;
+
+                    $storeDetails[] = [
+                        'store_name' => $s['store_name'] . ($s['sap'] ? " ({$s['sap']})" : ''),
+                        'region' => $s['region'] ?: '-',
+                        'area' => $s['area'] ?: '-',
+                        'channel' => !empty($s['channel']) ? $s['channel'] : 'Retail',
+                        'cy_volume' => $cyVol,
+                        'py_volume' => $pyVol,
+                        'growth' => $growth,
+                        'percentage' => 0
+                    ];
+                }
+
+                usort($storeDetails, fn($a, $b) => $b['cy_volume'] <=> $a['cy_volume']);
+
+                foreach ($storeDetails as &$sd) {
+                    $sd['percentage'] = $totalStoreCy > 0 ? ($sd['cy_volume'] / $totalStoreCy) * 100 : 0;
+                }
+                unset($sd);
+
+                $top10 = array_slice($storeDetails, 0, 10);
+                $overallStoreGrowth = $totalStorePy > 0 ? (($totalStoreCy - $totalStorePy) / $totalStorePy) * 100 : ($totalStoreCy > 0 ? 100 : 0);
+
+                return [
+                    'details' => $details,
+                    'total' => $totalRow,
+                    'stores' => [
+                        'total' => [
+                            'count' => count($storeDetails),
+                            'cy_volume' => $totalStoreCy,
+                            'py_volume' => $totalStorePy,
+                            'growth' => $overallStoreGrowth
+                        ],
+                        'top10' => $top10,
+                        'details' => $storeDetails
+                    ]
+                ];
+            } catch (\Throwable $e) {
+                \Log::error("Failed to calculate Stock YTD: " . $e->getMessage());
+                return [
+                    'details' => [],
+                    'total' => ['brand' => 'Total DC', 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0, 'percentage' => 100],
+                    'stores' => ['total' => ['count' => 0, 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0], 'top10' => [], 'details' => []]
+                ];
+            }
+        });
     }
 
     /**
