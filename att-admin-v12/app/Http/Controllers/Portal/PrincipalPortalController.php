@@ -3138,7 +3138,7 @@ class PrincipalPortalController extends Controller
             return null;
         }
 
-        $cacheKey = 'cbp_dash_v2_' . md5($template->id . '_' . $startYear . '_' . $startMonth . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+        $cacheKey = 'cbp_dash_v3_' . md5($template->id . '_' . $startYear . '_' . $startMonth . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
 
         $aggData = Cache::remember($cacheKey, 300, function() use ($sqlitePath, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
             try {
@@ -3173,7 +3173,7 @@ class PrincipalPortalController extends Controller
                             'm' => $m,
                             'short' => $monthNames[$m] ?? "Bln $m",
                             'label' => ($monthNames[$m] ?? "Bln $m") . ' ' . $endYear,
-                            'date_header' => $dateObj->translatedFormat('l, d F Y')
+                            'date_header' => strtoupper($dateObj->translatedFormat('F Y'))
                         ];
                     }
                 }
@@ -3184,7 +3184,7 @@ class PrincipalPortalController extends Controller
                             'm' => $m,
                             'short' => $monthNames[$m],
                             'label' => $monthNames[$m] . ' ' . $endYear,
-                            'date_header' => $dateObj->translatedFormat('l, d F Y')
+                            'date_header' => strtoupper($dateObj->translatedFormat('F Y'))
                         ];
                     }
                 }
