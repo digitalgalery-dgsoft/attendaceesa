@@ -447,6 +447,113 @@ class PrincipalPortalController extends Controller
         $selectedLocationId = $request->query('location_id') ?? $request->query('store_id');
         $search             = $request->query('q');
 
+        $isCbpReport = ($template->code === 'RPT-DULUX-CBP-PRICING');
+        $brandColor  = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting     = Setting::first();
+
+        // --- CBP Custom Handling (Completely bypasses standard report_submissions queries) ---
+        if ($isCbpReport) {
+            $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
+            $regions = Cache::remember('cbp_filter_regions_v3', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT regional FROM cbp_raw WHERE regional IS NOT NULL AND regional != '' ORDER BY regional");
+                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                } catch (\Throwable $e) {
+                    return ['R1', 'R2', 'R3', 'R4'];
+                }
+            });
+
+            // Areas directly from cbp_raw with regional info
+            $areas = Cache::remember('cbp_filter_areas_v3', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT regional, MIN(area) as area_name FROM cbp_raw WHERE area IS NOT NULL AND area != '' GROUP BY regional, UPPER(TRIM(area)) ORDER BY area_name ASC");
+                    $rawAreas = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                    return collect($rawAreas)->map(function($a) {
+                        return (object)[
+                            'id' => $a['area_name'],
+                            'name' => ucwords(strtolower($a['area_name'])),
+                            'region' => $a['regional']
+                        ];
+                    });
+                } catch (\Throwable $e) {
+                    return collect();
+                }
+            });
+
+            // Stores directly from cbp_raw with regional & area info
+            $workLocations = Cache::remember('cbp_filter_stores_v3', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT regional, MIN(area) as area, name_store FROM cbp_raw WHERE name_store IS NOT NULL GROUP BY name_store ORDER BY name_store ASC");
+                    $rawStores = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                    return collect($rawStores)->map(function($s) {
+                        return (object)[
+                            'id' => $s['name_store'],
+                            'name' => $s['name_store'],
+                            'region' => $s['regional'],
+                            'area' => $s['area']
+                        ];
+                    });
+                } catch (\Throwable $e) {
+                    return collect();
+                }
+            });
+
+            $rawPage = max(1, (int)$request->query('raw_page', 1));
+            $cbpData = $this->calculateCbpDashboardData(
+                $template,
+                $startMonth,
+                $startYear,
+                $endMonth,
+                $endYear,
+                $selectedRegion,
+                $selectedAreaId,
+                $selectedLocationId,
+                $search,
+                $rawPage,
+                50
+            );
+
+            $totalTemplateSubmissions = $cbpData['kpis']['total_records'] ?? 0;
+            $uniqueStores = $cbpData['kpis']['unique_stores'] ?? 0;
+            $submissions = new LengthAwarePaginator([], $totalTemplateSubmissions, 20, 1);
+            $dashboardConfig = [];
+            $widgetResults = [];
+            $isYtdReport = false;
+            $ytdData = [];
+
+            return view('portal.report_detail', compact(
+                'tenantPrincipal',
+                'tenantPrincipalsAll',
+                'brandColor',
+                'activeTemplates',
+                'template',
+                'submissions',
+                'totalTemplateSubmissions',
+                'uniqueStores',
+                'startMonth',
+                'startYear',
+                'endMonth',
+                'endYear',
+                'search',
+                'selectedRegion',
+                'selectedAreaId',
+                'selectedLocationId',
+                'regions',
+                'areas',
+                'workLocations',
+                'setting',
+                'dashboardConfig',
+                'widgetResults',
+                'isYtdReport',
+                'ytdData',
+                'isCbpReport',
+                'cbpData'
+            ));
+        }
+
         // Optimasi Query Statistik Ringkasan (Combined Count dalam 1 Query + Cache 5 Menit)
         $statsCacheKey = 'rep_stats_' . md5($template->id . '_' . $startDate->toDateString() . '_' . $endDate->toDateString() . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
         
@@ -461,11 +568,23 @@ class PrincipalPortalController extends Controller
             }
             if ($selectedAreaId) {
                 $q->where('report_submissions.work_location_id', function($subQ) use ($selectedAreaId) {
-                    $subQ->select('id')->from('work_locations')->where('branch_id', $selectedAreaId);
+                    if (is_numeric($selectedAreaId)) {
+                        $subQ->select('id')->from('work_locations')->where('branch_id', $selectedAreaId);
+                    } else {
+                        $subQ->select('work_locations.id')->from('work_locations')
+                            ->join('branches', 'work_locations.branch_id', '=', 'branches.id')
+                            ->where('branches.name', $selectedAreaId);
+                    }
                 });
             }
             if ($selectedLocationId) {
-                $q->where('report_submissions.work_location_id', $selectedLocationId);
+                if (is_numeric($selectedLocationId)) {
+                    $q->where('report_submissions.work_location_id', $selectedLocationId);
+                } else {
+                    $q->whereIn('report_submissions.work_location_id', function($subQ) use ($selectedLocationId) {
+                        $subQ->select('id')->from('work_locations')->where('name', $selectedLocationId);
+                    });
+                }
             }
             if ($search) {
                 $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
@@ -514,10 +633,18 @@ class PrincipalPortalController extends Controller
             $itemsQuery->whereHas('workLocation', fn($w) => $w->where('region', $selectedRegion));
         }
         if ($selectedAreaId) {
-            $itemsQuery->whereHas('workLocation', fn($w) => $w->where('branch_id', $selectedAreaId));
+            if (is_numeric($selectedAreaId)) {
+                $itemsQuery->whereHas('workLocation', fn($w) => $w->where('branch_id', $selectedAreaId));
+            } else {
+                $itemsQuery->whereHas('workLocation.branch', fn($b) => $b->where('name', $selectedAreaId));
+            }
         }
         if ($selectedLocationId) {
-            $itemsQuery->where('report_submissions.work_location_id', $selectedLocationId);
+            if (is_numeric($selectedLocationId)) {
+                $itemsQuery->where('report_submissions.work_location_id', $selectedLocationId);
+            } else {
+                $itemsQuery->whereHas('workLocation', fn($w) => $w->where('name', $selectedLocationId));
+            }
         }
         if ($search) {
             $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
@@ -564,11 +691,23 @@ class PrincipalPortalController extends Controller
                 }
                 if ($selectedAreaId) {
                     $query->where('report_submissions.work_location_id', function($subQ) use ($selectedAreaId) {
-                        $subQ->select('id')->from('work_locations')->where('branch_id', $selectedAreaId);
+                        if (is_numeric($selectedAreaId)) {
+                            $subQ->select('id')->from('work_locations')->where('branch_id', $selectedAreaId);
+                        } else {
+                            $subQ->select('work_locations.id')->from('work_locations')
+                                ->join('branches', 'work_locations.branch_id', '=', 'branches.id')
+                                ->where('branches.name', $selectedAreaId);
+                        }
                     });
                 }
                 if ($selectedLocationId) {
-                    $query->where('report_submissions.work_location_id', $selectedLocationId);
+                    if (is_numeric($selectedLocationId)) {
+                        $query->where('report_submissions.work_location_id', $selectedLocationId);
+                    } else {
+                        $query->whereIn('report_submissions.work_location_id', function($subQ) use ($selectedLocationId) {
+                            $subQ->select('id')->from('work_locations')->where('name', $selectedLocationId);
+                        });
+                    }
                 }
                 if ($search) {
                     $likeOp = $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
@@ -708,117 +847,48 @@ class PrincipalPortalController extends Controller
             return $results;
         });
 
-        // Dropdown Data for Region, Area, and Store (Sourced directly from Actual Report Data)
-        if ($template->code === 'RPT-DULUX-CBP-PRICING') {
-            $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
-            $regions = Cache::remember('cbp_filter_regions_v2', 3600, function() use ($sqlitePath) {
-                try {
-                    $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT DISTINCT regional FROM cbp_raw WHERE regional IS NOT NULL AND regional != '' ORDER BY regional");
-                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
-                } catch (\Throwable $e) {
-                    return ['R1', 'R2', 'R3', 'R4'];
-                }
-            });
+        // Dropdown Data for Region, Area, and Store (Sourced directly from Actual Report Submissions)
+        $subLocData = Cache::remember("rep_filter_locs_v3_{$template->id}", 600, function() use ($template) {
+            return DB::table('report_submissions')
+                ->where('report_submissions.report_template_id', $template->id)
+                ->join('work_locations', 'report_submissions.work_location_id', '=', 'work_locations.id')
+                ->leftJoin('branches', 'work_locations.branch_id', '=', 'branches.id')
+                ->select(
+                    'work_locations.id',
+                    'work_locations.name',
+                    'work_locations.region',
+                    'work_locations.branch_id',
+                    'branches.name as branch_name'
+                )
+                ->distinct()
+                ->get();
+        });
 
-            // Areas directly from cbp_raw (Filtered by Region if selected)
-            try {
-                $pdo = new \PDO("sqlite:" . $sqlitePath);
-                $areaSql = "SELECT MIN(area) as area_name FROM cbp_raw WHERE area IS NOT NULL AND area != ''";
-                $areaParams = [];
-                if ($selectedRegion) {
-                    $areaSql .= " AND regional = ?";
-                    $areaParams[] = $selectedRegion;
-                }
-                $areaSql .= " GROUP BY UPPER(TRIM(area)) ORDER BY area_name ASC";
-                $areaStmt = $pdo->prepare($areaSql);
-                $areaStmt->execute($areaParams);
-                $rawAreas = $areaStmt->fetchAll(\PDO::FETCH_COLUMN);
+        if ($subLocData->isNotEmpty()) {
+            $regions = $subLocData->pluck('region')->filter()->unique()->sort()->values()->toArray();
 
-                $areas = collect($rawAreas)->map(function($aName) {
-                    return (object)[
-                        'id' => $aName,
-                        'name' => ucwords(strtolower($aName))
-                    ];
-                });
-            } catch (\Throwable $e) {
-                $areas = collect();
-            }
-
-            // Stores directly from cbp_raw (Filtered by Region & Area if selected)
-            try {
-                $pdo = new \PDO("sqlite:" . $sqlitePath);
-                $storeSql = "SELECT DISTINCT name_store FROM cbp_raw WHERE name_store IS NOT NULL AND name_store != ''";
-                $storeParams = [];
-                if ($selectedRegion) {
-                    $storeSql .= " AND regional = ?";
-                    $storeParams[] = $selectedRegion;
-                }
-                if ($selectedAreaId) {
-                    $storeSql .= " AND (UPPER(area) LIKE ? OR UPPER(rsm_area) LIKE ?)";
-                    $storeParams[] = "%" . strtoupper($selectedAreaId) . "%";
-                    $storeParams[] = "%" . strtoupper($selectedAreaId) . "%";
-                }
-                $storeSql .= " ORDER BY name_store ASC";
-                $storeStmt = $pdo->prepare($storeSql);
-                $storeStmt->execute($storeParams);
-                $rawStores = $storeStmt->fetchAll(\PDO::FETCH_COLUMN);
-
-                $workLocations = collect($rawStores)->map(function($sName) {
-                    return (object)[
-                        'id' => $sName,
-                        'name' => $sName
-                    ];
-                });
-            } catch (\Throwable $e) {
-                $workLocations = collect();
-            }
-        } else {
-            // General Reports: Sourced from actual report submissions
-            $subLocData = Cache::remember("rep_filter_locs_{$template->id}", 600, function() use ($template) {
-                return DB::table('report_submissions')
-                    ->where('report_submissions.report_template_id', $template->id)
-                    ->join('work_locations', 'report_submissions.work_location_id', '=', 'work_locations.id')
-                    ->leftJoin('branches', 'work_locations.branch_id', '=', 'branches.id')
-                    ->select(
-                        'work_locations.id',
-                        'work_locations.name',
-                        'work_locations.region',
-                        'work_locations.branch_id',
-                        'branches.name as branch_name'
-                    )
-                    ->distinct()
-                    ->get();
-            });
-
-            if ($subLocData->isNotEmpty()) {
-                $regions = $subLocData->pluck('region')->filter()->unique()->sort()->values()->toArray();
-
-                $areaList = $subLocData->filter(fn($l) => !empty($l->branch_id) && !empty($l->branch_name));
-                if ($selectedRegion) {
-                    $areaList = $areaList->where('region', $selectedRegion);
-                }
-                $areas = $areaList->unique('branch_id')->map(function($l) {
+            $areas = $subLocData->filter(fn($l) => !empty($l->branch_id) && !empty($l->branch_name))
+                ->unique('branch_id')
+                ->map(function($l) {
                     return (object)[
                         'id' => $l->branch_id,
-                        'name' => $l->branch_name
+                        'name' => $l->branch_name,
+                        'region' => $l->region
                     ];
                 })->sortBy('name')->values();
 
-                $filteredStores = $subLocData;
-                if ($selectedRegion) {
-                    $filteredStores = $filteredStores->where('region', $selectedRegion);
-                }
-                if ($selectedAreaId) {
-                    $filteredStores = $filteredStores->where('branch_id', $selectedAreaId);
-                }
-                $workLocations = $filteredStores->sortBy('name')->values();
-            } else {
-                // Fallback to master data if report has no submissions yet
-                $regions = [];
-                $areas = collect();
-                $workLocations = collect();
-            }
+            $workLocations = $subLocData->map(function($l) {
+                return (object)[
+                    'id' => $l->id,
+                    'name' => $l->name,
+                    'region' => $l->region,
+                    'area' => $l->branch_name
+                ];
+            })->sortBy('name')->values();
+        } else {
+            $regions = [];
+            $areas = collect();
+            $workLocations = collect();
         }
 
         // --- YTD Custom Report Logic for Offtake and Stock End ---
@@ -863,11 +933,23 @@ class PrincipalPortalController extends Controller
                     }
                     if ($selectedAreaId) {
                         $q->whereIn('report_submissions.work_location_id', function($subQ) use ($selectedAreaId) {
-                            $subQ->select('id')->from('work_locations')->where('branch_id', $selectedAreaId);
+                            if (is_numeric($selectedAreaId)) {
+                                $subQ->select('id')->from('work_locations')->where('branch_id', $selectedAreaId);
+                            } else {
+                                $subQ->select('work_locations.id')->from('work_locations')
+                                    ->join('branches', 'work_locations.branch_id', '=', 'branches.id')
+                                    ->where('branches.name', $selectedAreaId);
+                            }
                         });
                     }
                     if ($selectedLocationId) {
-                        $q->where('report_submissions.work_location_id', $selectedLocationId);
+                        if (is_numeric($selectedLocationId)) {
+                            $q->where('report_submissions.work_location_id', $selectedLocationId);
+                        } else {
+                            $q->whereIn('report_submissions.work_location_id', function($subQ) use ($selectedLocationId) {
+                                $subQ->select('id')->from('work_locations')->where('name', $selectedLocationId);
+                            });
+                        }
                     }
                     if ($search) {
                         $likeOp = $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
@@ -946,10 +1028,20 @@ class PrincipalPortalController extends Controller
                         $q->where('work_locations.region', $selectedRegion);
                     }
                     if ($selectedAreaId) {
-                        $q->where('work_locations.branch_id', $selectedAreaId);
+                        if (is_numeric($selectedAreaId)) {
+                            $q->where('work_locations.branch_id', $selectedAreaId);
+                        } else {
+                            $q->whereIn('work_locations.branch_id', function($bq) use ($selectedAreaId) {
+                                $bq->select('id')->from('branches')->where('name', $selectedAreaId);
+                            });
+                        }
                     }
                     if ($selectedLocationId) {
-                        $q->where('report_submissions.work_location_id', $selectedLocationId);
+                        if (is_numeric($selectedLocationId)) {
+                            $q->where('report_submissions.work_location_id', $selectedLocationId);
+                        } else {
+                            $q->where('work_locations.name', $selectedLocationId);
+                        }
                     }
                     if ($search) {
                         $likeOp = $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
@@ -1084,26 +1176,8 @@ class PrincipalPortalController extends Controller
         }
         // --------------------------------------------------------
 
-        // --- CBP Custom Dashboard Analytics (Dashboard 1 & Dashboard 2) ---
         $isCbpReport = false;
         $cbpData = [];
-        if ($template->code === 'RPT-DULUX-CBP-PRICING') {
-            $isCbpReport = true;
-            $rawPage = max(1, (int)$request->query('raw_page', 1));
-            $cbpData = $this->calculateCbpDashboardData(
-                $template,
-                $startMonth,
-                $startYear,
-                $endMonth,
-                $endYear,
-                $selectedRegion,
-                $selectedAreaId,
-                $selectedLocationId,
-                $search,
-                $rawPage,
-                50
-            );
-        }
 
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();

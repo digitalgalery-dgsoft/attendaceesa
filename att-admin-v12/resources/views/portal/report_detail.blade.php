@@ -1083,7 +1083,7 @@
 
             <!-- Filter Region -->
             <div style="position: relative;">
-                <select name="region" class="filter-select-btn" onchange="this.form.submit()" style="padding-left: 2rem;">
+                <select name="region" id="filter_region" class="filter-select-btn" onchange="onRegionFilterChange(this.value)" style="padding-left: 2rem;">
                     <option value="">🗺️ Semua Region</option>
                     @foreach($regions as $r)
                         <option value="{{ $r }}" {{ $selectedRegion == $r ? 'selected' : '' }}>
@@ -1096,10 +1096,10 @@
 
             <!-- Filter Area / Cabang -->
             <div style="position: relative;">
-                <select name="area_id" class="filter-select-btn" onchange="this.form.submit()" style="padding-left: 2rem;">
+                <select name="area_id" id="filter_area" class="filter-select-btn" onchange="onAreaFilterChange(this.value)" style="padding-left: 2rem;">
                     <option value="">📍 Semua Area / Cabang</option>
                     @foreach($areas as $area)
-                        <option value="{{ $area->id }}" {{ $selectedAreaId == $area->id ? 'selected' : '' }}>
+                        <option value="{{ $area->id }}" data-region="{{ $area->region ?? '' }}" {{ (string)$selectedAreaId === (string)$area->id ? 'selected' : '' }}>
                             {{ $area->name }}
                         </option>
                     @endforeach
@@ -1109,10 +1109,10 @@
 
             <!-- Filter Store / Toko -->
             <div style="position: relative;">
-                <select name="location_id" class="filter-select-btn" onchange="this.form.submit()" style="padding-left: 2rem; max-width: 250px;">
+                <select name="location_id" id="filter_location" class="filter-select-btn" style="padding-left: 2rem; max-width: 250px;">
                     <option value="">🏢 Semua Store / Toko</option>
                     @foreach($workLocations as $loc)
-                        <option value="{{ $loc->id }}" {{ $selectedLocationId == $loc->id ? 'selected' : '' }}>
+                        <option value="{{ $loc->id }}" data-region="{{ $loc->region ?? '' }}" data-area="{{ strtoupper(trim($loc->area ?? '')) }}" {{ (string)$selectedLocationId === (string)$loc->id ? 'selected' : '' }}>
                             {{ $loc->name }}
                         </option>
                     @endforeach
@@ -1129,7 +1129,7 @@
 
         <!-- Action Buttons Group (Aligned to the Right) -->
         <div style="display: flex; gap: 0.5rem; align-items: center; flex-shrink: 0; margin-left: auto;">
-            <button type="submit" class="filter-select-btn" style="background: var(--brand-gradient); color: #fff; font-weight: 700; border: none; box-shadow: 0 2px 8px var(--brand-glow); padding: 0.55rem 1.15rem; display: inline-flex; align-items: center; gap: 0.4rem;">
+            <button type="submit" class="filter-select-btn" style="background: var(--brand-gradient); color: #fff; font-weight: 700; border: none; box-shadow: 0 2px 8px var(--brand-glow); padding: 0.55rem 1.15rem; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;">
                 <i class="fa-solid fa-filter"></i> Filter
             </button>
             @if($selectedRegion || $selectedAreaId || $selectedLocationId || $search || $startMonth != Carbon\Carbon::now()->month || $endMonth != Carbon\Carbon::now()->month)
@@ -1139,6 +1139,79 @@
             @endif
         </div>
     </form>
+
+    <script>
+    function onRegionFilterChange(regVal) {
+        var areaSelect = document.getElementById('filter_area');
+        var locSelect = document.getElementById('filter_location');
+        if (!areaSelect || !locSelect) return;
+
+        var currentAreaVal = areaSelect.value;
+        var areaStillValid = false;
+
+        for (var i = 0; i < areaSelect.options.length; i++) {
+            var opt = areaSelect.options[i];
+            if (!opt.value) continue;
+            var optReg = opt.getAttribute('data-region') || '';
+            if (!regVal || !optReg || optReg.toUpperCase() === regVal.toUpperCase()) {
+                opt.hidden = false;
+                opt.disabled = false;
+                if (opt.value === currentAreaVal) areaStillValid = true;
+            } else {
+                opt.hidden = true;
+                opt.disabled = true;
+            }
+        }
+        if (currentAreaVal && !areaStillValid) {
+            areaSelect.value = '';
+        }
+
+        onAreaFilterChange(areaSelect.value);
+    }
+
+    function onAreaFilterChange(areaVal) {
+        var regSelect = document.getElementById('filter_region');
+        var locSelect = document.getElementById('filter_location');
+        if (!locSelect) return;
+
+        var regVal = regSelect ? regSelect.value : '';
+        var currentLocVal = locSelect.value;
+        var locStillValid = false;
+
+        for (var j = 0; j < locSelect.options.length; j++) {
+            var opt = locSelect.options[j];
+            if (!opt.value) continue;
+            var optReg = opt.getAttribute('data-region') || '';
+            var optArea = (opt.getAttribute('data-area') || '').toUpperCase();
+            var matchReg = !regVal || !optReg || optReg.toUpperCase() === regVal.toUpperCase();
+            var matchArea = !areaVal || !optArea || optArea === areaVal.toUpperCase();
+
+            if (matchReg && matchArea) {
+                opt.hidden = false;
+                opt.disabled = false;
+                if (opt.value === currentLocVal) locStillValid = true;
+            } else {
+                opt.hidden = true;
+                opt.disabled = true;
+            }
+        }
+        if (currentLocVal && !locStillValid) {
+            locSelect.value = '';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var regSelect = document.getElementById('filter_region');
+        if (regSelect && regSelect.value) {
+            onRegionFilterChange(regSelect.value);
+        } else {
+            var areaSelect = document.getElementById('filter_area');
+            if (areaSelect && areaSelect.value) {
+                onAreaFilterChange(areaSelect.value);
+            }
+        }
+    });
+    </script>
 
     @if(isset($isYtdReport) && $isYtdReport)
         <div class="widget-content-card" style="margin-bottom: 1.5rem; border: 2px solid var(--brand-primary); padding: 0; overflow: hidden;">
