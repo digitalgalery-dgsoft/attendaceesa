@@ -995,14 +995,19 @@
         </div>
 
         <div class="header-actions-group">
-            @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport) && (!isset($isDailyMaintenanceReport) || !$isDailyMaintenanceReport))
+            @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport) && (!isset($isDailyMaintenanceReport) || !$isDailyMaintenanceReport) && (!isset($isCustomerDbReport) || !$isCustomerDbReport))
             <button type="button" class="btn-studio-toggle" id="btn_toggle_studio" onclick="toggleStudioMode()">
                 <i class="fa-solid fa-layer-group"></i>
                 <span id="studio_btn_text">🎨 Studio Dashboard</span>
             </button>
             @endif
 
-            @if(isset($isDailyMaintenanceReport) && $isDailyMaintenanceReport)
+            @if(isset($isCustomerDbReport) && $isCustomerDbReport)
+                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'cust_raw', 'p' => $tenantPrincipal->id])) }}" class="btn-export-excel">
+                    <i class="fa-solid fa-file-excel"></i>
+                    Export Data Mentah (CSV)
+                </a>
+            @elseif(isset($isDailyMaintenanceReport) && $isDailyMaintenanceReport)
                 <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'dm_raw', 'p' => $tenantPrincipal->id])) }}" class="btn-export-excel">
                     <i class="fa-solid fa-file-excel"></i>
                     Export Data Mentah (CSV)
@@ -1516,7 +1521,12 @@
         @include('portal.partials.daily_maintenance_dashboard', ['dmData' => $dailyMaintenanceData])
     @endif
 
-    @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport) && (!isset($isDailyMaintenanceReport) || !$isDailyMaintenanceReport))
+    {{-- CUSTOMER DATABASE & CONSUMER INSIGHTS DASHBOARD (INSIGHTS, REGIONAL & RAW SUBMISSIONS) --}}
+    @if(isset($isCustomerDbReport) && $isCustomerDbReport && !empty($customerDbData))
+        @include('portal.partials.customer_database_dashboard', ['custData' => $customerDbData])
+    @endif
+
+    @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport) && (!isset($isDailyMaintenanceReport) || !$isDailyMaintenanceReport) && (!isset($isCustomerDbReport) || !$isCustomerDbReport))
     <!-- Dynamic 12-Column Dashboard Canvas (Sortable in Studio Mode) -->
     <div id="dashboard_canvas" class="dashboard-grid">
         @php

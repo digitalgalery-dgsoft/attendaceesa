@@ -347,40 +347,60 @@ class ReportTemplate extends Model
             }
         }
 
-        // 6. Laporan Data Pelanggan - Brand Dicari Dropdown, Foto & Catatan Dihapus
+        // 6. Laporan Data Pelanggan & Konsumen Dulux
         $pelangganTemplate = static::where('code', 'RPT-DULUX-DATABASE-PELANGGAN')->first();
         if ($pelangganTemplate) {
             $pelangganTemplate->update([
                 'title' => 'Laporan Data Pelanggan & Konsumen Dulux',
-                'description' => 'Pendataan profil konsumen pembeli cat di toko, brand yang dicari vs brand yang dibeli, dan kebutuhan preview warna.',
+                'description' => 'Pendataan profil konsumen pembeli cat di toko, segmentasi pelanggan, brand preference & switching, serta estimasi nilai transaksi.',
                 'category' => 'general',
                 'is_active' => true,
             ]);
 
-            $brandOptions = [
-                'DULUX / CATYLAC',
-                'JOTUN',
-                'NIPPON PAINT',
-                'AVIAN / NO DROP / LENKOTE',
-                'MOWILEX',
-                'PROPAN',
-                'DANAPAINT / KANSAI',
-                'PACIFIC PAINT',
-                'MERK LAINNYA',
+            $brandSoughtOptions = [
+                'Dulux',
+                'Catylac',
+                'Jotun',
+                'Nippon Paint / Vinilex',
+                'Avian / Avitex / No Drop',
+                'Mowilex',
+                'Propan',
+                'Danapaint / Kansai',
+                'Pacific Paint',
+                'Merk Lainnya',
+            ];
+
+            $brandBoughtOptions = [
+                'Dulux (Pentalite / Weathershield / EasyClean / Ambiance)',
+                'Catylac (Interior / Exterior / Plamur)',
+                'Aquashield (Pelapis Anti Bocor)',
+                'Dulux Catylac (Gabungan)',
+                'Jotun',
+                'Nippon Paint',
+                'Avian / No Drop / Lenkote',
+                'Mowilex',
+                'Propan',
+                'Tidak Jadi Beli Cat',
+                'Lainnya',
             ];
 
             $pelangganFields = [
                 ['field_label' => 'Nama Lengkap Pelanggan', 'field_name' => 'nama_pelanggan', 'field_type' => 'text', 'placeholder' => 'Nama konsumen / pembeli', 'is_required' => true],
-                ['field_label' => 'Nomor HP / WhatsApp Pelanggan', 'field_name' => 'no_hp_pelanggan', 'field_type' => 'text', 'placeholder' => '08xxxxxxxxxx', 'is_required' => true],
-                ['field_label' => 'Alamat / Domisili Pelanggan', 'field_name' => 'alamat_pelanggan', 'field_type' => 'text', 'placeholder' => 'Alamat atau lokasi proyek konsumen', 'is_required' => false],
-                ['field_label' => 'Tipe / Kategori Pelanggan', 'field_name' => 'tipe_pelanggan', 'field_type' => 'radio', 'options' => ['Pemilik Rumah (End User)', 'Tukang Cat & Bangunan', 'Mandor Proyek', 'Kontraktor / Aplikator', 'Mitra Dulux Terdaftar'], 'is_required' => true],
-                ['field_label' => 'Tujuan Datang ke Toko', 'field_name' => 'tujuan_ke_toko', 'field_type' => 'dropdown', 'options' => ['Membeli Cat Dulux / Catylac', 'Membeli Cat Merk Lain', 'Membeli Bahan Bangunan Lainnya', 'Konsultasi / Tanya Warna', 'Komplain Produk'], 'is_required' => true],
-                ['field_label' => 'Brand Cat yang Awalnya Dicari / Ditanyakan', 'field_name' => 'brand_dicari', 'field_type' => 'dropdown', 'options' => $brandOptions, 'is_required' => true],
-                ['field_label' => 'Brand Cat yang Akhirnya Dibeli', 'field_name' => 'brand_dibeli', 'field_type' => 'dropdown', 'options' => ['DULUX (Pentalite/Weathershield/EasyClean/Ambiance)', 'CATYLAC (Interior/Exterior/Plamur)', 'AQUASHIELD (Pelapis Anti Bocor)', 'JOTUN', 'NIPPON PAINT', 'AVIAN / NO DROP / LENKOTE', 'MOWILEX', 'PROPAN', 'Tidak Jadi Beli Cat'], 'is_required' => true],
-                ['field_label' => 'Alasan Konsumen Memilih Brand Tersebut', 'field_name' => 'alasan_pilih_brand', 'field_type' => 'dropdown', 'options' => ['Kualitas dan Daya Tahan Terbukti', 'Merk Terkenal / Rekomendasi Arsitek', 'Rekomendasi SPG / DC Dulux di Toko', 'Rekomendasi Pemilik / Karyawan Toko', 'Harga Lebih Terjangkau / Diskon Promo', 'Warna Sesuai Pilihan (Bisa Oplos)', 'Tukang Cat Terbiasa Pakai Merk Tersebut'], 'is_required' => true],
-                ['field_label' => 'Tipe Pekerjaan Pengecatan', 'field_name' => 'tipe_pengecatan', 'field_type' => 'radio', 'options' => ['Pengecatan Rumah Baru (Tembok Baru)', 'Pengecatan Ulang / Renovasi (Repainting)', 'Pengecatan Proyek Komersial / Ruko'], 'is_required' => true],
-                ['field_label' => 'Apakah Memerlukan Preview Warna Visualizer?', 'field_name' => 'memerlukan_preview', 'field_type' => 'radio', 'options' => ['Ya (Dibuatkan Visualisasi Warna / Demo)', 'Tidak (Sudah Memiliki Pilihan Warna Pasti)'], 'is_required' => true],
-                ['field_label' => 'Total Estimasi Nilai Pembelian (Rupiah)', 'field_name' => 'value_pembelian_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => true],
+                ['field_label' => 'Nomor HP / WhatsApp Pelanggan', 'field_name' => 'no_hp_pelanggan', 'field_type' => 'text', 'placeholder' => '08xxxxxxxxxx / (62) 8xx', 'is_required' => true],
+                ['field_label' => 'Alamat / Domisili Pelanggan', 'field_name' => 'alamat_pelanggan', 'field_type' => 'text', 'placeholder' => 'Alamat atau area domisili konsumen', 'is_required' => false],
+                ['field_label' => 'Tipe / Kategori Pelanggan', 'field_name' => 'tipe_pelanggan', 'field_type' => 'radio', 'options' => ['Pemilik Rumah', 'Tukang Cat & Bangunan', 'Kontraktor', 'Mitra Dulux'], 'is_required' => true],
+                ['field_label' => 'Tujuan Datang ke Toko', 'field_name' => 'tujuan_ke_toko', 'field_type' => 'dropdown', 'options' => ['Membeli Cat', 'Membeli Bahan Bangunan Lainnya', 'Konsultasi / Tanya Warna', 'Komplain', 'Lainnya'], 'is_required' => true],
+                ['field_label' => 'Brand Cat yang Awalnya Dicari / Ditanyakan', 'field_name' => 'brand_dicari', 'field_type' => 'dropdown', 'options' => $brandSoughtOptions, 'is_required' => true],
+                ['field_label' => 'Brand Cat yang Akhirnya Dibeli', 'field_name' => 'brand_dibeli', 'field_type' => 'dropdown', 'options' => $brandBoughtOptions, 'is_required' => true],
+                ['field_label' => 'Alasan Konsumen Memilih Brand Tersebut', 'field_name' => 'alasan_pilih_brand', 'field_type' => 'dropdown', 'options' => ['Rekomendasi DC', 'Kualitasnya baik', 'Harga Terjangkau', 'Merk terkenal', 'Rekomendasi Painter/Kontraktor', 'Rekomendasi Toko', 'Promosi', 'Iklan'], 'is_required' => true],
+                ['field_label' => 'Tipe Pekerjaan Pengecatan', 'field_name' => 'tipe_pengecatan', 'field_type' => 'radio', 'options' => ['Pengecatan Baru', 'Pengecatan Ulang'], 'is_required' => true],
+                ['field_label' => 'Apakah Memerlukan Preview Warna Visualizer?', 'field_name' => 'memerlukan_preview', 'field_type' => 'radio', 'options' => ['Ya', 'Tidak'], 'is_required' => true],
+                ['field_label' => 'Estimasi Total Nilai Pembelian (Rupiah)', 'field_name' => 'value_pembelian_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => true],
+                ['field_label' => 'Program Mitra Dulux (Painter Loyalty)', 'field_name' => 'painter_loyalty', 'field_type' => 'radio', 'options' => ['Saya bersedia menerima informasi mengenai program Mitra Dulux', 'Tidak Bersedia'], 'is_required' => false],
+                ['field_label' => 'Catatan Khusus / Keterangan', 'field_name' => 'keterangan', 'field_type' => 'textarea', 'placeholder' => 'Catatan tambahan interaksi atau preferensi warna konsumen...', 'is_required' => false],
+                ['field_label' => 'Foto Interaksi / Nota 1', 'field_name' => 'foto_1', 'field_type' => 'camera_photo', 'is_required' => false],
+                ['field_label' => 'Foto Interaksi / Nota 2', 'field_name' => 'foto_2', 'field_type' => 'camera_photo', 'is_required' => false],
+                ['field_label' => 'Foto Interaksi / Nota 3', 'field_name' => 'foto_3', 'field_type' => 'camera_photo', 'is_required' => false],
             ];
 
             ReportFormField::where('report_template_id', $pelangganTemplate->id)->delete();

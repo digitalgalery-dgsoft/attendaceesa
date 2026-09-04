@@ -562,6 +562,7 @@ class PrincipalPortalController extends Controller
         $isStockReport   = ($template->code === 'RPT-DULUX-STOCK-END');
         $isOosReport     = in_array($template->code, ['RPT-DULUX-OOS-SSO', 'RPT-DULUX-OOS-LSO']) || str_contains($template->code, 'OOS');
         $isDailyMaintenanceReport = ($template->code === 'RPT-DULUX-DAILY-MAINTENANCE' || str_contains($template->code, 'DAILY-MAINTENANCE'));
+        $isCustomerDbReport       = ($template->code === 'RPT-DULUX-DATABASE-PELANGGAN' || str_contains($template->code, 'PELANGGAN'));
 
         // --- Stock End Custom Handling (Pivotable Store Volume, SCM / Summ & Raw Submissions from stock_2026.sqlite) ---
         if ($isStockReport) {
@@ -1191,6 +1192,210 @@ class PrincipalPortalController extends Controller
                 'isOosReport',
                 'isDailyMaintenanceReport',
                 'dailyMaintenanceData',
+                'activeTab'
+            ));
+        }
+
+        // --- Customer Database Custom Handling (Consumer Insights, Store Analytics & Raw Data from customer_db.sqlite) ---
+        if ($isCustomerDbReport) {
+            $sqlitePath = storage_path('app/dulux_data/customer_db.sqlite');
+            $gzPath     = storage_path('app/dulux_data/customer_db.sqlite.gz');
+
+            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 500000 || (file_exists($gzPath) && filemtime($gzPath) > filemtime($sqlitePath))) {
+                if (file_exists($gzPath)) {
+                    try {
+                        $zp = gzopen($gzPath, 'rb');
+                        $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                        $fp = fopen($tmpPath, 'wb');
+                        if ($zp && $fp) {
+                            while (!gzeof($zp)) {
+                                fwrite($fp, gzread($zp, 524288));
+                            }
+                            gzclose($zp);
+                            fclose($fp);
+                            @rename($tmpPath, $sqlitePath);
+                            @chmod($sqlitePath, 0666);
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::error("Auto-extraction of customer_db.sqlite.gz failed: " . $e->getMessage());
+                    }
+                }
+            }
+
+            // Extract distinct regions directly from cust_raw
+            $regions = Cache::remember('cust_filter_regions_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT rsm_area FROM cust_raw WHERE rsm_area IS NOT NULL AND rsm_area != '' ORDER BY rsm_area");
+                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                } catch (\Throwable $e) {
+                    return ['Bali Nusra', 'Central Java', 'Central Sumatera', 'East Java', 'Greater Jakarta', 'Kalimantan', 'North Central Java', 'North Sumatera', 'South Central Java', 'South Sumatera', 'Sulawesi', 'West Java'];
+                }
+            });
+
+            // Extract distinct areas directly from cust_raw
+            $areaCacheKey = 'cust_filter_areas_v1_' . md5($selectedRegion ?: 'all');
+            $areas = Cache::remember($areaCacheKey, 3600, function() use ($sqlitePath, $selectedRegion) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    if ($selectedRegion) {
+                        $stmt = $pdo->prepare("SELECT DISTINCT area, rsm_area FROM cust_raw WHERE rsm_area = ? AND area IS NOT NULL AND area != '' ORDER BY area");
+                        $stmt->execute([$selectedRegion]);
+                    } else {
+                        $stmt = $pdo->query("SELECT DISTINCT area, rsm_area FROM cust_raw WHERE area IS NOT NULL AND area != '' ORDER BY area");
+                    }
+                    $results = [];
+                    foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $a) {
+                        $results[] = [
+                            'id' => $a['area'],
+                            'name' => $a['area'],
+                            'region' => $a['rsm_area']
+                        ];
+                    }
+                    return $results;
+                } catch (\Throwable $e) {
+                    return [];
+                }
+            });
+
+            // Extract distinct stores directly from cust_raw
+            $storeCacheKey = 'cust_filter_stores_v1_' . md5(($selectedRegion ?: 'all') . '_' . ($selectedAreaId ?: 'all'));
+            $workLocations = Cache::remember($storeCacheKey, 3600, function() use ($sqlitePath, $selectedRegion, $selectedAreaId) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $where = ["store_name IS NOT NULL AND store_name != ''"];
+                    $params = [];
+                    if ($selectedRegion) {
+                        $where[] = "rsm_area = ?";
+                        $params[] = $selectedRegion;
+                    }
+                    if ($selectedAreaId) {
+                        $where[] = "area = ?";
+                        $params[] = is_numeric($selectedAreaId) ? (Branch::where('id', $selectedAreaId)->value('name') ?: $selectedAreaId) : $selectedAreaId;
+                    }
+                    $whereSql = implode(' AND ', $where);
+                    $stmt = $pdo->prepare("SELECT DISTINCT store_name, rsm_area, area, sap_code FROM cust_raw WHERE $whereSql ORDER BY store_name");
+                    $stmt->execute($params);
+                    $result = [];
+                    foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $s) {
+                        $result[] = [
+                            'id' => $s['store_name'],
+                            'name' => $s['store_name'],
+                            'region' => $s['rsm_area'],
+                            'area' => $s['area'],
+                            'sap' => $s['sap_code']
+                        ];
+                    }
+                    return $result;
+                } catch (\Throwable $e) {
+                    return [];
+                }
+            });
+
+            // Extract Customer Types
+            $customerTypes = Cache::remember('cust_filter_types_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT tipe_pelanggan FROM cust_raw WHERE tipe_pelanggan IS NOT NULL AND tipe_pelanggan != '' ORDER BY tipe_pelanggan");
+                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                } catch (\Throwable $e) {
+                    return ['Kontraktor', 'Mitra Dulux', 'Pemilik Rumah', 'Tukang Cat & Bangunan'];
+                }
+            });
+
+            // Extract Brands (Dicari / Dibeli)
+            $brandsList = Cache::remember('cust_filter_brands_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT brand_dicari FROM cust_raw WHERE brand_dicari IS NOT NULL AND brand_dicari != '' ORDER BY brand_dicari LIMIT 30");
+                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                } catch (\Throwable $e) {
+                    return ['Dulux', 'Catylac', 'Jotun', 'Nippon', 'Vinilex', 'Mowilex', 'No drop', 'Propan'];
+                }
+            });
+
+            // Extract Reasons
+            $reasonsList = Cache::remember('cust_filter_reasons_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT alasan FROM cust_raw WHERE alasan IS NOT NULL AND alasan != '' ORDER BY alasan");
+                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                } catch (\Throwable $e) {
+                    return ['Rekomendasi DC', 'Kualitasnya baik', 'Harga Terjangkau', 'Merk terkenal', 'Rekomendasi Painter/Kontraktor', 'Rekomendasi Toko'];
+                }
+            });
+
+            $selectedCustomerType = $request->query('cust_type', '');
+            $selectedBrand        = $request->query('brand', '');
+            $selectedReason       = $request->query('reason', '');
+            $topStorePage         = max(1, (int)$request->query('store_page', 1));
+            $rawPage              = max(1, (int)$request->query('raw_page', 1));
+            $activeTab            = $request->query('tab', 'insights');
+
+            $customerDbData = $this->calculateCustomerDbDashboardData(
+                $template,
+                $startMonth,
+                $startYear,
+                $endMonth,
+                $endYear,
+                $selectedRegion,
+                $selectedAreaId,
+                $selectedLocationId,
+                $selectedCustomerType,
+                $selectedBrand,
+                $selectedReason,
+                $search,
+                $topStorePage,
+                $rawPage,
+                50
+            );
+
+            $totalTemplateSubmissions = 0;
+            $uniqueStores = 0;
+            $submissions = new LengthAwarePaginator([], 0, 20, 1);
+            $dashboardConfig = [];
+            $widgetResults = [];
+            $isYtdReport = false;
+            $ytdData = [];
+
+            return view('portal.report_detail', compact(
+                'tenantPrincipal',
+                'tenantPrincipalsAll',
+                'brandColor',
+                'activeTemplates',
+                'template',
+                'submissions',
+                'totalTemplateSubmissions',
+                'uniqueStores',
+                'startMonth',
+                'startYear',
+                'endMonth',
+                'endYear',
+                'search',
+                'selectedRegion',
+                'selectedAreaId',
+                'selectedLocationId',
+                'selectedCustomerType',
+                'selectedBrand',
+                'selectedReason',
+                'regions',
+                'areas',
+                'workLocations',
+                'customerTypes',
+                'brandsList',
+                'reasonsList',
+                'setting',
+                'dashboardConfig',
+                'widgetResults',
+                'isYtdReport',
+                'ytdData',
+                'isCbpReport',
+                'isOfftakeReport',
+                'isStockReport',
+                'isOosReport',
+                'isDailyMaintenanceReport',
+                'isCustomerDbReport',
+                'customerDbData',
                 'activeTab'
             ));
         }
@@ -3063,6 +3268,213 @@ class PrincipalPortalController extends Controller
                                 $row['mix2win_steps_ok'] . '/12',
                                 ($row['pembersihan_all_ok'] == 1 ? 'OK' : 'NO'),
                                 $row['kesimpulan'] ?? ''
+                            ]);
+                        }
+                    }
+
+                    fclose($handle);
+                };
+
+                return response()->stream($callback, 200, $headers);
+            }
+        }
+
+        // --- Customer Database Export Handling ---
+        if ($template->code === 'RPT-DULUX-DATABASE-PELANGGAN' || str_contains($template->code, 'PELANGGAN')) {
+            $sqlitePath = storage_path('app/dulux_data/customer_db.sqlite');
+            $gzPath     = storage_path('app/dulux_data/customer_db.sqlite.gz');
+            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 500000 || (file_exists($gzPath) && filemtime($gzPath) > filemtime($sqlitePath))) {
+                if (file_exists($gzPath)) {
+                    try {
+                        $zp = gzopen($gzPath, 'rb');
+                        $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                        $fp = fopen($tmpPath, 'wb');
+                        if ($zp && $fp) {
+                            while (!gzeof($zp)) {
+                                fwrite($fp, gzread($zp, 524288));
+                            }
+                            gzclose($zp);
+                            fclose($fp);
+                            @rename($tmpPath, $sqlitePath);
+                            @chmod($sqlitePath, 0666);
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::error("Auto-extraction of customer_db.sqlite.gz failed: " . $e->getMessage());
+                    }
+                }
+            }
+
+            if (file_exists($sqlitePath)) {
+                $exportType = $request->query('export_type', 'cust_raw');
+                $filename = 'Export_Dulux_Customer_Database_' . $exportType . '_' . date('Ymd_His') . '.csv';
+
+                $headers = [
+                    'Content-Type' => 'text/csv; charset=UTF-8',
+                    'Content-Disposition' => "attachment; filename=\"$filename\"",
+                    'Pragma' => 'no-cache',
+                    'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+                    'Expires' => '0'
+                ];
+
+                $callback = function() use ($sqlitePath, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $request, $exportType) {
+                    $handle = fopen('php://output', 'w');
+                    fputs($handle, "\xEF\xBB\xBF"); // UTF-8 BOM
+
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+                    $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
+                    $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
+                    $search = $request->query('q');
+                    $selectedCustomerType = $request->query('cust_type', '');
+                    $selectedBrand        = $request->query('brand', '');
+                    $selectedReason       = $request->query('reason', '');
+
+                    $sMonth = max(1, min(12, (int)$startMonth));
+                    $eMonth = max(1, min(12, (int)$endMonth));
+                    $sYear  = (int)($startYear ?: 2025);
+                    $eYear  = (int)($endYear ?: 2026);
+
+                    $where = [];
+                    $params = [];
+
+                    if ($sYear === $eYear) {
+                        $where[] = "year = ?";
+                        $params[] = $sYear;
+                        $where[] = "month >= ? AND month <= ?";
+                        $params[] = $sMonth;
+                        $params[] = $eMonth;
+                    } else {
+                        $where[] = "((year = ? AND month >= ?) OR (year = ? AND month <= ?) OR (year > ? AND year < ?))";
+                        $params[] = $sYear; $params[] = $sMonth;
+                        $params[] = $eYear; $params[] = $eMonth;
+                        $params[] = $sYear; $params[] = $eYear;
+                    }
+
+                    if ($selectedRegion) {
+                        $where[] = "rsm_area = ?";
+                        $params[] = $selectedRegion;
+                    }
+                    if ($selectedAreaName) {
+                        $where[] = "area = ?";
+                        $params[] = $selectedAreaName;
+                    }
+                    if ($selectedStoreName) {
+                        $where[] = "store_name = ?";
+                        $params[] = $selectedStoreName;
+                    }
+                    if ($selectedCustomerType) {
+                        $where[] = "tipe_pelanggan = ?";
+                        $params[] = $selectedCustomerType;
+                    }
+                    if ($selectedBrand) {
+                        $where[] = "(brand_dicari LIKE ? OR brand_dibeli LIKE ?)";
+                        $params[] = "%{$selectedBrand}%";
+                        $params[] = "%{$selectedBrand}%";
+                    }
+                    if ($selectedReason) {
+                        $where[] = "alasan = ?";
+                        $params[] = $selectedReason;
+                    }
+                    if ($search) {
+                        $where[] = "(nama_pelanggan LIKE ? OR no_hp LIKE ? OR store_name LIKE ? OR sap_code LIKE ? OR alamat LIKE ? OR nama_dc LIKE ?)";
+                        $like = "%{$search}%";
+                        $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like;
+                    }
+
+                    $whereSql = !empty($where) ? implode(' AND ', $where) : "1=1";
+
+                    if ($exportType === 'cust_stores') {
+                        $headerRow = [
+                            'No', 'Nama Toko', 'Kode SAP', 'Region (RSM Area)', 'Area',
+                            'Total Konsumen Terdata', 'Total Nilai Belanja (Rp)', 'Rata-Rata per Konsumen (Rp)',
+                            'Total Beralih ke Dulux (Switching)', 'Jumlah DC / Promotor'
+                        ];
+                        fputcsv($handle, $headerRow);
+
+                        $stmt = $pdo->prepare("
+                            SELECT 
+                                store_name, sap_code, rsm_area, area,
+                                COUNT(*) as total_customers,
+                                COALESCE(SUM(value_pembelian), 0) as total_val,
+                                COALESCE(AVG(value_pembelian), 0) as avg_val,
+                                COALESCE(SUM(is_switched), 0) as switched_cnt,
+                                COUNT(DISTINCT nama_dc) as total_dcs
+                            FROM cust_raw
+                            WHERE $whereSql
+                            GROUP BY store_name
+                            ORDER BY total_val DESC, total_customers DESC
+                        ");
+                        $stmt->execute($params);
+                        $no = 1;
+                        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                            fputcsv($handle, [
+                                $no++,
+                                $row['store_name'] ?? '',
+                                $row['sap_code'] ?? '',
+                                $row['rsm_area'] ?? '',
+                                $row['area'] ?? '',
+                                (int)$row['total_customers'],
+                                (float)$row['total_val'],
+                                (float)$row['avg_val'],
+                                (int)$row['switched_cnt'],
+                                (int)$row['total_dcs']
+                            ]);
+                        }
+                    } else {
+                        // cust_raw
+                        $headerRow = [
+                            'No', 'Tahun', 'Bulan', 'Submission Date', 'Tanggal Transaksi', 'Nama Toko', 'Kode SAP', 'SAP Gab',
+                            'Region (RSM Area)', 'Area', 'Nama Konsumen', 'Alamat', 'No HP / WhatsApp',
+                            'Tipe Pelanggan', 'Program Mitra Dulux', 'Tujuan ke Toko', 'Brand Dicari', 'Brand Dibeli',
+                            'Alasan Pilih Brand', 'Tipe Pengecatan', 'Perlu Preview Warna', 'Nilai Pembelian (Rp)',
+                            'Status Switch ke Dulux', 'Nama DC / Promotor', 'Catatan / Keterangan', 'Foto 1', 'Foto 2', 'Foto 3'
+                        ];
+                        fputcsv($handle, $headerRow);
+
+                        $stmt = $pdo->prepare("
+                            SELECT 
+                                year, month, submission_date, tanggal, store_name, sap_code, sap_gab,
+                                rsm_area, area, nama_pelanggan, alamat, no_hp,
+                                tipe_pelanggan, painter_info, tujuan_ke_toko, brand_dicari, brand_dibeli,
+                                alasan, tipe_pengecatan, memerlukan_preview, value_pembelian,
+                                is_switched, nama_dc, keterangan, foto_1, foto_2, foto_3
+                            FROM cust_raw
+                            WHERE $whereSql
+                            ORDER BY year DESC, id DESC
+                        ");
+                        $stmt->execute($params);
+                        $no = 1;
+                        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                            fputcsv($handle, [
+                                $no++,
+                                $row['year'],
+                                $row['month'],
+                                $row['submission_date'] ?? '',
+                                $row['tanggal'] ?? '',
+                                $row['store_name'] ?? '',
+                                $row['sap_code'] ?? '',
+                                $row['sap_gab'] ?? '',
+                                $row['rsm_area'] ?? '',
+                                $row['area'] ?? '',
+                                $row['nama_pelanggan'] ?? '',
+                                $row['alamat'] ?? '',
+                                $row['no_hp'] ?? '',
+                                $row['tipe_pelanggan'] ?? '',
+                                $row['painter_info'] ?? '',
+                                $row['tujuan_ke_toko'] ?? '',
+                                $row['brand_dicari'] ?? '',
+                                $row['brand_dibeli'] ?? '',
+                                $row['alasan'] ?? '',
+                                $row['tipe_pengecatan'] ?? '',
+                                $row['memerlukan_preview'] ?? '',
+                                (float)$row['value_pembelian'],
+                                ($row['is_switched'] == 1 ? 'Ya (Switch ke Dulux)' : 'Tidak'),
+                                $row['nama_dc'] ?? '',
+                                $row['keterangan'] ?? '',
+                                $row['foto_1'] ?? '',
+                                $row['foto_2'] ?? '',
+                                $row['foto_3'] ?? ''
                             ]);
                         }
                     }
@@ -6813,6 +7225,406 @@ class PrincipalPortalController extends Controller
                     'by_category' => [],
                     'by_region' => [],
                     'store_matrix' => ['rows' => [], 'total_rows' => 0, 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                    'submissions' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
+                ];
+            }
+        });
+    }
+
+    /**
+     * Hitung Data Dashboard Customer Database Dulux
+     * Langsung dari SQLite db terindeks storage/app/dulux_data/customer_db.sqlite
+     */
+    private function calculateCustomerDbDashboardData(
+        $template,
+        $startMonth,
+        $startYear,
+        $endMonth,
+        $endYear,
+        $selectedRegion = null,
+        $selectedAreaId = null,
+        $selectedLocationId = null,
+        $selectedCustomerType = null,
+        $selectedBrand = null,
+        $selectedReason = null,
+        $search = null,
+        $topStorePage = 1,
+        $rawPage = 1,
+        $perPage = 50
+    ) {
+        $sqlitePath = storage_path('app/dulux_data/customer_db.sqlite');
+        $gzPath     = storage_path('app/dulux_data/customer_db.sqlite.gz');
+
+        if (!file_exists($sqlitePath) || filesize($sqlitePath) < 500000 || (file_exists($gzPath) && filemtime($gzPath) > filemtime($sqlitePath))) {
+            if (file_exists($gzPath)) {
+                try {
+                    $zp = gzopen($gzPath, 'rb');
+                    $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                    $fp = fopen($tmpPath, 'wb');
+                    if ($zp && $fp) {
+                        while (!gzeof($zp)) {
+                            fwrite($fp, gzread($zp, 524288));
+                        }
+                        gzclose($zp);
+                        fclose($fp);
+                        @rename($tmpPath, $sqlitePath);
+                        @chmod($sqlitePath, 0666);
+                    }
+                } catch (\Throwable $e) {
+                    \Log::error("Auto-extraction of customer_db.sqlite.gz failed: " . $e->getMessage());
+                }
+            }
+        }
+
+        if (!file_exists($sqlitePath)) {
+            return [];
+        }
+
+        $sMonth = max(1, min(12, (int)$startMonth));
+        $eMonth = max(1, min(12, (int)$endMonth));
+        $sYear  = (int)($startYear ?: 2025);
+        $eYear  = (int)($endYear ?: 2026);
+
+        $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
+        $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
+
+        $cacheKey = 'cust_db_v1_' . md5($template->id . "_{$sYear}_{$sMonth}_{$eYear}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedCustomerType}_{$selectedBrand}_{$selectedReason}_{$search}_{$topStorePage}_{$rawPage}_{$perPage}");
+
+        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sYear, $sMonth, $eYear, $eMonth, $selectedRegion, $selectedAreaName, $selectedStoreName, $selectedCustomerType, $selectedBrand, $selectedReason, $search, $topStorePage, $rawPage, $perPage) {
+            try {
+                $pdo = new \PDO("sqlite:" . $sqlitePath);
+                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+                $where = [];
+                $params = [];
+
+                if ($sYear === $eYear) {
+                    $where[] = "year = ?";
+                    $params[] = $sYear;
+                    $where[] = "month >= ? AND month <= ?";
+                    $params[] = $sMonth;
+                    $params[] = $eMonth;
+                } else {
+                    $where[] = "((year = ? AND month >= ?) OR (year = ? AND month <= ?) OR (year > ? AND year < ?))";
+                    $params[] = $sYear; $params[] = $sMonth;
+                    $params[] = $eYear; $params[] = $eMonth;
+                    $params[] = $sYear; $params[] = $eYear;
+                }
+
+                if ($selectedRegion) {
+                    $where[] = "rsm_area = ?";
+                    $params[] = $selectedRegion;
+                }
+                if ($selectedAreaName) {
+                    $where[] = "area = ?";
+                    $params[] = $selectedAreaName;
+                }
+                if ($selectedStoreName) {
+                    $where[] = "store_name = ?";
+                    $params[] = $selectedStoreName;
+                }
+                if ($selectedCustomerType) {
+                    $where[] = "tipe_pelanggan = ?";
+                    $params[] = $selectedCustomerType;
+                }
+                if ($selectedBrand) {
+                    $where[] = "(brand_dicari LIKE ? OR brand_dibeli LIKE ?)";
+                    $params[] = "%{$selectedBrand}%";
+                    $params[] = "%{$selectedBrand}%";
+                }
+                if ($selectedReason) {
+                    $where[] = "alasan = ?";
+                    $params[] = $selectedReason;
+                }
+                if ($search) {
+                    $where[] = "(nama_pelanggan LIKE ? OR no_hp LIKE ? OR store_name LIKE ? OR sap_code LIKE ? OR alamat LIKE ? OR nama_dc LIKE ?)";
+                    $like = "%{$search}%";
+                    $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like;
+                }
+
+                $whereSql = !empty($where) ? implode(' AND ', $where) : "1=1";
+
+                // 1. Executive KPIs
+                $kpiSql = "
+                    SELECT 
+                        COUNT(*) as total_records,
+                        COALESCE(SUM(value_pembelian), 0) as total_value,
+                        COALESCE(AVG(value_pembelian), 0) as avg_basket_size,
+                        COUNT(DISTINCT store_name) as unique_stores,
+                        COUNT(DISTINCT nama_dc) as unique_dcs,
+                        COALESCE(SUM(is_switched), 0) as switched_cnt,
+                        COALESCE(SUM(is_dulux_bought), 0) as dulux_bought_cnt
+                    FROM cust_raw
+                    WHERE $whereSql
+                ";
+                $stmt = $pdo->prepare($kpiSql);
+                $stmt->execute($params);
+                $kpis = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+                $tot = (int)$kpis['total_records'];
+                $kpis['switched_pct'] = $tot > 0 ? round(((int)$kpis['switched_cnt'] / $tot) * 100, 1) : 0;
+                $kpis['dulux_bought_pct'] = $tot > 0 ? round(((int)$kpis['dulux_bought_cnt'] / $tot) * 100, 1) : 0;
+
+                // 2. Consumer Insights: Segmen Tipe Pelanggan
+                $typeSql = "
+                    SELECT 
+                        tipe_pelanggan,
+                        COUNT(*) as total_count,
+                        ROUND(COUNT(*) * 100.0 / " . max(1, $tot) . ", 1) as pct,
+                        COALESCE(SUM(value_pembelian), 0) as total_val,
+                        COALESCE(AVG(value_pembelian), 0) as avg_val
+                    FROM cust_raw
+                    WHERE $whereSql
+                    GROUP BY tipe_pelanggan
+                    ORDER BY total_count DESC
+                ";
+                $stmt = $pdo->prepare($typeSql);
+                $stmt->execute($params);
+                $customerTypes = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 3. Consumer Insights: Alasan Memilih Brand
+                $reasonSql = "
+                    SELECT 
+                        alasan,
+                        COUNT(*) as total_count,
+                        ROUND(COUNT(*) * 100.0 / " . max(1, $tot) . ", 1) as pct
+                    FROM cust_raw
+                    WHERE $whereSql AND alasan IS NOT NULL AND alasan != ''
+                    GROUP BY alasan
+                    ORDER BY total_count DESC
+                ";
+                $stmt = $pdo->prepare($reasonSql);
+                $stmt->execute($params);
+                $reasons = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 4. Consumer Insights: Tujuan Datang ke Toko
+                $purposeSql = "
+                    SELECT 
+                        tujuan_ke_toko,
+                        COUNT(*) as total_count,
+                        ROUND(COUNT(*) * 100.0 / " . max(1, $tot) . ", 1) as pct
+                    FROM cust_raw
+                    WHERE $whereSql AND tujuan_ke_toko IS NOT NULL AND tujuan_ke_toko != ''
+                    GROUP BY tujuan_ke_toko
+                    ORDER BY total_count DESC
+                ";
+                $stmt = $pdo->prepare($purposeSql);
+                $stmt->execute($params);
+                $purposes = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 5. Consumer Insights: Top Brand Dicari vs Brand Dibeli
+                $soughtSql = "
+                    SELECT 
+                        brand_dicari,
+                        COUNT(*) as cnt,
+                        ROUND(COUNT(*) * 100.0 / " . max(1, $tot) . ", 1) as pct
+                    FROM cust_raw
+                    WHERE $whereSql AND brand_dicari IS NOT NULL AND brand_dicari != ''
+                    GROUP BY brand_dicari
+                    ORDER BY cnt DESC
+                    LIMIT 8
+                ";
+                $stmt = $pdo->prepare($soughtSql);
+                $stmt->execute($params);
+                $brandsSought = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                $boughtSql = "
+                    SELECT 
+                        brand_dibeli,
+                        COUNT(*) as cnt,
+                        ROUND(COUNT(*) * 100.0 / " . max(1, $tot) . ", 1) as pct
+                    FROM cust_raw
+                    WHERE $whereSql AND brand_dibeli IS NOT NULL AND brand_dibeli != ''
+                    GROUP BY brand_dibeli
+                    ORDER BY cnt DESC
+                    LIMIT 8
+                ";
+                $stmt = $pdo->prepare($boughtSql);
+                $stmt->execute($params);
+                $brandsBought = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 6. Consumer Insights: Tipe Pengecatan
+                $paintSql = "
+                    SELECT 
+                        tipe_pengecatan,
+                        COUNT(*) as total_count,
+                        ROUND(COUNT(*) * 100.0 / " . max(1, $tot) . ", 1) as pct
+                    FROM cust_raw
+                    WHERE $whereSql AND tipe_pengecatan IS NOT NULL AND tipe_pengecatan != ''
+                    GROUP BY tipe_pengecatan
+                    ORDER BY total_count DESC
+                ";
+                $stmt = $pdo->prepare($paintSql);
+                $stmt->execute($params);
+                $paintTypes = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 7. Consumer Insights: Kebutuhan Preview Warna Visualizer
+                $previewSql = "
+                    SELECT 
+                        memerlukan_preview,
+                        COUNT(*) as total_count,
+                        ROUND(COUNT(*) * 100.0 / " . max(1, $tot) . ", 1) as pct
+                    FROM cust_raw
+                    WHERE $whereSql AND memerlukan_preview IS NOT NULL AND memerlukan_preview != ''
+                    GROUP BY memerlukan_preview
+                    ORDER BY total_count DESC
+                ";
+                $stmt = $pdo->prepare($previewSql);
+                $stmt->execute($params);
+                $previewNeeds = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 8. Consumer Insights: Minat Program Mitra Dulux
+                $painterSql = "
+                    SELECT 
+                        (CASE WHEN painter_info LIKE '%CHECKED: Saya bersedia%' THEN 'Bersedia / Tertarik Program Mitra'
+                              WHEN painter_info LIKE '%UNCHECKED%' THEN 'Belum Bersedia'
+                              ELSE 'Tidak Mengisi / Bukan Tukang' END) as status_painter,
+                        COUNT(*) as total_count,
+                        ROUND(COUNT(*) * 100.0 / " . max(1, $tot) . ", 1) as pct
+                    FROM cust_raw
+                    WHERE $whereSql
+                    GROUP BY status_painter
+                    ORDER BY total_count DESC
+                ";
+                $stmt = $pdo->prepare($painterSql);
+                $stmt->execute($params);
+                $painterLoyalty = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 9. Regional Ranking Breakdown
+                $rsmSql = "
+                    SELECT 
+                        rsm_area,
+                        COUNT(*) as total_count,
+                        COUNT(DISTINCT store_name) as stores,
+                        COUNT(DISTINCT nama_dc) as dcs,
+                        COALESCE(SUM(value_pembelian), 0) as total_val,
+                        COALESCE(AVG(value_pembelian), 0) as avg_val,
+                        ROUND(COUNT(*) * 100.0 / " . max(1, $tot) . ", 1) as pct,
+                        COALESCE(SUM(is_switched), 0) as switched_cnt
+                    FROM cust_raw
+                    WHERE $whereSql
+                    GROUP BY rsm_area
+                    ORDER BY total_val DESC
+                ";
+                $stmt = $pdo->prepare($rsmSql);
+                $stmt->execute($params);
+                $byRegion = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 10. Top Stores Paginated
+                $storeCountSql = "
+                    SELECT COUNT(*) FROM (
+                        SELECT store_name FROM cust_raw WHERE $whereSql GROUP BY store_name
+                    )
+                ";
+                $stmt = $pdo->prepare($storeCountSql);
+                $stmt->execute($params);
+                $totalStores = (int)$stmt->fetchColumn();
+
+                $topStoreOffset = ($topStorePage - 1) * $perPage;
+                $topStoreSql = "
+                    SELECT 
+                        store_name, sap_code, rsm_area, area,
+                        COUNT(*) as total_customers,
+                        COALESCE(SUM(value_pembelian), 0) as total_val,
+                        COALESCE(AVG(value_pembelian), 0) as avg_val,
+                        COALESCE(SUM(is_switched), 0) as switched_cnt,
+                        COUNT(DISTINCT nama_dc) as total_dcs
+                    FROM cust_raw
+                    WHERE $whereSql
+                    GROUP BY store_name
+                    ORDER BY total_val DESC, total_customers DESC
+                    LIMIT $perPage OFFSET $topStoreOffset
+                ";
+                $stmt = $pdo->prepare($topStoreSql);
+                $stmt->execute($params);
+                $storeRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 11. Top DCs Ranking
+                $topDcSql = "
+                    SELECT 
+                        nama_dc,
+                        MIN(store_name) as store_name,
+                        MIN(rsm_area) as rsm_area,
+                        COUNT(*) as total_customers,
+                        COALESCE(SUM(value_pembelian), 0) as total_val,
+                        COALESCE(SUM(is_switched), 0) as switched_cnt
+                    FROM cust_raw
+                    WHERE $whereSql AND nama_dc IS NOT NULL AND nama_dc != ''
+                    GROUP BY nama_dc
+                    ORDER BY total_customers DESC
+                    LIMIT 20
+                ";
+                $stmt = $pdo->prepare($topDcSql);
+                $stmt->execute($params);
+                $topDcs = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 12. Raw Submissions Paginated
+                $rawCountSql = "SELECT COUNT(*) FROM cust_raw WHERE $whereSql";
+                $stmt = $pdo->prepare($rawCountSql);
+                $stmt->execute($params);
+                $totalRaw = (int)$stmt->fetchColumn();
+
+                $rawOffset = ($rawPage - 1) * $perPage;
+                $rawSql = "
+                    SELECT 
+                        id, year, month, submission_date, tanggal, store_name, sap_code, sap_gab,
+                        rsm_area, area, nama_pelanggan, alamat, no_hp,
+                        tipe_pelanggan, painter_info, tujuan_ke_toko, brand_dicari, brand_dibeli,
+                        alasan, tipe_pengecatan, memerlukan_preview, value_pembelian,
+                        is_switched, is_dulux_bought, nama_dc, keterangan, foto_1, foto_2, foto_3
+                    FROM cust_raw
+                    WHERE $whereSql
+                    ORDER BY year DESC, id DESC
+                    LIMIT $perPage OFFSET $rawOffset
+                ";
+                $stmt = $pdo->prepare($rawSql);
+                $stmt->execute($params);
+                $rawRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                return [
+                    'kpis' => $kpis,
+                    'insights' => [
+                        'customer_types' => $customerTypes,
+                        'reasons' => $reasons,
+                        'purposes' => $purposes,
+                        'brands_sought' => $brandsSought,
+                        'brands_bought' => $brandsBought,
+                        'paint_types' => $paintTypes,
+                        'preview_needs' => $previewNeeds,
+                        'painter_loyalty' => $painterLoyalty,
+                    ],
+                    'by_region' => $byRegion,
+                    'top_stores' => [
+                        'rows' => $storeRows,
+                        'total' => $totalStores,
+                        'page' => $topStorePage,
+                        'per_page' => $perPage,
+                        'total_pages' => (int)ceil($totalStores / $perPage),
+                        'from' => $totalStores > 0 ? ($topStoreOffset + 1) : 0,
+                        'to' => min($topStoreOffset + $perPage, $totalStores),
+                    ],
+                    'top_dcs' => $topDcs,
+                    'submissions' => [
+                        'rows' => $rawRows,
+                        'total' => $totalRaw,
+                        'page' => $rawPage,
+                        'per_page' => $perPage,
+                        'total_pages' => (int)ceil($totalRaw / $perPage),
+                        'from' => $totalRaw > 0 ? ($rawOffset + 1) : 0,
+                        'to' => min($rawOffset + $perPage, $totalRaw),
+                    ]
+                ];
+            } catch (\Throwable $e) {
+                \Log::error("Failed to calculate Customer Database Dashboard: " . $e->getMessage());
+                return [
+                    'kpis' => ['total_records' => 0, 'total_value' => 0, 'avg_basket_size' => 0, 'unique_stores' => 0, 'unique_dcs' => 0, 'switched_cnt' => 0, 'dulux_bought_cnt' => 0, 'switched_pct' => 0, 'dulux_bought_pct' => 0],
+                    'insights' => [
+                        'customer_types' => [], 'reasons' => [], 'purposes' => [], 'brands_sought' => [],
+                        'brands_bought' => [], 'paint_types' => [], 'preview_needs' => [], 'painter_loyalty' => [],
+                    ],
+                    'by_region' => [],
+                    'top_stores' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                    'top_dcs' => [],
                     'submissions' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
                 ];
             }
