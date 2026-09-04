@@ -1272,11 +1272,11 @@
 
     {{-- CBP EXECUTIVE DASHBOARD (DASHBOARD 1 & DASHBOARD 2) --}}
     @if(isset($isCbpReport) && $isCbpReport && !empty($cbpData))
-        @include('portal.partials.cbp_dashboard')
+        @include('portal.partials.cbp_dashboard', ['cbpData' => $cbpData])
     @endif
 
     <!-- Dynamic 12-Column Dashboard Canvas (Sortable in Studio Mode) -->
-    <div id="dashboard_canvas" class="dashboard-grid" @if(isset($isCbpReport) && $isCbpReport) style="display: none;" @endif>
+    <div id="dashboard_canvas" class="dashboard-grid" @if(isset($isCbpReport) && $isCbpReport && !empty($cbpData)) style="display: none;" @endif>
         @php
             $widgets = $dashboardConfig['widgets'] ?? [];
         @endphp

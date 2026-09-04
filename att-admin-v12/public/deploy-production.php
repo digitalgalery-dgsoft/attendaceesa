@@ -166,6 +166,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 \\cp -rf \$SRC_DIR/. {$srv['path']}/
                 chmod -R 777 {$srv['path']}/storage {$srv['path']}/bootstrap/cache 2>/dev/null || true
                 chown -R www:www {$srv['path']} 2>/dev/null || true
+                
+                # Ekstrak database SQLite CBP jika belum ada file uncompressed
+                echo '2a. Memastikan database SQLite CBP & Dulux ter-ekstrak...'
+                for gz in {$srv['path']}/storage/app/dulux_data/*.sqlite.gz; do
+                    if [ -f \"\$gz\" ]; then
+                        target=\"\${gz%.gz}\"
+                        if [ ! -f \"\$target\" ]; then
+                            echo \"  ↳ Extracting \$gz -> \$target...\"
+                            gzip -dc \"\$gz\" > \"\$target\" && chmod 0666 \"\$target\" || true
+                        fi
+                    fi
+                done
             fi
 
             # Sync ke semua website Laravel/aaPanel di /www/wwwroot/

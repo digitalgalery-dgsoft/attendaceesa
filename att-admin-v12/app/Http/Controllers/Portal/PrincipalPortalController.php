@@ -424,11 +424,15 @@ class PrincipalPortalController extends Controller
             });
             if ($latestSubDate) {
                 $c = Carbon::parse($latestSubDate);
-                $startMonth = $c->month;
+                $startMonth = ($template->code === 'RPT-DULUX-CBP-PRICING') ? 1 : $c->month;
                 $startYear  = $c->year;
+                $endMonth   = (int) ($request->query('end_month') ?? $c->month);
+                $endYear    = (int) ($request->query('end_year') ?? $c->year);
             } else {
-                $startMonth = Carbon::now()->month;
+                $startMonth = ($template->code === 'RPT-DULUX-CBP-PRICING') ? 1 : Carbon::now()->month;
                 $startYear  = Carbon::now()->year;
+                $endMonth   = (int) ($request->query('end_month') ?? ($template->code === 'RPT-DULUX-CBP-PRICING' ? 7 : Carbon::now()->month));
+                $endYear    = (int) ($request->query('end_year') ?? Carbon::now()->year);
             }
         }
 
@@ -2952,6 +2956,30 @@ class PrincipalPortalController extends Controller
     protected function calculateCbpDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
     {
         $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
+        $gzPath = storage_path('app/dulux_data/cbp_2026.sqlite.gz');
+
+        // Auto-extract if .sqlite does not exist or corrupted (< 1MB) but .sqlite.gz exists
+        if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+            if (file_exists($gzPath)) {
+                try {
+                    $zp = gzopen($gzPath, 'rb');
+                    $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                    $fp = fopen($tmpPath, 'wb');
+                    if ($zp && $fp) {
+                        while (!gzeof($zp)) {
+                            fwrite($fp, gzread($zp, 524288));
+                        }
+                        gzclose($zp);
+                        fclose($fp);
+                        @rename($tmpPath, $sqlitePath);
+                        @chmod($sqlitePath, 0666);
+                    }
+                } catch (\Throwable $e) {
+                    \Log::error("Auto-extraction of cbp_2026.sqlite.gz failed: " . $e->getMessage());
+                }
+            }
+        }
+
         if (!file_exists($sqlitePath)) {
             return null;
         }

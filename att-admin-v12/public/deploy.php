@@ -111,6 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'cd /www/wwwroot/appsend.my.id && git reset --hard origin/main',
         'cd /www/wwwroot/appsend.my.id && git pull origin main',
         'cp -a /www/wwwroot/appsend.my.id/att-admin-v12/. /www/wwwroot/appsend.my.id/',
+        'for gz in /www/wwwroot/appsend.my.id/storage/app/dulux_data/*.sqlite.gz; do target="${gz%.gz}"; if [ -f "$gz" ] && [ ! -f "$target" ]; then gzip -dc "$gz" > "$target" && chmod 0666 "$target" || true; fi; done',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan storage:link',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan migrate --force',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan reporting:link-principals',
