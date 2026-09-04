@@ -9,6 +9,11 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 | Kategori | Status | Keterangan |
 | :--- | :---: | :--- |
 | **Portal Principal Dulux (PT ICI Paints Indonesia)** | 🟢 Aktif / Live | `https://dulux.esa-solutions.id/portal` |
+| **Laporan Offtake Dulux (Sheet 1 & 2, SCM, Pivotable)** | 🟢 Selesai (100%) | 8.289 data transaksi (Jan–Jul 2026), Rp 37+ Miliar, multi-tab & pivot MoM |
+| **Laporan Out of Stock / OOS Dulux** | 🟢 Selesai (100%) | 7.671 riwayat OOS 2026, analisis alasan, matriks mingguan W1–W52 |
+| **Laporan Daily Maintenance POST & Tinting** | 🟢 Selesai (100%) | 3.842 riwayat cek fisik mesin 324 toko, skor kepatuhan & matriks toko |
+| **Laporan Data Pelanggan & Konsumen Dulux** | 🟢 Selesai (100%) | 5.522 konsumen 2025–2026, Rp 37,74 Miliar, analisis switch, WA direct chat |
+| **Perombakan Dashboard CBP (Dashboard 1 & 2)** | 🟢 Selesai (100%) | Multi-tab Cat Tembok, Enamel, Waterproofing & Indeks Harga 100% Acuan |
 | **Impor Data Historis Offtake 2025** | 🟢 Selesai (100%) | 843.455 baris data (Jan–Des 2025) berhasil dimigrasi |
 | **Ekstraksi & Impor Data Offtake 2026** | 🟢 Selesai (100%) | 439.819 baris data (Jan–Jul 2026) berhasil diproses ke JSONL chunks & SQLite |
 | **Ekstraksi & Impor Data CBP 2026** | 🟢 Selesai (100%) | 117.012 baris monitoring harga (Jan–Jul 2026) di-stream ke JSONL chunks, SQLite & DB |
@@ -20,7 +25,6 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 | **Resolusi CPU Overload & Looping Cluster** | 🟢 Selesai (100%) | Eliminasi rekursif cURL loop `/storage`, beban server kembali stabil 1-3% |
 | **Konfirmasi IP Publik Server 1 AMK** | 🟢 Live di 38.103.170.235 | Klarifikasi IP inbound publik (38.103.170.235) vs NAT egress aaPanel |
 | **Pipeline Otomatisasi Deploy Multi-Server** | 🟢 Aktif | CI/CD sync multi-vhost + auto syntax check (`php -l`) |
-| **Perombakan Dashboard CBP (Dashboard 1 & 2)** | 🟢 Selesai (100%) | Multi-tab Cat Tembok, Enamel, Waterproofing & Indeks Harga 100% Acuan |
 
 ---
 
@@ -210,6 +214,57 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 - [x] **Optimasi Mesin Agregasi Backend**:
   - Agregasi analitik instan berbasis `cbp_2026.sqlite` (117.012 baris) dengan response time 450 ms (Cold) dan < 1 ms (Cached 300s).
   - Terintegrasi penuh dengan filter hirarkis wilayah (**Region ➔ Area ➔ Toko**) dan rentang periode bulan.
+
+---
+
+### 11. Transformasi & Rekonstruksi Laporan Offtake Dulux (`RPT-DULUX-OFFTAKE-PROMOTOR` & `RPT-DULUX-OFFTAKE-TOKO-ALL`)
+- [x] **Ingestion Data Historis Excel (Januari – Juli 2026)**:
+  - Memproses 8.289 baris data transaksi penjualan dari ratusan toko dan DC dengan total nilai transaksi Rp 37+ Miliar.
+  - Membangun database SQLite terindeks (`dulux_offtake.sqlite` & `dulux_offtake.sqlite.gz`) di `storage/app/dulux_data/` dengan query sub-milidetik.
+- [x] **Dashboard Multi-Tab Interaktif**:
+  - **Tab Sheet 1 (Laporan Penjualan Offtake / Raw Submissions)**: Filter periode bulan, RSM Region, Area, Toko, Promotor/DC, pencarian, dan pagination.
+  - **Tab Sheet 2 (Rekap Volume Toko & Target)**: Tabel pivot volume bulanan (Jan-Jul), perbandingan volume Dulux vs Catylac vs Lainnya, pencapaian target, dan pertumbuhan MoM (*Month-over-Month*).
+  - **Tab SCM (Supply Chain Management)**: Rekap pergerakan stok, distribusi catylac, dan rasio pemenuhan.
+  - **Tab Pivotable & Analytics**: Filter dinamis Channel (LSO, SSO), Kategori Produk, dan RSM Area.
+- [x] **Ekspor Multi-Format**: Fitur ekspor Excel dan CSV untuk setiap tab laporan.
+
+---
+
+### 12. Transformasi & Rekonstruksi Laporan Out of Stock / OOS Dulux (`RPT-DULUX-OOS`)
+- [x] **Ingestion Data Historis Excel OOS 2026**:
+  - Memproses 7.671 baris data pencatatan OOS mingguan dan bulanan ke SQLite terindeks (`dulux_oos.sqlite` & `dulux_oos.sqlite.gz`).
+- [x] **Dashboard 3 Tab Interaktif**:
+  - **Tab 1: Rekap Alasan & Channel (Summary)**: 6 Kartu KPI Utama (Total Insiden OOS, Toko Terdampak, Item SKU OOS, Estimasi Lost Sales Rp, Rata-rata Durasi OOS, % Toko Bebas OOS), visualisasi akar penyebab OOS (*Distributor Delay, Demand Surge, Factory Limitation, Store PO Delay*), dan sebaran Channel LSO vs SSO.
+  - **Tab 2: Matriks Mingguan per Toko (Weekly Matrix)**: Pivot mingguan status OOS per toko (W1–W52), tombol toggle *'Sembunyikan Toko 0 OOS'* vs *'Tampilkan Semua Toko'*, serta paginasi toko.
+  - **Tab 3: Data Mentah Submission (Raw Submissions)**: Tabel lengkap 7.671 riwayat pelaporan OOS dengan filter status, channel, area, dan pencarian instan.
+- [x] **Sinkronisasi Form Template**: Menyelaraskan form input template `RPT-DULUX-OOS` (SKU Produk, Alasan OOS, Estimasi Kebutuhan, Tindak Lanjut).
+
+---
+
+### 13. Transformasi & Rekonstruksi Laporan Daily Maintenance POST & Mesin Tinting (`RPT-DULUX-DAILY-MAINTENANCE`)
+- [x] **Ingestion Data Historis Excel**:
+  - Memproses 3.842 baris data riwayat perawatan mesin tinting dan display POST di 324 toko ke SQLite terindeks (`daily_maintenance.sqlite` & `daily_maintenance.sqlite.gz`).
+- [x] **Dashboard 3 Tab Interaktif**:
+  - **Tab 1: Ringkasan Pemeliharaan (Executive Summary)**: 6 Kartu KPI (Toko Aktif Mesin, Total Cek Fisik, Kepatuhan Nozzle OK %, Kepatuhan Kalibrasi %, Kesiapan POST %, Skor Kepatuhan Nasional), visualisasi kondisi komponen (*Nozzle Cleaning, Level Canister Tinting, Kalibrasi Timbangan, Display POST, Agitator, Software POS*), dan breakdown kepatuhan regional.
+  - **Tab 2: Matriks Toko & Frekuensi (Store Matrix)**: Riwayat perawatan harian per toko, frekuensi perawatan bulanan, identitas mesin (No. Mesin, Model), dan skor kepatuhan toko.
+  - **Tab 3: Data Mentah Pemeriksaan (Raw Submissions)**: Tabel detail riwayat checklist harian petugas DC/Promotor.
+- [x] **Sinkronisasi Form Template**: Menyelaraskan field checklist form `RPT-DULUX-DAILY-MAINTENANCE` secara menyeluruh dengan parameter pemeriksaan mesin asli.
+
+---
+
+### 14. Transformasi & Rekonstruksi Laporan Data Pelanggan & Konsumen Dulux (`RPT-DULUX-DATABASE-PELANGGAN`)
+- [x] **Ingestion Data Historis Excel (2025–2026)**:
+  - Memproses 5.522 data konsumen unik dengan akumulasi transaksi belanja senilai Rp 37,74 Miliar di 324 toko dan 497 DC/promotor ke SQLite terindeks (`customer_db.sqlite` & `customer_db.sqlite.gz`).
+- [x] **Dashboard 3 Tab Interaktif**:
+  - **Tab 1: Profil & Perilaku Konsumen (`tab=insights`)**:
+    - 6 Kartu KPI Utama: Total Konsumen (5.522), Total Nilai Belanja (Rp 37,74 Miliar), Rata-rata Belanja / Basket Size (Rp 6,83 Juta/Orang), Toko Aktif (324), DC Terlibat (497), dan Konversi Switch ke Dulux (1.158 Konsumen / 21.0%).
+    - Visualisasi Insight: Segmentasi Tipe Pelanggan (Pemilik Rumah 68%, Tukang Cat 14%, Kontraktor 12%, Mitra Dulux 6%), Alasan Memilih Brand (Rekomendasi DC 52.2%, Kualitas 30.8%, Harga 9.9%), Preferensi Brand Ditanyakan vs Dibeli (Analisis Switch Kompetitor Jotun, Nippon, Avian, Mowilex, Propan ke Dulux/Catylac), Kebutuhan Proyek, Dulux Visualizer, dan Painter Loyalty Club.
+  - **Tab 2: Analisis Toko & Wilayah (`tab=regional_store`)**: Tabel Matriks Performa 10 RSM Area, Peringkat Top Toko Paginated, dan Top 20 Promotor/DC Teraktif.
+  - **Tab 3: Data Mentah Pelanggan (`tab=raw`)**: Tabel 5.522 data mentah konsumen lengkap dengan tombol cepat **🟢 WhatsApp Direct Chat Link** (`wa.me`), filter, pencarian, dan pagination bar.
+- [x] **Perbaikan Rute URL & Error Handling**:
+  - Memperbaiki exception `UrlGenerationException` pada rute pagination tabel toko dan data mentah.
+- [x] **Sinkronisasi Form Template**:
+  - Menyelaraskan form input mobile/web template `RPT-DULUX-DATABASE-PELANGGAN` dengan kolom Excel asli (Nama Konsumen, No Kontak, Tipe Konsumen, Alamat Proyek, Alasan Memilih, Brand Ditanyakan, Brand Dibeli, Jenis Cat, Total Transaksi, Dulux Visualizer, Painter Loyalty Club).
 
 ---
 

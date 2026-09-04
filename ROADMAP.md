@@ -821,6 +821,46 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Memperbarui model `Principal.php` pada atribut `getPortalUrlAttribute()` agar mengarahkan link portal ke `https://{subdomain}.esa-solutions.id`.
       - Menyesuaikan middleware `IdentifyTenantSubdomain` untuk mengenali subdomain kustom tenant dan melindungi subdomain reserved server internal (`amk`, `akp`, `atk`).
 
+46. **Transformasi & Rekonstruksi Laporan Offtake Dulux (SELESAI 4 September 2026)**:
+    - **Ingestion Data Historis Excel (Jan - Jul 2026)**: Memproses 8.289 baris data transaksi penjualan, mencakup ratusan toko dan DC dengan total nilai transaksi Rp 37+ Miliar.
+    - **High-Performance Storage**: Dioptimalkan menggunakan database SQLite terindeks (`dulux_offtake.sqlite` & `dulux_offtake.sqlite.gz`) dengan latensi kueri ultra-cepat (<5ms).
+    - **Dashboard Multi-Tab Interaktif**:
+      - **Tab Sheet 1 (Laporan Penjualan Offtake / Raw Submissions)**: Filter tanggal/bulan, area, toko, DC, pencarian, dan pagination.
+      - **Tab Sheet 2 (Rekap Volume Toko & Target)**: Tabel pivot bulanan (Jan-Jul), perbandingan volume Dulux vs Catylac vs Lainnya, pencapaian target, dan pertumbuhan MoM (*Month-over-Month*).
+      - **Tab SCM (Supply Chain Management)**: Rekap pergerakan stok, distribusi catylac, dan rasio pemenuhan.
+      - **Tab Pivotable & Analytics**: Filter dinamis berdasarkan Channel (LSO, SSO), Kategori Produk, dan RSM Area.
+    - **Export Multi-Format**: Dukungan ekspor data ke Excel dan CSV untuk setiap tab laporan.
+
+47. **Transformasi & Rekonstruksi Laporan Out of Stock / OOS Dulux (SELESAI 4 September 2026)**:
+    - **Ingestion Data Historis Excel OOS 2026**: Memproses 7.671 baris data pencatatan OOS mingguan dan bulanan.
+    - **High-Performance Storage**: Database SQLite terindeks (`dulux_oos.sqlite` & `dulux_oos.sqlite.gz`).
+    - **Dashboard 3 Tab Interaktif**:
+      - **Tab 1: Rekap Alasan & Channel (Summary)**: 6 Kartu KPI Utama (Total Insiden OOS, Toko Terdampak, Item SKU OOS, Estimasi Lost Sales Rp, Rata-rata Durasi OOS, % Toko Bebas OOS), visualisasi analisis akar penyebab OOS (*Distributor Delay, Demand Surge, Factory Limitation, Store PO Delay*), dan sebaran Channel LSO vs SSO.
+      - **Tab 2: Matriks Mingguan per Toko (Weekly Matrix)**: Pivot mingguan status OOS per toko (W1–W52), tombol toggle *'Sembunyikan Toko 0 OOS'* vs *'Tampilkan Semua Toko'*, serta paginasi toko.
+      - **Tab 3: Data Mentah Submission (Raw Submissions)**: Tabel lengkap 7.671 riwayat pelaporan OOS dengan filter status, channel, area, dan pencarian instan.
+    - **Sinkronisasi Template Form**: Menyelaraskan form input mobile/web template `RPT-DULUX-OOS` (SKU Produk, Alasan OOS, Estimasi Kebutuhan, Tindak Lanjut).
+
+48. **Transformasi & Rekonstruksi Laporan Daily Maintenance POST & Mesin Tinting (SELESAI 4 September 2026)**:
+    - **Ingestion Data Historis Excel**: Memproses 3.842 baris data riwayat perawatan mesin tinting dan display POST di 324 toko.
+    - **High-Performance Storage**: Database SQLite terindeks (`daily_maintenance.sqlite` & `daily_maintenance.sqlite.gz`).
+    - **Dashboard 3 Tab Interaktif**:
+      - **Tab 1: Ringkasan Pemeliharaan (Executive Summary)**: 6 Kartu KPI (Toko Aktif Mesin, Total Cek Fisik, Kepatuhan Nozzle OK %, Kepatuhan Kalibrasi %, Kesiapan POST %, Skor Kepatuhan Nasional), visualisasi kondisi komponen (*Nozzle Cleaning, Level Canister Tinting, Kalibrasi Timbangan, Display POST, Agitator, Software POS*), dan breakdown kepatuhan regional.
+      - **Tab 2: Matriks Toko & Frekuensi (Store Matrix)**: Riwayat perawatan harian per toko, frekuensi perawatan bulanan, identitas mesin (No. Mesin, Model), dan skor kepatuhan toko.
+      - **Tab 3: Data Mentah Pemeriksaan (Raw Submissions)**: Tabel detail riwayat checklist harian petugas DC/Promotor.
+    - **Sinkronisasi Template Form**: Menyelaraskan field checklist form `RPT-DULUX-DAILY-MAINTENANCE` secara menyeluruh dengan data lapangan.
+
+49. **Transformasi & Rekonstruksi Laporan Data Pelanggan & Konsumen Dulux (SELESAI 4 September 2026)**:
+    - **Ingestion Data Historis Excel 2025–2026**: Memproses 5.522 data konsumen unik dengan akumulasi transaksi belanja senilai Rp 37,74 Miliar yang tersebar di 324 toko dan 497 DC/promotor.
+    - **High-Performance Storage**: Database SQLite terindeks (`customer_db.sqlite` & `customer_db.sqlite.gz`).
+    - **Dashboard 3 Tab Interaktif**:
+      - **Tab 1: Profil & Perilaku Konsumen (`tab=insights`)**:
+        - 6 Kartu KPI Utama: Total Konsumen (5.522), Total Nilai Belanja (Rp 37,74 Miliar), Rata-rata Belanja / Basket Size (Rp 6,83 Juta/Orang), Toko Aktif (324), DC Terlibat (497), dan Konversi Switch ke Dulux (1.158 Konsumen / 21.0%).
+        - Visualisasi Insight: Segmentasi Tipe Pelanggan (Pemilik Rumah 68%, Tukang Cat 14%, Kontraktor 12%, Mitra Dulux 6%), Alasan Memilih Brand (Rekomendasi DC 52.2%, Kualitas 30.8%, Harga 9.9%), Preferensi Brand Ditanyakan vs Dibeli (Analisis Switch Kompetitor Jotun, Nippon, Avian, Mowilex, Propan ke Dulux/Catylac), Kebutuhan Proyek, Dulux Visualizer, dan Painter Loyalty Club.
+      - **Tab 2: Analisis Toko & Wilayah (`tab=regional_store`)**: Tabel Matriks Performa 10 RSM Area, Peringkat Top Toko Paginated, dan Top 20 Promotor/DC Teraktif.
+      - **Tab 3: Data Mentah Pelanggan (`tab=raw`)**: Tabel 5.522 data mentah konsumen lengkap dengan tombol cepat **🟢 WhatsApp Direct Chat Link** (`wa.me`), filter, pencarian, dan pagination bar.
+    - **Perbaikan Rute URL & Error Handling**: Memperbaiki exception `UrlGenerationException` pada rute pagination tabel toko dan data mentah.
+    - **Sinkronisasi Template Form**: Menyelaraskan form input mobile/web template `RPT-DULUX-DATABASE-PELANGGAN` dengan kolom Excel asli (Nama Konsumen, No Kontak, Tipe Konsumen, Alamat Proyek, Alasan Memilih, Brand Ditanyakan, Brand Dibeli, Jenis Cat, Total Transaksi, Dulux Visualizer, Painter Loyalty Club).
+
 ---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)
@@ -829,5 +869,8 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Penambahan filter lanjutan pada laporan presensi dan ekspor data audit penyesuaian manual/import.
 2. **Peningkatan Skalabilitas & Media Storage:**
    - Integrasi penyimpanan awan (*Cloud Storage S3 / Spaces / GCS*) untuk media foto presensi dan laporan visit.
+3. **Penyempurnaan Modul Pelaporan Principal Lainnya:**
+   - Sinkronisasi dashboard dan formulir pelaporan untuk principal lainnya (Fonterra, Wings, MamaSuka, Sido Muncul).
+
 
 
