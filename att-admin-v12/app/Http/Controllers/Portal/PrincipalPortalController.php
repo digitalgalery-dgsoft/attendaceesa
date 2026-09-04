@@ -1017,6 +1017,7 @@ class PrincipalPortalController extends Controller
         $cbpData = [];
         if ($template->code === 'RPT-DULUX-CBP-PRICING') {
             $isCbpReport = true;
+            $rawPage = max(1, (int)$request->query('raw_page', 1));
             $cbpData = $this->calculateCbpDashboardData(
                 $template,
                 $startMonth,
@@ -1026,7 +1027,9 @@ class PrincipalPortalController extends Controller
                 $selectedRegion,
                 $selectedAreaId,
                 $selectedLocationId,
-                $search
+                $search,
+                $rawPage,
+                50
             );
         }
 
@@ -1230,6 +1233,101 @@ class PrincipalPortalController extends Controller
         $selectedRegion     = $request->query('region');
         $selectedAreaId     = $request->query('area_id') ?? $request->query('branch_id');
         $selectedLocationId = $request->query('location_id') ?? $request->query('store_id');
+
+        // Custom Streamed CSV Export for CBP Report (Matching Excel Raw Data format)
+        if ($template->code === 'RPT-DULUX-CBP-PRICING') {
+            $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
+            if (file_exists($sqlitePath)) {
+                $filename = "raw-data-cbp-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv";
+                $headers = [
+                    'Content-Type' => 'text/csv; charset=UTF-8',
+                    'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                    'Pragma' => 'no-cache',
+                    'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+                    'Expires' => '0',
+                ];
+
+                $callback = function () use ($sqlitePath, $startMonth, $endMonth, $selectedRegion, $selectedAreaId, $selectedLocationId, $request) {
+                    $handle = fopen('php://output', 'w');
+                    fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+
+                    fputcsv($handle, [
+                        'Regional', 'SAP Member', 'SAP Gab', 'Nama Toko', 'Nama TL', 'Area Sales', 'RSM Area',
+                        'Class', 'Type', 'Product', 'Category', 'Product Group', 'Brand',
+                        'Tin', 'Harga Terendah Tin', 'REASON Tin',
+                        'Galon', 'Harga Terendah Galon', 'REASON Galon',
+                        'Pail', 'Harga Terendah Pail', 'REASON Pail', 'Tanggal Transaksi'
+                    ]);
+
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $selectedAreaName = $selectedAreaId ? Branch::where('id', $selectedAreaId)->value('name') : null;
+                    $selectedStoreName = $selectedLocationId ? WorkLocation::where('id', $selectedLocationId)->value('name') : null;
+                    $search = $request->query('q');
+
+                    $whereClauses = ["month BETWEEN ? AND ?"];
+                    $params = [$startMonth, $endMonth];
+
+                    if ($selectedRegion) {
+                        $whereClauses[] = "regional = ?";
+                        $params[] = $selectedRegion;
+                    }
+                    if ($selectedAreaName) {
+                        $whereClauses[] = "(area LIKE ? OR rsm_area LIKE ?)";
+                        $params[] = "%$selectedAreaName%";
+                        $params[] = "%$selectedAreaName%";
+                    }
+                    if ($selectedStoreName) {
+                        $whereClauses[] = "name_store LIKE ?";
+                        $params[] = "%$selectedStoreName%";
+                    }
+                    if ($search) {
+                        $whereClauses[] = "(product LIKE ? OR brand LIKE ? OR name_store LIKE ? OR sap_member LIKE ? OR sap_gab LIKE ? OR tl_name LIKE ?)";
+                        $params[] = "%$search%";
+                        $params[] = "%$search%";
+                        $params[] = "%$search%";
+                        $params[] = "%$search%";
+                        $params[] = "%$search%";
+                        $params[] = "%$search%";
+                    }
+
+                    $whereSql = implode(" AND ", $whereClauses);
+                    $stmt = $pdo->prepare("SELECT * FROM cbp_raw WHERE $whereSql ORDER BY trans_date ASC, id ASC");
+                    $stmt->execute($params);
+
+                    while ($r = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                        fputcsv($handle, [
+                            $r['regional'] ?? '',
+                            $r['sap_member'] ?? '',
+                            $r['sap_gab'] ?? '',
+                            $r['name_store'] ?? '',
+                            $r['tl_name'] ?? '',
+                            $r['area'] ?? '',
+                            $r['rsm_area'] ?? '',
+                            $r['class'] ?? '',
+                            $r['store_type'] ?? '',
+                            $r['product'] ?? '',
+                            $r['category'] ?? '',
+                            $r['product_group'] ?? '',
+                            $r['brand'] ?? '',
+                            $r['price_tin'] > 0 ? $r['price_tin'] : '',
+                            $r['lowest_tin'] > 0 ? $r['lowest_tin'] : '',
+                            $r['reason_tin'] ?? '',
+                            $r['price_galon'] > 0 ? $r['price_galon'] : '',
+                            $r['lowest_galon'] > 0 ? $r['lowest_galon'] : '',
+                            $r['reason_galon'] ?? '',
+                            $r['price_pail'] > 0 ? $r['price_pail'] : '',
+                            $r['lowest_pail'] > 0 ? $r['lowest_pail'] : '',
+                            $r['reason_pail'] ?? '',
+                            $r['trans_date'] ?? ''
+                        ]);
+                    }
+
+                    fclose($handle);
+                };
+
+                return response()->stream($callback, 200, $headers);
+            }
+        }
 
         $query = ReportSubmission::where('report_submissions.report_template_id', $template->id)
             ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
@@ -2951,9 +3049,9 @@ class PrincipalPortalController extends Controller
     }
 
     /**
-     * Calculate CBP Analytics for Dashboard (1) & Dashboard (2)
+     * Calculate CBP Analytics for Dashboard (1) & Dashboard (2) and Raw Data
      */
-    protected function calculateCbpDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+    protected function calculateCbpDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $rawPage = 1, $rawPerPage = 50)
     {
         $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
         $gzPath = storage_path('app/dulux_data/cbp_2026.sqlite.gz');
@@ -3310,5 +3408,94 @@ class PrincipalPortalController extends Controller
                 return null;
             }
         });
+
+        if (!$aggData) {
+            return null;
+        }
+
+        // Fetch Paginated Raw Data (Matching Excel Sheet 'Raw Data')
+        try {
+            $pdo = new \PDO("sqlite:" . $sqlitePath);
+            $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+            $selectedAreaName = $selectedAreaId ? Branch::where('id', $selectedAreaId)->value('name') : null;
+            $selectedStoreName = $selectedLocationId ? WorkLocation::where('id', $selectedLocationId)->value('name') : null;
+
+            $sMonth = max(1, min(12, (int)$startMonth));
+            $eMonth = max(1, min(12, (int)$endMonth));
+            if ($sMonth > $eMonth) {
+                $tmp = $sMonth; $sMonth = $eMonth; $eMonth = $tmp;
+            }
+
+            $whereClauses = ["month BETWEEN ? AND ?"];
+            $params = [$sMonth, $eMonth];
+
+            if ($selectedRegion) {
+                $whereClauses[] = "regional = ?";
+                $params[] = $selectedRegion;
+            }
+            if ($selectedAreaName) {
+                $whereClauses[] = "(area LIKE ? OR rsm_area LIKE ?)";
+                $params[] = "%$selectedAreaName%";
+                $params[] = "%$selectedAreaName%";
+            }
+            if ($selectedStoreName) {
+                $whereClauses[] = "name_store LIKE ?";
+                $params[] = "%$selectedStoreName%";
+            }
+            if ($search) {
+                $whereClauses[] = "(product LIKE ? OR brand LIKE ? OR name_store LIKE ? OR sap_member LIKE ? OR sap_gab LIKE ? OR tl_name LIKE ?)";
+                $params[] = "%$search%";
+                $params[] = "%$search%";
+                $params[] = "%$search%";
+                $params[] = "%$search%";
+                $params[] = "%$search%";
+                $params[] = "%$search%";
+            }
+
+            $whereSql = implode(" AND ", $whereClauses);
+
+            $countStmt = $pdo->prepare("SELECT COUNT(*) FROM cbp_raw WHERE $whereSql");
+            $countStmt->execute($params);
+            $rawTotal = (int)$countStmt->fetchColumn();
+
+            $rawOffset = ($rawPage - 1) * $rawPerPage;
+            $rawSql = "
+                SELECT id, year, month, trans_date, regional, sap_member, sap_gab, name_store, tl_name, area, rsm_area, class, store_type, product, category, product_group, brand,
+                       price_tin, lowest_tin, reason_tin,
+                       price_galon, lowest_galon, reason_galon,
+                       price_pail, lowest_pail, reason_pail
+                FROM cbp_raw
+                WHERE $whereSql
+                ORDER BY trans_date ASC, id ASC
+                LIMIT $rawPerPage OFFSET $rawOffset
+            ";
+            $rawStmt = $pdo->prepare($rawSql);
+            $rawStmt->execute($params);
+            $rawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            $aggData['raw_data'] = [
+                'rows' => $rawRows,
+                'total' => $rawTotal,
+                'page' => $rawPage,
+                'per_page' => $rawPerPage,
+                'total_pages' => (int)ceil($rawTotal / $rawPerPage),
+                'from' => $rawTotal > 0 ? ($rawOffset + 1) : 0,
+                'to' => min($rawOffset + $rawPerPage, $rawTotal)
+            ];
+        } catch (\Throwable $e) {
+            \Log::error("Failed to query CBP Raw Data: " . $e->getMessage());
+            $aggData['raw_data'] = [
+                'rows' => [],
+                'total' => 0,
+                'page' => 1,
+                'per_page' => $rawPerPage,
+                'total_pages' => 0,
+                'from' => 0,
+                'to' => 0
+            ];
+        }
+
+        return $aggData;
     }
 }

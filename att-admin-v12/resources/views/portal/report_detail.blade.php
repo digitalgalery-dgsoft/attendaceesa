@@ -759,6 +759,80 @@
         border: 1px solid #cbd5e1;
     }
 
+    /* CBP Raw Data Excel-Style Table */
+    .cbp-excel-viewport {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-height: 75vh;
+        border: 1px solid #94a3b8;
+        background: #ffffff;
+    }
+    .cbp-excel-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+        font-size: 11.5px;
+        color: #000000;
+    }
+    .cbp-excel-table th {
+        background: #ffffff;
+        border: 1px solid #71717a;
+        padding: 5px 8px;
+        font-weight: 700;
+        text-align: center;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+    .cbp-excel-table thead tr:nth-child(2) th {
+        top: 29px;
+    }
+    .th-caret {
+        font-size: 0.6rem;
+        color: #64748b;
+        margin-left: 3px;
+    }
+    .cbp-excel-table td {
+        border: 1px solid #cbd5e1;
+        padding: 4px 8px;
+        white-space: nowrap;
+        line-height: 1.4;
+        font-size: 11px;
+    }
+    .cbp-excel-table tr:hover td {
+        filter: brightness(0.96);
+    }
+    .cell-peach {
+        background-color: #FBE2D5 !important;
+    }
+    .excel-page-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        height: 32px;
+        padding: 0 8px;
+        border-radius: 6px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #334155;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.15s ease;
+    }
+    .excel-page-btn:hover {
+        background: #f1f5f9;
+        color: #0F52BA;
+        border-color: #0F52BA;
+    }
+    .excel-page-btn.active {
+        background: #0F52BA;
+        color: #ffffff;
+        border-color: #0F52BA;
+    }
+
     .custom-table td {
         padding: 0.95rem 1rem;
         border-bottom: 1px solid #f1f5f9;
@@ -902,10 +976,12 @@
         </div>
 
         <div class="header-actions-group">
+            @if(!isset($isCbpReport) || !$isCbpReport)
             <button type="button" class="btn-studio-toggle" id="btn_toggle_studio" onclick="toggleStudioMode()">
                 <i class="fa-solid fa-layer-group"></i>
                 <span id="studio_btn_text">🎨 Studio Dashboard</span>
             </button>
+            @endif
 
             <a href="{{ route('portal.report.export', ['code' => $template->code, 'start_month' => $startMonth, 'start_year' => $startYear, 'end_month' => $endMonth, 'end_year' => $endYear, 'region' => $selectedRegion, 'area_id' => $selectedAreaId, 'location_id' => $selectedLocationId, 'p' => $tenantPrincipal->id]) }}" class="btn-export-excel">
                 <i class="fa-solid fa-file-excel"></i>
@@ -1275,8 +1351,9 @@
         @include('portal.partials.cbp_dashboard', ['cbpData' => $cbpData])
     @endif
 
+    @if(!isset($isCbpReport) || !$isCbpReport)
     <!-- Dynamic 12-Column Dashboard Canvas (Sortable in Studio Mode) -->
-    <div id="dashboard_canvas" class="dashboard-grid" @if(isset($isCbpReport) && $isCbpReport && !empty($cbpData)) style="display: none;" @endif>
+    <div id="dashboard_canvas" class="dashboard-grid">
         @php
             $widgets = $dashboardConfig['widgets'] ?? [];
         @endphp
@@ -1482,6 +1559,7 @@
             </div>
         @endforeach
     </div>
+    @endif
 
     <!-- MODAL: TAMBAH / EDIT WIDGET STUDIO -->
     <div id="modalWidgetConfig" class="portal-modal-overlay">
