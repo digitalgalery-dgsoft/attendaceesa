@@ -151,12 +151,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             git reset --hard origin/main
 
             echo '1b. Memastikan database SQLite CBP & Dulux ter-ekstrak di SRC_DIR...'
-            for gz in $SRC_DIR/storage/app/dulux_data/*.sqlite.gz; do
-                if [ -f "$gz" ]; then
-                    target="${gz%.gz}"
-                    if [ ! -f "$target" ] || [ "$gz" -nt "$target" ] || [ $(wc -c < "$target" 2>/dev/null || echo 0) -lt 50000000 ]; then
-                        echo "  ↳ Extracting $gz -> $target..."
-                        gzip -dc "$gz" > "$target.tmp" && mv -f "$target.tmp" "$target" && chmod 0666 "$target" || true
+            for gz in \$SRC_DIR/storage/app/dulux_data/*.sqlite.gz; do
+                if [ -f \"\$gz\" ]; then
+                    target=\"\${gz%.gz}\"
+                    if [ ! -f \"\$target\" ] || [ \"\$gz\" -nt \"\$target\" ] || [ \$(wc -c < \"\$target\" 2>/dev/null || echo 0) -lt 50000000 ]; then
+                        echo \"  ↳ Extracting \$gz -> \$target...\"
+                        gzip -dc \"\$gz\" > \"\$target.tmp\" && mv -f \"\$target.tmp\" \"\$target\" && chmod 0666 \"\$target\" || true
                     fi
                 fi
             done
@@ -168,24 +168,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             grep -rn 'dulux.esa-solutions.id' /www/server/panel/vhost/nginx/ 2>/dev/null || true
 
             echo '2. Menyalin file ke {$srv['path']}...'
-            SRC_DIR="/root/att-admin-v12"
-            if [ -d "/root/att-admin-v12/att-admin-v12" ]; then
-                SRC_DIR="/root/att-admin-v12/att-admin-v12"
+            SRC_DIR=\"/root/att-admin-v12\"
+            if [ -d \"/root/att-admin-v12/att-admin-v12\" ]; then
+                SRC_DIR=\"/root/att-admin-v12/att-admin-v12\"
             fi
             
             if [ -d '{$srv['path']}' ]; then
-                \cp -rf $SRC_DIR/. {$srv['path']}/
+                \\cp -rf \$SRC_DIR/. {$srv['path']}/
                 chmod -R 777 {$srv['path']}/storage {$srv['path']}/bootstrap/cache 2>/dev/null || true
                 chown -R www:www {$srv['path']} 2>/dev/null || true
                 
                 # Ekstrak database SQLite CBP jika belum ada file uncompressed
                 echo '2a. Memastikan database SQLite CBP & Dulux ter-ekstrak...'
                 for gz in {$srv['path']}/storage/app/dulux_data/*.sqlite.gz; do
-                    if [ -f "$gz" ]; then
-                        target="${gz%.gz}"
-                        if [ ! -f "$target" ] || [ "$gz" -nt "$target" ] || [ $(wc -c < "$target" 2>/dev/null || echo 0) -lt 50000000 ]; then
-                            echo "  ↳ Extracting $gz -> $target..."
-                            gzip -dc "$gz" > "$target.tmp" && mv -f "$target.tmp" "$target" && chmod 0666 "$target" || true
+                    if [ -f \"\$gz\" ]; then
+                        target=\"\${gz%.gz}\"
+                        if [ ! -f \"\$target\" ] || [ \"\$gz\" -nt \"\$target\" ] || [ \$(wc -c < \"\$target\" 2>/dev/null || echo 0) -lt 50000000 ]; then
+                            echo \"  ↳ Extracting \$gz -> \$target...\"
+                            gzip -dc \"\$gz\" > \"\$target.tmp\" && mv -f \"\$target.tmp\" \"\$target\" && chmod 0666 \"\$target\" || true
                         fi
                     fi
                 done
@@ -194,35 +194,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             # Sync ke semua website Laravel/aaPanel di /www/wwwroot/
             echo '2b. Menyinkronkan ke seluruh virtual host di /www/wwwroot/...'
             for site_dir in /www/wwwroot/*; do
-                if [ -d "$site_dir" ] && [ "$site_dir" != "$SRC_DIR" ]; then
-                    if [ -f "$site_dir/artisan" ] || [ -f "$site_dir/public/index.php" ] || [ -d "$site_dir/app" ]; then
-                        echo "  ↳ Syncing code ke: $site_dir"
-                        \cp -rf $SRC_DIR/. $site_dir/ 2>/dev/null || true
-                        if [ ! -d "$site_dir/vendor" ] && [ -d "{$srv['path']}/vendor" ]; then
-                            ln -sfn {$srv['path']}/vendor $site_dir/vendor 2>/dev/null || true
+                if [ -d \"\$site_dir\" ] && [ \"\$site_dir\" != \"\$SRC_DIR\" ]; then
+                    if [ -f \"\$site_dir/artisan\" ] || [ -f \"\$site_dir/public/index.php\" ] || [ -d \"\$site_dir/app\" ]; then
+                        echo \"  ↳ Syncing code ke: \$site_dir\"
+                        \\cp -rf \$SRC_DIR/. \$site_dir/ 2>/dev/null || true
+                        if [ ! -d \"\$site_dir/vendor\" ] && [ -d \"{$srv['path']}/vendor\" ]; then
+                            ln -sfn {$srv['path']}/vendor \$site_dir/vendor 2>/dev/null || true
                         fi
-                        if [ ! -f "$site_dir/.env" ] && [ -f "{$srv['path']}/.env" ]; then
-                            \cp -f {$srv['path']}/.env $site_dir/.env 2>/dev/null || true
+                        if [ ! -f \"\$site_dir/.env\" ] && [ -f \"{$srv['path']}/.env\" ]; then
+                            \\cp -f {$srv['path']}/.env \$site_dir/.env 2>/dev/null || true
                         fi
-                        mkdir -p $site_dir/storage/app/dulux_data
-                        for gz in $site_dir/storage/app/dulux_data/*.sqlite.gz; do
-                            if [ -f "$gz" ]; then
-                                target="${gz%.gz}"
-                                if [ ! -f "$target" ] || [ "$gz" -nt "$target" ] || [ $(wc -c < "$target" 2>/dev/null || echo 0) -lt 50000000 ]; then
-                                    echo "  ↳ Extracting in $site_dir: $gz -> $target..."
-                                    gzip -dc "$gz" > "$target.tmp" && mv -f "$target.tmp" "$target" && chmod 0666 "$target" || true
+                        mkdir -p \$site_dir/storage/app/dulux_data
+                        for gz in \$site_dir/storage/app/dulux_data/*.sqlite.gz; do
+                            if [ -f \"\$gz\" ]; then
+                                target=\"\${gz%.gz}\"
+                                if [ ! -f \"\$target\" ] || [ \"\$gz\" -nt \"\$target\" ] || [ \$(wc -c < \"\$target\" 2>/dev/null || echo 0) -lt 50000000 ]; then
+                                    echo \"  ↳ Extracting in \$site_dir: \$gz -> \$target...\"
+                                    gzip -dc \"\$gz\" > \"\$target.tmp\" && mv -f \"\$target.tmp\" \"\$target\" && chmod 0666 \"\$target\" || true
                                 fi
                             fi
                         done
                         for sq in {$srv['path']}/storage/app/dulux_data/*.sqlite; do
-                            if [ -f "$sq" ] && [ ! -f "$site_dir/storage/app/dulux_data/$(basename "$sq")" ]; then
-                                ln -sf "$sq" "$site_dir/storage/app/dulux_data/$(basename "$sq")" 2>/dev/null || \cp -f "$sq" "$site_dir/storage/app/dulux_data/" 2>/dev/null || true
+                            if [ -f \"\$sq\" ] && [ ! -f \"\$site_dir/storage/app/dulux_data/\$(basename \"\$sq\")\" ]; then
+                                ln -sf \"\$sq\" \"\$site_dir/storage/app/dulux_data/\$(basename \"\$sq\")\" 2>/dev/null || \\cp -f \"\$sq\" \"\$site_dir/storage/app/dulux_data/\" 2>/dev/null || true
                             fi
                         done
-                        chmod -R 777 $site_dir/storage $site_dir/bootstrap/cache 2>/dev/null || true
-                        chown -R www:www $site_dir 2>/dev/null || true
-                        if [ -f "$site_dir/artisan" ]; then
-                            /www/server/php/83/bin/php $site_dir/artisan optimize:clear 2>/dev/null || true
+                        chmod -R 777 \$site_dir/storage \$site_dir/bootstrap/cache 2>/dev/null || true
+                        chown -R www:www \$site_dir 2>/dev/null || true
+                        if [ -f \"\$site_dir/artisan\" ]; then
+                            /www/server/php/83/bin/php \$site_dir/artisan optimize:clear 2>/dev/null || true
                         fi
                     fi
                 fi
