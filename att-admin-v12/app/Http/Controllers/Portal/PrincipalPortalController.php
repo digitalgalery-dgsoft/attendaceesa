@@ -424,20 +424,20 @@ class PrincipalPortalController extends Controller
             });
             if ($latestSubDate) {
                 $c = Carbon::parse($latestSubDate);
-                $startMonth = ($template->code === 'RPT-DULUX-CBP-PRICING') ? 1 : $c->month;
-                $startYear  = $c->year;
-                $endMonth   = (int) ($request->query('end_month') ?? $c->month);
-                $endYear    = (int) ($request->query('end_year') ?? $c->year);
+                $startMonth = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 1 : $c->month;
+                $startYear  = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 2026 : $c->year;
+                $endMonth   = (int) ($request->query('end_month') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 7 : $c->month));
+                $endYear    = (int) ($request->query('end_year') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 2026 : $c->year));
             } else {
-                $startMonth = ($template->code === 'RPT-DULUX-CBP-PRICING') ? 1 : Carbon::now()->month;
-                $startYear  = Carbon::now()->year;
-                $endMonth   = (int) ($request->query('end_month') ?? ($template->code === 'RPT-DULUX-CBP-PRICING' ? 7 : Carbon::now()->month));
-                $endYear    = (int) ($request->query('end_year') ?? Carbon::now()->year);
+                $startMonth = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 1 : Carbon::now()->month;
+                $startYear  = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 2026 : Carbon::now()->year;
+                $endMonth   = (int) ($request->query('end_month') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 7 : Carbon::now()->month));
+                $endYear    = (int) ($request->query('end_year') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 2026 : Carbon::now()->year));
             }
         }
 
-        $endMonth   = (int) ($request->query('end_month') ?? $startMonth);
-        $endYear    = (int) ($request->query('end_year') ?? $startYear);
+        $endMonth   = (int) ($request->query('end_month') ?? ($endMonth ?: $startMonth));
+        $endYear    = (int) ($request->query('end_year') ?? ($endYear ?: $startYear));
 
         $startDate  = Carbon::createFromDate($startYear, $startMonth, 1)->startOfMonth();
         $endDate    = Carbon::createFromDate($endYear, $endMonth, 1)->endOfMonth();
