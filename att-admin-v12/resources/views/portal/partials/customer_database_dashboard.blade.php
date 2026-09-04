@@ -391,11 +391,11 @@
                             <span class="cust-pagination-info">Menampilkan {{ $custData['top_stores']['from'] }} - {{ $custData['top_stores']['to'] }} dari {{ number_format($custData['top_stores']['total']) }} Toko</span>
                             <div class="cust-pagination-links">
                                 @if($custData['top_stores']['page'] > 1)
-                                    <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['store_page' => $custData['top_stores']['page'] - 1, 'tab' => 'regional_store', 'p' => $tenantPrincipal->id])) }}" class="cust-page-btn"><i class="fa-solid fa-chevron-left"></i> Prev</a>
+                                    <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'store_page' => $custData['top_stores']['page'] - 1, 'tab' => 'regional_store', 'p' => $tenantPrincipal->id])) }}" class="cust-page-btn"><i class="fa-solid fa-chevron-left"></i> Prev</a>
                                 @endif
                                 <span class="cust-page-current">Hal {{ $custData['top_stores']['page'] }} / {{ $custData['top_stores']['total_pages'] }}</span>
                                 @if($custData['top_stores']['page'] < $custData['top_stores']['total_pages'])
-                                    <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['store_page' => $custData['top_stores']['page'] + 1, 'tab' => 'regional_store', 'p' => $tenantPrincipal->id])) }}" class="cust-page-btn">Next <i class="fa-solid fa-chevron-right"></i></a>
+                                    <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'store_page' => $custData['top_stores']['page'] + 1, 'tab' => 'regional_store', 'p' => $tenantPrincipal->id])) }}" class="cust-page-btn">Next <i class="fa-solid fa-chevron-right"></i></a>
                                 @endif
                             </div>
                         </div>
@@ -600,18 +600,18 @@
                         @endphp
                         
                         @if($curPage > 1)
-                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['raw_page' => 1, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="cust-page-btn" title="Halaman Pertama"><i class="fa-solid fa-angles-left"></i></a>
-                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['raw_page' => $curPage - 1, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="cust-page-btn"><i class="fa-solid fa-chevron-left"></i> Prev</a>
+                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => 1, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="cust-page-btn" title="Halaman Pertama"><i class="fa-solid fa-angles-left"></i></a>
+                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => $curPage - 1, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="cust-page-btn"><i class="fa-solid fa-chevron-left"></i> Prev</a>
                         @endif
 
                         @for($p = max(1, $curPage - 2); $p <= min($totPages, $curPage + 2); $p++)
-                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['raw_page' => $p, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" 
+                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => $p, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" 
                                class="cust-page-btn {{ $p == $curPage ? 'active' : '' }}">{{ $p }}</a>
                         @endfor
 
                         @if($curPage < $totPages)
-                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['raw_page' => $curPage + 1, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="cust-page-btn">Next <i class="fa-solid fa-chevron-right"></i></a>
-                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['raw_page' => $totPages, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="cust-page-btn" title="Halaman Terakhir"><i class="fa-solid fa-angles-right"></i></a>
+                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => $curPage + 1, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="cust-page-btn">Next <i class="fa-solid fa-chevron-right"></i></a>
+                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => $totPages, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="cust-page-btn" title="Halaman Terakhir"><i class="fa-solid fa-angles-right"></i></a>
                         @endif
                     </div>
                 </div>
