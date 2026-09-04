@@ -759,52 +759,50 @@
         border: 1px solid #cbd5e1;
     }
 
-    /* CBP Raw Data Excel-Style Table */
-    .cbp-excel-viewport {
+    /* CBP Raw Data Table (Menggunakan Design System Bawaan Portal) */
+    .cbp-raw-viewport {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         max-height: 75vh;
-        border: 1px solid #94a3b8;
+        border-top: 1px solid var(--border-color);
         background: #ffffff;
     }
-    .cbp-excel-table {
+    .cbp-raw-table {
         width: 100%;
         border-collapse: collapse;
-        font-family: 'Segoe UI', Calibri, Arial, sans-serif;
-        font-size: 11.5px;
-        color: #000000;
+        font-size: 0.82rem;
     }
-    .cbp-excel-table th {
-        background: #ffffff;
-        border: 1px solid #71717a;
-        padding: 5px 8px;
-        font-weight: 700;
-        text-align: center;
+    .cbp-raw-table th {
+        background: #f8fafc;
+        font-size: 0.74rem;
+        font-weight: 800;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 0.75rem 0.85rem;
+        border-bottom: 1px solid var(--border-color);
+        border-right: 1px solid #f1f5f9;
         white-space: nowrap;
         position: sticky;
         top: 0;
         z-index: 2;
     }
-    .cbp-excel-table thead tr:nth-child(2) th {
-        top: 29px;
+    .cbp-raw-table thead tr:nth-child(2) th {
+        top: 36px;
     }
-    .th-caret {
-        font-size: 0.6rem;
-        color: #64748b;
-        margin-left: 3px;
-    }
-    .cbp-excel-table td {
-        border: 1px solid #cbd5e1;
-        padding: 4px 8px;
+    .cbp-raw-table td {
+        padding: 0.7rem 0.85rem;
+        border-bottom: 1px solid #f1f5f9;
+        border-right: 1px solid #f8fafc;
         white-space: nowrap;
-        line-height: 1.4;
-        font-size: 11px;
+        vertical-align: middle;
+        font-size: 0.82rem;
     }
-    .cbp-excel-table tr:hover td {
-        filter: brightness(0.96);
+    .cbp-raw-table tr:hover td {
+        background-color: #f8fafc;
     }
-    .cell-peach {
-        background-color: #FBE2D5 !important;
+    .cell-peach-portal {
+        background-color: #fff7ed !important;
     }
     .excel-page-btn {
         display: inline-flex;

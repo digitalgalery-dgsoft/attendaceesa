@@ -492,7 +492,7 @@
         @endforeach
     </div>
 
-    <!-- PANE 3: RAW DATA (EXCEL IDENTICAL VIEW MATCHING SHEET RAW DATA) -->
+    <!-- PANE 3: RAW DATA (DESAIN SESUAI TEMPLATE BAWAAN PORTAL) -->
     <div id="cbp_pane_raw" class="cbp-pane-container" style="display: none;">
         @php
             $rawData = $cbpData['raw_data'] ?? ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => 50, 'total_pages' => 0, 'from' => 0, 'to' => 0];
@@ -502,64 +502,60 @@
         @endphp
 
         <div class="cbp-sec-card" style="margin-bottom: 1.5rem;">
-            <!-- Header & Action Bar -->
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); background: #f8fafc; border-top-left-radius: 16px; border-top-right-radius: 16px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div style="width: 38px; height: 38px; border-radius: 8px; background: #e6f4ea; color: #137333; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
-                        <i class="fa-solid fa-file-excel"></i>
+            <!-- Header Card Bawaan Template -->
+            <div class="cbp-sec-header">
+                <div>
+                    <div class="cbp-sec-title">
+                        <i class="fa-solid fa-table-cells" style="color: var(--brand-primary); font-size: 1.15rem;"></i>
+                        <span>Rincian Data Mentah CBP 2026 (Raw Data)</span>
                     </div>
-                    <div>
-                        <div style="font-weight: 800; font-size: 1rem; color: var(--text-heading);">
-                            Tabel Raw Data CBP 2026
-                        </div>
-                        <div style="font-size: 0.78rem; color: var(--text-muted);">
-                            Menampilkan data ke-<strong>{{ number_format($rawData['from']) }}</strong> – <strong>{{ number_format($rawData['to']) }}</strong> dari total <strong>{{ number_format($rawData['total']) }}</strong> baris data
-                        </div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                        Menampilkan data ke-<strong>{{ number_format($rawData['from']) }}</strong> – <strong>{{ number_format($rawData['to']) }}</strong> dari total <strong>{{ number_format($rawData['total']) }}</strong> baris data
                     </div>
                 </div>
 
-                <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-                    <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'p' => $tenantPrincipal->id])) }}" class="btn-export-excel" style="padding: 0.55rem 1rem; font-size: 0.82rem; font-weight: 700; background: #107c41; color: #fff; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(16, 124, 65, 0.2);">
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'p' => $tenantPrincipal->id])) }}" class="btn-export-excel" style="padding: 0.5rem 1rem; font-size: 0.82rem; font-weight: 700; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
                         <i class="fa-solid fa-file-excel"></i>
-                        <span>Download Format Excel (CSV)</span>
+                        <span>Export Excel (Raw Data)</span>
                     </a>
                 </div>
             </div>
 
-            <!-- Excel Style Table Scroll Container -->
-            <div class="cbp-excel-viewport">
-                <table class="cbp-excel-table">
+            <!-- Viewport Table Sesuai Template Bawaan -->
+            <div class="cbp-raw-viewport">
+                <table class="cbp-raw-table">
                     <thead>
-                        <!-- Top Header Row -->
-                        <tr style="background: #ffffff;">
-                            <th rowspan="2" class="th-excel">Regional <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th rowspan="2" class="th-excel">SAP Member <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th rowspan="2" class="th-excel">SAP Gab <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th rowspan="2" class="th-excel" style="min-width: 220px; text-align: left;">Nama Toko <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th rowspan="2" class="th-excel" style="min-width: 180px; text-align: left;">Nama TL <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th rowspan="2" class="th-excel">Area Sales <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th rowspan="2" class="th-excel">RSM Area <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th rowspan="2" class="th-excel">Class <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th rowspan="2" class="th-excel">Type <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th rowspan="2" class="th-excel" style="min-width: 160px; text-align: left;">Product <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th rowspan="2" class="th-excel" style="min-width: 170px; text-align: left;">Category <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th rowspan="2" class="th-excel" style="min-width: 150px; text-align: left;">Product Group <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <!-- Date Merged Header spanning 9 columns for Tin, Galon, Pail -->
-                            <th colspan="9" class="th-excel" style="text-align: center; font-weight: 700; background: #ffffff; border: 1.5px solid #000000; font-size: 12px; padding: 6px 12px;">
+                        <!-- Baris 1: Header Kolom Utama & Merged Date Kemasan -->
+                        <tr>
+                            <th rowspan="2" style="text-align: center; width: 60px;">Regional</th>
+                            <th rowspan="2" style="text-align: center; width: 85px;">SAP Member</th>
+                            <th rowspan="2" style="text-align: center; width: 80px;">SAP Gab</th>
+                            <th rowspan="2" style="text-align: left; min-width: 200px;">Nama Toko</th>
+                            <th rowspan="2" style="text-align: left; min-width: 170px;">Nama TL</th>
+                            <th rowspan="2" style="text-align: left; min-width: 110px;">Area Sales</th>
+                            <th rowspan="2" style="text-align: left; min-width: 110px;">RSM Area</th>
+                            <th rowspan="2" style="text-align: center; width: 60px;">Class</th>
+                            <th rowspan="2" style="text-align: center; width: 75px;">Type</th>
+                            <th rowspan="2" style="text-align: left; min-width: 150px;">Product</th>
+                            <th rowspan="2" style="text-align: left; min-width: 160px;">Category</th>
+                            <th rowspan="2" style="text-align: left; min-width: 140px;">Product Group</th>
+                            <!-- Header Tanggal Kemasan -->
+                            <th colspan="9" style="text-align: center; font-weight: 800; background: #eff6ff; color: var(--brand-primary); border-left: 2px solid #e2e8f0; font-size: 0.82rem; padding: 0.65rem 1rem;">
                                 {{ $dateHeader }}
                             </th>
                         </tr>
-                        <!-- Sub Header Row for Packaging -->
-                        <tr style="background: #ffffff;">
-                            <th class="th-excel" style="min-width: 75px;">Tin <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th class="th-excel" style="min-width: 95px;">Harga Terendah <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th class="th-excel" style="min-width: 80px;">REASON <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th class="th-excel" style="min-width: 75px;">Galon <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th class="th-excel" style="min-width: 95px;">Harga Terendah <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th class="th-excel" style="min-width: 80px;">REASON <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th class="th-excel" style="min-width: 75px;">Pail <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th class="th-excel" style="min-width: 95px;">Harga Terendah <i class="fa-solid fa-caret-down th-caret"></i></th>
-                            <th class="th-excel" style="min-width: 80px;">REASON <i class="fa-solid fa-caret-down th-caret"></i></th>
+                        <!-- Baris 2: Sub Header Kemasan -->
+                        <tr>
+                            <th style="text-align: right; min-width: 90px; border-left: 2px solid #e2e8f0;">Tin</th>
+                            <th style="text-align: right; min-width: 95px;">Harga Terendah</th>
+                            <th style="text-align: center; min-width: 80px;">REASON</th>
+                            <th style="text-align: right; min-width: 90px; border-left: 1px dashed #cbd5e1;">Galon</th>
+                            <th style="text-align: right; min-width: 95px;">Harga Terendah</th>
+                            <th style="text-align: center; min-width: 80px;">REASON</th>
+                            <th style="text-align: right; min-width: 95px; border-left: 1px dashed #cbd5e1;">Pail</th>
+                            <th style="text-align: right; min-width: 95px;">Harga Terendah</th>
+                            <th style="text-align: center; min-width: 80px;">REASON</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -570,59 +566,71 @@
                                 $hasPail = !empty($r['price_pail']) && $r['price_pail'] > 0;
                                 $allEmpty = !$hasTin && !$hasGalon && !$hasPail;
                             @endphp
-                            <tr class="tr-excel">
-                                <td class="td-excel" style="text-align: center;">{{ $r['regional'] }}</td>
-                                <td class="td-excel" style="text-align: center;">{{ $r['sap_member'] }}</td>
-                                <td class="td-excel" style="text-align: center;">{{ $r['sap_gab'] }}</td>
-                                <td class="td-excel" style="font-weight: 600; text-align: left;">{{ $r['name_store'] }}</td>
-                                <td class="td-excel" style="text-align: left;">{{ $r['tl_name'] }}</td>
-                                <td class="td-excel" style="text-align: left;">{{ $r['area'] }}</td>
-                                <td class="td-excel" style="text-align: left;">{{ $r['rsm_area'] }}</td>
-                                <td class="td-excel" style="text-align: center;">{{ $r['class'] }}</td>
-                                <td class="td-excel" style="text-align: center;">{{ $r['store_type'] }}</td>
-                                <td class="td-excel" style="text-align: left;">{{ $r['product'] }}</td>
-                                <td class="td-excel" style="text-align: left;">{{ $r['category'] }}</td>
-                                <td class="td-excel" style="text-align: left;">{{ $r['product_group'] }}</td>
+                            <tr>
+                                <td style="text-align: center; font-weight: 700; color: var(--text-muted);">{{ $r['regional'] }}</td>
+                                <td style="text-align: center; color: var(--text-muted);">{{ $r['sap_member'] }}</td>
+                                <td style="text-align: center; color: var(--text-muted);">{{ $r['sap_gab'] }}</td>
+                                <td style="font-weight: 700; color: var(--text-heading); text-align: left;">{{ $r['name_store'] }}</td>
+                                <td style="text-align: left; color: var(--text-muted);">{{ $r['tl_name'] }}</td>
+                                <td style="text-align: left; color: var(--text-muted);">{{ $r['area'] }}</td>
+                                <td style="text-align: left; color: var(--text-muted);">{{ $r['rsm_area'] }}</td>
+                                <td style="text-align: center;">
+                                    @if($r['class'])
+                                        <span class="cbp-brand-badge cbp-brand-comp">{{ $r['class'] }}</span>
+                                    @else
+                                        <span style="color: var(--text-muted);">-</span>
+                                    @endif
+                                </td>
+                                <td style="text-align: center;">
+                                    @if($r['store_type'])
+                                        <span class="cbp-brand-badge cbp-brand-comp">{{ $r['store_type'] }}</span>
+                                    @else
+                                        <span style="color: var(--text-muted);">-</span>
+                                    @endif
+                                </td>
+                                <td style="text-align: left; font-weight: 600; color: var(--text-heading);">{{ $r['product'] }}</td>
+                                <td style="text-align: left; color: var(--text-muted);">{{ $r['category'] }}</td>
+                                <td style="text-align: left; color: var(--text-muted);">{{ $r['product_group'] }}</td>
 
-                                <!-- Tin -->
+                                <!-- Kemasan Tin -->
                                 @if($hasTin)
-                                    <td class="td-excel" style="text-align: right; background: #fff;">{{ number_format($r['price_tin'], 0, ',', '.') }}</td>
-                                    <td class="td-excel" style="text-align: right; background: #fff;">{{ number_format($r['lowest_tin'] ?: $r['price_tin'], 0, ',', '.') }}</td>
-                                    <td class="td-excel" style="text-align: center; background: #fff;">{{ $r['reason_tin'] }}</td>
+                                    <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 2px solid #f1f5f9;">{{ number_format($r['price_tin'], 0, ',', '.') }}</td>
+                                    <td style="text-align: right; color: var(--text-muted);">{{ number_format($r['lowest_tin'] ?: $r['price_tin'], 0, ',', '.') }}</td>
+                                    <td style="text-align: center;">{{ $r['reason_tin'] ?: '-' }}</td>
                                 @else
-                                    <td class="td-excel cell-peach"></td>
-                                    <td class="td-excel cell-peach"></td>
-                                    <td class="td-excel cell-peach" style="text-align: center; font-style: italic; font-size: 10.5px;">{{ $r['reason_tin'] }}</td>
+                                    <td class="cell-peach-portal" style="border-left: 2px solid #f1f5f9;"></td>
+                                    <td class="cell-peach-portal"></td>
+                                    <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; color: #c2410c;">{{ $r['reason_tin'] }}</td>
                                 @endif
 
-                                <!-- Galon -->
+                                <!-- Kemasan Galon -->
                                 @if($hasGalon)
-                                    <td class="td-excel" style="text-align: right; background: #fff;">{{ number_format($r['price_galon'], 0, ',', '.') }}</td>
-                                    <td class="td-excel" style="text-align: right; background: #fff;">{{ number_format($r['lowest_galon'] ?: $r['price_galon'], 0, ',', '.') }}</td>
-                                    <td class="td-excel" style="text-align: center; background: #fff;">{{ $r['reason_galon'] }}</td>
+                                    <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 1px dashed #e2e8f0;">{{ number_format($r['price_galon'], 0, ',', '.') }}</td>
+                                    <td style="text-align: right; color: var(--text-muted);">{{ number_format($r['lowest_galon'] ?: $r['price_galon'], 0, ',', '.') }}</td>
+                                    <td style="text-align: center;">{{ $r['reason_galon'] ?: '-' }}</td>
                                 @else
-                                    <td class="td-excel cell-peach"></td>
-                                    <td class="td-excel cell-peach"></td>
-                                    <td class="td-excel cell-peach" style="text-align: center; font-style: italic; font-size: 10.5px;">{{ $r['reason_galon'] }}</td>
+                                    <td class="cell-peach-portal" style="border-left: 1px dashed #fed7aa;"></td>
+                                    <td class="cell-peach-portal"></td>
+                                    <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; color: #c2410c;">{{ $r['reason_galon'] }}</td>
                                 @endif
 
-                                <!-- Pail -->
+                                <!-- Kemasan Pail -->
                                 @if($hasPail)
-                                    <td class="td-excel" style="text-align: right; background: #fff;">{{ number_format($r['price_pail'], 0, ',', '.') }}</td>
-                                    <td class="td-excel" style="text-align: right; background: #fff;">{{ number_format($r['lowest_pail'] ?: $r['price_pail'], 0, ',', '.') }}</td>
-                                    <td class="td-excel" style="text-align: center; background: #fff;">{{ $r['reason_pail'] }}</td>
+                                    <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 1px dashed #e2e8f0;">{{ number_format($r['price_pail'], 0, ',', '.') }}</td>
+                                    <td style="text-align: right; color: var(--text-muted);">{{ number_format($r['lowest_pail'] ?: $r['price_pail'], 0, ',', '.') }}</td>
+                                    <td style="text-align: center;">{{ $r['reason_pail'] ?: '-' }}</td>
                                 @else
-                                    <td class="td-excel cell-peach"></td>
-                                    <td class="td-excel cell-peach"></td>
-                                    <td class="td-excel cell-peach" style="text-align: center; font-style: italic; font-size: 10.5px; color: #1e293b;">
+                                    <td class="cell-peach-portal" style="border-left: 1px dashed #fed7aa;"></td>
+                                    <td class="cell-peach-portal"></td>
+                                    <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; font-weight: 600; color: #c2410c;">
                                         {{ $r['reason_pail'] ?: ($allEmpty ? 'Not Exist' : '') }}
                                     </td>
                                 @endif
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="21" style="text-align: center; padding: 3rem; color: #64748b; font-size: 0.95rem;">
-                                    <i class="fa-solid fa-file-excel" style="font-size: 2rem; margin-bottom: 0.5rem; color: #94a3b8; display: block;"></i>
+                                <td colspan="21" style="text-align: center; padding: 3rem; color: var(--text-muted); font-size: 0.95rem;">
+                                    <i class="fa-solid fa-folder-open" style="font-size: 2rem; margin-bottom: 0.5rem; color: #cbd5e1; display: block;"></i>
                                     Tidak ada data Raw Data yang cocok dengan filter yang dipilih.
                                 </td>
                             </tr>
@@ -631,7 +639,7 @@
                 </table>
             </div>
 
-            <!-- Pagination Controls Bar -->
+            <!-- Pagination Bar Sesuai Template Bawaan -->
             @if($rawData['total_pages'] > 1)
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1rem 1.25rem; background: #f8fafc; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; border-top: 1px solid var(--border-color);">
                     <div style="font-size: 0.82rem; color: var(--text-muted);">
