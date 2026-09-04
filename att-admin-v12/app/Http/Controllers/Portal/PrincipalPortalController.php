@@ -465,14 +465,14 @@ class PrincipalPortalController extends Controller
             });
 
             // Areas directly from cbp_raw with regional info
-            $areas = Cache::remember('cbp_filter_areas_v8', 3600, function() use ($sqlitePath) {
+            $areas = Cache::remember('cbp_filter_areas_v10', 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT regional, MIN(area) as area_name FROM cbp_raw WHERE area IS NOT NULL AND area != '' GROUP BY regional, UPPER(TRIM(area)) ORDER BY area_name ASC");
                     $rawAreas = $stmt->fetchAll(\PDO::FETCH_ASSOC);
                     $result = [];
                     foreach ($rawAreas as $a) {
-                        $result[] = (object)[
+                        $result[] = [
                             'id' => $a['area_name'],
                             'name' => ucwords(strtolower($a['area_name'])),
                             'region' => $a['regional']
@@ -485,14 +485,14 @@ class PrincipalPortalController extends Controller
             });
 
             // Stores directly from cbp_raw with regional & area info
-            $workLocations = Cache::remember('cbp_filter_stores_v8', 3600, function() use ($sqlitePath) {
+            $workLocations = Cache::remember('cbp_filter_stores_v10', 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT DISTINCT regional, MIN(area) as area, name_store FROM cbp_raw WHERE name_store IS NOT NULL GROUP BY name_store ORDER BY name_store ASC");
                     $rawStores = $stmt->fetchAll(\PDO::FETCH_ASSOC);
                     $result = [];
                     foreach ($rawStores as $s) {
-                        $result[] = (object)[
+                        $result[] = [
                             'id' => $s['name_store'],
                             'name' => $s['name_store'],
                             'region' => $s['regional'],

@@ -1086,8 +1086,12 @@
                 <select name="region" id="filter_region" class="filter-select-btn" onchange="onRegionFilterChange(this.value)" style="padding-left: 2rem;">
                     <option value="">🗺️ Semua Region</option>
                     @foreach($regions as $r)
-                        <option value="{{ $r }}" {{ $selectedRegion == $r ? 'selected' : '' }}>
-                            {{ (is_string($r) && str_starts_with(strtoupper($r), 'R') && strlen($r) <= 3) ? 'Region ' . ltrim($r, 'Rr') . ' (' . $r . ')' : (str_starts_with(strtoupper($r), 'REGION') ? $r : 'Region ' . $r) }}
+                        @php
+                            $rArr = is_array($r) ? $r : (is_object($r) ? (array)$r : []);
+                            $rStr = !empty($rArr) ? ($rArr['regional'] ?? $rArr['region'] ?? '') : (is_scalar($r) ? (string)$r : '');
+                        @endphp
+                        <option value="{{ $rStr }}" {{ $selectedRegion == $rStr ? 'selected' : '' }}>
+                            {{ (str_starts_with(strtoupper($rStr), 'R') && strlen($rStr) <= 3) ? 'Region ' . ltrim($rStr, 'Rr') . ' (' . $rStr . ')' : (str_starts_with(strtoupper($rStr), 'REGION') ? $rStr : 'Region ' . $rStr) }}
                         </option>
                     @endforeach
                 </select>
@@ -1100,9 +1104,10 @@
                     <option value="">📍 Semua Area / Cabang</option>
                     @foreach($areas as $area)
                         @php
-                            $aId = is_object($area) ? ($area->id ?? '') : (is_array($area) ? ($area['id'] ?? '') : $area);
-                            $aName = is_object($area) ? ($area->name ?? $area->id ?? '') : (is_array($area) ? ($area['name'] ?? $area['id'] ?? '') : $area);
-                            $aRegion = is_object($area) ? ($area->region ?? '') : (is_array($area) ? ($area['region'] ?? '') : '');
+                            $aArr = is_array($area) ? $area : (is_object($area) ? (array)$area : ['id' => $area, 'name' => $area, 'region' => '']);
+                            $aId = $aArr['id'] ?? (is_scalar($area) ? (string)$area : '');
+                            $aName = $aArr['name'] ?? $aId;
+                            $aRegion = $aArr['region'] ?? '';
                         @endphp
                         <option value="{{ $aId }}" data-region="{{ $aRegion }}" {{ (string)$selectedAreaId === (string)$aId ? 'selected' : '' }}>
                             {{ $aName }}
@@ -1118,10 +1123,11 @@
                     <option value="">🏢 Semua Store / Toko</option>
                     @foreach($workLocations as $loc)
                         @php
-                            $lId = is_object($loc) ? ($loc->id ?? '') : (is_array($loc) ? ($loc['id'] ?? '') : $loc);
-                            $lName = is_object($loc) ? ($loc->name ?? $loc->id ?? '') : (is_array($loc) ? ($loc['name'] ?? $loc['id'] ?? '') : $loc);
-                            $lRegion = is_object($loc) ? ($loc->region ?? '') : (is_array($loc) ? ($loc['region'] ?? '') : '');
-                            $lArea = is_object($loc) ? ($loc->area ?? '') : (is_array($loc) ? ($loc['area'] ?? '') : '');
+                            $lArr = is_array($loc) ? $loc : (is_object($loc) ? (array)$loc : ['id' => $loc, 'name' => $loc, 'region' => '', 'area' => '']);
+                            $lId = $lArr['id'] ?? (is_scalar($loc) ? (string)$loc : '');
+                            $lName = $lArr['name'] ?? $lId;
+                            $lRegion = $lArr['region'] ?? '';
+                            $lArea = $lArr['area'] ?? '';
                         @endphp
                         <option value="{{ $lId }}" data-region="{{ $lRegion }}" data-area="{{ strtoupper(trim($lArea)) }}" {{ (string)$selectedLocationId === (string)$lId ? 'selected' : '' }}>
                             {{ $lName }}
