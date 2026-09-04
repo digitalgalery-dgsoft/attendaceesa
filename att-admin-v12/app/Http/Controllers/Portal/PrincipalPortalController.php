@@ -708,44 +708,116 @@ class PrincipalPortalController extends Controller
             return $results;
         });
 
-        // Dropdown Data for Region (Cached 30 Menit)
-        $cacheKeyRegions = 'rep_filters_reg_' . implode('_', $scopedPrincipalIds);
-        $regions = Cache::remember($cacheKeyRegions, 1800, function() use ($scopedPrincipalIds) {
-            $regs = WorkLocation::where(function($q) use ($scopedPrincipalIds) {
-                $q->whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id');
-            })->whereNotNull('region')->where('region', '!=', '')->distinct()->orderBy('region')->pluck('region')->toArray();
+        // Dropdown Data for Region, Area, and Store (Sourced directly from Actual Report Data)
+        if ($template->code === 'RPT-DULUX-CBP-PRICING') {
+            $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
+            $regions = Cache::remember('cbp_filter_regions_v2', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT regional FROM cbp_raw WHERE regional IS NOT NULL AND regional != '' ORDER BY regional");
+                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                } catch (\Throwable $e) {
+                    return ['R1', 'R2', 'R3', 'R4'];
+                }
+            });
 
-            if (empty($regs)) {
-                $regs = Branch::whereNotNull('region')->where('region', '!=', '')->distinct()->orderBy('region')->pluck('region')->toArray();
+            // Areas directly from cbp_raw (Filtered by Region if selected)
+            try {
+                $pdo = new \PDO("sqlite:" . $sqlitePath);
+                $areaSql = "SELECT MIN(area) as area_name FROM cbp_raw WHERE area IS NOT NULL AND area != ''";
+                $areaParams = [];
+                if ($selectedRegion) {
+                    $areaSql .= " AND regional = ?";
+                    $areaParams[] = $selectedRegion;
+                }
+                $areaSql .= " GROUP BY UPPER(TRIM(area)) ORDER BY area_name ASC";
+                $areaStmt = $pdo->prepare($areaSql);
+                $areaStmt->execute($areaParams);
+                $rawAreas = $areaStmt->fetchAll(\PDO::FETCH_COLUMN);
+
+                $areas = collect($rawAreas)->map(function($aName) {
+                    return (object)[
+                        'id' => $aName,
+                        'name' => ucwords(strtolower($aName))
+                    ];
+                });
+            } catch (\Throwable $e) {
+                $areas = collect();
             }
 
-            return $regs;
-        });
+            // Stores directly from cbp_raw (Filtered by Region & Area if selected)
+            try {
+                $pdo = new \PDO("sqlite:" . $sqlitePath);
+                $storeSql = "SELECT DISTINCT name_store FROM cbp_raw WHERE name_store IS NOT NULL AND name_store != ''";
+                $storeParams = [];
+                if ($selectedRegion) {
+                    $storeSql .= " AND regional = ?";
+                    $storeParams[] = $selectedRegion;
+                }
+                if ($selectedAreaId) {
+                    $storeSql .= " AND (UPPER(area) LIKE ? OR UPPER(rsm_area) LIKE ?)";
+                    $storeParams[] = "%" . strtoupper($selectedAreaId) . "%";
+                    $storeParams[] = "%" . strtoupper($selectedAreaId) . "%";
+                }
+                $storeSql .= " ORDER BY name_store ASC";
+                $storeStmt = $pdo->prepare($storeSql);
+                $storeStmt->execute($storeParams);
+                $rawStores = $storeStmt->fetchAll(\PDO::FETCH_COLUMN);
 
-        $areaQuery = Branch::query();
-        if ($selectedRegion) {
-            $areaQuery->where('region', $selectedRegion);
-        }
-        $areas = $areaQuery->orderBy('name')->get();
+                $workLocations = collect($rawStores)->map(function($sName) {
+                    return (object)[
+                        'id' => $sName,
+                        'name' => $sName
+                    ];
+                });
+            } catch (\Throwable $e) {
+                $workLocations = collect();
+            }
+        } else {
+            // General Reports: Sourced from actual report submissions
+            $subLocData = Cache::remember("rep_filter_locs_{$template->id}", 600, function() use ($template) {
+                return DB::table('report_submissions')
+                    ->where('report_submissions.report_template_id', $template->id)
+                    ->join('work_locations', 'report_submissions.work_location_id', '=', 'work_locations.id')
+                    ->leftJoin('branches', 'work_locations.branch_id', '=', 'branches.id')
+                    ->select(
+                        'work_locations.id',
+                        'work_locations.name',
+                        'work_locations.region',
+                        'work_locations.branch_id',
+                        'branches.name as branch_name'
+                    )
+                    ->distinct()
+                    ->get();
+            });
 
-        $storeQuery = WorkLocation::query()->select(['id', 'name', 'region', 'branch_id']);
-        if ($selectedRegion) {
-            $storeQuery->where('region', $selectedRegion);
-        }
-        if ($selectedAreaId) {
-            $storeQuery->where('branch_id', $selectedAreaId);
-        }
-        if (!$selectedRegion && !$selectedAreaId) {
-            $storeQuery->limit(300);
-        }
-        $workLocations = $storeQuery->where(function($q) use ($scopedPrincipalIds) {
-            $q->whereIn('work_locations.principal_id', $scopedPrincipalIds)->orWhereNull('work_locations.principal_id');
-        })->orderBy('name')->get();
+            if ($subLocData->isNotEmpty()) {
+                $regions = $subLocData->pluck('region')->filter()->unique()->sort()->values()->toArray();
 
-        if ($selectedLocationId && !$workLocations->contains('id', $selectedLocationId)) {
-            $currentLoc = WorkLocation::select(['id', 'name', 'region', 'branch_id'])->find($selectedLocationId);
-            if ($currentLoc) {
-                $workLocations->prepend($currentLoc);
+                $areaList = $subLocData->filter(fn($l) => !empty($l->branch_id) && !empty($l->branch_name));
+                if ($selectedRegion) {
+                    $areaList = $areaList->where('region', $selectedRegion);
+                }
+                $areas = $areaList->unique('branch_id')->map(function($l) {
+                    return (object)[
+                        'id' => $l->branch_id,
+                        'name' => $l->branch_name
+                    ];
+                })->sortBy('name')->values();
+
+                $filteredStores = $subLocData;
+                if ($selectedRegion) {
+                    $filteredStores = $filteredStores->where('region', $selectedRegion);
+                }
+                if ($selectedAreaId) {
+                    $filteredStores = $filteredStores->where('branch_id', $selectedAreaId);
+                }
+                $workLocations = $filteredStores->sortBy('name')->values();
+            } else {
+                // Fallback to master data if report has no submissions yet
+                $regions = [];
+                $areas = collect();
+                $workLocations = collect();
             }
         }
 
@@ -1252,8 +1324,8 @@ class PrincipalPortalController extends Controller
                     fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
 
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $selectedAreaName = $selectedAreaId ? Branch::where('id', $selectedAreaId)->value('name') : null;
-                    $selectedStoreName = $selectedLocationId ? WorkLocation::where('id', $selectedLocationId)->value('name') : null;
+                    $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
+                    $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
                     $search = $request->query('q');
 
                     $sMonth = max(1, min(12, (int)$startMonth));
@@ -1302,9 +1374,9 @@ class PrincipalPortalController extends Controller
                         $params[] = $selectedRegion;
                     }
                     if ($selectedAreaName) {
-                        $whereClauses[] = "(area LIKE ? OR rsm_area LIKE ?)";
-                        $params[] = "%$selectedAreaName%";
-                        $params[] = "%$selectedAreaName%";
+                        $whereClauses[] = "(UPPER(area) LIKE ? OR UPPER(rsm_area) LIKE ?)";
+                        $params[] = "%" . strtoupper($selectedAreaName) . "%";
+                        $params[] = "%" . strtoupper($selectedAreaName) . "%";
                     }
                     if ($selectedStoreName) {
                         $whereClauses[] = "name_store LIKE ?";
@@ -3138,7 +3210,7 @@ class PrincipalPortalController extends Controller
             return null;
         }
 
-        $cacheKey = 'cbp_dash_v3_' . md5($template->id . '_' . $startYear . '_' . $startMonth . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+        $cacheKey = 'cbp_dash_v4_' . md5($template->id . '_' . $startYear . '_' . $startMonth . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
 
         $aggData = Cache::remember($cacheKey, 300, function() use ($sqlitePath, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
             try {
@@ -3148,11 +3220,11 @@ class PrincipalPortalController extends Controller
                 // Resolve Area Name & Store Name if filtered
                 $selectedAreaName = null;
                 if ($selectedAreaId) {
-                    $selectedAreaName = Branch::where('id', $selectedAreaId)->value('name');
+                    $selectedAreaName = is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId;
                 }
                 $selectedStoreName = null;
                 if ($selectedLocationId) {
-                    $selectedStoreName = WorkLocation::where('id', $selectedLocationId)->value('name');
+                    $selectedStoreName = is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId;
                 }
 
                 // Prepare Months
@@ -3197,9 +3269,9 @@ class PrincipalPortalController extends Controller
                     $params[] = $selectedRegion;
                 }
                 if ($selectedAreaName) {
-                    $whereClauses[] = "(area LIKE ? OR rsm_area LIKE ?)";
-                    $params[] = "%$selectedAreaName%";
-                    $params[] = "%$selectedAreaName%";
+                    $whereClauses[] = "(UPPER(area) LIKE ? OR UPPER(rsm_area) LIKE ?)";
+                    $params[] = "%" . strtoupper($selectedAreaName) . "%";
+                    $params[] = "%" . strtoupper($selectedAreaName) . "%";
                 }
                 if ($selectedStoreName) {
                     $whereClauses[] = "name_store LIKE ?";
@@ -3480,8 +3552,8 @@ class PrincipalPortalController extends Controller
             $pdo = new \PDO("sqlite:" . $sqlitePath);
             $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 
-            $selectedAreaName = $selectedAreaId ? Branch::where('id', $selectedAreaId)->value('name') : null;
-            $selectedStoreName = $selectedLocationId ? WorkLocation::where('id', $selectedLocationId)->value('name') : null;
+            $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
+            $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
 
             $sMonth = max(1, min(12, (int)$startMonth));
             $eMonth = max(1, min(12, (int)$endMonth));
@@ -3497,9 +3569,9 @@ class PrincipalPortalController extends Controller
                 $params[] = $selectedRegion;
             }
             if ($selectedAreaName) {
-                $whereClauses[] = "(area LIKE ? OR rsm_area LIKE ?)";
-                $params[] = "%$selectedAreaName%";
-                $params[] = "%$selectedAreaName%";
+                $whereClauses[] = "(UPPER(area) LIKE ? OR UPPER(rsm_area) LIKE ?)";
+                $params[] = "%" . strtoupper($selectedAreaName) . "%";
+                $params[] = "%" . strtoupper($selectedAreaName) . "%";
             }
             if ($selectedStoreName) {
                 $whereClauses[] = "name_store LIKE ?";

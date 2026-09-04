@@ -1087,7 +1087,7 @@
                     <option value="">🗺️ Semua Region</option>
                     @foreach($regions as $r)
                         <option value="{{ $r }}" {{ $selectedRegion == $r ? 'selected' : '' }}>
-                            Region {{ $r }}
+                            {{ (is_string($r) && str_starts_with(strtoupper($r), 'R') && strlen($r) <= 3) ? 'Region ' . ltrim($r, 'Rr') . ' (' . $r . ')' : (str_starts_with(strtoupper($r), 'REGION') ? $r : 'Region ' . $r) }}
                         </option>
                     @endforeach
                 </select>
