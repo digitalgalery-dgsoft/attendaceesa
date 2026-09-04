@@ -172,9 +172,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 for gz in {$srv['path']}/storage/app/dulux_data/*.sqlite.gz; do
                     if [ -f \"\$gz\" ]; then
                         target=\"\${gz%.gz}\"
-                        if [ ! -f \"\$target\" ]; then
+                        if [ ! -f \"\$target\" ] || [ $(wc -c < \"\$target\" 2>/dev/null || echo 0) -lt 10000000 ]; then
                             echo \"  ↳ Extracting \$gz -> \$target...\"
-                            gzip -dc \"\$gz\" > \"\$target\" && chmod 0666 \"\$target\" || true
+                            gzip -dc \"\$gz\" > \"\$target.tmp\" && mv -f \"\$target.tmp\" \"\$target\" && chmod 0666 \"\$target\" || true
                         fi
                     fi
                 done

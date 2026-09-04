@@ -588,7 +588,7 @@ class PrincipalPortalController extends Controller
             }
 
             // Regions directly from offtake_raw
-            $regions = Cache::remember('offtake_filter_regions_v1', 3600, function() use ($sqlitePath) {
+            $regions = Cache::remember('offtake_filter_regions_v2', 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT DISTINCT region FROM offtake_raw WHERE region IS NOT NULL AND region != '' ORDER BY region");
@@ -599,7 +599,7 @@ class PrincipalPortalController extends Controller
             });
 
             // Areas directly from offtake_raw
-            $areas = Cache::remember('offtake_filter_areas_v1', 3600, function() use ($sqlitePath) {
+            $areas = Cache::remember('offtake_filter_areas_v2', 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT region, MIN(area) as area_name FROM offtake_raw WHERE area IS NOT NULL AND area != '' GROUP BY region, UPPER(TRIM(area)) ORDER BY area_name ASC");
@@ -619,7 +619,7 @@ class PrincipalPortalController extends Controller
             });
 
             // Stores directly from offtake_raw
-            $workLocations = Cache::remember('offtake_filter_stores_v1', 3600, function() use ($sqlitePath) {
+            $workLocations = Cache::remember('offtake_filter_stores_v2', 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT DISTINCT region, MIN(area) as area, sap, name_store FROM offtake_raw WHERE name_store IS NOT NULL AND name_store != '' GROUP BY name_store ORDER BY name_store ASC");
@@ -3656,7 +3656,7 @@ class PrincipalPortalController extends Controller
             $eMonth = 7;
         }
 
-        $cacheKey = 'offtake_dash_v1_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $endYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search . '_' . $offtakePage . '_' . $rawPage);
+        $cacheKey = 'offtake_dash_v2_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $endYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search . '_' . $offtakePage . '_' . $rawPage);
 
         return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sMonth, $eMonth, $activeMonths, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $offtakePage, $rawPage, $perPage) {
             try {

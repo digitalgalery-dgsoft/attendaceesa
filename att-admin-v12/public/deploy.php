@@ -111,10 +111,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'cd /www/wwwroot/appsend.my.id && git reset --hard origin/main',
         'cd /www/wwwroot/appsend.my.id && git pull origin main',
         'cp -a /www/wwwroot/appsend.my.id/att-admin-v12/. /www/wwwroot/appsend.my.id/',
-        'for gz in /www/wwwroot/appsend.my.id/storage/app/dulux_data/*.sqlite.gz; do target="${gz%.gz}"; if [ -f "$gz" ] && [ ! -f "$target" ]; then gzip -dc "$gz" > "$target" && chmod 0666 "$target" || true; fi; done',
+        'for gz in /www/wwwroot/appsend.my.id/storage/app/dulux_data/*.sqlite.gz; do target="${gz%.gz}"; if [ -f "$gz" ]; then if [ ! -f "$target" ] || [ $(wc -c < "$target" 2>/dev/null || echo 0) -lt 10000000 ]; then echo "Extracting $gz -> $target..."; gzip -dc "$gz" > "$target.tmp" && mv -f "$target.tmp" "$target" && chmod 0666 "$target" || true; fi; fi; done',
+        'chmod -R 777 /www/wwwroot/appsend.my.id/storage 2>/dev/null || true',
+        'chown -R www:www /www/wwwroot/appsend.my.id/storage 2>/dev/null || true',
+        'ls -lh /www/wwwroot/appsend.my.id/storage/app/dulux_data/*.sqlite 2>&1 || true',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan storage:link',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan migrate --force',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan reporting:link-principals',
+        '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan cache:clear',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan optimize:clear',
     ];
 
