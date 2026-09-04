@@ -560,6 +560,7 @@ class PrincipalPortalController extends Controller
 
         $isOfftakeReport = ($template->code === 'RPT-DULUX-OFFTAKE-01');
         $isStockReport   = ($template->code === 'RPT-DULUX-STOCK-END');
+        $isOosReport     = in_array($template->code, ['RPT-DULUX-OOS-SSO', 'RPT-DULUX-OOS-LSO']) || str_contains($template->code, 'OOS');
 
         // --- Stock End Custom Handling (Pivotable Store Volume, SCM / Summ & Raw Submissions from stock_2026.sqlite) ---
         if ($isStockReport) {
@@ -854,6 +855,150 @@ class PrincipalPortalController extends Controller
                 'isCbpReport',
                 'isOfftakeReport',
                 'offtakeData',
+                'activeTab'
+            ));
+        }
+
+        // --- Out of Stock (OOS) Custom Handling (Summary, Weekly Pivot & Raw Submissions from oos_2026.sqlite) ---
+        if ($isOosReport) {
+            $sqlitePath = storage_path('app/dulux_data/oos_2026.sqlite');
+            $gzPath     = storage_path('app/dulux_data/oos_2026.sqlite.gz');
+
+            // Auto-extract if .sqlite does not exist or corrupted (< 1MB) but .sqlite.gz exists
+            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+                if (file_exists($gzPath)) {
+                    try {
+                        $zp = gzopen($gzPath, 'rb');
+                        $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                        $fp = fopen($tmpPath, 'wb');
+                        if ($zp && $fp) {
+                            while (!gzeof($zp)) {
+                                fwrite($fp, gzread($zp, 524288));
+                            }
+                            gzclose($zp);
+                            fclose($fp);
+                            @rename($tmpPath, $sqlitePath);
+                            @chmod($sqlitePath, 0666);
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::error("Auto-extraction of oos_2026.sqlite.gz failed: " . $e->getMessage());
+                    }
+                }
+            }
+
+            // Regions directly from oos_raw
+            $regions = Cache::remember('oos_filter_regions_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT region FROM oos_raw WHERE region IS NOT NULL AND region != '' ORDER BY region");
+                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                } catch (\Throwable $e) {
+                    return ['R1', 'R2', 'R3', 'R4'];
+                }
+            });
+
+            // Areas directly from oos_raw
+            $areas = Cache::remember('oos_filter_areas_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT region, MIN(area) as area_name FROM oos_raw WHERE area IS NOT NULL AND area != '' GROUP BY region, UPPER(TRIM(area)) ORDER BY area_name ASC");
+                    $rawAreas = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                    $result = [];
+                    foreach ($rawAreas as $a) {
+                        $result[] = [
+                            'id' => $a['area_name'],
+                            'name' => ucwords(strtolower($a['area_name'])),
+                            'region' => $a['region']
+                        ];
+                    }
+                    return $result;
+                } catch (\Throwable $e) {
+                    return [];
+                }
+            });
+
+            // Stores directly from oos_raw
+            $workLocations = Cache::remember('oos_filter_stores_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT region, MIN(area) as area, sap, store_name FROM oos_raw WHERE store_name IS NOT NULL AND store_name != '' GROUP BY store_name ORDER BY store_name ASC");
+                    $rawStores = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                    $result = [];
+                    foreach ($rawStores as $s) {
+                        $result[] = [
+                            'id' => $s['store_name'],
+                            'name' => $s['store_name'],
+                            'region' => $s['region'],
+                            'area' => $s['area'],
+                            'sap' => $s['sap']
+                        ];
+                    }
+                    return $result;
+                } catch (\Throwable $e) {
+                    return [];
+                }
+            });
+
+            $selectedChannel = $request->query('channel', '');
+            $weeklyPage      = max(1, (int)$request->query('weekly_page', 1));
+            $rawPage         = max(1, (int)$request->query('raw_page', 1));
+            $activeTab       = $request->query('tab', 'summary');
+
+            $oosData = $this->calculateOosDashboardData(
+                $template,
+                $startMonth,
+                $startYear,
+                $endMonth,
+                $endYear,
+                $selectedRegion,
+                $selectedAreaId,
+                $selectedLocationId,
+                $selectedChannel,
+                $search,
+                $weeklyPage,
+                $rawPage,
+                50
+            );
+
+            $totalTemplateSubmissions = 0;
+            $uniqueStores = 0;
+            $submissions = new LengthAwarePaginator([], 0, 20, 1);
+            $dashboardConfig = [];
+            $widgetResults = [];
+            $isYtdReport = false;
+            $ytdData = [];
+
+            return view('portal.report_detail', compact(
+                'tenantPrincipal',
+                'tenantPrincipalsAll',
+                'brandColor',
+                'activeTemplates',
+                'template',
+                'submissions',
+                'totalTemplateSubmissions',
+                'uniqueStores',
+                'startMonth',
+                'startYear',
+                'endMonth',
+                'endYear',
+                'search',
+                'selectedRegion',
+                'selectedAreaId',
+                'selectedLocationId',
+                'selectedChannel',
+                'regions',
+                'areas',
+                'workLocations',
+                'setting',
+                'dashboardConfig',
+                'widgetResults',
+                'isYtdReport',
+                'ytdData',
+                'isCbpReport',
+                'isOfftakeReport',
+                'isStockReport',
+                'isOosReport',
+                'oosData',
                 'activeTab'
             ));
         }
@@ -2292,6 +2437,241 @@ class PrincipalPortalController extends Controller
                             round($totCatylac, 2),
                             round($totGrand, 2)
                         ]);
+                    }
+
+                    fclose($handle);
+                };
+
+                return response()->stream($callback, 200, $headers);
+            }
+        }
+
+        // Custom Streamed CSV Export for Dulux Out of Stock (OOS) Report (Summary, Weekly Pivot, Raw Submissions)
+        if (in_array($template->code, ['RPT-DULUX-OOS-SSO', 'RPT-DULUX-OOS-LSO']) || str_contains($template->code, 'OOS')) {
+            $sqlitePath = storage_path('app/dulux_data/oos_2026.sqlite');
+            $gzPath     = storage_path('app/dulux_data/oos_2026.sqlite.gz');
+            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+                if (file_exists($gzPath)) {
+                    try {
+                        $zp = gzopen($gzPath, 'rb');
+                        $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                        $fp = fopen($tmpPath, 'wb');
+                        if ($zp && $fp) {
+                            while (!gzeof($zp)) {
+                                fwrite($fp, gzread($zp, 524288));
+                            }
+                            gzclose($zp);
+                            fclose($fp);
+                            @rename($tmpPath, $sqlitePath);
+                            @chmod($sqlitePath, 0666);
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::error("Auto-extraction of oos_2026.sqlite.gz failed: " . $e->getMessage());
+                    }
+                }
+            }
+
+            if (file_exists($sqlitePath)) {
+                $exportType = $request->query('export_type', 'oos_summary');
+                $filename = match($exportType) {
+                    'oos_raw' => "raw-data-oos-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv",
+                    'oos_weekly' => "rekap-mingguan-oos-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv",
+                    default => "ringkasan-alasan-oos-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv"
+                };
+
+                $headers = [
+                    'Content-Type' => 'text/csv; charset=UTF-8',
+                    'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                    'Pragma' => 'no-cache',
+                    'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+                    'Expires' => '0',
+                ];
+
+                $callback = function () use ($sqlitePath, $startMonth, $endMonth, $startYear, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $request, $exportType) {
+                    $handle = fopen('php://output', 'w');
+                    fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
+                    $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
+                    $search = $request->query('q');
+                    $selectedChannel = $request->query('channel', '');
+
+                    $sMonth = max(1, min(12, (int)$startMonth));
+                    $eMonth = max(1, min(12, (int)$endMonth));
+                    if ($sMonth > $eMonth) {
+                        $tmp = $sMonth; $sMonth = $eMonth; $eMonth = $tmp;
+                    }
+
+                    $where = ["month BETWEEN ? AND ?"];
+                    $params = [$sMonth, $eMonth];
+
+                    if ($selectedChannel && in_array(strtoupper($selectedChannel), ['LSO', 'SSO'])) {
+                        $where[] = "channel = ?";
+                        $params[] = strtoupper($selectedChannel);
+                    }
+                    if ($selectedRegion) {
+                        $where[] = "region = ?";
+                        $params[] = $selectedRegion;
+                    }
+                    if ($selectedAreaName) {
+                        $where[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
+                        $params[] = $selectedAreaName;
+                    }
+                    if ($selectedStoreName) {
+                        $where[] = "store_name = ?";
+                        $params[] = $selectedStoreName;
+                    }
+                    if ($search) {
+                        $where[] = "(store_name LIKE ? OR sap LIKE ? OR produk LIKE ? OR base_color LIKE ? OR alasan_oos LIKE ?)";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                    }
+                    $whereSql = implode(' AND ', $where);
+
+                    if ($exportType === 'oos_raw') {
+                        $headerRow = [
+                            'Channel', 'Submission Code', 'Submission Date', 'Tanggal OOS', 'Week',
+                            'Region', 'Area', 'RSM Area', 'Account', 'SAP', 'DERP/Category', 'Nama Toko',
+                            'Produk', 'Base/Warna', 'Kemasan/Size', 'Lama OOS (Hari)', 'Saran Qty Order', 'Alasan OOS', 'Is OOS'
+                        ];
+                        fputcsv($handle, $headerRow);
+
+                        $stmt = $pdo->prepare("
+                            SELECT channel, submission_code, submission_date, tanggal_oos, week,
+                                   region, area, rsm_area, account, sap, derp, store_name,
+                                   produk, base_color, kemasan_size, lama_oos_hari, saran_qty_order, alasan_oos, is_oos
+                            FROM oos_raw
+                            WHERE $whereSql
+                            ORDER BY tanggal_oos ASC, id ASC
+                        ");
+                        $stmt->execute($params);
+                        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                            fputcsv($handle, [
+                                $row['channel'] ?? '',
+                                $row['submission_code'] ?? '',
+                                $row['submission_date'] ?? '',
+                                $row['tanggal_oos'] ?? '',
+                                $row['week'] ?? '',
+                                $row['region'] ?? '',
+                                $row['area'] ?? '',
+                                $row['rsm_area'] ?? '',
+                                $row['account'] ?? '',
+                                $row['sap'] ?? '',
+                                $row['derp'] ?? '',
+                                $row['store_name'] ?? '',
+                                $row['produk'] ?? '',
+                                $row['base_color'] ?? '',
+                                $row['kemasan_size'] ?? '',
+                                $row['lama_oos_hari'] ?? '',
+                                $row['saran_qty_order'] ?? '',
+                                $row['alasan_oos'] ?? '',
+                                ($row['is_oos'] == 1 ? 'OOS' : 'No OOS')
+                            ]);
+                        }
+                    } elseif ($exportType === 'oos_weekly') {
+                        // Week list
+                        $weekStmt = $pdo->prepare("SELECT DISTINCT week FROM oos_raw WHERE $whereSql AND week IS NOT NULL ORDER BY week ASC");
+                        $weekStmt->execute($params);
+                        $weeks = $weekStmt->fetchAll(\PDO::FETCH_COLUMN);
+
+                        $headerRow = array_merge([
+                            'No', 'Channel', 'Region', 'Area', 'SAP', 'Nama Toko',
+                            'Produk', 'Base / Warna', 'Kemasan', 'Alasan OOS'
+                        ], array_map(fn($w) => "Week " . $w, $weeks), ['Grand Total']);
+                        fputcsv($handle, $headerRow);
+
+                        $weeklyWhere = array_merge($where, ["is_oos = 1"]);
+                        $weeklyWhereSql = implode(' AND ', $weeklyWhere);
+
+                        $stmt = $pdo->prepare("
+                            SELECT sap, store_name, MIN(region) as region, MIN(area) as area, MIN(channel) as channel,
+                                   produk, base_color, kemasan_size, alasan_oos,
+                                   COUNT(*) as grand_total
+                            FROM oos_raw
+                            WHERE $weeklyWhereSql
+                            GROUP BY sap, store_name, produk, base_color, kemasan_size, alasan_oos
+                            ORDER BY region ASC, area ASC, store_name ASC, produk ASC
+                        ");
+                        $stmt->execute($params);
+
+                        $no = 1;
+                        while ($r = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                            $subWhere = array_merge($weeklyWhere, [
+                                "store_name = ?",
+                                "COALESCE(produk, '') = ?",
+                                "COALESCE(base_color, '') = ?",
+                                "COALESCE(kemasan_size, '') = ?",
+                                "COALESCE(alasan_oos, '') = ?"
+                            ]);
+                            $subStmt = $pdo->prepare("
+                                SELECT week, COUNT(*) as cnt
+                                FROM oos_raw
+                                WHERE " . implode(' AND ', $subWhere) . "
+                                GROUP BY week
+                            ");
+                            $subStmt->execute(array_merge($params, [
+                                $r['store_name'],
+                                $r['produk'] ?? '',
+                                $r['base_color'] ?? '',
+                                $r['kemasan_size'] ?? '',
+                                $r['alasan_oos'] ?? ''
+                            ]));
+                            $wCounts = $subStmt->fetchAll(\PDO::FETCH_KEY_PAIR);
+
+                            $rowLine = [
+                                $no++,
+                                $r['channel'] ?? '',
+                                $r['region'] ?? '',
+                                $r['area'] ?? '',
+                                $r['sap'] ?? '',
+                                $r['store_name'] ?? '',
+                                $r['produk'] ?? '',
+                                $r['base_color'] ?? '',
+                                $r['kemasan_size'] ?? '',
+                                $r['alasan_oos'] ?? ''
+                            ];
+                            foreach ($weeks as $wk) {
+                                $rowLine[] = (int)($wCounts[$wk] ?? 0);
+                            }
+                            $rowLine[] = (int)$r['grand_total'];
+                            fputcsv($handle, $rowLine);
+                        }
+                    } else {
+                        // oos_summary
+                        $headerRow = ['No', 'Alasan OOS', 'Jumlah Toko Terdampak', 'Total Kejadian OOS', 'Persentase (%)'];
+                        fputcsv($handle, $headerRow);
+
+                        $totIncStmt = $pdo->prepare("SELECT COUNT(*) FROM oos_raw WHERE $whereSql AND is_oos = 1");
+                        $totIncStmt->execute($params);
+                        $totInc = (int)$totIncStmt->fetchColumn();
+
+                        $stmt = $pdo->prepare("
+                            SELECT 
+                                COALESCE(NULLIF(TRIM(alasan_oos), ''), 'Lain-lain') as reason,
+                                COUNT(DISTINCT store_name) as store_count,
+                                COUNT(*) as incident_count
+                            FROM oos_raw
+                            WHERE $whereSql AND is_oos = 1
+                            GROUP BY reason
+                            ORDER BY incident_count DESC
+                        ");
+                        $stmt->execute($params);
+
+                        $no = 1;
+                        while ($r = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                            $pct = $totInc > 0 ? round(($r['incident_count'] / $totInc) * 100, 1) : 0;
+                            fputcsv($handle, [
+                                $no++,
+                                $r['reason'],
+                                $r['store_count'],
+                                $r['incident_count'],
+                                $pct . '%'
+                            ]);
+                        }
                     }
 
                     fclose($handle);
@@ -5479,5 +5859,294 @@ class PrincipalPortalController extends Controller
         }
 
         return $aggData;
+    }
+
+    /**
+     * Calculate Dulux Out of Stock (OOS) Data:
+     * - Summary Tab (KPIs + Reason Breakdown Distribution)
+     * - Weekly Tab (Weekly Pivot per Store, Product, Base/Color, Kemasan, Alasan OOS)
+     * - Raw Submissions Tab (16 Columns matching Excel)
+     */
+    protected function calculateOosDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedChannel = 'ALL', $search = null, $weeklyPage = 1, $rawPage = 1, $perPage = 50)
+    {
+        $sqlitePath = storage_path('app/dulux_data/oos_2026.sqlite');
+        $gzPath     = storage_path('app/dulux_data/oos_2026.sqlite.gz');
+
+        if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+            if (file_exists($gzPath)) {
+                try {
+                    $zp = gzopen($gzPath, 'rb');
+                    $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                    $fp = fopen($tmpPath, 'wb');
+                    if ($zp && $fp) {
+                        while (!gzeof($zp)) {
+                            fwrite($fp, gzread($zp, 524288));
+                        }
+                        gzclose($zp);
+                        fclose($fp);
+                        @rename($tmpPath, $sqlitePath);
+                        @chmod($sqlitePath, 0666);
+                    }
+                } catch (\Throwable $e) {
+                    \Log::error("Auto-extraction of oos_2026.sqlite.gz failed: " . $e->getMessage());
+                }
+            }
+        }
+
+        if (!file_exists($sqlitePath)) {
+            return [
+                'months' => [],
+                'weeks' => [],
+                'kpis' => ['total_stores' => 0, 'total_oos_cases' => 0, 'no_oos_stores' => 0, 'no_oos_percentage' => 0, 'total_submissions' => 0],
+                'reasons' => [],
+                'weekly' => ['rows' => [], 'weeks' => [], 'grand_total_cases' => 0, 'total_rows' => 0, 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                'submissions' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
+            ];
+        }
+
+        $sMonth = max(1, min(12, (int)$startMonth));
+        $eMonth = max(1, min(12, (int)$endMonth));
+        if ($sMonth > $eMonth) {
+            $tmp = $sMonth; $sMonth = $eMonth; $eMonth = $tmp;
+        }
+
+        $monthNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+
+        $activeMonths = [];
+        for ($m = $sMonth; $m <= $eMonth; $m++) {
+            $activeMonths[$m] = $monthNames[$m];
+        }
+
+        $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
+        $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
+
+        $cacheKey = 'oos_dash_v1_' . md5($template->id . "_{$sMonth}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedChannel}_{$search}_{$weeklyPage}_{$rawPage}_{$perPage}");
+
+        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sMonth, $eMonth, $activeMonths, $selectedRegion, $selectedAreaName, $selectedStoreName, $selectedChannel, $search, $weeklyPage, $rawPage, $perPage) {
+            try {
+                $pdo = new \PDO("sqlite:" . $sqlitePath);
+                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+                $where = ["month BETWEEN ? AND ?"];
+                $params = [$sMonth, $eMonth];
+
+                if ($selectedChannel && in_array(strtoupper($selectedChannel), ['LSO', 'SSO'])) {
+                    $where[] = "channel = ?";
+                    $params[] = strtoupper($selectedChannel);
+                }
+                if ($selectedRegion) {
+                    $where[] = "region = ?";
+                    $params[] = $selectedRegion;
+                }
+                if ($selectedAreaName) {
+                    $where[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
+                    $params[] = $selectedAreaName;
+                }
+                if ($selectedStoreName) {
+                    $where[] = "store_name = ?";
+                    $params[] = $selectedStoreName;
+                }
+                if ($search) {
+                    $where[] = "(store_name LIKE ? OR sap LIKE ? OR produk LIKE ? OR base_color LIKE ? OR alasan_oos LIKE ?)";
+                    $params[] = "%{$search}%";
+                    $params[] = "%{$search}%";
+                    $params[] = "%{$search}%";
+                    $params[] = "%{$search}%";
+                    $params[] = "%{$search}%";
+                }
+                $whereSql = implode(' AND ', $where);
+
+                // Distinct active weeks
+                $weekStmt = $pdo->prepare("SELECT DISTINCT week FROM oos_raw WHERE $whereSql AND week IS NOT NULL ORDER BY CAST(week AS INTEGER) ASC, week ASC");
+                $weekStmt->execute($params);
+                $activeWeeks = $weekStmt->fetchAll(\PDO::FETCH_COLUMN);
+
+                // 1. KPI Aggregates
+                $kpiStmt = $pdo->prepare("
+                    SELECT 
+                        COUNT(DISTINCT store_name) as total_stores,
+                        COUNT(DISTINCT CASE WHEN is_oos = 1 THEN store_name END) as oos_stores,
+                        SUM(CASE WHEN is_oos = 1 THEN 1 ELSE 0 END) as oos_incidents,
+                        COUNT(*) as total_submissions
+                    FROM oos_raw
+                    WHERE $whereSql
+                ");
+                $kpiStmt->execute($params);
+                $kpiRow = $kpiStmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+                $totalStores = (int)($kpiRow['total_stores'] ?? 0);
+                $oosStores = (int)($kpiRow['oos_stores'] ?? 0);
+                $noOosStores = max(0, $totalStores - $oosStores);
+                $noOosPct = $totalStores > 0 ? round(($noOosStores / $totalStores) * 100, 1) : 0;
+                $oosIncidents = (int)($kpiRow['oos_incidents'] ?? 0);
+                $totalSubmissions = (int)($kpiRow['total_submissions'] ?? 0);
+
+                $kpis = [
+                    'total_stores' => $totalStores,
+                    'total_oos_cases' => $oosIncidents,
+                    'no_oos_stores' => $noOosStores,
+                    'no_oos_percentage' => $noOosPct,
+                    'total_submissions' => $totalSubmissions
+                ];
+
+                // 2. Reason Breakdown (Only Real OOS: is_oos = 1)
+                $reasonWhere = array_merge($where, ["is_oos = 1"]);
+                $reasonWhereSql = implode(' AND ', $reasonWhere);
+                $reasonStmt = $pdo->prepare("
+                    SELECT 
+                        COALESCE(NULLIF(TRIM(alasan_oos), ''), 'Lain-lain') as reason,
+                        COUNT(DISTINCT store_name) as store_count,
+                        COUNT(*) as incident_count
+                    FROM oos_raw
+                    WHERE $reasonWhereSql
+                    GROUP BY reason
+                    ORDER BY incident_count DESC
+                ");
+                $reasonStmt->execute($params);
+                $reasonRows = $reasonStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                $reasons = [];
+                foreach ($reasonRows as $r) {
+                    $pct = $oosIncidents > 0 ? round(($r['incident_count'] / $oosIncidents) * 100, 1) : 0;
+                    $reasons[] = [
+                        'reason' => $r['reason'],
+                        'store_count' => (int)$r['store_count'],
+                        'incident_count' => (int)$r['incident_count'],
+                        'percentage' => $pct
+                    ];
+                }
+
+                // 3. Weekly Pivot Table (Grouped by Store, Product, Base/Color, Kemasan, Alasan OOS)
+                $weeklyWhere = array_merge($where, ["is_oos = 1"]);
+                $weeklyWhereSql = implode(' AND ', $weeklyWhere);
+
+                $weeklyCountSql = "
+                    SELECT COUNT(DISTINCT store_name || '---' || COALESCE(produk,'') || '---' || COALESCE(base_color,'') || '---' || COALESCE(kemasan_size,'') || '---' || COALESCE(alasan_oos,''))
+                    FROM oos_raw
+                    WHERE $weeklyWhereSql
+                ";
+                $weeklyCountStmt = $pdo->prepare($weeklyCountSql);
+                $weeklyCountStmt->execute($params);
+                $totalWeeklyItems = (int)$weeklyCountStmt->fetchColumn();
+
+                $weeklyOffset = ($weeklyPage - 1) * $perPage;
+
+                $weeklyRowsSql = "
+                    SELECT 
+                        sap, store_name, MIN(region) as region, MIN(area) as area, MIN(channel) as channel,
+                        produk, base_color, kemasan_size, alasan_oos,
+                        COUNT(*) as grand_total
+                    FROM oos_raw
+                    WHERE $weeklyWhereSql
+                    GROUP BY sap, store_name, produk, base_color, kemasan_size, alasan_oos
+                    ORDER BY region ASC, area ASC, store_name ASC, produk ASC
+                    LIMIT $perPage OFFSET $weeklyOffset
+                ";
+                $weeklyRowsStmt = $pdo->prepare($weeklyRowsSql);
+                $weeklyRowsStmt->execute($params);
+                $weeklyRows = $weeklyRowsStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // Fetch week breakdown for these paginated rows
+                if (!empty($weeklyRows) && !empty($activeWeeks)) {
+                    foreach ($weeklyRows as &$wRow) {
+                        $wRow['total_cases'] = (int)$wRow['grand_total'];
+                        $wSubWhere = array_merge($weeklyWhere, [
+                            "store_name = ?",
+                            "COALESCE(produk, '') = ?",
+                            "COALESCE(base_color, '') = ?",
+                            "COALESCE(kemasan_size, '') = ?",
+                            "COALESCE(alasan_oos, '') = ?"
+                        ]);
+                        $wSubWhereSql = implode(' AND ', $wSubWhere);
+                        $wSubParams = array_merge($params, [
+                            $wRow['store_name'],
+                            $wRow['produk'] ?? '',
+                            $wRow['base_color'] ?? '',
+                            $wRow['kemasan_size'] ?? '',
+                            $wRow['alasan_oos'] ?? ''
+                        ]);
+
+                        $wBreakdownStmt = $pdo->prepare("
+                            SELECT week, COUNT(*) as cnt
+                            FROM oos_raw
+                            WHERE $wSubWhereSql
+                            GROUP BY week
+                        ");
+                        $wBreakdownStmt->execute($wSubParams);
+                        $wCounts = $wBreakdownStmt->fetchAll(\PDO::FETCH_KEY_PAIR);
+
+                        $weeksData = [];
+                        foreach ($activeWeeks as $wk) {
+                            $weeksData[$wk] = (int)($wCounts[$wk] ?? 0);
+                        }
+                        $wRow['weeks'] = $weeksData;
+                    }
+                    unset($wRow);
+                }
+
+                // 4. Raw Submissions (16 Columns matching Excel)
+                $rawOffset = ($rawPage - 1) * $perPage;
+                $rawCountSql = "SELECT COUNT(*) FROM oos_raw WHERE $whereSql";
+                $rawCountStmt = $pdo->prepare($rawCountSql);
+                $rawCountStmt->execute($params);
+                $totalRaw = (int)$rawCountStmt->fetchColumn();
+
+                $rawSql = "
+                    SELECT 
+                        channel, submission_code, submission_date, tanggal_oos, week,
+                        region, area, rsm_area, account, sap, derp, store_name,
+                        produk, base_color, kemasan_size, lama_oos_hari, saran_qty_order, alasan_oos, is_oos
+                    FROM oos_raw
+                    WHERE $whereSql
+                    ORDER BY tanggal_oos DESC, id DESC
+                    LIMIT $perPage OFFSET $rawOffset
+                ";
+                $rawStmt = $pdo->prepare($rawSql);
+                $rawStmt->execute($params);
+                $rawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                return [
+                    'months' => $activeMonths,
+                    'weeks' => $activeWeeks,
+                    'kpis' => $kpis,
+                    'reasons' => $reasons,
+                    'weekly' => [
+                        'rows' => $weeklyRows,
+                        'weeks' => $activeWeeks,
+                        'grand_total_cases' => $oosIncidents,
+                        'total_rows' => $totalWeeklyItems,
+                        'total' => $totalWeeklyItems,
+                        'page' => $weeklyPage,
+                        'per_page' => $perPage,
+                        'total_pages' => (int)ceil($totalWeeklyItems / $perPage),
+                        'from' => $totalWeeklyItems > 0 ? ($weeklyOffset + 1) : 0,
+                        'to' => min($weeklyOffset + $perPage, $totalWeeklyItems),
+                    ],
+                    'submissions' => [
+                        'rows' => $rawRows,
+                        'total' => $totalRaw,
+                        'page' => $rawPage,
+                        'per_page' => $perPage,
+                        'total_pages' => (int)ceil($totalRaw / $perPage),
+                        'from' => $totalRaw > 0 ? ($rawOffset + 1) : 0,
+                        'to' => min($rawOffset + $perPage, $totalRaw),
+                    ]
+                ];
+            } catch (\Throwable $e) {
+                \Log::error("Failed to calculate OOS Dashboard: " . $e->getMessage());
+                return [
+                    'months' => $activeMonths,
+                    'weeks' => [],
+                    'kpis' => ['total_stores' => 0, 'total_oos_cases' => 0, 'no_oos_stores' => 0, 'no_oos_percentage' => 0, 'total_submissions' => 0],
+                    'reasons' => [],
+                    'weekly' => ['rows' => [], 'weeks' => [], 'grand_total_cases' => 0, 'total_rows' => 0, 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                    'submissions' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
+                ];
+            }
+        });
     }
 }
