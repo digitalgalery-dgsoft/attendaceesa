@@ -1,5 +1,5 @@
 {{-- PORTAL CBP EXECUTIVE DASHBOARD (DASHBOARD 1 & DASHBOARD 2) --}}
-<div class="custom-cbp-wrapper" style="margin-bottom: 2rem;">
+<div class="custom-cbp-wrapper" style="margin-bottom: 2rem; width: 100%; max-width: 100%; min-width: 0;">
 
     <!-- TOP MAIN TAB NAVIGATION -->
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">

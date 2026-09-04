@@ -596,11 +596,24 @@
         background: #f1f5f9;
         color: var(--text-heading);
     }
+    .custom-cbp-wrapper {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+    .cbp-pane-container {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
     .cbp-kpi-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
         gap: 1rem;
         margin-bottom: 1.5rem;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
     }
     .cbp-kpi-card {
         background: #ffffff;
@@ -612,6 +625,7 @@
         align-items: center;
         gap: 1rem;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
+        min-width: 0;
     }
     .cbp-kpi-card:hover {
         transform: translateY(-2px);
@@ -634,6 +648,9 @@
         box-shadow: var(--shadow-sm);
         margin-bottom: 1.5rem;
         overflow: hidden;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
     }
     .cbp-sec-header {
         background: #f8fafc;
@@ -768,9 +785,11 @@
         background: #ffffff;
         width: 100%;
         max-width: 100%;
+        min-width: 0;
     }
     .cbp-raw-table {
-        width: 100%;
+        width: max-content;
+        min-width: 100%;
         border-collapse: collapse;
         font-size: 0.82rem;
     }
@@ -1019,8 +1038,7 @@
     </div>
 
     <!-- Enhanced Filter Bar (Range Bulan Awal - Akhir, Region, Area, Store / Toko) -->
-    <!-- Enhanced Filter Bar (Range Bulan Awal - Akhir, Region, Area, Store / Toko) -->
-    <form action="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" method="GET" class="filter-bar" style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 16px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; width: 100%;">
+    <form action="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" method="GET" class="filter-bar" style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 16px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; width: 100%; max-width: 100%; min-width: 0;">
         <input type="hidden" name="p" value="{{ $tenantPrincipal->id }}">
         
         <!-- Filter Fields Container (Aligned firmly to the Left) -->

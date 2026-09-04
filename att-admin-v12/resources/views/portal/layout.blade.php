@@ -51,6 +51,7 @@
             color: var(--text-body);
             min-height: 100vh;
             display: flex;
+            overflow-x: hidden;
         }
 
         /* Sidebar */
@@ -274,6 +275,9 @@
             display: flex;
             flex-direction: column;
             min-height: 100vh;
+            min-width: 0;
+            width: calc(100vw - var(--sidebar-width));
+            max-width: calc(100vw - var(--sidebar-width));
         }
 
         /* Topbar */
@@ -352,6 +356,9 @@
         .portal-content {
             padding: 2rem;
             flex: 1;
+            min-width: 0;
+            width: 100%;
+            max-width: 100%;
         }
 
         /* Modern Portal Pagination Styling */
