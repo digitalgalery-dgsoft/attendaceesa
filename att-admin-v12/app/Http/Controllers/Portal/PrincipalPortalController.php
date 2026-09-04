@@ -424,15 +424,15 @@ class PrincipalPortalController extends Controller
             });
             if ($latestSubDate) {
                 $c = Carbon::parse($latestSubDate);
-                $startMonth = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 1 : $c->month;
-                $startYear  = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 2026 : $c->year;
-                $endMonth   = (int) ($request->query('end_month') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 7 : $c->month));
-                $endYear    = (int) ($request->query('end_year') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 2026 : $c->year));
+                $startMonth = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 1 : $c->month;
+                $startYear  = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 2026 : $c->year;
+                $endMonth   = (int) ($request->query('end_month') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 7 : $c->month));
+                $endYear    = (int) ($request->query('end_year') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 2026 : $c->year));
             } else {
-                $startMonth = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 1 : Carbon::now()->month;
-                $startYear  = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 2026 : Carbon::now()->year;
-                $endMonth   = (int) ($request->query('end_month') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 7 : Carbon::now()->month));
-                $endYear    = (int) ($request->query('end_year') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01']) ? 2026 : Carbon::now()->year));
+                $startMonth = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 1 : Carbon::now()->month;
+                $startYear  = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 2026 : Carbon::now()->year;
+                $endMonth   = (int) ($request->query('end_month') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 7 : Carbon::now()->month));
+                $endYear    = (int) ($request->query('end_year') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 2026 : Carbon::now()->year));
             }
         }
 
@@ -561,6 +561,7 @@ class PrincipalPortalController extends Controller
         $isOfftakeReport = ($template->code === 'RPT-DULUX-OFFTAKE-01');
         $isStockReport   = ($template->code === 'RPT-DULUX-STOCK-END');
         $isOosReport     = in_array($template->code, ['RPT-DULUX-OOS-SSO', 'RPT-DULUX-OOS-LSO']) || str_contains($template->code, 'OOS');
+        $isDailyMaintenanceReport = ($template->code === 'RPT-DULUX-DAILY-MAINTENANCE' || str_contains($template->code, 'DAILY-MAINTENANCE'));
 
         // --- Stock End Custom Handling (Pivotable Store Volume, SCM / Summ & Raw Submissions from stock_2026.sqlite) ---
         if ($isStockReport) {
@@ -1002,6 +1003,194 @@ class PrincipalPortalController extends Controller
                 'isStockReport',
                 'isOosReport',
                 'oosData',
+                'activeTab'
+            ));
+        }
+
+        // --- Daily Maintenance Custom Handling (Summary, Store Matrix, Raw Data from daily_maintenance.sqlite) ---
+        if ($isDailyMaintenanceReport) {
+            $sqlitePath = storage_path('app/dulux_data/daily_maintenance.sqlite');
+            $gzPath     = storage_path('app/dulux_data/daily_maintenance.sqlite.gz');
+
+            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+                if (file_exists($gzPath)) {
+                    try {
+                        $zp = gzopen($gzPath, 'rb');
+                        $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                        $fp = fopen($tmpPath, 'wb');
+                        if ($zp && $fp) {
+                            while (!gzeof($zp)) {
+                                fwrite($fp, gzread($zp, 524288));
+                            }
+                            gzclose($zp);
+                            fclose($fp);
+                            @rename($tmpPath, $sqlitePath);
+                            @chmod($sqlitePath, 0666);
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::error("Auto-extraction of daily_maintenance.sqlite.gz failed: " . $e->getMessage());
+                    }
+                }
+            }
+
+            // Extract distinct regions directly from dm_raw
+            $regions = Cache::remember('dm_filter_regions_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT rsm_area FROM dm_raw WHERE rsm_area IS NOT NULL AND rsm_area != '' ORDER BY rsm_area");
+                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                } catch (\Throwable $e) {
+                    return ['Bali Nusra', 'Central Java', 'Central Sumatera', 'East Java', 'Greater Jakarta', 'Kalimantan', 'LSO', 'North Sumatera', 'South Sumatera', 'Sulawesi', 'West Java'];
+                }
+            });
+
+            // Extract distinct areas directly from dm_raw
+            $areaCacheKey = 'dm_filter_areas_v1_' . md5($selectedRegion ?: 'all');
+            $areas = Cache::remember($areaCacheKey, 3600, function() use ($sqlitePath, $selectedRegion) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    if ($selectedRegion) {
+                        $stmt = $pdo->prepare("SELECT DISTINCT area, rsm_area FROM dm_raw WHERE rsm_area = ? AND area IS NOT NULL AND area != '' ORDER BY area");
+                        $stmt->execute([$selectedRegion]);
+                    } else {
+                        $stmt = $pdo->query("SELECT DISTINCT area, rsm_area FROM dm_raw WHERE area IS NOT NULL AND area != '' ORDER BY area");
+                    }
+                    $results = [];
+                    foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $a) {
+                        $results[] = (object)[
+                            'id' => $a['area'],
+                            'name' => $a['area'],
+                            'region' => $a['rsm_area']
+                        ];
+                    }
+                    return $results;
+                } catch (\Throwable $e) {
+                    return [];
+                }
+            });
+
+            // Extract distinct stores directly from dm_raw
+            $storeCacheKey = 'dm_filter_stores_v1_' . md5(($selectedRegion ?: 'all') . '_' . ($selectedAreaId ?: 'all'));
+            $workLocations = Cache::remember($storeCacheKey, 3600, function() use ($sqlitePath, $selectedRegion, $selectedAreaId) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $where = ["store_name IS NOT NULL AND store_name != ''"];
+                    $params = [];
+                    if ($selectedRegion) {
+                        $where[] = "rsm_area = ?";
+                        $params[] = $selectedRegion;
+                    }
+                    if ($selectedAreaId) {
+                        $where[] = "area = ?";
+                        $params[] = is_numeric($selectedAreaId) ? (Branch::where('id', $selectedAreaId)->value('name') ?: $selectedAreaId) : $selectedAreaId;
+                    }
+                    $whereSql = implode(' AND ', $where);
+                    $stmt = $pdo->prepare("SELECT DISTINCT store_name, rsm_area, area, sap_code FROM dm_raw WHERE $whereSql ORDER BY store_name");
+                    $stmt->execute($params);
+                    $result = [];
+                    foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $s) {
+                        $result[] = (object)[
+                            'id' => $s['store_name'],
+                            'name' => $s['store_name'],
+                            'region' => $s['rsm_area'],
+                            'area' => $s['area'],
+                            'sap' => $s['sap_code']
+                        ];
+                    }
+                    return $result;
+                } catch (\Throwable $e) {
+                    return [];
+                }
+            });
+
+            // Extract Machine Types
+            $machineTypes = Cache::remember('dm_filter_mtypes_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT machine_type FROM dm_raw WHERE machine_type IS NOT NULL AND machine_type != '' ORDER BY machine_type");
+                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                } catch (\Throwable $e) {
+                    return ['D200', 'Discovery', 'Manual', 'X-Smart', 'Xprotint', 'Other'];
+                }
+            });
+
+            // Extract Categories
+            $categories = Cache::remember('dm_filter_cats_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT category FROM dm_raw WHERE category IS NOT NULL AND category != '' ORDER BY category");
+                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                } catch (\Throwable $e) {
+                    return ['Bluestore', 'LSO', 'MTI', 'SSO'];
+                }
+            });
+
+            $selectedMachineType = $request->query('machine_type', '');
+            $selectedCategory    = $request->query('category', '');
+            $storePage           = max(1, (int)$request->query('store_page', 1));
+            $rawPage             = max(1, (int)$request->query('raw_page', 1));
+            $activeTab           = $request->query('tab', 'summary');
+
+            $dailyMaintenanceData = $this->calculateDailyMaintenanceDashboardData(
+                $template,
+                $startMonth,
+                $startYear,
+                $endMonth,
+                $endYear,
+                $selectedRegion,
+                $selectedAreaId,
+                $selectedLocationId,
+                $selectedMachineType,
+                $selectedCategory,
+                $search,
+                $storePage,
+                $rawPage,
+                50
+            );
+
+            $totalTemplateSubmissions = 0;
+            $uniqueStores = 0;
+            $submissions = new LengthAwarePaginator([], 0, 20, 1);
+            $dashboardConfig = [];
+            $widgetResults = [];
+            $isYtdReport = false;
+            $ytdData = [];
+
+            return view('portal.report_detail', compact(
+                'tenantPrincipal',
+                'tenantPrincipalsAll',
+                'brandColor',
+                'activeTemplates',
+                'template',
+                'submissions',
+                'totalTemplateSubmissions',
+                'uniqueStores',
+                'startMonth',
+                'startYear',
+                'endMonth',
+                'endYear',
+                'search',
+                'selectedRegion',
+                'selectedAreaId',
+                'selectedLocationId',
+                'selectedMachineType',
+                'selectedCategory',
+                'regions',
+                'areas',
+                'workLocations',
+                'machineTypes',
+                'categories',
+                'setting',
+                'dashboardConfig',
+                'widgetResults',
+                'isYtdReport',
+                'ytdData',
+                'isCbpReport',
+                'isOfftakeReport',
+                'isStockReport',
+                'isOosReport',
+                'isDailyMaintenanceReport',
+                'dailyMaintenanceData',
                 'activeTab'
             ));
         }
@@ -2680,6 +2869,200 @@ class PrincipalPortalController extends Controller
                                 $r['store_count'],
                                 $r['incident_count'],
                                 $pct . '%'
+                            ]);
+                        }
+                    }
+
+                    fclose($handle);
+                };
+
+                return response()->stream($callback, 200, $headers);
+            }
+        }
+
+        // --- Daily Maintenance Export Handling ---
+        if ($template->code === 'RPT-DULUX-DAILY-MAINTENANCE' || str_contains($template->code, 'DAILY-MAINTENANCE')) {
+            $sqlitePath = storage_path('app/dulux_data/daily_maintenance.sqlite');
+            $gzPath     = storage_path('app/dulux_data/daily_maintenance.sqlite.gz');
+            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+                if (file_exists($gzPath)) {
+                    try {
+                        $zp = gzopen($gzPath, 'rb');
+                        $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                        $fp = fopen($tmpPath, 'wb');
+                        if ($zp && $fp) {
+                            while (!gzeof($zp)) {
+                                fwrite($fp, gzread($zp, 524288));
+                            }
+                            gzclose($zp);
+                            fclose($fp);
+                            @rename($tmpPath, $sqlitePath);
+                            @chmod($sqlitePath, 0666);
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::error("Auto-extraction of daily_maintenance.sqlite.gz failed: " . $e->getMessage());
+                    }
+                }
+            }
+
+            if (file_exists($sqlitePath)) {
+                $exportType = $request->query('export_type', 'dm_raw');
+                $filename = 'Export_Dulux_Daily_Maintenance_' . $exportType . '_' . date('Ymd_His') . '.csv';
+
+                $headers = [
+                    'Content-Type' => 'text/csv; charset=UTF-8',
+                    'Content-Disposition' => "attachment; filename=\"$filename\"",
+                    'Pragma' => 'no-cache',
+                    'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+                    'Expires' => '0'
+                ];
+
+                $callback = function() use ($sqlitePath, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $request, $exportType) {
+                    $handle = fopen('php://output', 'w');
+                    fputs($handle, "\xEF\xBB\xBF"); // UTF-8 BOM
+
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+                    $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
+                    $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
+                    $search = $request->query('q');
+                    $selectedMachineType = $request->query('machine_type', '');
+                    $selectedCategory = $request->query('category', '');
+
+                    $sMonth = max(1, min(12, (int)$startMonth));
+                    $eMonth = max(1, min(12, (int)$endMonth));
+                    $sYear  = (int)($startYear ?: 2026);
+                    $eYear  = (int)($endYear ?: 2026);
+
+                    $where = [];
+                    $params = [];
+
+                    if ($sYear === $eYear) {
+                        $where[] = "year = ?";
+                        $params[] = $sYear;
+                        $where[] = "month >= ? AND month <= ?";
+                        $params[] = $sMonth;
+                        $params[] = $eMonth;
+                    } else {
+                        $where[] = "((year = ? AND month >= ?) OR (year = ? AND month <= ?) OR (year > ? AND year < ?))";
+                        $params[] = $sYear; $params[] = $sMonth;
+                        $params[] = $eYear; $params[] = $eMonth;
+                        $params[] = $sYear; $params[] = $eYear;
+                    }
+
+                    if ($selectedRegion) {
+                        $where[] = "rsm_area = ?";
+                        $params[] = $selectedRegion;
+                    }
+                    if ($selectedAreaName) {
+                        $where[] = "area = ?";
+                        $params[] = $selectedAreaName;
+                    }
+                    if ($selectedStoreName) {
+                        $where[] = "store_name = ?";
+                        $params[] = $selectedStoreName;
+                    }
+                    if ($selectedMachineType) {
+                        $where[] = "machine_type = ?";
+                        $params[] = $selectedMachineType;
+                    }
+                    if ($selectedCategory) {
+                        $where[] = "category = ?";
+                        $params[] = $selectedCategory;
+                    }
+                    if ($search) {
+                        $where[] = "(store_name LIKE ? OR sap_code LIKE ? OR machine_no LIKE ? OR dc_name LIKE ? OR tl_name LIKE ?)";
+                        $like = "%{$search}%";
+                        $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like;
+                    }
+
+                    $whereSql = implode(' AND ', $where);
+
+                    if ($exportType === 'dm_stores') {
+                        $headerRow = [
+                            'No', 'Nama Toko', 'Kode SAP', 'Kategori Toko', 'Region (RSM Area)', 'Area',
+                            'Tipe Mesin POST', 'No Mesin POST (Serial)', 'Total Frekuensi Perawatan',
+                            'Tanggal Terakhir Perawatan', 'Tinta OK (Kali)', 'Pembersihan OK (Kali)', 'Tingkat Kepatuhan (%)'
+                        ];
+                        fputcsv($handle, $headerRow);
+
+                        $stmt = $pdo->prepare("
+                            SELECT 
+                                store_name, sap_code, category, rsm_area, area,
+                                machine_type, machine_no,
+                                COUNT(*) as total_checks,
+                                MAX(tanggal_report) as last_date,
+                                SUM(tinta_ok) as tinta_ok_cnt,
+                                SUM(pembersihan_all_ok) as clean_ok_cnt,
+                                ROUND(AVG(tinta_ok) * 100, 1) as compliance_pct
+                            FROM dm_raw
+                            WHERE $whereSql
+                            GROUP BY store_name, machine_no
+                            ORDER BY total_checks DESC, store_name ASC
+                        ");
+                        $stmt->execute($params);
+                        $no = 1;
+                        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                            fputcsv($handle, [
+                                $no++,
+                                $row['store_name'] ?? '',
+                                $row['sap_code'] ?? '',
+                                $row['category'] ?? '',
+                                $row['rsm_area'] ?? '',
+                                $row['area'] ?? '',
+                                $row['machine_type'] ?? '',
+                                $row['machine_no'] ?? '',
+                                (int)$row['total_checks'],
+                                $row['last_date'] ?? '',
+                                (int)$row['tinta_ok_cnt'],
+                                (int)$row['clean_ok_cnt'],
+                                ($row['compliance_pct'] ?? 0) . '%'
+                            ]);
+                        }
+                    } else {
+                        // dm_raw
+                        $headerRow = [
+                            'No', 'Tahun', 'Bulan', 'Submission Date', 'Tanggal Report', 'Nama Toko', 'Kode SAP',
+                            'Kategori Toko', 'Region (RSM Area)', 'Area', 'Nama TL', 'Tipe Mesin POST',
+                            'No Mesin POST', 'Nama DC / Petugas', 'Tinta OK', 'Nozzle/Brush OK',
+                            'Mix2Win Steps OK (/12)', 'Pembersihan Lengkap OK', 'Kesimpulan'
+                        ];
+                        fputcsv($handle, $headerRow);
+
+                        $stmt = $pdo->prepare("
+                            SELECT 
+                                year, month, submission_date, tanggal_report, store_name, sap_code, category, rsm_area, area,
+                                tl_name, machine_type, machine_no, dc_name, kesimpulan,
+                                tinta_ok, (CASE WHEN d200_nozzle_ok = 1 OR discovery_brush_ok = 1 OR manual_nozzle_ok = 1 THEN 1 ELSE 0 END) as nozzle_ok,
+                                mix2win_steps_ok, pembersihan_all_ok
+                            FROM dm_raw
+                            WHERE $whereSql
+                            ORDER BY tanggal_report DESC, id DESC
+                        ");
+                        $stmt->execute($params);
+                        $no = 1;
+                        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                            fputcsv($handle, [
+                                $no++,
+                                $row['year'],
+                                $row['month'],
+                                $row['submission_date'] ?? '',
+                                $row['tanggal_report'] ?? '',
+                                $row['store_name'] ?? '',
+                                $row['sap_code'] ?? '',
+                                $row['category'] ?? '',
+                                $row['rsm_area'] ?? '',
+                                $row['area'] ?? '',
+                                $row['tl_name'] ?? '',
+                                $row['machine_type'] ?? '',
+                                $row['machine_no'] ?? '',
+                                $row['dc_name'] ?? '',
+                                ($row['tinta_ok'] == 1 ? 'OK' : 'NO'),
+                                ($row['nozzle_ok'] == 1 ? 'OK' : '-'),
+                                $row['mix2win_steps_ok'] . '/12',
+                                ($row['pembersihan_all_ok'] == 1 ? 'OK' : 'NO'),
+                                $row['kesimpulan'] ?? ''
                             ]);
                         }
                     }
@@ -6160,6 +6543,276 @@ class PrincipalPortalController extends Controller
                     'kpis' => ['total_stores' => 0, 'total_oos_cases' => 0, 'no_oos_stores' => 0, 'no_oos_percentage' => 0, 'total_submissions' => 0],
                     'reasons' => [],
                     'weekly' => ['rows' => [], 'weeks' => [], 'grand_total_cases' => 0, 'total_rows' => 0, 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                    'submissions' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
+                ];
+            }
+        });
+    }
+
+    /**
+     * Kalkulasi Dashboard Eksekutif Daily Maintenance Dulux (2025 - 2026)
+     * Langsung dari SQLite db terindeks storage/app/dulux_data/daily_maintenance.sqlite
+     */
+    protected function calculateDailyMaintenanceDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedMachineType = '', $selectedCategory = '', $search = null, $storePage = 1, $rawPage = 1, $perPage = 50)
+    {
+        $sqlitePath = storage_path('app/dulux_data/daily_maintenance.sqlite');
+        $gzPath     = storage_path('app/dulux_data/daily_maintenance.sqlite.gz');
+
+        if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+            if (file_exists($gzPath)) {
+                try {
+                    $zp = gzopen($gzPath, 'rb');
+                    $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                    $fp = fopen($tmpPath, 'wb');
+                    if ($zp && $fp) {
+                        while (!gzeof($zp)) {
+                            fwrite($fp, gzread($zp, 524288));
+                        }
+                        gzclose($zp);
+                        fclose($fp);
+                        @rename($tmpPath, $sqlitePath);
+                        @chmod($sqlitePath, 0666);
+                    }
+                } catch (\Throwable $e) {
+                    \Log::error("Auto-extraction of daily_maintenance.sqlite.gz failed: " . $e->getMessage());
+                }
+            }
+        }
+
+        $sMonth = max(1, min(12, (int)$startMonth));
+        $eMonth = max(1, min(12, (int)$endMonth));
+        $sYear  = (int)($startYear ?: 2026);
+        $eYear  = (int)($endYear ?: 2026);
+
+        $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
+        $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
+
+        $monthNames = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'Mei', 6 => 'Jun', 7 => 'Jul', 8 => 'Agu', 9 => 'Sep', 10 => 'Okt', 11 => 'Nov', 12 => 'Des'];
+        $activeMonths = [];
+        for ($m = $sMonth; $m <= $eMonth; $m++) {
+            $activeMonths[$m] = $monthNames[$m];
+        }
+
+        $cacheKey = 'dm_dash_v1_' . md5($template->id . "_{$sYear}_{$sMonth}_{$eYear}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedMachineType}_{$selectedCategory}_{$search}_{$storePage}_{$rawPage}_{$perPage}");
+
+        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sYear, $sMonth, $eYear, $eMonth, $activeMonths, $selectedRegion, $selectedAreaName, $selectedStoreName, $selectedMachineType, $selectedCategory, $search, $storePage, $rawPage, $perPage) {
+            try {
+                $pdo = new \PDO("sqlite:" . $sqlitePath);
+                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+                $where = [];
+                $params = [];
+
+                if ($sYear === $eYear) {
+                    $where[] = "year = ?";
+                    $params[] = $sYear;
+                    $where[] = "month >= ? AND month <= ?";
+                    $params[] = $sMonth;
+                    $params[] = $eMonth;
+                } else {
+                    $where[] = "((year = ? AND month >= ?) OR (year = ? AND month <= ?) OR (year > ? AND year < ?))";
+                    $params[] = $sYear; $params[] = $sMonth;
+                    $params[] = $eYear; $params[] = $eMonth;
+                    $params[] = $sYear; $params[] = $eYear;
+                }
+
+                if ($selectedRegion) {
+                    $where[] = "rsm_area = ?";
+                    $params[] = $selectedRegion;
+                }
+                if ($selectedAreaName) {
+                    $where[] = "area = ?";
+                    $params[] = $selectedAreaName;
+                }
+                if ($selectedStoreName) {
+                    $where[] = "store_name = ?";
+                    $params[] = $selectedStoreName;
+                }
+                if ($selectedMachineType) {
+                    $where[] = "machine_type = ?";
+                    $params[] = $selectedMachineType;
+                }
+                if ($selectedCategory) {
+                    $where[] = "category = ?";
+                    $params[] = $selectedCategory;
+                }
+                if ($search) {
+                    $where[] = "(store_name LIKE ? OR sap_code LIKE ? OR machine_no LIKE ? OR dc_name LIKE ? OR tl_name LIKE ?)";
+                    $like = "%{$search}%";
+                    $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like;
+                }
+
+                $whereSql = implode(' AND ', $where);
+
+                // 1. KPIs
+                $kpiSql = "
+                    SELECT 
+                        COUNT(*) as total_submissions,
+                        COUNT(DISTINCT store_name) as total_stores,
+                        COUNT(DISTINCT machine_no) as total_machines,
+                        SUM(tinta_ok) as sum_tinta,
+                        SUM(CASE WHEN d200_nozzle_ok = 1 OR discovery_brush_ok = 1 OR manual_nozzle_ok = 1 THEN 1 ELSE 0 END) as sum_nozzle,
+                        SUM(CASE WHEN mix2win_steps_ok >= 10 THEN 1 ELSE 0 END) as sum_mix2win,
+                        SUM(pembersihan_all_ok) as sum_pembersihan
+                    FROM dm_raw
+                    WHERE $whereSql
+                ";
+                $stmt = $pdo->prepare($kpiSql);
+                $stmt->execute($params);
+                $kpiRow = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+                $totSub = (int)($kpiRow['total_submissions'] ?? 0);
+                $kpis = [
+                    'total_submissions' => $totSub,
+                    'total_stores' => (int)($kpiRow['total_stores'] ?? 0),
+                    'total_machines' => (int)($kpiRow['total_machines'] ?? 0),
+                    'tinta_rate' => $totSub > 0 ? round(((int)$kpiRow['sum_tinta'] / $totSub) * 100, 1) : 0,
+                    'nozzle_rate' => $totSub > 0 ? round(((int)$kpiRow['sum_nozzle'] / $totSub) * 100, 1) : 0,
+                    'mix2win_rate' => $totSub > 0 ? round(((int)$kpiRow['sum_mix2win'] / $totSub) * 100, 1) : 0,
+                    'pembersihan_rate' => $totSub > 0 ? round(((int)$kpiRow['sum_pembersihan'] / $totSub) * 100, 1) : 0,
+                ];
+
+                // 2. Breakdown per Machine Type
+                $mTypeSql = "
+                    SELECT 
+                        machine_type,
+                        COUNT(*) as submissions,
+                        COUNT(DISTINCT store_name) as stores,
+                        COUNT(DISTINCT machine_no) as machines,
+                        ROUND(AVG(tinta_ok) * 100, 1) as avg_tinta,
+                        ROUND(AVG(pembersihan_all_ok) * 100, 1) as avg_clean
+                    FROM dm_raw
+                    WHERE $whereSql
+                    GROUP BY machine_type
+                    ORDER BY submissions DESC
+                ";
+                $stmt = $pdo->prepare($mTypeSql);
+                $stmt->execute($params);
+                $byMachine = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 3. Breakdown per Category
+                $catSql = "
+                    SELECT 
+                        category,
+                        COUNT(*) as submissions,
+                        COUNT(DISTINCT store_name) as stores,
+                        COUNT(DISTINCT machine_no) as machines,
+                        ROUND(AVG(tinta_ok) * 100, 1) as avg_tinta,
+                        ROUND(AVG(pembersihan_all_ok) * 100, 1) as avg_clean
+                    FROM dm_raw
+                    WHERE $whereSql
+                    GROUP BY category
+                    ORDER BY submissions DESC
+                ";
+                $stmt = $pdo->prepare($catSql);
+                $stmt->execute($params);
+                $byCategory = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 4. Breakdown per Regional RSM Area
+                $rsmSql = "
+                    SELECT 
+                        rsm_area,
+                        COUNT(*) as submissions,
+                        COUNT(DISTINCT store_name) as stores,
+                        COUNT(DISTINCT machine_no) as machines,
+                        ROUND(AVG(tinta_ok) * 100, 1) as avg_tinta,
+                        ROUND(AVG(pembersihan_all_ok) * 100, 1) as avg_clean
+                    FROM dm_raw
+                    WHERE $whereSql
+                    GROUP BY rsm_area
+                    ORDER BY submissions DESC
+                ";
+                $stmt = $pdo->prepare($rsmSql);
+                $stmt->execute($params);
+                $byRegion = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 5. Store Matrix Paginated
+                $storeCountSql = "
+                    SELECT COUNT(*) FROM (
+                        SELECT store_name, machine_no FROM dm_raw WHERE $whereSql GROUP BY store_name, machine_no
+                    )
+                ";
+                $stmt = $pdo->prepare($storeCountSql);
+                $stmt->execute($params);
+                $totalStoreMatrix = (int)$stmt->fetchColumn();
+
+                $storeOffset = ($storePage - 1) * $perPage;
+                $storeMatrixSql = "
+                    SELECT 
+                        store_name, sap_code, category, rsm_area, area,
+                        machine_type, machine_no,
+                        COUNT(*) as total_checks,
+                        MAX(tanggal_report) as last_date,
+                        SUM(tinta_ok) as tinta_ok_cnt,
+                        SUM(pembersihan_all_ok) as clean_ok_cnt,
+                        ROUND(AVG(tinta_ok) * 100, 1) as compliance_pct
+                    FROM dm_raw
+                    WHERE $whereSql
+                    GROUP BY store_name, machine_no
+                    ORDER BY total_checks DESC, store_name ASC
+                    LIMIT $perPage OFFSET $storeOffset
+                ";
+                $stmt = $pdo->prepare($storeMatrixSql);
+                $stmt->execute($params);
+                $storeRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 6. Raw Submissions Paginated
+                $rawCountSql = "SELECT COUNT(*) FROM dm_raw WHERE $whereSql";
+                $stmt = $pdo->prepare($rawCountSql);
+                $stmt->execute($params);
+                $totalRaw = (int)$stmt->fetchColumn();
+
+                $rawOffset = ($rawPage - 1) * $perPage;
+                $rawSql = "
+                    SELECT 
+                        year, month, submission_date, tanggal_report, store_name, sap_code, category, rsm_area, area,
+                        tl_name, machine_type, machine_no, dc_name, kesimpulan,
+                        tinta_ok, d200_nozzle_ok, discovery_brush_ok, manual_nozzle_ok,
+                        mix2win_steps_ok, pembersihan_all_ok
+                    FROM dm_raw
+                    WHERE $whereSql
+                    ORDER BY tanggal_report DESC, id DESC
+                    LIMIT $perPage OFFSET $rawOffset
+                ";
+                $stmt = $pdo->prepare($rawSql);
+                $stmt->execute($params);
+                $rawRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                return [
+                    'months' => $activeMonths,
+                    'kpis' => $kpis,
+                    'by_machine_type' => $byMachine,
+                    'by_category' => $byCategory,
+                    'by_region' => $byRegion,
+                    'store_matrix' => [
+                        'rows' => $storeRows,
+                        'total_rows' => $totalStoreMatrix,
+                        'total' => $totalStoreMatrix,
+                        'page' => $storePage,
+                        'per_page' => $perPage,
+                        'total_pages' => (int)ceil($totalStoreMatrix / $perPage),
+                        'from' => $totalStoreMatrix > 0 ? ($storeOffset + 1) : 0,
+                        'to' => min($storeOffset + $perPage, $totalStoreMatrix),
+                    ],
+                    'submissions' => [
+                        'rows' => $rawRows,
+                        'total' => $totalRaw,
+                        'page' => $rawPage,
+                        'per_page' => $perPage,
+                        'total_pages' => (int)ceil($totalRaw / $perPage),
+                        'from' => $totalRaw > 0 ? ($rawOffset + 1) : 0,
+                        'to' => min($rawOffset + $perPage, $totalRaw),
+                    ]
+                ];
+            } catch (\Throwable $e) {
+                \Log::error("Failed to calculate Daily Maintenance Dashboard: " . $e->getMessage());
+                return [
+                    'months' => $activeMonths,
+                    'kpis' => ['total_submissions' => 0, 'total_stores' => 0, 'total_machines' => 0, 'tinta_rate' => 0, 'nozzle_rate' => 0, 'mix2win_rate' => 0, 'pembersihan_rate' => 0],
+                    'by_machine_type' => [],
+                    'by_category' => [],
+                    'by_region' => [],
+                    'store_matrix' => ['rows' => [], 'total_rows' => 0, 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
                     'submissions' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
                 ];
             }

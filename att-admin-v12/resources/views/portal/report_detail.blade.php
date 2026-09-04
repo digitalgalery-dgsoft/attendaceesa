@@ -1473,7 +1473,12 @@
         @include('portal.partials.oos_dashboard', ['oosData' => $oosData])
     @endif
 
-    @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport))
+    {{-- DAILY MAINTENANCE EXECUTIVE DASHBOARD (SUMMARY, STORE MATRIX & RAW SUBMISSIONS) --}}
+    @if(isset($isDailyMaintenanceReport) && $isDailyMaintenanceReport && !empty($dailyMaintenanceData))
+        @include('portal.partials.daily_maintenance_dashboard', ['dmData' => $dailyMaintenanceData])
+    @endif
+
+    @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport) && (!isset($isDailyMaintenanceReport) || !$isDailyMaintenanceReport))
     <!-- Dynamic 12-Column Dashboard Canvas (Sortable in Studio Mode) -->
     <div id="dashboard_canvas" class="dashboard-grid">
         @php
