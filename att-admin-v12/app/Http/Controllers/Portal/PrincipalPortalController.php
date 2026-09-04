@@ -558,6 +558,147 @@ class PrincipalPortalController extends Controller
             ));
         }
 
+        $isOfftakeReport = ($template->code === 'RPT-DULUX-OFFTAKE-01');
+
+        // --- Offtake Custom Handling (Sheet 2 Store Volume Pivot & Sheet 1 Raw Data from offtake_2026.sqlite) ---
+        if ($isOfftakeReport) {
+            $sqlitePath = storage_path('app/dulux_data/offtake_2026.sqlite');
+            $gzPath = storage_path('app/dulux_data/offtake_2026.sqlite.gz');
+
+            // Auto-extract if .sqlite does not exist or corrupted (< 1MB) but .sqlite.gz exists
+            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+                if (file_exists($gzPath)) {
+                    try {
+                        $zp = gzopen($gzPath, 'rb');
+                        $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                        $fp = fopen($tmpPath, 'wb');
+                        if ($zp && $fp) {
+                            while (!gzeof($zp)) {
+                                fwrite($fp, gzread($zp, 524288));
+                            }
+                            gzclose($zp);
+                            fclose($fp);
+                            @rename($tmpPath, $sqlitePath);
+                            @chmod($sqlitePath, 0666);
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::error("Auto-extraction of offtake_2026.sqlite.gz failed: " . $e->getMessage());
+                    }
+                }
+            }
+
+            // Regions directly from offtake_raw
+            $regions = Cache::remember('offtake_filter_regions_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT region FROM offtake_raw WHERE region IS NOT NULL AND region != '' ORDER BY region");
+                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                } catch (\Throwable $e) {
+                    return ['R1', 'R2', 'R3', 'R4'];
+                }
+            });
+
+            // Areas directly from offtake_raw
+            $areas = Cache::remember('offtake_filter_areas_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT region, MIN(area) as area_name FROM offtake_raw WHERE area IS NOT NULL AND area != '' GROUP BY region, UPPER(TRIM(area)) ORDER BY area_name ASC");
+                    $rawAreas = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                    $result = [];
+                    foreach ($rawAreas as $a) {
+                        $result[] = [
+                            'id' => $a['area_name'],
+                            'name' => ucwords(strtolower($a['area_name'])),
+                            'region' => $a['region']
+                        ];
+                    }
+                    return $result;
+                } catch (\Throwable $e) {
+                    return [];
+                }
+            });
+
+            // Stores directly from offtake_raw
+            $workLocations = Cache::remember('offtake_filter_stores_v1', 3600, function() use ($sqlitePath) {
+                try {
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $stmt = $pdo->query("SELECT DISTINCT region, MIN(area) as area, sap, name_store FROM offtake_raw WHERE name_store IS NOT NULL AND name_store != '' GROUP BY name_store ORDER BY name_store ASC");
+                    $rawStores = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                    $result = [];
+                    foreach ($rawStores as $s) {
+                        $result[] = [
+                            'id' => $s['name_store'],
+                            'name' => $s['name_store'],
+                            'region' => $s['region'],
+                            'area' => $s['area'],
+                            'sap' => $s['sap']
+                        ];
+                    }
+                    return $result;
+                } catch (\Throwable $e) {
+                    return [];
+                }
+            });
+
+            $offtakePage = max(1, (int)$request->query('page', 1));
+            $rawPage = max(1, (int)$request->query('raw_page', 1));
+            $activeTab = $request->query('tab', 'sheet2');
+
+            $offtakeData = $this->calculateOfftakeDashboardData(
+                $template,
+                $startMonth,
+                $startYear,
+                $endMonth,
+                $endYear,
+                $selectedRegion,
+                $selectedAreaId,
+                $selectedLocationId,
+                $search,
+                $offtakePage,
+                $rawPage,
+                50
+            );
+
+            $totalTemplateSubmissions = 0;
+            $uniqueStores = 0;
+            $submissions = new LengthAwarePaginator([], 0, 20, 1);
+            $dashboardConfig = [];
+            $widgetResults = [];
+            $isYtdReport = false;
+            $ytdData = [];
+
+            return view('portal.report_detail', compact(
+                'tenantPrincipal',
+                'tenantPrincipalsAll',
+                'brandColor',
+                'activeTemplates',
+                'template',
+                'submissions',
+                'totalTemplateSubmissions',
+                'uniqueStores',
+                'startMonth',
+                'startYear',
+                'endMonth',
+                'endYear',
+                'search',
+                'selectedRegion',
+                'selectedAreaId',
+                'selectedLocationId',
+                'regions',
+                'areas',
+                'workLocations',
+                'setting',
+                'dashboardConfig',
+                'widgetResults',
+                'isYtdReport',
+                'ytdData',
+                'isCbpReport',
+                'isOfftakeReport',
+                'offtakeData',
+                'activeTab'
+            ));
+        }
+
         // Optimasi Query Statistik Ringkasan (Combined Count dalam 1 Query + Cache 5 Menit)
         $statsCacheKey = 'rep_stats_' . md5($template->id . '_' . $startDate->toDateString() . '_' . $endDate->toDateString() . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
         
@@ -899,11 +1040,11 @@ class PrincipalPortalController extends Controller
         $isYtdReport = false;
         $ytdData = [];
         
-        if (in_array($template->code, ['RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-STOCK-END'])) {
+        if (in_array($template->code, ['RPT-DULUX-STOCK-END'])) {
             $isYtdReport = true;
-            $metricField = $template->code === 'RPT-DULUX-OFFTAKE-01' ? 'total_volume_liter' : 'total_volume_stok_liter';
-            $productField = $template->code === 'RPT-DULUX-OFFTAKE-01' ? 'produk_terjual' : 'produk_stock_end';
-            $brandPrefix = $template->code === 'RPT-DULUX-OFFTAKE-01' ? 'Offtake' : 'Stock';
+            $metricField = 'total_volume_stok_liter';
+            $productField = 'produk_stock_end';
+            $brandPrefix = 'Stock';
             
             $cacheKeyYtd = 'ytd_report_v2_' . md5($template->id . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
             
@@ -1526,6 +1667,202 @@ class PrincipalPortalController extends Controller
                         }
 
                         fputcsv($handle, $row);
+                    }
+
+                    fclose($handle);
+                };
+
+                return response()->stream($callback, 200, $headers);
+            }
+        }
+
+        // Custom Streamed CSV Export for Dulux Offtake Report (Sheet 2 Store Pivot & Sheet 1 Raw Data)
+        if ($template->code === 'RPT-DULUX-OFFTAKE-01') {
+            $sqlitePath = storage_path('app/dulux_data/offtake_2026.sqlite');
+            $gzPath = storage_path('app/dulux_data/offtake_2026.sqlite.gz');
+            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+                if (file_exists($gzPath)) {
+                    try {
+                        $zp = gzopen($gzPath, 'rb');
+                        $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                        $fp = fopen($tmpPath, 'wb');
+                        if ($zp && $fp) {
+                            while (!gzeof($zp)) {
+                                fwrite($fp, gzread($zp, 524288));
+                            }
+                            gzclose($zp);
+                            fclose($fp);
+                            @rename($tmpPath, $sqlitePath);
+                            @chmod($sqlitePath, 0666);
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::error("Auto-extraction of offtake_2026.sqlite.gz failed: " . $e->getMessage());
+                    }
+                }
+            }
+
+            if (file_exists($sqlitePath)) {
+                $exportType = $request->query('export_type', 'sheet2');
+                $filename = ($exportType === 'raw' ? 'raw-data-offtake' : 'rekap-toko-offtake') . "-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv";
+                $headers = [
+                    'Content-Type' => 'text/csv; charset=UTF-8',
+                    'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                    'Pragma' => 'no-cache',
+                    'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+                    'Expires' => '0',
+                ];
+
+                $callback = function () use ($sqlitePath, $startMonth, $endMonth, $startYear, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $request, $exportType) {
+                    $handle = fopen('php://output', 'w');
+                    fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+
+                    $pdo = new \PDO("sqlite:" . $sqlitePath);
+                    $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
+                    $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
+                    $search = $request->query('q');
+
+                    $sMonth = max(1, min(12, (int)$startMonth));
+                    $eMonth = max(1, min(12, (int)$endMonth));
+                    if ($sMonth > $eMonth) {
+                        $tmp = $sMonth;
+                        $sMonth = $eMonth;
+                        $eMonth = $tmp;
+                    }
+
+                    $monthNames = [
+                        1 => 'Januari', 2 => 'Februari', 3 => 'Maret',
+                        4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli',
+                        8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+                    ];
+                    $exportMonths = [];
+                    for ($m = $sMonth; $m <= $eMonth; $m++) {
+                        if ($m >= 1 && $m <= 7) {
+                            $exportMonths[$m] = $monthNames[$m] . ' ' . $endYear;
+                        }
+                    }
+                    if (empty($exportMonths)) {
+                        for ($m = 1; $m <= 7; $m++) {
+                            $exportMonths[$m] = $monthNames[$m] . ' ' . $endYear;
+                        }
+                        $sMonth = 1;
+                        $eMonth = 7;
+                    }
+
+                    $where = ["month BETWEEN ? AND ?"];
+                    $params = [$sMonth, $eMonth];
+
+                    if ($selectedRegion) {
+                        $where[] = "region = ?";
+                        $params[] = $selectedRegion;
+                    }
+                    if ($selectedAreaName) {
+                        $where[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
+                        $params[] = $selectedAreaName;
+                    }
+                    if ($selectedStoreName) {
+                        $where[] = "name_store = ?";
+                        $params[] = $selectedStoreName;
+                    }
+                    if ($search) {
+                        $where[] = "(name_store LIKE ? OR sap LIKE ?)";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                    }
+                    $whereSql = implode(' AND ', $where);
+
+                    if ($exportType === 'raw') {
+                        // Sheet 1 format
+                        $headerRow = [
+                            'Tanggal Transaksi', 'Year', 'Month', 'Week', 'Region', 'Area',
+                            'Name Store', 'SAP', 'Sub Brand', 'Brand',
+                            'Kemasan Galon', 'Qty Galon', 'Kemasan Pail', 'Qty Pail', 'Volume (L)'
+                        ];
+                        fputcsv($handle, $headerRow);
+
+                        $stmt = $pdo->prepare("
+                            SELECT trans_date, year, month, week, region, area,
+                                   name_store, sap, sub_brand, brand,
+                                   kemasan_galon, qty_galon, kemasan_pail, qty_pail, volume_liter
+                            FROM offtake_raw
+                            WHERE $whereSql
+                            ORDER BY trans_date ASC, id ASC
+                        ");
+                        $stmt->execute($params);
+                        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                            fputcsv($handle, [
+                                $row['trans_date'] ?? '',
+                                $row['year'] ?? '',
+                                $row['month'] ?? '',
+                                $row['week'] ?? '',
+                                $row['region'] ?? '',
+                                $row['area'] ?? '',
+                                $row['name_store'] ?? '',
+                                $row['sap'] ?? '',
+                                $row['sub_brand'] ?? '',
+                                $row['brand'] ?? '',
+                                $row['kemasan_galon'] ?? '',
+                                $row['qty_galon'] ?? '',
+                                $row['kemasan_pail'] ?? '',
+                                $row['qty_pail'] ?? '',
+                                $row['volume_liter'] ?? ''
+                            ]);
+                        }
+                    } else {
+                        // Sheet 2 format (Store Volume Pivot)
+                        $headerRow = ['No', 'SAP', 'Nama Toko', 'Region', 'Area'];
+                        foreach ($exportMonths as $mLabel) {
+                            $headerRow[] = $mLabel . ' (L)';
+                        }
+                        $headerRow[] = 'Grand Total (L)';
+                        fputcsv($handle, $headerRow);
+
+                        $sumCases = [];
+                        foreach (array_keys($exportMonths) as $m) {
+                            $sumCases[] = "SUM(CASE WHEN month = $m THEN volume_liter ELSE 0 END) as m_{$m}";
+                        }
+                        $sumCasesSql = implode(', ', $sumCases);
+
+                        // Stores query
+                        $storeSql = "
+                            SELECT sap, name_store, MIN(region) as region, MIN(area) as area,
+                                   $sumCasesSql,
+                                   SUM(volume_liter) as total_vol
+                            FROM offtake_raw
+                            WHERE $whereSql
+                            GROUP BY sap, name_store
+                            ORDER BY CAST(sap AS INTEGER) ASC, sap ASC
+                        ";
+                        $stmt = $pdo->prepare($storeSql);
+                        $stmt->execute($params);
+
+                        $no = 1;
+                        while ($s = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                            $csvRow = [
+                                $no++,
+                                $s['sap'],
+                                $s['name_store'],
+                                $s['region'],
+                                $s['area'],
+                            ];
+                            foreach (array_keys($exportMonths) as $m) {
+                                $csvRow[] = round((float)($s["m_{$m}"] ?? 0), 2);
+                            }
+                            $csvRow[] = round((float)($s['total_vol'] ?? 0), 2);
+                            fputcsv($handle, $csvRow);
+                        }
+
+                        // Grand total footer row
+                        $grandSql = "SELECT $sumCasesSql, SUM(volume_liter) as total_vol FROM offtake_raw WHERE $whereSql";
+                        $grandStmt = $pdo->prepare($grandSql);
+                        $grandStmt->execute($params);
+                        $grand = $grandStmt->fetch(\PDO::FETCH_ASSOC);
+
+                        $footerRow = ['', 'Grand Total', 'Seluruh Toko Terfilter', '', ''];
+                        foreach (array_keys($exportMonths) as $m) {
+                            $footerRow[] = round((float)($grand["m_{$m}"] ?? 0), 2);
+                        }
+                        $footerRow[] = round((float)($grand['total_vol'] ?? 0), 2);
+                        fputcsv($handle, $footerRow);
                     }
 
                     fclose($handle);
@@ -3252,6 +3589,187 @@ class PrincipalPortalController extends Controller
             'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
             'turnoverRows', 'year', 'setting'
         ));
+    }
+
+    /**
+     * Calculate Dulux Offtake Data (Sheet 2 Store Volume Pivot & Sheet 1 Raw Data)
+     */
+    protected function calculateOfftakeDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $offtakePage = 1, $rawPage = 1, $perPage = 50)
+    {
+        $sqlitePath = storage_path('app/dulux_data/offtake_2026.sqlite');
+        $gzPath = storage_path('app/dulux_data/offtake_2026.sqlite.gz');
+
+        // Auto-extract if .sqlite does not exist or corrupted (< 1MB) but .sqlite.gz exists
+        if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+            if (file_exists($gzPath)) {
+                try {
+                    $zp = gzopen($gzPath, 'rb');
+                    $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                    $fp = fopen($tmpPath, 'wb');
+                    if ($zp && $fp) {
+                        while (!gzeof($zp)) {
+                            fwrite($fp, gzread($zp, 524288));
+                        }
+                        gzclose($zp);
+                        fclose($fp);
+                        @rename($tmpPath, $sqlitePath);
+                        @chmod($sqlitePath, 0666);
+                    }
+                } catch (\Throwable $e) {
+                    \Log::error("Auto-extraction of offtake_2026.sqlite.gz failed: " . $e->getMessage());
+                }
+            }
+        }
+
+        if (!file_exists($sqlitePath)) {
+            return [
+                'months' => [],
+                'sheet2' => ['stores' => [], 'grand_total' => [], 'total_stores' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                'sheet1' => ['rows' => [], 'total_records' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
+            ];
+        }
+
+        $sMonth = max(1, min(12, (int)$startMonth));
+        $eMonth = max(1, min(12, (int)$endMonth));
+        if ($sMonth > $eMonth) {
+            $tmp = $sMonth;
+            $sMonth = $eMonth;
+            $eMonth = $tmp;
+        }
+
+        $monthNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret',
+            4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli',
+            8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $activeMonths = [];
+        for ($m = $sMonth; $m <= $eMonth; $m++) {
+            if ($m >= 1 && $m <= 7) {
+                $activeMonths[$m] = $monthNames[$m] . ' ' . $endYear;
+            }
+        }
+        if (empty($activeMonths)) {
+            for ($m = 1; $m <= 7; $m++) {
+                $activeMonths[$m] = $monthNames[$m] . ' ' . $endYear;
+            }
+            $sMonth = 1;
+            $eMonth = 7;
+        }
+
+        $cacheKey = 'offtake_dash_v1_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $endYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search . '_' . $offtakePage . '_' . $rawPage);
+
+        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sMonth, $eMonth, $activeMonths, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $offtakePage, $rawPage, $perPage) {
+            try {
+                $pdo = new \PDO("sqlite:" . $sqlitePath);
+                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+                $where = ["month BETWEEN ? AND ?"];
+                $params = [$sMonth, $eMonth];
+
+                if ($selectedRegion) {
+                    $where[] = "region = ?";
+                    $params[] = $selectedRegion;
+                }
+                if ($selectedAreaId) {
+                    $where[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
+                    $params[] = $selectedAreaId;
+                }
+                if ($selectedLocationId) {
+                    $where[] = "name_store = ?";
+                    $params[] = $selectedLocationId;
+                }
+                if ($search) {
+                    $where[] = "(name_store LIKE ? OR sap LIKE ?)";
+                    $params[] = "%{$search}%";
+                    $params[] = "%{$search}%";
+                }
+                $whereSql = implode(' AND ', $where);
+
+                // Dynamic sum cases for active months
+                $sumCases = [];
+                foreach (array_keys($activeMonths) as $m) {
+                    $sumCases[] = "SUM(CASE WHEN month = $m THEN volume_liter ELSE 0 END) as m_{$m}";
+                }
+                $sumCasesSql = implode(', ', $sumCases);
+
+                // 1. Grand Total row across all filtered stores
+                $grandSql = "SELECT $sumCasesSql, SUM(volume_liter) as total_vol FROM offtake_raw WHERE $whereSql";
+                $grandStmt = $pdo->prepare($grandSql);
+                $grandStmt->execute($params);
+                $grandRow = $grandStmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+                // 2. Count distinct stores
+                $countSql = "SELECT COUNT(DISTINCT sap || '---' || name_store) FROM offtake_raw WHERE $whereSql";
+                $countStmt = $pdo->prepare($countSql);
+                $countStmt->execute($params);
+                $totalStores = (int)$countStmt->fetchColumn();
+
+                // 3. Paginated Sheet 2 Stores
+                $offset = ($offtakePage - 1) * $perPage;
+                $storeSql = "
+                    SELECT sap, name_store, MIN(region) as region, MIN(area) as area,
+                           $sumCasesSql,
+                           SUM(volume_liter) as total_vol
+                    FROM offtake_raw
+                    WHERE $whereSql
+                    GROUP BY sap, name_store
+                    ORDER BY CAST(sap AS INTEGER) ASC, sap ASC
+                    LIMIT $perPage OFFSET $offset
+                ";
+                $storeStmt = $pdo->prepare($storeSql);
+                $storeStmt->execute($params);
+                $stores = $storeStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // 4. Sheet 1 Raw data
+                $rawOffset = ($rawPage - 1) * $perPage;
+                $rawCountSql = "SELECT COUNT(*) FROM offtake_raw WHERE $whereSql";
+                $rawCountStmt = $pdo->prepare($rawCountSql);
+                $rawCountStmt->execute($params);
+                $totalRaw = (int)$rawCountStmt->fetchColumn();
+
+                $rawSql = "
+                    SELECT trans_date, year, month, week, region, area, name_store, sap,
+                           sub_brand, brand, kemasan_galon, qty_galon, kemasan_pail, qty_pail, volume_liter
+                    FROM offtake_raw
+                    WHERE $whereSql
+                    ORDER BY trans_date DESC, id DESC
+                    LIMIT $perPage OFFSET $rawOffset
+                ";
+                $rawStmt = $pdo->prepare($rawSql);
+                $rawStmt->execute($params);
+                $rawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                return [
+                    'months' => $activeMonths,
+                    'sheet2' => [
+                        'stores' => $stores,
+                        'grand_total' => $grandRow,
+                        'total_stores' => $totalStores,
+                        'page' => $offtakePage,
+                        'per_page' => $perPage,
+                        'total_pages' => (int)ceil($totalStores / $perPage),
+                        'from' => $totalStores > 0 ? ($offset + 1) : 0,
+                        'to' => min($offset + $perPage, $totalStores),
+                    ],
+                    'sheet1' => [
+                        'rows' => $rawRows,
+                        'total_records' => $totalRaw,
+                        'page' => $rawPage,
+                        'per_page' => $perPage,
+                        'total_pages' => (int)ceil($totalRaw / $perPage),
+                        'from' => $totalRaw > 0 ? ($rawOffset + 1) : 0,
+                        'to' => min($rawOffset + $perPage, $totalRaw),
+                    ]
+                ];
+            } catch (\Throwable $e) {
+                \Log::error("Failed to calculate Offtake Dashboard: " . $e->getMessage());
+                return [
+                    'months' => $activeMonths,
+                    'sheet2' => ['stores' => [], 'grand_total' => [], 'total_stores' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                    'sheet1' => ['rows' => [], 'total_records' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
+                ];
+            }
+        });
     }
 
     /**

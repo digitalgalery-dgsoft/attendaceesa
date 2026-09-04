@@ -995,7 +995,7 @@
         </div>
 
         <div class="header-actions-group">
-            @if(!isset($isCbpReport) || !$isCbpReport)
+            @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport))
             <button type="button" class="btn-studio-toggle" id="btn_toggle_studio" onclick="toggleStudioMode()">
                 <i class="fa-solid fa-layer-group"></i>
                 <span id="studio_btn_text">🎨 Studio Dashboard</span>
@@ -1458,7 +1458,12 @@
         @include('portal.partials.cbp_dashboard', ['cbpData' => $cbpData])
     @endif
 
-    @if(!isset($isCbpReport) || !$isCbpReport)
+    {{-- OFFTAKE EXECUTIVE DASHBOARD (SHEET 2 PIVOT & SHEET 1 RAW DATA) --}}
+    @if(isset($isOfftakeReport) && $isOfftakeReport && !empty($offtakeData))
+        @include('portal.partials.offtake_dashboard', ['offtakeData' => $offtakeData])
+    @endif
+
+    @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport))
     <!-- Dynamic 12-Column Dashboard Canvas (Sortable in Studio Mode) -->
     <div id="dashboard_canvas" class="dashboard-grid">
         @php
