@@ -497,8 +497,9 @@
         @php
             $rawData = $cbpData['raw_data'] ?? ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => 50, 'total_pages' => 0, 'from' => 0, 'to' => 0];
             $rawRows = $rawData['rows'] ?? [];
-            $firstTransDate = !empty($rawRows[0]['trans_date']) ? $rawRows[0]['trans_date'] : '2026-01-01';
-            $dateHeader = \Carbon\Carbon::parse($firstTransDate)->translatedFormat('l, d F Y');
+            $activeMonths = $rawData['months'] ?? ($cbpData['months'] ?? []);
+            $totalMonthCols = count($activeMonths) * 9;
+            $totalTableCols = 12 + $totalMonthCols;
         @endphp
 
         <div class="cbp-sec-card" style="margin-bottom: 1.5rem;">
@@ -510,7 +511,7 @@
                         <span>Rincian Data Mentah CBP 2026 (Raw Data)</span>
                     </div>
                     <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
-                        Menampilkan data ke-<strong>{{ number_format($rawData['from']) }}</strong> – <strong>{{ number_format($rawData['to']) }}</strong> dari total <strong>{{ number_format($rawData['total']) }}</strong> baris data
+                        Menampilkan data ke-<strong>{{ number_format($rawData['from']) }}</strong> – <strong>{{ number_format($rawData['to']) }}</strong> dari total <strong>{{ number_format($rawData['total']) }}</strong> item toko & produk (<strong>{{ count($activeMonths) }}</strong> bulan terpantau)
                     </div>
                 </div>
 
@@ -526,7 +527,7 @@
             <div class="cbp-raw-viewport">
                 <table class="cbp-raw-table">
                     <thead>
-                        <!-- Baris 1: Header Kolom Utama & Merged Date Kemasan -->
+                        <!-- Baris 1: Header Kolom Utama & Merged Date Kemasan Sesuai Filter Bulan -->
                         <tr>
                             <th rowspan="2" style="text-align: center; width: 60px;">Regional</th>
                             <th rowspan="2" style="text-align: center; width: 85px;">SAP Member</th>
@@ -540,32 +541,29 @@
                             <th rowspan="2" style="text-align: left; min-width: 150px;">Product</th>
                             <th rowspan="2" style="text-align: left; min-width: 160px;">Category</th>
                             <th rowspan="2" style="text-align: left; min-width: 140px;">Product Group</th>
-                            <!-- Header Tanggal Kemasan -->
-                            <th colspan="9" style="text-align: center; font-weight: 800; background: #eff6ff; color: var(--brand-primary); border-left: 2px solid #e2e8f0; font-size: 0.82rem; padding: 0.65rem 1rem;">
-                                {{ $dateHeader }}
-                            </th>
+                            @foreach($activeMonths as $mKey => $mInfo)
+                                <th colspan="9" style="text-align: center; font-weight: 800; background: #eff6ff; color: var(--brand-primary); border-left: 2px solid #cbd5e1; font-size: 0.82rem; padding: 0.65rem 1rem;">
+                                    {{ $mInfo['date_header'] ?? ($mInfo['label'] ?? 'Bulan ' . $mKey) }}
+                                </th>
+                            @endforeach
                         </tr>
-                        <!-- Baris 2: Sub Header Kemasan -->
+                        <!-- Baris 2: Sub Header Kemasan Sesuai Setiap Bulan Terfilter -->
                         <tr>
-                            <th style="text-align: right; min-width: 90px; border-left: 2px solid #e2e8f0;">Tin</th>
-                            <th style="text-align: right; min-width: 95px;">Harga Terendah</th>
-                            <th style="text-align: center; min-width: 80px;">REASON</th>
-                            <th style="text-align: right; min-width: 90px; border-left: 1px dashed #cbd5e1;">Galon</th>
-                            <th style="text-align: right; min-width: 95px;">Harga Terendah</th>
-                            <th style="text-align: center; min-width: 80px;">REASON</th>
-                            <th style="text-align: right; min-width: 95px; border-left: 1px dashed #cbd5e1;">Pail</th>
-                            <th style="text-align: right; min-width: 95px;">Harga Terendah</th>
-                            <th style="text-align: center; min-width: 80px;">REASON</th>
+                            @foreach($activeMonths as $mKey => $mInfo)
+                                <th style="text-align: right; min-width: 90px; border-left: 2px solid #cbd5e1;">Tin</th>
+                                <th style="text-align: right; min-width: 95px;">Harga Terendah</th>
+                                <th style="text-align: center; min-width: 80px;">REASON</th>
+                                <th style="text-align: right; min-width: 90px; border-left: 1px dashed #cbd5e1;">Galon</th>
+                                <th style="text-align: right; min-width: 95px;">Harga Terendah</th>
+                                <th style="text-align: center; min-width: 80px;">REASON</th>
+                                <th style="text-align: right; min-width: 95px; border-left: 1px dashed #cbd5e1;">Pail</th>
+                                <th style="text-align: right; min-width: 95px;">Harga Terendah</th>
+                                <th style="text-align: center; min-width: 80px;">REASON</th>
+                            @endforeach
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($rawRows as $r)
-                            @php
-                                $hasTin = !empty($r['price_tin']) && $r['price_tin'] > 0;
-                                $hasGalon = !empty($r['price_galon']) && $r['price_galon'] > 0;
-                                $hasPail = !empty($r['price_pail']) && $r['price_pail'] > 0;
-                                $allEmpty = !$hasTin && !$hasGalon && !$hasPail;
-                            @endphp
                             <tr>
                                 <td style="text-align: center; font-weight: 700; color: var(--text-muted);">{{ $r['regional'] }}</td>
                                 <td style="text-align: center; color: var(--text-muted);">{{ $r['sap_member'] }}</td>
@@ -575,14 +573,14 @@
                                 <td style="text-align: left; color: var(--text-muted);">{{ $r['area'] }}</td>
                                 <td style="text-align: left; color: var(--text-muted);">{{ $r['rsm_area'] }}</td>
                                 <td style="text-align: center;">
-                                    @if($r['class'])
+                                    @if(!empty($r['class']))
                                         <span class="cbp-brand-badge cbp-brand-comp">{{ $r['class'] }}</span>
                                     @else
                                         <span style="color: var(--text-muted);">-</span>
                                     @endif
                                 </td>
                                 <td style="text-align: center;">
-                                    @if($r['store_type'])
+                                    @if(!empty($r['store_type']))
                                         <span class="cbp-brand-badge cbp-brand-comp">{{ $r['store_type'] }}</span>
                                     @else
                                         <span style="color: var(--text-muted);">-</span>
@@ -592,44 +590,54 @@
                                 <td style="text-align: left; color: var(--text-muted);">{{ $r['category'] }}</td>
                                 <td style="text-align: left; color: var(--text-muted);">{{ $r['product_group'] }}</td>
 
-                                <!-- Kemasan Tin -->
-                                @if($hasTin)
-                                    <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 2px solid #f1f5f9;">{{ number_format($r['price_tin'], 0, ',', '.') }}</td>
-                                    <td style="text-align: right; color: var(--text-muted);">{{ number_format($r['lowest_tin'] ?: $r['price_tin'], 0, ',', '.') }}</td>
-                                    <td style="text-align: center;">{{ $r['reason_tin'] ?: '-' }}</td>
-                                @else
-                                    <td class="cell-peach-portal" style="border-left: 2px solid #f1f5f9;"></td>
-                                    <td class="cell-peach-portal"></td>
-                                    <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; color: #c2410c;">{{ $r['reason_tin'] }}</td>
-                                @endif
+                                @foreach($activeMonths as $mKey => $mInfo)
+                                    @php
+                                        $mp = $r['monthly_prices'][$mKey] ?? null;
+                                        $hasTin = !empty($mp['price_tin']) && $mp['price_tin'] > 0;
+                                        $hasGalon = !empty($mp['price_galon']) && $mp['price_galon'] > 0;
+                                        $hasPail = !empty($mp['price_pail']) && $mp['price_pail'] > 0;
+                                        $allEmpty = !$hasTin && !$hasGalon && !$hasPail;
+                                    @endphp
 
-                                <!-- Kemasan Galon -->
-                                @if($hasGalon)
-                                    <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 1px dashed #e2e8f0;">{{ number_format($r['price_galon'], 0, ',', '.') }}</td>
-                                    <td style="text-align: right; color: var(--text-muted);">{{ number_format($r['lowest_galon'] ?: $r['price_galon'], 0, ',', '.') }}</td>
-                                    <td style="text-align: center;">{{ $r['reason_galon'] ?: '-' }}</td>
-                                @else
-                                    <td class="cell-peach-portal" style="border-left: 1px dashed #fed7aa;"></td>
-                                    <td class="cell-peach-portal"></td>
-                                    <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; color: #c2410c;">{{ $r['reason_galon'] }}</td>
-                                @endif
+                                    <!-- Kemasan Tin -->
+                                    @if($hasTin)
+                                        <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 2px solid #cbd5e1;">{{ number_format($mp['price_tin'], 0, ',', '.') }}</td>
+                                        <td style="text-align: right; color: var(--text-muted);">{{ number_format($mp['lowest_tin'] ?: $mp['price_tin'], 0, ',', '.') }}</td>
+                                        <td style="text-align: center;">{{ $mp['reason_tin'] ?: '-' }}</td>
+                                    @else
+                                        <td class="cell-peach-portal" style="border-left: 2px solid #cbd5e1;"></td>
+                                        <td class="cell-peach-portal"></td>
+                                        <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; color: #c2410c;">{{ $mp['reason_tin'] ?? '' }}</td>
+                                    @endif
 
-                                <!-- Kemasan Pail -->
-                                @if($hasPail)
-                                    <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 1px dashed #e2e8f0;">{{ number_format($r['price_pail'], 0, ',', '.') }}</td>
-                                    <td style="text-align: right; color: var(--text-muted);">{{ number_format($r['lowest_pail'] ?: $r['price_pail'], 0, ',', '.') }}</td>
-                                    <td style="text-align: center;">{{ $r['reason_pail'] ?: '-' }}</td>
-                                @else
-                                    <td class="cell-peach-portal" style="border-left: 1px dashed #fed7aa;"></td>
-                                    <td class="cell-peach-portal"></td>
-                                    <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; font-weight: 600; color: #c2410c;">
-                                        {{ $r['reason_pail'] ?: ($allEmpty ? 'Not Exist' : '') }}
-                                    </td>
-                                @endif
+                                    <!-- Kemasan Galon -->
+                                    @if($hasGalon)
+                                        <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 1px dashed #e2e8f0;">{{ number_format($mp['price_galon'], 0, ',', '.') }}</td>
+                                        <td style="text-align: right; color: var(--text-muted);">{{ number_format($mp['lowest_galon'] ?: $mp['price_galon'], 0, ',', '.') }}</td>
+                                        <td style="text-align: center;">{{ $mp['reason_galon'] ?: '-' }}</td>
+                                    @else
+                                        <td class="cell-peach-portal" style="border-left: 1px dashed #fed7aa;"></td>
+                                        <td class="cell-peach-portal"></td>
+                                        <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; color: #c2410c;">{{ $mp['reason_galon'] ?? '' }}</td>
+                                    @endif
+
+                                    <!-- Kemasan Pail -->
+                                    @if($hasPail)
+                                        <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 1px dashed #e2e8f0;">{{ number_format($mp['price_pail'], 0, ',', '.') }}</td>
+                                        <td style="text-align: right; color: var(--text-muted);">{{ number_format($mp['lowest_pail'] ?: $mp['price_pail'], 0, ',', '.') }}</td>
+                                        <td style="text-align: center;">{{ $mp['reason_pail'] ?: '-' }}</td>
+                                    @else
+                                        <td class="cell-peach-portal" style="border-left: 1px dashed #fed7aa;"></td>
+                                        <td class="cell-peach-portal"></td>
+                                        <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; font-weight: 600; color: #c2410c;">
+                                            {{ (!empty($mp['reason_pail']) ? $mp['reason_pail'] : ($allEmpty ? 'Not Exist' : '')) }}
+                                        </td>
+                                    @endif
+                                @endforeach
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="21" style="text-align: center; padding: 3rem; color: var(--text-muted); font-size: 0.95rem;">
+                                <td colspan="{{ $totalTableCols }}" style="text-align: center; padding: 3rem; color: var(--text-muted); font-size: 0.95rem;">
                                     <i class="fa-solid fa-folder-open" style="font-size: 2rem; margin-bottom: 0.5rem; color: #cbd5e1; display: block;"></i>
                                     Tidak ada data Raw Data yang cocok dengan filter yang dipilih.
                                 </td>

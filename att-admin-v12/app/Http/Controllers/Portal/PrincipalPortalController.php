@@ -1247,25 +1247,55 @@ class PrincipalPortalController extends Controller
                     'Expires' => '0',
                 ];
 
-                $callback = function () use ($sqlitePath, $startMonth, $endMonth, $selectedRegion, $selectedAreaId, $selectedLocationId, $request) {
+                $callback = function () use ($sqlitePath, $startMonth, $endMonth, $startYear, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $request) {
                     $handle = fopen('php://output', 'w');
                     fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
-
-                    fputcsv($handle, [
-                        'Regional', 'SAP Member', 'SAP Gab', 'Nama Toko', 'Nama TL', 'Area Sales', 'RSM Area',
-                        'Class', 'Type', 'Product', 'Category', 'Product Group', 'Brand',
-                        'Tin', 'Harga Terendah Tin', 'REASON Tin',
-                        'Galon', 'Harga Terendah Galon', 'REASON Galon',
-                        'Pail', 'Harga Terendah Pail', 'REASON Pail', 'Tanggal Transaksi'
-                    ]);
 
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $selectedAreaName = $selectedAreaId ? Branch::where('id', $selectedAreaId)->value('name') : null;
                     $selectedStoreName = $selectedLocationId ? WorkLocation::where('id', $selectedLocationId)->value('name') : null;
                     $search = $request->query('q');
 
-                    $whereClauses = ["month BETWEEN ? AND ?"];
-                    $params = [$startMonth, $endMonth];
+                    $sMonth = max(1, min(12, (int)$startMonth));
+                    $eMonth = max(1, min(12, (int)$endMonth));
+                    if ($sMonth > $eMonth) {
+                        $tmp = $sMonth;
+                        $sMonth = $eMonth;
+                        $eMonth = $tmp;
+                    }
+                    $monthNames = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug', 9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec'];
+                    $exportMonths = [];
+                    for ($m = $sMonth; $m <= $eMonth; $m++) {
+                        if ($m >= 1 && $m <= 7) {
+                            $exportMonths[$m] = ($monthNames[$m] ?? "Bln $m") . ' ' . $endYear;
+                        }
+                    }
+                    if (empty($exportMonths)) {
+                        for ($m = 1; $m <= 7; $m++) {
+                            $exportMonths[$m] = $monthNames[$m] . ' ' . $endYear;
+                        }
+                    }
+
+                    $headerRow = [
+                        'Regional', 'SAP Member', 'SAP Gab', 'Nama Toko', 'Nama TL',
+                        'Area Sales', 'RSM Area', 'Class', 'Type', 'Product', 'Category', 'Product Group'
+                    ];
+                    foreach ($exportMonths as $mKey => $mLabel) {
+                        $headerRow[] = "Tin ($mLabel)";
+                        $headerRow[] = "Harga Terendah Tin ($mLabel)";
+                        $headerRow[] = "REASON Tin ($mLabel)";
+                        $headerRow[] = "Galon ($mLabel)";
+                        $headerRow[] = "Harga Terendah Galon ($mLabel)";
+                        $headerRow[] = "REASON Galon ($mLabel)";
+                        $headerRow[] = "Pail ($mLabel)";
+                        $headerRow[] = "Harga Terendah Pail ($mLabel)";
+                        $headerRow[] = "REASON Pail ($mLabel)";
+                    }
+                    fputcsv($handle, $headerRow);
+
+                    $activeMonthKeys = array_keys($exportMonths);
+                    $whereClauses = ["month IN (" . implode(',', $activeMonthKeys) . ")"];
+                    $params = [];
 
                     if ($selectedRegion) {
                         $whereClauses[] = "regional = ?";
@@ -1291,35 +1321,61 @@ class PrincipalPortalController extends Controller
                     }
 
                     $whereSql = implode(" AND ", $whereClauses);
-                    $stmt = $pdo->prepare("SELECT * FROM cbp_raw WHERE $whereSql ORDER BY trans_date ASC, id ASC");
-                    $stmt->execute($params);
 
-                    while ($r = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                        fputcsv($handle, [
-                            $r['regional'] ?? '',
-                            $r['sap_member'] ?? '',
-                            $r['sap_gab'] ?? '',
-                            $r['name_store'] ?? '',
-                            $r['tl_name'] ?? '',
-                            $r['area'] ?? '',
-                            $r['rsm_area'] ?? '',
-                            $r['class'] ?? '',
-                            $r['store_type'] ?? '',
-                            $r['product'] ?? '',
-                            $r['category'] ?? '',
-                            $r['product_group'] ?? '',
-                            $r['brand'] ?? '',
-                            $r['price_tin'] > 0 ? $r['price_tin'] : '',
-                            $r['lowest_tin'] > 0 ? $r['lowest_tin'] : '',
-                            $r['reason_tin'] ?? '',
-                            $r['price_galon'] > 0 ? $r['price_galon'] : '',
-                            $r['lowest_galon'] > 0 ? $r['lowest_galon'] : '',
-                            $r['reason_galon'] ?? '',
-                            $r['price_pail'] > 0 ? $r['price_pail'] : '',
-                            $r['lowest_pail'] > 0 ? $r['lowest_pail'] : '',
-                            $r['reason_pail'] ?? '',
-                            $r['trans_date'] ?? ''
-                        ]);
+                    $itemStmt = $pdo->prepare("
+                        SELECT code, regional, sap_member, sap_gab, name_store, tl_name, area, rsm_area, class, store_type, product, category, product_group
+                        FROM cbp_raw
+                        WHERE $whereSql
+                        GROUP BY code
+                        ORDER BY regional, area, name_store, product
+                    ");
+                    $itemStmt->execute($params);
+
+                    $priceStmt = $pdo->prepare("
+                        SELECT code, month,
+                               price_tin, lowest_tin, reason_tin,
+                               price_galon, lowest_galon, reason_galon,
+                               price_pail, lowest_pail, reason_pail
+                        FROM cbp_raw
+                        WHERE $whereSql
+                    ");
+                    $priceStmt->execute($params);
+                    $pivoted = [];
+                    while ($pr = $priceStmt->fetch(\PDO::FETCH_ASSOC)) {
+                        $pivoted[$pr['code']][$pr['month']] = $pr;
+                    }
+
+                    while ($it = $itemStmt->fetch(\PDO::FETCH_ASSOC)) {
+                        $row = [
+                            $it['regional'] ?? '',
+                            $it['sap_member'] ?? '',
+                            $it['sap_gab'] ?? '',
+                            $it['name_store'] ?? '',
+                            $it['tl_name'] ?? '',
+                            $it['area'] ?? '',
+                            $it['rsm_area'] ?? '',
+                            $it['class'] ?? '',
+                            $it['store_type'] ?? '',
+                            $it['product'] ?? '',
+                            $it['category'] ?? '',
+                            $it['product_group'] ?? '',
+                        ];
+
+                        $codePrices = $pivoted[$it['code']] ?? [];
+                        foreach ($activeMonthKeys as $mKey) {
+                            $mp = $codePrices[$mKey] ?? null;
+                            $row[] = (!empty($mp['price_tin']) && $mp['price_tin'] > 0) ? $mp['price_tin'] : '';
+                            $row[] = (!empty($mp['lowest_tin']) && $mp['lowest_tin'] > 0) ? $mp['lowest_tin'] : ((!empty($mp['price_tin']) && $mp['price_tin'] > 0) ? $mp['price_tin'] : '');
+                            $row[] = $mp['reason_tin'] ?? '';
+                            $row[] = (!empty($mp['price_galon']) && $mp['price_galon'] > 0) ? $mp['price_galon'] : '';
+                            $row[] = (!empty($mp['lowest_galon']) && $mp['lowest_galon'] > 0) ? $mp['lowest_galon'] : ((!empty($mp['price_galon']) && $mp['price_galon'] > 0) ? $mp['price_galon'] : '');
+                            $row[] = $mp['reason_galon'] ?? '';
+                            $row[] = (!empty($mp['price_pail']) && $mp['price_pail'] > 0) ? $mp['price_pail'] : '';
+                            $row[] = (!empty($mp['lowest_pail']) && $mp['lowest_pail'] > 0) ? $mp['lowest_pail'] : ((!empty($mp['price_pail']) && $mp['price_pail'] > 0) ? $mp['price_pail'] : '');
+                            $row[] = $mp['reason_pail'] ?? '';
+                        }
+
+                        fputcsv($handle, $row);
                     }
 
                     fclose($handle);
@@ -3112,19 +3168,23 @@ class PrincipalPortalController extends Controller
                 $months = [];
                 for ($m = $sMonth; $m <= $eMonth; $m++) {
                     if ($m >= 1 && $m <= 7) {
+                        $dateObj = Carbon::create($endYear, $m, 1);
                         $months[$m] = [
                             'm' => $m,
                             'short' => $monthNames[$m] ?? "Bln $m",
-                            'label' => ($monthNames[$m] ?? "Bln $m") . ' ' . $endYear
+                            'label' => ($monthNames[$m] ?? "Bln $m") . ' ' . $endYear,
+                            'date_header' => $dateObj->translatedFormat('l, d F Y')
                         ];
                     }
                 }
                 if (empty($months)) {
                     for ($m = 1; $m <= 7; $m++) {
+                        $dateObj = Carbon::create($endYear, $m, 1);
                         $months[$m] = [
                             'm' => $m,
                             'short' => $monthNames[$m],
-                            'label' => $monthNames[$m] . ' ' . $endYear
+                            'label' => $monthNames[$m] . ' ' . $endYear,
+                            'date_header' => $dateObj->translatedFormat('l, d F Y')
                         ];
                     }
                 }
@@ -3413,6 +3473,8 @@ class PrincipalPortalController extends Controller
             return null;
         }
 
+        $months = $aggData['months'] ?? [];
+
         // Fetch Paginated Raw Data (Matching Excel Sheet 'Raw Data')
         try {
             $pdo = new \PDO("sqlite:" . $sqlitePath);
@@ -3455,24 +3517,62 @@ class PrincipalPortalController extends Controller
 
             $whereSql = implode(" AND ", $whereClauses);
 
-            $countStmt = $pdo->prepare("SELECT COUNT(*) FROM cbp_raw WHERE $whereSql");
+            // Ensure SQLite indexes exist for ultra-fast multi-month queries
+            try {
+                $pdo->exec("
+                    CREATE INDEX IF NOT EXISTS idx_cbp_code ON cbp_raw(code);
+                    CREATE INDEX IF NOT EXISTS idx_cbp_month_code ON cbp_raw(month, code);
+                ");
+            } catch (\Throwable $e) {}
+
+            // Count distinct store + product items matching filter
+            $countStmt = $pdo->prepare("SELECT COUNT(DISTINCT code) FROM cbp_raw WHERE $whereSql");
             $countStmt->execute($params);
             $rawTotal = (int)$countStmt->fetchColumn();
 
             $rawOffset = ($rawPage - 1) * $rawPerPage;
             $rawSql = "
-                SELECT id, year, month, trans_date, regional, sap_member, sap_gab, name_store, tl_name, area, rsm_area, class, store_type, product, category, product_group, brand,
-                       price_tin, lowest_tin, reason_tin,
-                       price_galon, lowest_galon, reason_galon,
-                       price_pail, lowest_pail, reason_pail
+                SELECT code, regional, sap_member, sap_gab, name_store, tl_name, area, rsm_area, class, store_type, product, category, product_group
                 FROM cbp_raw
                 WHERE $whereSql
-                ORDER BY trans_date ASC, id ASC
+                GROUP BY code
+                ORDER BY regional, area, name_store, product
                 LIMIT $rawPerPage OFFSET $rawOffset
             ";
             $rawStmt = $pdo->prepare($rawSql);
             $rawStmt->execute($params);
             $rawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            // Fetch monthly prices for these 50 items across the filtered months
+            $codes = array_column($rawRows, 'code');
+            $activeMonthKeys = array_keys($months);
+
+            if (!empty($codes) && !empty($activeMonthKeys)) {
+                $codePlaceholders = implode(',', array_fill(0, count($codes), '?'));
+                $monthPlaceholders = implode(',', array_fill(0, count($activeMonthKeys), '?'));
+
+                $priceSql = "
+                    SELECT code, month, trans_date,
+                           price_tin, lowest_tin, reason_tin,
+                           price_galon, lowest_galon, reason_galon,
+                           price_pail, lowest_pail, reason_pail
+                    FROM cbp_raw
+                    WHERE code IN ($codePlaceholders) AND month IN ($monthPlaceholders)
+                ";
+                $priceStmt = $pdo->prepare($priceSql);
+                $priceStmt->execute(array_merge($codes, $activeMonthKeys));
+                $priceRows = $priceStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                $pivoted = [];
+                foreach ($priceRows as $pr) {
+                    $pivoted[$pr['code']][$pr['month']] = $pr;
+                }
+
+                foreach ($rawRows as &$it) {
+                    $it['monthly_prices'] = $pivoted[$it['code']] ?? [];
+                }
+                unset($it);
+            }
 
             $aggData['raw_data'] = [
                 'rows' => $rawRows,
@@ -3481,7 +3581,8 @@ class PrincipalPortalController extends Controller
                 'per_page' => $rawPerPage,
                 'total_pages' => (int)ceil($rawTotal / $rawPerPage),
                 'from' => $rawTotal > 0 ? ($rawOffset + 1) : 0,
-                'to' => min($rawOffset + $rawPerPage, $rawTotal)
+                'to' => min($rawOffset + $rawPerPage, $rawTotal),
+                'months' => $months
             ];
         } catch (\Throwable $e) {
             \Log::error("Failed to query CBP Raw Data: " . $e->getMessage());
