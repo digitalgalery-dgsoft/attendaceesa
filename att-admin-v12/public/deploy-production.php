@@ -288,6 +288,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
         foreach ($possibleKeys as $pk) {
             if (!empty($pk) && @file_exists($pk) && @is_readable($pk)) {
+                @chmod(dirname($pk), 0700);
+                @chmod($pk, 0600);
                 $keyOptions = "-i " . escapeshellarg($pk);
                 break;
             }
