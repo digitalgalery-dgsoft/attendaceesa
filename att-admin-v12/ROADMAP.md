@@ -20,6 +20,7 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 | **Resolusi CPU Overload & Looping Cluster** | 🟢 Selesai (100%) | Eliminasi rekursif cURL loop `/storage`, beban server kembali stabil 1-3% |
 | **Konfirmasi IP Publik Server 1 AMK** | 🟢 Live di 38.103.170.235 | Klarifikasi IP inbound publik (38.103.170.235) vs NAT egress aaPanel |
 | **Pipeline Otomatisasi Deploy Multi-Server** | 🟢 Aktif | CI/CD sync multi-vhost + auto syntax check (`php -l`) |
+| **Perombakan Dashboard CBP (Dashboard 1 & 2)** | 🟢 Selesai (100%) | Multi-tab Cat Tembok, Enamel, Waterproofing & Indeks Harga 100% Acuan |
 
 ---
 
@@ -184,6 +185,34 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 
 ---
 
+### 10. Perombakan Tampilan Dashboard CBP Dulux & Standardisasi Field Form Sesuai Raw Data
+- [x] **Standardisasi Field Form CBP (`RPT-DULUX-CBP-PRICING`)**:
+  - Menyelaraskan form input pelaporan dengan kolom sheet *Raw Data* Excel:
+    1. `kategori_produk` (Kategori Segmen Cat: Super Premium Interior, Dulux Interior, Mass Interior, Super Premium Exterior, Premium Exterior, Enamel, Waterproofing, Sealer)
+    2. `brand_cat` (Brand Cat: AN Dulux vs JOTUN, NIPPON PAINT, AVIAN/LENKOTE, MOWILEX, SIKA, AQUAPROOF, PROPAN, dll.)
+    3. `subbrand_produk` (Nama Sub Brand / Produk spesifik yang dicek di toko)
+    4. `harga_tin_rp` & `harga_terendah_tin_rp` (Harga Normal & Promo Kemasan Tin 1L/1Kg)
+    5. `harga_galon_rp` & `harga_terendah_galon_rp` (Harga Normal & Promo Kemasan Galon 2.5L/4-5Kg)
+    6. `harga_pail_rp` & `harga_terendah_pail_rp` (Harga Normal & Promo Kemasan Pail 20L/25Kg)
+  - Mengeliminasi field keterangan promo sesuai instruksi operasional.
+  - Menyiapkan migration resmi `2026_09_04_080000_align_dulux_cbp_template_fields.php`.
+- [x] **Implementasi Antarmuka Eksekutif Multi-Tab Portal**:
+  - **Tab 1: Cat Tembok (Dashboard 1)**:
+    - Grafik tren harga MOP bulanan & YoY (ApexCharts) membandingkan Dulux, Jotun, Nippon Paint, Avian/Aquaproof, dan Mowilex.
+    - 6 Matriks Kategori: Super Premium Interior (100% = Ambiance), Dulux Interior (100% = Pentalite), Washable Segment (100% = EasyClean), Super Premium Exterior (100% = DWS PWF), Premium Exterior (100% = DWS Core), dan Mass Interior (100% = Catylac).
+    - Toggle dinamis per kategori: **Tabel Rata-Rata Harga MOP (Rp)** vs **Tabel Price Index to AN Brands (%)** dengan badge acuan 100% dan indikator harga kompetitor lebih murah / mahal.
+  - **Tab 2: Enamel & Waterproofing (Dashboard 2)**:
+    - Kategori Enamel: Kemasan Tin 1L/1Kg (100% = V-Gloss High Gloss).
+    - Kategori Waterproofing: Kemasan Galon 4-5Kg (100% = Aquashield).
+    - Dilengkapi tabel rata-rata harga riil dan tabel perbandingan indeks harga.
+  - **Tab 3: Data Rincian Submisi (Raw Data Table)**:
+    - Tabel rincian submission data per outlet / SPG dengan paginasi, pencarian, dan tombol ekspor Excel.
+- [x] **Optimasi Mesin Agregasi Backend**:
+  - Agregasi analitik instan berbasis `cbp_2026.sqlite` (117.012 baris) dengan response time 450 ms (Cold) dan < 1 ms (Cached 300s).
+  - Terintegrasi penuh dengan filter hirarkis wilayah (**Region ➔ Area ➔ Toko**) dan rentang periode bulan.
+
+---
+
 ## 🎯 Rencana Pengembangan Selanjutnya (Next Milestones)
 
 | No | Target Fitur / Peningkatan | Prioritas | Estimasi / Keterangan |
@@ -195,5 +224,5 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 
 ---
 
-*Terakhir diperbarui: 3 September 2026*  
+*Terakhir diperbarui: 4 September 2026*  
 *Pengembang: Digital Galery / DGSoft - Tim Attendance ESA*

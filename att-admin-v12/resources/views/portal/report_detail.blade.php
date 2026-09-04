@@ -561,6 +561,204 @@
         color: var(--brand-primary);
     }
 
+    /* CBP Custom Dashboard Styles */
+    .cbp-main-nav {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 6px;
+        display: inline-flex;
+        gap: 6px;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+    }
+    .cbp-nav-btn {
+        border: none;
+        padding: 0.65rem 1.35rem;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.88rem;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: transparent;
+        color: #64748b;
+    }
+    .cbp-nav-btn.active {
+        background: var(--brand-primary) !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 12px var(--brand-glow);
+    }
+    .cbp-nav-btn:not(.active):hover {
+        background: #f1f5f9;
+        color: var(--text-heading);
+    }
+    .cbp-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .cbp-kpi-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 1.15rem 1.35rem;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .cbp-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    .cbp-kpi-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        flex-shrink: 0;
+    }
+    .cbp-sec-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+    .cbp-sec-header {
+        background: #f8fafc;
+        padding: 1.1rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .cbp-sec-title {
+        font-size: 1.08rem;
+        font-weight: 800;
+        color: var(--text-heading);
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+    .cbp-benchmark-tag {
+        font-size: 0.75rem;
+        font-weight: 800;
+        background: #dbeafe;
+        color: #1d4ed8;
+        padding: 0.25rem 0.65rem;
+        border-radius: 6px;
+        border: 1px solid #bfdbfe;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .cbp-toggle-group {
+        background: #e2e8f0;
+        padding: 3px;
+        border-radius: 8px;
+        display: inline-flex;
+        gap: 3px;
+    }
+    .cbp-toggle-btn {
+        border: none;
+        padding: 0.35rem 0.85rem;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+        background: transparent;
+        color: #475569;
+        transition: all 0.15s ease;
+    }
+    .cbp-toggle-btn.active {
+        background: #ffffff;
+        color: var(--brand-primary);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .cbp-table th {
+        background: #f8fafc;
+        font-size: 0.76rem;
+        font-weight: 800;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 0.85rem 0.95rem;
+        border-bottom: 1px solid var(--border-color);
+        white-space: nowrap;
+    }
+    .cbp-table td {
+        padding: 0.8rem 0.95rem;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.84rem;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    .cbp-row-an {
+        background: #f0f7ff !important;
+    }
+    .cbp-row-an:hover td {
+        background: #e0effe !important;
+    }
+    .cbp-pill-bm {
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 6px;
+        font-weight: 800;
+        font-size: 0.8rem;
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+    }
+    .cbp-pill-cheaper {
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 0.8rem;
+        background: #fff7ed;
+        color: #c2410c;
+        border: 1px solid #fed7aa;
+    }
+    .cbp-pill-expensive {
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 0.8rem;
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+    }
+    .cbp-brand-badge {
+        font-size: 0.72rem;
+        font-weight: 800;
+        padding: 0.15rem 0.45rem;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    .cbp-brand-an {
+        background: #1e40af;
+        color: #ffffff;
+    }
+    .cbp-brand-comp {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+    }
+
     .custom-table td {
         padding: 0.95rem 1rem;
         border-bottom: 1px solid #f1f5f9;
@@ -1072,8 +1270,13 @@
         </div>
     @endif
 
+    {{-- CBP EXECUTIVE DASHBOARD (DASHBOARD 1 & DASHBOARD 2) --}}
+    @if(isset($isCbpReport) && $isCbpReport && !empty($cbpData))
+        @include('portal.partials.cbp_dashboard')
+    @endif
+
     <!-- Dynamic 12-Column Dashboard Canvas (Sortable in Studio Mode) -->
-    <div id="dashboard_canvas" class="dashboard-grid">
+    <div id="dashboard_canvas" class="dashboard-grid" @if(isset($isCbpReport) && $isCbpReport) style="display: none;" @endif>
         @php
             $widgets = $dashboardConfig['widgets'] ?? [];
         @endphp
@@ -2012,5 +2215,83 @@
             alert('❌ Terjadi kesalahan saat mereset dashboard.');
         });
     }
+
+    @if(isset($isCbpReport) && $isCbpReport && !empty($cbpData))
+    document.addEventListener('DOMContentLoaded', function() {
+        var chartEl = document.getElementById('cbp_mop_trend_chart');
+        if (chartEl && typeof ApexCharts !== 'undefined') {
+            var monthsMeta = {!! json_encode($cbpData['months']) !!};
+            var monthLabels = Object.values(monthsMeta).map(function(m) { return m.short + ' {{ $endYear }}'; });
+            var trendSeriesRaw = {!! json_encode($cbpData['trend_series'] ?? []) !!};
+
+            var series = [];
+            var colors = ['#1e40af', '#ea580c', '#0284c7', '#16a34a', '#9333ea'];
+
+            for (var brandName in trendSeriesRaw) {
+                var brandData = trendSeriesRaw[brandName];
+                var dataPoints = [];
+                for (var mKey in monthsMeta) {
+                    dataPoints.push(brandData[mKey] || null);
+                }
+                series.push({
+                    name: brandName,
+                    data: dataPoints
+                });
+            }
+
+            var options = {
+                series: series,
+                chart: {
+                    type: 'line',
+                    height: 330,
+                    toolbar: { show: true },
+                    fontFamily: 'Outfit, sans-serif'
+                },
+                colors: colors,
+                stroke: {
+                    curve: 'smooth',
+                    width: [3.5, 2, 2, 2, 2]
+                },
+                markers: {
+                    size: 5,
+                    hover: { size: 7 }
+                },
+                xaxis: {
+                    categories: monthLabels,
+                    labels: { style: { fontWeight: 600 } }
+                },
+                yaxis: {
+                    title: { text: 'Harga Rata-Rata Galon (Rp)', style: { fontWeight: 600 } },
+                    labels: {
+                        formatter: function (val) {
+                            if (!val) return '0';
+                            if (val >= 1000) return 'Rp ' + (val/1000).toFixed(0) + 'k';
+                            return 'Rp ' + val.toFixed(0);
+                        }
+                    }
+                },
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
+                            if (!val) return '-';
+                            return 'Rp ' + val.toLocaleString('id-ID');
+                        }
+                    }
+                },
+                legend: {
+                    position: 'top',
+                    horizontalAlign: 'right',
+                    fontWeight: 700
+                },
+                grid: {
+                    borderColor: '#f1f5f9'
+                }
+            };
+
+            var chart = new ApexCharts(chartEl, options);
+            chart.render();
+        }
+    });
+    @endif
 </script>
 @endpush

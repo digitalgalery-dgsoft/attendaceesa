@@ -1008,6 +1008,24 @@ class PrincipalPortalController extends Controller
         }
         // --------------------------------------------------------
 
+        // --- CBP Custom Dashboard Analytics (Dashboard 1 & Dashboard 2) ---
+        $isCbpReport = false;
+        $cbpData = [];
+        if ($template->code === 'RPT-DULUX-CBP-PRICING') {
+            $isCbpReport = true;
+            $cbpData = $this->calculateCbpDashboardData(
+                $template,
+                $startMonth,
+                $startYear,
+                $endMonth,
+                $endYear,
+                $selectedRegion,
+                $selectedAreaId,
+                $selectedLocationId,
+                $search
+            );
+        }
+
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();
 
@@ -1035,7 +1053,9 @@ class PrincipalPortalController extends Controller
             'dashboardConfig',
             'widgetResults',
             'isYtdReport',
-            'ytdData'
+            'ytdData',
+            'isCbpReport',
+            'cbpData'
         ));
     }
 
@@ -2924,5 +2944,343 @@ class PrincipalPortalController extends Controller
             'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
             'turnoverRows', 'year', 'setting'
         ));
+    }
+
+    /**
+     * Calculate CBP Analytics for Dashboard (1) & Dashboard (2)
+     */
+    protected function calculateCbpDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+    {
+        $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
+        if (!file_exists($sqlitePath)) {
+            return null;
+        }
+
+        $cacheKey = 'cbp_dash_v2_' . md5($template->id . '_' . $startYear . '_' . $startMonth . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+
+        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
+            try {
+                $pdo = new \PDO("sqlite:" . $sqlitePath);
+                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+                // Resolve Area Name & Store Name if filtered
+                $selectedAreaName = null;
+                if ($selectedAreaId) {
+                    $selectedAreaName = Branch::where('id', $selectedAreaId)->value('name');
+                }
+                $selectedStoreName = null;
+                if ($selectedLocationId) {
+                    $selectedStoreName = WorkLocation::where('id', $selectedLocationId)->value('name');
+                }
+
+                // Prepare Months
+                $sMonth = max(1, min(12, (int)$startMonth));
+                $eMonth = max(1, min(12, (int)$endMonth));
+                if ($sMonth > $eMonth) {
+                    $tmp = $sMonth;
+                    $sMonth = $eMonth;
+                    $eMonth = $tmp;
+                }
+
+                $monthNames = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug', 9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec'];
+                $months = [];
+                for ($m = $sMonth; $m <= $eMonth; $m++) {
+                    if ($m >= 1 && $m <= 7) {
+                        $months[$m] = [
+                            'm' => $m,
+                            'short' => $monthNames[$m] ?? "Bln $m",
+                            'label' => ($monthNames[$m] ?? "Bln $m") . ' ' . $endYear
+                        ];
+                    }
+                }
+                if (empty($months)) {
+                    for ($m = 1; $m <= 7; $m++) {
+                        $months[$m] = [
+                            'm' => $m,
+                            'short' => $monthNames[$m],
+                            'label' => $monthNames[$m] . ' ' . $endYear
+                        ];
+                    }
+                }
+
+                $whereClauses = ["month BETWEEN ? AND ?"];
+                $params = [min(array_keys($months)), max(array_keys($months))];
+
+                if ($selectedRegion) {
+                    $whereClauses[] = "regional = ?";
+                    $params[] = $selectedRegion;
+                }
+                if ($selectedAreaName) {
+                    $whereClauses[] = "(area LIKE ? OR rsm_area LIKE ?)";
+                    $params[] = "%$selectedAreaName%";
+                    $params[] = "%$selectedAreaName%";
+                }
+                if ($selectedStoreName) {
+                    $whereClauses[] = "name_store LIKE ?";
+                    $params[] = "%$selectedStoreName%";
+                }
+                if ($search) {
+                    $whereClauses[] = "(product LIKE ? OR brand LIKE ? OR name_store LIKE ?)";
+                    $params[] = "%$search%";
+                    $params[] = "%$search%";
+                    $params[] = "%$search%";
+                }
+
+                $whereSql = implode(" AND ", $whereClauses);
+
+                // 1. Overall KPIs
+                $kpiSql = "
+                    SELECT COUNT(*) as total_records,
+                           COUNT(DISTINCT name_store) as unique_stores,
+                           AVG(CASE WHEN brand = 'AN' AND price_galon > 0 THEN price_galon END) as avg_an_galon,
+                           AVG(CASE WHEN brand != 'AN' AND brand != '' AND price_galon > 0 THEN price_galon END) as avg_comp_galon
+                    FROM cbp_raw
+                    WHERE $whereSql
+                ";
+                $stmt = $pdo->prepare($kpiSql);
+                $stmt->execute($params);
+                $kpiRow = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+                // 2. Trend Series for Line Chart
+                $trendSql = "
+                    SELECT 
+                        CASE 
+                            WHEN brand = 'AN' THEN 'AkzoNobel (Dulux)'
+                            WHEN brand = 'Jotun' THEN 'Jotun'
+                            WHEN brand IN ('Nippon', 'Nippon Paint') THEN 'Nippon Paint'
+                            WHEN brand IN ('Avian', 'Aquaproof') THEN 'Avian / Aquaproof'
+                            WHEN brand = 'Mowilex' THEN 'Mowilex'
+                            ELSE 'Lainnya'
+                        END as brand_group,
+                        month,
+                        AVG(price_galon) as avg_price
+                    FROM cbp_raw
+                    WHERE category IN ('Super Premium Interior', 'Premium Interior', 'Dulux Interior', 'Super Premium Exterior', 'Premium Exterior', 'Mass Interior', 'Washable Segment')
+                      AND price_galon > 0
+                      AND $whereSql
+                    GROUP BY brand_group, month
+                    ORDER BY brand_group, month
+                ";
+                $stmt = $pdo->prepare($trendSql);
+                $stmt->execute($params);
+                $trendRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                $trendSeries = [
+                    'AkzoNobel (Dulux)' => [],
+                    'Jotun' => [],
+                    'Nippon Paint' => [],
+                    'Avian / Aquaproof' => [],
+                    'Mowilex' => [],
+                ];
+                foreach ($trendRows as $tr) {
+                    $bg = $tr['brand_group'];
+                    if (isset($trendSeries[$bg])) {
+                        $trendSeries[$bg][$tr['month']] = round((float)$tr['avg_price'], 0);
+                    }
+                }
+
+                // Fill zero if month is missing in trend
+                foreach ($trendSeries as $bg => &$tMonths) {
+                    foreach ($months as $m => $mMeta) {
+                        if (!isset($tMonths[$m])) {
+                            $tMonths[$m] = 0;
+                        }
+                    }
+                    ksort($tMonths);
+                }
+                unset($tMonths);
+
+                // 3. Sections for Dashboard (1) & Dashboard (2)
+                $sectionsConfig = [
+                    'd1' => [
+                        'super_premium_interior' => [
+                            'title' => 'Super Premium Interior',
+                            'category_query' => "category = 'Super Premium Interior'",
+                            'metric' => 'price_galon',
+                            'unit' => 'Galon (2.5L / 4-5Kg)',
+                            'benchmark_product' => 'Ambiance Emulsion',
+                            'benchmark_label' => '100% = Ambiance Emulsion'
+                        ],
+                        'premium_interior' => [
+                            'title' => 'Dulux Interior / Premium Interior',
+                            'category_query' => "category IN ('Premium Interior', 'Dulux Interior')",
+                            'metric' => 'price_galon',
+                            'unit' => 'Galon (2.5L / 4-5Kg)',
+                            'benchmark_product' => 'Pentalite',
+                            'benchmark_label' => '100% = Pentalite'
+                        ],
+                        'washable' => [
+                            'title' => 'Washable Segment / EasyClean',
+                            'category_query' => "category = 'Washable Segment'",
+                            'metric' => 'price_galon',
+                            'unit' => 'Galon (2.5L / 4-5Kg)',
+                            'benchmark_product' => 'Easy Clean',
+                            'benchmark_label' => '100% = EasyClean'
+                        ],
+                        'super_premium_exterior' => [
+                            'title' => 'Super Premium Exterior',
+                            'category_query' => "category = 'Super Premium Exterior'",
+                            'metric' => 'price_galon',
+                            'unit' => 'Galon (2.5L / 4-5Kg)',
+                            'benchmark_product' => 'Weathershield Powerflexx',
+                            'benchmark_label' => '100% = Weathershield Powerflexx'
+                        ],
+                        'premium_exterior' => [
+                            'title' => 'Premium Exterior',
+                            'category_query' => "category = 'Premium Exterior'",
+                            'metric' => 'price_galon',
+                            'unit' => 'Galon (2.5L / 4-5Kg)',
+                            'benchmark_product' => 'Weathershield Core Dualshield',
+                            'benchmark_label' => '100% = Weathershield Core'
+                        ],
+                        'mass_interior' => [
+                            'title' => 'Mass Interior',
+                            'category_query' => "category = 'Mass Interior'",
+                            'metric' => 'price_galon',
+                            'unit' => 'Galon (2.5L / 4-5Kg)',
+                            'benchmark_product' => 'Catylac Interior',
+                            'benchmark_label' => '100% = Catylac Interior'
+                        ],
+                    ],
+                    'd2' => [
+                        'enamel' => [
+                            'title' => 'Enamel (Cat Kayu & Besi)',
+                            'category_query' => "category = 'Enamel'",
+                            'metric' => 'price_tin',
+                            'unit' => 'Tin (1 Liter / 1 Kg)',
+                            'benchmark_product' => 'V-Gloss High Gloss',
+                            'benchmark_label' => '100% = V-Gloss High Gloss'
+                        ],
+                        'waterproofing' => [
+                            'title' => 'Waterproofing (Pelapis Anti Bocor)',
+                            'category_query' => "category = 'Waterproofing'",
+                            'metric' => 'price_galon',
+                            'unit' => 'Galon (2.5L / 4-5Kg)',
+                            'benchmark_product' => 'Aquashield',
+                            'benchmark_label' => '100% = Aquashield'
+                        ],
+                    ]
+                ];
+
+                $dashboards = ['d1' => [], 'd2' => []];
+
+                foreach (['d1', 'd2'] as $dKey) {
+                    foreach ($sectionsConfig[$dKey] as $sKey => $cfg) {
+                        $metricCol = $cfg['metric'];
+                        $catQ = $cfg['category_query'];
+
+                        $sqlSec = "
+                            SELECT product, brand, month,
+                                   AVG($metricCol) as avg_price,
+                                   COUNT(*) as cnt
+                            FROM cbp_raw
+                            WHERE $catQ AND $metricCol > 0 AND $whereSql
+                            GROUP BY product, brand, month
+                            ORDER BY brand, product, month
+                        ";
+
+                        $stmt = $pdo->prepare($sqlSec);
+                        $stmt->execute($params);
+                        $secRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                        $prods = [];
+                        foreach ($secRows as $r) {
+                            $p = trim($r['product']);
+                            if (empty($p)) continue;
+
+                            if (!isset($prods[$p])) {
+                                $b = trim($r['brand']);
+                                if (empty($b)) {
+                                    $isAn = (stripos($p, 'Ambiance') !== false || stripos($p, 'Dulux') !== false || stripos($p, 'Catylac') !== false || stripos($p, 'Weathershield') !== false || stripos($p, 'Pentalite') !== false || stripos($p, 'Easy Clean') !== false || stripos($p, 'V-Gloss') !== false || stripos($p, 'Aquashield') !== false);
+                                    $b = $isAn ? 'AN' : 'Kompetitor';
+                                }
+                                $prods[$p] = [
+                                    'product' => $p,
+                                    'brand' => $b,
+                                    'is_benchmark' => ($p === $cfg['benchmark_product']),
+                                    'prices' => [],
+                                    'indices' => [],
+                                    'avg_price' => 0,
+                                    'avg_index' => 0,
+                                ];
+                            }
+                            $prods[$p]['prices'][$r['month']] = (float)$r['avg_price'];
+                        }
+
+                        // Determine Benchmark Prices
+                        $bmPrices = $prods[$cfg['benchmark_product']]['prices'] ?? [];
+                        if (empty($bmPrices)) {
+                            foreach ($prods as $p => $info) {
+                                if ($info['brand'] === 'AN' && !empty($info['prices'])) {
+                                    $bmPrices = $info['prices'];
+                                    $prods[$p]['is_benchmark'] = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Calculate Indices and Averages
+                        foreach ($prods as $p => &$info) {
+                            $validPrices = [];
+                            $validIndices = [];
+                            foreach ($months as $m => $mMeta) {
+                                $price = $info['prices'][$m] ?? null;
+                                $bmPrice = $bmPrices[$m] ?? null;
+                                if ($price && $price > 0) {
+                                    $validPrices[] = $price;
+                                }
+                                if ($price && $bmPrice && $bmPrice > 0) {
+                                    $idx = ($price / $bmPrice) * 100;
+                                    $info['indices'][$m] = $idx;
+                                    $validIndices[] = $idx;
+                                } else {
+                                    $info['indices'][$m] = null;
+                                }
+                            }
+                            $info['avg_price'] = count($validPrices) > 0 ? (array_sum($validPrices) / count($validPrices)) : 0;
+                            $info['avg_index'] = count($validIndices) > 0 ? (array_sum($validIndices) / count($validIndices)) : 0;
+                        }
+                        unset($info);
+
+                        // Sort products
+                        uasort($prods, function($a, $b) {
+                            if ($a['is_benchmark']) return -1;
+                            if ($b['is_benchmark']) return 1;
+                            if ($a['brand'] === 'AN' && $b['brand'] !== 'AN') return -1;
+                            if ($a['brand'] !== 'AN' && $b['brand'] === 'AN') return 1;
+                            return strcasecmp($a['product'], $b['product']);
+                        });
+
+                        $dashboards[$dKey][$sKey] = [
+                            'title' => $cfg['title'],
+                            'unit' => $cfg['unit'],
+                            'benchmark_label' => $cfg['benchmark_label'],
+                            'benchmark_product' => $cfg['benchmark_product'],
+                            'products' => $prods
+                        ];
+                    }
+                }
+
+                $avgAn = (float)($kpiRow['avg_an_galon'] ?? 0);
+                $avgComp = (float)($kpiRow['avg_comp_galon'] ?? 0);
+
+                return [
+                    'months' => $months,
+                    'kpis' => [
+                        'total_records' => (int)($kpiRow['total_records'] ?? 0),
+                        'unique_stores' => (int)($kpiRow['unique_stores'] ?? 0),
+                        'avg_an_galon' => $avgAn,
+                        'avg_comp_galon' => $avgComp,
+                        'ratio_index' => ($avgComp > 0) ? (($avgAn / $avgComp) * 100) : 100,
+                    ],
+                    'trend_series' => $trendSeries,
+                    'dashboard1' => $dashboards['d1'],
+                    'dashboard2' => $dashboards['d2']
+                ];
+            } catch (\Throwable $e) {
+                \Log::error("Failed to calculate CBP Dashboard: " . $e->getMessage());
+                return null;
+            }
+        });
     }
 }

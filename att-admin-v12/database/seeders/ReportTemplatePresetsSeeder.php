@@ -269,17 +269,96 @@ class ReportTemplatePresetsSeeder extends Seeder
         $template->principals()->sync($allDuluxIds);
 
         $fields = [
-            ['field_label' => 'Pilih Produk Dulux yang Dicek Harganya', 'field_name' => 'produk_dulux_cbp', 'field_type' => 'product_select', 'is_required' => true],
-            ['field_label' => 'Kemasan Produk Dulux', 'field_name' => 'kemasan_produk', 'field_type' => 'dropdown', 'options' => ['1 Liter / 1 Kg (Small Tin)', '2.5 Liter / 4 Kg / 5 Kg (Galon)', '20 Liter / 25 Kg (Pail Besar)'], 'is_required' => true],
-            ['field_label' => 'Harga Jual Toko ke Konsumen Dulux (CBP Rp)', 'field_name' => 'harga_cbp_dulux_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => true],
-            ['field_label' => 'Merk Kompetitor Sejenis di Toko', 'field_name' => 'merk_kompetitor', 'field_type' => 'dropdown', 'options' => ['JOTUN', 'NIPPON PAINT', 'AVIAN / NO DROP / LENKOTE', 'MOWILEX', 'PROPAN', 'KANSAI / DANAPAINT', 'PACIFIC PAINT', 'MERK LAINNYA'], 'is_required' => true],
-            ['field_label' => 'Nama Subbrand Kompetitor yang Dicek', 'field_name' => 'subbrand_kompetitor', 'field_type' => 'text', 'placeholder' => 'Contoh: Majestic / Spotless / Sunguard / Weathercoat / Cendana', 'is_required' => true],
-            ['field_label' => 'Harga Jual Kompetitor Kemasan Tin / Kaleng 1L/1Kg (Rp)', 'field_name' => 'harga_kompetitor_tin_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => false],
-            ['field_label' => 'Harga Jual Kompetitor Kemasan Galon 2.5L/4-5Kg (Rp)', 'field_name' => 'harga_kompetitor_galon_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => false],
-            ['field_label' => 'Harga Jual Kompetitor Kemasan Pail 20L/25Kg (Rp)', 'field_name' => 'harga_kompetitor_pail_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => false],
-            ['field_label' => 'Diskon / Potongan Harga Promo Toko (Nominal Rp)', 'field_name' => 'diskon_promo_nominal_rp', 'field_type' => 'currency', 'placeholder' => 'Rp 0', 'is_required' => false],
-            ['field_label' => 'Diskon / Potongan Harga Promo Toko (Persen %)', 'field_name' => 'diskon_promo_persen', 'field_type' => 'number', 'placeholder' => 'Contoh: 10 (%)', 'is_required' => false],
-            ['field_label' => 'Keterangan Program Promo / Bundling Toko', 'field_name' => 'keterangan_promo_toko', 'field_type' => 'text', 'placeholder' => 'Contoh: Cashback kupon toko, bundling kuas cat, promo akhir pekan...', 'is_required' => false],
+            [
+                'field_label' => 'Kategori Segmen Cat (Category)',
+                'field_name' => 'kategori_produk',
+                'field_type' => 'dropdown',
+                'options' => [
+                    'Super Premium Interior',
+                    'Dulux Interior',
+                    'Mass Interior',
+                    'Super Premium Exterior',
+                    'Premium Exterior',
+                    'Enamel',
+                    'Waterproofing',
+                    'Sealer Premium Interior',
+                    'Sealer Premium Exterior',
+                    'Sealer Mass Interior',
+                    'Sealer Mass Exterior',
+                    'Economy Interior',
+                    'Economy Exterior',
+                    'Segmen Lainnya'
+                ],
+                'is_required' => true
+            ],
+            [
+                'field_label' => 'Brand Cat (AN Dulux vs Kompetitor)',
+                'field_name' => 'brand_cat',
+                'field_type' => 'dropdown',
+                'options' => [
+                    'AN (AkzoNobel / Dulux)',
+                    'JOTUN',
+                    'NIPPON PAINT',
+                    'AVIAN / NO DROP / LENKOTE',
+                    'MOWILEX',
+                    'SIKA',
+                    'AQUAPROOF',
+                    'PROPAN',
+                    'KANSAI / DANAPAINT',
+                    'PACIFIC PAINT',
+                    'MERK LAINNYA'
+                ],
+                'is_required' => true
+            ],
+            [
+                'field_label' => 'Nama Sub Brand / Produk yang Dicek',
+                'field_name' => 'subbrand_produk',
+                'field_type' => 'text',
+                'placeholder' => 'Contoh: Ambiance, Pentalite, Weathershield, Catylac, V-Gloss, Aquashield, Majestic, Spotless, No Drop...',
+                'is_required' => true
+            ],
+            [
+                'field_label' => 'Harga Normal Kemasan Tin 1L / 1Kg (Rp)',
+                'field_name' => 'harga_tin_rp',
+                'field_type' => 'currency',
+                'placeholder' => 'Rp 0',
+                'is_required' => false
+            ],
+            [
+                'field_label' => 'Harga Promo / Terendah Tin 1L / 1Kg (Lowest Tin Rp)',
+                'field_name' => 'harga_terendah_tin_rp',
+                'field_type' => 'currency',
+                'placeholder' => 'Rp 0 (Jika ada promo)',
+                'is_required' => false
+            ],
+            [
+                'field_label' => 'Harga Normal Kemasan Galon 2.5L / 4-5Kg (Rp)',
+                'field_name' => 'harga_galon_rp',
+                'field_type' => 'currency',
+                'placeholder' => 'Rp 0',
+                'is_required' => false
+            ],
+            [
+                'field_label' => 'Harga Promo / Terendah Galon 2.5L / 4-5Kg (Lowest Galon Rp)',
+                'field_name' => 'harga_terendah_galon_rp',
+                'field_type' => 'currency',
+                'placeholder' => 'Rp 0 (Jika ada promo)',
+                'is_required' => false
+            ],
+            [
+                'field_label' => 'Harga Normal Kemasan Pail 20L / 25Kg (Rp)',
+                'field_name' => 'harga_pail_rp',
+                'field_type' => 'currency',
+                'placeholder' => 'Rp 0',
+                'is_required' => false
+            ],
+            [
+                'field_label' => 'Harga Promo / Terendah Pail 20L / 25Kg (Lowest Pail Rp)',
+                'field_name' => 'harga_terendah_pail_rp',
+                'field_type' => 'currency',
+                'placeholder' => 'Rp 0 (Jika ada promo)',
+                'is_required' => false
+            ],
         ];
 
         ReportFormField::where('report_template_id', $template->id)->delete();
