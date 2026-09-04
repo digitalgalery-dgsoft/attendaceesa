@@ -995,17 +995,24 @@
         </div>
 
         <div class="header-actions-group">
-            @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport))
+            @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport) && (!isset($isDailyMaintenanceReport) || !$isDailyMaintenanceReport))
             <button type="button" class="btn-studio-toggle" id="btn_toggle_studio" onclick="toggleStudioMode()">
                 <i class="fa-solid fa-layer-group"></i>
                 <span id="studio_btn_text">🎨 Studio Dashboard</span>
             </button>
             @endif
 
-            <a href="{{ route('portal.report.export', ['code' => $template->code, 'start_month' => $startMonth, 'start_year' => $startYear, 'end_month' => $endMonth, 'end_year' => $endYear, 'region' => $selectedRegion, 'area_id' => $selectedAreaId, 'location_id' => $selectedLocationId, 'p' => $tenantPrincipal->id]) }}" class="btn-export-excel">
-                <i class="fa-solid fa-file-excel"></i>
-                Export Rekap CSV / Excel
-            </a>
+            @if(isset($isDailyMaintenanceReport) && $isDailyMaintenanceReport)
+                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'dm_raw', 'p' => $tenantPrincipal->id])) }}" class="btn-export-excel">
+                    <i class="fa-solid fa-file-excel"></i>
+                    Export Data Mentah (CSV)
+                </a>
+            @else
+                <a href="{{ route('portal.report.export', ['code' => $template->code, 'start_month' => $startMonth, 'start_year' => $startYear, 'end_month' => $endMonth, 'end_year' => $endYear, 'region' => $selectedRegion, 'area_id' => $selectedAreaId, 'location_id' => $selectedLocationId, 'p' => $tenantPrincipal->id]) }}" class="btn-export-excel">
+                    <i class="fa-solid fa-file-excel"></i>
+                    Export Rekap CSV / Excel
+                </a>
+            @endif
         </div>
     </div>
 
@@ -1040,6 +1047,9 @@
     <!-- Enhanced Filter Bar (Range Bulan Awal - Akhir, Region, Area, Store / Toko) -->
     <form action="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" method="GET" class="filter-bar" style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 16px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; width: 100%; max-width: 100%; min-width: 0;">
         <input type="hidden" name="p" value="{{ $tenantPrincipal->id }}">
+        @if(isset($isDailyMaintenanceReport) && $isDailyMaintenanceReport)
+            <input type="hidden" name="tab" value="{{ $activeTab ?? 'summary' }}">
+        @endif
         
         <!-- Filter Fields Container (Aligned firmly to the Left) -->
         <div class="filter-group-left" style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; flex: 1; min-width: 0; justify-content: flex-start;">
@@ -1137,6 +1147,34 @@
                 <i class="fa-solid fa-store" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 0.85rem;"></i>
             </div>
 
+            @if(isset($isDailyMaintenanceReport) && $isDailyMaintenanceReport)
+                @if(!empty($machineTypes))
+                <!-- Filter Tipe Mesin POST -->
+                <div style="position: relative;">
+                    <select name="machine_type" id="filter_machine_type" class="filter-select-btn" style="padding-left: 2rem;">
+                        <option value="">⚙️ Semua Mesin</option>
+                        @foreach($machineTypes as $mt)
+                            <option value="{{ $mt }}" {{ ($selectedMachineType ?? '') === $mt ? 'selected' : '' }}>{{ $mt }}</option>
+                        @endforeach
+                    </select>
+                    <i class="fa-solid fa-gears" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 0.85rem;"></i>
+                </div>
+                @endif
+
+                @if(!empty($categories))
+                <!-- Filter Kategori Toko -->
+                <div style="position: relative;">
+                    <select name="category" id="filter_category" class="filter-select-btn" style="padding-left: 2rem;">
+                        <option value="">🏷️ Semua Kategori</option>
+                        @foreach($categories as $cat)
+                            <option value="{{ $cat }}" {{ ($selectedCategory ?? '') === $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                        @endforeach
+                    </select>
+                    <i class="fa-solid fa-tags" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 0.85rem;"></i>
+                </div>
+                @endif
+            @endif
+
             <!-- Search Input -->
             <div style="position: relative;">
                 <input type="text" name="q" class="filter-search-input" placeholder="Cari data / toko..." value="{{ $search }}" style="padding-left: 2rem; width: 190px;">
@@ -1149,7 +1187,7 @@
             <button type="submit" class="filter-select-btn" style="background: var(--brand-gradient); color: #fff; font-weight: 700; border: none; box-shadow: 0 2px 8px var(--brand-glow); padding: 0.55rem 1.15rem; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;">
                 <i class="fa-solid fa-filter"></i> Filter
             </button>
-            @if($selectedRegion || $selectedAreaId || $selectedLocationId || $search || $startMonth != Carbon\Carbon::now()->month || $endMonth != Carbon\Carbon::now()->month)
+            @if($selectedRegion || $selectedAreaId || $selectedLocationId || !empty($selectedMachineType) || !empty($selectedCategory) || $search || $startMonth != Carbon\Carbon::now()->month || $endMonth != Carbon\Carbon::now()->month)
                 <a href="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" class="filter-select-btn" style="background: #f1f5f9; color: #64748b; text-decoration: none; display: inline-flex; align-items: center; gap: 0.35rem;" title="Reset Filter">
                     <i class="fa-solid fa-rotate-left"></i> Reset
                 </a>
