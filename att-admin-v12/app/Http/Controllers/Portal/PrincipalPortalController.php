@@ -1012,7 +1012,7 @@ class PrincipalPortalController extends Controller
             $sqlitePath = storage_path('app/dulux_data/daily_maintenance.sqlite');
             $gzPath     = storage_path('app/dulux_data/daily_maintenance.sqlite.gz');
 
-            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000 || (file_exists($gzPath) && filemtime($gzPath) > filemtime($sqlitePath))) {
                 if (file_exists($gzPath)) {
                     try {
                         $zp = gzopen($gzPath, 'rb');
@@ -1034,7 +1034,7 @@ class PrincipalPortalController extends Controller
             }
 
             // Extract distinct regions directly from dm_raw
-            $regions = Cache::remember('dm_filter_regions_v1', 3600, function() use ($sqlitePath) {
+            $regions = Cache::remember('dm_filter_regions_v3', 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT DISTINCT rsm_area FROM dm_raw WHERE rsm_area IS NOT NULL AND rsm_area != '' ORDER BY rsm_area");
@@ -1045,7 +1045,7 @@ class PrincipalPortalController extends Controller
             });
 
             // Extract distinct areas directly from dm_raw
-            $areaCacheKey = 'dm_filter_areas_v2_' . md5($selectedRegion ?: 'all');
+            $areaCacheKey = 'dm_filter_areas_v3_' . md5($selectedRegion ?: 'all');
             $areas = Cache::remember($areaCacheKey, 3600, function() use ($sqlitePath, $selectedRegion) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
@@ -1070,7 +1070,7 @@ class PrincipalPortalController extends Controller
             });
 
             // Extract distinct stores directly from dm_raw
-            $storeCacheKey = 'dm_filter_stores_v2_' . md5(($selectedRegion ?: 'all') . '_' . ($selectedAreaId ?: 'all'));
+            $storeCacheKey = 'dm_filter_stores_v3_' . md5(($selectedRegion ?: 'all') . '_' . ($selectedAreaId ?: 'all'));
             $workLocations = Cache::remember($storeCacheKey, 3600, function() use ($sqlitePath, $selectedRegion, $selectedAreaId) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
@@ -1104,7 +1104,7 @@ class PrincipalPortalController extends Controller
             });
 
             // Extract Machine Types
-            $machineTypes = Cache::remember('dm_filter_mtypes_v1', 3600, function() use ($sqlitePath) {
+            $machineTypes = Cache::remember('dm_filter_mtypes_v3', 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT DISTINCT machine_type FROM dm_raw WHERE machine_type IS NOT NULL AND machine_type != '' ORDER BY machine_type");
@@ -1115,7 +1115,7 @@ class PrincipalPortalController extends Controller
             });
 
             // Extract Categories
-            $categories = Cache::remember('dm_filter_cats_v1', 3600, function() use ($sqlitePath) {
+            $categories = Cache::remember('dm_filter_cats_v3', 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT DISTINCT category FROM dm_raw WHERE category IS NOT NULL AND category != '' ORDER BY category");
@@ -2884,7 +2884,7 @@ class PrincipalPortalController extends Controller
         if ($template->code === 'RPT-DULUX-DAILY-MAINTENANCE' || str_contains($template->code, 'DAILY-MAINTENANCE')) {
             $sqlitePath = storage_path('app/dulux_data/daily_maintenance.sqlite');
             $gzPath     = storage_path('app/dulux_data/daily_maintenance.sqlite.gz');
-            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000 || (file_exists($gzPath) && filemtime($gzPath) > filemtime($sqlitePath))) {
                 if (file_exists($gzPath)) {
                     try {
                         $zp = gzopen($gzPath, 'rb');
@@ -6558,7 +6558,7 @@ class PrincipalPortalController extends Controller
         $sqlitePath = storage_path('app/dulux_data/daily_maintenance.sqlite');
         $gzPath     = storage_path('app/dulux_data/daily_maintenance.sqlite.gz');
 
-        if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+        if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000 || (file_exists($gzPath) && filemtime($gzPath) > filemtime($sqlitePath))) {
             if (file_exists($gzPath)) {
                 try {
                     $zp = gzopen($gzPath, 'rb');
@@ -6593,7 +6593,7 @@ class PrincipalPortalController extends Controller
             $activeMonths[$m] = $monthNames[$m];
         }
 
-        $cacheKey = 'dm_dash_v1_' . md5($template->id . "_{$sYear}_{$sMonth}_{$eYear}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedMachineType}_{$selectedCategory}_{$search}_{$storePage}_{$rawPage}_{$perPage}");
+        $cacheKey = 'dm_dash_v3_' . md5($template->id . "_{$sYear}_{$sMonth}_{$eYear}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedMachineType}_{$selectedCategory}_{$search}_{$storePage}_{$rawPage}_{$perPage}");
 
         return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sYear, $sMonth, $eYear, $eMonth, $activeMonths, $selectedRegion, $selectedAreaName, $selectedStoreName, $selectedMachineType, $selectedCategory, $search, $storePage, $rawPage, $perPage) {
             try {
