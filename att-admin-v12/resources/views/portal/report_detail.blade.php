@@ -2202,6 +2202,7 @@
                     colors: ['#fff']
                 },
                 xaxis: {
+                    categories: storeCategories,
                     labels: {
                         formatter: function (val) {
                             if (val >= 1000) return (val/1000).toFixed(1) + "k";
