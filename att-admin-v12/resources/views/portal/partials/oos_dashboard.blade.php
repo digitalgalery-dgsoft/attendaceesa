@@ -1,7 +1,7 @@
 {{-- PORTAL OUT OF STOCK (OOS) EXECUTIVE DASHBOARD (SUMMARY, REASON BREAKDOWN, WEEKLY PIVOT & RAW SUBMISSIONS) --}}
 <div class="custom-oos-wrapper" style="margin-bottom: 2rem; width: 100%; max-width: 100%; min-width: 0;">
 
-    <!-- TOP TOOLBAR: TAB NAVIGATION, CHANNEL FILTER & EXPORT BUTTONS -->
+    <!-- TOP TOOLBAR: TAB NAVIGATION, CHANNEL FILTER, NO OOS TOGGLE & EXPORT BUTTONS -->
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
         <div class="oos-main-nav" style="background: #e2e8f0; padding: 4px; border-radius: 12px; display: inline-flex; gap: 4px; flex-wrap: wrap;">
             <button type="button" class="oos-nav-btn {{ ($activeTab ?? 'summary') === 'summary' ? 'active' : '' }}" id="btn_oos_tab_summary" onclick="switchOosTab('summary')">
@@ -26,12 +26,25 @@
             <div style="display: inline-flex; align-items: center; background: #fff; padding: 3px 6px; border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05); gap: 4px;">
                 <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); padding-left: 6px;">Channel:</span>
                 @php $curChan = request()->query('channel', ''); @endphp
-                <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'channel' => '', 'p' => $tenantPrincipal->id])) }}" 
+                <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'channel' => '', 'tab' => $activeTab ?? 'summary', 'p' => $tenantPrincipal->id])) }}" 
                    class="btn-chan-filter {{ empty($curChan) ? 'active' : '' }}">Semua</a>
-                <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'channel' => 'LSO', 'p' => $tenantPrincipal->id])) }}" 
-                   class="btn-chan-filter {{ $curChan === 'LSO' ? 'active' : '' }}" title="Large Store Outlet (Modern Trade: Depo Bangunan, Mitra 10, ACE, dll)">LSO (Modern Trade)</a>
-                <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'channel' => 'SSO', 'p' => $tenantPrincipal->id])) }}" 
+                <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'channel' => 'LSO', 'tab' => $activeTab ?? 'summary', 'p' => $tenantPrincipal->id])) }}" 
+                   class="btn-chan-filter {{ $curChan === 'LSO' ? 'active' : '' }}" title="Large Store Outlet (Modern Trade: Depo Bangunan, Mitra 10, ACE, dll)">LSO (Modern)</a>
+                <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'channel' => 'SSO', 'tab' => $activeTab ?? 'summary', 'p' => $tenantPrincipal->id])) }}" 
                    class="btn-chan-filter {{ $curChan === 'SSO' ? 'active' : '' }}" title="Small Store Outlet (Traditional Trade / Retail)">SSO (Retail)</a>
+            </div>
+
+            <!-- Toggle Filter Produk "No OOS" -->
+            <div style="display: inline-flex; align-items: center; background: #fff; padding: 3px 6px; border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05); gap: 4px;">
+                <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); padding-left: 6px;">Status No OOS:</span>
+                <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'show_no_oos' => 0, 'tab' => $activeTab ?? 'summary', 'p' => $tenantPrincipal->id])) }}" 
+                   class="btn-chan-filter {{ empty($showNoOos) ? 'active' : '' }}" title="Sembunyikan produk dengan entri 'No OOS' (Hanya tampilkan barang kosong riil)">
+                    <i class="fa-solid fa-eye-slash" style="font-size: 0.72rem;"></i> Sembunyikan (Default)
+                </a>
+                <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'show_no_oos' => 1, 'tab' => $activeTab ?? 'summary', 'p' => $tenantPrincipal->id])) }}" 
+                   class="btn-chan-filter {{ !empty($showNoOos) ? 'active' : '' }}" title="Tampilkan seluruh data termasuk entri 'No OOS'">
+                    <i class="fa-solid fa-eye" style="font-size: 0.72rem;"></i> Tampilkan Semua
+                </a>
             </div>
 
             <!-- Periode Indicator -->
@@ -123,7 +136,7 @@
                     {{ number_format($oosData['kpis']['total_submissions'] ?? 0) }} <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted);">Laporan</span>
                 </div>
                 <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">
-                    Total baris data checklist OOS
+                    Total baris checklist OOS terdata
                 </div>
             </div>
         </div>
@@ -319,26 +332,67 @@
                 </table>
             </div>
 
-            <!-- Weekly Pivot Pagination -->
-            @if($oosData['weekly']['total_pages'] > 1)
-                <div class="stock-pagination-wrapper">
-                    <div style="font-size: 0.84rem; color: var(--text-muted);">
-                        Menampilkan <strong>{{ $oosData['weekly']['from'] }}</strong> s/d <strong>{{ $oosData['weekly']['to'] }}</strong> dari <strong>{{ number_format($oosData['weekly']['total_rows']) }}</strong> baris rekap
+            <!-- Beautiful Weekly Pivot Pagination Bar -->
+            @if(($oosData['weekly']['total_pages'] ?? 1) > 1)
+                @php
+                    $curPage = (int)($oosData['weekly']['page'] ?? 1);
+                    $totPages = (int)($oosData['weekly']['total_pages'] ?? 1);
+                @endphp
+                <div class="oos-pagination-bar">
+                    <div class="oos-pagination-info">
+                        Menampilkan <strong>{{ $oosData['weekly']['from'] }}</strong> s/d <strong>{{ $oosData['weekly']['to'] }}</strong> dari <strong>{{ number_format($oosData['weekly']['total_rows']) }}</strong> baris rekap (Hal <strong>{{ $curPage }}</strong> dari <strong>{{ $totPages }}</strong>)
                     </div>
-                    <div class="custom-pager">
-                        @if($oosData['weekly']['page'] > 1)
-                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'weekly_page' => $oosData['weekly']['page'] - 1, 'tab' => 'weekly', 'p' => $tenantPrincipal->id])) }}" class="page-link-btn">
-                                <i class="fa-solid fa-chevron-left"></i> Prev
-                            </a>
+                    <div class="oos-pagination-controls">
+                        {{-- First Page --}}
+                        <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'weekly_page' => 1, 'tab' => 'weekly', 'p' => $tenantPrincipal->id])) }}" 
+                           class="oos-page-btn {{ $curPage <= 1 ? 'disabled' : '' }}" title="Halaman Pertama">
+                            <i class="fa-solid fa-angles-left"></i>
+                        </a>
+
+                        {{-- Prev Page --}}
+                        <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'weekly_page' => max(1, $curPage - 1), 'tab' => 'weekly', 'p' => $tenantPrincipal->id])) }}" 
+                           class="oos-page-btn {{ $curPage <= 1 ? 'disabled' : '' }}">
+                            <i class="fa-solid fa-chevron-left"></i> Prev
+                        </a>
+
+                        {{-- Numeric Pages --}}
+                        @php
+                            $startP = max(1, $curPage - 2);
+                            $endP = min($totPages, $curPage + 2);
+                        @endphp
+
+                        @if($startP > 1)
+                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'weekly_page' => 1, 'tab' => 'weekly', 'p' => $tenantPrincipal->id])) }}" class="oos-page-btn">1</a>
+                            @if($startP > 2)
+                                <span class="oos-page-dots">&hellip;</span>
+                            @endif
                         @endif
 
-                        <span class="page-indicator">Hal {{ $oosData['weekly']['page'] }} dari {{ $oosData['weekly']['total_pages'] }}</span>
-
-                        @if($oosData['weekly']['page'] < $oosData['weekly']['total_pages'])
-                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'weekly_page' => $oosData['weekly']['page'] + 1, 'tab' => 'weekly', 'p' => $tenantPrincipal->id])) }}" class="page-link-btn">
-                                Next <i class="fa-solid fa-chevron-right"></i>
+                        @for($p = $startP; $p <= $endP; $p++)
+                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'weekly_page' => $p, 'tab' => 'weekly', 'p' => $tenantPrincipal->id])) }}" 
+                               class="oos-page-btn {{ $p === $curPage ? 'active' : '' }}">
+                                {{ $p }}
                             </a>
+                        @endfor
+
+                        @if($endP < $totPages)
+                            @if($endP < $totPages - 1)
+                                <span class="oos-page-dots">&hellip;</span>
+                            @endif
+                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'weekly_page' => $totPages, 'tab' => 'weekly', 'p' => $tenantPrincipal->id])) }}" class="oos-page-btn">{{ $totPages }}</a>
                         @endif
+
+                        {{-- Next Page --}}
+                        <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'weekly_page' => min($totPages, $curPage + 1), 'tab' => 'weekly', 'p' => $tenantPrincipal->id])) }}" 
+                           class="oos-page-btn {{ $curPage >= $totPages ? 'disabled' : '' }}">
+                            Next <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+
+                        {{-- Last Page --}}
+                        <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'weekly_page' => $totPages, 'tab' => 'weekly', 'p' => $tenantPrincipal->id])) }}" 
+                           class="oos-page-btn {{ $curPage >= $totPages ? 'disabled' : '' }}" title="Halaman Terakhir">
+                            <i class="fa-solid fa-angles-right"></i>
+                        </a>
                     </div>
                 </div>
             @endif
@@ -360,8 +414,21 @@
                 </div>
 
                 <div class="oos-header-meta">
+                    @if(empty($showNoOos))
+                        <div class="meta-pill" style="background: #eff6ff; color: #1e40af; border-color: #bfdbfe;">
+                            <i class="fa-solid fa-filter" style="color: #2563eb;"></i>
+                            <span class="meta-lbl" style="color: #1e40af;">Filter:</span>
+                            <strong class="meta-val" style="color: #1e40af;">Kasus OOS Saja (Produk "No OOS" Disembunyikan)</strong>
+                        </div>
+                    @else
+                        <div class="meta-pill" style="background: #f0fdf4; color: #15803d; border-color: #bbf7d0;">
+                            <i class="fa-solid fa-circle-check" style="color: #16a34a;"></i>
+                            <span class="meta-lbl" style="color: #15803d;">Filter:</span>
+                            <strong class="meta-val" style="color: #15803d;">Menampilkan Seluruh Data Termasuk "No OOS"</strong>
+                        </div>
+                    @endif
                     <div class="meta-pill">
-                        <span class="meta-lbl">Total Baris:</span>
+                        <span class="meta-lbl">Total Baris Terfilter:</span>
                         <strong class="meta-val">{{ number_format($oosData['submissions']['total'] ?? 0) }} Baris</strong>
                     </div>
                 </div>
@@ -445,26 +512,67 @@
                 </table>
             </div>
 
-            <!-- Submissions Pagination -->
-            @if($oosData['submissions']['total_pages'] > 1)
-                <div class="stock-pagination-wrapper">
-                    <div style="font-size: 0.84rem; color: var(--text-muted);">
-                        Menampilkan <strong>{{ $oosData['submissions']['from'] }}</strong> s/d <strong>{{ $oosData['submissions']['to'] }}</strong> dari <strong>{{ number_format($oosData['submissions']['total']) }}</strong> data submission
+            <!-- Beautiful Submissions Pagination Bar -->
+            @if(($oosData['submissions']['total_pages'] ?? 1) > 1)
+                @php
+                    $curPage = (int)($oosData['submissions']['page'] ?? 1);
+                    $totPages = (int)($oosData['submissions']['total_pages'] ?? 1);
+                @endphp
+                <div class="oos-pagination-bar">
+                    <div class="oos-pagination-info">
+                        Menampilkan <strong>{{ $oosData['submissions']['from'] }}</strong> s/d <strong>{{ $oosData['submissions']['to'] }}</strong> dari <strong>{{ number_format($oosData['submissions']['total']) }}</strong> data submission (Hal <strong>{{ $curPage }}</strong> dari <strong>{{ $totPages }}</strong>)
                     </div>
-                    <div class="custom-pager">
-                        @if($oosData['submissions']['page'] > 1)
-                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => $oosData['submissions']['page'] - 1, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="page-link-btn">
-                                <i class="fa-solid fa-chevron-left"></i> Prev
-                            </a>
+                    <div class="oos-pagination-controls">
+                        {{-- First Page --}}
+                        <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => 1, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" 
+                           class="oos-page-btn {{ $curPage <= 1 ? 'disabled' : '' }}" title="Halaman Pertama">
+                            <i class="fa-solid fa-angles-left"></i>
+                        </a>
+
+                        {{-- Prev Page --}}
+                        <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => max(1, $curPage - 1), 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" 
+                           class="oos-page-btn {{ $curPage <= 1 ? 'disabled' : '' }}">
+                            <i class="fa-solid fa-chevron-left"></i> Prev
+                        </a>
+
+                        {{-- Numeric Pages --}}
+                        @php
+                            $startP = max(1, $curPage - 2);
+                            $endP = min($totPages, $curPage + 2);
+                        @endphp
+
+                        @if($startP > 1)
+                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => 1, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="oos-page-btn">1</a>
+                            @if($startP > 2)
+                                <span class="oos-page-dots">&hellip;</span>
+                            @endif
                         @endif
 
-                        <span class="page-indicator">Hal {{ $oosData['submissions']['page'] }} dari {{ $oosData['submissions']['total_pages'] }}</span>
-
-                        @if($oosData['submissions']['page'] < $oosData['submissions']['total_pages'])
-                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => $oosData['submissions']['page'] + 1, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="page-link-btn">
-                                Next <i class="fa-solid fa-chevron-right"></i>
+                        @for($p = $startP; $p <= $endP; $p++)
+                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => $p, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" 
+                               class="oos-page-btn {{ $p === $curPage ? 'active' : '' }}">
+                                {{ $p }}
                             </a>
+                        @endfor
+
+                        @if($endP < $totPages)
+                            @if($endP < $totPages - 1)
+                                <span class="oos-page-dots">&hellip;</span>
+                            @endif
+                            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => $totPages, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="oos-page-btn">{{ $totPages }}</a>
                         @endif
+
+                        {{-- Next Page --}}
+                        <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => min($totPages, $curPage + 1), 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" 
+                           class="oos-page-btn {{ $curPage >= $totPages ? 'disabled' : '' }}">
+                            Next <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+
+                        {{-- Last Page --}}
+                        <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'raw_page' => $totPages, 'tab' => 'raw', 'p' => $tenantPrincipal->id])) }}" 
+                           class="oos-page-btn {{ $curPage >= $totPages ? 'disabled' : '' }}" title="Halaman Terakhir">
+                            <i class="fa-solid fa-angles-right"></i>
+                        </a>
                     </div>
                 </div>
             @endif
@@ -502,11 +610,14 @@
     text-decoration: none;
     font-size: 0.76rem;
     font-weight: 700;
-    padding: 0.3rem 0.65rem;
-    border-radius: 6px;
+    padding: 0.35rem 0.75rem;
+    border-radius: 7px;
     color: #64748b;
     background: transparent;
     transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 .btn-chan-filter:hover {
     background: #f1f5f9;
@@ -515,6 +626,7 @@
 .btn-chan-filter.active {
     background: #0F52BA;
     color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(15, 82, 186, 0.25);
 }
 .btn-oos-export {
     background: #ffffff;
@@ -578,6 +690,37 @@
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+    align-items: center;
+}
+.meta-pill {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.meta-pill .meta-lbl {
+    color: #64748b;
+    font-weight: 600;
+}
+.meta-pill .meta-val {
+    color: #0f172a;
+    font-weight: 700;
+}
+.meta-pill-highlight {
+    background: linear-gradient(135deg, #0b3d88 0%, #0284c7 100%);
+    border: none;
+    color: #ffffff;
+}
+.meta-pill-highlight .meta-lbl {
+    color: rgba(255,255,255,0.85);
+}
+.meta-pill-highlight .meta-val {
+    color: #ffffff;
+    font-size: 0.9rem;
 }
 .oos-table-viewport {
     width: 100%;
@@ -645,6 +788,85 @@
     background: #fdf4ff;
     color: #86198f;
     border: 1px solid #f5d0fe;
+}
+.region-pill {
+    background: #f1f5f9;
+    color: #334155;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.76rem;
+}
+
+/* Modern Pagination Bar Styles */
+.oos-pagination-bar {
+    padding: 1rem 1.5rem;
+    background: #ffffff;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.oos-pagination-info {
+    font-size: 0.84rem;
+    color: #64748b;
+    font-weight: 500;
+}
+.oos-pagination-info strong {
+    color: #0f172a;
+    font-weight: 700;
+}
+.oos-pagination-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f8fafc;
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+.oos-page-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 7px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
+    background: transparent;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    cursor: pointer;
+}
+.oos-page-btn:hover:not(.disabled):not(.active) {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #0F52BA;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.oos-page-btn.active {
+    background: #0F52BA !important;
+    color: #ffffff !important;
+    border-color: #0F52BA !important;
+    font-weight: 800;
+    box-shadow: 0 2px 6px rgba(15, 82, 186, 0.3);
+}
+.oos-page-btn.disabled {
+    color: #cbd5e1 !important;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+.oos-page-dots {
+    padding: 0 6px;
+    color: #94a3b8;
+    font-weight: 700;
 }
 </style>
 

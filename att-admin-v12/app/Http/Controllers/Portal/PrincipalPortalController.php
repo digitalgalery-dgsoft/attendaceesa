@@ -940,6 +940,7 @@ class PrincipalPortalController extends Controller
             });
 
             $selectedChannel = $request->query('channel', '');
+            $showNoOos       = (bool)$request->query('show_no_oos', 0);
             $weeklyPage      = max(1, (int)$request->query('weekly_page', 1));
             $rawPage         = max(1, (int)$request->query('raw_page', 1));
             $activeTab       = $request->query('tab', 'summary');
@@ -954,6 +955,7 @@ class PrincipalPortalController extends Controller
                 $selectedAreaId,
                 $selectedLocationId,
                 $selectedChannel,
+                $showNoOos,
                 $search,
                 $weeklyPage,
                 $rawPage,
@@ -986,6 +988,7 @@ class PrincipalPortalController extends Controller
                 'selectedAreaId',
                 'selectedLocationId',
                 'selectedChannel',
+                'showNoOos',
                 'regions',
                 'areas',
                 'workLocations',
@@ -2496,6 +2499,7 @@ class PrincipalPortalController extends Controller
                     $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
                     $search = $request->query('q');
                     $selectedChannel = $request->query('channel', '');
+                    $showNoOos = (bool)$request->query('show_no_oos', 0);
 
                     $sMonth = max(1, min(12, (int)$startMonth));
                     $eMonth = max(1, min(12, (int)$endMonth));
@@ -2533,6 +2537,12 @@ class PrincipalPortalController extends Controller
                     $whereSql = implode(' AND ', $where);
 
                     if ($exportType === 'oos_raw') {
+                        $rawWhere = $where;
+                        if (!$showNoOos) {
+                            $rawWhere[] = "(is_oos = 1 AND UPPER(TRIM(COALESCE(produk, ''))) != 'NO OOS')";
+                        }
+                        $rawWhereSql = implode(' AND ', $rawWhere);
+
                         $headerRow = [
                             'Channel', 'Submission Code', 'Submission Date', 'Tanggal OOS', 'Week',
                             'Region', 'Area', 'RSM Area', 'Account', 'SAP', 'DERP/Category', 'Nama Toko',
@@ -2545,7 +2555,7 @@ class PrincipalPortalController extends Controller
                                    region, area, rsm_area, account, sap, derp, store_name,
                                    produk, base_color, kemasan_size, lama_oos_hari, saran_qty_order, alasan_oos, is_oos
                             FROM oos_raw
-                            WHERE $whereSql
+                            WHERE $rawWhereSql
                             ORDER BY tanggal_oos ASC, id ASC
                         ");
                         $stmt->execute($params);
@@ -5867,7 +5877,7 @@ class PrincipalPortalController extends Controller
      * - Weekly Tab (Weekly Pivot per Store, Product, Base/Color, Kemasan, Alasan OOS)
      * - Raw Submissions Tab (16 Columns matching Excel)
      */
-    protected function calculateOosDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedChannel = 'ALL', $search = null, $weeklyPage = 1, $rawPage = 1, $perPage = 50)
+    protected function calculateOosDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedChannel = 'ALL', $showNoOos = false, $search = null, $weeklyPage = 1, $rawPage = 1, $perPage = 50)
     {
         $sqlitePath = storage_path('app/dulux_data/oos_2026.sqlite');
         $gzPath     = storage_path('app/dulux_data/oos_2026.sqlite.gz');
@@ -5924,9 +5934,9 @@ class PrincipalPortalController extends Controller
         $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
         $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
 
-        $cacheKey = 'oos_dash_v1_' . md5($template->id . "_{$sMonth}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedChannel}_{$search}_{$weeklyPage}_{$rawPage}_{$perPage}");
+        $cacheKey = 'oos_dash_v2_' . md5($template->id . "_{$sMonth}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedChannel}_" . ($showNoOos ? '1' : '0') . "_{$search}_{$weeklyPage}_{$rawPage}_{$perPage}");
 
-        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sMonth, $eMonth, $activeMonths, $selectedRegion, $selectedAreaName, $selectedStoreName, $selectedChannel, $search, $weeklyPage, $rawPage, $perPage) {
+        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sMonth, $eMonth, $activeMonths, $selectedRegion, $selectedAreaName, $selectedStoreName, $selectedChannel, $showNoOos, $search, $weeklyPage, $rawPage, $perPage) {
             try {
                 $pdo = new \PDO("sqlite:" . $sqlitePath);
                 $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
@@ -6089,8 +6099,14 @@ class PrincipalPortalController extends Controller
                 }
 
                 // 4. Raw Submissions (16 Columns matching Excel)
+                $rawWhere = $where;
+                if (!$showNoOos) {
+                    $rawWhere[] = "(is_oos = 1 AND UPPER(TRIM(COALESCE(produk, ''))) != 'NO OOS')";
+                }
+                $rawWhereSql = implode(' AND ', $rawWhere);
+
                 $rawOffset = ($rawPage - 1) * $perPage;
-                $rawCountSql = "SELECT COUNT(*) FROM oos_raw WHERE $whereSql";
+                $rawCountSql = "SELECT COUNT(*) FROM oos_raw WHERE $rawWhereSql";
                 $rawCountStmt = $pdo->prepare($rawCountSql);
                 $rawCountStmt->execute($params);
                 $totalRaw = (int)$rawCountStmt->fetchColumn();
@@ -6101,7 +6117,7 @@ class PrincipalPortalController extends Controller
                         region, area, rsm_area, account, sap, derp, store_name,
                         produk, base_color, kemasan_size, lama_oos_hari, saran_qty_order, alasan_oos, is_oos
                     FROM oos_raw
-                    WHERE $whereSql
+                    WHERE $rawWhereSql
                     ORDER BY tanggal_oos DESC, id DESC
                     LIMIT $perPage OFFSET $rawOffset
                 ";
