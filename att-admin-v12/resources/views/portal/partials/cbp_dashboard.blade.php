@@ -6,11 +6,11 @@
         <div class="cbp-main-nav">
             <button type="button" class="cbp-nav-btn active" id="btn_cbp_tab_d1" onclick="switchCbpMainTab('d1')">
                 <i class="fa-solid fa-palette" style="font-size: 1rem;"></i>
-                <span>Cat Tembok (Dashboard 1)</span>
+                <span>Wallpaint (Cat Tembok)</span>
             </button>
             <button type="button" class="cbp-nav-btn" id="btn_cbp_tab_d2" onclick="switchCbpMainTab('d2')">
                 <i class="fa-solid fa-shield-halved" style="font-size: 1rem;"></i>
-                <span>Enamel & Waterproofing (Dashboard 2)</span>
+                <span>WTP MCC (Enamel & Waterproofing)</span>
             </button>
             <button type="button" class="cbp-nav-btn" id="btn_cbp_tab_raw" onclick="switchCbpMainTab('raw')">
                 <i class="fa-solid fa-file-excel" style="font-size: 1rem; color: #107c41;"></i>
@@ -165,7 +165,7 @@
                         </div>
                     </div>
 
-                    <!-- View Toggle: Price Table vs Index Table -->
+                    <!-- View Toggle: Price Table vs Index Table vs MoM Growth -->
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <div class="cbp-toggle-group">
                             <button type="button" class="cbp-toggle-btn active" id="btn_price_{{ $sKey }}" onclick="toggleCbpTableType('{{ $sKey }}', 'price')">
@@ -173,6 +173,9 @@
                             </button>
                             <button type="button" class="cbp-toggle-btn" id="btn_index_{{ $sKey }}" onclick="toggleCbpTableType('{{ $sKey }}', 'index')">
                                 <i class="fa-solid fa-percent"></i> Price Index to AN (100%)
+                            </button>
+                            <button type="button" class="cbp-toggle-btn" id="btn_mom_{{ $sKey }}" onclick="toggleCbpTableType('{{ $sKey }}', 'mom')">
+                                <i class="fa-solid fa-arrow-trend-up"></i> % MoM Growth
                             </button>
                         </div>
                     </div>
@@ -312,6 +315,96 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- 3. Table MOP Increase Month on Month (% Growth MoM) -->
+                    <div id="table_mom_wrap_{{ $sKey }}" style="overflow-x: auto; display: none;">
+                        <table class="custom-table cbp-table" style="margin-bottom: 0;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 45px; text-align: center;">No</th>
+                                    <th style="width: 90px;">Brand</th>
+                                    <th style="min-width: 220px;">Sub Brand / Produk</th>
+                                    @foreach($cbpData['months'] as $m => $mMeta)
+                                        <th style="text-align: center; min-width: 105px;">{{ $mMeta['short'] }} {{ $endYear }}</th>
+                                    @endforeach
+                                    <th style="text-align: center; min-width: 120px; background: #e2e8f0 !important; color: #1e293b !important; font-weight: 800;">
+                                        Rata-Rata MoM
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @php $rowIdx = 1; @endphp
+                                @forelse($sec['products'] as $pName => $pData)
+                                    <tr class="{{ $pData['brand'] === 'AN' ? 'cbp-row-an' : '' }}">
+                                        <td style="text-align: center; font-weight: 600; color: var(--text-muted);">{{ $rowIdx++ }}</td>
+                                        <td>
+                                            <span class="cbp-brand-badge {{ $pData['brand'] === 'AN' ? 'cbp-brand-an' : 'cbp-brand-comp' }}">
+                                                {{ $pData['brand'] === 'AN' ? 'Dulux' : $pData['brand'] }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div style="font-weight: 700; color: {{ $pData['brand'] === 'AN' ? 'var(--brand-primary)' : 'var(--text-heading)' }};">
+                                                {{ $pData['product'] }}
+                                                @if($pData['is_benchmark'])
+                                                    <span style="font-size: 0.7rem; font-weight: 800; background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">
+                                                        BENCHMARK
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        </td>
+                                        @foreach($cbpData['months'] as $m => $mMeta)
+                                            @php $momVal = $pData['mom_growth'][$m] ?? null; @endphp
+                                            <td style="text-align: center;">
+                                                @if($momVal !== null)
+                                                    @if($momVal > 0.0001)
+                                                        <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0;" title="Naik {{ number_format($momVal, 2) }}%">
+                                                            +{{ number_format($momVal, 2) }}%
+                                                        </span>
+                                                    @elseif($momVal < -0.0001)
+                                                        <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;" title="Turun {{ number_format(abs($momVal), 2) }}%">
+                                                            {{ number_format($momVal, 2) }}%
+                                                        </span>
+                                                    @else
+                                                        <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.78rem; font-weight: 600; background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0;">
+                                                            0.00%
+                                                        </span>
+                                                    @endif
+                                                @else
+                                                    <span style="color: var(--text-muted);">-</span>
+                                                @endif
+                                            </td>
+                                        @endforeach
+                                        <td style="text-align: center; background: rgba(226, 232, 240, 0.4);">
+                                            @php $avgMom = $pData['avg_mom'] ?? null; @endphp
+                                            @if($avgMom !== null)
+                                                @if($avgMom > 0.0001)
+                                                    <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.8rem; font-weight: 800; background: #dcfce7; color: #15803d; border: 1px solid #86efac;">
+                                                        +{{ number_format($avgMom, 2) }}%
+                                                    </span>
+                                                @elseif($avgMom < -0.0001)
+                                                    <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.8rem; font-weight: 800; background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">
+                                                        {{ number_format($avgMom, 2) }}%
+                                                    </span>
+                                                @else
+                                                    <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.8rem; font-weight: 700; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
+                                                        0.00%
+                                                    </span>
+                                                @endif
+                                            @else
+                                                <span style="color: var(--text-muted);">-</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="{{ count($cbpData['months']) + 4 }}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                            Tidak ada data untuk kategori ini.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         @endforeach
@@ -340,7 +433,7 @@
                         </div>
                     </div>
 
-                    <!-- View Toggle: Price Table vs Index Table -->
+                    <!-- View Toggle: Price Table vs Index Table vs MoM Growth -->
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <div class="cbp-toggle-group">
                             <button type="button" class="cbp-toggle-btn active" id="btn_price_{{ $sKey }}" onclick="toggleCbpTableType('{{ $sKey }}', 'price')">
@@ -348,6 +441,9 @@
                             </button>
                             <button type="button" class="cbp-toggle-btn" id="btn_index_{{ $sKey }}" onclick="toggleCbpTableType('{{ $sKey }}', 'index')">
                                 <i class="fa-solid fa-percent"></i> Price Index to AN (100%)
+                            </button>
+                            <button type="button" class="cbp-toggle-btn" id="btn_mom_{{ $sKey }}" onclick="toggleCbpTableType('{{ $sKey }}', 'mom')">
+                                <i class="fa-solid fa-arrow-trend-up"></i> % MoM Growth
                             </button>
                         </div>
                     </div>
@@ -471,6 +567,96 @@
                                                     <span class="cbp-pill-cheaper" style="font-size: 0.85rem;">{{ number_format($pData['avg_index'], 1) }}%</span>
                                                 @else
                                                     <span class="cbp-pill-expensive" style="font-size: 0.85rem;">{{ number_format($pData['avg_index'], 1) }}%</span>
+                                                @endif
+                                            @else
+                                                <span style="color: var(--text-muted);">-</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="{{ count($cbpData['months']) + 4 }}" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                            Tidak ada data untuk kategori ini.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 3. Table MOP Increase Month on Month (% Growth MoM) -->
+                    <div id="table_mom_wrap_{{ $sKey }}" style="overflow-x: auto; display: none;">
+                        <table class="custom-table cbp-table" style="margin-bottom: 0;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 45px; text-align: center;">No</th>
+                                    <th style="width: 90px;">Brand</th>
+                                    <th style="min-width: 220px;">Sub Brand / Produk</th>
+                                    @foreach($cbpData['months'] as $m => $mMeta)
+                                        <th style="text-align: center; min-width: 105px;">{{ $mMeta['short'] }} {{ $endYear }}</th>
+                                    @endforeach
+                                    <th style="text-align: center; min-width: 120px; background: #e2e8f0 !important; color: #1e293b !important; font-weight: 800;">
+                                        Rata-Rata MoM
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @php $rowIdx = 1; @endphp
+                                @forelse($sec['products'] as $pName => $pData)
+                                    <tr class="{{ $pData['brand'] === 'AN' ? 'cbp-row-an' : '' }}">
+                                        <td style="text-align: center; font-weight: 600; color: var(--text-muted);">{{ $rowIdx++ }}</td>
+                                        <td>
+                                            <span class="cbp-brand-badge {{ $pData['brand'] === 'AN' ? 'cbp-brand-an' : 'cbp-brand-comp' }}">
+                                                {{ $pData['brand'] === 'AN' ? 'Dulux' : $pData['brand'] }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div style="font-weight: 700; color: {{ $pData['brand'] === 'AN' ? 'var(--brand-primary)' : 'var(--text-heading)' }};">
+                                                {{ $pData['product'] }}
+                                                @if($pData['is_benchmark'])
+                                                    <span style="font-size: 0.7rem; font-weight: 800; background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">
+                                                        BENCHMARK
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        </td>
+                                        @foreach($cbpData['months'] as $m => $mMeta)
+                                            @php $momVal = $pData['mom_growth'][$m] ?? null; @endphp
+                                            <td style="text-align: center;">
+                                                @if($momVal !== null)
+                                                    @if($momVal > 0.0001)
+                                                        <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0;" title="Naik {{ number_format($momVal, 2) }}%">
+                                                            +{{ number_format($momVal, 2) }}%
+                                                        </span>
+                                                    @elseif($momVal < -0.0001)
+                                                        <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;" title="Turun {{ number_format(abs($momVal), 2) }}%">
+                                                            {{ number_format($momVal, 2) }}%
+                                                        </span>
+                                                    @else
+                                                        <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.78rem; font-weight: 600; background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0;">
+                                                            0.00%
+                                                        </span>
+                                                    @endif
+                                                @else
+                                                    <span style="color: var(--text-muted);">-</span>
+                                                @endif
+                                            </td>
+                                        @endforeach
+                                        <td style="text-align: center; background: rgba(226, 232, 240, 0.4);">
+                                            @php $avgMom = $pData['avg_mom'] ?? null; @endphp
+                                            @if($avgMom !== null)
+                                                @if($avgMom > 0.0001)
+                                                    <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.8rem; font-weight: 800; background: #dcfce7; color: #15803d; border: 1px solid #86efac;">
+                                                        +{{ number_format($avgMom, 2) }}%
+                                                    </span>
+                                                @elseif($avgMom < -0.0001)
+                                                    <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.8rem; font-weight: 800; background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">
+                                                        {{ number_format($avgMom, 2) }}%
+                                                    </span>
+                                                @else
+                                                    <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.8rem; font-weight: 700; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
+                                                        0.00%
+                                                    </span>
                                                 @endif
                                             @else
                                                 <span style="color: var(--text-muted);">-</span>
@@ -739,19 +925,27 @@
     function toggleCbpTableType(sectionKey, type) {
         var btnPrice = document.getElementById('btn_price_' + sectionKey);
         var btnIndex = document.getElementById('btn_index_' + sectionKey);
+        var btnMom = document.getElementById('btn_mom_' + sectionKey);
         var wrapPrice = document.getElementById('table_price_wrap_' + sectionKey);
         var wrapIndex = document.getElementById('table_index_wrap_' + sectionKey);
+        var wrapMom = document.getElementById('table_mom_wrap_' + sectionKey);
+
+        if (btnPrice) btnPrice.classList.remove('active');
+        if (btnIndex) btnIndex.classList.remove('active');
+        if (btnMom) btnMom.classList.remove('active');
+        if (wrapPrice) wrapPrice.style.display = 'none';
+        if (wrapIndex) wrapIndex.style.display = 'none';
+        if (wrapMom) wrapMom.style.display = 'none';
 
         if (type === 'price') {
             if (btnPrice) btnPrice.classList.add('active');
-            if (btnIndex) btnIndex.classList.remove('active');
             if (wrapPrice) wrapPrice.style.display = 'block';
-            if (wrapIndex) wrapIndex.style.display = 'none';
-        } else {
-            if (btnPrice) btnPrice.classList.remove('active');
+        } else if (type === 'index') {
             if (btnIndex) btnIndex.classList.add('active');
-            if (wrapPrice) wrapPrice.style.display = 'none';
             if (wrapIndex) wrapIndex.style.display = 'block';
+        } else if (type === 'mom') {
+            if (btnMom) btnMom.classList.add('active');
+            if (wrapMom) wrapMom.style.display = 'block';
         }
     }
 </script>

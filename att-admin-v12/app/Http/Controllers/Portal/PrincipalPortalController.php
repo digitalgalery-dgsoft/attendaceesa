@@ -3288,7 +3288,7 @@ class PrincipalPortalController extends Controller
             return null;
         }
 
-        $cacheKey = 'cbp_dash_v4_' . md5($template->id . '_' . $startYear . '_' . $startMonth . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+        $cacheKey = 'cbp_dash_v5_' . md5($template->id . '_' . $startYear . '_' . $startMonth . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
 
         $aggData = Cache::remember($cacheKey, 300, function() use ($sqlitePath, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
             try {
@@ -3536,8 +3536,10 @@ class PrincipalPortalController extends Controller
                                     'is_benchmark' => ($p === $cfg['benchmark_product']),
                                     'prices' => [],
                                     'indices' => [],
+                                    'mom_growth' => [],
                                     'avg_price' => 0,
                                     'avg_index' => 0,
+                                    'avg_mom' => null,
                                 ];
                             }
                             $prods[$p]['prices'][$r['month']] = (float)$r['avg_price'];
@@ -3555,10 +3557,11 @@ class PrincipalPortalController extends Controller
                             }
                         }
 
-                        // Calculate Indices and Averages
+                        // Calculate Indices, MoM Growth and Averages
                         foreach ($prods as $p => &$info) {
                             $validPrices = [];
                             $validIndices = [];
+                            $validMoMs = [];
                             foreach ($months as $m => $mMeta) {
                                 $price = $info['prices'][$m] ?? null;
                                 $bmPrice = $bmPrices[$m] ?? null;
@@ -3572,9 +3575,20 @@ class PrincipalPortalController extends Controller
                                 } else {
                                     $info['indices'][$m] = null;
                                 }
+
+                                // MoM Growth (%): (Current Month Price - Previous Month Price) / Previous Month Price * 100
+                                $prevPrice = $info['prices'][$m - 1] ?? null;
+                                if ($prevPrice && $prevPrice > 0 && $price && $price > 0) {
+                                    $mom = (($price - $prevPrice) / $prevPrice) * 100;
+                                    $info['mom_growth'][$m] = $mom;
+                                    $validMoMs[] = $mom;
+                                } else {
+                                    $info['mom_growth'][$m] = null;
+                                }
                             }
                             $info['avg_price'] = count($validPrices) > 0 ? (array_sum($validPrices) / count($validPrices)) : 0;
                             $info['avg_index'] = count($validIndices) > 0 ? (array_sum($validIndices) / count($validIndices)) : 0;
+                            $info['avg_mom'] = count($validMoMs) > 0 ? (array_sum($validMoMs) / count($validMoMs)) : null;
                         }
                         unset($info);
 
