@@ -663,6 +663,7 @@ class PrincipalPortalController extends Controller
             $uniqueStores = 0;
             $submissions = new LengthAwarePaginator([], 0, 20, 1);
             $dashboardConfig = [];
+            $widgetResults = [];
             $isYtdReport = true;
             $ytdData = $this->calculateOfftakeYtdData(
                 $template,
