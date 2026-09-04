@@ -6,12 +6,12 @@
         <div class="offtake-main-nav" style="background: #e2e8f0; padding: 4px; border-radius: 12px; display: inline-flex; gap: 4px;">
             <button type="button" class="offtake-nav-btn {{ ($activeTab ?? 'sheet2') === 'sheet2' ? 'active' : '' }}" id="btn_offtake_tab_sheet2" onclick="switchOfftakeTab('sheet2')">
                 <i class="fa-solid fa-table-cells" style="font-size: 0.95rem;"></i>
-                <span>Rekap Volume Toko (Sheet 2)</span>
+                <span>Rekap Volume Toko</span>
                 <span class="badge-count">{{ number_format($offtakeData['sheet2']['total_stores'] ?? 0) }} Toko</span>
             </button>
             <button type="button" class="offtake-nav-btn {{ ($activeTab ?? 'sheet2') === 'sheet1' ? 'active' : '' }}" id="btn_offtake_tab_sheet1" onclick="switchOfftakeTab('sheet1')">
                 <i class="fa-solid fa-receipt" style="font-size: 0.95rem;"></i>
-                <span>Raw Data Transaksi (Sheet 1)</span>
+                <span>Raw Data Transaksi</span>
                 <span class="badge-count">{{ number_format($offtakeData['sheet1']['total_records'] ?? 0) }} Baris</span>
             </button>
         </div>
@@ -25,26 +25,26 @@
 
             <!-- Export Buttons -->
             <div style="display: inline-flex; gap: 6px;">
-                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'sheet2', 'p' => $tenantPrincipal->id])) }}" class="btn-offtake-export" title="Download Format Sheet 2 (Rekap Volume Per Toko)">
+                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'sheet2', 'p' => $tenantPrincipal->id])) }}" class="btn-offtake-export" title="Download Rekap Volume Per Toko">
                     <i class="fa-solid fa-file-excel" style="color: #107c41;"></i>
-                    <span>Export Rekap Toko (Sheet 2)</span>
+                    <span>Export Rekap Toko</span>
                 </a>
-                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="btn-offtake-export" style="background: #f8fafc;" title="Download Format Sheet 1 (Raw Data Transaksi)">
+                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'raw', 'p' => $tenantPrincipal->id])) }}" class="btn-offtake-export" style="background: #f8fafc;" title="Download Raw Data Transaksi">
                     <i class="fa-solid fa-file-csv" style="color: #0284c7;"></i>
-                    <span>Export Raw Data (Sheet 1)</span>
+                    <span>Export Raw Data</span>
                 </a>
             </div>
         </div>
     </div>
 
-    <!-- PANE 1: SHEET 2 REKAPITULASI VOLUME TOKO -->
+    <!-- PANE 1: REKAPITULASI VOLUME TOKO -->
     <div id="pane_offtake_sheet2" class="offtake-pane" style="{{ ($activeTab ?? 'sheet2') === 'sheet2' ? 'display: block;' : 'display: none;' }}">
         <div class="offtake-card">
             <div class="offtake-card-header">
                 <div>
                     <h3 class="offtake-card-title">
                         <i class="fa-solid fa-chart-pie" style="color: var(--brand-primary);"></i>
-                        Tabel Rekapitulasi Volume Penjualan Toko (Sheet 2)
+                        Tabel Rekapitulasi Volume Penjualan Toko
                     </h3>
                     <div class="offtake-card-sub">
                         Volume total penjualan (Liter) per toko pada bulan terpilih beserta Grand Total seluruh toko.
@@ -195,7 +195,7 @@
                 <div>
                     <h3 class="offtake-card-title">
                         <i class="fa-solid fa-receipt" style="color: #0284c7;"></i>
-                        Raw Data Transaksi Penjualan Dulux & Catylac (Sheet 1)
+                        Raw Data Transaksi Penjualan Dulux & Catylac
                     </h3>
                     <div class="offtake-card-sub">
                         Detail log transaksi penjualan, ukuran kemasan galon & pail, kuantiti unit, dan volume liter.
