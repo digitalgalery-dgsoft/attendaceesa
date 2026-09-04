@@ -109,7 +109,11 @@
                 <select name="area_id" class="form-select dm-filter-select" onchange="document.getElementById('dmFilterForm').submit()">
                     <option value="">Semua Area</option>
                     @foreach($areas as $ar)
-                        <option value="{{ $ar->id ?? $ar->name }}" {{ ($selectedAreaId ?? '') == ($ar->id ?? $ar->name) ? 'selected' : '' }}>{{ $ar->name }}</option>
+                        @php
+                            $arId = is_array($ar) ? ($ar['id'] ?? $ar['name'] ?? '') : (is_object($ar) && !($ar instanceof \__PHP_Incomplete_Class) ? ($ar->id ?? $ar->name ?? '') : (is_string($ar) ? $ar : ''));
+                            $arName = is_array($ar) ? ($ar['name'] ?? '') : (is_object($ar) && !($ar instanceof \__PHP_Incomplete_Class) ? ($ar->name ?? '') : (is_string($ar) ? $ar : ''));
+                        @endphp
+                        <option value="{{ $arId }}" {{ ($selectedAreaId ?? '') == $arId ? 'selected' : '' }}>{{ $arName }}</option>
                     @endforeach
                 </select>
             </div>

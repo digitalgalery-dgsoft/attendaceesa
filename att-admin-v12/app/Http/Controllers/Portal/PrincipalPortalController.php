@@ -1045,7 +1045,7 @@ class PrincipalPortalController extends Controller
             });
 
             // Extract distinct areas directly from dm_raw
-            $areaCacheKey = 'dm_filter_areas_v1_' . md5($selectedRegion ?: 'all');
+            $areaCacheKey = 'dm_filter_areas_v2_' . md5($selectedRegion ?: 'all');
             $areas = Cache::remember($areaCacheKey, 3600, function() use ($sqlitePath, $selectedRegion) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
@@ -1057,7 +1057,7 @@ class PrincipalPortalController extends Controller
                     }
                     $results = [];
                     foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $a) {
-                        $results[] = (object)[
+                        $results[] = [
                             'id' => $a['area'],
                             'name' => $a['area'],
                             'region' => $a['rsm_area']
@@ -1070,7 +1070,7 @@ class PrincipalPortalController extends Controller
             });
 
             // Extract distinct stores directly from dm_raw
-            $storeCacheKey = 'dm_filter_stores_v1_' . md5(($selectedRegion ?: 'all') . '_' . ($selectedAreaId ?: 'all'));
+            $storeCacheKey = 'dm_filter_stores_v2_' . md5(($selectedRegion ?: 'all') . '_' . ($selectedAreaId ?: 'all'));
             $workLocations = Cache::remember($storeCacheKey, 3600, function() use ($sqlitePath, $selectedRegion, $selectedAreaId) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
@@ -1089,7 +1089,7 @@ class PrincipalPortalController extends Controller
                     $stmt->execute($params);
                     $result = [];
                     foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $s) {
-                        $result[] = (object)[
+                        $result[] = [
                             'id' => $s['store_name'],
                             'name' => $s['store_name'],
                             'region' => $s['rsm_area'],
