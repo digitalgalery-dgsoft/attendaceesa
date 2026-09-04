@@ -1099,8 +1099,13 @@
                 <select name="area_id" id="filter_area" class="filter-select-btn" onchange="onAreaFilterChange(this.value)" style="padding-left: 2rem;">
                     <option value="">📍 Semua Area / Cabang</option>
                     @foreach($areas as $area)
-                        <option value="{{ $area->id }}" data-region="{{ $area->region ?? '' }}" {{ (string)$selectedAreaId === (string)$area->id ? 'selected' : '' }}>
-                            {{ $area->name }}
+                        @php
+                            $aId = is_object($area) ? ($area->id ?? '') : (is_array($area) ? ($area['id'] ?? '') : $area);
+                            $aName = is_object($area) ? ($area->name ?? $area->id ?? '') : (is_array($area) ? ($area['name'] ?? $area['id'] ?? '') : $area);
+                            $aRegion = is_object($area) ? ($area->region ?? '') : (is_array($area) ? ($area['region'] ?? '') : '');
+                        @endphp
+                        <option value="{{ $aId }}" data-region="{{ $aRegion }}" {{ (string)$selectedAreaId === (string)$aId ? 'selected' : '' }}>
+                            {{ $aName }}
                         </option>
                     @endforeach
                 </select>
@@ -1112,8 +1117,14 @@
                 <select name="location_id" id="filter_location" class="filter-select-btn" style="padding-left: 2rem; max-width: 250px;">
                     <option value="">🏢 Semua Store / Toko</option>
                     @foreach($workLocations as $loc)
-                        <option value="{{ $loc->id }}" data-region="{{ $loc->region ?? '' }}" data-area="{{ strtoupper(trim($loc->area ?? '')) }}" {{ (string)$selectedLocationId === (string)$loc->id ? 'selected' : '' }}>
-                            {{ $loc->name }}
+                        @php
+                            $lId = is_object($loc) ? ($loc->id ?? '') : (is_array($loc) ? ($loc['id'] ?? '') : $loc);
+                            $lName = is_object($loc) ? ($loc->name ?? $loc->id ?? '') : (is_array($loc) ? ($loc['name'] ?? $loc['id'] ?? '') : $loc);
+                            $lRegion = is_object($loc) ? ($loc->region ?? '') : (is_array($loc) ? ($loc['region'] ?? '') : '');
+                            $lArea = is_object($loc) ? ($loc->area ?? '') : (is_array($loc) ? ($loc['area'] ?? '') : '');
+                        @endphp
+                        <option value="{{ $lId }}" data-region="{{ $lRegion }}" data-area="{{ strtoupper(trim($lArea)) }}" {{ (string)$selectedLocationId === (string)$lId ? 'selected' : '' }}>
+                            {{ $lName }}
                         </option>
                     @endforeach
                 </select>
