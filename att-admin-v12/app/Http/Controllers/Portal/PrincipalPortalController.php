@@ -424,15 +424,45 @@ class PrincipalPortalController extends Controller
             });
             if ($latestSubDate) {
                 $c = Carbon::parse($latestSubDate);
-                $startMonth = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 1 : $c->month;
-                $startYear  = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 2026 : $c->year;
-                $endMonth   = (int) ($request->query('end_month') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 7 : $c->month));
-                $endYear    = (int) ($request->query('end_year') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 2026 : $c->year));
+                $isDuluxCustom2026 = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') || str_contains($template->code, 'OOS') || str_contains($template->code, 'STOCK');
+                $isDuluxCustomerDb = ($template->code === 'RPT-DULUX-DATABASE-PELANGGAN' || str_contains($template->code, 'PELANGGAN'));
+
+                if ($isDuluxCustomerDb) {
+                    $startMonth = 1;
+                    $startYear  = 2025;
+                    $endMonth   = (int) ($request->query('end_month') ?? 12);
+                    $endYear    = (int) ($request->query('end_year') ?? 2026);
+                } elseif ($isDuluxCustom2026) {
+                    $startMonth = 1;
+                    $startYear  = 2026;
+                    $endMonth   = (int) ($request->query('end_month') ?? 7);
+                    $endYear    = (int) ($request->query('end_year') ?? 2026);
+                } else {
+                    $startMonth = $c->month;
+                    $startYear  = $c->year;
+                    $endMonth   = (int) ($request->query('end_month') ?? $c->month);
+                    $endYear    = (int) ($request->query('end_year') ?? $c->year);
+                }
             } else {
-                $startMonth = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 1 : Carbon::now()->month;
-                $startYear  = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 2026 : Carbon::now()->year;
-                $endMonth   = (int) ($request->query('end_month') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 7 : Carbon::now()->month));
-                $endYear    = (int) ($request->query('end_year') ?? (in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') ? 2026 : Carbon::now()->year));
+                $isDuluxCustom2026 = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') || str_contains($template->code, 'OOS') || str_contains($template->code, 'STOCK');
+                $isDuluxCustomerDb = ($template->code === 'RPT-DULUX-DATABASE-PELANGGAN' || str_contains($template->code, 'PELANGGAN'));
+
+                if ($isDuluxCustomerDb) {
+                    $startMonth = 1;
+                    $startYear  = 2025;
+                    $endMonth   = (int) ($request->query('end_month') ?? 12);
+                    $endYear    = (int) ($request->query('end_year') ?? 2026);
+                } elseif ($isDuluxCustom2026) {
+                    $startMonth = 1;
+                    $startYear  = 2026;
+                    $endMonth   = (int) ($request->query('end_month') ?? 7);
+                    $endYear    = (int) ($request->query('end_year') ?? 2026);
+                } else {
+                    $startMonth = Carbon::now()->month;
+                    $startYear  = Carbon::now()->year;
+                    $endMonth   = (int) ($request->query('end_month') ?? Carbon::now()->month);
+                    $endYear    = (int) ($request->query('end_year') ?? Carbon::now()->year);
+                }
             }
         }
 
@@ -1694,7 +1724,7 @@ class PrincipalPortalController extends Controller
         });
 
         // Dropdown Data for Region, Area, and Store (Sourced directly from Actual Report Submissions)
-        $subLocData = Cache::remember("rep_filter_locs_v3_{$template->id}", 600, function() use ($template) {
+        $subLocDataRaw = Cache::remember("rep_filter_locs_v4_{$template->id}", 600, function() use ($template) {
             return DB::table('report_submissions')
                 ->where('report_submissions.report_template_id', $template->id)
                 ->join('work_locations', 'report_submissions.work_location_id', '=', 'work_locations.id')
@@ -1707,8 +1737,10 @@ class PrincipalPortalController extends Controller
                     'branches.name as branch_name'
                 )
                 ->distinct()
-                ->get();
+                ->get()
+                ->toArray();
         });
+        $subLocData = collect($subLocDataRaw);
 
         if ($subLocData->isNotEmpty()) {
             $regions = $subLocData->pluck('region')->filter()->unique()->sort()->values()->toArray();
