@@ -13,3 +13,10 @@ attendance-esa-groups-firebase-adminsdk-fbsvc-ae351648f6.json
 # Odoo custom modules (reference only, not part of this repo)
 odoocustoms/
 odoocustoms.zip
+desktop.ini
+**/desktop.ini
+*.tmp
+.agents/
+.kotlin/
+**/android/.kotlin/
+

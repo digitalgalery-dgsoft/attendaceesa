@@ -45,6 +45,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   bool _isWithinRadius = false;
   double _allowedRadiusMeter = 100.0;
 
+  // Multi-Category & Session Progress Tracking
+  final ScrollController _scrollController = ScrollController();
+  final Set<String> _submittedCategories = {};
+  final List<String> _submittedCategoryLog = [];
+  int _sessionSubmissionCount = 0;
+
   // State nilai form dinamis
   final Map<String, dynamic> _formValues = {};
   final Map<String, File> _photoFiles = {};
@@ -233,6 +239,124 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
   }
 
+  bool _isCalculatedField(ReportFormFieldModel field) {
+    if (field.isReadonly) return true;
+    final name = field.fieldName.toLowerCase();
+    return name == 'volume_galon_l' ||
+           name == 'volume_pail_l' ||
+           name == 'total_volume_unit' ||
+           name == 'total_volume_liter' ||
+           name == 'total_volume_stok_liter' ||
+           name == 'volume_liter' ||
+           name == 'estimasi_market_share_persen';
+  }
+
+  bool _isCategoryField(ReportFormFieldModel field) {
+    final name = field.fieldName.toLowerCase();
+    final label = field.fieldLabel.toLowerCase();
+    return name.contains('kategori') ||
+           label.contains('kategori') ||
+           name.contains('category') ||
+           label.contains('category') ||
+           name == 'produk_dulux_cbp' ||
+           name == 'kategori_produk';
+  }
+
+  void _recalculateFormulas() {
+    // Helper untuk ambil nilai numerik dari formValues atau controller
+    double getNumVal(String fieldNameOrKey) {
+      for (final f in widget.template.fields) {
+        if (f.fieldName.toLowerCase() == fieldNameOrKey.toLowerCase() || f.id.toString() == fieldNameOrKey) {
+          final k = f.id.toString();
+          final raw = _controllers[k]?.text.replaceAll(RegExp(r'[^0-9.]'), '') ?? _formValues[k]?.toString() ?? '';
+          return double.tryParse(raw) ?? 0.0;
+        }
+      }
+      final raw = _controllers[fieldNameOrKey]?.text.replaceAll(RegExp(r'[^0-9.]'), '') ?? _formValues[fieldNameOrKey]?.toString() ?? '';
+      return double.tryParse(raw) ?? 0.0;
+    }
+
+    // Helper untuk ambil string value (misal kemasan)
+    String getStrVal(String fieldNameOrKey) {
+      for (final f in widget.template.fields) {
+        if (f.fieldName.toLowerCase() == fieldNameOrKey.toLowerCase() || f.id.toString() == fieldNameOrKey) {
+          final k = f.id.toString();
+          return _formValues[k]?.toString() ?? _controllers[k]?.text ?? '';
+        }
+      }
+      return _formValues[fieldNameOrKey]?.toString() ?? _controllers[fieldNameOrKey]?.text ?? '';
+    }
+
+    // Helper untuk parse ukuran liter dari string kemasan (misal "2.5 Liter" -> 2.5, "20 Liter" -> 20.0, "0.8 L" -> 0.8)
+    double parseLitersFromKemasan(String kemasanStr) {
+      if (kemasanStr.isEmpty || kemasanStr.toLowerCase().contains('tidak ada')) return 0.0;
+      final match = RegExp(r'([0-9]+(?:\.[0-9]+)?)').firstMatch(kemasanStr);
+      if (match != null) {
+        return double.tryParse(match.group(1) ?? '0') ?? 0.0;
+      }
+      return 0.0;
+    }
+
+    // Helper untuk update field target calculated
+    void updateCalculatedField(String targetFieldName, double val, {bool isInteger = false, String suffix = ''}) {
+      for (final f in widget.template.fields) {
+        if (f.fieldName.toLowerCase() == targetFieldName.toLowerCase()) {
+          final k = f.id.toString();
+          final formatted = val <= 0 && suffix.isEmpty
+              ? ''
+              : (isInteger ? val.toInt().toString() : (val % 1 == 0 ? val.toInt().toString() : val.toStringAsFixed(2)) + suffix);
+          
+          if (_controllers.containsKey(k) && _controllers[k]!.text != formatted) {
+            _controllers[k]!.text = formatted;
+          }
+          _formValues[k] = isInteger ? val.toInt() : (val % 1 == 0 ? val.toInt() : double.parse(val.toStringAsFixed(2)));
+        }
+      }
+    }
+
+    // 1. OFFTAKE CALCULATIONS (Volume Galon, Volume Pail, Total Unit, Total Volume Liter)
+    final qtyGalon = getNumVal('qty_galon');
+    final kemasanGalonStr = getStrVal('kemasan_galon');
+    final galonSizeL = parseLitersFromKemasan(kemasanGalonStr);
+    final effectiveGalonSize = galonSizeL > 0 ? galonSizeL : (kemasanGalonStr.isNotEmpty && !kemasanGalonStr.toLowerCase().contains('tidak ada') ? 2.5 : (qtyGalon > 0 ? 2.5 : 0.0));
+    final volGalon = qtyGalon * effectiveGalonSize;
+
+    final qtyPail = getNumVal('qty_pail');
+    final kemasanPailStr = getStrVal('kemasan_pail');
+    final pailSizeL = parseLitersFromKemasan(kemasanPailStr);
+    final effectivePailSize = pailSizeL > 0 ? pailSizeL : (kemasanPailStr.isNotEmpty && !kemasanPailStr.toLowerCase().contains('tidak ada') ? 20.0 : (qtyPail > 0 ? 20.0 : 0.0));
+    final volPail = qtyPail * effectivePailSize;
+
+    final totalUnits = qtyGalon + qtyPail;
+    final totalVolL = volGalon + volPail;
+
+    updateCalculatedField('volume_galon_l', volGalon);
+    updateCalculatedField('volume_pail_l', volPail);
+    updateCalculatedField('total_volume_unit', totalUnits, isInteger: true);
+    updateCalculatedField('total_volume_liter', totalVolL);
+
+    // 2. STOCK END CALCULATIONS (Total Volume Liter)
+    final stokQtyGalon = getNumVal('stok_qty_galon') > 0 ? getNumVal('stok_qty_galon') : getNumVal('kuantiti_galon');
+    final stokKemasanGalon = getStrVal('kemasan_galon');
+    final stokGalonSize = parseLitersFromKemasan(stokKemasanGalon) > 0 ? parseLitersFromKemasan(stokKemasanGalon) : 2.5;
+
+    final stokQtyPail = getNumVal('stok_qty_pail') > 0 ? getNumVal('stok_qty_pail') : getNumVal('kuantiti_pail');
+    final stokKemasanPail = getStrVal('kemasan_pail');
+    final stokPailSize = parseLitersFromKemasan(stokKemasanPail) > 0 ? parseLitersFromKemasan(stokKemasanPail) : 20.0;
+
+    final stokTotalVol = (stokQtyGalon * stokGalonSize) + (stokQtyPail * stokPailSize);
+    updateCalculatedField('total_volume_stok_liter', stokTotalVol);
+    updateCalculatedField('volume_liter', stokTotalVol);
+
+    // 3. TRAFIK PEMBELI (Market Share %)
+    final jmlBeliCat = getNumVal('jml_customer_beli_cat');
+    final jmlBeliDulux = getNumVal('jml_customer_beli_dulux');
+    if (jmlBeliCat > 0) {
+      final marketSharePct = (jmlBeliDulux / jmlBeliCat) * 100.0;
+      updateCalculatedField('estimasi_market_share_persen', marketSharePct > 100 ? 100 : marketSharePct, suffix: '%');
+    }
+  }
+
   void _initializeForm() {
     for (final field in widget.template.fields) {
       final fieldKey = field.id.toString();
@@ -276,7 +400,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             _existingMultiPhotoUrls[val.fieldName] = urls;
             _existingPhotoUrls[fieldKey] = urls.first;
             _existingPhotoUrls[val.fieldName] = urls.first;
-          }
+            }
           _formValues[fieldKey] = urls;
           _formValues[val.fieldName] = urls;
           continue;
@@ -327,6 +451,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         }
       }
     }
+
+    // Attach reactive calculation listeners
+    for (final ctrl in _controllers.values) {
+      ctrl.addListener(_recalculateFormulas);
+    }
+    _recalculateFormulas();
   }
 
   Future<void> _fetchCurrentLocation() async {
@@ -353,8 +483,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   @override
   void dispose() {
     for (final ctrl in _controllers.values) {
+      ctrl.removeListener(_recalculateFormulas);
       ctrl.dispose();
     }
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -791,8 +923,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
   }
 
-  // Submit Form
-  Future<void> _submitForm() async {
+  // Submit Form (Single or Multi-Category Continuous Input)
+  Future<void> _submitForm({bool isNewInput = false}) async {
     final locale = Provider.of<LocaleProvider>(context, listen: false);
     final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
 
@@ -829,7 +961,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
     // Validasi foto & tanda tangan required
     for (final field in widget.template.fields) {
-      if (field.isRequired) {
+      if (field.isRequired && !_isCalculatedField(field)) {
         final fieldKey = field.id.toString();
         if (['photo', 'camera_photo', 'multi_photo'].contains(field.fieldType)) {
           final hasFiles = _multiPhotoFiles[fieldKey]?.isNotEmpty ?? false;
@@ -883,6 +1015,32 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     });
 
+    // Capture category or item identifier for continuous input tracking
+    String? submittedCategoryValue;
+    for (final f in widget.template.fields) {
+      if (_isCategoryField(f)) {
+        final k = f.id.toString();
+        final val = _formValues[k]?.toString() ?? _controllers[k]?.text;
+        if (val != null && val.trim().isNotEmpty) {
+          submittedCategoryValue = val.trim();
+          break;
+        }
+      }
+    }
+    if (submittedCategoryValue == null || submittedCategoryValue.isEmpty) {
+      for (final f in widget.template.fields) {
+        if (_isProductField(f)) {
+          final k = f.id.toString();
+          final val = _formValues[k]?.toString() ?? _controllers[k]?.text;
+          if (val != null && val.trim().isNotEmpty) {
+            submittedCategoryValue = val.trim();
+            break;
+          }
+        }
+      }
+    }
+    submittedCategoryValue ??= 'Item ${_submittedCategories.length + 1}';
+
     // Buat salinan bersih dari formValues tanpa path file lokal perangkat
     final Map<String, dynamic> cleanFormValues = Map<String, dynamic>.from(_formValues);
     for (var f in widget.template.fields) {
@@ -934,14 +1092,56 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       if (attProvider.isVisiting) {
         attProvider.markVisitReportFilled();
       }
-      toastification.show(
-        context: context,
-        type: result['is_offline'] == true ? ToastificationType.info : ToastificationType.success,
-        title: Text(widget.editSubmission != null ? 'Laporan Diperbarui' : (result['is_offline'] == true ? 'Tersimpan Offline' : 'Laporan Terkirim')),
-        description: Text(result['message'] ?? 'Berhasil menyimpan laporan.'),
-        autoCloseDuration: const Duration(seconds: 4),
-      );
-      Navigator.of(context).pop(true);
+
+      if (isNewInput) {
+        setState(() {
+          _submittedCategories.add(submittedCategoryValue!);
+          _submittedCategoryLog.add(submittedCategoryValue);
+          _sessionSubmissionCount++;
+
+          // Reset non-persistent fields for next category entry
+          for (final f in widget.template.fields) {
+            final fieldKey = f.id.toString();
+            if (!['date', 'datepicker'].contains(f.fieldType)) {
+              _controllers[fieldKey]?.clear();
+              _formValues.remove(fieldKey);
+              _formValues.remove(f.fieldName);
+            }
+          }
+          _photoFiles.clear();
+          _multiPhotoFiles.clear();
+          _watermarkTexts.clear();
+          _existingPhotoUrls.clear();
+          _existingMultiPhotoUrls.clear();
+        });
+
+        _recalculateFormulas();
+
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+
+        toastification.show(
+          context: context,
+          type: result['is_offline'] == true ? ToastificationType.info : ToastificationType.success,
+          title: Text(result['is_offline'] == true ? 'Tersimpan Offline' : 'Kategori Tersimpan'),
+          description: Text('"$submittedCategoryValue" berhasil disimpan. Silakan lanjutkan input kategori berikutnya.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      } else {
+        toastification.show(
+          context: context,
+          type: result['is_offline'] == true ? ToastificationType.info : ToastificationType.success,
+          title: Text(widget.editSubmission != null ? 'Laporan Diperbarui' : (result['is_offline'] == true ? 'Tersimpan Offline' : 'Laporan Terkirim')),
+          description: Text(result['message'] ?? 'Berhasil menyimpan laporan.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+        Navigator.of(context).pop(true);
+      }
     } else if (mounted) {
       toastification.show(
         context: context,
@@ -1003,6 +1203,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
+          controller: _scrollController,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           children: [
             // ─── Header: Lokasi Terikat Otomatis Sesuai Check-In / Visit ───
@@ -1333,6 +1534,75 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               ),
             ],
 
+            // ─── Session Progress Banner (Multi-Category Reporting) ───
+            if (_submittedCategories.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF149A6E).withOpacity(isDarkMode ? 0.15 : 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF149A6E).withOpacity(0.4), width: 1.2),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF149A6E).withOpacity(0.18),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.check_circle_rounded, color: Color(0xFF149A6E), size: 16),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${_submittedCategories.length} Kategori / Item Telah Disimpan Sesi Ini',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? const Color(0xFF4ADE80) : const Color(0xFF0F7652),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: _submittedCategoryLog.map((cat) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF149A6E).withOpacity(0.35)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check_rounded, size: 12, color: Color(0xFF149A6E)),
+                            const SizedBox(width: 4),
+                            Text(
+                              cat,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isDarkMode ? Colors.white : const Color(0xFF0E1830),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             const SizedBox(height: 16),
 
             // Dynamic Form Fields List
@@ -1349,7 +1619,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
             const SizedBox(height: 16),
 
-            // Submit Button (Dinonaktifkan jika belum Check-In / Visit-In)
+            // Submit Buttons (Single Finish vs Continuous Multi-Category Input)
             if (!canSubmitReport)
               ElevatedButton.icon(
                 onPressed: null,
@@ -1367,16 +1637,14 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   elevation: 0,
                 ),
               )
-            else
+            else if (isEditMode)
               ElevatedButton.icon(
-                onPressed: _isSubmitting ? null : _submitForm,
+                onPressed: _isSubmitting ? null : () => _submitForm(isNewInput: false),
                 icon: _isSubmitting
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Icon(widget.editSubmission != null ? Icons.save_rounded : Icons.send_rounded, color: Colors.white, size: 18),
+                    : const Icon(Icons.save_rounded, color: Colors.white, size: 18),
                 label: Text(
-                  _isSubmitting
-                      ? (widget.editSubmission != null ? 'Menyimpan Perubahan...' : locale.tr('btn_submitting_report'))
-                      : (widget.editSubmission != null ? 'Simpan Perubahan Laporan' : locale.tr('btn_submit_report')),
+                  _isSubmitting ? 'Menyimpan Perubahan...' : 'Simpan Perubahan Laporan',
                   style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -1385,6 +1653,46 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   elevation: 2,
                 ),
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isSubmitting ? null : () => _submitForm(isNewInput: true),
+                      icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
+                      label: const Text(
+                        'Kirim & Input Baru',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: themeColor,
+                        side: BorderSide(color: themeColor, width: 1.5),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isSubmitting ? null : () => _submitForm(isNewInput: false),
+                      icon: _isSubmitting
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                      label: Text(
+                        _isSubmitting ? 'Mengirim...' : 'Kirim & Selesai',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: themeColor,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 2,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             const SizedBox(height: 30),
           ],
@@ -1404,8 +1712,35 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     LocaleProvider locale,
   ) {
     final fieldKey = field.id.toString();
-    final bool isFieldReadonly = field.isReadonly;
+    final bool isFieldCalculated = _isCalculatedField(field);
+    final bool isFieldReadonly = field.isReadonly || isFieldCalculated;
     final readonlyBgColor = isDarkMode ? Colors.grey.shade900 : const Color(0xFFF1F5F9);
+
+    final fieldNameLower = field.fieldName.toLowerCase();
+    final fieldLabelLower = field.fieldLabel.toLowerCase();
+
+    final bool isPhoneOrNik = fieldNameLower.contains('hp') ||
+        fieldNameLower.contains('phone') ||
+        fieldNameLower.contains('wa') ||
+        fieldNameLower.contains('whatsapp') ||
+        fieldNameLower.contains('telepon') ||
+        fieldNameLower.contains('ktp') ||
+        fieldNameLower.contains('nik') ||
+        fieldNameLower.contains('sim') ||
+        fieldLabelLower.contains('nomor hp') ||
+        fieldLabelLower.contains('no hp') ||
+        fieldLabelLower.contains('whatsapp') ||
+        fieldLabelLower.contains('ktp') ||
+        fieldLabelLower.contains('nik');
+
+    final bool isDecimal = fieldNameLower.contains('volume') ||
+        fieldNameLower.contains('liter') ||
+        fieldNameLower.contains('persen') ||
+        fieldNameLower.contains('percent') ||
+        fieldNameLower.contains('share') ||
+        fieldNameLower.contains('luas') ||
+        fieldNameLower.contains('conf') ||
+        fieldNameLower.contains('density');
 
     Widget inputWidget;
 
@@ -1428,6 +1763,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         inputWidget = TextFormField(
           controller: _controllers[fieldKey],
           readOnly: isFieldReadonly,
+          keyboardType: TextInputType.multiline,
           maxLines: 3,
           style: TextStyle(color: isFieldReadonly ? subtitleColor : textColor, fontSize: 13),
           decoration: _inputDecoration(
@@ -1436,7 +1772,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             isDarkMode,
           ),
           validator: (v) => (!isFieldReadonly && field.isRequired) && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
-          onChanged: isFieldReadonly ? null : (v) => _formValues[fieldKey] = v,
+          onChanged: isFieldReadonly ? null : (v) {
+            _formValues[fieldKey] = v;
+            _recalculateFormulas();
+          },
         );
         break;
 
@@ -1445,15 +1784,20 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         inputWidget = TextFormField(
           controller: _controllers[fieldKey],
           readOnly: isFieldReadonly,
-          keyboardType: TextInputType.number,
-          style: TextStyle(color: isFieldReadonly ? subtitleColor : textColor, fontSize: 13),
+          keyboardType: isDecimal
+              ? const TextInputType.numberWithOptions(decimal: true)
+              : (isPhoneOrNik ? TextInputType.phone : TextInputType.number),
+          style: TextStyle(color: isFieldReadonly ? subtitleColor : textColor, fontSize: 13, fontWeight: isFieldCalculated ? FontWeight.bold : FontWeight.normal),
           decoration: _inputDecoration(
-            field.placeholder ?? '0',
+            isFieldCalculated ? 'Dihitung otomatis' : (field.placeholder ?? '0'),
             isFieldReadonly ? readonlyBgColor : elevatedColor,
             isDarkMode,
           ),
           validator: (v) => (!isFieldReadonly && field.isRequired) && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
-          onChanged: isFieldReadonly ? null : (v) => _formValues[fieldKey] = num.tryParse(v),
+          onChanged: isFieldReadonly ? null : (v) {
+            _formValues[fieldKey] = num.tryParse(v);
+            _recalculateFormulas();
+          },
         );
         break;
 
@@ -1469,7 +1813,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             isDarkMode,
           ),
           validator: (v) => (!isFieldReadonly && field.isRequired) && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
-          onChanged: isFieldReadonly ? null : (v) => _formatCurrency(fieldKey, v),
+          onChanged: isFieldReadonly ? null : (v) {
+            _formatCurrency(fieldKey, v);
+            _recalculateFormulas();
+          },
         );
         break;
 
@@ -1490,6 +1837,15 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             effectiveOptions = effectiveOptions.where((opt) => !opt.toLowerCase().contains('acotone')).toList();
           } else if (selectedCategory.toLowerCase().contains('tidak ada') || selectedCategory.toLowerCase().contains('non-tinting')) {
             effectiveOptions = ['Tidak Ada Mesin Tinting / Non-Tinting'];
+          }
+        }
+
+        // Filter out already submitted categories in continuous input mode
+        final bool isCategoryField = _isCategoryField(field);
+        if (isCategoryField && _submittedCategories.isNotEmpty) {
+          effectiveOptions = effectiveOptions.where((opt) => !_submittedCategories.contains(opt)).toList();
+          if (effectiveOptions.isEmpty) {
+            effectiveOptions = ['Semua Kategori Sudah Terisi Selesai ✓'];
           }
         }
 
@@ -2333,7 +2689,28 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
                       ),
                     ),
-                    if (isFieldReadonly) ...[
+                    if (isFieldCalculated) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F52BA).withOpacity(isDarkMode ? 0.2 : 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF0F52BA).withOpacity(0.35), width: 0.8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.calculate_rounded, size: 11, color: Color(0xFF0F52BA)),
+                            SizedBox(width: 3.5),
+                            Text(
+                              'Dihitung Otomatis',
+                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF0F52BA)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else if (isFieldReadonly) ...[
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -2844,6 +3221,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         break;
       }
     }
+
+    _recalculateFormulas();
 
     if (autoCategoryResult != null || autoMinStockResult != null) {
       final details = <String>[];
