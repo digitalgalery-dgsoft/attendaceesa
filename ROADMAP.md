@@ -859,7 +859,33 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - **Tab 2: Analisis Toko & Wilayah (`tab=regional_store`)**: Tabel Matriks Performa 10 RSM Area, Peringkat Top Toko Paginated, dan Top 20 Promotor/DC Teraktif.
       - **Tab 3: Data Mentah Pelanggan (`tab=raw`)**: Tabel 5.522 data mentah konsumen lengkap dengan tombol cepat **🟢 WhatsApp Direct Chat Link** (`wa.me`), filter, pencarian, dan pagination bar.
     - **Perbaikan Rute URL & Error Handling**: Memperbaiki exception `UrlGenerationException` pada rute pagination tabel toko dan data mentah.
-    - **Sinkronisasi Template Form**: Menyelaraskan form input mobile/web template `RPT-DULUX-DATABASE-PELANGGAN` dengan kolom Excel asli (Nama Konsumen, No Kontak, Tipe Konsumen, Alamat Proyek, Alasan Memilih, Brand Ditanyakan, Brand Dibeli, Jenis Cat, Total Transaksi, Dulux Visualizer, Painter Loyalty Club).
+50. **Audit & Peningkatan Menyeluruh Form Pelaporan Dulux, Auto-Calculations, Multi-Kategori, dan Release APK v1.0.120 (SELESAI 5 September 2026)**:
+    - **Presisi Jenis Input (Input Types & Keyboards)**:
+      - Penerapan tipe input dinamis presisi di `dynamic_form_screen.dart`: `number` (kuantiti diskrit), `numberWithOptions(decimal: true)` (volume liter, persentase), `phone` (nomor HP, WA, NIK, No KTP), `currency` (format Rupiah dinamis `Rp`), `photo/camera_photo` (Geotag Watermark permanen toko, waktu, koordinat GPS, nama promotor & NIK), `signature` (dialog canvas tanda tangan digital interaktif), dan `month_year` (dialog bulan-tahun kadaluarsa).
+    - **Integrasi Master Produk & Quick Barcode Scanner**:
+      - Quick Action Barcode Scanner dan bottom sheet dialog katalog master produk Dulux.
+      - Auto-populate otomatis untuk atribut master: Kategori, Kemasan (Galon/Pail/Kaleng), Min Stock, dan verifikasi chip info produk.
+    - **Multi-Kategori Kontinu & Dual Action Buttons**:
+      - Tombol Aksi Ganda `Kirim & Input Baru` (menyimpan submission kategori aktif, mereset form untuk kategori berikutnya tanpa keluar form, mengunci kategori yang sudah disubmit agar tidak dipilih berulang) vs `Kirim & Selesai`.
+      - Banner visual session progress chips untuk menampilkan riwayat kategori yang sudah disimpan dalam sesi pelaporan.
+    - **Reactive Auto-Calculations & Read-Only Badge Engine**:
+      - Auto-calculation real-time saat mengetik kuantiti/memilih kemasan:
+        - Volume Galon (L) = $\text{Qty Galon} \times 2.5\text{ L}$
+        - Volume Pail (L) = $\text{Qty Pail} \times 20.0\text{ L}$
+        - $\text{Total Unit} = \text{Qty Galon} + \text{Qty Pail}$
+        - $\text{Total Volume (Liter)} = \text{Volume Galon (L)} + \text{Volume Pail (L)}$
+        - $\text{Total Volume Stok End (Liter)} = (\text{Stok Galon} \times 2.5\text{ L}) + (\text{Stok Pail} \times 20.0\text{ L})$
+        - $\text{Estimasi Market Share (\%)} = (\text{Customer Beli Dulux} / \text{Customer Beli Cat}) \times 100\%$
+      - Field hasil kalkulasi otomatis dikunci `readOnly: true` dengan badge visual **"Dihitung Otomatis"** dan icon kalkulator.
+    - **Backend Migrations & Seeding Presets**:
+      - Migration `2026_09_05_210000_update_dulux_form_fields_calculations_and_readonly.php` & seeder `ReportTemplatePresetsSeeder.php` untuk mengunci field kalkulasi dan melengkapi formula pada seluruh template Dulux.
+    - **Mobile Versioning & Production APK Build**:
+      - Versi mobile dinaikkan ke **`1.0.120+120`** di `pubspec.yaml`.
+      - Konfigurasi dependensi Gradle Kotlin DSL (`plugins.withId("com.android.library")`) dan `packaging` excludes untuk `desktop.ini` & `androidx.concurrent:concurrent-futures:1.2.0`.
+      - Kompilasi sukses: `app-release-1.0.120.apk` (107.2 MB).
+    - **Deployment & Multi-Server Synchronization**:
+      - Seluruh kode ter-push ke GitHub (`digitalgalery-dgsoft/attendaceesa` branch `main`).
+      - Sinkronisasi template database sukses di-deploy ke Development Server (`appsend.my.id`) dan 3 Production Nodes (`amk.dgsoft.web.id`, `akp.dgsoft.web.id`, `atk.dgsoft.web.id`), seluruhnya terverifikasi aktif dengan status HTTP 200 OK.
 
 ---
 
@@ -871,6 +897,7 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Integrasi penyimpanan awan (*Cloud Storage S3 / Spaces / GCS*) untuk media foto presensi dan laporan visit.
 3. **Penyempurnaan Modul Pelaporan Principal Lainnya:**
    - Sinkronisasi dashboard dan formulir pelaporan untuk principal lainnya (Fonterra, Wings, MamaSuka, Sido Muncul).
+
 
 
 
