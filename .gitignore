@@ -15,8 +15,8 @@ odoocustoms/
 odoocustoms.zip
 desktop.ini
 **/desktop.ini
-*.tmp
-.agents/
-.kotlin/
-**/android/.kotlin/
+att-mobile/build/
+att-mobile/android/build/
+att-mobile/android/app/build/
+att-admin-v12/public/download/
 
