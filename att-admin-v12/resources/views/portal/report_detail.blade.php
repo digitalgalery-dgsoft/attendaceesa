@@ -1180,6 +1180,18 @@
                 @endif
             @endif
 
+            @if(isset($isStockReport) && $isStockReport)
+                <!-- Filter Brand (Dulux & Catylac) -->
+                <div style="position: relative;">
+                    <select name="brand" id="filter_brand" class="filter-select-btn" style="padding-left: 2rem;">
+                        <option value="ALL" {{ ($selectedBrand ?? 'ALL') === 'ALL' ? 'selected' : '' }}>🎨 Semua Brand (Dulux & Catylac)</option>
+                        <option value="DULUX" {{ ($selectedBrand ?? '') === 'DULUX' ? 'selected' : '' }}>🔵 Dulux</option>
+                        <option value="CATYLAC" {{ ($selectedBrand ?? '') === 'CATYLAC' ? 'selected' : '' }}>🟢 Catylac</option>
+                    </select>
+                    <i class="fa-solid fa-brush" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 0.85rem;"></i>
+                </div>
+            @endif
+
             <!-- Search Input -->
             <div style="position: relative;">
                 <input type="text" name="q" class="filter-search-input" placeholder="Cari data / toko..." value="{{ $search }}" style="padding-left: 2rem; width: 190px;">
@@ -1192,7 +1204,7 @@
             <button type="submit" class="filter-select-btn" style="background: var(--brand-gradient); color: #fff; font-weight: 700; border: none; box-shadow: 0 2px 8px var(--brand-glow); padding: 0.55rem 1.15rem; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;">
                 <i class="fa-solid fa-filter"></i> Filter
             </button>
-            @if($selectedRegion || $selectedAreaId || $selectedLocationId || !empty($selectedMachineType) || !empty($selectedCategory) || $search || $startMonth != Carbon\Carbon::now()->month || $endMonth != Carbon\Carbon::now()->month)
+            @if($selectedRegion || $selectedAreaId || $selectedLocationId || (!empty($selectedBrand) && $selectedBrand !== 'ALL') || !empty($selectedMachineType) || !empty($selectedCategory) || $search || $startMonth != Carbon\Carbon::now()->month || $endMonth != Carbon\Carbon::now()->month)
                 <a href="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" class="filter-select-btn" style="background: #f1f5f9; color: #64748b; text-decoration: none; display: inline-flex; align-items: center; gap: 0.35rem;" title="Reset Filter">
                     <i class="fa-solid fa-rotate-left"></i> Reset
                 </a>
@@ -1508,7 +1520,12 @@
 
     {{-- STOCK END EXECUTIVE DASHBOARD (PIVOTABLE, SUMM SCM & RAW DATA) --}}
     @if(isset($isStockReport) && $isStockReport && !empty($stockData))
-        @include('portal.partials.stock_dashboard', ['stockData' => $stockData])
+        @include('portal.partials.stock_dashboard', [
+            'stockData' => $stockData,
+            'monthlyCompareData' => $monthlyCompareData ?? [],
+            'selectedBrand' => $selectedBrand ?? 'ALL',
+            'activeTab' => $activeTab ?? 'monthly'
+        ])
     @endif
 
     {{-- OUT OF STOCK (OOS) EXECUTIVE DASHBOARD (SUMMARY, WEEKLY PIVOT & RAW SUBMISSIONS) --}}

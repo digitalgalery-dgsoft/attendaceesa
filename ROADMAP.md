@@ -887,6 +887,27 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Seluruh kode ter-push ke GitHub (`digitalgalery-dgsoft/attendaceesa` branch `main`).
       - Sinkronisasi template database sukses di-deploy ke Development Server (`appsend.my.id`) dan 3 Production Nodes (`amk.dgsoft.web.id`, `akp.dgsoft.web.id`, `atk.dgsoft.web.id`), seluruhnya terverifikasi aktif dengan status HTTP 200 OK.
 
+51. **Modernisasi Laporan Stock End Dulux: Komparasi Tren Harian Bulanan (CY vs PY) & Filter Brand Dinamis (SELESAI 6 September 2026)**:
+    - **Penggantian Metrik YTD ke Komparasi Bulanan**:
+      - Mengganti modul YTD lama dengan komparasi data bulanan tahun berjalan (misal Juli 2026) terhadap bulan yang sama pada tahun sebelumnya (Juli 2025).
+      - Menghadirkan **Grafik Garis/Area Tren Harian Interaktif (ApexCharts)** dari Tanggal 01 s/d 31 untuk membaca fluktuasi stok secara presisi antara CY (*Current Year*) dan PY (*Previous Year*).
+    - **5 Kartu KPI Eksekutif Komparasi Bulanan**:
+      - Total Volume Stock Bulan Berjalan (CY) vs Tahun Sebelumnya (PY) beserta persentase pertumbuhan YoY (*Year-over-Year*) dan selisih volume liter.
+      - Jumlah Toko Aktif Melapor (CY vs PY).
+      - Rata-rata Volume Stock per Toko (CY vs PY).
+      - Kontribusi Volume Brand Dulux (Liter & % Share).
+      - Kontribusi Volume Brand Catylac (Liter & % Share).
+    - **Tabel Rincian Harian & Komparasi Toko Utama**:
+      - Tabel pergerakan stok harian Tanggal 01 s/d 31 lengkap dengan volume CY, volume PY, selisih (delta), dan persentase pertumbuhan.
+      - Tabel komparasi performa Top 10 Toko dengan volume terbesar pada bulan tersebut.
+    - **Filter Brand Terpadu (Semua Brand, Dulux, Catylac)**:
+      - Menambahkan dropdown filter Brand di toolbar filter utama yang terhubung secara seamless ke seluruh tab analisis:
+        - Tab 1: Tren Harian & Komparasi Bulanan (`tab=monthly`)
+        - Tab 2: Rekap Volume Stock Toko (`tab=pivot`)
+        - Tab 3: Ringkasan SCM & Stock (`tab=scm`)
+        - Tab 4: Raw Data Submissions (`tab=raw`)
+      - Penyesuaian otomatis pada kueri SQLite `stock_2026.sqlite` & `stock_2025.sqlite` serta integrasi ke fitur ekspor CSV data komparasi bulanan.
+
 ---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)

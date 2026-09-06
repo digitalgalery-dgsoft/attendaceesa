@@ -674,10 +674,15 @@ class PrincipalPortalController extends Controller
                 }
             });
 
+            $selectedBrand = strtoupper(trim((string)$request->query('brand', 'ALL')));
+            if (!in_array($selectedBrand, ['ALL', 'DULUX', 'CATYLAC'])) {
+                $selectedBrand = 'ALL';
+            }
+
             $stockPage = max(1, (int)$request->query('page', 1));
             $summPage  = max(1, (int)$request->query('summ_page', 1));
             $rawPage   = max(1, (int)$request->query('raw_page', 1));
-            $activeTab = $request->query('tab', 'pivot');
+            $activeTab = $request->query('tab', 'monthly');
 
             $stockData = $this->calculateStockDashboardData(
                 $template,
@@ -688,6 +693,7 @@ class PrincipalPortalController extends Controller
                 $selectedRegion,
                 $selectedAreaId,
                 $selectedLocationId,
+                $selectedBrand,
                 $search,
                 $stockPage,
                 $summPage,
@@ -700,14 +706,15 @@ class PrincipalPortalController extends Controller
             $submissions = new LengthAwarePaginator([], 0, 20, 1);
             $dashboardConfig = [];
             $widgetResults = [];
-            $isYtdReport = true;
-            $ytdData = $this->calculateStockYtdData(
+            $isYtdReport = false;
+            $monthlyCompareData = $this->calculateStockMonthlyCompareData(
                 $template,
                 $endMonth,
                 $endYear,
                 $selectedRegion,
                 $selectedAreaId,
                 $selectedLocationId,
+                $selectedBrand,
                 $search
             );
 
@@ -728,6 +735,7 @@ class PrincipalPortalController extends Controller
                 'selectedRegion',
                 'selectedAreaId',
                 'selectedLocationId',
+                'selectedBrand',
                 'regions',
                 'areas',
                 'workLocations',
@@ -735,11 +743,11 @@ class PrincipalPortalController extends Controller
                 'dashboardConfig',
                 'widgetResults',
                 'isYtdReport',
-                'ytdData',
                 'isCbpReport',
                 'isOfftakeReport',
                 'isStockReport',
                 'stockData',
+                'monthlyCompareData',
                 'activeTab'
             ));
         }
@@ -2632,11 +2640,18 @@ class PrincipalPortalController extends Controller
 
             if (file_exists($sqlitePath)) {
                 $exportType = $request->query('export_type', 'stock_pivot');
+                $selectedBrand = strtoupper(trim((string)$request->query('brand', 'ALL')));
+                if (!in_array($selectedBrand, ['ALL', 'DULUX', 'CATYLAC'])) {
+                    $selectedBrand = 'ALL';
+                }
+                $brandSuffix = $selectedBrand !== 'ALL' ? "-{$selectedBrand}" : '';
+
                 $filename = match($exportType) {
-                    'stock_raw' => "raw-data-stock-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv",
-                    'stock_summ' => "ringkasan-scm-stock-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv",
-                    'stock_ytd_stores' => "ytd-stock-stores-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv",
-                    default => "rekap-volume-stock-toko-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv"
+                    'stock_raw' => "raw-data-stock{$brandSuffix}-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv",
+                    'stock_summ' => "ringkasan-scm-stock{$brandSuffix}-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv",
+                    'stock_monthly_compare' => "perbandingan-tren-harian-stock{$brandSuffix}-{$endYear}_{$endMonth}.csv",
+                    'stock_ytd_stores' => "ytd-stock-stores{$brandSuffix}-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv",
+                    default => "rekap-volume-stock-toko{$brandSuffix}-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv"
                 };
 
                 $headers = [
@@ -2647,7 +2662,7 @@ class PrincipalPortalController extends Controller
                     'Expires' => '0',
                 ];
 
-                $callback = function () use ($sqlitePath, $startMonth, $endMonth, $startYear, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $request, $exportType) {
+                $callback = function () use ($sqlitePath, $startMonth, $endMonth, $startYear, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedBrand, $request, $exportType) {
                     $handle = fopen('php://output', 'w');
                     fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
 
@@ -2677,6 +2692,11 @@ class PrincipalPortalController extends Controller
                         $where[] = "store_name = ?";
                         $params[] = $selectedStoreName;
                     }
+                    if ($selectedBrand === 'DULUX') {
+                        $where[] = "brand = 'Dulux'";
+                    } elseif ($selectedBrand === 'CATYLAC') {
+                        $where[] = "(brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%')";
+                    }
                     if ($search) {
                         $where[] = "(store_name LIKE ? OR sap LIKE ? OR brand LIKE ? OR produk LIKE ?)";
                         $params[] = "%{$search}%";
@@ -2686,7 +2706,85 @@ class PrincipalPortalController extends Controller
                     }
                     $whereSql = implode(' AND ', $where);
 
-                    if ($exportType === 'stock_raw') {
+                    if ($exportType === 'stock_monthly_compare') {
+                        $p25 = storage_path('app/dulux_data/stock_2025.sqlite');
+                        $has2025 = file_exists($p25);
+                        if ($has2025) {
+                            try { $pdo->exec("ATTACH DATABASE '{$p25}' AS db25"); } catch (\Throwable $e) { $has2025 = false; }
+                        }
+
+                        $headerRow = [
+                            'Tanggal', 'Hari Ke', 'Bulan / Tahun', 'Volume ' . $endYear . ' (L)', 'Volume ' . ($endYear - 1) . ' (L)', 'Selisih / Delta (L)', 'Pertumbuhan YoY (%)'
+                        ];
+                        fputcsv($handle, $headerRow);
+
+                        $dayExprCy = "CAST(COALESCE(NULLIF(substr(submission_date, 9, 2), ''), NULLIF(substr(tgl_catat, 9, 2), ''), '20') AS INTEGER)";
+                        
+                        $whereCompareCy = ["month = ?"];
+                        $paramsCompareCy = [$endMonth];
+                        if ($selectedRegion) { $whereCompareCy[] = "region = ?"; $paramsCompareCy[] = $selectedRegion; }
+                        if ($selectedAreaName) { $whereCompareCy[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))"; $paramsCompareCy[] = $selectedAreaName; }
+                        if ($selectedStoreName) { $whereCompareCy[] = "store_name = ?"; $paramsCompareCy[] = $selectedStoreName; }
+                        if ($selectedBrand === 'DULUX') { $whereCompareCy[] = "brand = 'Dulux'"; }
+                        elseif ($selectedBrand === 'CATYLAC') { $whereCompareCy[] = "(brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%')"; }
+                        if ($search) {
+                            $whereCompareCy[] = "(store_name LIKE ? OR sap LIKE ? OR brand LIKE ? OR produk LIKE ?)";
+                            $paramsCompareCy[] = "%{$search}%"; $paramsCompareCy[] = "%{$search}%"; $paramsCompareCy[] = "%{$search}%"; $paramsCompareCy[] = "%{$search}%";
+                        }
+                        $whereCompareCySql = implode(' AND ', $whereCompareCy);
+
+                        $dailyStmtCy = $pdo->prepare("
+                            SELECT $dayExprCy as day_of_month, SUM(volume_liter) as daily_vol
+                            FROM stock_raw
+                            WHERE $whereCompareCySql
+                            GROUP BY day_of_month
+                        ");
+                        $dailyStmtCy->execute($paramsCompareCy);
+                        $cyDaily = $dailyStmtCy->fetchAll(\PDO::FETCH_KEY_PAIR) ?: [];
+
+                        $pyDaily = [];
+                        if ($has2025) {
+                            try {
+                                $dailyStmtPy = $pdo->prepare("
+                                    SELECT $dayExprCy as day_of_month, SUM(volume_liter) as daily_vol
+                                    FROM db25.stock_raw
+                                    WHERE $whereCompareCySql
+                                    GROUP BY day_of_month
+                                ");
+                                $dailyStmtPy->execute($paramsCompareCy);
+                                $pyDaily = $dailyStmtPy->fetchAll(\PDO::FETCH_KEY_PAIR) ?: [];
+                            } catch (\Throwable $e) {}
+                        }
+
+                        $daysInMonth = \Carbon\Carbon::create($endYear, $endMonth, 1)->daysInMonth;
+                        $totCy = 0; $totPy = 0;
+                        for ($d = 1; $d <= $daysInMonth; $d++) {
+                            $cVol = (float)($cyDaily[$d] ?? 0);
+                            $pVol = (float)($pyDaily[$d] ?? 0);
+                            $totCy += $cVol; $totPy += $pVol;
+                            $delta = $cVol - $pVol;
+                            $growth = $pVol > 0 ? (($cVol - $pVol) / $pVol) * 100 : ($cVol > 0 ? 100 : 0);
+
+                            fputcsv($handle, [
+                                sprintf('Tgl %02d', $d),
+                                $d,
+                                sprintf('%02d/%02d/%d', $d, $endMonth, $endYear),
+                                round($cVol, 2),
+                                round($pVol, 2),
+                                round($delta, 2),
+                                round($growth, 1) . '%'
+                            ]);
+                        }
+
+                        $totGrowth = $totPy > 0 ? (($totCy - $totPy) / $totPy) * 100 : ($totCy > 0 ? 100 : 0);
+                        fputcsv($handle, [
+                            'Total Bulan', '-', sprintf('Bulan %02d (Total)', $endMonth),
+                            round($totCy, 2),
+                            round($totPy, 2),
+                            round($totCy - $totPy, 2),
+                            round($totGrowth, 1) . '%'
+                        ]);
+                    } elseif ($exportType === 'stock_raw') {
                         // 16 Columns matching Excel Submissions sheet
                         $headerRow = [
                             'Submission Date', 'Tanggal Pencatatan Stok', 'Region', 'Area', 'SAP', 'Nama Toko',
@@ -5240,7 +5338,7 @@ class PrincipalPortalController extends Controller
     /**
      * Calculate Dulux Stock End Data (Pivotable Store Volume, SCM / Summ & Raw Data Submissions)
      */
-    protected function calculateStockDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $stockPage = 1, $summPage = 1, $rawPage = 1, $perPage = 50)
+    protected function calculateStockDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedBrand = 'ALL', $search = null, $stockPage = 1, $summPage = 1, $rawPage = 1, $perPage = 50)
     {
         $sqlitePath = storage_path('app/dulux_data/stock_2026.sqlite');
         $gzPath     = storage_path('app/dulux_data/stock_2026.sqlite.gz');
@@ -5270,9 +5368,9 @@ class PrincipalPortalController extends Controller
         if (!file_exists($sqlitePath)) {
             return [
                 'months' => [],
-                'pivot' => ['stores' => [], 'grand_total' => [], 'total_stores' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
-                'summ' => ['stores' => [], 'grand_total' => [], 'total_stores' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
-                'raw' => ['rows' => [], 'total_records' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
+                'pivotable' => ['rows' => [], 'grand_total_dulux' => 0, 'grand_total_catylac_sc' => 0, 'grand_total_catylac' => 0, 'grand_total_all' => 0, 'total_stores' => 0, 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                'summ' => ['rows' => [], 'total_stock' => 0, 'total_offtake' => 0, 'avg_scm' => 0, 'total_stores' => 0, 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                'submissions' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
             ];
         }
 
@@ -5303,9 +5401,9 @@ class PrincipalPortalController extends Controller
             $eMonth = 7;
         }
 
-        $cacheKey = 'stock_dash_v1_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $endYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search . '_' . $stockPage . '_' . $summPage . '_' . $rawPage);
+        $cacheKey = 'stock_dash_v2_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $endYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $selectedBrand . '_' . $search . '_' . $stockPage . '_' . $summPage . '_' . $rawPage);
 
-        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sMonth, $eMonth, $activeMonths, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $stockPage, $summPage, $rawPage, $perPage) {
+        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sMonth, $eMonth, $activeMonths, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedBrand, $search, $stockPage, $summPage, $rawPage, $perPage) {
             try {
                 $pdo = new \PDO("sqlite:" . $sqlitePath);
                 $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
@@ -5324,6 +5422,11 @@ class PrincipalPortalController extends Controller
                 if ($selectedLocationId) {
                     $where[] = "store_name = ?";
                     $params[] = $selectedLocationId;
+                }
+                if ($selectedBrand === 'DULUX') {
+                    $where[] = "brand = 'Dulux'";
+                } elseif ($selectedBrand === 'CATYLAC') {
+                    $where[] = "(brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%')";
                 }
                 if ($search) {
                     $where[] = "(store_name LIKE ? OR sap LIKE ? OR brand LIKE ? OR produk LIKE ?)";
@@ -5386,7 +5489,7 @@ class PrincipalPortalController extends Controller
                         SELECT s.sap, s.store_name, MIN(s.region) as region, MIN(s.area) as area,
                                MIN(s.derp) as category_store,
                                SUM(CASE WHEN s.brand = 'Dulux' THEN s.volume_liter ELSE 0 END) as dulux_stock,
-                               SUM(CASE WHEN s.brand LIKE '%Catylac%' THEN s.volume_liter ELSE 0 END) as catylac_stock,
+                               SUM(CASE WHEN (s.brand LIKE '%Catylac%' OR s.brand LIKE '%Smart Choice%') THEN s.volume_liter ELSE 0 END) as catylac_stock,
                                SUM(s.volume_liter) as total_stock,
                                COALESCE(o.dulux_offtake, 0) as dulux_offtake,
                                COALESCE(o.catylac_offtake, 0) as catylac_offtake,
@@ -5395,7 +5498,7 @@ class PrincipalPortalController extends Controller
                         LEFT JOIN (
                             SELECT sap,
                                    SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_offtake,
-                                   SUM(CASE WHEN brand LIKE '%Catylac%' THEN volume_liter ELSE 0 END) as catylac_offtake,
+                                   SUM(CASE WHEN (brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%') THEN volume_liter ELSE 0 END) as catylac_offtake,
                                    SUM(volume_liter) as total_offtake
                             FROM offtake_db.offtake_raw
                             WHERE month BETWEEN {$sMonth} AND {$eMonth}
@@ -5424,7 +5527,7 @@ class PrincipalPortalController extends Controller
                         SELECT sap, store_name, MIN(region) as region, MIN(area) as area,
                                MIN(derp) as category_store,
                                SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_stock,
-                               SUM(CASE WHEN brand LIKE '%Catylac%' THEN volume_liter ELSE 0 END) as catylac_stock,
+                               SUM(CASE WHEN (brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%') THEN volume_liter ELSE 0 END) as catylac_stock,
                                SUM(volume_liter) as total_stock,
                                0 as dulux_offtake,
                                0 as catylac_offtake,
@@ -5526,15 +5629,39 @@ class PrincipalPortalController extends Controller
     }
 
     /**
-     * Calculate Dulux Stock End YTD Comparison (Current Year vs Previous Year)
+     * Calculate Dulux Stock End Monthly Comparison (Current Year Month vs Previous Year Month)
+     * e.g. Juli 2026 vs Juli 2025 with Daily Trend Line Chart Series (Day 1..31)
      */
-    protected function calculateStockYtdData($template, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+    protected function calculateStockMonthlyCompareData($template, $targetMonth, $currentYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedBrand = 'ALL', $search = null)
     {
         $p26 = storage_path('app/dulux_data/stock_2026.sqlite');
         $p25 = storage_path('app/dulux_data/stock_2025.sqlite');
         $gz25 = storage_path('app/dulux_data/stock_2025.sqlite.gz');
+        $gz26 = storage_path('app/dulux_data/stock_2026.sqlite.gz');
 
-        // Auto-extract 2025 if missing or corrupted (< 1MB) but .gz exists
+        // Auto-extract 2026 if needed
+        if (!file_exists($p26) || filesize($p26) < 1000000) {
+            if (file_exists($gz26)) {
+                try {
+                    $zp = gzopen($gz26, 'rb');
+                    $tmpPath = $p26 . '.tmp.' . uniqid();
+                    $fp = fopen($tmpPath, 'wb');
+                    if ($zp && $fp) {
+                        while (!gzeof($zp)) {
+                            fwrite($fp, gzread($zp, 524288));
+                        }
+                        gzclose($zp);
+                        fclose($fp);
+                        @rename($tmpPath, $p26);
+                        @chmod($p26, 0666);
+                    }
+                } catch (\Throwable $e) {
+                    \Log::error("Auto-extraction of stock_2026.sqlite.gz failed: " . $e->getMessage());
+                }
+            }
+        }
+
+        // Auto-extract 2025 if needed
         if (!file_exists($p25) || filesize($p25) < 1000000) {
             if (file_exists($gz25)) {
                 try {
@@ -5556,31 +5683,71 @@ class PrincipalPortalController extends Controller
             }
         }
 
+        $targetMonth = max(1, min(12, (int)$targetMonth));
+        $previousYear = (int)$currentYear - 1;
+
+        $monthNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret',
+            4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli',
+            8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $monthName = $monthNames[$targetMonth] ?? 'Bulan ' . $targetMonth;
+
+        $emptyResult = [
+            'month' => $targetMonth,
+            'month_name' => $monthName,
+            'current_year' => $currentYear,
+            'previous_year' => $previousYear,
+            'selected_brand' => $selectedBrand,
+            'kpi' => [
+                'cy_volume' => 0,
+                'py_volume' => 0,
+                'growth' => 0,
+                'growth_diff' => 0,
+                'cy_stores' => 0,
+                'py_stores' => 0,
+                'cy_avg_per_store' => 0,
+                'py_avg_per_store' => 0,
+                'dulux_vol' => 0,
+                'dulux_pct' => 0,
+                'catylac_vol' => 0,
+                'catylac_pct' => 0,
+            ],
+            'daily_trend' => [
+                'categories' => [],
+                'days' => [],
+                'cy_series' => [],
+                'py_series' => [],
+                'table' => [],
+            ],
+            'top_stores' => [],
+        ];
+
         if (!file_exists($p26)) {
-            return [
-                'details' => [],
-                'total' => ['brand' => 'Total DC', 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0, 'percentage' => 100],
-                'stores' => ['total' => ['count' => 0, 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0], 'top10' => [], 'details' => []]
-            ];
+            return $emptyResult;
         }
 
-        $eMonth = max(1, min(12, (int)$endMonth));
-        $cacheKey = 'stock_ytd_v1_' . md5($template->id . '_' . $eMonth . '_' . $endYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+        $cacheKey = 'stock_monthly_comp_v2_' . md5($template->id . '_' . $targetMonth . '_' . $currentYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $selectedBrand . '_' . $search);
 
-        return Cache::remember($cacheKey, 600, function() use ($p26, $p25, $eMonth, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
+        return Cache::remember($cacheKey, 600, function() use ($p26, $p25, $targetMonth, $currentYear, $previousYear, $monthName, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedBrand, $search, $emptyResult) {
             try {
                 $pdo = new \PDO("sqlite:" . $p26);
                 $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 
                 $has2025 = file_exists($p25);
                 if ($has2025) {
-                    $pdo->exec("ATTACH DATABASE '{$p25}' AS db25");
+                    try {
+                        $pdo->exec("ATTACH DATABASE '{$p25}' AS db25");
+                    } catch (\Throwable $e) {
+                        $has2025 = false;
+                    }
                 }
 
-                $whereCy = ["month BETWEEN 1 AND ?"];
-                $paramsCy = [$eMonth];
-                $wherePy = ["month BETWEEN 1 AND ?"];
-                $paramsPy = [$eMonth];
+                // Build WHERE clause
+                $whereCy = ["month = ?"];
+                $paramsCy = [$targetMonth];
+                $wherePy = ["month = ?"];
+                $paramsPy = [$targetMonth];
 
                 if ($selectedRegion) {
                     $whereCy[] = "region = ?";
@@ -5600,6 +5767,13 @@ class PrincipalPortalController extends Controller
                     $wherePy[] = "store_name = ?";
                     $paramsPy[] = $selectedLocationId;
                 }
+                if ($selectedBrand === 'DULUX') {
+                    $whereCy[] = "brand = 'Dulux'";
+                    $wherePy[] = "brand = 'Dulux'";
+                } elseif ($selectedBrand === 'CATYLAC') {
+                    $whereCy[] = "(brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%')";
+                    $wherePy[] = "(brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%')";
+                }
                 if ($search) {
                     $whereCy[] = "(store_name LIKE ? OR sap LIKE ? OR brand LIKE ? OR produk LIKE ?)";
                     $paramsCy[] = "%{$search}%";
@@ -5616,79 +5790,132 @@ class PrincipalPortalController extends Controller
                 $whereCySql = implode(' AND ', $whereCy);
                 $wherePySql = implode(' AND ', $wherePy);
 
-                // 1. Product / Brand Comparison
-                $brandStmtCy = $pdo->prepare("
+                // 1. Total KPI & Brand Breakdown for Current Year
+                $kpiStmtCy = $pdo->prepare("
                     SELECT 
-                        CASE WHEN brand LIKE '%Catylac%' THEN 'Stock Catylac' ELSE 'Stock Dulux' END as brand_group,
-                        SUM(volume_liter) as vol
+                        SUM(volume_liter) as total_vol,
+                        COUNT(DISTINCT sap || '---' || store_name) as total_stores,
+                        SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_vol,
+                        SUM(CASE WHEN (brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%') THEN volume_liter ELSE 0 END) as catylac_vol
                     FROM stock_raw
                     WHERE $whereCySql
-                    GROUP BY brand_group
                 ");
-                $brandStmtCy->execute($paramsCy);
-                $cyBrands = $brandStmtCy->fetchAll(\PDO::FETCH_KEY_PAIR);
+                $kpiStmtCy->execute($paramsCy);
+                $kpiCy = $kpiStmtCy->fetch(\PDO::FETCH_ASSOC) ?: [];
+                $cyVolume = (float)($kpiCy['total_vol'] ?? 0);
+                $cyStores = (int)($kpiCy['total_stores'] ?? 0);
+                $duluxVol = (float)($kpiCy['dulux_vol'] ?? 0);
+                $catylacVol = (float)($kpiCy['catylac_vol'] ?? 0);
 
-                $pyBrands = [];
+                // Total KPI for Previous Year
+                $pyVolume = 0.0;
+                $pyStores = 0;
+                $pyDuluxVol = 0.0;
+                $pyCatylacVol = 0.0;
                 if ($has2025) {
                     try {
-                        $brandStmtPy = $pdo->prepare("
+                        $kpiStmtPy = $pdo->prepare("
                             SELECT 
-                                CASE WHEN brand LIKE '%Catylac%' THEN 'Stock Catylac' ELSE 'Stock Dulux' END as brand_group,
-                                SUM(volume_liter) as vol
+                                SUM(volume_liter) as total_vol,
+                                COUNT(DISTINCT sap || '---' || store_name) as total_stores,
+                                SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_vol,
+                                SUM(CASE WHEN (brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%') THEN volume_liter ELSE 0 END) as catylac_vol
                             FROM db25.stock_raw
                             WHERE $wherePySql
-                            GROUP BY brand_group
                         ");
-                        $brandStmtPy->execute($paramsPy);
-                        $pyBrands = $brandStmtPy->fetchAll(\PDO::FETCH_KEY_PAIR);
+                        $kpiStmtPy->execute($paramsPy);
+                        $kpiPy = $kpiStmtPy->fetch(\PDO::FETCH_ASSOC) ?: [];
+                        $pyVolume = (float)($kpiPy['total_vol'] ?? 0);
+                        $pyStores = (int)($kpiPy['total_stores'] ?? 0);
+                        $pyDuluxVol = (float)($kpiPy['dulux_vol'] ?? 0);
+                        $pyCatylacVol = (float)($kpiPy['catylac_vol'] ?? 0);
                     } catch (\Throwable $e) {
-                        \Log::warning("Stock YTD db25 brand query failed: " . $e->getMessage());
+                        \Log::warning("Monthly compare db25 KPI query failed: " . $e->getMessage());
                     }
                 }
 
-                $allBrands = ['Stock Dulux', 'Stock Catylac'];
-                $details = [];
-                $totalCy = 0;
-                $totalPy = 0;
+                $growthDiff = $cyVolume - $pyVolume;
+                $growthPct = $pyVolume > 0 ? (($cyVolume - $pyVolume) / $pyVolume) * 100 : ($cyVolume > 0 ? 100 : 0);
+                $cyAvg = $cyStores > 0 ? ($cyVolume / $cyStores) : 0;
+                $pyAvg = $pyStores > 0 ? ($pyVolume / $pyStores) : 0;
+                $duluxPct = $cyVolume > 0 ? ($duluxVol / $cyVolume) * 100 : 0;
+                $catylacPct = $cyVolume > 0 ? ($catylacVol / $cyVolume) * 100 : 0;
 
-                foreach ($allBrands as $brand) {
-                    $cyVol = (float)($cyBrands[$brand] ?? 0);
-                    $pyVol = (float)($pyBrands[$brand] ?? 0);
-                    $totalCy += $cyVol;
-                    $totalPy += $pyVol;
-                    $growth = $pyVol > 0 ? (($cyVol - $pyVol) / $pyVol) * 100 : ($cyVol > 0 ? 100 : 0);
-                    $details[] = [
-                        'brand' => $brand,
-                        'cy_volume' => $cyVol,
-                        'py_volume' => $pyVol,
+                // 2. Daily Trend Query (Grouped by Day of Month: 1..31)
+                $dayExprCy = "CAST(COALESCE(NULLIF(substr(submission_date, 9, 2), ''), NULLIF(substr(tgl_catat, 9, 2), ''), '20') AS INTEGER)";
+                $dailyStmtCy = $pdo->prepare("
+                    SELECT 
+                        $dayExprCy as day_of_month,
+                        SUM(volume_liter) as daily_vol
+                    FROM stock_raw
+                    WHERE $whereCySql
+                    GROUP BY day_of_month
+                    ORDER BY day_of_month ASC
+                ");
+                $dailyStmtCy->execute($paramsCy);
+                $cyDailyRaw = $dailyStmtCy->fetchAll(\PDO::FETCH_KEY_PAIR) ?: [];
+
+                $pyDailyRaw = [];
+                if ($has2025) {
+                    try {
+                        $dayExprPy = "CAST(COALESCE(NULLIF(substr(submission_date, 9, 2), ''), NULLIF(substr(tgl_catat, 9, 2), ''), '20') AS INTEGER)";
+                        $dailyStmtPy = $pdo->prepare("
+                            SELECT 
+                                $dayExprPy as day_of_month,
+                                SUM(volume_liter) as daily_vol
+                            FROM db25.stock_raw
+                            WHERE $wherePySql
+                            GROUP BY day_of_month
+                            ORDER BY day_of_month ASC
+                        ");
+                        $dailyStmtPy->execute($paramsPy);
+                        $pyDailyRaw = $dailyStmtPy->fetchAll(\PDO::FETCH_KEY_PAIR) ?: [];
+                    } catch (\Throwable $e) {
+                        \Log::warning("Monthly compare db25 daily query failed: " . $e->getMessage());
+                    }
+                }
+
+                // Determine days in month (e.g. 28, 29, 30, or 31)
+                $daysInMonth = \Carbon\Carbon::create($currentYear, $targetMonth, 1)->daysInMonth;
+                $categories = [];
+                $days = [];
+                $cySeries = [];
+                $pySeries = [];
+                $dailyTable = [];
+
+                for ($d = 1; $d <= $daysInMonth; $d++) {
+                    $dayLabel = sprintf('Tgl %02d', $d);
+                    $categories[] = $dayLabel;
+                    $days[] = $d;
+
+                    $dCy = (float)($cyDailyRaw[$d] ?? 0);
+                    $dPy = (float)($pyDailyRaw[$d] ?? 0);
+                    $cySeries[] = round($dCy, 2);
+                    $pySeries[] = round($dPy, 2);
+
+                    $delta = $dCy - $dPy;
+                    $growth = $dPy > 0 ? (($dCy - $dPy) / $dPy) * 100 : ($dCy > 0 ? 100 : 0);
+
+                    $dailyTable[] = [
+                        'day' => $d,
+                        'label' => sprintf('%02d %s %d', $d, substr($monthName, 0, 3), $currentYear),
+                        'cy_volume' => $dCy,
+                        'py_volume' => $dPy,
+                        'delta' => $delta,
                         'growth' => $growth,
-                        'percentage' => 0
                     ];
                 }
 
-                foreach ($details as &$d) {
-                    $d['percentage'] = $totalCy > 0 ? ($d['cy_volume'] / $totalCy) * 100 : 0;
-                }
-                unset($d);
-
-                $totalGrowth = $totalPy > 0 ? (($totalCy - $totalPy) / $totalPy) * 100 : ($totalCy > 0 ? 100 : 0);
-                $totalRow = [
-                    'brand' => 'Total DC',
-                    'cy_volume' => $totalCy,
-                    'py_volume' => $totalPy,
-                    'growth' => $totalGrowth,
-                    'percentage' => 100
-                ];
-
-                // 2. Store Comparison
+                // 3. Store-level comparison in that specific month (Top 10 Stores)
                 $storeStmtCy = $pdo->prepare("
                     SELECT sap, store_name, MIN(region) as region, MIN(area) as area, MIN(derp) as channel, SUM(volume_liter) as cy_vol
                     FROM stock_raw
                     WHERE $whereCySql
                     GROUP BY sap, store_name
+                    ORDER BY cy_vol DESC
                 ");
                 $storeStmtCy->execute($paramsCy);
-                $cyStoresRaw = $storeStmtCy->fetchAll(\PDO::FETCH_ASSOC);
+                $cyStoresAll = $storeStmtCy->fetchAll(\PDO::FETCH_ASSOC);
 
                 $pyStoresMap = [];
                 if ($has2025) {
@@ -5705,65 +5932,60 @@ class PrincipalPortalController extends Controller
                             $pyStoresMap[$key] = (float)$r['py_vol'];
                         }
                     } catch (\Throwable $e) {
-                        \Log::warning("Stock YTD db25 store query failed: " . $e->getMessage());
+                        \Log::warning("Monthly compare db25 store query failed: " . $e->getMessage());
                     }
                 }
 
-                $storeDetails = [];
-                $totalStoreCy = 0;
-                $totalStorePy = 0;
-
-                foreach ($cyStoresRaw as $s) {
+                $topStoreDetails = [];
+                foreach (array_slice($cyStoresAll, 0, 10) as $s) {
                     $sapKey = $s['sap'] ? 'sap_' . trim($s['sap']) : 'name_' . strtoupper(trim($s['store_name']));
-                    $cyVol = (float)$s['cy_vol'];
-                    $pyVol = (float)($pyStoresMap[$sapKey] ?? 0);
-                    $growth = $pyVol > 0 ? (($cyVol - $pyVol) / $pyVol) * 100 : ($cyVol > 0 ? 100 : 0);
-                    $totalStoreCy += $cyVol;
-                    $totalStorePy += $pyVol;
+                    $sCyVol = (float)$s['cy_vol'];
+                    $sPyVol = (float)($pyStoresMap[$sapKey] ?? 0);
+                    $sGrowth = $sPyVol > 0 ? (($sCyVol - $sPyVol) / $sPyVol) * 100 : ($sCyVol > 0 ? 100 : 0);
 
-                    $storeDetails[] = [
+                    $topStoreDetails[] = [
                         'store_name' => $s['store_name'] . ($s['sap'] ? " ({$s['sap']})" : ''),
                         'region' => $s['region'] ?: '-',
                         'area' => $s['area'] ?: '-',
                         'channel' => !empty($s['channel']) ? $s['channel'] : 'Retail',
-                        'cy_volume' => $cyVol,
-                        'py_volume' => $pyVol,
-                        'growth' => $growth,
-                        'percentage' => 0
+                        'cy_volume' => $sCyVol,
+                        'py_volume' => $sPyVol,
+                        'growth' => $sGrowth,
                     ];
                 }
 
-                usort($storeDetails, fn($a, $b) => $b['cy_volume'] <=> $a['cy_volume']);
-
-                foreach ($storeDetails as &$sd) {
-                    $sd['percentage'] = $totalStoreCy > 0 ? ($sd['cy_volume'] / $totalStoreCy) * 100 : 0;
-                }
-                unset($sd);
-
-                $top10 = array_slice($storeDetails, 0, 10);
-                $overallStoreGrowth = $totalStorePy > 0 ? (($totalStoreCy - $totalStorePy) / $totalStorePy) * 100 : ($totalStoreCy > 0 ? 100 : 0);
-
                 return [
-                    'details' => $details,
-                    'total' => $totalRow,
-                    'stores' => [
-                        'total' => [
-                            'count' => count($storeDetails),
-                            'cy_volume' => $totalStoreCy,
-                            'py_volume' => $totalStorePy,
-                            'growth' => $overallStoreGrowth
-                        ],
-                        'top10' => $top10,
-                        'details' => $storeDetails
-                    ]
+                    'month' => $targetMonth,
+                    'month_name' => $monthName,
+                    'current_year' => $currentYear,
+                    'previous_year' => $previousYear,
+                    'selected_brand' => $selectedBrand,
+                    'kpi' => [
+                        'cy_volume' => $cyVolume,
+                        'py_volume' => $pyVolume,
+                        'growth' => $growthPct,
+                        'growth_diff' => $growthDiff,
+                        'cy_stores' => $cyStores,
+                        'py_stores' => $pyStores,
+                        'cy_avg_per_store' => $cyAvg,
+                        'py_avg_per_store' => $pyAvg,
+                        'dulux_vol' => $duluxVol,
+                        'dulux_pct' => $duluxPct,
+                        'catylac_vol' => $catylacVol,
+                        'catylac_pct' => $catylacPct,
+                    ],
+                    'daily_trend' => [
+                        'categories' => $categories,
+                        'days' => $days,
+                        'cy_series' => $cySeries,
+                        'py_series' => $pySeries,
+                        'table' => $dailyTable,
+                    ],
+                    'top_stores' => $topStoreDetails,
                 ];
             } catch (\Throwable $e) {
-                \Log::error("Failed to calculate Stock YTD: " . $e->getMessage());
-                return [
-                    'details' => [],
-                    'total' => ['brand' => 'Total DC', 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0, 'percentage' => 100],
-                    'stores' => ['total' => ['count' => 0, 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0], 'top10' => [], 'details' => []]
-                ];
+                \Log::error("Failed to calculate Stock Monthly Comparison: " . $e->getMessage());
+                return $emptyResult;
             }
         });
     }

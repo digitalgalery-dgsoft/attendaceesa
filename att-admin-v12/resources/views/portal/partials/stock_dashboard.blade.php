@@ -1,20 +1,25 @@
-{{-- PORTAL STOCK END EXECUTIVE DASHBOARD (PIVOTABLE, SUMM & SCM, RAW DATA SUBMISSIONS) --}}
+{{-- PORTAL STOCK END EXECUTIVE DASHBOARD (MONTHLY DAILY TREND COMPARE, PIVOTABLE, SUMM & SCM, RAW DATA SUBMISSIONS) --}}
 <div class="custom-stock-wrapper" style="margin-bottom: 2rem; width: 100%; max-width: 100%; min-width: 0;">
 
     <!-- TOP TOOLBAR: TAB NAVIGATION & EXPORT BUTTONS -->
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
         <div class="stock-main-nav" style="background: #e2e8f0; padding: 4px; border-radius: 12px; display: inline-flex; gap: 4px; flex-wrap: wrap;">
-            <button type="button" class="stock-nav-btn {{ ($activeTab ?? 'pivotable') === 'pivotable' ? 'active' : '' }}" id="btn_stock_tab_pivotable" onclick="switchStockTab('pivotable')">
+            <button type="button" class="stock-nav-btn {{ ($activeTab ?? 'monthly') === 'monthly' ? 'active' : '' }}" id="btn_stock_tab_monthly" onclick="switchStockTab('monthly')">
+                <i class="fa-solid fa-chart-line" style="font-size: 0.95rem;"></i>
+                <span>Tren Harian & Komparasi Bulanan</span>
+                <span class="badge-count" style="background: rgba(11, 61, 136, 0.12); color: #0b3d88;">{{ $monthlyCompareData['month_name'] ?? 'Bulan' }} {{ $monthlyCompareData['current_year'] ?? 2026 }} vs {{ $monthlyCompareData['previous_year'] ?? 2025 }}</span>
+            </button>
+            <button type="button" class="stock-nav-btn {{ ($activeTab ?? 'monthly') === 'pivotable' ? 'active' : '' }}" id="btn_stock_tab_pivotable" onclick="switchStockTab('pivotable')">
                 <i class="fa-solid fa-boxes-stacked" style="font-size: 0.95rem;"></i>
                 <span>Rekap Volume Stock Toko</span>
                 <span class="badge-count">{{ number_format($stockData['pivotable']['total_stores'] ?? 0) }} Toko</span>
             </button>
-            <button type="button" class="stock-nav-btn {{ ($activeTab ?? 'pivotable') === 'summ' ? 'active' : '' }}" id="btn_stock_tab_summ" onclick="switchStockTab('summ')">
-                <i class="fa-solid fa-chart-line" style="font-size: 0.95rem;"></i>
-                <span>Ringkasan SCM & Stock Bulanan</span>
+            <button type="button" class="stock-nav-btn {{ ($activeTab ?? 'monthly') === 'summ' ? 'active' : '' }}" id="btn_stock_tab_summ" onclick="switchStockTab('summ')">
+                <i class="fa-solid fa-file-waveform" style="font-size: 0.95rem;"></i>
+                <span>Ringkasan SCM & Stock</span>
                 <span class="badge-count">{{ number_format($stockData['summ']['total_stores'] ?? 0) }} Toko</span>
             </button>
-            <button type="button" class="stock-nav-btn {{ ($activeTab ?? 'pivotable') === 'raw' ? 'active' : '' }}" id="btn_stock_tab_raw" onclick="switchStockTab('raw')">
+            <button type="button" class="stock-nav-btn {{ ($activeTab ?? 'monthly') === 'raw' ? 'active' : '' }}" id="btn_stock_tab_raw" onclick="switchStockTab('raw')">
                 <i class="fa-solid fa-list-check" style="font-size: 0.95rem;"></i>
                 <span>Raw Data Submissions</span>
                 <span class="badge-count">{{ number_format($stockData['submissions']['total'] ?? 0) }} Baris</span>
@@ -22,32 +27,326 @@
         </div>
 
         <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <!-- Brand Badge Indicator -->
+            @if(($selectedBrand ?? 'ALL') === 'DULUX')
+                <div style="font-size: 0.82rem; font-weight: 700; color: #1e3a8a; background: #eff6ff; border: 1px solid #bfdbfe; padding: 0.45rem 0.85rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-brush"></i> Brand: <strong>Dulux</strong>
+                </div>
+            @elseif(($selectedBrand ?? 'ALL') === 'CATYLAC')
+                <div style="font-size: 0.82rem; font-weight: 700; color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 0.45rem 0.85rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-brush"></i> Brand: <strong>Catylac</strong>
+                </div>
+            @else
+                <div style="font-size: 0.82rem; font-weight: 700; color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.45rem 0.85rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-palette"></i> Brand: <strong>Semua (Dulux & Catylac)</strong>
+                </div>
+            @endif
+
             <!-- Periode Indicator -->
-            <div style="font-size: 0.84rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; background: #fff; padding: 0.5rem 0.9rem; border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size: 0.84rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; background: #fff; padding: 0.45rem 0.85rem; border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <i class="fa-solid fa-calendar-days" style="color: var(--brand-primary);"></i>
                 <span>Periode: <strong>{{ reset($stockData['months']) }} – {{ end($stockData['months']) }}</strong></span>
             </div>
 
             <!-- Export Buttons -->
-            <div style="display: inline-flex; gap: 6px;">
-                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'stock_pivot', 'p' => $tenantPrincipal->id])) }}" class="btn-stock-export" title="Download Rekap Volume Stock Per Toko (Pivotable)">
+            <div style="display: inline-flex; gap: 6px; flex-wrap: wrap;">
+                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'stock_monthly_compare', 'brand' => $selectedBrand ?? 'ALL', 'p' => $tenantPrincipal->id])) }}" class="btn-stock-export" style="background: linear-gradient(135deg, #0b3d88 0%, #1e40af 100%); color: #ffffff;" title="Download Data Perbandingan Tren Harian Bulanan (CSV)">
+                    <i class="fa-solid fa-file-csv" style="color: #60a5fa;"></i>
+                    <span>Export Tren Harian</span>
+                </a>
+                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'stock_pivot', 'brand' => $selectedBrand ?? 'ALL', 'p' => $tenantPrincipal->id])) }}" class="btn-stock-export" title="Download Rekap Volume Stock Per Toko (Pivotable)">
                     <i class="fa-solid fa-file-excel" style="color: #107c41;"></i>
                     <span>Export Rekap Stock</span>
                 </a>
-                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'stock_summ', 'p' => $tenantPrincipal->id])) }}" class="btn-stock-export" style="background: #f0fdf4;" title="Download Ringkasan SCM & Stock (Summ)">
+                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'stock_summ', 'brand' => $selectedBrand ?? 'ALL', 'p' => $tenantPrincipal->id])) }}" class="btn-stock-export" style="background: #f0fdf4;" title="Download Ringkasan SCM & Stock (Summ)">
                     <i class="fa-solid fa-file-waveform" style="color: #16a34a;"></i>
                     <span>Export SCM & Stock</span>
                 </a>
-                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'stock_raw', 'p' => $tenantPrincipal->id])) }}" class="btn-stock-export" style="background: #f8fafc;" title="Download Raw Data Submissions">
-                    <i class="fa-solid fa-file-csv" style="color: #0284c7;"></i>
+                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'export_type' => 'stock_raw', 'brand' => $selectedBrand ?? 'ALL', 'p' => $tenantPrincipal->id])) }}" class="btn-stock-export" style="background: #f8fafc;" title="Download Raw Data Submissions">
+                    <i class="fa-solid fa-list-check" style="color: #0284c7;"></i>
                     <span>Export Raw Data</span>
                 </a>
             </div>
         </div>
     </div>
 
-    <!-- PANE 1: REKAP VOLUME STOCK TOKO (PIVOTABLE) -->
-    <div id="pane_stock_pivotable" class="stock-pane" style="{{ ($activeTab ?? 'pivotable') === 'pivotable' ? 'display: block;' : 'display: none;' }}">
+    <!-- ========================================================================= -->
+    <!-- PANE 1: TREN HARIAN & PERBANDINGAN BULANAN (CURRENT YEAR VS PREVIOUS YEAR) -->
+    <!-- ========================================================================= -->
+    <div id="pane_stock_monthly" class="stock-pane" style="{{ ($activeTab ?? 'monthly') === 'monthly' ? 'display: block;' : 'display: none;' }}">
+        <div class="stock-card" style="margin-bottom: 1.5rem;">
+            <div class="stock-card-header" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 1.25rem;">
+                <div>
+                    <h3 class="stock-card-title">
+                        <i class="fa-solid fa-chart-line" style="color: #0b3d88;"></i>
+                        Grafik Garis Tren Harian & Perbandingan Volume Stock
+                    </h3>
+                    <div class="stock-card-sub">
+                        Komparasi volume stok fisik per tanggal (1 s/d {{ count($monthlyCompareData['daily_trend']['days'] ?? []) }}) untuk bulan <strong>{{ $monthlyCompareData['month_name'] ?? 'Bulan Terpilih' }}</strong> antara <strong>Tahun {{ $monthlyCompareData['current_year'] ?? 2026 }}</strong> vs <strong>Tahun {{ $monthlyCompareData['previous_year'] ?? 2025 }}</strong>.
+                    </div>
+                </div>
+
+                <div class="stock-header-meta">
+                    <div class="meta-pill" style="background: #f0f7ff; border: 1px solid #bfdbfe;">
+                        <span class="meta-lbl" style="color: #1e40af;">Bulan Komparasi:</span>
+                        <strong class="meta-val" style="color: #0b3d88;">{{ $monthlyCompareData['month_name'] ?? '-' }} {{ $monthlyCompareData['current_year'] ?? '' }} vs {{ $monthlyCompareData['previous_year'] ?? '' }}</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5 KPI SUMMARY CARDS -->
+            <div class="monthly-kpi-grid">
+                <!-- KPI 1: Volume Tahun Berjalan -->
+                <div class="monthly-kpi-card" style="border-left: 4px solid #0b3d88;">
+                    <div class="kpi-icon-box" style="background: rgba(11, 61, 136, 0.1); color: #0b3d88;">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+                    <div>
+                        <div class="kpi-label">Volume {{ $monthlyCompareData['month_name'] }} {{ $monthlyCompareData['current_year'] }}</div>
+                        <div class="kpi-value" style="color: #0b3d88;">{{ number_format($monthlyCompareData['kpi']['cy_volume'] ?? 0, 2) }} <span class="kpi-unit">Liter</span></div>
+                        <div class="kpi-subtext"><i class="fa-solid fa-store" style="color: #64748b;"></i> {{ number_format($monthlyCompareData['kpi']['cy_stores'] ?? 0) }} Toko Melapor</div>
+                    </div>
+                </div>
+
+                <!-- KPI 2: Volume Tahun Sebelumnya -->
+                <div class="monthly-kpi-card" style="border-left: 4px solid #f59e0b;">
+                    <div class="kpi-icon-box" style="background: rgba(245, 158, 11, 0.12); color: #d97706;">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <div>
+                        <div class="kpi-label">Volume {{ $monthlyCompareData['month_name'] }} {{ $monthlyCompareData['previous_year'] }}</div>
+                        <div class="kpi-value" style="color: #334155;">{{ number_format($monthlyCompareData['kpi']['py_volume'] ?? 0, 2) }} <span class="kpi-unit">Liter</span></div>
+                        <div class="kpi-subtext"><i class="fa-solid fa-store" style="color: #64748b;"></i> {{ number_format($monthlyCompareData['kpi']['py_stores'] ?? 0) }} Toko Melapor</div>
+                    </div>
+                </div>
+
+                <!-- KPI 3: Pertumbuhan YoY Bulan Terpilih -->
+                @php
+                    $growth = (float)($monthlyCompareData['kpi']['growth'] ?? 0);
+                    $growthDiff = (float)($monthlyCompareData['kpi']['growth_diff'] ?? 0);
+                    $isPos = $growth >= 0;
+                @endphp
+                <div class="monthly-kpi-card" style="border-left: 4px solid {{ $isPos ? '#10b981' : '#ef4444' }};">
+                    <div class="kpi-icon-box" style="background: {{ $isPos ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)' }}; color: {{ $isPos ? '#059669' : '#dc2626' }};">
+                        <i class="fa-solid {{ $isPos ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down' }}"></i>
+                    </div>
+                    <div>
+                        <div class="kpi-label">Pertumbuhan YoY (Bulan Ini)</div>
+                        <div class="kpi-value" style="color: {{ $isPos ? '#059669' : '#dc2626' }};">
+                            {{ $isPos ? '+' : '' }}{{ number_format($growth, 1) }}%
+                        </div>
+                        <div class="kpi-subtext" style="color: {{ $isPos ? '#059669' : '#dc2626' }}; font-weight: 600;">
+                            {{ $growthDiff >= 0 ? '+' : '' }}{{ number_format($growthDiff, 2) }} Liter
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI 4: Rata-Rata Stok per Toko -->
+                <div class="monthly-kpi-card" style="border-left: 4px solid #6366f1;">
+                    <div class="kpi-icon-box" style="background: rgba(99, 102, 241, 0.12); color: #4f46e5;">
+                        <i class="fa-solid fa-shop"></i>
+                    </div>
+                    <div>
+                        <div class="kpi-label">Rata-Rata per Toko</div>
+                        <div class="kpi-value" style="color: #1e293b;">{{ number_format($monthlyCompareData['kpi']['cy_avg_per_store'] ?? 0, 2) }} <span class="kpi-unit">L/Toko</span></div>
+                        <div class="kpi-subtext">vs {{ number_format($monthlyCompareData['kpi']['py_avg_per_store'] ?? 0, 2) }} L ({{ $monthlyCompareData['previous_year'] }})</div>
+                    </div>
+                </div>
+
+                <!-- KPI 5: Komposisi Dulux vs Catylac -->
+                <div class="monthly-kpi-card" style="border-left: 4px solid #0284c7;">
+                    <div class="kpi-icon-box" style="background: rgba(2, 132, 199, 0.12); color: #0284c7;">
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                    <div>
+                        <div class="kpi-label">Komposisi Brand ({{ $monthlyCompareData['current_year'] }})</div>
+                        <div style="font-size: 0.82rem; font-weight: 700; color: #1e3a8a; margin-top: 4px;">
+                            🔵 Dulux: {{ number_format($monthlyCompareData['kpi']['dulux_vol'] ?? 0, 1) }} L ({{ number_format($monthlyCompareData['kpi']['dulux_pct'] ?? 0, 1) }}%)
+                        </div>
+                        <div style="font-size: 0.82rem; font-weight: 700; color: #059669; margin-top: 2px;">
+                            🟢 Catylac: {{ number_format($monthlyCompareData['kpi']['catylac_vol'] ?? 0, 1) }} L ({{ number_format($monthlyCompareData['kpi']['catylac_pct'] ?? 0, 1) }}%)
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- APEXCHARTS LINE CHART: DAILY TREND COMPARISON -->
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.25rem 1.5rem; margin-top: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.5rem;">
+                    <div>
+                        <h4 style="margin: 0; font-size: 0.98rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-chart-area" style="color: #0b3d88;"></i>
+                            Tren Pergerakan Volume Stock Harian (Tanggal 1 s/d {{ count($monthlyCompareData['daily_trend']['days'] ?? []) }})
+                        </h4>
+                        <div style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">
+                            Garis biru merepresentasikan {{ $monthlyCompareData['month_name'] }} {{ $monthlyCompareData['current_year'] }} (Tahun Berjalan) dan garis oranye/amber merepresentasikan {{ $monthlyCompareData['month_name'] }} {{ $monthlyCompareData['previous_year'] }} (Tahun Sebelumnya).
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 12px; font-size: 0.82rem; font-weight: 700;">
+                        <span style="display: inline-flex; align-items: center; gap: 6px; color: #0b3d88;">
+                            <span style="width: 12px; height: 12px; border-radius: 3px; background: #0b3d88; display: inline-block;"></span>
+                            {{ $monthlyCompareData['month_name'] }} {{ $monthlyCompareData['current_year'] }}
+                        </span>
+                        <span style="display: inline-flex; align-items: center; gap: 6px; color: #d97706;">
+                            <span style="width: 12px; height: 12px; border-radius: 3px; background: #f59e0b; display: inline-block;"></span>
+                            {{ $monthlyCompareData['month_name'] }} {{ $monthlyCompareData['previous_year'] }}
+                        </span>
+                    </div>
+                </div>
+
+                <div id="chart_stock_monthly_daily_trend" style="min-height: 360px; width: 100%;"></div>
+            </div>
+
+            <!-- 2-COLUMN DETAIL GRID: DAY-BY-DAY TABLE & TOP STORES -->
+            <div class="monthly-detail-grid" style="margin-top: 1.5rem;">
+                <!-- LEFT COLUMN: DAY-BY-DAY BREAKDOWN TABLE -->
+                <div class="detail-card">
+                    <div class="detail-card-header">
+                        <h4 class="detail-card-title">
+                            <i class="fa-solid fa-calendar-day" style="color: #0b3d88;"></i>
+                            Rincian Harian Tanggal 1 s/d {{ count($monthlyCompareData['daily_trend']['days'] ?? []) }} ({{ $monthlyCompareData['month_name'] }})
+                        </h4>
+                        <span style="font-size: 0.76rem; color: #64748b; font-weight: 600;">Satuan: Liter</span>
+                    </div>
+
+                    <div class="table-scroll-container" style="max-height: 420px; overflow-y: auto;">
+                        <table class="stock-table" style="font-size: 0.82rem;">
+                            <thead style="position: sticky; top: 0; z-index: 5;">
+                                <tr>
+                                    <th style="width: 70px; text-align: center;">TANGGAL</th>
+                                    <th style="min-width: 120px; text-align: right;">{{ substr($monthlyCompareData['month_name'] ?? 'Bulan', 0, 3) }} {{ $monthlyCompareData['current_year'] }} (L)</th>
+                                    <th style="min-width: 120px; text-align: right;">{{ substr($monthlyCompareData['month_name'] ?? 'Bulan', 0, 3) }} {{ $monthlyCompareData['previous_year'] }} (L)</th>
+                                    <th style="min-width: 110px; text-align: right;">SELISIH (L)</th>
+                                    <th style="min-width: 90px; text-align: center;">GROWTH</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if(!empty($monthlyCompareData['daily_trend']['table']))
+                                    @foreach($monthlyCompareData['daily_trend']['table'] as $row)
+                                        @php
+                                            $cVal = (float)$row['cy_volume'];
+                                            $pVal = (float)$row['py_volume'];
+                                            $delta = (float)$row['delta'];
+                                            $dGrowth = (float)$row['growth'];
+                                            $hasData = ($cVal > 0 || $pVal > 0);
+                                        @endphp
+                                        <tr style="{{ $hasData ? 'background: #fff;' : 'background: #fbfcfe; color: #94a3b8;' }}">
+                                            <td style="text-align: center; font-weight: 700; color: #0f172a;">
+                                                <span class="sap-pill" style="font-size: 0.78rem;">Tgl {{ sprintf('%02d', $row['day']) }}</span>
+                                            </td>
+                                            <td style="text-align: right; font-weight: 700; color: #0b3d88; font-variant-numeric: tabular-nums;">
+                                                {{ $cVal > 0 ? number_format($cVal, 2) : '-' }}
+                                            </td>
+                                            <td style="text-align: right; font-weight: 600; color: #475569; font-variant-numeric: tabular-nums;">
+                                                {{ $pVal > 0 ? number_format($pVal, 2) : '-' }}
+                                            </td>
+                                            <td style="text-align: right; font-weight: 700; color: {{ $delta > 0 ? '#059669' : ($delta < 0 ? '#dc2626' : '#64748b') }}; font-variant-numeric: tabular-nums;">
+                                                {{ $delta != 0 ? ($delta > 0 ? '+' : '') . number_format($delta, 2) : '-' }}
+                                            </td>
+                                            <td style="text-align: center; font-weight: 700; font-size: 0.78rem; color: {{ $dGrowth > 0 ? '#059669' : ($dGrowth < 0 ? '#dc2626' : '#64748b') }};">
+                                                @if($cVal > 0 || $pVal > 0)
+                                                    {{ ($dGrowth > 0 ? '+' : '') . number_format($dGrowth, 1) }}%
+                                                @else
+                                                    -
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                @else
+                                    <tr>
+                                        <td colspan="5" style="text-align: center; padding: 2rem; color: #94a3b8;">Tidak ada data harian.</td>
+                                    </tr>
+                                @endif
+                            </tbody>
+                            <tfoot style="position: sticky; bottom: 0; z-index: 5;">
+                                <tr class="stock-tfoot-row">
+                                    <td style="text-align: center; font-weight: 800; text-transform: uppercase;">TOTAL:</td>
+                                    <td style="text-align: right; font-weight: 800; color: #0b3d88; font-size: 0.9rem; font-variant-numeric: tabular-nums;">
+                                        {{ number_format($monthlyCompareData['kpi']['cy_volume'] ?? 0, 2) }}
+                                    </td>
+                                    <td style="text-align: right; font-weight: 800; color: #475569; font-size: 0.9rem; font-variant-numeric: tabular-nums;">
+                                        {{ number_format($monthlyCompareData['kpi']['py_volume'] ?? 0, 2) }}
+                                    </td>
+                                    <td style="text-align: right; font-weight: 800; color: {{ ($monthlyCompareData['kpi']['growth_diff'] ?? 0) >= 0 ? '#059669' : '#dc2626' }}; font-size: 0.9rem; font-variant-numeric: tabular-nums;">
+                                        {{ ($monthlyCompareData['kpi']['growth_diff'] ?? 0) >= 0 ? '+' : '' }}{{ number_format($monthlyCompareData['kpi']['growth_diff'] ?? 0, 2) }}
+                                    </td>
+                                    <td style="text-align: center; font-weight: 800; font-size: 0.85rem; color: {{ ($monthlyCompareData['kpi']['growth'] ?? 0) >= 0 ? '#059669' : '#dc2626' }};">
+                                        {{ ($monthlyCompareData['kpi']['growth'] ?? 0) >= 0 ? '+' : '' }}{{ number_format($monthlyCompareData['kpi']['growth'] ?? 0, 1) }}%
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- RIGHT COLUMN: TOP 10 STORES COMPARISON -->
+                <div class="detail-card">
+                    <div class="detail-card-header">
+                        <h4 class="detail-card-title">
+                            <i class="fa-solid fa-ranking-star" style="color: #f59e0b;"></i>
+                            Top 10 Store / Toko Terbesar di Bulan {{ $monthlyCompareData['month_name'] }}
+                        </h4>
+                        <span style="font-size: 0.76rem; color: #64748b; font-weight: 600;">Ranking Volume</span>
+                    </div>
+
+                    <div class="table-scroll-container" style="max-height: 420px; overflow-y: auto;">
+                        <table class="stock-table" style="font-size: 0.82rem;">
+                            <thead style="position: sticky; top: 0; z-index: 5;">
+                                <tr>
+                                    <th style="width: 45px; text-align: center;">NO</th>
+                                    <th style="min-width: 170px;">NAMA TOKO</th>
+                                    <th style="min-width: 100px; text-align: right;">{{ $monthlyCompareData['current_year'] }} (L)</th>
+                                    <th style="min-width: 100px; text-align: right;">{{ $monthlyCompareData['previous_year'] }} (L)</th>
+                                    <th style="width: 80px; text-align: center;">GROWTH</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if(!empty($monthlyCompareData['top_stores']))
+                                    @foreach($monthlyCompareData['top_stores'] as $idx => $ts)
+                                        @php
+                                            $tGrowth = (float)($ts['growth'] ?? 0);
+                                        @endphp
+                                        <tr>
+                                            <td style="text-align: center; font-weight: 700; color: #64748b;">
+                                                {{ $idx + 1 }}
+                                            </td>
+                                            <td>
+                                                <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                                    {{ $ts['store_name'] }}
+                                                </div>
+                                                <div style="font-size: 0.74rem; color: #64748b;">
+                                                    {{ $ts['area'] }} · {{ $ts['channel'] }}
+                                                </div>
+                                            </td>
+                                            <td style="text-align: right; font-weight: 700; color: #0b3d88; font-variant-numeric: tabular-nums;">
+                                                {{ number_format($ts['cy_volume'], 2) }}
+                                            </td>
+                                            <td style="text-align: right; font-weight: 600; color: #64748b; font-variant-numeric: tabular-nums;">
+                                                {{ $ts['py_volume'] > 0 ? number_format($ts['py_volume'], 2) : '-' }}
+                                            </td>
+                                            <td style="text-align: center; font-weight: 700; color: {{ $tGrowth >= 0 ? '#059669' : '#dc2626' }};">
+                                                {{ $tGrowth >= 0 ? '+' : '' }}{{ number_format($tGrowth, 1) }}%
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                @else
+                                    <tr>
+                                        <td colspan="5" style="text-align: center; padding: 2rem; color: #94a3b8;">Belum ada data toko.</td>
+                                    </tr>
+                                @endif
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- PANE 2: REKAP VOLUME STOCK TOKO (PIVOTABLE)                               -->
+    <!-- ========================================================================= -->
+    <div id="pane_stock_pivotable" class="stock-pane" style="{{ ($activeTab ?? 'monthly') === 'pivotable' ? 'display: block;' : 'display: none;' }}">
         <div class="stock-card">
             <div class="stock-card-header">
                 <div>
@@ -183,13 +482,13 @@
                             $totP = $stockData['pivotable']['total_pages'];
                         @endphp
                         @if($currP > 1)
-                            <a href="{{ request()->fullUrlWithQuery(['pivot_page' => $currP - 1, 'tab' => 'pivotable']) }}" class="page-btn">
+                            <a href="{{ request()->fullUrlWithQuery(['page' => $currP - 1, 'tab' => 'pivotable']) }}" class="page-btn">
                                 <i class="fa-solid fa-chevron-left"></i> Prev
                             </a>
                         @endif
                         <span class="page-current">Halaman {{ $currP }} / {{ $totP }}</span>
                         @if($currP < $totP)
-                            <a href="{{ request()->fullUrlWithQuery(['pivot_page' => $currP + 1, 'tab' => 'pivotable']) }}" class="page-btn">
+                            <a href="{{ request()->fullUrlWithQuery(['page' => $currP + 1, 'tab' => 'pivotable']) }}" class="page-btn">
                                 Next <i class="fa-solid fa-chevron-right"></i>
                             </a>
                         @endif
@@ -199,8 +498,10 @@
         </div>
     </div>
 
-    <!-- PANE 2: RINGKASAN SCM & STOCK BULANAN (SUMM) -->
-    <div id="pane_stock_summ" class="stock-pane" style="{{ ($activeTab ?? 'pivotable') === 'summ' ? 'display: block;' : 'display: none;' }}">
+    <!-- ========================================================================= -->
+    <!-- PANE 3: RINGKASAN SCM & STOCK BULANAN (SUMM)                              -->
+    <!-- ========================================================================= -->
+    <div id="pane_stock_summ" class="stock-pane" style="{{ ($activeTab ?? 'monthly') === 'summ' ? 'display: block;' : 'display: none;' }}">
         <div class="stock-card">
             <div class="stock-card-header">
                 <div>
@@ -365,8 +666,10 @@
         </div>
     </div>
 
-    <!-- PANE 3: RAW DATA SUBMISSIONS (16 KOLOM) -->
-    <div id="pane_stock_raw" class="stock-pane" style="{{ ($activeTab ?? 'pivotable') === 'raw' ? 'display: block;' : 'display: none;' }}">
+    <!-- ========================================================================= -->
+    <!-- PANE 4: RAW DATA SUBMISSIONS (16 KOLOM)                                   -->
+    <!-- ========================================================================= -->
+    <div id="pane_stock_raw" class="stock-pane" style="{{ ($activeTab ?? 'monthly') === 'raw' ? 'display: block;' : 'display: none;' }}">
         <div class="stock-card">
             <div class="stock-card-header">
                 <div>
@@ -522,130 +825,229 @@
 
 </div>
 
-<!-- STYLES FOR STOCK DASHBOARD -->
+<!-- STYLES -->
 <style>
-    .stock-main-nav .stock-nav-btn {
-        border: none;
-        background: transparent;
-        padding: 8px 16px;
-        border-radius: 9px;
-        font-size: 0.88rem;
-        font-weight: 600;
-        color: #475569;
-        cursor: pointer;
+    .custom-stock-wrapper {
+        font-family: inherit;
+    }
+    .stock-main-nav {
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .stock-nav-btn {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        padding: 8px 16px;
+        border: none;
+        background: transparent;
+        color: #475569;
+        font-weight: 700;
+        font-size: 0.85rem;
+        border-radius: 9px;
+        cursor: pointer;
+        transition: all 0.2s ease;
     }
-    .stock-main-nav .stock-nav-btn:hover {
+    .stock-nav-btn:hover {
         color: #0f172a;
-        background: rgba(255,255,255,0.6);
+        background: rgba(255, 255, 255, 0.6);
     }
-    .stock-main-nav .stock-nav-btn.active {
+    .stock-nav-btn.active {
         background: #ffffff;
-        color: var(--brand-primary);
+        color: var(--brand-primary, #0b3d88);
         box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     }
-    .stock-main-nav .badge-count {
+    .stock-nav-btn .badge-count {
         background: #f1f5f9;
         color: #64748b;
-        font-size: 0.72rem;
+        font-size: 0.74rem;
+        font-weight: 700;
         padding: 2px 7px;
         border-radius: 6px;
-        font-weight: 700;
     }
-    .stock-main-nav .stock-nav-btn.active .badge-count {
-        background: #eff6ff;
-        color: var(--brand-primary);
+    .stock-nav-btn.active .badge-count {
+        background: var(--brand-glow, #e0e7ff);
+        color: var(--brand-primary, #0b3d88);
     }
 
     .btn-stock-export {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 0.5rem 0.85rem;
-        border-radius: 10px;
-        font-size: 0.82rem;
-        font-weight: 600;
-        color: #1e293b;
+        padding: 0.45rem 0.85rem;
+        border-radius: 9px;
         background: #ffffff;
         border: 1px solid var(--border-color);
-        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        color: #334155;
+        font-size: 0.82rem;
+        font-weight: 700;
         text-decoration: none;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         transition: all 0.15s ease;
     }
     .btn-stock-export:hover {
         background: #f8fafc;
         border-color: #cbd5e1;
         transform: translateY(-1px);
-        box-shadow: 0 3px 6px rgba(0,0,0,0.06);
     }
 
     .stock-card {
         background: #ffffff;
         border: 1px solid var(--border-color);
         border-radius: 16px;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         overflow: hidden;
     }
     .stock-card-header {
         padding: 1.25rem 1.5rem;
-        border-bottom: 1px solid var(--border-color);
+        background: #ffffff;
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
         gap: 1rem;
-        background: #fafcff;
     }
     .stock-card-title {
         margin: 0;
-        font-size: 1.05rem;
-        font-weight: 700;
+        font-size: 1.15rem;
+        font-weight: 800;
         color: #0f172a;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
     }
     .stock-card-sub {
-        font-size: 0.8rem;
+        font-size: 0.82rem;
         color: #64748b;
-        margin-top: 3px;
+        margin-top: 4px;
     }
 
     .stock-header-meta {
-        display: flex;
+        display: inline-flex;
+        align-items: center;
         gap: 8px;
         flex-wrap: wrap;
     }
     .meta-pill {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        padding: 6px 12px;
-        border-radius: 10px;
-        font-size: 0.82rem;
         display: inline-flex;
         align-items: center;
         gap: 6px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
     }
-    .meta-pill .meta-lbl {
+    .meta-lbl {
         color: #64748b;
+        font-weight: 600;
     }
-    .meta-pill .meta-val {
+    .meta-val {
         color: #0f172a;
+        font-weight: 800;
     }
     .meta-pill-highlight {
-        background: linear-gradient(135deg, #0b3d88 0%, #0284c7 100%);
+        background: linear-gradient(135deg, #0b3d88 0%, #1e40af 100%);
         border: none;
-        color: #ffffff;
     }
     .meta-pill-highlight .meta-lbl {
         color: rgba(255,255,255,0.85);
     }
     .meta-pill-highlight .meta-val {
         color: #ffffff;
-        font-size: 0.9rem;
+    }
+
+    /* Monthly KPI Grid */
+    .monthly-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 1rem;
+        padding: 1rem 1.5rem 0.5rem 1.5rem;
+    }
+    .monthly-kpi-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.85rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .monthly-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    }
+    .kpi-icon-box {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+        flex-shrink: 0;
+    }
+    .kpi-label {
+        font-size: 0.74rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .kpi-value {
+        font-size: 1.25rem;
+        font-weight: 800;
+        margin-top: 2px;
+        line-height: 1.2;
+    }
+    .kpi-unit {
+        font-size: 0.76rem;
+        font-weight: 600;
+        color: #64748b;
+    }
+    .kpi-subtext {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 3px;
+        font-weight: 500;
+    }
+
+    /* 2-Column Grid */
+    .monthly-detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+        padding: 0 1.5rem 1.5rem 1.5rem;
+    }
+    @media (max-width: 1024px) {
+        .monthly-detail-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    .detail-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .detail-card-header {
+        padding: 0.9rem 1.25rem;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .detail-card-title {
+        margin: 0;
+        font-size: 0.88rem;
+        font-weight: 800;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 
     .stock-table-viewport {
@@ -749,7 +1151,7 @@
     }
 </style>
 
-<!-- JAVASCRIPT TAB SWITCHER -->
+<!-- JAVASCRIPT TAB SWITCHER & APEXCHARTS INITIALIZATION -->
 <script>
     function switchStockTab(tabKey) {
         // 1. Hide all panes
@@ -770,5 +1172,123 @@
         const url = new URL(window.location.href);
         url.searchParams.set('tab', tabKey);
         window.history.replaceState({}, '', url);
+
+        // 5. Trigger resize for ApexCharts if monthly tab opened
+        if (tabKey === 'monthly' && window.stockDailyTrendChart) {
+            setTimeout(function() {
+                window.stockDailyTrendChart.windowResize();
+            }, 100);
+        }
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        @if(!empty($monthlyCompareData['daily_trend']['categories']))
+            var dailyCategories = {!! json_encode($monthlyCompareData['daily_trend']['categories']) !!};
+            var cyDailyData = {!! json_encode($monthlyCompareData['daily_trend']['cy_series']) !!};
+            var pyDailyData = {!! json_encode($monthlyCompareData['daily_trend']['py_series']) !!};
+            var cyYearName = "{{ $monthlyCompareData['month_name'] ?? 'Bulan' }} {{ $monthlyCompareData['current_year'] ?? 2026 }}";
+            var pyYearName = "{{ $monthlyCompareData['month_name'] ?? 'Bulan' }} {{ $monthlyCompareData['previous_year'] ?? 2025 }}";
+
+            var dailyTrendOptions = {
+                series: [{
+                    name: cyYearName + ' (Tahun Berjalan)',
+                    data: cyDailyData
+                }, {
+                    name: pyYearName + ' (Tahun Sebelumnya)',
+                    data: pyDailyData
+                }],
+                chart: {
+                    type: 'area',
+                    height: 360,
+                    toolbar: {
+                        show: true,
+                        tools: {
+                            download: true,
+                            selection: false,
+                            zoom: false,
+                            zoomin: false,
+                            zoomout: false,
+                            pan: false,
+                            reset: false
+                        }
+                    },
+                    fontFamily: 'Outfit, Plus Jakarta Sans, sans-serif'
+                },
+                colors: ['#0b3d88', '#f59e0b'],
+                stroke: {
+                    curve: 'smooth',
+                    width: [3, 2],
+                    dashArray: [0, 4]
+                },
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        shadeIntensity: 1,
+                        opacityFrom: [0.35, 0.12],
+                        opacityTo: [0.03, 0.0],
+                        stops: [0, 90, 100]
+                    }
+                },
+                markers: {
+                    size: [4, 3],
+                    hover: { size: 6 }
+                },
+                xaxis: {
+                    categories: dailyCategories,
+                    labels: {
+                        style: {
+                            colors: '#64748b',
+                            fontSize: '11px',
+                            fontWeight: 600
+                        },
+                        rotate: -45,
+                        rotateAlways: false
+                    },
+                    axisBorder: { show: false },
+                    axisTicks: { show: false }
+                },
+                yaxis: {
+                    title: {
+                        text: 'Volume Stock (Liter)',
+                        style: { color: '#475569', fontWeight: 600, fontSize: '12px' }
+                    },
+                    labels: {
+                        formatter: function (val) {
+                            if (val >= 1000000) return (val/1000000).toFixed(1) + "M L";
+                            if (val >= 1000) return (val/1000).toFixed(1) + "k L";
+                            return val ? val.toLocaleString('id-ID') + " L" : "0 L";
+                        },
+                        style: { colors: '#64748b', fontSize: '11px' }
+                    }
+                },
+                tooltip: {
+                    shared: true,
+                    intersect: false,
+                    y: {
+                        formatter: function (val) {
+                            return (val !== null && val !== undefined) ? val.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " Liter" : "0.00 Liter";
+                        }
+                    }
+                },
+                legend: {
+                    position: 'top',
+                    horizontalAlign: 'right',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    markers: { radius: 12 }
+                },
+                grid: {
+                    borderColor: '#f1f5f9',
+                    strokeDashArray: 4
+                }
+            };
+
+            var chartEl = document.querySelector("#chart_stock_monthly_daily_trend");
+            if (chartEl && typeof ApexCharts !== 'undefined') {
+                var dailyTrendChart = new ApexCharts(chartEl, dailyTrendOptions);
+                dailyTrendChart.render();
+                window.stockDailyTrendChart = dailyTrendChart;
+            }
+        @endif
+    });
 </script>
