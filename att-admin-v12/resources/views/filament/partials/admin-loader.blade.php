@@ -1,5 +1,24 @@
 {{-- FILAMENT ADMIN UNIVERSAL PREMIUM LOADING OVERLAY --}}
-<div id="adminLoadingOverlay" class="admin-loading-overlay" aria-hidden="true">
+@php
+    $isDashboard = request()->routeIs('filament.admin.pages.dashboard')
+        || request()->is('admin')
+        || request()->is('admin/')
+        || request()->path() === 'admin';
+@endphp
+
+@if($isDashboard)
+<style id="adminDashboardLoaderDisabler">
+    #adminLoadingOverlay,
+    .admin-loading-overlay {
+        display: none !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+</style>
+@endif
+
+<div id="adminLoadingOverlay" class="admin-loading-overlay" aria-hidden="true" @if($isDashboard) style="display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important;" @endif>
     <div class="admin-loading-card">
         <!-- Ambient Glow -->
         <div class="admin-loading-glow"></div>
@@ -81,6 +100,16 @@
     transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
                 visibility 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Explicitly disable on dashboard page */
+body.fi-page-dashboard #adminLoadingOverlay,
+body.fi-page-dashboard .admin-loading-overlay,
+html[data-page="dashboard"] #adminLoadingOverlay {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 .admin-loading-overlay.active {
@@ -379,8 +408,41 @@
     let safetyTimer = null;
     let livewireDebounceTimer = null;
 
-    window.showAdminLoader = function(title, subtitle) {
+    function isDashboardPage() {
+        try {
+            const path = window.location.pathname.replace(/\/+$/, '');
+            if (path === '/admin' || path === '' || window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
+                return true;
+            }
+            if (document.body && (document.body.classList.contains('fi-page-dashboard') || document.body.dataset.page === 'dashboard')) {
+                return true;
+            }
+            if (document.querySelector('.fi-wi-active-employees-hourly') && (path === '/admin' || path.endsWith('/admin'))) {
+                return true;
+            }
+        } catch(e) {}
+        return false;
+    }
+
+    function syncDashboardOverlayState() {
         if (!overlay) return;
+        if (isDashboardPage()) {
+            overlay.classList.remove('active');
+            overlay.setAttribute('aria-hidden', 'true');
+            overlay.style.setProperty('display', 'none', 'important');
+            overlay.style.setProperty('opacity', '0', 'important');
+            overlay.style.setProperty('visibility', 'hidden', 'important');
+            overlay.style.setProperty('pointer-events', 'none', 'important');
+        } else {
+            overlay.style.removeProperty('display');
+            overlay.style.removeProperty('opacity');
+            overlay.style.removeProperty('visibility');
+            overlay.style.removeProperty('pointer-events');
+        }
+    }
+
+    window.showAdminLoader = function(title, subtitle) {
+        if (!overlay || isDashboardPage()) return;
         if (title && titleEl) titleEl.textContent = title;
         if (subtitle && subEl) {
             subEl.innerHTML = subtitle + '<span class="loading-dots"><span>.</span><span>.</span><span>.</span></span>';
@@ -405,9 +467,11 @@
 
     // Smoothly dismiss loader on page ready / restore
     function dismissInitialLoader() {
+        syncDashboardOverlayState();
         setTimeout(function() {
             window.hideAdminLoader();
-        }, 180);
+            syncDashboardOverlayState();
+        }, 120);
     }
 
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
@@ -415,26 +479,70 @@
     } else {
         document.addEventListener('DOMContentLoaded', dismissInitialLoader);
     }
-    window.addEventListener('load', window.hideAdminLoader);
-    window.addEventListener('pageshow', window.hideAdminLoader);
+    window.addEventListener('load', dismissInitialLoader);
+    window.addEventListener('pageshow', dismissInitialLoader);
+
+    // Initial sync
+    syncDashboardOverlayState();
 
     // 1. Livewire Navigation & Request Hooks
-    document.addEventListener('livewire:navigating', function() {
+    document.addEventListener('livewire:navigating', function(e) {
+        try {
+            const url = e.detail?.url || '';
+            const urlObj = new URL(url, window.location.origin);
+            const path = urlObj.pathname.replace(/\/+$/, '');
+            if (path === '/admin' || path === '') {
+                // Navigating to dashboard: never show loader
+                syncDashboardOverlayState();
+                return;
+            }
+        } catch(err) {}
+
+        if (isDashboardPage()) return;
         window.showAdminLoader('Memuat Halaman...', 'Sedang menyiapkan data dan komponen antarmuka admin');
     });
 
     document.addEventListener('livewire:navigated', function() {
+        syncDashboardOverlayState();
         window.hideAdminLoader();
     });
 
     document.addEventListener('livewire:init', function() {
         if (typeof Livewire !== 'undefined' && Livewire.hook) {
             Livewire.hook('request', ({ uri, options, payload, respond, succeed, fail }) => {
-                // For actions, table filters, bulk actions, modal actions, form saves:
-                // Show loader if request takes longer than 220ms (smooth, non-flickering for fast micro-updates)
+                // NEVER show loader on dashboard under any circumstances
+                if (isDashboardPage()) {
+                    return;
+                }
+
+                // Check if this request is a background poll on any page (auto refresh / notification check)
+                const payloadStr = JSON.stringify(payload || {});
+                const isPoll = payloadStr.includes('poll') 
+                    || payloadStr.includes('updateChartData') 
+                    || payloadStr.includes('databaseNotifications');
+
+                if (isPoll) {
+                    return; // Silent background polling, never show full-screen loader!
+                }
+
+                // Only show for explicit user interactions
+                const activeEl = document.activeElement;
+                const isUserAction = activeEl && (
+                    activeEl.tagName === 'BUTTON' || 
+                    activeEl.closest('button') || 
+                    activeEl.tagName === 'A' || 
+                    activeEl.closest('a') || 
+                    (activeEl.tagName === 'INPUT' && activeEl.type === 'submit')
+                );
+
+                if (!isUserAction) {
+                    return; // Ignore background wire updates
+                }
+
                 if (livewireDebounceTimer) clearTimeout(livewireDebounceTimer);
                 livewireDebounceTimer = setTimeout(function() {
-                    const activeEl = document.activeElement;
+                    if (isDashboardPage()) return;
+
                     let title = 'Memproses Permintaan...';
                     let sub = 'Sedang berkomunikasi dengan server aman, mohon tunggu';
 
@@ -445,7 +553,7 @@
                     }
 
                     window.showAdminLoader(title, sub);
-                }, 220);
+                }, 250);
 
                 respond(() => {
                     if (livewireDebounceTimer) clearTimeout(livewireDebounceTimer);
@@ -467,6 +575,8 @@
 
     // 2. Auto-attach to all Forms (save, create, edit, filter, search)
     document.addEventListener('submit', function(e) {
+        if (isDashboardPage()) return;
+
         const form = e.target;
         if (!form || form.hasAttribute('data-no-loader') || form.closest('[data-no-loader]')) return;
 
@@ -498,6 +608,8 @@
         // Check for interactive button clicks inside tables/headers that execute heavy actions
         const actionBtn = e.target.closest('.fi-btn, .fi-ta-action, .fi-ac-action, [data-filament-action]');
         if (actionBtn && !actionBtn.hasAttribute('data-no-loader')) {
+            if (isDashboardPage()) return;
+
             const label = actionBtn.innerText?.trim() || actionBtn.getAttribute('title') || 'Aksi';
             const cleanLabel = label.replace(/\s+/g, ' ').trim();
             if (actionBtn.type === 'submit' || actionBtn.getAttribute('wire:click') || actionBtn.getAttribute('wire:submit')) {
@@ -515,6 +627,17 @@
 
         const href = link.getAttribute('href');
         if (!href || href === '#' || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('tel:') || href.startsWith('mailto:')) return;
+
+        // If clicking link to dashboard, never show loader
+        if (href === '/admin' || href === '/admin/' || href.endsWith('/admin')) {
+            syncDashboardOverlayState();
+            return;
+        }
+
+        // If currently on dashboard and clicking an internal anchor / tab, don't show loader
+        if (isDashboardPage() && !href.startsWith('/admin/')) {
+            return;
+        }
 
         // A. Sidebar navigation
         if (link.closest('.fi-sidebar-item') || link.closest('.fi-sidebar-group') || link.classList.contains('fi-sidebar-item')) {
