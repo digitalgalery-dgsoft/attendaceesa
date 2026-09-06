@@ -19,7 +19,7 @@ class OdooSyncLog extends Model
         'total_employee_count' => 'integer',
     ];
 
-    public static function pruneOlderLogs(int $keep = 5): void
+    public static function pruneOlderLogs(int $keep = 200): void
     {
         $keepIds = static::orderBy('created_at', 'desc')->limit($keep)->pluck('id')->toArray();
         if (!empty($keepIds)) {
@@ -30,7 +30,7 @@ class OdooSyncLog extends Model
     protected static function booted(): void
     {
         static::created(function ($log) {
-            static::pruneOlderLogs(5);
+            static::pruneOlderLogs(200);
         });
     }
 

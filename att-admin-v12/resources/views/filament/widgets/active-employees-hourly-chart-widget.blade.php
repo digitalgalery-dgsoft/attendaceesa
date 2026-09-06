@@ -9,10 +9,9 @@
     $type = $this->getType();
     $maxHeight = $this->getMaxHeight();
     $hasMaxHeight = filled($maxHeight) && $maxHeight !== '100%';
-    $hasActiveFilter = (!empty($this->filters['time_range']) && $this->filters['time_range'] !== 'auto')
+    $hasActiveFilter = (!empty($this->filters['time_range']) && $this->filters['time_range'] !== '12h')
         || !empty($this->filters['principal_id']) 
-        || !empty($this->filters['branch_id'])
-        || !empty($this->filters['custom_date']);
+        || !empty($this->filters['branch_id']);
     $stats = $this->getSummaryStats();
 @endphp
 
@@ -61,85 +60,78 @@
             </div>
         </x-slot>
 
-        @if(!empty($stats['dateNotice']))
-            <div class="hourly-notice-banner">
-                <div class="hourly-notice-content">
-                    <svg class="hourly-notice-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <span>{{ $stats['dateNotice'] }}</span>
-                </div>
-                <span class="hourly-notice-badge">
-                    {{ !empty($stats['isFallback']) ? 'Riwayat Hari Terakhir' : 'Filter Tanggal' }}
-                </span>
+        <!-- Status & Sync Badge Banner -->
+        <div class="hourly-notice-banner">
+            <div class="hourly-notice-content">
+                <svg class="hourly-notice-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                <span>Sinkronisasi Odoo Otomatis • Update Terjadwal Tiap 30 Menit • Terakhir: <strong>{{ $stats['latestSyncTime'] ?? 'Hari Ini' }}</strong></span>
             </div>
-        @endif
+            <span class="hourly-notice-badge">
+                Odoo Sync ERP
+            </span>
+        </div>
 
         <!-- Modern Top Stats KPI Bar -->
         <div class="active-hourly-stats-bar">
-            <!-- Stat 1: Sedang Aktif Saat Ini / Karyawan Bertugas -->
+            <!-- Stat 1: Total Employee Aktif -->
             <div class="hourly-stat-box">
                 <div class="hourly-stat-icon-wrapper" style="background: rgba(15, 82, 186, 0.08); color: #0F52BA;">
-                    @if(!empty($stats['isFallback']))
-                        <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                        </svg>
-                    @else
-                        <span class="live-pulse-dot"></span>
-                    @endif
+                    <span class="live-pulse-dot"></span>
                 </div>
                 <div class="hourly-stat-details">
-                    <span class="hourly-stat-title">{{ !empty($stats['isFallback']) ? 'Karyawan Bertugas' : 'Aktif Saat Ini' }}</span>
+                    <span class="hourly-stat-title">Total Employee Aktif</span>
                     <div class="hourly-stat-value" style="color: #0F52BA;">
-                        {{ number_format(!empty($stats['isFallback']) ? $stats['peakActive'] : $stats['currentActive']) }}
-                        <span class="hourly-stat-unit">{{ !empty($stats['isFallback']) ? 'Karyawan (Puncak)' : 'Karyawan' }}</span>
+                        {{ number_format($stats['totalActive']) }}
+                        <span class="hourly-stat-unit">Karyawan</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Stat 2: Puncak Jam Kerja (Peak) -->
+            <!-- Stat 2: Total Resign / Non-Aktif -->
             <div class="hourly-stat-box">
-                <div class="hourly-stat-icon-wrapper" style="background: rgba(245, 158, 11, 0.1); color: #d97706;">
+                <div class="hourly-stat-icon-wrapper" style="background: rgba(100, 116, 139, 0.1); color: #475569;">
                     <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                     </svg>
                 </div>
                 <div class="hourly-stat-details">
-                    <span class="hourly-stat-title">Puncak Jam Kerja (Peak)</span>
-                    <div class="hourly-stat-value" style="color: #d97706;">
-                        {{ number_format($stats['peakActive']) }}
-                        <span class="hourly-stat-unit">({{ $stats['peakHour'] }} WIB)</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Stat 3: Check-in Baru -->
-            <div class="hourly-stat-box">
-                <div class="hourly-stat-icon-wrapper" style="background: rgba(16, 185, 129, 0.1); color: #059669;">
-                    <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
-                    </svg>
-                </div>
-                <div class="hourly-stat-details">
-                    <span class="hourly-stat-title">Total Check-in Baru</span>
-                    <div class="hourly-stat-value" style="color: #059669;">
-                        +{{ number_format($stats['totalCheckins']) }}
+                    <span class="hourly-stat-title">Resign / Non-Aktif</span>
+                    <div class="hourly-stat-value" style="color: #475569;">
+                        {{ number_format($stats['totalInactive']) }}
                         <span class="hourly-stat-unit">Orang</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Stat 4: Check-out Selesai -->
+            <!-- Stat 3: Penambahan Baru (+) -->
             <div class="hourly-stat-box">
-                <div class="hourly-stat-icon-wrapper" style="background: rgba(239, 68, 68, 0.1); color: #dc2626;">
+                <div class="hourly-stat-icon-wrapper" style="background: rgba(16, 185, 129, 0.1); color: #059669;">
                     <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
                     </svg>
                 </div>
                 <div class="hourly-stat-details">
-                    <span class="hourly-stat-title">Total Check-out</span>
+                    <span class="hourly-stat-title">Karyawan Baru (+)</span>
+                    <div class="hourly-stat-value" style="color: #059669;">
+                        +{{ number_format($stats['totalNew']) }}
+                        <span class="hourly-stat-unit">Orang</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stat 4: Mutasi Resign (-) -->
+            <div class="hourly-stat-box">
+                <div class="hourly-stat-icon-wrapper" style="background: rgba(239, 68, 68, 0.1); color: #dc2626;">
+                    <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6"></path>
+                    </svg>
+                </div>
+                <div class="hourly-stat-details">
+                    <span class="hourly-stat-title">Mutasi Resign (-)</span>
                     <div class="hourly-stat-value" style="color: #dc2626;">
-                        -{{ number_format($stats['totalCheckouts']) }}
+                        -{{ number_format($stats['totalResigned']) }}
                         <span class="hourly-stat-unit">Orang</span>
                     </div>
                 </div>
@@ -169,18 +161,17 @@
                             'fi-wi-chart-canvas-ctn',
                             'fi-wi-chart-canvas-ctn-no-aspect-ratio' => $hasMaxHeight,
                         ])
+                        ->style([
+                            'max-height: ' . $maxHeight => $hasMaxHeight,
+                        ])
                 }}
-                style="margin-top: 0.5rem;"
             >
                 <canvas
                     x-ref="canvas"
-                    @style([
-                        'width: 100%',
-                        'height: 100%; max-height: 100%' => ! $hasMaxHeight,
-                        ('max-height: ' . e($maxHeight)) => $hasMaxHeight,
-                    ])
+                    @if ($maxHeight)
+                        style="max-height: {{ $maxHeight }}"
+                    @endif
                 ></canvas>
-
                 <span
                     x-ref="backgroundColorElement"
                     @class([
@@ -190,7 +181,6 @@
                         },
                     ])
                 ></span>
-
                 <span
                     x-ref="borderColorElement"
                     @class([
@@ -200,12 +190,10 @@
                         },
                     ])
                 ></span>
-
                 <span
                     x-ref="gridColorElement"
                     class="text-gray-200 dark:text-gray-800"
                 ></span>
-
                 <span
                     x-ref="textColorElement"
                     class="text-gray-500 dark:text-gray-400"

@@ -1036,25 +1036,24 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - **Anti-Flicker State Persistency**: Status sidebar (terbuka/tertutup) disimpan di `localStorage ('portal_sidebar_collapsed')` dan diinisialisasi seawal mungkin di `<head>` sehingga tidak ada layout flashing saat pergantian halaman.
       - **Auto Trigger Resize Event**: Saat sidebar diminimalkan/diperluas, sistem men-dispatch event resize jendela (`window.dispatchEvent(new Event('resize'))`) sehingga grafik ApexCharts pada dashboard dan analitik langsung menyesuaikan lebar layar secara dinamis tanpa terpotong.
       - **Responsivitas Mobile Utuh**: Pada resolusi tablet/ponsel (`<= 1024px`), sidebar tetap berfungsi sebagai responsive off-canvas drawer dengan backdrop blur tanpa terpengaruh mode collapsed desktop.
-29. **Chart Garis Perubahan Employee Aktif Tiap Jam (12 Jam Terakhir) di Dashboard Admin (SELESAI 06 September 2026)**:
+29. **Chart Garis Perubahan Employee Aktif Tiap Jam Berdasarkan Sinkronisasi Odoo (SELESAI 06 September 2026)**:
     - **Widget Line Chart Interaktif (`ActiveEmployeesHourlyChartWidget`)**:
       - Ditambahkan langsung pada Dashboard Web Admin Filament (`app/Filament/Widgets/ActiveEmployeesHourlyChartWidget.php`) pada urutan strategis (`sort = 3`, tepat di bawah 4 KPI Overview Stats).
-      - Menampilkan tren pergerakan karyawan aktif tiap jam selama rentang 12 jam terakhir (`now()->subHours(11)` s/d `now()`).
-    - **Multi-Dataset Terpadu**:
-      - **Dataset 1 (Primary Area Line)**: *Total Employee Aktif (On-Duty)* dengan kurva halus (`tension: 0.35`), ketebalan border 3px biru (`#0F52BA`), dan bayangan area elegan.
-      - **Dataset 2 (Dashed Line Green)**: *Check-in Baru (+)* (`#10B981`) menunjukkan lonjakan karyawan yang baru memulai tugas pada jam bersangkutan.
-      - **Dataset 3 (Dashed Line Rose)**: *Check-out Selesai (-)* (`#EF4444`) menunjukkan karyawan yang menyelesaikan shift pada jam bersangkutan.
-    - **Header KPI Summary Bar (Quick Metrics)**:
-      - *Aktif Saat Ini*: Jumlah karyawan yang sedang bertugas saat ini lengkap dengan indikator animasi live pulsating green dot 🟢.
-      - *Puncak Jam Kerja (Peak)*: Jam tersibuk dengan jumlah karyawan aktif terbanyak (misal: `11:00 WIB`).
-      - *Total Check-in Baru*: Akumulasi seluruh check-in dalam 12 jam terakhir.
-      - *Total Check-out*: Akumulasi seluruh check-out dalam 12 jam terakhir.
-    - **Filter Fleksibel, Auto-Fallback Cerdas & Polling Otomatis**:
-      - **Auto-Fallback Hari Kerja Terakhir**: Jika pada hari peninjauan belum ada aktivitas presensi (misal hari Minggu/libur atau sebelum jam kerja), sistem otomatis mendeteksi tanggal presensi aktif terakhir dan menampilkan kurva pergerakan operasional lengkap (06:00 s/d 21:00 WIB) beserta banner indikator informatif (`💡 Mode Hari Kerja Terakhir`).
-      - **Seamless Real-time Transition**: Begitu ada karyawan yang check-in pada hari berjalan, widget secara otomatis beralih ke monitoring real-time live hari ini.
-      - **Filter Rentang Waktu & Tanggal Spesifik**: Pilihan *Otomatis (Real-time / Hari Kerja Terakhir)*, *12 Jam Terakhir*, *24 Jam Terakhir*, *Hari Ini*, *Hari Kerja Terakhir*, dan fitur kalender *Pilih Tanggal Spesifik* untuk peninjauan historis tanggal tertentu.
-      - Filter khusus per Prinsiple dan per Area / Cabang terintegrasi dengan isolasi role & akses non-superadmin.
-      - Normalisasi timezone (`Asia/Jakarta`) pada kalkulasi waktu checkin/checkout dan polling otomatis 30 detik (`wire:poll.30s`).
+      - Menampilkan tren pergerakan jumlah total karyawan aktif di sistem berdasarkan hasil sinkronisasi Odoo ERP secara berkala tiap jam.
+    - **Multi-Dataset Terpadu (Dual-Axis Scale)**:
+      - **Dataset 1 (Sumbu Kiri - Primary Area Line)**: *Total Employee Aktif* (misal: 11.130 karyawan) dengan kurva halus (`tension: 0.35`), border 3px biru (`#0F52BA`), dan bayangan area elegan yang mencerminkan volume master karyawan aktif riil.
+      - **Dataset 2 (Sumbu Kanan - Dashed Emerald Green)**: *Karyawan Baru (+) Odoo* (`#10B981`) menunjukkan penambahan karyawan baru yang tersinkronisasi dari Odoo pada jam bersangkutan.
+      - **Dataset 3 (Sumbu Kanan - Dashed Rose Red)**: *Resign / Non-Aktif (-) Odoo* (`#EF4444`) menunjukkan karyawan yang dinonaktifkan/resign dari Odoo pada jam bersangkutan.
+    - **Header KPI Summary Bar & Status Odoo**:
+      - *Total Employee Aktif*: Jumlah total karyawan aktif saat ini (11.130) dengan indikator live pulsating green dot 🟢.
+      - *Resign / Non-Aktif*: Akumulasi seluruh karyawan non-aktif/resign terdaftar (25.027).
+      - *Karyawan Baru (+)*: Akumulasi penambahan karyawan baru dari Odoo pada periode waktu terpilih.
+      - *Mutasi Resign (-)*: Akumulasi karyawan resign dari Odoo pada periode waktu terpilih.
+      - *Banner Status Odoo Sync*: Menampilkan timestamp sinkronisasi terakhir dan jadwal auto-sync cron 30 menit.
+    - **Filter Rentang Waktu & Area Terpadu**:
+      - Filter dropdown: *12 Jam Terakhir (Default)*, *24 Jam Terakhir*, *Hari Ini*, *7 Hari Terakhir*, dan *30 Hari Terakhir*.
+      - Filter per Prinsiple dan per Area / Cabang terintegrasi penuh dengan hak akses non-superadmin.
+      - Peningkatan retensi riwayat log Odoo (`OdooSyncLog::pruneOlderLogs(200)`) agar histori sinkronisasi beberapa hari terakhir tetap tersimpan untuk visualisasi tren.
 
 ---
 
