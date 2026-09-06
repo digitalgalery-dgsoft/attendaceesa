@@ -1114,9 +1114,16 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 
 ## ✅ Catatan Rilis & Penyempurnaan Sistem (6 September 2026)
 
-1. **Dashboard Admin - Line Chart Karyawan Aktif Per Jam (12 Jam Terakhir)**:
-   - Menambahkan widget Chart Garis `ActiveEmployeesHourlyChartWidget` di dashboard admin Filament yang menampilkan tren perubahan karyawan aktif secara dinamis dalam rentang 12 jam terakhir.
-   - Dilengkapi auto-refresh berkala (`wire:poll.30s`) untuk update visual berkala.
+1. **Dashboard Admin - Transformasi Line Chart Karyawan Aktif Berdasarkan Sinkronisasi Odoo**:
+   - Menambahkan dan menyempurnakan widget Chart Garis `ActiveEmployeesHourlyChartWidget` di dashboard admin Filament (`/admin`).
+   - Mengubah indikator perhitungan chart: tidak lagi sekadar menghitung check-in/check-out presensi harian, melainkan **melacak perubahan total karyawan aktif per jam yang diselaraskan dengan hasil sinkronisasi Odoo (~11.130 karyawan aktif)**.
+   - Menampilkan visualisasi penambahan karyawan baru (`+Karyawan Baru`) dan pengurangan karyawan resign/keluar (`-Resign`).
+   - Menerapkan **Dual Y-Axis (Chart.js)**:
+     - Sumbu Y utama (kiri): Volume total karyawan aktif (skala ~11.000+).
+     - Sumbu Y sekunder (kanan): Volume delta mutasi karyawan (`+Baru` dan `-Resign`) sehingga kedua grafik terbaca jelas tanpa saling tumpang tindih.
+   - Desain banner atas chart dilengkapi 4 kartu metrik live: **Total Employee Aktif (11.130)** dengan indikator *live pulse*, **Total Resign (25.027)**, **Karyawan Baru Hari Ini**, dan **Karyawan Resign Hari Ini**, serta indikator status Odoo Sync.
+   - Menyediakan auto-fallback cerdas yang mengagregasi data dari log sinkronisasi Odoo (`OdooSyncLog`), mutasi database karyawan (`employees`), dan snapshot per jam.
+   - Memperpanjang batas retensi pembersihan log sinkronisasi Odoo pada model `OdooSyncLog` (`pruneOlderLogs`) dari 5 log menjadi 200 log agar tren riwayat analitik per jam terjaga.
 
 2. **Dashboard Admin - Eliminasi Animasi Loading pada Auto-Refresh (Khusus Dashboard)**:
    - Memperbaiki isu di mana animasi loading universal terus-menerus muncul akibat auto-refresh background (`wire:poll` widget chart dan `databaseNotificationsPolling('10s')`).
@@ -1143,4 +1150,13 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
        Otomasi pembersihan cache view dan log aplikasi setiap hari Minggu pukul 02:00 WIB agar kapasitas disk server tetap prima.
      - **Supervisor Queue Worker Daemon**:
        Konfigurasi background worker via Supervisor Manager aaPanel (`/www/server/php/83/bin/php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600`) dengan 2–4 proses worker untuk pengiriman notifikasi FCM dan background export secara asynchronous.
+
+5. **Deployment & Sinkronisasi Cluster Multi-Server (Staging & Production)**:
+   - Berhasil mendistribusikan pembaruan ke server staging/development (`appsend.my.id`) via webhook streaming deployer (`deploy.php`).
+   - Berhasil mendistribusikan pembaruan secara otomatis ke 3 server production (Cluster Multi-Node) via `deploy-production.php`:
+     - **Server 1: PT Arina Multi Karya (AMK)**: `38.103.170.235` / `amk.esa-solutions.id` (Status: `HTTP 200 OK`)
+     - **Server 2: PT Alva Karya Perkasa (AKP)**: `38.103.170.223` / `akp.esa-solutions.id` (Status: `HTTP 200 OK`)
+     - **Server 3: PT Anugrah Talenta Berkarya (ATK)**: `38.103.170.224` / `atk.esa-solutions.id` (Status: `HTTP 200 OK`)
+   - Seluruh pipeline mencakup penarikan kode Git terbaru, sinkronisasi lintas seluruh virtual host di `/www/wwwroot`, pembaruan storage symlink, kompilasi aset Livewire, pembersihan cache Laravel (`artisan optimize:clear`), dan restart layanan PHP-FPM secara terkoordinasi.
+
 

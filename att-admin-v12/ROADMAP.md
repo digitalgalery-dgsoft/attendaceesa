@@ -25,6 +25,8 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 | **Resolusi CPU Overload & Looping Cluster** | 🟢 Selesai (100%) | Eliminasi rekursif cURL loop `/storage`, beban server kembali stabil 1-3% |
 | **Konfirmasi IP Publik Server 1 AMK** | 🟢 Live di 38.103.170.235 | Klarifikasi IP inbound publik (38.103.170.235) vs NAT egress aaPanel |
 | **Pipeline Otomatisasi Deploy Multi-Server** | 🟢 Aktif | CI/CD sync multi-vhost + auto syntax check (`php -l`) |
+| **Chart Perubahan Karyawan Aktif Odoo** | 🟢 Selesai & Live | Widget line chart dual-axis volume ~11.130 karyawan & mutasi per jam |
+| **Deployment Cluster 3 Node Production** | 🟢 Live (100%) | Sync otomatis ke Staging (appsend) & 3 Node Prod (AMK, AKP, ATK) |
 
 ---
 
@@ -268,6 +270,24 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 
 ---
 
+### 15. Transformasi Widget Chart Perubahan Karyawan Aktif Odoo & Auto-Deploy Multi-Server
+- [x] **Chart Perubahan Karyawan Aktif Tiap Jam (`ActiveEmployeesHourlyChartWidget`)**:
+  - Merekonstruksi widget chart garis pada Dashboard Filament (`/admin`) agar menampilkan fluktuasi total karyawan aktif per jam dari sinkronisasi Odoo (~11.130 karyawan), menggantikan indikator kehadiran presensi.
+  - Menerapkan **Dual Y-Axis**: Sumbu Y kiri untuk baseline total karyawan aktif (~11.000+) dan sumbu Y kanan untuk delta mutasi (`+Karyawan Baru` dan `-Resign`).
+  - Menambahkan kartu ringkasan KPI live di atas widget: Total Aktif (11.130 dengan animasi *live pulsing*), Total Resign (25.027), Baru Hari Ini, Resign Hari Ini, serta status sinkronisasi Odoo.
+  - Multi-tier auto fallback dari log sinkronisasi (`OdooSyncLog`), mutasi database karyawan (`employees`), dan snapshot per jam.
+  - Memperluas retensi log sinkronisasi Odoo pada model `OdooSyncLog` (`pruneOlderLogs`) dari 5 menjadi 200 riwayat log.
+- [x] **Eliminasi Loader Universal pada Dashboard Admin**:
+  - Mengisolasi auto-refresh dashboard (`wire:poll`, `databaseNotifications`) sehingga tidak memicu animasi loading layar tengah yang mengganggu.
+- [x] **Pipeline Deployment Multi-Server (Staging & Production)**:
+  - Sukses deploy ke server Staging (`appsend.my.id`) via webhook streaming.
+  - Sukses deploy multi-server otomatis via SSH streaming ke 3 Node Production:
+    - Server 1: AMK (`38.103.170.235` / `amk.esa-solutions.id`) -> HTTP 200 OK.
+    - Server 2: AKP (`38.103.170.223` / `akp.esa-solutions.id`) -> HTTP 200 OK.
+    - Server 3: ATK (`38.103.170.224` / `atk.esa-solutions.id`) -> HTTP 200 OK.
+
+---
+
 ## 🎯 Rencana Pengembangan Selanjutnya (Next Milestones)
 
 | No | Target Fitur / Peningkatan | Prioritas | Estimasi / Keterangan |
@@ -279,5 +299,5 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 
 ---
 
-*Terakhir diperbarui: 4 September 2026*  
+*Terakhir diperbarui: 6 September 2026*  
 *Pengembang: Digital Galery / DGSoft - Tim Attendance ESA*
