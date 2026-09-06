@@ -644,10 +644,17 @@
                 @endif
             @endif
 
-            <!-- 5. Modul Pelaporan SOP -->
-            @if(isset($activeTemplates) && $activeTemplates->isNotEmpty())
-                <div class="menu-category-label">Modul Pelaporan SOP ({{ $activeTemplates->count() }})</div>
+            <!-- 5. Modul Pelaporan SOP & Form Builder -->
+            <div class="menu-category-label">Form & Pelaporan SOP</div>
+            <a href="{{ route('portal.report_templates', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.report_templates*') ? 'active' : '' }}">
+                <i class="fa-solid fa-wand-magic-sparkles nav-icon"></i>
+                <span class="nav-text">Form Builder (Template)</span>
+                @if(isset($activeTemplates))
+                    <span class="nav-badge-count">{{ $activeTemplates->count() }}</span>
+                @endif
+            </a>
 
+            @if(isset($activeTemplates) && $activeTemplates->isNotEmpty())
                 @foreach($activeTemplates as $tpl)
                     @php
                         $iconClass = 'fa-solid fa-file-lines';
@@ -817,6 +824,34 @@
 
         <!-- Content Body -->
         <div class="portal-content">
+            @if(session('success'))
+                <div class="alert alert-success" style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 1rem 1.25rem; color: #065f46; display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);">
+                    <i class="fa-solid fa-circle-check" style="font-size: 1.25rem; color: #10b981; flex-shrink: 0;"></i>
+                    <div style="font-size: 0.9rem; font-weight: 600; flex: 1;">{{ session('success') }}</div>
+                    <button type="button" onclick="this.parentElement.remove()" style="background: transparent; border: none; color: #065f46; cursor: pointer; font-size: 1rem;">&times;</button>
+                </div>
+            @endif
+            @if(session('error'))
+                <div class="alert alert-danger" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 1rem 1.25rem; color: #991b1b; display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);">
+                    <i class="fa-solid fa-circle-exclamation" style="font-size: 1.25rem; color: #ef4444; flex-shrink: 0;"></i>
+                    <div style="font-size: 0.9rem; font-weight: 600; flex: 1;">{{ session('error') }}</div>
+                    <button type="button" onclick="this.parentElement.remove()" style="background: transparent; border: none; color: #991b1b; cursor: pointer; font-size: 1rem;">&times;</button>
+                </div>
+            @endif
+            @if($errors->any())
+                <div class="alert alert-danger" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 1rem 1.25rem; color: #991b1b; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);">
+                    <div style="font-weight: 700; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i>
+                        Terdapat kesalahan pada isian formulir:
+                    </div>
+                    <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.85rem;">
+                        @foreach($errors->all() as $err)
+                            <li>{{ $err }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             @yield('content')
         </div>
     </div>

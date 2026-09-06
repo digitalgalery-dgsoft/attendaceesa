@@ -1016,6 +1016,24 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Deployment & Multi-Server Synchronization**:
       - Seluruh pembaruan kode dan asset telah di-commit, di-push, dan aktif di server Staging (`appsend.my.id`) serta 3/3 server Production Cluster (AMK, AKP, GBS).
 
+58. **Implementasi Form Builder (Template Laporan) Khusus Portal Principal (SELESAI 6 September 2026)**:
+    - **Isolasi Penuh Data Template per Principal**:
+      - Menyediakan halaman Form Builder lengkap di Portal Principal (`/portal/report-templates`) yang terisolasi ketat hanya menampilkan, mengedit, dan mengelola template form milik prinsiple aktif (`$scopedPrincipalIds`).
+      - Admin / PIC Prinsiple kini dapat membuat template form baru, mengedit struktur pertanyaan, mengubah jadwal kuota, dan mengatur penugasan tim lapangan secara mandiri.
+    - **Visual Dynamic Form Builder (Google Form Style Editor)**:
+      - Tampilan interaktif pembuatan pertanyaan dengan kartu dinamis, auto-slug variable naming, reordering (geser atas/bawah), duplikasi pertanyaan, dan penghapusan aman.
+      - Mendukung 18 tipe input interaktif (Pilihan Master Produk SKU, Teks Singkat, Paragraf, Angka/Qty, Nilai Rupiah, Dropdown, Radio Button, Checkbox Multi-Pilihan, Foto Kamera Tunggal, Multi-Foto Before/After, Tanda Tangan Digital, Barcode/QR Scanner, Month/Year, Date, Time, Rating Star, Slider, dan GPS Location).
+      - Dilengkapi Options Tag Manager untuk kemudahan menambah/menghapus pilihan dropdown/radio/checkbox secara langsung.
+    - **Pengaturan Jadwal Kuota & Target Penugasan Tim**:
+      - Pengaturan tipe frekuensi pengisian (Daily, Weekly, Monthly) dengan target kuota dan pemilihan hari aktif (Senin s/d Minggu).
+      - Filter parameter produk SKU khusus prinsiple terkait.
+      - Target penugasan multi-select berdasarkan jabatan (SPG, MD, TL, dll.) dan personil karyawan spesifik.
+    - **Aksi Cepat & Navigasi**:
+      - Quick Toggle Status Aktif/Non-Aktif instan via AJAX.
+      - Duplikasi Template Form dalam 1 klik untuk mempercepat pembuatan varian form laporan.
+      - Integrasi menu navigasi sidebar "Form Builder (Template)" pada grup "Form & Pelaporan SOP" di `layout.blade.php`.
+      - Wadah alert flash message terintegrasi (sukses, peringatan, dan validasi error).
+
 ---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)

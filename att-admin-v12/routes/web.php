@@ -554,6 +554,16 @@ Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function ()
     Route::get('/mandays-report', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'mandaysReport'])->name('mandays_report');
     Route::get('/turnover-report', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'turnoverReport'])->name('turnover_report');
 
+    // Form Builder (Template Laporan) Khusus Principal
+    Route::get('/report-templates', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'reportTemplatesList'])->name('report_templates');
+    Route::get('/report-templates/create', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'createReportTemplate'])->name('report_templates.create');
+    Route::post('/report-templates', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'storeReportTemplate'])->name('report_templates.store');
+    Route::get('/report-templates/{id}/edit', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'editReportTemplate'])->name('report_templates.edit');
+    Route::put('/report-templates/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'updateReportTemplate'])->name('report_templates.update');
+    Route::delete('/report-templates/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'destroyReportTemplate'])->name('report_templates.destroy');
+    Route::post('/report-templates/{id}/toggle-active', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'toggleReportTemplateActive'])->name('report_templates.toggle_active');
+    Route::post('/report-templates/{id}/duplicate', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'duplicateReportTemplate'])->name('report_templates.duplicate');
+
     // Dynamic Report Templates
     Route::get('/report/{code}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'reportDetail'])->name('report.detail');
     Route::post('/report/{code}/dashboard-config', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'saveDashboardConfig'])->name('report.dashboard.save');

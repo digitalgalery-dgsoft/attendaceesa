@@ -7987,18 +7987,637 @@ class PrincipalPortalController extends Controller
                 ];
             } catch (\Throwable $e) {
                 \Log::error("Failed to calculate Customer Database Dashboard: " . $e->getMessage());
-                return [
-                    'kpis' => ['total_records' => 0, 'total_value' => 0, 'avg_basket_size' => 0, 'unique_stores' => 0, 'unique_dcs' => 0, 'switched_cnt' => 0, 'dulux_bought_cnt' => 0, 'switched_pct' => 0, 'dulux_bought_pct' => 0],
-                    'insights' => [
-                        'customer_types' => [], 'reasons' => [], 'purposes' => [], 'brands_sought' => [],
-                        'brands_bought' => [], 'paint_types' => [], 'preview_needs' => [], 'painter_loyalty' => [],
-                    ],
-                    'by_region' => [],
-                    'top_stores' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
-                    'top_dcs' => [],
-                    'submissions' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
                 ];
             }
         });
+    }
+
+    /**
+     * =========================================================================
+     * REPORT TEMPLATES / FORM BUILDER MANAGEMENT FOR PRINCIPAL PORTAL
+     * =========================================================================
+     */
+
+    /**
+     * Report Templates List for Principal (Form Builder)
+     */
+    public function reportTemplatesList(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
+
+        $search = $request->query('q');
+        $category = $request->query('category');
+        $status = $request->query('status'); // 'all', 'active', 'inactive'
+
+        $query = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)
+            ->with(['fields', 'principals', 'products', 'positions', 'employees'])
+            ->withCount('submissions');
+
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('report_templates.title', 'LIKE', "%{$search}%")
+                  ->orWhere('report_templates.code', 'LIKE', "%{$search}%")
+                  ->orWhere('report_templates.description', 'LIKE', "%{$search}%");
+            });
+        }
+
+        if (!empty($category)) {
+            $query->where('report_templates.category', $category);
+        }
+
+        if ($status === 'active') {
+            $query->where('report_templates.is_active', true);
+        } elseif ($status === 'inactive') {
+            $query->where('report_templates.is_active', false);
+        }
+
+        $templates = $query->orderBy('report_templates.id', 'desc')->paginate(15);
+
+        // Stats
+        $baseStatsQuery = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal);
+        $totalTemplates = (clone $baseStatsQuery)->count();
+        $totalActive = (clone $baseStatsQuery)->where('report_templates.is_active', true)->count();
+        $totalFields = \App\Models\ReportFormField::whereIn('report_template_id', (clone $baseStatsQuery)->pluck('report_templates.id'))->count();
+        $totalSubmissions = \App\Models\ReportSubmission::whereIn('report_template_id', (clone $baseStatsQuery)->pluck('report_templates.id'))->count();
+
+        $categories = [
+            'offtake' => 'Offtake / Penjualan Harian',
+            'sellout' => 'Sell-Out (SPG / MD / Event)',
+            'stock' => 'Cek Stok & OOS (Barang Kosong)',
+            'pricing' => 'Cek Harga & Price Tag Tracking',
+            'price' => 'Price Monitoring (Harga & Kompetitor)',
+            'promo' => 'Tracking Program Promo',
+            'display' => 'Display & Sewa Display (Rent/Add Display)',
+            'posm' => 'POSM & Material Promosi / Stiker',
+            'competitor' => 'Market Share & Aktivitas Kompetitor',
+            'expiry' => 'Monitoring Expired Date (Kadaluarsa)',
+            'survey' => 'Survey Pasar / Profil Toko',
+            'general' => 'Pelaporan Umum / Kunjungan Biasa',
+        ];
+
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.report_templates.index', compact(
+            'tenantPrincipal',
+            'tenantPrincipalsAll',
+            'brandColor',
+            'activeTemplates',
+            'templates',
+            'totalTemplates',
+            'totalActive',
+            'totalFields',
+            'totalSubmissions',
+            'categories',
+            'search',
+            'category',
+            'status',
+            'setting'
+        ));
+    }
+
+    /**
+     * Show form to create a new report template
+     */
+    public function createReportTemplate(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
+
+        $template = new ReportTemplate([
+            'is_active' => true,
+            'require_gps' => true,
+            'require_signature' => false,
+            'schedule_type' => 'daily',
+            'target_count' => 1,
+            'category' => 'offtake',
+        ]);
+
+        $products = Product::whereIn('principal_id', $scopedPrincipalIds)->where('is_active', true)->orderBy('name')->get();
+        $positions = Position::where('is_active', true)->orderBy('name')->get();
+        if ($positions->isEmpty()) {
+            $positions = Position::orderBy('name')->get();
+        }
+        $employees = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('status', 'active')->orderBy('full_name')->get();
+        if ($employees->isEmpty()) {
+            $employees = Employee::whereIn('principal_id', $scopedPrincipalIds)->orderBy('full_name')->get();
+        }
+        $workLocations = WorkLocation::where('is_active', true)->orderBy('name')->get();
+
+        $categories = [
+            'offtake' => 'Offtake / Penjualan Harian',
+            'sellout' => 'Sell-Out (SPG / MD / Event)',
+            'stock' => 'Cek Stok & OOS (Barang Kosong)',
+            'pricing' => 'Cek Harga & Price Tag Tracking',
+            'price' => 'Price Monitoring (Harga & Kompetitor)',
+            'promo' => 'Tracking Program Promo',
+            'display' => 'Display & Sewa Display (Rent/Add Display)',
+            'posm' => 'POSM & Material Promosi / Stiker',
+            'competitor' => 'Market Share & Aktivitas Kompetitor',
+            'expiry' => 'Monitoring Expired Date (Kadaluarsa)',
+            'survey' => 'Survey Pasar / Profil Toko',
+            'general' => 'Pelaporan Umum / Kunjungan Biasa',
+        ];
+
+        $fieldTypes = $this->getAvailableFieldTypes();
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+        $isEdit = false;
+
+        return view('portal.report_templates.form', compact(
+            'tenantPrincipal',
+            'tenantPrincipalsAll',
+            'brandColor',
+            'activeTemplates',
+            'template',
+            'products',
+            'positions',
+            'employees',
+            'workLocations',
+            'categories',
+            'fieldTypes',
+            'isEdit',
+            'setting'
+        ));
+    }
+
+    /**
+     * Store a newly created report template
+     */
+    public function storeReportTemplate(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'code' => 'required|string|max:100',
+            'category' => 'required|string|max:50',
+            'schedule_type' => 'required|in:daily,weekly,monthly',
+            'target_count' => 'nullable|integer|min:1',
+            'report_days' => 'nullable|array',
+            'require_gps' => 'nullable|boolean',
+            'require_signature' => 'nullable|boolean',
+            'is_active' => 'nullable|boolean',
+            'description' => 'nullable|string|max:2000',
+            'products' => 'nullable|array',
+            'products.*' => 'integer',
+            'positions' => 'nullable|array',
+            'positions.*' => 'integer',
+            'employees' => 'nullable|array',
+            'employees.*' => 'integer',
+            'fields' => 'nullable|array',
+            'assignments' => 'nullable|array',
+        ]);
+
+        $code = strtoupper(trim($validated['code']));
+        // Check uniqueness within principal scope or globally
+        $existing = ReportTemplate::where('code', $code)->first();
+        if ($existing) {
+            $code = $code . '-' . time();
+        }
+
+        $template = ReportTemplate::create([
+            'principal_id' => $tenantPrincipal->id,
+            'title' => trim($validated['title']),
+            'code' => $code,
+            'category' => $validated['category'],
+            'schedule_type' => $validated['schedule_type'],
+            'target_count' => $validated['target_count'] ?? 1,
+            'report_days' => $request->input('report_days', []),
+            'require_gps' => $request->boolean('require_gps', true),
+            'require_signature' => $request->boolean('require_signature', false),
+            'is_active' => $request->boolean('is_active', true),
+            'description' => $validated['description'] ?? null,
+            'version' => 1,
+        ]);
+
+        // Sync pivot principals
+        $template->principals()->sync($scopedPrincipalIds);
+
+        // Sync products
+        if (!empty($validated['products'])) {
+            $template->products()->sync($validated['products']);
+        }
+
+        // Sync positions
+        if (!empty($validated['positions'])) {
+            $template->positions()->sync($validated['positions']);
+        }
+
+        // Sync employees
+        if (!empty($validated['employees'])) {
+            $template->employees()->sync($validated['employees']);
+        }
+
+        // Create Fields
+        $fieldsInput = $request->input('fields', []);
+        if (is_array($fieldsInput)) {
+            $order = 0;
+            foreach ($fieldsInput as $f) {
+                if (empty($f['field_label'])) continue;
+
+                $fieldName = !empty($f['field_name']) 
+                    ? \Illuminate\Support\Str::snake(trim($f['field_name'])) 
+                    : \Illuminate\Support\Str::snake(\Illuminate\Support\Str::slug(trim($f['field_label'])));
+
+                $options = null;
+                if (!empty($f['options'])) {
+                    if (is_array($f['options'])) {
+                        $options = array_values(array_filter(array_map('trim', $f['options'])));
+                    } elseif (is_string($f['options'])) {
+                        $options = array_values(array_filter(array_map('trim', explode(',', $f['options']))));
+                    }
+                }
+
+                \App\Models\ReportFormField::create([
+                    'report_template_id' => $template->id,
+                    'field_name' => $fieldName,
+                    'field_label' => trim($f['field_label']),
+                    'field_type' => $f['field_type'] ?? 'text',
+                    'placeholder' => !empty($f['placeholder']) ? trim($f['placeholder']) : null,
+                    'help_text' => !empty($f['help_text']) ? trim($f['help_text']) : null,
+                    'options' => $options,
+                    'is_required' => !empty($f['is_required']),
+                    'is_readonly' => !empty($f['is_readonly']),
+                    'order_index' => $order++,
+                ]);
+            }
+        }
+
+        // Create Assignments
+        $assignmentsInput = $request->input('assignments', []);
+        if (is_array($assignmentsInput)) {
+            foreach ($assignmentsInput as $a) {
+                if (empty($a['employee_id']) && empty($a['position_id']) && empty($a['work_location_id']) && empty($a['channel'])) {
+                    continue;
+                }
+                \App\Models\ReportTemplateAssignment::create([
+                    'report_template_id' => $template->id,
+                    'principal_id' => $tenantPrincipal->id,
+                    'employee_id' => !empty($a['employee_id']) ? (int)$a['employee_id'] : null,
+                    'position_id' => !empty($a['position_id']) ? (int)$a['position_id'] : null,
+                    'work_location_id' => !empty($a['work_location_id']) ? (int)$a['work_location_id'] : null,
+                    'channel' => !empty($a['channel']) ? trim($a['channel']) : null,
+                ]);
+            }
+        }
+
+        return redirect()->route('portal.report_templates', ['p' => $tenantPrincipal->id])
+            ->with('success', "Form Template '{$template->title}' berhasil dibuat!");
+    }
+
+    /**
+     * Show form to edit an existing report template
+     */
+    public function editReportTemplate(Request $request, int $id)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $template = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)
+            ->with(['fields', 'principals', 'products', 'positions', 'employees', 'assignments'])
+            ->findOrFail($id);
+
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
+
+        $products = Product::whereIn('principal_id', $scopedPrincipalIds)->where('is_active', true)->orderBy('name')->get();
+        $positions = Position::where('is_active', true)->orderBy('name')->get();
+        if ($positions->isEmpty()) {
+            $positions = Position::orderBy('name')->get();
+        }
+        $employees = Employee::whereIn('principal_id', $scopedPrincipalIds)->where('status', 'active')->orderBy('full_name')->get();
+        if ($employees->isEmpty()) {
+            $employees = Employee::whereIn('principal_id', $scopedPrincipalIds)->orderBy('full_name')->get();
+        }
+        $workLocations = WorkLocation::where('is_active', true)->orderBy('name')->get();
+
+        $categories = [
+            'offtake' => 'Offtake / Penjualan Harian',
+            'sellout' => 'Sell-Out (SPG / MD / Event)',
+            'stock' => 'Cek Stok & OOS (Barang Kosong)',
+            'pricing' => 'Cek Harga & Price Tag Tracking',
+            'price' => 'Price Monitoring (Harga & Kompetitor)',
+            'promo' => 'Tracking Program Promo',
+            'display' => 'Display & Sewa Display (Rent/Add Display)',
+            'posm' => 'POSM & Material Promosi / Stiker',
+            'competitor' => 'Market Share & Aktivitas Kompetitor',
+            'expiry' => 'Monitoring Expired Date (Kadaluarsa)',
+            'survey' => 'Survey Pasar / Profil Toko',
+            'general' => 'Pelaporan Umum / Kunjungan Biasa',
+        ];
+
+        $fieldTypes = $this->getAvailableFieldTypes();
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+        $isEdit = true;
+
+        return view('portal.report_templates.form', compact(
+            'tenantPrincipal',
+            'tenantPrincipalsAll',
+            'brandColor',
+            'activeTemplates',
+            'template',
+            'products',
+            'positions',
+            'employees',
+            'workLocations',
+            'categories',
+            'fieldTypes',
+            'isEdit',
+            'setting'
+        ));
+    }
+
+    /**
+     * Update an existing report template
+     */
+    public function updateReportTemplate(Request $request, int $id)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $template = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)->findOrFail($id);
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'code' => 'required|string|max:100',
+            'category' => 'required|string|max:50',
+            'schedule_type' => 'required|in:daily,weekly,monthly',
+            'target_count' => 'nullable|integer|min:1',
+            'report_days' => 'nullable|array',
+            'require_gps' => 'nullable|boolean',
+            'require_signature' => 'nullable|boolean',
+            'is_active' => 'nullable|boolean',
+            'description' => 'nullable|string|max:2000',
+            'products' => 'nullable|array',
+            'products.*' => 'integer',
+            'positions' => 'nullable|array',
+            'positions.*' => 'integer',
+            'employees' => 'nullable|array',
+            'employees.*' => 'integer',
+            'fields' => 'nullable|array',
+            'assignments' => 'nullable|array',
+        ]);
+
+        $template->update([
+            'title' => trim($validated['title']),
+            'code' => strtoupper(trim($validated['code'])),
+            'category' => $validated['category'],
+            'schedule_type' => $validated['schedule_type'],
+            'target_count' => $validated['target_count'] ?? 1,
+            'report_days' => $request->input('report_days', []),
+            'require_gps' => $request->boolean('require_gps', true),
+            'require_signature' => $request->boolean('require_signature', false),
+            'is_active' => $request->boolean('is_active', true),
+            'description' => $validated['description'] ?? null,
+            'version' => ($template->version ?? 1) + 1,
+        ]);
+
+        // Sync pivot principals if not linked
+        if (!$template->principals()->exists()) {
+            $template->principals()->sync($scopedPrincipalIds);
+        }
+
+        // Sync products
+        $template->products()->sync($validated['products'] ?? []);
+
+        // Sync positions
+        $template->positions()->sync($validated['positions'] ?? []);
+
+        // Sync employees
+        $template->employees()->sync($validated['employees'] ?? []);
+
+        // Re-sync Form Fields cleanly
+        $fieldsInput = $request->input('fields', []);
+        $template->fields()->delete();
+        if (is_array($fieldsInput)) {
+            $order = 0;
+            foreach ($fieldsInput as $f) {
+                if (empty($f['field_label'])) continue;
+
+                $fieldName = !empty($f['field_name']) 
+                    ? \Illuminate\Support\Str::snake(trim($f['field_name'])) 
+                    : \Illuminate\Support\Str::snake(\Illuminate\Support\Str::slug(trim($f['field_label'])));
+
+                $options = null;
+                if (!empty($f['options'])) {
+                    if (is_array($f['options'])) {
+                        $options = array_values(array_filter(array_map('trim', $f['options'])));
+                    } elseif (is_string($f['options'])) {
+                        $options = array_values(array_filter(array_map('trim', explode(',', $f['options']))));
+                    }
+                }
+
+                \App\Models\ReportFormField::create([
+                    'report_template_id' => $template->id,
+                    'field_name' => $fieldName,
+                    'field_label' => trim($f['field_label']),
+                    'field_type' => $f['field_type'] ?? 'text',
+                    'placeholder' => !empty($f['placeholder']) ? trim($f['placeholder']) : null,
+                    'help_text' => !empty($f['help_text']) ? trim($f['help_text']) : null,
+                    'options' => $options,
+                    'is_required' => !empty($f['is_required']),
+                    'is_readonly' => !empty($f['is_readonly']),
+                    'order_index' => $order++,
+                ]);
+            }
+        }
+
+        // Re-sync Assignments
+        $assignmentsInput = $request->input('assignments', []);
+        $template->assignments()->delete();
+        if (is_array($assignmentsInput)) {
+            foreach ($assignmentsInput as $a) {
+                if (empty($a['employee_id']) && empty($a['position_id']) && empty($a['work_location_id']) && empty($a['channel'])) {
+                    continue;
+                }
+                \App\Models\ReportTemplateAssignment::create([
+                    'report_template_id' => $template->id,
+                    'principal_id' => $tenantPrincipal->id,
+                    'employee_id' => !empty($a['employee_id']) ? (int)$a['employee_id'] : null,
+                    'position_id' => !empty($a['position_id']) ? (int)$a['position_id'] : null,
+                    'work_location_id' => !empty($a['work_location_id']) ? (int)$a['work_location_id'] : null,
+                    'channel' => !empty($a['channel']) ? trim($a['channel']) : null,
+                ]);
+            }
+        }
+
+        if ($request->has('save_and_continue')) {
+            return redirect()->route('portal.report_templates.edit', ['id' => $template->id, 'p' => $tenantPrincipal->id])
+                ->with('success', "Form Template '{$template->title}' berhasil diperbarui!");
+        }
+
+        return redirect()->route('portal.report_templates', ['p' => $tenantPrincipal->id])
+            ->with('success', "Perubahan Form Template '{$template->title}' berhasil disimpan!");
+    }
+
+    /**
+     * Delete a report template
+     */
+    public function destroyReportTemplate(Request $request, int $id)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $template = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)->findOrFail($id);
+        $title = $template->title;
+
+        $template->fields()->delete();
+        $template->assignments()->delete();
+        $template->principals()->detach();
+        $template->products()->detach();
+        $template->positions()->detach();
+        $template->employees()->detach();
+        $template->delete();
+
+        return redirect()->route('portal.report_templates', ['p' => $tenantPrincipal->id])
+            ->with('success', "Form Template '{$title}' berhasil dihapus!");
+    }
+
+    /**
+     * Quick toggle is_active status of template
+     */
+    public function toggleReportTemplateActive(Request $request, int $id)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $template = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)->findOrFail($id);
+        $template->is_active = !$template->is_active;
+        $template->save();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'is_active' => $template->is_active,
+                'message' => "Status form '{$template->title}' berhasil " . ($template->is_active ? 'diaktifkan' : 'dinonaktifkan') . "!"
+            ]);
+        }
+
+        return redirect()->back()->with('success', "Status form '{$template->title}' berhasil diubah!");
+    }
+
+    /**
+     * Duplicate a report template
+     */
+    public function duplicateReportTemplate(Request $request, int $id)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $original = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)
+            ->with(['fields', 'assignments', 'products', 'positions', 'employees'])
+            ->findOrFail($id);
+
+        $newCode = $original->code . '-COPY-' . strtoupper(\Illuminate\Support\Str::random(4));
+        $newTitle = $original->title . ' (Duplikat)';
+
+        $clone = ReportTemplate::create([
+            'principal_id' => $original->principal_id ?? $tenantPrincipal->id,
+            'title' => $newTitle,
+            'code' => $newCode,
+            'category' => $original->category,
+            'schedule_type' => $original->schedule_type,
+            'target_count' => $original->target_count,
+            'report_days' => $original->report_days,
+            'require_gps' => $original->require_gps,
+            'require_signature' => $original->require_signature,
+            'is_active' => false,
+            'description' => $original->description,
+            'dashboard_config' => $original->dashboard_config,
+            'version' => 1,
+        ]);
+
+        $clone->principals()->sync($scopedPrincipalIds);
+        $clone->products()->sync($original->products->pluck('id'));
+        $clone->positions()->sync($original->positions->pluck('id'));
+        $clone->employees()->sync($original->employees->pluck('id'));
+
+        foreach ($original->fields as $f) {
+            \App\Models\ReportFormField::create([
+                'report_template_id' => $clone->id,
+                'field_name' => $f->field_name,
+                'field_label' => $f->field_label,
+                'field_type' => $f->field_type,
+                'placeholder' => $f->placeholder,
+                'help_text' => $f->help_text,
+                'options' => $f->options,
+                'validation_rules' => $f->validation_rules,
+                'is_required' => $f->is_required,
+                'is_readonly' => $f->is_readonly,
+                'order_index' => $f->order_index,
+            ]);
+        }
+
+        foreach ($original->assignments as $a) {
+            \App\Models\ReportTemplateAssignment::create([
+                'report_template_id' => $clone->id,
+                'principal_id' => $a->principal_id,
+                'employee_id' => $a->employee_id,
+                'position_id' => $a->position_id,
+                'work_location_id' => $a->work_location_id,
+                'channel' => $a->channel,
+            ]);
+        }
+
+        return redirect()->route('portal.report_templates.edit', ['id' => $clone->id, 'p' => $tenantPrincipal->id])
+            ->with('success', "Form Template berhasil diduplikasi menjadi '{$newTitle}'. Anda sekarang dapat mengeditnya!");
+    }
+
+    /**
+     * Helper list of field types
+     */
+    protected function getAvailableFieldTypes(): array
+    {
+        return [
+            'product_select' => ['label' => 'Pilihan Produk Tertentu (Dari Master SKU)', 'icon' => 'fa-boxes-stacked', 'has_options' => true, 'hint' => 'Otomatis menarik daftar produk SKU sesuai konfigurasi template'],
+            'text' => ['label' => 'Teks Singkat', 'icon' => 'fa-font', 'has_options' => false, 'hint' => 'Input satu baris teks biasa'],
+            'textarea' => ['label' => 'Paragraf / Catatan Panjang', 'icon' => 'fa-align-left', 'has_options' => false, 'hint' => 'Kotak teks multi-baris untuk ulasan, catatan, atau deskripsi'],
+            'number' => ['label' => 'Angka / Kuantitas (Qty)', 'icon' => 'fa-arrow-up-1-9', 'has_options' => false, 'hint' => 'Input numerik murni (misal: stok, jumlah display, kuantitas)'],
+            'currency' => ['label' => 'Nilai Rupiah (IDR)', 'icon' => 'fa-money-bill-wave', 'has_options' => false, 'hint' => 'Input nominal harga atau total rupiah'],
+            'dropdown' => ['label' => 'Dropdown Pilihan Tunggal', 'icon' => 'fa-square-caret-down', 'has_options' => true, 'hint' => 'Menu drop-down untuk memilih salah satu opsi'],
+            'radio' => ['label' => 'Radio Button (Pilihan Ganda)', 'icon' => 'fa-circle-dot', 'has_options' => true, 'hint' => 'Pilihan satu opsi dengan tampilan tombol bulat'],
+            'checkbox' => ['label' => 'Checkbox (Multi-Pilihan)', 'icon' => 'fa-square-check', 'has_options' => true, 'hint' => 'Pilihan yang mengizinkan memilih lebih dari satu opsi'],
+            'camera_photo' => ['label' => 'Foto Kamera Tunggal (Wajib Kamera)', 'icon' => 'fa-camera', 'has_options' => false, 'hint' => 'Ambil 1 foto langsung dari kamera (galeri diblokir)'],
+            'multi_photo' => ['label' => 'Multi-Foto Kamera (Before/After)', 'icon' => 'fa-images', 'has_options' => false, 'hint' => 'Ambil beberapa foto dokumentasi lapangan'],
+            'signature' => ['label' => 'Tanda Tangan Digital (Signature Pad)', 'icon' => 'fa-signature', 'has_options' => false, 'hint' => 'Kanvas tanda tangan PIC / Store Manager'],
+            'barcode_scanner' => ['label' => 'Scan Barcode / QR Code', 'icon' => 'fa-barcode', 'has_options' => false, 'hint' => 'Pindai barcode produk atau QR tag lokasi'],
+            'month_year' => ['label' => 'Pilih Bulan & Tahun (MM/YYYY)', 'icon' => 'fa-calendar-days', 'has_options' => false, 'hint' => 'Format bulan dan tahun (misal: expired date)'],
+            'date' => ['label' => 'Pilih Tanggal Lengkap (DD/MM/YYYY)', 'icon' => 'fa-calendar', 'has_options' => false, 'hint' => 'Pemilih kalender tanggal lengkap'],
+            'time' => ['label' => 'Pilih Jam / Waktu', 'icon' => 'fa-clock', 'has_options' => false, 'hint' => 'Pemilih waktu / jam'],
+            'rating_star' => ['label' => 'Rating Bintang (1-5)', 'icon' => 'fa-star', 'has_options' => false, 'hint' => 'Skala bintang 1 sampai 5'],
+            'slider' => ['label' => 'Skala Slider (0-100)', 'icon' => 'fa-sliders', 'has_options' => false, 'hint' => 'Slider geser nilai numerik'],
+            'gps_location' => ['label' => 'Koordinat GPS Otomatis', 'icon' => 'fa-location-dot', 'has_options' => false, 'hint' => 'Pinpoint latitude/longitude lokasi presisi'],
+        ];
     }
 }
