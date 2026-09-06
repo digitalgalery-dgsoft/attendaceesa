@@ -1049,10 +1049,12 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - *Puncak Jam Kerja (Peak)*: Jam tersibuk dengan jumlah karyawan aktif terbanyak (misal: `11:00 WIB`).
       - *Total Check-in Baru*: Akumulasi seluruh check-in dalam 12 jam terakhir.
       - *Total Check-out*: Akumulasi seluruh check-out dalam 12 jam terakhir.
-    - **Filter Fleksibel & Polling Otomatis**:
-      - Filter dropdown interaktif: Pilihan rentang waktu (*12 Jam Terakhir*, *24 Jam Terakhir*, atau *Hari Ini Sejak 00:00*), filter khusus per Prinsiple, dan filter per Area / Cabang.
-      - Dukungan isolasi role & akses user cabang/prinsiple non-superadmin.
-      - Live polling otomatis setiap 30 detik (`wire:poll.30s="updateChartData"`) untuk memastikan pergerakan karyawan selalu ter-update secara real-time.
+    - **Filter Fleksibel, Auto-Fallback Cerdas & Polling Otomatis**:
+      - **Auto-Fallback Hari Kerja Terakhir**: Jika pada hari peninjauan belum ada aktivitas presensi (misal hari Minggu/libur atau sebelum jam kerja), sistem otomatis mendeteksi tanggal presensi aktif terakhir dan menampilkan kurva pergerakan operasional lengkap (06:00 s/d 21:00 WIB) beserta banner indikator informatif (`💡 Mode Hari Kerja Terakhir`).
+      - **Seamless Real-time Transition**: Begitu ada karyawan yang check-in pada hari berjalan, widget secara otomatis beralih ke monitoring real-time live hari ini.
+      - **Filter Rentang Waktu & Tanggal Spesifik**: Pilihan *Otomatis (Real-time / Hari Kerja Terakhir)*, *12 Jam Terakhir*, *24 Jam Terakhir*, *Hari Ini*, *Hari Kerja Terakhir*, dan fitur kalender *Pilih Tanggal Spesifik* untuk peninjauan historis tanggal tertentu.
+      - Filter khusus per Prinsiple dan per Area / Cabang terintegrasi dengan isolasi role & akses non-superadmin.
+      - Normalisasi timezone (`Asia/Jakarta`) pada kalkulasi waktu checkin/checkout dan polling otomatis 30 detik (`wire:poll.30s`).
 
 ---
 

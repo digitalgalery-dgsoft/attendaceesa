@@ -45,12 +45,21 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
                 Select::make('time_range')
                     ->label('Rentang Waktu')
                     ->options([
-                        '12h'   => '12 Jam Terakhir (Default)',
-                        '24h'   => '24 Jam Terakhir',
-                        'today' => 'Hari Ini (Sejak 00:00)',
+                        'auto'        => 'Otomatis (Real-time / Hari Kerja Terakhir)',
+                        '12h'         => '12 Jam Terakhir (Real-time)',
+                        '24h'         => '24 Jam Terakhir',
+                        'today'       => 'Hari Ini (Sejak 00:00)',
+                        'last_active' => 'Hari Kerja / Presensi Terakhir',
+                        'custom'      => 'Pilih Tanggal Spesifik...',
                     ])
-                    ->default('12h')
+                    ->default('auto')
                     ->selectablePlaceholder(false)
+                    ->live(),
+                \Filament\Forms\Components\DatePicker::make('custom_date')
+                    ->label('Pilih Tanggal Presensi')
+                    ->visible(fn ($get) => $get('time_range') === 'custom')
+                    ->default(Carbon::yesterday('Asia/Jakarta')->toDateString())
+                    ->maxDate(Carbon::today('Asia/Jakarta'))
                     ->live(),
                 Select::make('principal_id')
                     ->label('Filter Prinsiple')
@@ -71,9 +80,10 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
 
     public function getFiltersTriggerAction(): Action
     {
-        $hasActiveFilter = (!empty($this->filters['time_range']) && $this->filters['time_range'] !== '12h')
+        $hasActiveFilter = (!empty($this->filters['time_range']) && $this->filters['time_range'] !== 'auto')
             || !empty($this->filters['principal_id'])
-            || !empty($this->filters['branch_id']);
+            || !empty($this->filters['branch_id'])
+            || !empty($this->filters['custom_date']);
 
         return Action::make('filter')
             ->label($hasActiveFilter ? 'Filter: Aktif' : 'Filter Jam & Area')
@@ -87,7 +97,7 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
 
     public function resetFiltersForm(): void
     {
-        $this->filters = ['time_range' => '12h'];
+        $this->filters = ['time_range' => 'auto'];
         $this->resetFiltersSchema();
         $this->updateChartData();
     }
@@ -116,45 +126,126 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
         return $query->pluck('name', 'id')->toArray();
     }
 
-    public function getTimeSlots(): array
+    public function getTimeSlotsMeta(): array
     {
-        $now = Carbon::now();
-        $range = $this->filters['time_range'] ?? '12h';
+        $range = $this->filters['time_range'] ?? 'auto';
+        $now = Carbon::now('Asia/Jakarta');
+        $todayDate = $now->toDateString();
+
+        $effectiveDate = null;
+        $isFallback = false;
+        $dateNotice = null;
+        $targetDateFormatted = null;
+
+        if ($range === 'custom' && !empty($this->filters['custom_date'])) {
+            $effectiveDate = $this->filters['custom_date'];
+            $targetCarbon = Carbon::parse($effectiveDate, 'Asia/Jakarta');
+            $targetDateFormatted = $targetCarbon->translatedFormat('l, d F Y');
+            $dateNotice = 'Menampilkan grafik presensi tanggal: ' . $targetDateFormatted;
+        } elseif ($range === 'last_active') {
+            $latestDate = DB::table('attendances')->whereNotNull('checkin_at')->max('attendance_date');
+            $effectiveDate = $latestDate ?: $todayDate;
+            $targetCarbon = Carbon::parse($effectiveDate, 'Asia/Jakarta');
+            $targetDateFormatted = $targetCarbon->translatedFormat('l, d F Y');
+            $dateNotice = 'Menampilkan Hari Presensi Terakhir: ' . $targetDateFormatted;
+            $isFallback = true;
+        } elseif ($range === 'auto') {
+            // Cek apakah hari ini sudah ada presensi masuk
+            $todayCount = DB::table('attendances')
+                ->where('attendance_date', $todayDate)
+                ->whereNotNull('checkin_at')
+                ->count();
+
+            if ($todayCount > 0) {
+                // Ada aktivitas hari ini -> pakai mode 12 jam real-time hari ini
+                $effectiveDate = null;
+            } else {
+                // Belum ada presensi hari ini (hari libur/minggu/luar jam kerja) -> auto fallback ke hari aktif terakhir
+                $latestDate = DB::table('attendances')->whereNotNull('checkin_at')->max('attendance_date');
+                if ($latestDate && $latestDate !== $todayDate) {
+                    $effectiveDate = $latestDate;
+                    $targetCarbon = Carbon::parse($effectiveDate, 'Asia/Jakarta');
+                    $targetDateFormatted = $targetCarbon->translatedFormat('l, d F Y');
+                    $dateNotice = 'Hari ini (' . $now->translatedFormat('l, d M') . ') belum ada aktivitas presensi (libur operasional). Menampilkan data Hari Kerja Terakhir: ' . $targetDateFormatted;
+                    $isFallback = true;
+                }
+            }
+        }
+
         $slots = [];
 
-        if ($range === '24h') {
-            $totalHours = 24;
-        } elseif ($range === 'today') {
-            $totalHours = (int)$now->format('H') + 1;
+        if ($effectiveDate) {
+            // Mode hari penuh (full day) untuk tanggal tertentu / hari terakhir
+            // Generate 16 slot jam operasional dari 06:00 s/d 21:00
+            $dayCarbon = Carbon::parse($effectiveDate, 'Asia/Jakarta');
+            for ($h = 6; $h <= 21; $h++) {
+                $start = $dayCarbon->copy()->setTime($h, 0, 0);
+                $end   = $dayCarbon->copy()->setTime($h, 59, 59);
+
+                $slots[] = [
+                    'start'      => $start,
+                    'end'        => $end,
+                    'label'      => sprintf('%02d:00', $h),
+                    'full_label' => $start->translatedFormat('D, d M H:00') . ' - ' . $end->format('H:59'),
+                ];
+            }
         } else {
-            $totalHours = 12;
+            // Mode rolling real-time
+            if ($range === '24h') {
+                $totalHours = 24;
+            } elseif ($range === 'today') {
+                $totalHours = (int)$now->format('H') + 1;
+            } else {
+                $totalHours = 12;
+            }
+
+            for ($i = $totalHours - 1; $i >= 0; $i--) {
+                $time = $now->copy()->subHours($i);
+                $start = $time->copy()->startOfHour();
+                $end   = $time->copy()->endOfHour();
+
+                $slots[] = [
+                    'start'      => $start,
+                    'end'        => $end,
+                    'label'      => $start->format('H:00'),
+                    'full_label' => $start->translatedFormat('D, d M H:00') . ' - ' . $end->format('H:59'),
+                ];
+            }
         }
 
-        for ($i = $totalHours - 1; $i >= 0; $i--) {
-            $time = $now->copy()->subHours($i);
-            $start = $time->copy()->startOfHour();
-            $end   = $time->copy()->endOfHour();
+        return [
+            'slots'               => $slots,
+            'effectiveDate'       => $effectiveDate,
+            'isFallback'          => $isFallback,
+            'dateNotice'          => $dateNotice,
+            'targetDateFormatted' => $targetDateFormatted,
+        ];
+    }
 
-            $slots[] = [
-                'start'      => $start,
-                'end'        => $end,
-                'label'      => $start->format('H:00'),
-                'full_label' => $start->translatedFormat('D, d M H:00') . ' - ' . $end->format('H:59'),
-            ];
-        }
-
-        return $slots;
+    public function getTimeSlots(): array
+    {
+        return $this->getTimeSlotsMeta()['slots'];
     }
 
     public function computeHourlyData(): array
     {
-        $slots = $this->getTimeSlots();
+        $meta = $this->getTimeSlotsMeta();
+        $slots = $meta['slots'];
+        $isFallback = $meta['isFallback'];
+        $effectiveDate = $meta['effectiveDate'];
+        $dateNotice = $meta['dateNotice'];
+        $targetDateFormatted = $meta['targetDateFormatted'];
+
         if (empty($slots)) {
             return [
-                'slots'    => [],
-                'active'   => [],
-                'checkin'  => [],
-                'checkout' => [],
+                'slots'               => [],
+                'active'              => [],
+                'checkin'             => [],
+                'checkout'            => [],
+                'isFallback'          => false,
+                'effectiveDate'       => null,
+                'targetDateFormatted' => null,
+                'dateNotice'          => null,
                 'summary'  => [
                     'currentActive'  => 0,
                     'peakActive'     => 0,
@@ -188,10 +279,10 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
             ->where('attendances.attendance_date', '>=', $windowStartDate)
             ->where('attendances.attendance_date', '<=', $windowEndDate)
             ->whereNotNull('attendances.checkin_at')
-            ->where('attendances.checkin_at', '<=', $windowEnd)
+            ->where('attendances.checkin_at', '<=', $windowEnd->toDateTimeString())
             ->where(function ($q) use ($windowStart) {
                 $q->whereNull('attendances.checkout_at')
-                  ->orWhere('attendances.checkout_at', '>=', $windowStart);
+                  ->orWhere('attendances.checkout_at', '>=', $windowStart->toDateTimeString());
             })
             ->whereNull('employees.deleted_at');
 
@@ -219,8 +310,8 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
                 'tracking_histories.employee_id',
                 'tracking_histories.created_at',
             ])
-            ->where('tracking_histories.created_at', '>=', $windowStart)
-            ->where('tracking_histories.created_at', '<=', $windowEnd)
+            ->where('tracking_histories.created_at', '>=', $windowStart->toDateTimeString())
+            ->where('tracking_histories.created_at', '<=', $windowEnd->toDateTimeString())
             ->whereNull('employees.deleted_at');
 
         if (!empty($principalId)) {
@@ -251,12 +342,12 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
             $activeEmployeeIds = [];
 
             foreach ($attendances as $att) {
-                $checkin = Carbon::parse($att->checkin_at);
+                $checkin = Carbon::parse($att->checkin_at)->timezone('Asia/Jakarta');
                 if ($checkin->greaterThan($slotEnd)) {
                     continue;
                 }
                 if (!empty($att->checkout_at)) {
-                    $checkout = Carbon::parse($att->checkout_at);
+                    $checkout = Carbon::parse($att->checkout_at)->timezone('Asia/Jakarta');
                     if ($checkout->lessThan($slotStart)) {
                         continue;
                     }
@@ -265,7 +356,7 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
             }
 
             foreach ($trackings as $tr) {
-                $trTime = Carbon::parse($tr->created_at);
+                $trTime = Carbon::parse($tr->created_at)->timezone('Asia/Jakarta');
                 if ($trTime->between($slotStart, $slotEnd)) {
                     $activeEmployeeIds[$tr->employee_id] = true;
                 }
@@ -276,7 +367,7 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
             // New check-ins in this hour
             $newCheckinCount = 0;
             foreach ($attendances as $att) {
-                $checkin = Carbon::parse($att->checkin_at);
+                $checkin = Carbon::parse($att->checkin_at)->timezone('Asia/Jakarta');
                 if ($checkin->between($slotStart, $slotEnd)) {
                     $newCheckinCount++;
                 }
@@ -287,7 +378,7 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
             $checkoutCount = 0;
             foreach ($attendances as $att) {
                 if (!empty($att->checkout_at)) {
-                    $checkout = Carbon::parse($att->checkout_at);
+                    $checkout = Carbon::parse($att->checkout_at)->timezone('Asia/Jakarta');
                     if ($checkout->between($slotStart, $slotEnd)) {
                         $checkoutCount++;
                     }
@@ -303,10 +394,14 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
         $peakHour      = ($peakIndex !== false && isset($slots[$peakIndex])) ? $slots[$peakIndex]['label'] : '-';
 
         return [
-            'slots'    => $slots,
-            'active'   => $activeSeries,
-            'checkin'  => $checkinSeries,
-            'checkout' => $checkoutSeries,
+            'slots'               => $slots,
+            'active'              => $activeSeries,
+            'checkin'             => $checkinSeries,
+            'checkout'            => $checkoutSeries,
+            'isFallback'          => $isFallback,
+            'effectiveDate'       => $effectiveDate,
+            'targetDateFormatted' => $targetDateFormatted,
+            'dateNotice'          => $dateNotice,
             'summary'  => [
                 'currentActive'  => $currentActive,
                 'peakActive'     => $peakActive,
@@ -320,7 +415,13 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
 
     public function getSummaryStats(): array
     {
-        return $this->computeHourlyData()['summary'];
+        $computed = $this->computeHourlyData();
+        return array_merge($computed['summary'], [
+            'isFallback'          => $computed['isFallback'] ?? false,
+            'effectiveDate'       => $computed['effectiveDate'] ?? null,
+            'targetDateFormatted' => $computed['targetDateFormatted'] ?? null,
+            'dateNotice'          => $computed['dateNotice'] ?? null,
+        ]);
     }
 
     protected function getData(): array

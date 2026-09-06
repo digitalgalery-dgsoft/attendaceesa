@@ -9,9 +9,10 @@
     $type = $this->getType();
     $maxHeight = $this->getMaxHeight();
     $hasMaxHeight = filled($maxHeight) && $maxHeight !== '100%';
-    $hasActiveFilter = (!empty($this->filters['time_range']) && $this->filters['time_range'] !== '12h')
+    $hasActiveFilter = (!empty($this->filters['time_range']) && $this->filters['time_range'] !== 'auto')
         || !empty($this->filters['principal_id']) 
-        || !empty($this->filters['branch_id']);
+        || !empty($this->filters['branch_id'])
+        || !empty($this->filters['custom_date']);
     $stats = $this->getSummaryStats();
 @endphp
 
@@ -60,18 +61,38 @@
             </div>
         </x-slot>
 
+        @if(!empty($stats['dateNotice']))
+            <div class="hourly-notice-banner">
+                <div class="hourly-notice-content">
+                    <svg class="hourly-notice-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>{{ $stats['dateNotice'] }}</span>
+                </div>
+                <span class="hourly-notice-badge">
+                    {{ !empty($stats['isFallback']) ? 'Riwayat Hari Terakhir' : 'Filter Tanggal' }}
+                </span>
+            </div>
+        @endif
+
         <!-- Modern Top Stats KPI Bar -->
         <div class="active-hourly-stats-bar">
-            <!-- Stat 1: Sedang Aktif Saat Ini -->
+            <!-- Stat 1: Sedang Aktif Saat Ini / Karyawan Bertugas -->
             <div class="hourly-stat-box">
                 <div class="hourly-stat-icon-wrapper" style="background: rgba(15, 82, 186, 0.08); color: #0F52BA;">
-                    <span class="live-pulse-dot"></span>
+                    @if(!empty($stats['isFallback']))
+                        <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                    @else
+                        <span class="live-pulse-dot"></span>
+                    @endif
                 </div>
                 <div class="hourly-stat-details">
-                    <span class="hourly-stat-title">Aktif Saat Ini</span>
+                    <span class="hourly-stat-title">{{ !empty($stats['isFallback']) ? 'Karyawan Bertugas' : 'Aktif Saat Ini' }}</span>
                     <div class="hourly-stat-value" style="color: #0F52BA;">
-                        {{ number_format($stats['currentActive']) }}
-                        <span class="hourly-stat-unit">Karyawan</span>
+                        {{ number_format(!empty($stats['isFallback']) ? $stats['peakActive'] : $stats['currentActive']) }}
+                        <span class="hourly-stat-unit">{{ !empty($stats['isFallback']) ? 'Karyawan (Puncak)' : 'Karyawan' }}</span>
                     </div>
                 </div>
             </div>
@@ -196,6 +217,66 @@
     <x-filament-actions::modals />
 
     <style>
+        .hourly-notice-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 1.25rem;
+            padding: 0.75rem 1rem;
+            background: rgba(15, 82, 186, 0.06);
+            border: 1px solid rgba(15, 82, 186, 0.2);
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .dark .hourly-notice-banner {
+            background: rgba(15, 82, 186, 0.15);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .hourly-notice-content {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #0F52BA;
+            line-height: 1.4;
+        }
+
+        .dark .hourly-notice-content {
+            color: #93c5fd;
+        }
+
+        .hourly-notice-icon {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            color: #0F52BA;
+        }
+
+        .dark .hourly-notice-icon {
+            color: #60a5fa;
+        }
+
+        .hourly-notice-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: #dbeafe;
+            color: #1e40af;
+            white-space: nowrap;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .dark .hourly-notice-badge {
+            background: rgba(30, 58, 138, 0.8);
+            color: #bfdbfe;
+        }
+
         .active-hourly-stats-bar {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
