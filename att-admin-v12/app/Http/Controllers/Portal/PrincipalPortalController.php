@@ -2412,14 +2412,22 @@ class PrincipalPortalController extends Controller
                         $codePrices = $pivoted[$it['code']] ?? [];
                         foreach ($activeMonthKeys as $mKey) {
                             $mp = $codePrices[$mKey] ?? null;
-                            $row[] = (!empty($mp['price_tin']) && $mp['price_tin'] > 0) ? $mp['price_tin'] : '';
-                            $row[] = (!empty($mp['lowest_tin']) && $mp['lowest_tin'] > 0) ? $mp['lowest_tin'] : ((!empty($mp['price_tin']) && $mp['price_tin'] > 0) ? $mp['price_tin'] : '');
+                            $pTin = (!empty($mp['price_tin']) && $mp['price_tin'] > 0) ? $mp['price_tin'] : (!empty($mp['lowest_tin']) ? $mp['lowest_tin'] : '');
+                            $lTin = (!empty($mp['lowest_tin']) && $mp['lowest_tin'] > 0) ? $mp['lowest_tin'] : $pTin;
+                            $row[] = $pTin;
+                            $row[] = $lTin;
                             $row[] = $mp['reason_tin'] ?? '';
-                            $row[] = (!empty($mp['price_galon']) && $mp['price_galon'] > 0) ? $mp['price_galon'] : '';
-                            $row[] = (!empty($mp['lowest_galon']) && $mp['lowest_galon'] > 0) ? $mp['lowest_galon'] : ((!empty($mp['price_galon']) && $mp['price_galon'] > 0) ? $mp['price_galon'] : '');
+
+                            $pGalon = (!empty($mp['price_galon']) && $mp['price_galon'] > 0) ? $mp['price_galon'] : (!empty($mp['lowest_galon']) ? $mp['lowest_galon'] : '');
+                            $lGalon = (!empty($mp['lowest_galon']) && $mp['lowest_galon'] > 0) ? $mp['lowest_galon'] : $pGalon;
+                            $row[] = $pGalon;
+                            $row[] = $lGalon;
                             $row[] = $mp['reason_galon'] ?? '';
-                            $row[] = (!empty($mp['price_pail']) && $mp['price_pail'] > 0) ? $mp['price_pail'] : '';
-                            $row[] = (!empty($mp['lowest_pail']) && $mp['lowest_pail'] > 0) ? $mp['lowest_pail'] : ((!empty($mp['price_pail']) && $mp['price_pail'] > 0) ? $mp['price_pail'] : '');
+
+                            $pPail = (!empty($mp['price_pail']) && $mp['price_pail'] > 0) ? $mp['price_pail'] : (!empty($mp['lowest_pail']) ? $mp['lowest_pail'] : '');
+                            $lPail = (!empty($mp['lowest_pail']) && $mp['lowest_pail'] > 0) ? $mp['lowest_pail'] : $pPail;
+                            $row[] = $pPail;
+                            $row[] = $lPail;
                             $row[] = $mp['reason_pail'] ?? '';
                         }
 

@@ -688,44 +688,56 @@
                                 @foreach($activeMonths as $mKey => $mInfo)
                                     @php
                                         $mp = $r['monthly_prices'][$mKey] ?? null;
-                                        $hasTin = !empty($mp['price_tin']) && $mp['price_tin'] > 0;
-                                        $hasGalon = !empty($mp['price_galon']) && $mp['price_galon'] > 0;
-                                        $hasPail = !empty($mp['price_pail']) && $mp['price_pail'] > 0;
+                                        $pTin = (!empty($mp['price_tin']) && $mp['price_tin'] > 0) ? (float)$mp['price_tin'] : (!empty($mp['lowest_tin']) ? (float)$mp['lowest_tin'] : 0);
+                                        $lTin = (!empty($mp['lowest_tin']) && $mp['lowest_tin'] > 0) ? (float)$mp['lowest_tin'] : $pTin;
+                                        $rTin = $mp['reason_tin'] ?? '';
+                                        $hasTin = ($pTin > 0 || $lTin > 0);
+
+                                        $pGalon = (!empty($mp['price_galon']) && $mp['price_galon'] > 0) ? (float)$mp['price_galon'] : (!empty($mp['lowest_galon']) ? (float)$mp['lowest_galon'] : 0);
+                                        $lGalon = (!empty($mp['lowest_galon']) && $mp['lowest_galon'] > 0) ? (float)$mp['lowest_galon'] : $pGalon;
+                                        $rGalon = $mp['reason_galon'] ?? '';
+                                        $hasGalon = ($pGalon > 0 || $lGalon > 0);
+
+                                        $pPail = (!empty($mp['price_pail']) && $mp['price_pail'] > 0) ? (float)$mp['price_pail'] : (!empty($mp['lowest_pail']) ? (float)$mp['lowest_pail'] : 0);
+                                        $lPail = (!empty($mp['lowest_pail']) && $mp['lowest_pail'] > 0) ? (float)$mp['lowest_pail'] : $pPail;
+                                        $rPail = $mp['reason_pail'] ?? '';
+                                        $hasPail = ($pPail > 0 || $lPail > 0);
+
                                         $allEmpty = !$hasTin && !$hasGalon && !$hasPail;
                                     @endphp
 
                                     <!-- Kemasan Tin -->
                                     @if($hasTin)
-                                        <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 2px solid #cbd5e1;">{{ number_format($mp['price_tin'], 0, ',', '.') }}</td>
-                                        <td style="text-align: right; color: var(--text-muted);">{{ number_format($mp['lowest_tin'] ?: $mp['price_tin'], 0, ',', '.') }}</td>
-                                        <td style="text-align: center;">{{ $mp['reason_tin'] ?: '-' }}</td>
+                                        <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 2px solid #cbd5e1;">{{ number_format($pTin, 0, ',', '.') }}</td>
+                                        <td style="text-align: right; color: var(--text-muted);">{{ number_format($lTin, 0, ',', '.') }}</td>
+                                        <td style="text-align: center;">{{ $rTin ?: '-' }}</td>
                                     @else
                                         <td class="cell-peach-portal" style="border-left: 2px solid #cbd5e1;"></td>
                                         <td class="cell-peach-portal"></td>
-                                        <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; color: #c2410c;">{{ $mp['reason_tin'] ?? '' }}</td>
+                                        <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; color: #c2410c;">{{ $rTin }}</td>
                                     @endif
 
                                     <!-- Kemasan Galon -->
                                     @if($hasGalon)
-                                        <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 1px dashed #e2e8f0;">{{ number_format($mp['price_galon'], 0, ',', '.') }}</td>
-                                        <td style="text-align: right; color: var(--text-muted);">{{ number_format($mp['lowest_galon'] ?: $mp['price_galon'], 0, ',', '.') }}</td>
-                                        <td style="text-align: center;">{{ $mp['reason_galon'] ?: '-' }}</td>
+                                        <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 1px dashed #e2e8f0;">{{ number_format($pGalon, 0, ',', '.') }}</td>
+                                        <td style="text-align: right; color: var(--text-muted);">{{ number_format($lGalon, 0, ',', '.') }}</td>
+                                        <td style="text-align: center;">{{ $rGalon ?: '-' }}</td>
                                     @else
                                         <td class="cell-peach-portal" style="border-left: 1px dashed #fed7aa;"></td>
                                         <td class="cell-peach-portal"></td>
-                                        <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; color: #c2410c;">{{ $mp['reason_galon'] ?? '' }}</td>
+                                        <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; color: #c2410c;">{{ $rGalon }}</td>
                                     @endif
 
                                     <!-- Kemasan Pail -->
                                     @if($hasPail)
-                                        <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 1px dashed #e2e8f0;">{{ number_format($mp['price_pail'], 0, ',', '.') }}</td>
-                                        <td style="text-align: right; color: var(--text-muted);">{{ number_format($mp['lowest_pail'] ?: $mp['price_pail'], 0, ',', '.') }}</td>
-                                        <td style="text-align: center;">{{ $mp['reason_pail'] ?: '-' }}</td>
+                                        <td style="text-align: right; font-weight: 700; color: var(--text-heading); border-left: 1px dashed #e2e8f0;">{{ number_format($pPail, 0, ',', '.') }}</td>
+                                        <td style="text-align: right; color: var(--text-muted);">{{ number_format($lPail, 0, ',', '.') }}</td>
+                                        <td style="text-align: center;">{{ $rPail ?: '-' }}</td>
                                     @else
                                         <td class="cell-peach-portal" style="border-left: 1px dashed #fed7aa;"></td>
                                         <td class="cell-peach-portal"></td>
                                         <td class="cell-peach-portal" style="text-align: center; font-style: italic; font-size: 0.76rem; font-weight: 600; color: #c2410c;">
-                                            {{ (!empty($mp['reason_pail']) ? $mp['reason_pail'] : ($allEmpty ? 'Not Exist' : '')) }}
+                                            {{ (!empty($rPail) ? $rPail : ($allEmpty ? 'Not Exist' : '')) }}
                                         </td>
                                     @endif
                                 @endforeach

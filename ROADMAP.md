@@ -967,22 +967,26 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Deployment & Multi-Server Synchronization**:
       - Database terkompresi `.sqlite.gz` dan seluruh chunk JSONL tersinkronisasi ke repository git dan di-deploy ke server staging/production.
 
-56. **Pembaruan & Ingestion Menyeluruh Dataset Laporan CBP (Consumer Buying Price) Dulux 2025 & 2026 (SELESAI 6 September 2026)**:
+56. **Penyempurnaan & Ingestion Menyeluruh Dataset Laporan CBP (Consumer Buying Price) Dulux 2025 & 2026 (SELESAI 6 September 2026)**:
     - **Pemrosesan Master Dataset Excel CBP**:
       - Memproses data dari master workbook `D:\Data Reporting\Dulux\Laporan CBP\2026\Price CBP 2026\Price CBP 2026\07. Dashboard CBP SSO_MOP July 2026.xlsx`:
-        - **CBP 2026 (7 Bulan: Januari s/d Juli 2026)**: **216.997 baris data** monitoring harga bersih terdeduplikasi.
-        - **CBP 2025 (12 Bulan Lengkap: Januari s/d Desember 2025)**: **287.789 baris data** monitoring harga bersih terdeduplikasi.
-        - **Total Keseluruhan Dataset CBP Tergabung**: **504.786 baris data** tanpa ada data duplikat (0 duplicate records).
+        - **CBP 2026 (7 Bulan: Januari s/d Juli 2026)**: **217.004 baris data** monitoring harga bersih terdeduplikasi.
+        - **CBP 2025 (12 Bulan Lengkap: Januari s/d Desember 2025)**: **287.919 baris data** monitoring harga bersih terdeduplikasi.
+        - **Total Keseluruhan Dataset CBP Tergabung**: **504.923 baris data** tanpa ada data duplikat (0 duplicate records).
+    - **Penyelarasan Pemetaan Kolom Harga & Sanitasi Kolom Reason**:
+      - Menyelesaikan masalah angka harga (seperti `214.000`, `1.476.000`, `280.000`, `1.350.000`) yang sebelumnya masuk ke kolom `REASON` akibat anomali layout Excel di mana harga diletakkan pada kolom Harga Terendah/kolom bersebelahan.
+      - Normalisasi harga Tin, Galon, dan Pail secara presisi: nilai harga otomatis dipetakan ke field harga (`price_tin`, `price_galon`, `price_pail`) dan harga terendah (`lowest_*`).
+      - Sanitasi total kolom `REASON` (`reason_tin`, `reason_galon`, `reason_pail`) sehingga angka numerik dan artifak formula Excel dibersihkan (0 numeric reasons), dan hanya teks murni (seperti *Exist Store*, *Not Exist*, *Disc 2%*, *Promo*) yang disimpan.
     - **Deduplikasi Ketat & Normalisasi Kode/Brand**:
       - Deduplikasi multi-kunci berbasis `(sap_member | name_store) + area + product + brand` per bulan untuk memastikan integritas data.
       - Normalisasi brand dan sintesis kode master (`name_store + area + rsm_area + product`).
     - **Basis Data SQLite & JSONL Chunks**:
-      - Rekonstruksi database SQLite berindeks penuh: `cbp_2026.sqlite` (95.16 MB / .gz 16.85 MB) dan `cbp_2025.sqlite` (128.25 MB / .gz 22.79 MB).
+      - Rekonstruksi database SQLite berindeks penuh: `cbp_2026.sqlite` (94.86 MB / .gz 16.68 MB) dan `cbp_2025.sqlite` (128.11 MB / .gz 22.67 MB).
       - Menghasilkan 19 file chunk JSONL terkompresi (`cbp_2026_m01..07.jsonl.gz` dan `cbp_2025_m01..12.jsonl.gz`) di `storage/app/dulux_data/chunks/`.
       - Multi-column indexing presisi (`idx_cbp_month`, `idx_cbp_brand`, `idx_cbp_area`, `idx_cbp_store`, `idx_cbp_code`, `idx_cbp_month_code`, `idx_cbp_category`, `idx_cbp_perf`) untuk eksekusi kueri agregasi dashboard secepat kilat (<10ms).
-    - **Penyempurnaan Controller Portal (`PrincipalPortalController.php`)**:
+    - **Penyempurnaan Controller Portal & View Raw Data (`PrincipalPortalController.php` & `cbp_dashboard.blade.php`)**:
       - Mendukung routing database tahun dinamis `cbp_{$selectedYear}.sqlite` dengan fallback cerdas ke 2026.
-      - Batasan rentang bulan otomatis dinamis (Bulan 1..12 untuk tahun 2025, Bulan 1..7 untuk tahun 2026).
+      - Penanganan fallback cerdas `price_*` dan `lowest_*` pada tabel Raw Data dan Export CSV.
       - Cache key dinaikkan ke versi `cbp_dash_v7_` dan filter dropdown dinamis per tahun `cbp_filter_regions_v11_{year}`, `cbp_filter_areas_v11_{year}`, `cbp_filter_stores_v11_{year}`.
     - **Deployment & Multi-Server Synchronization**:
       - Sinkronisasi basis data terkompresi `.sqlite.gz` dan seluruh chunk JSONL ke git repository dan deployment ke seluruh node server.
