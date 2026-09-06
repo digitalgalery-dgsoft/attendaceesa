@@ -1109,7 +1109,23 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 4. **Penyempurnaan Modul Pelaporan Principal Lainnya:**
    - Sinkronisasi dashboard dan formulir pelaporan untuk principal lainnya (Fonterra, Wings, MamaSuka, Sido Muncul).
 
+---
 
+## ✅ Catatan Rilis & Penyempurnaan Sistem (6 September 2026)
 
+1. **Dashboard Admin - Line Chart Karyawan Aktif Per Jam (12 Jam Terakhir)**:
+   - Menambahkan widget Chart Garis `ActiveEmployeesHourlyChartWidget` di dashboard admin Filament yang menampilkan tren perubahan karyawan aktif secara dinamis dalam rentang 12 jam terakhir.
+   - Dilengkapi auto-refresh berkala (`wire:poll.30s`) untuk update visual berkala.
 
+2. **Dashboard Admin - Eliminasi Animasi Loading pada Auto-Refresh (Khusus Dashboard)**:
+   - Memperbaiki isu di mana animasi loading universal terus-menerus muncul akibat auto-refresh background (`wire:poll` widget chart dan `databaseNotificationsPolling('10s')`).
+   - Menerapkan isolasi multi-lapis:
+     - **PHP & Blade**: Deteksi route dashboard dan menerapkan stylesheet disabler `display: none !important` khusus halaman `/admin`.
+     - **JavaScript & Livewire**: Deteksi `isDashboardPage()` untuk membatalkan `showAdminLoader()` saat berada di dashboard.
+     - **Filter Polling Background**: Menapis request Livewire yang bersifat auto-polling (`wire:poll`, `databaseNotifications`, dll.) agar tidak memicu loading overlay di background.
+     - Mempertahankan animasi loading overlay pada halaman lain dan formulir interaktif di admin panel.
 
+3. **Portal Principal - Form Builder & Sidebar Enhancement**:
+   - Menambahkan halaman Form Builder (Template Laporan) di portal principal dengan filter otomatis yang hanya menampilkan template milik principal yang sedang login.
+   - Menambahkan kemampuan minimize / collapse sidebar pada portal principal untuk ruang kerja yang lebih lega.
+   - Menghapus card "Total Laporan Terkirim" pada halaman Form Builder portal principal sesuai kebutuhan.
