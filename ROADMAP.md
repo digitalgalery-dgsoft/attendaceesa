@@ -1019,13 +1019,58 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 ---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)
-1. **Lanjutan Monitoring & Rekap Operasional:**
+
+1. **🛡️ Comprehensive Cyber Security Audit & Hardening (Web, API & Mobile App)**:
+   - **A. Keamanan Backend, API & Web Admin (Laravel & Filament)**:
+     - [ ] **Otorisasi & Manajemen Sesi (RBAC / ABAC)**:
+       - Audit ketat hak akses multi-role (Superadmin, HR Admin, Leader, Viewer, Principal Portal).
+       - Evaluasi masa aktif token API (*Sanctum token expiration & revocation*) saat user logout, ganti password, atau dinonaktifkan.
+       - Implementasi proteksi *Session Fixation* dan cookie beratribut `HttpOnly`, `Secure`, dan `SameSite=Lax/Strict`.
+     - [ ] **Mitigasi Kerentanan OWASP Top 10**:
+       - **SQL Injection**: Validasi seluruh raw query dan pemanggilan engine database dinamis (termasuk SQLite reporting) dengan parameter binding ketat.
+       - **Cross-Site Scripting (XSS)**: Sanitasi input HTML/script pada modul Live Chat, Form Builder kustom, dan catatan visit.
+       - **CSRF & CORS**: Pengetatan origin whitelisting CORS hanya untuk domain/origin resmi dan perlindungan CSRF token di seluruh form web.
+       - **IDOR (Insecure Direct Object References)**: Proteksi otorisasi pada endpoint unduhan payslip, file template, media foto presensi, dan bukti visit agar tidak bisa diakses user lain via manipulasi ID/parameter URL.
+       - **File Upload Security**: Verifikasi ekstensi ganda, MIME-type, dan magic bytes pada upload foto/dokumen; isolasi file upload dan larang eksekusi script PHP di direktori publik.
+     - [ ] **Rate Limiting & Anti-Brute Force**:
+       - Penerapan throttling ketat pada endpoint sensitif (Login, Reset Password, Request OTP, Check-in/out, dan Ekspor Laporan).
+       - Hardening endpoint deployment script (`deploy.php` & `deploy-production.php`) dengan perbandingan token konstan `hash_equals()`, rate limit IP, dan pembatasan akses.
+     - [ ] **Enkripsi Data Sensitif**:
+       - Enkripsi field data pribadi karyawan (NIK, Nomor Rekening, data gaji) di database menggunakan *Eloquent Encrypted Casts*.
+       - Audit berkala rotasi `APP_KEY`, kredensial database, dan API key pihak ketiga.
+   - **B. Keamanan Aplikasi Mobile (Flutter Android & iOS)**:
+     - [ ] **Device Integrity & Anti-Fraud / Anti-Spoofing**:
+       - Audit dan penguatan deteksi Root (Android) dan Jailbreak (iOS) via `safe_device` / `flutter_jailbreak_detection`.
+       - Proteksi Fake GPS / Mock Location & deteksi Developer Mode injection yang lebih ketat saat pengiriman absensi dan visit.
+       - Deteksi Emulator untuk mencegah automated bot check-in.
+     - [ ] **Penyimpanan Lokal Aman (Secure Storage)**:
+       - Migrasi seluruh token autentikasi, kredensial pengguna, dan data sensitif dari `SharedPreferences` biasa ke `FlutterSecureStorage` (Android Keystore / iOS Keychain).
+       - Enkripsi database lokal (Hive/SQLite) yang digunakan untuk antrean offline (offline queue).
+     - [ ] **Transport Layer Security & Anti-MITM**:
+       - Penerapan **SSL / TLS Certificate Pinning** pada klien HTTP/Dio untuk mencegah intersepsi data via Man-in-the-Middle (Burp Suite, Charles Proxy, MITM tools).
+       - Menonaktifkan Cleartext Traffic (`android:usesCleartextTraffic="false"`).
+       - Sanitasi logging produksi: menonaktifkan seluruh `print()` dan network debug log pada release build (`kDebugMode` wrapper).
+     - [ ] **Obfuscation & Binary Hardening**:
+       - Penerapan Flutter Code Obfuscation saat build APK/AAB release (`--obfuscate --split-debug-info=...`).
+       - Konfigurasi ProGuard / R8 code shrinking dan resource shrinking pada Android `build.gradle.kts`.
+   - **C. Keamanan Server, Database & Infrastruktur**:
+     - [ ] **Web Server Hardening**:
+       - Konfigurasi HTTP Security Headers (HSTS, Content-Security-Policy, X-Frame-Options: SAMEORIGIN, X-Content-Type-Options: nosniff, Referrer-Policy).
+       - Blokir akses publik via Web Server ke berkas tersembunyi/sensitif (`.env`, `.git`, `.sqlite`, `.log`, `.sh`, `.yml`).
+     - [ ] **Automated Vulnerability Scanning & Dependencies Audit**:
+       - Scan dependensi rutin (`composer audit`, `npm audit`, `flutter pub outdated`) untuk menambal CVE pada pustaka pihak ketiga.
+       - Uji penetrasi berkala (Penetration Testing / Dynamic Application Security Testing) menggunakan tool standar industri (OWASP ZAP / Burp Suite).
+
+2. **Lanjutan Monitoring & Rekap Operasional:**
    - Evaluasi integrasi data jadwal visit schedule dan kehadiran di mobile app saat karyawan check-in via lokasi terjadwal visit.
    - Penambahan filter lanjutan pada laporan presensi dan ekspor data audit penyesuaian manual/import.
-2. **Peningkatan Skalabilitas & Media Storage:**
+
+3. **Peningkatan Skalabilitas & Media Storage:**
    - Integrasi penyimpanan awan (*Cloud Storage S3 / Spaces / GCS*) untuk media foto presensi dan laporan visit.
-3. **Penyempurnaan Modul Pelaporan Principal Lainnya:**
+
+4. **Penyempurnaan Modul Pelaporan Principal Lainnya:**
    - Sinkronisasi dashboard dan formulir pelaporan untuk principal lainnya (Fonterra, Wings, MamaSuka, Sido Muncul).
+
 
 
 
