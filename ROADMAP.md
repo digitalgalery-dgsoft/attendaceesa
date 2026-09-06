@@ -908,6 +908,11 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Tab 4: Raw Data Submissions (`tab=raw`)
       - Penyesuaian otomatis pada kueri SQLite `stock_2026.sqlite` & `stock_2025.sqlite` serta integrasi ke fitur ekspor CSV data komparasi bulanan.
 
+52. **Penyederhanaan Antarmuka Laporan CBP Dulux (SELESAI 6 September 2026)**:
+    - **Pembersihan Kartu Statistik Overview CBP**:
+      - Menghilangkan 5 kartu ringkasan statistik (Total Monitoring CBP, Rata-Rata MOP Dulux, Rata-Rata MOP Kompetitor, Indeks Rasio Harga, dan Toko Terpantau) pada bagian atas dashboard `cbp_dashboard.blade.php`.
+      - Menjadikan antarmuka lebih bersih dan fokus langsung pada navigasi kategori produk (*Wallpaint*, *WTP MCC*, dan *Raw Data*) serta grafik analisis tren MOP harga pasar.
+
 ---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)
