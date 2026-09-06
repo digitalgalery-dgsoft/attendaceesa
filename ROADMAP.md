@@ -913,6 +913,13 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Menghilangkan 5 kartu ringkasan statistik (Total Monitoring CBP, Rata-Rata MOP Dulux, Rata-Rata MOP Kompetitor, Indeks Rasio Harga, dan Toko Terpantau) pada bagian atas dashboard `cbp_dashboard.blade.php`.
       - Menjadikan antarmuka lebih bersih dan fokus langsung pada navigasi kategori produk (*Wallpaint*, *WTP MCC*, dan *Raw Data*) serta grafik analisis tren MOP harga pasar.
 
+53. **Penyempurnaan Laporan Offtake Dulux: Label Total Akzonobel & Grafik Tren Garis Bulanan (SELESAI 6 September 2026)**:
+    - **Penyelarasan Naming Total Akzonobel**:
+      - Mengganti label baris total pada tabel komparasi YTD dari *"Total DC"* menjadi **"Total Akzonobel"** di controller dan tampilan view `report_detail.blade.php`.
+    - **Grafik Garis/Area Tren Bulanan (ApexCharts)**:
+      - Mengganti visualisasi perbandingan YTD dari diagram batang (bar chart) menjadi **Grafik Garis Tren Bulanan (Area Chart)** dari Januari s/d bulan terpilih (misal Juli) yang membandingkan pergerakan volume Tahun Berjalan (*CY 2026*) vs Tahun Sebelumnya (*PY 2025*).
+      - Menampilkan kurva tren volume liter yang halus (*smooth curve*), marker titik, indikator gradien warna, dan tooltip interaktif.
+
 ---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)

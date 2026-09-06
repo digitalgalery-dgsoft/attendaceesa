@@ -2040,7 +2040,7 @@ class PrincipalPortalController extends Controller
                 return [
                     'details' => $results,
                     'total' => [
-                        'brand' => 'Total DC',
+                        'brand' => 'Total Akzonobel',
                         'cy_volume' => $totalCy,
                         'py_volume' => $totalPy,
                         'growth' => $totalGrowth,
@@ -6205,13 +6205,14 @@ class PrincipalPortalController extends Controller
         if (!file_exists($p26)) {
             return [
                 'details' => [],
-                'total' => ['brand' => 'Total DC', 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0, 'percentage' => 100],
+                'total' => ['brand' => 'Total Akzonobel', 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0, 'percentage' => 100],
+                'monthly_trend' => ['categories' => [], 'cy_total' => [], 'py_total' => []],
                 'stores' => ['total' => ['count' => 0, 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0], 'top10' => [], 'details' => []]
             ];
         }
 
         $eMonth = max(1, min(12, (int)$endMonth));
-        $cacheKey = 'offtake_ytd_v1_' . md5($template->id . '_' . $eMonth . '_' . $endYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+        $cacheKey = 'offtake_ytd_v3_' . md5($template->id . '_' . $eMonth . '_' . $endYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
 
         return Cache::remember($cacheKey, 600, function() use ($p26, $p25, $eMonth, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
             try {
@@ -6315,12 +6316,80 @@ class PrincipalPortalController extends Controller
 
                 $totalGrowth = $totalPy > 0 ? (($totalCy - $totalPy) / $totalPy) * 100 : ($totalCy > 0 ? 100 : 0);
                 $totalRow = [
-                    'brand' => 'Total DC',
+                    'brand' => 'Total Akzonobel',
                     'cy_volume' => $totalCy,
                     'py_volume' => $totalPy,
                     'growth' => $totalGrowth,
                     'percentage' => 100
                 ];
+
+                // 1b. Monthly Trend Comparison (Jan s/d $eMonth)
+                $monthStmtCy = $pdo->prepare("
+                    SELECT 
+                        month,
+                        SUM(volume_liter) as total_vol,
+                        SUM(CASE WHEN brand LIKE '%Catylac%' THEN volume_liter ELSE 0 END) as catylac_vol,
+                        SUM(CASE WHEN brand NOT LIKE '%Catylac%' THEN volume_liter ELSE 0 END) as dulux_vol
+                    FROM offtake_raw
+                    WHERE $whereCySql
+                    GROUP BY month
+                    ORDER BY month ASC
+                ");
+                $monthStmtCy->execute($paramsCy);
+                $cyMonthlyMap = [];
+                while ($mr = $monthStmtCy->fetch(\PDO::FETCH_ASSOC)) {
+                    $cyMonthlyMap[(int)$mr['month']] = [
+                        'total' => (float)$mr['total_vol'],
+                        'dulux' => (float)$mr['dulux_vol'],
+                        'catylac' => (float)$mr['catylac_vol'],
+                    ];
+                }
+
+                $pyMonthlyMap = [];
+                if ($has2025) {
+                    try {
+                        $monthStmtPy = $pdo->prepare("
+                            SELECT 
+                                month,
+                                SUM(volume_liter) as total_vol,
+                                SUM(CASE WHEN brand LIKE '%Catylac%' THEN volume_liter ELSE 0 END) as catylac_vol,
+                                SUM(CASE WHEN brand NOT LIKE '%Catylac%' THEN volume_liter ELSE 0 END) as dulux_vol
+                            FROM db25.offtake_raw
+                            WHERE $wherePySql
+                            GROUP BY month
+                            ORDER BY month ASC
+                        ");
+                        $monthStmtPy->execute($paramsPy);
+                        while ($mr = $monthStmtPy->fetch(\PDO::FETCH_ASSOC)) {
+                            $pyMonthlyMap[(int)$mr['month']] = [
+                                'total' => (float)$mr['total_vol'],
+                                'dulux' => (float)$mr['dulux_vol'],
+                                'catylac' => (float)$mr['catylac_vol'],
+                            ];
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::warning("Offtake YTD db25 monthly trend failed: " . $e->getMessage());
+                    }
+                }
+
+                $monthLabels = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'Mei', 6 => 'Jun', 7 => 'Jul', 8 => 'Agu', 9 => 'Sep', 10 => 'Okt', 11 => 'Nov', 12 => 'Des'];
+                $trendCategories = [];
+                $cyTotalSeries = [];
+                $pyTotalSeries = [];
+                $cyDuluxSeries = [];
+                $pyDuluxSeries = [];
+                $cyCatylacSeries = [];
+                $pyCatylacSeries = [];
+
+                for ($m = 1; $m <= $eMonth; $m++) {
+                    $trendCategories[] = $monthLabels[$m] ?? "M{$m}";
+                    $cyTotalSeries[] = round($cyMonthlyMap[$m]['total'] ?? 0, 2);
+                    $pyTotalSeries[] = round($pyMonthlyMap[$m]['total'] ?? 0, 2);
+                    $cyDuluxSeries[] = round($cyMonthlyMap[$m]['dulux'] ?? 0, 2);
+                    $pyDuluxSeries[] = round($pyMonthlyMap[$m]['dulux'] ?? 0, 2);
+                    $cyCatylacSeries[] = round($cyMonthlyMap[$m]['catylac'] ?? 0, 2);
+                    $pyCatylacSeries[] = round($pyMonthlyMap[$m]['catylac'] ?? 0, 2);
+                }
 
                 // 2. Store Comparison
                 $storeStmtCy = $pdo->prepare("
@@ -6388,6 +6457,15 @@ class PrincipalPortalController extends Controller
                 return [
                     'details' => $details,
                     'total' => $totalRow,
+                    'monthly_trend' => [
+                        'categories' => $trendCategories,
+                        'cy_total' => $cyTotalSeries,
+                        'py_total' => $pyTotalSeries,
+                        'cy_dulux' => $cyDuluxSeries,
+                        'py_dulux' => $pyDuluxSeries,
+                        'cy_catylac' => $cyCatylacSeries,
+                        'py_catylac' => $pyCatylacSeries,
+                    ],
                     'stores' => [
                         'total' => [
                             'count' => count($storeDetails),
@@ -6403,7 +6481,8 @@ class PrincipalPortalController extends Controller
                 \Log::error("Failed to calculate Offtake YTD: " . $e->getMessage());
                 return [
                     'details' => [],
-                    'total' => ['brand' => 'Total DC', 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0, 'percentage' => 100],
+                    'total' => ['brand' => 'Total Akzonobel', 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0, 'percentage' => 100],
+                    'monthly_trend' => ['categories' => [], 'cy_total' => [], 'py_total' => []],
                     'stores' => ['total' => ['count' => 0, 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0], 'top10' => [], 'details' => []]
                 ];
             }

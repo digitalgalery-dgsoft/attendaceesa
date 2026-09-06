@@ -1340,7 +1340,7 @@
                                             </tr>
                                         @endforeach
                                         <tr style="background: #f1f5f9; border-top: 2px solid var(--border-color);">
-                                            <td style="font-weight: 800; font-size: 0.95rem;">Total DC</td>
+                                            <td style="font-weight: 800; font-size: 0.95rem;">{{ $ytdData['total']['brand'] ?? 'Total Akzonobel' }}</td>
                                             <td style="text-align: right; font-weight: 800; font-size: 0.95rem;">{{ number_format($ytdData['total']['cy_volume'], 2) }}</td>
                                             <td style="text-align: center; font-weight: 800;">100%</td>
                                             <td style="text-align: right; font-weight: 800; color: var(--text-muted);">{{ number_format($ytdData['total']['py_volume'], 2) }}</td>
@@ -1360,7 +1360,17 @@
                         </div>
                     </div>
                     <div class="col-span-5">
-                        <div id="chart_ytd_comparison" style="min-height: 250px;"></div>
+                        <div style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.15rem; height: 100%; box-shadow: var(--shadow-sm); display: flex; flex-direction: column;">
+                            <div style="font-weight: 700; font-size: 0.92rem; color: #1e293b; margin-bottom: 0.35rem; display: flex; align-items: center; justify-content: space-between;">
+                                <span style="display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-chart-line" style="color: var(--brand-primary);"></i> Tren Offtake ({{ $endYear }} vs {{ $endYear - 1 }})
+                                </span>
+                                <span style="font-size: 0.74rem; font-weight: 600; color: #64748b;">
+                                    Jan – {{ Carbon\Carbon::create(null, $endMonth, 1)->translatedFormat('M') }}
+                                </span>
+                            </div>
+                            <div id="chart_ytd_comparison" style="min-height: 260px; flex-grow: 1;"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2175,42 +2185,133 @@
 
     @if(isset($isYtdReport) && $isYtdReport)
     document.addEventListener('DOMContentLoaded', function() {
-        // 1. Render Product Comparison Chart
-        @if(!empty($ytdData['details']))
+        // 1. Render Offtake Comparison Chart (Monthly Line/Area Trend)
+        @if(!empty($ytdData['monthly_trend']['categories']))
+            var ytdCategories = {!! json_encode($ytdData['monthly_trend']['categories']) !!};
+            var cyData = {!! json_encode($ytdData['monthly_trend']['cy_total']) !!};
+            var pyData = {!! json_encode($ytdData['monthly_trend']['py_total']) !!};
+            
+            var ytdOptions = {
+                series: [{
+                    name: 'Offtake {{ $endYear }} (Tahun Berjalan)',
+                    data: cyData
+                }, {
+                    name: 'Offtake {{ $endYear - 1 }} (Tahun Sebelumnya)',
+                    data: pyData
+                }],
+                chart: {
+                    type: 'area',
+                    height: 270,
+                    toolbar: {
+                        show: true,
+                        tools: {
+                            download: true,
+                            selection: false,
+                            zoom: false,
+                            zoomin: false,
+                            zoomout: false,
+                            pan: false,
+                            reset: false
+                        }
+                    },
+                    fontFamily: 'Outfit, sans-serif'
+                },
+                colors: ['#0b3d88', '#f59e0b'],
+                stroke: {
+                    curve: 'smooth',
+                    width: [3, 2],
+                    dashArray: [0, 4]
+                },
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        shadeIntensity: 1,
+                        opacityFrom: [0.35, 0.12],
+                        opacityTo: [0.03, 0.0],
+                        stops: [0, 90, 100]
+                    }
+                },
+                markers: {
+                    size: [4, 3],
+                    hover: { size: 6 }
+                },
+                xaxis: {
+                    categories: ytdCategories,
+                    labels: {
+                        style: {
+                            colors: '#64748b',
+                            fontSize: '11px',
+                            fontWeight: 600
+                        }
+                    },
+                    axisBorder: { show: false },
+                    axisTicks: { show: false }
+                },
+                yaxis: {
+                    title: {
+                        text: 'Volume (Liter)',
+                        style: { color: '#475569', fontWeight: 600, fontSize: '11px' }
+                    },
+                    labels: {
+                        formatter: function (val) {
+                            if (val >= 1000000) return (val/1000000).toFixed(1) + "M L";
+                            if (val >= 1000) return (val/1000).toFixed(1) + "k L";
+                            return val ? val.toLocaleString('id-ID') + " L" : "0 L";
+                        },
+                        style: { colors: '#64748b', fontSize: '11px' }
+                    }
+                },
+                tooltip: {
+                    shared: true,
+                    intersect: false,
+                    y: {
+                        formatter: function (val) {
+                            return (val !== null && val !== undefined) ? val.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " Liter" : "0.00 Liter";
+                        }
+                    }
+                },
+                legend: {
+                    position: 'top',
+                    horizontalAlign: 'right',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    markers: { radius: 12 }
+                },
+                grid: {
+                    borderColor: '#f1f5f9',
+                    strokeDashArray: 4
+                }
+            };
+            
+            var ytdChart = new ApexCharts(document.querySelector("#chart_ytd_comparison"), ytdOptions);
+            ytdChart.render();
+        @elseif(!empty($ytdData['details']))
+            // Fallback product comparison if monthly trend not available
             var ytdCategories = {!! json_encode(array_column($ytdData['details'], 'brand')) !!};
             var cyData = {!! json_encode(array_column($ytdData['details'], 'cy_volume')) !!};
             var pyData = {!! json_encode(array_column($ytdData['details'], 'py_volume')) !!};
             
             var ytdOptions = {
                 series: [{
-                    name: 'YTD {{ $endYear }}',
+                    name: '{{ $endYear }} (Tahun Berjalan)',
                     data: cyData
                 }, {
-                    name: 'YTD {{ $endYear - 1 }}',
+                    name: '{{ $endYear - 1 }} (Tahun Sebelumnya)',
                     data: pyData
                 }],
                 chart: {
-                    type: 'bar',
-                    height: 280,
+                    type: 'line',
+                    height: 270,
                     toolbar: { show: false },
                     fontFamily: 'Outfit, sans-serif'
                 },
-                plotOptions: {
-                    bar: {
-                        horizontal: false,
-                        columnWidth: '55%',
-                        endingShape: 'rounded',
-                        borderRadius: 4
-                    },
-                },
-                dataLabels: {
-                    enabled: false
-                },
+                colors: ['#0b3d88', '#f59e0b'],
                 stroke: {
-                    show: true,
-                    width: 2,
-                    colors: ['transparent']
+                    curve: 'smooth',
+                    width: [3, 2],
+                    dashArray: [0, 4]
                 },
+                markers: { size: 5 },
                 xaxis: {
                     categories: ytdCategories,
                     labels: { style: { fontWeight: 600 } }
@@ -2224,23 +2325,18 @@
                         }
                     }
                 },
-                fill: {
-                    opacity: 1
-                },
                 tooltip: {
                     y: {
                         formatter: function (val) {
-                            return val.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " Liter"
+                            return val.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " Liter";
                         }
                     }
                 },
-                colors: ['var(--brand-primary)', '#cbd5e1'],
                 legend: {
                     position: 'top',
                     horizontalAlign: 'right'
                 }
             };
-            
             var ytdChart = new ApexCharts(document.querySelector("#chart_ytd_comparison"), ytdOptions);
             ytdChart.render();
         @endif
