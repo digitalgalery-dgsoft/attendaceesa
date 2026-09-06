@@ -51,7 +51,7 @@ class ReportTemplateResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()->with(['principals', 'principal']);
         return \App\Traits\ScopesUserData::applyUserAccessScope($query);
     }
 

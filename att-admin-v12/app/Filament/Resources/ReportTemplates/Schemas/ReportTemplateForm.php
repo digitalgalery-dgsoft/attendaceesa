@@ -62,11 +62,10 @@ class ReportTemplateForm
                             })
                             ->getOptionLabelFromRecordUsing(fn (\App\Models\Product $record) => "{$record->name} " . ($record->brand ? "[{$record->brand}]" : '') . " - " . $record->formatted_price)
                             ->label('Filter Parameter Produk Tertentu (Sesuai Prinsiple yang Dipilih)')
-                            ->placeholder('Pilih satu atau beberapa produk spesifik (Opsional: Kosongkan jika berlaku untuk semua produk prinsiple)')
+                            ->placeholder('Cari dan pilih produk spesifik (Opsional: Kosongkan jika berlaku untuk semua produk)')
                             ->helperText('Produk yang dipilih di sini akan menjadi daftar pilihan produk saat tim lapangan/SPG mengisi laporan ini.')
                             ->multiple()
                             ->searchable()
-                            ->preload()
                             ->columnSpanFull(),
                         Grid::make(4)->schema([
                             Select::make('category')
@@ -283,11 +282,10 @@ class ReportTemplateForm
                                 })
                                 ->getOptionLabelFromRecordUsing(fn (\App\Models\Employee $record) => "{$record->full_name} ({$record->nik})" . ($record->position ? " - {$record->position->name}" : '') . ($record->principal ? " [{$record->principal->name}]" : ''))
                                 ->label('👤 Target Nama Karyawan / Employee Spesifik (Multi-Select)')
-                                ->placeholder('Pilih satu atau lebih nama karyawan spesifik...')
+                                ->placeholder('Cari dan pilih nama karyawan spesifik...')
                                 ->helperText('Pilih nama-nama karyawan khusus yang ditugaskan form ini. Kosongkan jika berlaku umum sesuai prinsiple / jabatan.')
                                 ->multiple()
-                                ->searchable()
-                                ->preload(),
+                                ->searchable(),
                         ]),
                         Repeater::make('assignments')
                             ->label('Daftar Aturan Penugasan Spesifik Tambahan (Per Toko / Channel / Karyawan)')
@@ -298,9 +296,8 @@ class ReportTemplateForm
                                         ->relationship('employee', 'full_name')
                                         ->getOptionLabelFromRecordUsing(fn (\App\Models\Employee $record) => "{$record->full_name} ({$record->nik})")
                                         ->label('Nama Employee (Opsional)')
-                                        ->placeholder('Semua Employee')
-                                        ->searchable()
-                                        ->preload(),
+                                        ->placeholder('Cari Employee...')
+                                        ->searchable(),
                                     Select::make('position_id')
                                         ->relationship('position', 'name')
                                         ->label('Jabatan Tertentu (Opsional)')
@@ -310,9 +307,8 @@ class ReportTemplateForm
                                     Select::make('work_location_id')
                                         ->relationship('workLocation', 'name')
                                         ->label('Toko / Outlet Spesifik (Opsional)')
-                                        ->placeholder('Semua Toko / Outlet')
-                                        ->searchable()
-                                        ->preload(),
+                                        ->placeholder('Cari Toko / Outlet...')
+                                        ->searchable(),
                                     Select::make('channel')
                                         ->label('Channel Penjualan (Opsional)')
                                         ->options([

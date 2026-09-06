@@ -992,7 +992,14 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Penyempurnaan Controller Portal & View Raw Data (`PrincipalPortalController.php` & `cbp_dashboard.blade.php`)**:
       - Mendukung routing database tahun dinamis `cbp_{$selectedYear}.sqlite` dengan fallback cerdas ke 2026.
       - Penanganan fallback cerdas `price_*` dan `lowest_*` pada tabel Raw Data dan Export CSV.
-      - Cache key dinaikkan ke versi `cbp_dash_v8_` dan filter dropdown dinamis per tahun `cbp_filter_regions_v12_{year}`, `cbp_filter_areas_v12_{year}`, `cbp_filter_stores_v12_{year}`.
+    - **Optimasi Kecepatan Form Builder (Template Laporan)**:
+      - Menghapus beban `->preload()` pada komponen form `products`, `employees`, serta penugasan repeater `employee_id` dan `work_location_id` di `ReportTemplateForm.php` agar Livewire tidak lagi men-dump ribuan record ke memory/payload browser pada saat form pertama kali dibuka.
+      - Menghapus sinkronisasi otomatis `syncDuluxMergedStockEnd()` dari method `mount()` di `ListReportTemplates.php` sehingga halaman daftar template tidak lagi menjalankan puluhan operasi baca/tulis/hapus database yang lambat setiap kali dibuka/di-refresh.
+      - Menambahkan eager loading `with(['principals', 'principal'])` pada `ReportTemplateResource::getEloquentQuery()` untuk mencegah N+1 query pada kolom list table.
+    - **Animasi Loading Universal Web Admin Filament (Sejajar Portal Principal)**:
+      - Membuat komponen partial `admin-loader.blade.php` dengan visual premium: glassmorphic frosted backdrop blur, card dengan radial ambient glow, dual-orbit animated spinner ring (outer gradient & inner dashed counter-rotating), badge icon dengan pulse halus, dynamic title/subtitle dengan animated bouncing dots, indeterminate shimmer progress bar, dan branding ESA Groups.
+      - Terintegrasi penuh dengan seluruh siklus navigasi admin: Livewire v3 request hooks (`Livewire.hook('request')`), link navigation, table pagination, form submit, button actions, dan safety timer 15 detik.
+      - Terdaftar otomatis di seluruh halaman Filament Admin melalui render hook `PanelsRenderHook::BODY_END` di `AdminPanelProvider.php`.
     - **Deployment & Multi-Server Synchronization**:
       - Sinkronisasi basis data terkompresi `.sqlite.gz` dan seluruh chunk JSONL ke git repository dan deployment ke seluruh node server.
 

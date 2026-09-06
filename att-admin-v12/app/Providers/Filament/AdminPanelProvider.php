@@ -681,7 +681,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn (): string => view('filament.partials.live-notifications-watcher')->render()
+                fn (): string => view('filament.partials.live-notifications-watcher')->render() . view('filament.partials.admin-loader')->render()
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

@@ -13,13 +13,6 @@ class ListReportTemplates extends ListRecords
 {
     protected static string $resource = ReportTemplateResource::class;
 
-    public function mount(): void
-    {
-        parent::mount();
-        try {
-            ReportTemplate::syncDuluxMergedStockEnd();
-        } catch (\Throwable $e) {}
-    }
 
     protected function getHeaderActions(): array
     {
