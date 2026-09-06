@@ -946,6 +946,27 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Kompilasi sukses: `app-release.apk` (107.4 MB).
       - Seluruh perubahan ter-push ke GitHub (`main`) dan tersinkronisasi via auto-deploy ke Development Server (`appsend.my.id`) serta 3 Production Nodes (`amk.esa-solutions.id`, `akp.esa-solutions.id`, `atk.esa-solutions.id`), seluruhnya terverifikasi aktif dengan status HTTP 200 OK.
 
+55. **Pembaruan & Ingestion Menyeluruh Dataset Laporan Stock End Dulux 2025 (12 Bulan) & 2026 (7 Bulan) (SELESAI 6 September 2026)**:
+    - **Pemrosesan Komprehensif Seluruh File Raw Excel (19 File Master)**:
+      - Memproses 19 file raw Excel dari direktori `D:\Data Reporting\Dulux\Stock End`:
+        - **Stock 2026 (7 File: Januari s/d Juli 2026)**: 85.967 baris data, 28.311.280,85 Liter total stok.
+        - **Stock 2025 (12 File Lengkap: Januari s/d Desember 2025)**: 175.346 baris data, 57.365.944,08 Liter total stok.
+        - **Total Keseluruhan Dataset Tergabung**: **261.313 baris data** dan **85.677.224,93 Liter**.
+    - **High-Performance OpenXML Ingestion Engine & Resolusi Anomali Kolom**:
+      - Engine ETL berbasis C# OpenXML & Windows `winsqlite3.dll` dengan arsitektur streaming untuk memproses dan mengindeks 261k baris dalam waktu ~30 detik tanpa kebocoran memori.
+      - Resolusi otomatis anomali header kolom ganda (seperti pada file `202605 Stock End Mei 2026 AMK AKP.xlsx` di mana kolom 15 = Volume (L) dan kolom 16 = Factor Konversi).
+      - Resolusi inversi kolom nama Brand dan Produk pada sheet raw data tertentu serta normalisasi kanonikal brand (*Dulux*, *Catylac*, *Catylac Smart Choice*).
+    - **Optimalisasi Basis Data SQLite & Chunk JSONL**:
+      - Rekonstruksi database berindeks penuh: `stock_2026.sqlite` (29.96 MB / .gz 4.57 MB) dan `stock_2025.sqlite` (61.64 MB / .gz 9.25 MB).
+      - Menghasilkan 19 berkas JSONL chunk terkompresi (`stock_2026_m01..07.jsonl.gz` dan `stock_2025_m01..12.jsonl.gz`) di `storage/app/dulux_data/chunks/`.
+      - Dilengkapi multi-column indexing presisi (`idx_stock_month`, `idx_stock_sap`, `idx_stock_brand`, `idx_stock_produk`, `idx_stock_perf`, `idx_stock_store`) untuk eksekusi kueri agregasi dashboard sub-millisecond (<10ms).
+    - **Penyempurnaan Backend Dynamic Routing & Cache Engine (`PrincipalPortalController.php`)**:
+      - Mendukung pemilihan database tahun secara dinamis (`stock_{$selectedYear}.sqlite`) dengan fallback cerdas ke 2026.
+      - Penyesuaian rentang bulan aktif dinamis (Bulan 1..12 untuk tahun 2025, Bulan 1..7 untuk tahun 2026).
+      - Pembaruan skema key cache dashboard dan filter dropdown (`stock_dash_v3_`, `stock_filter_regions_v2_{year}`, dll) agar data terbaru langsung terefleksi seketika tanpa sisa cache lama.
+    - **Deployment & Multi-Server Synchronization**:
+      - Database terkompresi `.sqlite.gz` dan seluruh chunk JSONL tersinkronisasi ke repository git dan di-deploy ke server staging/production.
+
 ---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)

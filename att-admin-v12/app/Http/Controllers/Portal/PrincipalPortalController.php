@@ -594,12 +594,11 @@ class PrincipalPortalController extends Controller
         $isDailyMaintenanceReport = ($template->code === 'RPT-DULUX-DAILY-MAINTENANCE' || str_contains($template->code, 'DAILY-MAINTENANCE'));
         $isCustomerDbReport       = ($template->code === 'RPT-DULUX-DATABASE-PELANGGAN' || str_contains($template->code, 'PELANGGAN'));
 
-        // --- Stock End Custom Handling (Pivotable Store Volume, SCM / Summ & Raw Submissions from stock_2026.sqlite) ---
+        // --- Stock End Custom Handling (Pivotable Store Volume, SCM / Summ & Raw Submissions from stock_YYYY.sqlite) ---
         if ($isStockReport) {
-            $sqlitePath = storage_path('app/dulux_data/stock_2026.sqlite');
-            $gzPath     = storage_path('app/dulux_data/stock_2026.sqlite.gz');
-
-            // Auto-extract if .sqlite does not exist or corrupted (< 1MB) but .sqlite.gz exists
+            $selectedYear = (int)$endYear;
+            $sqlitePath = storage_path("app/dulux_data/stock_{$selectedYear}.sqlite");
+            $gzPath     = storage_path("app/dulux_data/stock_{$selectedYear}.sqlite.gz");
             if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
                 if (file_exists($gzPath)) {
                     try {
@@ -616,13 +615,16 @@ class PrincipalPortalController extends Controller
                             @chmod($sqlitePath, 0666);
                         }
                     } catch (\Throwable $e) {
-                        \Log::error("Auto-extraction of stock_2026.sqlite.gz failed: " . $e->getMessage());
+                        \Log::error("Auto-extraction of stock_{$selectedYear}.sqlite.gz failed: " . $e->getMessage());
                     }
+                } elseif (!file_exists($sqlitePath)) {
+                    $sqlitePath = storage_path('app/dulux_data/stock_2026.sqlite');
+                    $gzPath     = storage_path('app/dulux_data/stock_2026.sqlite.gz');
                 }
             }
 
             // Regions directly from stock_raw
-            $regions = Cache::remember('stock_filter_regions_v1', 3600, function() use ($sqlitePath) {
+            $regions = Cache::remember('stock_filter_regions_v2_' . $selectedYear, 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT DISTINCT region FROM stock_raw WHERE region IS NOT NULL AND region != '' ORDER BY region");
@@ -633,7 +635,7 @@ class PrincipalPortalController extends Controller
             });
 
             // Areas directly from stock_raw
-            $areas = Cache::remember('stock_filter_areas_v1', 3600, function() use ($sqlitePath) {
+            $areas = Cache::remember('stock_filter_areas_v2_' . $selectedYear, 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT region, MIN(area) as area_name FROM stock_raw WHERE area IS NOT NULL AND area != '' GROUP BY region, UPPER(TRIM(area)) ORDER BY area_name ASC");
@@ -653,7 +655,7 @@ class PrincipalPortalController extends Controller
             });
 
             // Stores directly from stock_raw
-            $workLocations = Cache::remember('stock_filter_stores_v1', 3600, function() use ($sqlitePath) {
+            $workLocations = Cache::remember('stock_filter_stores_v2_' . $selectedYear, 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT DISTINCT region, MIN(area) as area, sap, store_name FROM stock_raw WHERE store_name IS NOT NULL AND store_name != '' GROUP BY store_name ORDER BY store_name ASC");
@@ -5340,8 +5342,9 @@ class PrincipalPortalController extends Controller
      */
     protected function calculateStockDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedBrand = 'ALL', $search = null, $stockPage = 1, $summPage = 1, $rawPage = 1, $perPage = 50)
     {
-        $sqlitePath = storage_path('app/dulux_data/stock_2026.sqlite');
-        $gzPath     = storage_path('app/dulux_data/stock_2026.sqlite.gz');
+        $selectedYear = (int)$endYear;
+        $sqlitePath   = storage_path("app/dulux_data/stock_{$selectedYear}.sqlite");
+        $gzPath       = storage_path("app/dulux_data/stock_{$selectedYear}.sqlite.gz");
 
         // Auto-extract if .sqlite does not exist or corrupted (< 1MB) but .sqlite.gz exists
         if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
@@ -5360,8 +5363,11 @@ class PrincipalPortalController extends Controller
                         @chmod($sqlitePath, 0666);
                     }
                 } catch (\Throwable $e) {
-                    \Log::error("Auto-extraction of stock_2026.sqlite.gz failed: " . $e->getMessage());
+                    \Log::error("Auto-extraction of stock_{$selectedYear}.sqlite.gz failed: " . $e->getMessage());
                 }
+            } elseif (!file_exists($sqlitePath)) {
+                $sqlitePath = storage_path('app/dulux_data/stock_2026.sqlite');
+                $gzPath     = storage_path('app/dulux_data/stock_2026.sqlite.gz');
             }
         }
 
@@ -5387,21 +5393,22 @@ class PrincipalPortalController extends Controller
             4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli',
             8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
         ];
+        $maxMonth = ($selectedYear == 2025) ? 12 : 7;
         $activeMonths = [];
         for ($m = $sMonth; $m <= $eMonth; $m++) {
-            if ($m >= 1 && $m <= 7) {
-                $activeMonths[$m] = $monthNames[$m] . ' ' . $endYear;
+            if ($m >= 1 && $m <= $maxMonth) {
+                $activeMonths[$m] = $monthNames[$m] . ' ' . $selectedYear;
             }
         }
         if (empty($activeMonths)) {
-            for ($m = 1; $m <= 7; $m++) {
-                $activeMonths[$m] = $monthNames[$m] . ' ' . $endYear;
+            for ($m = 1; $m <= $maxMonth; $m++) {
+                $activeMonths[$m] = $monthNames[$m] . ' ' . $selectedYear;
             }
             $sMonth = 1;
-            $eMonth = 7;
+            $eMonth = $maxMonth;
         }
 
-        $cacheKey = 'stock_dash_v2_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $endYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $selectedBrand . '_' . $search . '_' . $stockPage . '_' . $summPage . '_' . $rawPage);
+        $cacheKey = 'stock_dash_v3_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $selectedBrand . '_' . $search . '_' . $stockPage . '_' . $summPage . '_' . $rawPage);
 
         return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sMonth, $eMonth, $activeMonths, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedBrand, $search, $stockPage, $summPage, $rawPage, $perPage) {
             try {
