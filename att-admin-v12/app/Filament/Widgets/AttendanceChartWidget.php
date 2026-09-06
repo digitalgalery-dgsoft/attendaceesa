@@ -24,7 +24,7 @@ class AttendanceChartWidget extends ChartWidget implements HasActions, HasSchema
     use InteractsWithSchemas;
 
     protected ?string $heading = 'Attendance Overview per Prinsiple';
-    protected static ?int $sort = 3;
+    protected static ?int $sort = 4;
     protected int | string | array $columnSpan = 'full';
     protected ?string $maxHeight = '360px';
 
