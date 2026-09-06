@@ -28,7 +28,7 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
     protected static ?int $sort = 3;
     protected int | string | array $columnSpan = 'full';
     protected ?string $maxHeight = '340px';
-    protected static ?string $pollingInterval = '30s';
+    protected ?string $pollingInterval = '30s';
 
     protected string $view = 'filament.widgets.active-employees-hourly-chart-widget';
 
