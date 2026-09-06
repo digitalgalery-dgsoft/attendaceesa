@@ -8054,7 +8054,6 @@ class PrincipalPortalController extends Controller
         $totalTemplates = (clone $baseStatsQuery)->count();
         $totalActive = (clone $baseStatsQuery)->where('report_templates.is_active', true)->count();
         $totalFields = \App\Models\ReportFormField::whereIn('report_template_id', (clone $baseStatsQuery)->pluck('report_templates.id'))->count();
-        $totalSubmissions = \App\Models\ReportSubmission::whereIn('report_template_id', (clone $baseStatsQuery)->pluck('report_templates.id'))->count();
 
         $categories = [
             'offtake' => 'Offtake / Penjualan Harian',
@@ -8083,7 +8082,6 @@ class PrincipalPortalController extends Controller
             'totalTemplates',
             'totalActive',
             'totalFields',
-            'totalSubmissions',
             'categories',
             'search',
             'category',

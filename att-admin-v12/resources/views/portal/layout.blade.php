@@ -12,6 +12,15 @@
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
+    <!-- Anti-flicker Early Sidebar State Initializer -->
+    <script>
+        try {
+            if (localStorage.getItem('portal_sidebar_collapsed') === 'true') {
+                document.documentElement.classList.add('sidebar-collapsed');
+            }
+        } catch(e) {}
+    </script>
+
     @php
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $brandSecondary = $tenantPrincipal->theme_color_secondary ?? ($tenantPrincipal->theme_color ?? '#2563EB');
@@ -37,6 +46,7 @@
             --shadow-md: 0 4px 16px -2px rgba(0,0,0,0.06), 0 2px 6px -1px rgba(0,0,0,0.03);
             --shadow-lg: 0 10px 28px -4px rgba(0,0,0,0.08), 0 4px 10px -2px rgba(0,0,0,0.04);
             --sidebar-width: 280px;
+            --sidebar-collapsed-width: 78px;
         }
 
         * {
@@ -67,20 +77,77 @@
             flex-direction: column;
             z-index: 50;
             box-shadow: var(--shadow-sm);
+            transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar-collapsed aside.portal-sidebar {
+            width: var(--sidebar-collapsed-width);
         }
 
         .sidebar-header {
-            padding: 1.25rem 1.5rem;
+            padding: 1.25rem 1.25rem;
             border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
-            gap: 0.85rem;
+            justify-content: space-between;
+            gap: 0.75rem;
+            transition: padding 0.25s ease;
+        }
+
+        .sidebar-collapsed .sidebar-header {
+            padding: 1.15rem 0.5rem;
+            justify-content: center;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .sidebar-brand-text {
+            overflow: hidden;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .sidebar-collapsed .sidebar-brand-text {
+            display: none !important;
+        }
+
+        .btn-sidebar-collapse-toggle {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+
+        .btn-sidebar-collapse-toggle:hover {
+            background: var(--brand-light);
+            color: var(--brand-primary);
+            border-color: var(--brand-primary);
+        }
+
+        .sidebar-collapsed .btn-sidebar-collapse-toggle {
+            transform: rotate(180deg);
+            margin: 0 auto;
         }
 
         .sidebar-logo {
             max-height: 38px;
             max-width: 110px;
             object-fit: contain;
+            transition: all 0.25s ease;
+        }
+
+        .sidebar-collapsed .sidebar-logo {
+            max-width: 44px;
+            max-height: 32px;
         }
 
         .brand-icon-box {
@@ -103,6 +170,9 @@
             color: var(--text-heading);
             line-height: 1.2;
             letter-spacing: -0.3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .sidebar-brand-sub {
@@ -111,15 +181,23 @@
             color: var(--brand-primary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .sidebar-menu {
             flex: 1;
             overflow-y: auto;
-            padding: 1.25rem 1rem;
+            overflow-x: hidden;
+            padding: 1.25rem 0.85rem;
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
+        }
+
+        .sidebar-collapsed .sidebar-menu {
+            padding: 1rem 0.5rem;
         }
 
         .sidebar-menu::-webkit-scrollbar {
@@ -137,6 +215,18 @@
             letter-spacing: 0.8px;
             color: var(--text-muted);
             padding: 0.85rem 0.75rem 0.4rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sidebar-collapsed .menu-category-label {
+            height: 1px;
+            background: #f1f5f9;
+            margin: 0.5rem 0.4rem;
+            padding: 0;
+            font-size: 0;
+            overflow: hidden;
         }
 
         .sidebar-nav-item {
@@ -203,16 +293,98 @@
             border: 1px solid var(--border-color);
         }
 
+        .sidebar-collapsed .sidebar-nav-item {
+            justify-content: center;
+            padding: 0.75rem 0.5rem;
+            position: relative;
+        }
+
+        .sidebar-collapsed .sidebar-nav-item i.nav-icon {
+            font-size: 1.15rem;
+            width: auto;
+            margin: 0 auto;
+        }
+
+        .sidebar-collapsed .sidebar-nav-item .nav-text {
+            display: none !important;
+        }
+
+        .sidebar-collapsed .sidebar-nav-item .nav-badge-count {
+            position: absolute;
+            top: 4px;
+            right: 6px;
+            padding: 0.1rem 0.35rem;
+            font-size: 0.62rem;
+            border-radius: 9999px;
+            line-height: 1;
+        }
+
+        /* Floating Tooltip for Collapsed Sidebar Items */
+        .sidebar-collapsed aside.portal-sidebar .sidebar-nav-item::after {
+            content: attr(data-title);
+            position: absolute;
+            left: calc(100% + 12px);
+            top: 50%;
+            transform: translateY(-50%) scale(0.95);
+            background: #0f172a;
+            color: #ffffff;
+            font-size: 0.78rem;
+            font-weight: 600;
+            white-space: nowrap;
+            padding: 0.45rem 0.85rem;
+            border-radius: 7px;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+            z-index: 1000;
+        }
+
+        .sidebar-collapsed aside.portal-sidebar .sidebar-nav-item::before {
+            content: '';
+            position: absolute;
+            left: calc(100% + 6px);
+            top: 50%;
+            transform: translateY(-50%);
+            border-width: 5px 6px 5px 0;
+            border-style: solid;
+            border-color: transparent #0f172a transparent transparent;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.15s ease;
+            z-index: 1000;
+        }
+
+        .sidebar-collapsed aside.portal-sidebar .sidebar-nav-item:hover::after,
+        .sidebar-collapsed aside.portal-sidebar .sidebar-nav-item:hover::before {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(-50%) scale(1);
+        }
+
         .sidebar-footer {
             padding: 1rem 1.25rem;
             border-top: 1px solid var(--border-color);
             background: #fafafa;
         }
 
+        .sidebar-collapsed .sidebar-footer {
+            padding: 0.85rem 0.4rem;
+        }
+
         .user-profile-row {
             display: flex;
             align-items: center;
             gap: 0.75rem;
+        }
+
+        .sidebar-collapsed .user-profile-row {
+            flex-direction: column;
+            gap: 0.55rem;
+            align-items: center;
+            justify-content: center;
         }
 
         .user-avatar {
@@ -232,6 +404,10 @@
         .user-info {
             flex: 1;
             overflow: hidden;
+        }
+
+        .sidebar-collapsed .user-info {
+            display: none !important;
         }
 
         .user-name {
@@ -278,6 +454,13 @@
             min-width: 0;
             width: calc(100vw - var(--sidebar-width));
             max-width: calc(100vw - var(--sidebar-width));
+            transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar-collapsed .portal-main {
+            margin-left: var(--sidebar-collapsed-width);
+            width: calc(100vw - var(--sidebar-collapsed-width));
+            max-width: calc(100vw - var(--sidebar-collapsed-width));
         }
 
         /* Topbar */
@@ -299,6 +482,30 @@
             display: flex;
             align-items: center;
             gap: 1rem;
+        }
+
+        .btn-topbar-sidebar-toggle {
+            width: 38px;
+            height: 38px;
+            border-radius: 9px;
+            border: 1px solid var(--border-color);
+            background: #ffffff;
+            color: var(--text-heading);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 1rem;
+            box-shadow: var(--shadow-sm);
+            flex-shrink: 0;
+        }
+
+        .btn-topbar-sidebar-toggle:hover {
+            background: var(--brand-light);
+            color: var(--brand-primary);
+            border-color: var(--brand-primary);
+            transform: translateY(-1px);
         }
 
         .topbar-title {
@@ -444,12 +651,46 @@
             aside.portal-sidebar {
                 transform: translateX(-100%);
                 transition: transform 0.3s ease;
+                width: var(--sidebar-width) !important;
             }
             aside.portal-sidebar.open {
                 transform: translateX(0);
             }
             .portal-main {
-                margin-left: 0;
+                margin-left: 0 !important;
+                width: 100vw !important;
+                max-width: 100vw !important;
+            }
+            .sidebar-collapsed aside.portal-sidebar {
+                width: var(--sidebar-width) !important;
+            }
+            .sidebar-collapsed .sidebar-brand-text,
+            .sidebar-collapsed .sidebar-nav-item .nav-text,
+            .sidebar-collapsed .user-info {
+                display: block !important;
+            }
+            .sidebar-collapsed .sidebar-nav-item {
+                justify-content: flex-start !important;
+                padding: 0.65rem 0.85rem !important;
+            }
+            .sidebar-collapsed aside.portal-sidebar .sidebar-nav-item::after,
+            .sidebar-collapsed aside.portal-sidebar .sidebar-nav-item::before {
+                display: none !important;
+            }
+            .sidebar-collapsed .sidebar-header {
+                padding: 1.25rem 1.25rem !important;
+                flex-direction: row !important;
+                justify-content: space-between !important;
+            }
+            .sidebar-collapsed .user-profile-row {
+                flex-direction: row !important;
+            }
+            .sidebar-collapsed .menu-category-label {
+                height: auto !important;
+                background: transparent !important;
+                margin: 0 !important;
+                padding: 0.85rem 0.75rem 0.4rem !important;
+                font-size: 0.7rem !important;
             }
         }
     </style>
@@ -462,23 +703,26 @@
         <div class="sidebar-header">
             @if($tenantPrincipal->logo_url)
                 <img src="{{ $tenantPrincipal->logo_url }}" alt="{{ $tenantPrincipal->name }}" class="sidebar-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                <div class="sidebar-badge-icon" style="display: none;">
+                <div class="brand-icon-box" style="display: none;">
                     <i class="fa-solid fa-layer-group"></i>
                 </div>
             @elseif(!empty($setting->app_logo))
                 <img src="{{ asset('storage/' . $setting->app_logo) }}" alt="{{ $tenantPrincipal->name }}" class="sidebar-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                <div class="sidebar-badge-icon" style="display: none;">
+                <div class="brand-icon-box" style="display: none;">
                     <i class="fa-solid fa-layer-group"></i>
                 </div>
             @else
-                <div class="sidebar-badge-icon">
+                <div class="brand-icon-box">
                     <i class="fa-solid fa-layer-group"></i>
                 </div>
             @endif
-            <div>
+            <div class="sidebar-brand-text">
                 <div class="sidebar-brand-name">{{ $tenantPrincipal->portal_title ?? $tenantPrincipal->name }}</div>
                 <div class="sidebar-brand-sub">{{ $tenantPrincipal->name }}</div>
             </div>
+            <button type="button" class="btn-sidebar-collapse-toggle" onclick="toggleSidebar()" title="Perkecil / Perluas Menu Sidebar" aria-label="Toggle Sidebar">
+                <i class="fa-solid fa-angles-left"></i>
+            </button>
         </div>
 
         <div class="sidebar-menu">
@@ -500,11 +744,11 @@
 
             <!-- 1. Ringkasan Eksekutif -->
             <div class="menu-category-label">Ringkasan Eksekutif</div>
-            <a href="{{ route('portal.dashboard', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.dashboard') ? 'active' : '' }}">
+            <a href="{{ route('portal.dashboard', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.dashboard') ? 'active' : '' }}" data-title="Sales Summary Dashboard">
                 <i class="fa-solid fa-chart-pie nav-icon"></i>
                 <span class="nav-text">Sales Summary Dashboard</span>
             </a>
-            <a href="{{ route('portal.products', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.products*') ? 'active' : '' }}">
+            <a href="{{ route('portal.products', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.products*') ? 'active' : '' }}" data-title="Katalog Produk (SKU)">
                 <i class="fa-solid fa-boxes-stacked nav-icon"></i>
                 <span class="nav-text">Katalog Produk (SKU)</span>
             </a>
@@ -513,55 +757,55 @@
             @if($hasMasterData)
                 <div class="menu-category-label">Master Data</div>
                 @if($hasPerm('view_employees'))
-                    <a href="{{ route('portal.employees', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.employees*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.employees', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.employees*') ? 'active' : '' }}" data-title="Employees (Karyawan)">
                         <i class="fa-solid fa-users nav-icon"></i>
                         <span class="nav-text">Employees (Karyawan)</span>
                     </a>
                 @endif
                 @if($hasPerm('view_areas'))
-                    <a href="{{ route('portal.areas', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.areas*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.areas', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.areas*') ? 'active' : '' }}" data-title="Areas / Cabang">
                         <i class="fa-solid fa-map-location-dot nav-icon"></i>
                         <span class="nav-text">Areas / Cabang</span>
                     </a>
                 @endif
                 @if($hasPerm('view_work_locations'))
-                    <a href="{{ route('portal.work_locations', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.work_locations*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.work_locations', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.work_locations*') ? 'active' : '' }}" data-title="Work Locations (Lokasi Kerja)">
                         <i class="fa-solid fa-store nav-icon"></i>
                         <span class="nav-text">Work Locations (Lokasi Kerja)</span>
                     </a>
                 @endif
                 @if($hasPerm('view_shifts'))
-                    <a href="{{ route('portal.shifts', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.shifts*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.shifts', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.shifts*') ? 'active' : '' }}" data-title="Shifts (Shift Kerja)">
                         <i class="fa-solid fa-business-time nav-icon"></i>
                         <span class="nav-text">Shifts (Shift Kerja)</span>
                     </a>
                 @endif
                 @if($hasPerm('view_principals'))
-                    <a href="/admin/principals" class="sidebar-nav-item">
+                    <a href="/admin/principals" class="sidebar-nav-item" data-title="Principals (Prinsiple)">
                         <i class="fa-solid fa-building-shield nav-icon"></i>
                         <span class="nav-text">Principals (Prinsiple)</span>
                     </a>
                 @endif
                 @if($hasPerm('view_companies'))
-                    <a href="/admin/companies" class="sidebar-nav-item">
+                    <a href="/admin/companies" class="sidebar-nav-item" data-title="Companies (Perusahaan)">
                         <i class="fa-solid fa-building nav-icon"></i>
                         <span class="nav-text">Companies (Perusahaan)</span>
                     </a>
                 @endif
                 @if($hasPerm('view_departments'))
-                    <a href="/admin/departments" class="sidebar-nav-item">
+                    <a href="/admin/departments" class="sidebar-nav-item" data-title="Departments (Departemen)">
                         <i class="fa-solid fa-sitemap nav-icon"></i>
                         <span class="nav-text">Departments (Departemen)</span>
                     </a>
                 @endif
                 @if($hasPerm('view_positions'))
-                    <a href="/admin/positions" class="sidebar-nav-item">
+                    <a href="/admin/positions" class="sidebar-nav-item" data-title="Positions (Jabatan)">
                         <i class="fa-solid fa-id-badge nav-icon"></i>
                         <span class="nav-text">Positions (Jabatan)</span>
                     </a>
                 @endif
                 @if($hasPerm('view_holidays'))
-                    <a href="/admin/holidays" class="sidebar-nav-item">
+                    <a href="/admin/holidays" class="sidebar-nav-item" data-title="Holidays (Hari Libur)">
                         <i class="fa-regular fa-calendar-days nav-icon"></i>
                         <span class="nav-text">Holidays (Hari Libur)</span>
                     </a>
@@ -572,37 +816,37 @@
             @if($hasAttendance)
                 <div class="menu-category-label">Attendance & Kehadiran</div>
                 @if($hasPerm('view_attendance'))
-                    <a href="{{ route('portal.attendances', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.attendances*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.attendances', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.attendances*') ? 'active' : '' }}" data-title="Presensi / Absensi">
                         <i class="fa-solid fa-clipboard-user nav-icon"></i>
                         <span class="nav-text">Presensi / Absensi</span>
                     </a>
                 @endif
                 @if($hasPerm('manage_roster') || $hasPerm('view_employee_schedules'))
-                    <a href="{{ route('portal.schedules', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.schedules*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.schedules', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.schedules*') ? 'active' : '' }}" data-title="Roster & Jadwal Kerja">
                         <i class="fa-solid fa-calendar-week nav-icon"></i>
                         <span class="nav-text">Roster & Jadwal Kerja</span>
                     </a>
                 @endif
                 @if($hasPerm('view_leave_requests'))
-                    <a href="{{ route('portal.leaves', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.leaves*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.leaves', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.leaves*') ? 'active' : '' }}" data-title="Izin / Cuti">
                         <i class="fa-solid fa-envelope-open-text nav-icon"></i>
                         <span class="nav-text">Izin / Cuti</span>
                     </a>
                 @endif
                 @if($hasPerm('view_extra_hours'))
-                    <a href="{{ route('portal.extra_hours', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.extra_hours*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.extra_hours', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.extra_hours*') ? 'active' : '' }}" data-title="Lembur (Extra Hours)">
                         <i class="fa-solid fa-user-clock nav-icon"></i>
                         <span class="nav-text">Lembur (Extra Hours)</span>
                     </a>
                 @endif
                 @if($hasPerm('view_working_groups'))
-                    <a href="/admin/working-groups" class="sidebar-nav-item">
+                    <a href="/admin/working-groups" class="sidebar-nav-item" data-title="Pola Kerja (Working Groups)">
                         <i class="fa-solid fa-users-gear nav-icon"></i>
                         <span class="nav-text">Pola Kerja (Working Groups)</span>
                     </a>
                 @endif
                 @if($hasPerm('view_unchecked_monitoring'))
-                    <a href="{{ route('portal.unchecked', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.unchecked*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.unchecked', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.unchecked*') ? 'active' : '' }}" data-title="Monitoring Belum Check-in">
                         <i class="fa-solid fa-user-slash nav-icon"></i>
                         <span class="nav-text">Monitoring Belum Check-in</span>
                     </a>
@@ -613,31 +857,31 @@
             @if($hasFieldOps)
                 <div class="menu-category-label">Operasional & Sales</div>
                 @if($hasPerm('view_itineraries'))
-                    <a href="{{ route('portal.itineraries', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.itineraries*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.itineraries', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.itineraries*') ? 'active' : '' }}" data-title="Visit Schedule (Itinerari)">
                         <i class="fa-solid fa-route nav-icon"></i>
                         <span class="nav-text">Visit Schedule (Itinerari)</span>
                     </a>
                 @endif
                 @if($hasPerm('view_visit_reports'))
-                    <a href="{{ route('portal.visit_reports', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.visit_reports*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.visit_reports', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.visit_reports*') ? 'active' : '' }}" data-title="Laporan Kunjungan">
                         <i class="fa-solid fa-file-waveform nav-icon"></i>
                         <span class="nav-text">Laporan Kunjungan</span>
                     </a>
                 @endif
                 @if($hasPerm('view_sales_reports'))
-                    <a href="/admin/sales-reports" class="sidebar-nav-item">
+                    <a href="/admin/sales-reports" class="sidebar-nav-item" data-title="Laporan Penjualan">
                         <i class="fa-solid fa-file-invoice-dollar nav-icon"></i>
                         <span class="nav-text">Laporan Penjualan</span>
                     </a>
                 @endif
                 @if($hasPerm('view_work_targets'))
-                    <a href="/admin/work-targets" class="sidebar-nav-item">
+                    <a href="/admin/work-targets" class="sidebar-nav-item" data-title="Target Kerja">
                         <i class="fa-solid fa-bullseye nav-icon"></i>
                         <span class="nav-text">Target Kerja</span>
                     </a>
                 @endif
                 @if($hasPerm('view_payslips'))
-                    <a href="/admin/payslips" class="sidebar-nav-item">
+                    <a href="/admin/payslips" class="sidebar-nav-item" data-title="Slip Gaji (Payslips)">
                         <i class="fa-solid fa-money-check-dollar nav-icon"></i>
                         <span class="nav-text">Slip Gaji (Payslips)</span>
                     </a>
@@ -646,7 +890,7 @@
 
             <!-- 5. Modul Pelaporan SOP & Form Builder -->
             <div class="menu-category-label">Form & Pelaporan SOP</div>
-            <a href="{{ route('portal.report_templates', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.report_templates*') ? 'active' : '' }}">
+            <a href="{{ route('portal.report_templates', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.report_templates*') ? 'active' : '' }}" data-title="Form Builder (Template)">
                 <i class="fa-solid fa-wand-magic-sparkles nav-icon"></i>
                 <span class="nav-text">Form Builder (Template)</span>
                 @if(isset($activeTemplates))
@@ -675,7 +919,7 @@
                         }
                         $isCurrent = request()->routeIs('portal.report.detail') && request()->route('code') === $tpl->code;
                     @endphp
-                    <a href="{{ route('portal.report.detail', ['code' => $tpl->code, 'p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ $isCurrent ? 'active' : '' }}">
+                    <a href="{{ route('portal.report.detail', ['code' => $tpl->code, 'p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ $isCurrent ? 'active' : '' }}" data-title="{{ $tpl->title }}">
                         <i class="{{ $iconClass }} nav-icon"></i>
                         <span class="nav-text">{{ $tpl->title }}</span>
                         <span class="nav-badge-count">{{ $tpl->fields->count() }}f</span>
@@ -687,60 +931,60 @@
             @if($hasAnalytics)
                 <div class="menu-category-label">Laporan & Analitik</div>
                 @if($hasPerm('view_manpower_report'))
-                    <a href="{{ route('portal.manpower_report', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.manpower_report*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.manpower_report', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.manpower_report*') ? 'active' : '' }}" data-title="Manpower Report">
                         <i class="fa-solid fa-chart-column nav-icon"></i>
                         <span class="nav-text">Manpower Report</span>
                     </a>
                 @endif
                 @if($hasPerm('view_mandays_report'))
-                    <a href="{{ route('portal.mandays_report', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.mandays_report*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.mandays_report', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.mandays_report*') ? 'active' : '' }}" data-title="Mandays Report">
                         <i class="fa-solid fa-chart-line nav-icon"></i>
                         <span class="nav-text">Mandays Report</span>
                     </a>
                 @endif
                 @if($hasPerm('view_turnover_report'))
-                    <a href="{{ route('portal.turnover_report', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.turnover_report*') ? 'active' : '' }}">
+                    <a href="{{ route('portal.turnover_report', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.turnover_report*') ? 'active' : '' }}" data-title="Turnover Report">
                         <i class="fa-solid fa-arrow-right-arrow-left nav-icon"></i>
                         <span class="nav-text">Turnover Report</span>
                     </a>
                 @endif
                 @if($hasPerm('view_odoo_sync'))
-                    <a href="/admin/odoo-sync-report" class="sidebar-nav-item">
+                    <a href="/admin/odoo-sync-report" class="sidebar-nav-item" data-title="Odoo Sync Report">
                         <i class="fa-solid fa-arrows-rotate nav-icon"></i>
                         <span class="nav-text">Odoo Sync Report</span>
                     </a>
                 @endif
             @endif
 
-            <!-- 7. System & Settings (Role Permission Based) -->
+            <!-- 7. Sistem & Konfigurasi (Role Permission Based) -->
             @if($hasSystem)
                 <div class="menu-category-label">Sistem & Konfigurasi</div>
                 @if($hasPerm('manage_users'))
-                    <a href="/admin/users" class="sidebar-nav-item">
+                    <a href="/admin/users" class="sidebar-nav-item" data-title="Manajemen User">
                         <i class="fa-solid fa-user-gear nav-icon"></i>
                         <span class="nav-text">Manajemen User</span>
                     </a>
                 @endif
                 @if($hasPerm('manage_roles'))
-                    <a href="/admin/roles" class="sidebar-nav-item">
+                    <a href="/admin/roles" class="sidebar-nav-item" data-title="Roles & Permissions">
                         <i class="fa-solid fa-shield-halved nav-icon"></i>
                         <span class="nav-text">Roles & Permissions</span>
                     </a>
                 @endif
                 @if($hasPerm('manage_settings'))
-                    <a href="/admin/manage-settings" class="sidebar-nav-item">
+                    <a href="/admin/manage-settings" class="sidebar-nav-item" data-title="Pengaturan Sistem">
                         <i class="fa-solid fa-gear nav-icon"></i>
                         <span class="nav-text">Pengaturan Sistem</span>
                     </a>
                 @endif
                 @if($hasPerm('view_blast_info'))
-                    <a href="/admin/blast-infos" class="sidebar-nav-item">
+                    <a href="/admin/blast-infos" class="sidebar-nav-item" data-title="Blast Info (Broadcast)">
                         <i class="fa-solid fa-bullhorn nav-icon"></i>
                         <span class="nav-text">Blast Info (Broadcast)</span>
                     </a>
                 @endif
                 @if($hasPerm('view_live_chat'))
-                    <a href="/admin/live-chat" class="sidebar-nav-item">
+                    <a href="/admin/live-chat" class="sidebar-nav-item" data-title="Live Chat Support">
                         <i class="fa-solid fa-comments nav-icon"></i>
                         <span class="nav-text">Live Chat Support</span>
                     </a>
@@ -749,7 +993,7 @@
 
             <!-- 8. Akses Cepat -->
             <div class="menu-category-label">Akses Cepat</div>
-            <a href="/?p={{ $tenantPrincipal->id }}" class="sidebar-nav-item" target="_blank">
+            <a href="/?p={{ $tenantPrincipal->id }}" class="sidebar-nav-item" target="_blank" data-title="Lihat Landing Page">
                 <i class="fa-solid fa-globe nav-icon"></i>
                 <span class="nav-text">Lihat Landing Page</span>
             </a>
@@ -757,7 +1001,7 @@
 
         <div class="sidebar-footer">
             <div class="user-profile-row">
-                <div class="user-avatar">
+                <div class="user-avatar" title="{{ Auth::user()?->name ?? ($tenantPrincipal->name . ' Admin') }}">
                     {{ strtoupper(substr(Auth::user()?->name ?? 'P', 0, 1)) }}
                 </div>
                 <div class="user-info">
@@ -785,6 +1029,9 @@
         <!-- Topbar -->
         <header class="portal-topbar">
             <div class="topbar-left">
+                <button type="button" class="btn-topbar-sidebar-toggle" onclick="toggleSidebar()" title="Perkecil / Perluas Menu Sidebar" aria-label="Toggle Sidebar">
+                    <i class="fa-solid fa-bars-staggered"></i>
+                </button>
                 <div>
                     <h1 class="topbar-title">@yield('page_title', 'Sales Summary Dashboard')</h1>
                     <div class="topbar-breadcrumb">
@@ -1315,6 +1562,52 @@
             }
         });
     })();
+    </script>
+
+    <script>
+    function toggleSidebar() {
+        const isMobile = window.innerWidth <= 1024;
+        const sidebar = document.getElementById('portalSidebar');
+        if (isMobile) {
+            if (sidebar) {
+                sidebar.classList.toggle('open');
+                let backdrop = document.getElementById('portalSidebarBackdrop');
+                if (!backdrop) {
+                    backdrop = document.createElement('div');
+                    backdrop.id = 'portalSidebarBackdrop';
+                    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.45);backdrop-filter:blur(2px);z-index:45;cursor:pointer;';
+                    backdrop.onclick = function() {
+                        sidebar.classList.remove('open');
+                        backdrop.remove();
+                    };
+                    document.body.appendChild(backdrop);
+                } else if (!sidebar.classList.contains('open')) {
+                    backdrop.remove();
+                }
+            }
+        } else {
+            const isCollapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+            if (document.body) {
+                document.body.classList.toggle('sidebar-collapsed', isCollapsed);
+            }
+            try {
+                localStorage.setItem('portal_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+            } catch (e) {}
+
+            // Trigger window resize event so ApexCharts dynamically refit to new width
+            setTimeout(function() {
+                window.dispatchEvent(new Event('resize'));
+            }, 260);
+        }
+    }
+    window.toggleSidebar = toggleSidebar;
+
+    // Synchronize body class on DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+        if (document.documentElement.classList.contains('sidebar-collapsed') && document.body) {
+            document.body.classList.add('sidebar-collapsed');
+        }
+    });
     </script>
 
     @stack('scripts')

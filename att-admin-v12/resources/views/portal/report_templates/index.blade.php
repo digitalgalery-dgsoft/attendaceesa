@@ -95,9 +95,15 @@
     /* KPI Summary Cards */
     .fb-stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(3, 1fr);
         gap: 1.25rem;
         margin-bottom: 1.75rem;
+    }
+
+    @media (max-width: 992px) {
+        .fb-stats-grid {
+            grid-template-columns: 1fr;
+        }
     }
 
     .fb-stat-card {
@@ -476,15 +482,6 @@
         <div class="fb-stat-info">
             <div class="fb-stat-value">{{ number_format($totalFields) }}</div>
             <div class="fb-stat-label">Total Field / Pertanyaan</div>
-        </div>
-    </div>
-    <div class="fb-stat-card">
-        <div class="fb-stat-icon" style="background: #fff7ed; color: #ea580c;">
-            <i class="fa-solid fa-cloud-arrow-up"></i>
-        </div>
-        <div class="fb-stat-info">
-            <div class="fb-stat-value">{{ number_format($totalSubmissions) }}</div>
-            <div class="fb-stat-label">Total Laporan Terkirim</div>
         </div>
     </div>
 </div>
