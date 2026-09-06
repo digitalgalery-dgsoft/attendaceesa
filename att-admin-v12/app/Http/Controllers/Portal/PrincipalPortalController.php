@@ -483,8 +483,15 @@ class PrincipalPortalController extends Controller
 
         // --- CBP Custom Handling (Completely bypasses standard report_submissions queries) ---
         if ($isCbpReport) {
-            $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
-            $regions = Cache::remember('cbp_filter_regions_v8', 3600, function() use ($sqlitePath) {
+            $selectedYear = (int)$request->query('year', (int)$request->query('start_year', Carbon::now()->year));
+            if ($selectedYear <= 0) $selectedYear = 2026;
+
+            $sqlitePath = storage_path("app/dulux_data/cbp_{$selectedYear}.sqlite");
+            if (!file_exists($sqlitePath) && $selectedYear !== 2026 && file_exists(storage_path('app/dulux_data/cbp_2026.sqlite'))) {
+                $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
+            }
+
+            $regions = Cache::remember("cbp_filter_regions_v11_{$selectedYear}", 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT DISTINCT regional FROM cbp_raw WHERE regional IS NOT NULL AND regional != '' ORDER BY regional");
@@ -495,7 +502,7 @@ class PrincipalPortalController extends Controller
             });
 
             // Areas directly from cbp_raw with regional info
-            $areas = Cache::remember('cbp_filter_areas_v10', 3600, function() use ($sqlitePath) {
+            $areas = Cache::remember("cbp_filter_areas_v11_{$selectedYear}", 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT regional, MIN(area) as area_name FROM cbp_raw WHERE area IS NOT NULL AND area != '' GROUP BY regional, UPPER(TRIM(area)) ORDER BY area_name ASC");
@@ -515,7 +522,7 @@ class PrincipalPortalController extends Controller
             });
 
             // Stores directly from cbp_raw with regional & area info
-            $workLocations = Cache::remember('cbp_filter_stores_v10', 3600, function() use ($sqlitePath) {
+            $workLocations = Cache::remember("cbp_filter_stores_v11_{$selectedYear}", 3600, function() use ($sqlitePath) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
                     $stmt = $pdo->query("SELECT DISTINCT regional, MIN(area) as area, name_store FROM cbp_raw WHERE name_store IS NOT NULL GROUP BY name_store ORDER BY name_store ASC");
@@ -2270,7 +2277,14 @@ class PrincipalPortalController extends Controller
 
         // Custom Streamed CSV Export for CBP Report (Matching Excel Raw Data format)
         if ($template->code === 'RPT-DULUX-CBP-PRICING') {
-            $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
+            $selectedYear = $endYear ?: $startYear ?: (int)($request->query('year') ?? 2026);
+            if ($selectedYear <= 0) $selectedYear = 2026;
+
+            $sqlitePath = storage_path("app/dulux_data/cbp_{$selectedYear}.sqlite");
+            if (!file_exists($sqlitePath) && $selectedYear !== 2026 && file_exists(storage_path('app/dulux_data/cbp_2026.sqlite'))) {
+                $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
+            }
+
             if (file_exists($sqlitePath)) {
                 $filename = "raw-data-cbp-{$startYear}_{$startMonth}-{$endYear}_{$endMonth}.csv";
                 $headers = [
@@ -6501,8 +6515,11 @@ class PrincipalPortalController extends Controller
      */
     protected function calculateCbpDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $rawPage = 1, $rawPerPage = 50)
     {
-        $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
-        $gzPath = storage_path('app/dulux_data/cbp_2026.sqlite.gz');
+        $selectedYear = (int)($endYear ?: $startYear ?: 2026);
+        if ($selectedYear <= 0) $selectedYear = 2026;
+
+        $sqlitePath = storage_path("app/dulux_data/cbp_{$selectedYear}.sqlite");
+        $gzPath = storage_path("app/dulux_data/cbp_{$selectedYear}.sqlite.gz");
 
         // Auto-extract if .sqlite does not exist or corrupted (< 1MB) but .sqlite.gz exists
         if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
@@ -6521,18 +6538,23 @@ class PrincipalPortalController extends Controller
                         @chmod($sqlitePath, 0666);
                     }
                 } catch (\Throwable $e) {
-                    \Log::error("Auto-extraction of cbp_2026.sqlite.gz failed: " . $e->getMessage());
+                    \Log::error("Auto-extraction of cbp_{$selectedYear}.sqlite.gz failed: " . $e->getMessage());
                 }
             }
         }
 
         if (!file_exists($sqlitePath)) {
-            return null;
+            $fallbackPath = storage_path('app/dulux_data/cbp_2026.sqlite');
+            if (file_exists($fallbackPath)) {
+                $sqlitePath = $fallbackPath;
+            } else {
+                return null;
+            }
         }
 
-        $cacheKey = 'cbp_dash_v5_' . md5($template->id . '_' . $startYear . '_' . $startMonth . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+        $cacheKey = 'cbp_dash_v7_' . md5($template->id . '_' . $selectedYear . '_' . $startYear . '_' . $startMonth . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
 
-        $aggData = Cache::remember($cacheKey, 300, function() use ($sqlitePath, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
+        $aggData = Cache::remember($cacheKey, 300, function() use ($sqlitePath, $selectedYear, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
             try {
                 $pdo = new \PDO("sqlite:" . $sqlitePath);
                 $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
@@ -6556,10 +6578,11 @@ class PrincipalPortalController extends Controller
                     $eMonth = $tmp;
                 }
 
+                $maxMonth = ($selectedYear == 2026) ? 7 : 12;
                 $monthNames = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug', 9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec'];
                 $months = [];
                 for ($m = $sMonth; $m <= $eMonth; $m++) {
-                    if ($m >= 1 && $m <= 7) {
+                    if ($m >= 1 && $m <= $maxMonth) {
                         $dateObj = Carbon::create($endYear, $m, 1);
                         $months[$m] = [
                             'm' => $m,
@@ -6570,7 +6593,7 @@ class PrincipalPortalController extends Controller
                     }
                 }
                 if (empty($months)) {
-                    for ($m = 1; $m <= 7; $m++) {
+                    for ($m = 1; $m <= $maxMonth; $m++) {
                         $dateObj = Carbon::create($endYear, $m, 1);
                         $months[$m] = [
                             'm' => $m,
