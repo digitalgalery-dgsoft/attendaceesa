@@ -7987,6 +7987,16 @@ class PrincipalPortalController extends Controller
                 ];
             } catch (\Throwable $e) {
                 \Log::error("Failed to calculate Customer Database Dashboard: " . $e->getMessage());
+                return [
+                    'kpis' => ['total_records' => 0, 'total_value' => 0, 'avg_basket_size' => 0, 'unique_stores' => 0, 'unique_dcs' => 0, 'switched_cnt' => 0, 'dulux_bought_cnt' => 0, 'switched_pct' => 0, 'dulux_bought_pct' => 0],
+                    'insights' => [
+                        'customer_types' => [], 'reasons' => [], 'purposes' => [], 'brands_sought' => [],
+                        'brands_bought' => [], 'paint_types' => [], 'preview_needs' => [], 'painter_loyalty' => [],
+                    ],
+                    'by_region' => [],
+                    'top_stores' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                    'top_dcs' => [],
+                    'submissions' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
                 ];
             }
         });
