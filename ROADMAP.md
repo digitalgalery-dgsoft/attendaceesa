@@ -1129,3 +1129,17 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Menambahkan halaman Form Builder (Template Laporan) di portal principal dengan filter otomatis yang hanya menampilkan template milik principal yang sedang login.
    - Menambahkan kemampuan minimize / collapse sidebar pada portal principal untuk ruang kerja yang lebih lega.
    - Menghapus card "Total Laporan Terkirim" pada halaman Form Builder portal principal sesuai kebutuhan.
+
+4. **Standarisasi Automasi Server & Konfigurasi Cron Job aaPanel**:
+   - Dokumentasi dan standarisasi konfigurasi cron job di aaPanel untuk seluruh lingkungan server (Staging `appsend.my.id`, Node 1 AMK `amk.dgsoft.web.id`, Node 2 AKP `akp.dgsoft.web.id`, Node 3 ATK/GBS `atk.dgsoft.web.id`):
+     - **Laravel Master Scheduler (Wajib - Setiap 1 Menit)**:
+       `cd /www/wwwroot/DOMAIN && /www/server/php/83/bin/php artisan schedule:run >> /dev/null 2>&1`
+       Mengotomatisasi seluruh tugas terjadwal aplikasi (`notify:missed-checkin` setiap 08:30 WIB dan `odoo:sync --trigger=cron` setiap 30 menit).
+     - **Odoo Sync Daily Dini Hari (Pukul 01:00 WIB)**:
+       `cd /www/wwwroot/DOMAIN && /www/server/php/83/bin/php artisan odoo:sync --trigger=cron >> storage/logs/odoo_sync_cron.log 2>&1`
+       Sinkronisasi cadangan master data karyawan dan jabatan dari sistem Odoo dengan berkas log terdedikasi.
+     - **Pembersihan Cache & Log Mingguan**:
+       Otomasi pembersihan cache view dan log aplikasi setiap hari Minggu pukul 02:00 WIB agar kapasitas disk server tetap prima.
+     - **Supervisor Queue Worker Daemon**:
+       Konfigurasi background worker via Supervisor Manager aaPanel (`/www/server/php/83/bin/php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600`) dengan 2–4 proses worker untuk pengiriman notifikasi FCM dan background export secara asynchronous.
+
