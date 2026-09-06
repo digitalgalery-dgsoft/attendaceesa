@@ -933,6 +933,7 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Aplikasi Mobile Karyawan (`att-mobile`)**:
       - **Header Card Overview Cut-Off Target**: Menampilkan banner periode cut-off aktif, progress bar total laporan diselesaikan, dan 3 kartu metrik target: **Daily**, **Weekly**, dan **Monthly** (contoh: `X / Y Target (Z%)`).
       - **Template Form Card**: Dilengkapi badge frekuensi (`Daily`, `Weekly`, `Monthly`), progress chip dan bar `Target Cut-Off: 1/5 (20%)`, serta status jadwal hari ini (`(Hari ini)`).
+      - **Production APK Build**: Kompilasi sukses versi **`1.0.121+121`** (`app-release.apk`, ukuran 107.4 MB) dan tersinkronisasi ke folder download seluruh server (`appsend.my.id`, `amk.esa-solutions.id`, `akp.esa-solutions.id`, `atk.esa-solutions.id`).
 
 ---
 
