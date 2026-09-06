@@ -1028,11 +1028,18 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Pengaturan tipe frekuensi pengisian (Daily, Weekly, Monthly) dengan target kuota dan pemilihan hari aktif (Senin s/d Minggu).
       - Filter parameter produk SKU khusus prinsiple terkait.
       - Target penugasan multi-select berdasarkan jabatan (SPG, MD, TL, dll.) dan personil karyawan spesifik.
-    - **Aksi Cepat & Navigasi**:
-      - Quick Toggle Status Aktif/Non-Aktif instan via AJAX.
-      - Duplikasi Template Form dalam 1 klik untuk mempercepat pembuatan varian form laporan.
-      - Integrasi menu navigasi sidebar "Form Builder (Template)" pada grup "Form & Pelaporan SOP" di `layout.blade.php`.
-      - Wadah alert flash message terintegrasi (sukses, peringatan, dan validasi error).
+28. **Sidebar Minimizable (Collapsible) Portal Prinsiple & Optimasi Form Builder (SELESAI 06 September 2026)**:
+    - **Sidebar Minimizable / Collapsible**:
+      - Tombol toggle minimalkan/perluas sidebar tersedia di dua posisi strategis: header sidebar (`.btn-sidebar-collapse-toggle`) dan topbar kiri (`.btn-topbar-sidebar-toggle`).
+      - Mode Collapsed (~78px icon-rail): ikon menu berada di posisi tengah, nama teks disembunyikan rapi, dan badge count diposisikan sebagai dot/mini-badge di sudut ikon.
+      - **Floating Tooltips on Hover**: Setiap item menu pada mode compact menampilkan tooltip melayang hitam modern (`data-title`) dengan panah penunjuk halus di sebelah kanan sidebar.
+      - **Anti-Flicker State Persistency**: Status sidebar (terbuka/tertutup) disimpan di `localStorage ('portal_sidebar_collapsed')` dan diinisialisasi seawal mungkin di `<head>` sehingga tidak ada layout flashing saat pergantian halaman.
+      - **Auto Trigger Resize Event**: Saat sidebar diminimalkan/diperluas, sistem men-dispatch event resize jendela (`window.dispatchEvent(new Event('resize'))`) sehingga grafik ApexCharts pada dashboard dan analitik langsung menyesuaikan lebar layar secara dinamis tanpa terpotong.
+      - **Responsivitas Mobile Utuh**: Pada resolusi tablet/ponsel (`<= 1024px`), sidebar tetap berfungsi sebagai responsive off-canvas drawer dengan backdrop blur tanpa terpengaruh mode collapsed desktop.
+    - **Penyederhanaan & Optimasi Halaman Form Builder**:
+      - Menghapus KPI card "Total Laporan Terkirim" dari header Form Builder (`/portal/report-templates`) sesuai permintaan user.
+      - Grid metrik disesuaikan menjadi 3 kolom rapi (`repeat(3, 1fr)` pada desktop, `1fr` pada mobile) untuk 3 kartu utama: *Total Template Form*, *Form Aktif (Mobile)*, dan *Total Field / Pertanyaan*.
+      - Menghapus query kalkulasi `count()` dari tabel submission di controller `reportTemplatesList()`, meningkatkan kecepatan pemuatan halaman Form Builder.
 
 ---
 
