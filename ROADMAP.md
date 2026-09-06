@@ -970,9 +970,9 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 56. **Penyempurnaan & Ingestion Menyeluruh Dataset Laporan CBP (Consumer Buying Price) Dulux 2025 & 2026 (SELESAI 6 September 2026)**:
     - **Pemrosesan Master Dataset Excel CBP**:
       - Memproses data dari master workbook `D:\Data Reporting\Dulux\Laporan CBP\2026\Price CBP 2026\Price CBP 2026\07. Dashboard CBP SSO_MOP July 2026.xlsx`:
-        - **CBP 2026 (7 Bulan: Januari s/d Juli 2026)**: **217.004 baris data** monitoring harga bersih terdeduplikasi.
-        - **CBP 2025 (12 Bulan Lengkap: Januari s/d Desember 2025)**: **287.919 baris data** monitoring harga bersih terdeduplikasi.
-        - **Total Keseluruhan Dataset CBP Tergabung**: **504.923 baris data** tanpa ada data duplikat (0 duplicate records).
+        - **CBP 2026 (7 Bulan: Januari s/d Juli 2026)**: **107.472 baris data** monitoring harga bersih terdeduplikasi.
+        - **CBP 2025 (12 Bulan Lengkap: Januari s/d Desember 2025)**: **278.599 baris data** monitoring harga bersih terdeduplikasi.
+        - **Total Keseluruhan Dataset CBP Tergabung**: **386.071 baris data** tanpa ada data duplikat (0 duplicate records).
     - **Penyelarasan Pemetaan Kolom Harga & Sanitasi Kolom Reason**:
       - Menyelesaikan masalah angka harga (seperti `214.000`, `1.476.000`, `280.000`, `1.350.000`) yang sebelumnya masuk ke kolom `REASON` akibat anomali layout Excel di mana harga diletakkan pada kolom Harga Terendah/kolom bersebelahan.
       - Normalisasi harga Tin, Galon, dan Pail secara presisi: nilai harga otomatis dipetakan ke field harga (`price_tin`, `price_galon`, `price_pail`) dan harga terendah (`lowest_*`).
@@ -992,16 +992,29 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Penyempurnaan Controller Portal & View Raw Data (`PrincipalPortalController.php` & `cbp_dashboard.blade.php`)**:
       - Mendukung routing database tahun dinamis `cbp_{$selectedYear}.sqlite` dengan fallback cerdas ke 2026.
       - Penanganan fallback cerdas `price_*` dan `lowest_*` pada tabel Raw Data dan Export CSV.
-    - **Optimasi Kecepatan Form Builder (Template Laporan)**:
-      - Menghapus beban `->preload()` pada komponen form `products`, `employees`, serta penugasan repeater `employee_id` dan `work_location_id` di `ReportTemplateForm.php` agar Livewire tidak lagi men-dump ribuan record ke memory/payload browser pada saat form pertama kali dibuka.
-      - Menghapus sinkronisasi otomatis `syncDuluxMergedStockEnd()` dari method `mount()` di `ListReportTemplates.php` sehingga halaman daftar template tidak lagi menjalankan puluhan operasi baca/tulis/hapus database yang lambat setiap kali dibuka/di-refresh.
-      - Menambahkan eager loading `with(['principals', 'principal'])` pada `ReportTemplateResource::getEloquentQuery()` untuk mencegah N+1 query pada kolom list table.
-    - **Animasi Loading Universal Web Admin Filament (Sejajar Portal Principal)**:
-      - Membuat komponen partial `admin-loader.blade.php` dengan visual premium: glassmorphic frosted backdrop blur, card dengan radial ambient glow, dual-orbit animated spinner ring (outer gradient & inner dashed counter-rotating), badge icon dengan pulse halus, dynamic title/subtitle dengan animated bouncing dots, indeterminate shimmer progress bar, dan branding ESA Groups.
-      - Terintegrasi penuh dengan seluruh siklus navigasi admin: Livewire v3 request hooks (`Livewire.hook('request')`), link navigation, table pagination, form submit, button actions, dan safety timer 15 detik.
-      - Terdaftar otomatis di seluruh halaman Filament Admin melalui render hook `PanelsRenderHook::BODY_END` di `AdminPanelProvider.php`.
+      - Cache key dinaikkan ke versi `cbp_dash_v8_` dan filter dropdown dinamis per tahun `cbp_filter_regions_v12_{year}`, `cbp_filter_areas_v12_{year}`, `cbp_filter_stores_v12_{year}`.
+
+57. **Optimasi Kecepatan Form Builder (Template Laporan) & Universal Premium Loading Screen Web Admin (SELESAI 6 September 2026)**:
+    - **Percepatan Loading Halaman Form Builder (Template Laporan)**:
+      - **Penghapusan Preload Berat**: Menghapus `->preload()` pada Select `products`, `employees`, serta penugasan repeater `employee_id` dan `work_location_id` di `ReportTemplateForm.php`. Livewire kini tidak lagi men-dump ribuan SKU produk dan ribuan karyawan ke dalam memory/payload browser pada saat form pertama kali dirender.
+      - **Pembersihan Hook Mount**: Menghapus sinkronisasi otomatis `syncDuluxMergedStockEnd()` dari method `mount()` di `ListReportTemplates.php` sehingga halaman daftar template tidak lagi menjalankan puluhan operasi baca/tulis/hapus database yang lambat setiap kali dibuka/di-refresh.
+      - **Eliminasi N+1 Query**: Menambahkan eager loading `with(['principals', 'principal'])` pada `ReportTemplateResource::getEloquentQuery()` untuk meload relasi daftar template dalam satu query efisien.
+    - **Animasi Loading Universal Web Admin Filament (`admin-loader.blade.php`)**:
+      - **Desain Glassmorphic Sejajar Portal Principal**:
+        - Frosted glassmorphism backdrop blur (`backdrop-filter: blur(10px)`) dengan ambient radial glow.
+        - Dual-orbit animated spinner rings (lingkaran gradien luar berputar searah jarum jam & lingkaran putus-putus dalam berlawanan arah).
+        - Center badge logo/icon dengan animasi denyut (*pulse*).
+        - Dynamic contextual title & subtitle disertai animasi bouncing dots (`. . .`).
+        - Indeterminate shimmer progress bar di bagian bawah modal card.
+        - Kompatibel penuh dengan Dark Mode dan Light Mode.
+      - **Integrasi Otomatis Seluruh Navigasi & Aksi**:
+        - Sidebar navigation, header actions, breadcrumbs, dan pagination tabel.
+        - Form submit (Create, Edit, Save Changes).
+        - Livewire v3 request hooks (`Livewire.hook('request')`, `livewire:navigating`, `livewire:navigated`) dengan threshold debouncing halus (220ms).
+        - Safety timer 15 detik untuk mencegah antarmuka terkunci pada saat unduhan file/ekspor.
+      - **Injeksi Global via Render Hook**: Terdaftar otomatis di seluruh halaman Filament Admin via `PanelsRenderHook::BODY_END` pada `AdminPanelProvider.php`.
     - **Deployment & Multi-Server Synchronization**:
-      - Sinkronisasi basis data terkompresi `.sqlite.gz` dan seluruh chunk JSONL ke git repository dan deployment ke seluruh node server.
+      - Seluruh pembaruan kode dan asset telah di-commit, di-push, dan aktif di server Staging (`appsend.my.id`) serta 3/3 server Production Cluster (AMK, AKP, GBS).
 
 ---
 
