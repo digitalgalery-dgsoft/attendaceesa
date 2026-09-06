@@ -102,27 +102,72 @@ class ReportTemplateForm
                                 ->default(true)
                                 ->inline(false),
                         ]),
-                        Select::make('report_days')
-                            ->label('🗓️ Hari Pelaporan Wajib / Jadwal Pengisian (Opsional)')
-                            ->placeholder('Pilih satu atau lebih hari (Kosongkan jika berlaku setiap hari)')
-                            ->options([
-                                'senin' => 'Senin (Monday)',
-                                'selasa' => 'Selasa (Tuesday)',
-                                'rabu' => 'Rabu (Wednesday)',
-                                'kamis' => 'Kamis (Thursday)',
-                                'jumat' => 'Jumat (Friday)',
-                                'sabtu' => 'Sabtu (Saturday)',
-                                'minggu' => 'Minggu (Sunday)',
-                            ])
-                            ->multiple()
-                            ->searchable()
-                            ->helperText('Tentukan hari form laporan ini harus dilakukan (misal: Senin - Jumat untuk weekday, atau Sabtu - Minggu untuk akhir pekan). Jika dikosongkan, form berlaku setiap hari.')
-                            ->columnSpanFull(),
                         Textarea::make('description')
                             ->label('Deskripsi & Petunjuk Pengisian untuk Karyawan')
                             ->placeholder('Jelaskan instruksi pengisian form ini bagi SPG/MD di lapangan...')
                             ->rows(2)
                             ->columnSpanFull(),
+                    ]),
+
+                Section::make('🗓️ Pengaturan Frekuensi Jadwal & Target Pengisian Form')
+                    ->description('Atur apakah form ini wajib diisi secara Harian (Daily), Mingguan (Weekly), atau Bulanan (Monthly) beserta target kuota dan hari aktifnya.')
+                    ->collapsible()
+                    ->columnSpanFull()
+                    ->schema([
+                        Grid::make(3)->schema([
+                            Select::make('schedule_type')
+                                ->label('Tipe Frekuensi Jadwal')
+                                ->options([
+                                    'daily' => '📅 Daily (Harian)',
+                                    'weekly' => '🗓️ Weekly (Mingguan)',
+                                    'monthly' => '📆 Monthly (Bulanan)',
+                                ])
+                                ->default('daily')
+                                ->live()
+                                ->required()
+                                ->helperText(fn ($get) => match ($get('schedule_type')) {
+                                    'weekly' => 'Laporan dikerjakan dengan kuota mingguan pada hari yang ditentukan.',
+                                    'monthly' => 'Laporan dikerjakan dengan kuota bulanan (cut-off) pada hari yang ditentukan.',
+                                    default => 'Laporan akan muncul dan dikerjakan setiap hari / hari kerja aktif.',
+                                }),
+                            TextInput::make('target_count')
+                                ->label(fn ($get) => match ($get('schedule_type')) {
+                                    'weekly' => '🎯 Target Pengisian (Per Minggu)',
+                                    'monthly' => '🎯 Target Pengisian (Per Bulan / Cut-Off)',
+                                    default => '🎯 Target Pengisian (Per Hari)',
+                                })
+                                ->numeric()
+                                ->default(1)
+                                ->minValue(1)
+                                ->visible(fn ($get) => in_array($get('schedule_type'), ['weekly', 'monthly']))
+                                ->helperText(fn ($get) => match ($get('schedule_type')) {
+                                    'weekly' => 'Contoh: Isi 2 jika wajib diisi 2x dalam 1 minggu.',
+                                    'monthly' => 'Contoh: Isi 1 jika wajib diisi 1x dalam 1 periode cut-off bulanan.',
+                                    default => 'Jumlah target pengisian.',
+                                })
+                                ->required(),
+                            Select::make('report_days')
+                                ->label(fn ($get) => match ($get('schedule_type')) {
+                                    'daily' => '🗓️ Pilihan Hari Aktif (Opsional)',
+                                    'weekly' => '🗓️ Pilihan Hari yang Ditentukan',
+                                    'monthly' => '🗓️ Pilihan Hari yang Ditentukan',
+                                    default => '🗓️ Hari Pelaporan',
+                                })
+                                ->placeholder('Pilih hari (Kosongkan jika berlaku setiap hari)')
+                                ->options([
+                                    'senin' => 'Senin (Monday)',
+                                    'selasa' => 'Selasa (Tuesday)',
+                                    'rabu' => 'Rabu (Wednesday)',
+                                    'kamis' => 'Kamis (Thursday)',
+                                    'jumat' => 'Jumat (Friday)',
+                                    'sabtu' => 'Sabtu (Saturday)',
+                                    'minggu' => 'Minggu (Sunday)',
+                                ])
+                                ->multiple()
+                                ->searchable()
+                                ->columnSpan(fn ($get) => in_array($get('schedule_type'), ['weekly', 'monthly']) ? 1 : 2)
+                                ->helperText('Tentukan hari aktif laporan. Jika dikosongkan, form bebas diisi pada hari apa saja.'),
+                        ]),
                     ]),
 
                 Section::make('Visual Dynamic Form Builder (Google Form Style)')

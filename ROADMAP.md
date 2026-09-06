@@ -920,6 +920,20 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Mengganti visualisasi perbandingan YTD dari diagram batang (bar chart) menjadi **Grafik Garis Tren Bulanan (Area Chart)** dari Januari s/d bulan terpilih (misal Juli) yang membandingkan pergerakan volume Tahun Berjalan (*CY 2026*) vs Tahun Sebelumnya (*PY 2025*).
       - Menampilkan kurva tren volume liter yang halus (*smooth curve*), marker titik, indikator gradien warna, dan tooltip interaktif.
 
+54. **Pengaturan Frekuensi Jadwal Form Builder (Daily, Weekly, Monthly) & Monitoring Target Periode Cut-Off (SELESAI 6 September 2026)**:
+    - **Database & Model Schema (`report_templates`)**:
+      - Migration `2026_09_06_150000_add_schedule_settings_to_report_templates_table.php` menambahkan kolom `schedule_type` (`daily`, `weekly`, `monthly`) dan `target_count` (`integer`).
+      - Model `ReportTemplate.php` dilengkapi fungsi kalkulasi target otomatis `calculateCutoffTarget($startDate, $endDate)` dan validasi hari aktif `isScheduledForDate($date)`.
+    - **Admin Form Builder & Table (`ReportTemplateForm.php` & `ReportTemplatesTable.php`)**:
+      - Section baru *"🗓️ Pengaturan Frekuensi Jadwal & Target Pengisian Form"* dengan pilihan **Daily** (muncul setiap hari/hari kerja), **Weekly** (target per minggu & pemilihan hari pelaporan mingguan), dan **Monthly** (target per bulan/cut-off & pemilihan hari pelaporan bulanan).
+      - Kolom badge jadwal & target pada tabel template master Filament (`Daily`, `Weekly [2x/mg: Sen, Kam]`, `Monthly [1x/bln: Jum]`) beserta filter jadwal.
+    - **Backend API Reporting (`/api/v1/reporting/templates`)**:
+      - Kalkulasi dinamis periode cut-off karyawan berdasarkan `departments.cutoff_start_date` (misal 26 s/d 25 atau 1 s/d akhir bulan).
+      - Menghitung submission aktual karyawan dalam periode cut-off per template dan mengembalikan ringkasan kuota cut-off (`cutoff_info`: daily, weekly, monthly, overall target, aktual, & persentase).
+    - **Aplikasi Mobile Karyawan (`att-mobile`)**:
+      - **Header Card Overview Cut-Off Target**: Menampilkan banner periode cut-off aktif, progress bar total laporan diselesaikan, dan 3 kartu metrik target: **Daily**, **Weekly**, dan **Monthly** (contoh: `X / Y Target (Z%)`).
+      - **Template Form Card**: Dilengkapi badge frekuensi (`Daily`, `Weekly`, `Monthly`), progress chip dan bar `Target Cut-Off: 1/5 (20%)`, serta status jadwal hari ini (`(Hari ini)`).
+
 ---
 
 ## 📌 Rencana Lanjutan Berikutnya (Next Milestones)

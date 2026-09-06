@@ -5,6 +5,12 @@ class ReportTemplateModel {
   final String? description;
   final String icon;
   final String color;
+  final String scheduleType;
+  final int targetCount;
+  final int cutoffTarget;
+  final int cutoffSubmitted;
+  final int cutoffProgressPercent;
+  final String targetRatioDisplay;
   final bool requireGps;
   final bool requirePhoto;
   final bool requireSignature;
@@ -22,6 +28,12 @@ class ReportTemplateModel {
     this.description,
     this.icon = 'document-text',
     this.color = '#0F52BA',
+    this.scheduleType = 'daily',
+    this.targetCount = 1,
+    this.cutoffTarget = 1,
+    this.cutoffSubmitted = 0,
+    this.cutoffProgressPercent = 0,
+    this.targetRatioDisplay = '0/1 (0%)',
     this.requireGps = true,
     this.requirePhoto = false,
     this.requireSignature = false,
@@ -43,6 +55,16 @@ class ReportTemplateModel {
   }
 
   bool get isTodayScheduled => isScheduledForDay(DateTime.now().weekday);
+
+  String get scheduleBadgeLabel {
+    final type = scheduleType.toLowerCase();
+    if (type == 'weekly') {
+      return '🗓️ Weekly (${targetCount}x/mg)';
+    } else if (type == 'monthly') {
+      return '📆 Monthly (${targetCount}x/bln)';
+    }
+    return '📅 Daily (Harian)';
+  }
 
   String get scheduleDaysDisplay {
     if (reportDays.isEmpty) return 'Setiap Hari';
@@ -75,6 +97,13 @@ class ReportTemplateModel {
     var rawEmployees = json['assigned_employees'] as List? ?? [];
     List<String> parsedEmployees = rawEmployees.map((e) => e.toString()).toList();
 
+    final cTarget = json['cutoff_target'] is num ? (json['cutoff_target'] as num).toInt() : (int.tryParse(json['cutoff_target']?.toString() ?? '1') ?? 1);
+    final cSubmitted = json['cutoff_submitted'] is num ? (json['cutoff_submitted'] as num).toInt() : (int.tryParse(json['cutoff_submitted']?.toString() ?? '0') ?? 0);
+    final cPercent = json['cutoff_progress_percent'] is num 
+        ? (json['cutoff_progress_percent'] as num).toInt() 
+        : (int.tryParse(json['cutoff_progress_percent']?.toString() ?? '0') ?? (cTarget > 0 ? ((cSubmitted / cTarget) * 100).round() : 0));
+    final ratioDisplay = json['target_ratio_display']?.toString() ?? '$cSubmitted/$cTarget ($cPercent%)';
+
     return ReportTemplateModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
       code: json['code'] ?? '',
@@ -82,6 +111,12 @@ class ReportTemplateModel {
       description: json['description'],
       icon: json['icon'] ?? 'document-text',
       color: json['color'] ?? '#0F52BA',
+      scheduleType: json['schedule_type']?.toString() ?? 'daily',
+      targetCount: json['target_count'] is num ? (json['target_count'] as num).toInt() : (int.tryParse(json['target_count']?.toString() ?? '1') ?? 1),
+      cutoffTarget: cTarget,
+      cutoffSubmitted: cSubmitted,
+      cutoffProgressPercent: cPercent,
+      targetRatioDisplay: ratioDisplay,
       requireGps: json['require_gps'] == true || json['require_gps'] == 1,
       requirePhoto: json['require_photo'] == true || json['require_photo'] == 1,
       requireSignature: json['require_signature'] == true || json['require_signature'] == 1,
@@ -102,6 +137,12 @@ class ReportTemplateModel {
       'description': description,
       'icon': icon,
       'color': color,
+      'schedule_type': scheduleType,
+      'target_count': targetCount,
+      'cutoff_target': cutoffTarget,
+      'cutoff_submitted': cutoffSubmitted,
+      'cutoff_progress_percent': cutoffProgressPercent,
+      'target_ratio_display': targetRatioDisplay,
       'require_gps': requireGps,
       'require_photo': requirePhoto,
       'require_signature': requireSignature,

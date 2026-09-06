@@ -9,6 +9,7 @@ use App\Models\ReportFormField;
 use App\Models\ReportSubmission;
 use App\Models\ReportSubmissionValue;
 use App\Models\ReportTemplate;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -129,12 +130,86 @@ class ReportingApiController extends Controller
             return true;
         })->values();
 
+        // Hitung Periode Cut Off Aktif untuk Karyawan ini
+        $cutoff = ($employee->department && isset($employee->department->cutoff_start_date)) 
+            ? (int)$employee->department->cutoff_start_date 
+            : 26;
+        $now = Carbon::now('Asia/Jakarta');
+
+        if ($cutoff == 1) {
+            $startDate = $now->copy()->startOfMonth()->startOfDay();
+            $endDate   = $now->copy()->endOfMonth()->endOfDay();
+        } else {
+            if ($now->day >= $cutoff) {
+                $startDate = $now->copy()->setDay($cutoff)->startOfDay();
+                $endDate   = $now->copy()->addMonth()->setDay($cutoff - 1)->endOfDay();
+            } else {
+                $startDate = $now->copy()->subMonth()->setDay($cutoff)->startOfDay();
+                $endDate   = $now->copy()->setDay($cutoff - 1)->endOfDay();
+            }
+        }
+
+        $cutoffLabel = $startDate->translatedFormat('d M Y') . ' – ' . $endDate->translatedFormat('d M Y');
+
+        // Ambil riwayat submission karyawan dalam periode cut-off aktif
+        $cutoffSubmissions = ReportSubmission::where('employee_id', $employee->id)
+            ->whereBetween('submitted_at', [$startDate, $endDate])
+            ->get()
+            ->groupBy('report_template_id');
+
+        $dailyTargetTotal = 0;
+        $dailySubmittedTotal = 0;
+        $weeklyTargetTotal = 0;
+        $weeklySubmittedTotal = 0;
+        $monthlyTargetTotal = 0;
+        $monthlySubmittedTotal = 0;
+        $overallTargetTotal = 0;
+        $overallSubmittedTotal = 0;
+
         // Dapatkan WorkLocation / Toko aktif karyawan untuk auto-fill form (jika ada)
         $targetStoreId = $request->query('store_id') ?? $request->query('location_id') ?? $employee->work_location_id;
         $targetStore = $targetStoreId ? \App\Models\WorkLocation::find($targetStoreId) : null;
 
         // Format data template dan fields untuk konsumsi mobile
-        $formatted = $templates->map(function ($t) use ($employee, $allMatchingPrincipalIds, $targetStore) {
+        $formatted = $templates->map(function ($t) use (
+            $employee, 
+            $allMatchingPrincipalIds, 
+            $targetStore, 
+            $startDate, 
+            $endDate, 
+            $cutoffSubmissions, 
+            $now,
+            &$dailyTargetTotal,
+            &$dailySubmittedTotal,
+            &$weeklyTargetTotal,
+            &$weeklySubmittedTotal,
+            &$monthlyTargetTotal,
+            &$monthlySubmittedTotal,
+            &$overallTargetTotal,
+            &$overallSubmittedTotal
+        ) {
+            $scheduleType = strtolower($t->schedule_type ?? 'daily');
+            $targetCount = max(1, (int) ($t->target_count ?? 1));
+            $cutoffTarget = $t->calculateCutoffTarget($startDate, $endDate);
+            $templateSubs = $cutoffSubmissions->get($t->id, collect());
+            $cutoffSubmitted = $templateSubs->count();
+            $cutoffProgressPercent = $cutoffTarget > 0 ? (int) min(100, round(($cutoffSubmitted / $cutoffTarget) * 100)) : 0;
+            $isTodayScheduled = $t->isScheduledForDate($now);
+
+            // Akumulasi summary
+            if ($scheduleType === 'weekly') {
+                $weeklyTargetTotal += $cutoffTarget;
+                $weeklySubmittedTotal += $cutoffSubmitted;
+            } elseif ($scheduleType === 'monthly') {
+                $monthlyTargetTotal += $cutoffTarget;
+                $monthlySubmittedTotal += $cutoffSubmitted;
+            } else {
+                $dailyTargetTotal += $cutoffTarget;
+                $dailySubmittedTotal += $cutoffSubmitted;
+            }
+            $overallTargetTotal += $cutoffTarget;
+            $overallSubmittedTotal += $cutoffSubmitted;
+
             $templateProducts = $t->products;
 
             // Jika template belum memiliki mapping produk spesifik di pivot table, cari otomatis dari master produk principal template / employee
@@ -202,7 +277,14 @@ class ReportingApiController extends Controller
                 'title' => $t->title,
                 'description' => $t->description,
                 'category' => $t->category ?? 'general',
+                'schedule_type' => $scheduleType,
+                'target_count' => $targetCount,
                 'report_days' => $t->report_days ?? [],
+                'cutoff_target' => $cutoffTarget,
+                'cutoff_submitted' => $cutoffSubmitted,
+                'cutoff_progress_percent' => $cutoffProgressPercent,
+                'target_ratio_display' => "{$cutoffSubmitted}/{$cutoffTarget} ({$cutoffProgressPercent}%)",
+                'is_today_scheduled' => $isTodayScheduled,
                 'assigned_positions' => $t->positions->pluck('name')->values()->toArray(),
                 'assigned_employees' => $t->employees->pluck('full_name')->values()->toArray(),
                 'icon' => $t->icon ?? 'document-text',
@@ -264,6 +346,25 @@ class ReportingApiController extends Controller
             ];
         });
 
+        $cutoffInfo = [
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+            'label' => $cutoffLabel,
+            'cutoff_day' => $cutoff,
+            'daily_target' => $dailyTargetTotal,
+            'daily_submitted' => $dailySubmittedTotal,
+            'daily_percent' => $dailyTargetTotal > 0 ? (int) min(100, round(($dailySubmittedTotal / $dailyTargetTotal) * 100)) : 0,
+            'weekly_target' => $weeklyTargetTotal,
+            'weekly_submitted' => $weeklySubmittedTotal,
+            'weekly_percent' => $weeklyTargetTotal > 0 ? (int) min(100, round(($weeklySubmittedTotal / $weeklyTargetTotal) * 100)) : 0,
+            'monthly_target' => $monthlyTargetTotal,
+            'monthly_submitted' => $monthlySubmittedTotal,
+            'monthly_percent' => $monthlyTargetTotal > 0 ? (int) min(100, round(($monthlySubmittedTotal / $monthlyTargetTotal) * 100)) : 0,
+            'overall_target' => $overallTargetTotal,
+            'overall_submitted' => $overallSubmittedTotal,
+            'overall_percent' => $overallTargetTotal > 0 ? (int) min(100, round(($overallSubmittedTotal / $overallTargetTotal) * 100)) : 0,
+        ];
+
         return response()->json([
             'status' => 'success',
             'employee' => [
@@ -273,6 +374,7 @@ class ReportingApiController extends Controller
                 'principal_id' => $employee->principal_id,
                 'principal_name' => $employee->principal?->name ?? 'Semua Prinsiple',
             ],
+            'cutoff_info' => $cutoffInfo,
             'count' => $formatted->count(),
             'data' => $formatted,
         ]);

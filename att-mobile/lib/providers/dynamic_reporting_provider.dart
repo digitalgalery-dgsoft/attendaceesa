@@ -12,6 +12,7 @@ class DynamicReportingProvider with ChangeNotifier {
   List<ReportTemplateModel> _templates = [];
   List<ReportSubmissionModel> _history = [];
   List<dynamic> _stores = [];
+  Map<String, dynamic>? _cutoffInfo;
   String? _defaultArea;
   bool _isLoading = false;
   int _pendingOfflineCount = 0;
@@ -20,6 +21,7 @@ class DynamicReportingProvider with ChangeNotifier {
   List<ReportTemplateModel> get templates => _templates;
   List<ReportSubmissionModel> get history => _history;
   List<dynamic> get stores => _stores;
+  Map<String, dynamic>? get cutoffInfo => _cutoffInfo;
   String? get defaultArea => _defaultArea;
   bool get isLoading => _isLoading;
   int get pendingOfflineCount => _pendingOfflineCount;
@@ -37,6 +39,12 @@ class DynamicReportingProvider with ChangeNotifier {
 
     // Cek cache offline terlebih dahulu jika ada
     final cachedData = prefs.getString('cached_report_templates');
+    final cachedCutoff = prefs.getString('cached_reporting_cutoff_info');
+    if (cachedCutoff != null && !forceRefresh) {
+      try {
+        _cutoffInfo = jsonDecode(cachedCutoff) as Map<String, dynamic>;
+      } catch (_) {}
+    }
     if (cachedData != null && !forceRefresh) {
       try {
         final decoded = jsonDecode(cachedData) as List;
@@ -59,6 +67,11 @@ class DynamicReportingProvider with ChangeNotifier {
         if (data['status'] == 'success') {
           final List rawList = data['data'] ?? [];
           _templates = rawList.map((item) => ReportTemplateModel.fromJson(item)).toList();
+          
+          if (data['cutoff_info'] != null) {
+            _cutoffInfo = data['cutoff_info'] as Map<String, dynamic>;
+            await prefs.setString('cached_reporting_cutoff_info', jsonEncode(_cutoffInfo));
+          }
           
           // Simpan ke local cache offline
           await prefs.setString('cached_report_templates', jsonEncode(rawList));

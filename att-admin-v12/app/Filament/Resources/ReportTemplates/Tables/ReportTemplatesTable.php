@@ -102,6 +102,30 @@ class ReportTemplatesTable
                         default => ucfirst($state ?? '-'),
                     })
                     ->sortable(),
+                TextColumn::make('schedule_type')
+                    ->label('Jadwal & Target')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'daily' => 'success',
+                        'weekly' => 'info',
+                        'monthly' => 'warning',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(function (ReportTemplate $record) {
+                        $type = strtolower($record->schedule_type ?? 'daily');
+                        $target = $record->target_count ?? 1;
+                        $days = !empty($record->report_days) 
+                            ? implode(', ', array_map('ucfirst', $record->report_days)) 
+                            : 'Setiap Hari';
+
+                        if ($type === 'weekly') {
+                            return "🗓️ Weekly ({$target}x/mg: {$days})";
+                        } elseif ($type === 'monthly') {
+                            return "📆 Monthly ({$target}x/bln: {$days})";
+                        }
+                        return "📅 Daily ({$days})";
+                    })
+                    ->sortable(),
                 TextColumn::make('fields_count')
                     ->label('Total Field')
                     ->counts('fields')
@@ -137,6 +161,13 @@ class ReportTemplatesTable
                     ->label('Filter Prinsiple')
                     ->searchable()
                     ->preload(),
+                SelectFilter::make('schedule_type')
+                    ->label('Filter Jadwal')
+                    ->options([
+                        'daily' => '📅 Daily (Harian)',
+                        'weekly' => '🗓️ Weekly (Mingguan)',
+                        'monthly' => '📆 Monthly (Bulanan)',
+                    ]),
                 SelectFilter::make('category')
                     ->label('Filter Kategori')
                     ->options([

@@ -15,6 +15,8 @@ class ReportTemplate extends Model
     protected $guarded = [];
 
     protected $casts = [
+        'schedule_type' => 'string',
+        'target_count' => 'integer',
         'require_gps' => 'boolean',
         'require_signature' => 'boolean',
         'is_active' => 'boolean',
@@ -24,6 +26,82 @@ class ReportTemplate extends Model
         'report_days' => 'array',
         'dashboard_config' => 'array',
     ];
+
+    /**
+     * Hitung total target pengisian laporan dalam rentang periode cut-off tertentu.
+     */
+    public function calculateCutoffTarget(\Carbon\Carbon $startDate, \Carbon\Carbon $endDate): int
+    {
+        $scheduleType = strtolower($this->schedule_type ?? 'daily');
+        $targetCount = max(1, (int) ($this->target_count ?? 1));
+        $reportDays = is_array($this->report_days) ? array_map('strtolower', $this->report_days) : [];
+
+        $dayMap = [
+            1 => 'senin',
+            2 => 'selasa',
+            3 => 'rabu',
+            4 => 'kamis',
+            5 => 'jumat',
+            6 => 'sabtu',
+            7 => 'minggu',
+        ];
+
+        if ($scheduleType === 'monthly') {
+            return $targetCount;
+        }
+
+        if ($scheduleType === 'weekly') {
+            // Hitung estimasi jumlah minggu dalam rentang cut-off (biasanya 4 s/d 5 minggu)
+            $totalDays = max(1, $startDate->diffInDays($endDate->copy()->addDay()));
+            $weeks = max(1, (int) round($totalDays / 7));
+            return $targetCount * $weeks;
+        }
+
+        // Default: Daily (Harian)
+        if (empty($reportDays)) {
+            // Setiap hari dalam rentang cut-off
+            return max(1, $startDate->diffInDays($endDate->copy()->addDay()));
+        }
+
+        // Hitung hari yang sesuai dengan pilihan report_days
+        $matchingDays = 0;
+        $curr = $startDate->copy()->startOfDay();
+        $end = $endDate->copy()->startOfDay();
+
+        while ($curr->lte($end)) {
+            $dayName = $dayMap[$curr->dayOfWeekIso] ?? '';
+            if (in_array($dayName, $reportDays)) {
+                $matchingDays++;
+            }
+            $curr->addDay();
+        }
+
+        return max(1, $matchingDays);
+    }
+
+    /**
+     * Cek apakah hari ini termasuk hari aktif pengisian form.
+     */
+    public function isScheduledForDate(\Carbon\Carbon $date): bool
+    {
+        $reportDays = is_array($this->report_days) ? array_map('strtolower', $this->report_days) : [];
+        if (empty($reportDays)) {
+            return true;
+        }
+
+        $dayMap = [
+            1 => 'senin',
+            2 => 'selasa',
+            3 => 'rabu',
+            4 => 'kamis',
+            5 => 'jumat',
+            6 => 'sabtu',
+            7 => 'minggu',
+        ];
+
+        $dayName = $dayMap[$date->dayOfWeekIso] ?? '';
+        return in_array($dayName, $reportDays);
+    }
 
     /**
      * Get default dashboard configuration for this template

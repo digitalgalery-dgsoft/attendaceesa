@@ -410,6 +410,18 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
           
           const SizedBox(height: 14),
 
+          // Header Card Ringkasan Target Periode Cut-Off (Daily, Weekly, Monthly)
+          if (provider.cutoffInfo != null)
+            _buildCutoffSummaryCard(
+              provider.cutoffInfo!,
+              primaryColor,
+              cardColor,
+              textColor,
+              subtitleColor,
+              elevatedColor,
+              isDarkMode,
+            ),
+
           if (provider.templates.isEmpty)
             Center(
               child: Padding(
@@ -445,8 +457,234 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                   cardColor,
                   textColor,
                   subtitleColor,
+                  elevatedColor,
                   isDarkMode,
                 )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCutoffSummaryCard(
+    Map<String, dynamic> cutoffInfo,
+    Color primaryColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    bool isDarkMode,
+  ) {
+    final periodLabel = cutoffInfo['label']?.toString() ?? 'Periode Cut-Off Aktif';
+    final dailyTarget = cutoffInfo['daily_target'] ?? 0;
+    final dailySub = cutoffInfo['daily_submitted'] ?? 0;
+    final dailyPercent = cutoffInfo['daily_percent'] ?? 0;
+
+    final weeklyTarget = cutoffInfo['weekly_target'] ?? 0;
+    final weeklySub = cutoffInfo['weekly_submitted'] ?? 0;
+    final weeklyPercent = cutoffInfo['weekly_percent'] ?? 0;
+
+    final monthlyTarget = cutoffInfo['monthly_target'] ?? 0;
+    final monthlySub = cutoffInfo['monthly_submitted'] ?? 0;
+    final monthlyPercent = cutoffInfo['monthly_percent'] ?? 0;
+
+    final overallTarget = cutoffInfo['overall_target'] ?? 0;
+    final overallSub = cutoffInfo['overall_submitted'] ?? 0;
+    final overallPercent = cutoffInfo['overall_percent'] ?? 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: Periode Cut-Off
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.date_range_rounded, color: primaryColor, size: 16),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Periode Cut-Off Laporan',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: elevatedColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  periodLabel,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: subtitleColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Overall Progress Bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total Target Diselesaikan',
+                style: TextStyle(fontSize: 11.5, color: subtitleColor, fontWeight: FontWeight.w500),
+              ),
+              Text(
+                '$overallSub / $overallTarget ($overallPercent%)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryColor),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: overallTarget > 0 ? (overallSub / overallTarget).clamp(0.0, 1.0) : 0.0,
+              minHeight: 7,
+              backgroundColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                overallPercent >= 100 ? const Color(0xFF149A6E) : primaryColor,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 3 Columns: Daily, Weekly, Monthly
+          Row(
+            children: [
+              Expanded(
+                child: _buildMetricTile(
+                  icon: Icons.calendar_today_rounded,
+                  title: 'Daily',
+                  ratio: '$dailySub/$dailyTarget',
+                  percent: '$dailyPercent%',
+                  accentColor: const Color(0xFF0F52BA),
+                  isDarkMode: isDarkMode,
+                  cardColor: elevatedColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildMetricTile(
+                  icon: Icons.view_week_rounded,
+                  title: 'Weekly',
+                  ratio: '$weeklySub/$weeklyTarget',
+                  percent: '$weeklyPercent%',
+                  accentColor: const Color(0xFF0284C7),
+                  isDarkMode: isDarkMode,
+                  cardColor: elevatedColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildMetricTile(
+                  icon: Icons.calendar_month_rounded,
+                  title: 'Monthly',
+                  ratio: '$monthlySub/$monthlyTarget',
+                  percent: '$monthlyPercent%',
+                  accentColor: const Color(0xFFD97706),
+                  isDarkMode: isDarkMode,
+                  cardColor: elevatedColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricTile({
+    required IconData icon,
+    required String title,
+    required String ratio,
+    required String percent,
+    required Color accentColor,
+    required bool isDarkMode,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 13, color: accentColor),
+              const SizedBox(width: 4),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: accentColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            ratio,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            percent,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: subtitleColor,
+            ),
+          ),
         ],
       ),
     );
@@ -458,9 +696,14 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
     Color cardColor,
     Color textColor,
     Color subtitleColor,
+    Color elevatedColor,
     bool isDarkMode,
   ) {
     final themeColor = Color(int.tryParse(template.color.replaceAll('#', '0xFF')) ?? defaultColor.value);
+    final progressValue = template.cutoffTarget > 0 
+        ? (template.cutoffSubmitted / template.cutoffTarget).clamp(0.0, 1.0) 
+        : 0.0;
+    final isDone = template.cutoffProgressPercent >= 100;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -493,99 +736,186 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
             ).then((_) {
               final auth = Provider.of<AuthProvider>(context, listen: false);
               if (auth.token != null) {
+                Provider.of<DynamicReportingProvider>(context, listen: false).fetchTemplates(auth.token!, forceRefresh: true);
                 Provider.of<DynamicReportingProvider>(context, listen: false).fetchHistory(auth.token!);
               }
             });
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: themeColor.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(_getIconData(template.icon), color: themeColor, size: 24),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        template.title,
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor, height: 1.25),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: themeColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      if (template.description != null && template.description!.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          template.description!,
-                          style: TextStyle(fontSize: 11.5, color: subtitleColor, height: 1.3),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        runSpacing: 4,
+                      child: Icon(_getIconData(template.icon), color: themeColor, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Text(
+                            template.title,
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor, height: 1.25),
+                          ),
+                          if (template.description != null && template.description!.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              template.description!,
+                              style: TextStyle(fontSize: 11.5, color: subtitleColor, height: 1.3),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios_rounded, color: subtitleColor, size: 14),
+                  ],
+                ),
+                
+                const SizedBox(height: 12),
+
+                // Target Cut-Off & Progress Bar
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: elevatedColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                isDone ? Icons.check_circle_rounded : Icons.track_changes_rounded,
+                                size: 13,
+                                color: isDone ? const Color(0xFF149A6E) : themeColor,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Target Periode Cut-Off:',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: subtitleColor,
+                                ),
+                              ),
+                            ],
+                          ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(5),
-                              border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                              color: isDone 
+                                  ? const Color(0xFF149A6E).withOpacity(0.15) 
+                                  : themeColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              template.code,
-                              style: TextStyle(fontSize: 10, color: subtitleColor, fontFamily: 'monospace', fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          Text(
-                            '${template.fieldsCount} Parameter',
-                            style: TextStyle(fontSize: 11, color: themeColor, fontWeight: FontWeight.w600),
-                          ),
-                          if (template.reportDays.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: template.isTodayScheduled
-                                    ? const Color(0xFF149A6E).withOpacity(0.12)
-                                    : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today_rounded,
-                                    size: 10,
-                                    color: template.isTodayScheduled ? const Color(0xFF149A6E) : subtitleColor,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    template.scheduleDaysDisplay + (template.isTodayScheduled ? ' (Hari ini)' : ''),
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: template.isTodayScheduled ? const Color(0xFF149A6E) : subtitleColor,
-                                    ),
-                                  ),
-                                ],
+                              template.targetRatioDisplay,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isDone ? const Color(0xFF149A6E) : themeColor,
                               ),
                             ),
+                          ),
                         ],
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progressValue,
+                          minHeight: 5,
+                          backgroundColor: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            isDone ? const Color(0xFF149A6E) : themeColor,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios_rounded, color: subtitleColor, size: 14),
+
+                const SizedBox(height: 10),
+
+                // Badges: Code, Schedule Frequency, Parameter, Day Schedule
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(5),
+                        border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                      ),
+                      child: Text(
+                        template.code,
+                        style: TextStyle(fontSize: 10, color: subtitleColor, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: themeColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Text(
+                        template.scheduleBadgeLabel,
+                        style: TextStyle(fontSize: 10, color: themeColor, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Text(
+                      '${template.fieldsCount} Parameter',
+                      style: TextStyle(fontSize: 10.5, color: subtitleColor, fontWeight: FontWeight.w500),
+                    ),
+                    if (template.reportDays.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: template.isTodayScheduled
+                              ? const Color(0xFF149A6E).withOpacity(0.12)
+                              : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              size: 10,
+                              color: template.isTodayScheduled ? const Color(0xFF149A6E) : subtitleColor,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              template.scheduleDaysDisplay + (template.isTodayScheduled ? ' (Hari ini)' : ''),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: template.isTodayScheduled ? const Color(0xFF149A6E) : subtitleColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
