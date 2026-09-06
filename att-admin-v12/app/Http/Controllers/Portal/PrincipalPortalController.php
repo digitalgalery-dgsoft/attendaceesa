@@ -6641,8 +6641,8 @@ class PrincipalPortalController extends Controller
                 $kpiSql = "
                     SELECT COUNT(*) as total_records,
                            COUNT(DISTINCT name_store) as unique_stores,
-                           AVG(CASE WHEN brand = 'AN' AND price_galon > 0 THEN price_galon END) as avg_an_galon,
-                           AVG(CASE WHEN brand != 'AN' AND brand != '' AND price_galon > 0 THEN price_galon END) as avg_comp_galon
+                           AVG(CASE WHEN brand = 'AN' AND price_galon >= 1000 AND price_galon <= 5000000 THEN price_galon END) as avg_an_galon,
+                           AVG(CASE WHEN brand != 'AN' AND brand != '' AND price_galon >= 1000 AND price_galon <= 5000000 THEN price_galon END) as avg_comp_galon
                     FROM cbp_raw
                     WHERE $whereSql
                 ";
@@ -6654,18 +6654,18 @@ class PrincipalPortalController extends Controller
                 $trendSql = "
                     SELECT 
                         CASE 
-                            WHEN brand = 'AN' THEN 'AkzoNobel (Dulux)'
-                            WHEN brand = 'Jotun' THEN 'Jotun'
-                            WHEN brand IN ('Nippon', 'Nippon Paint') THEN 'Nippon Paint'
-                            WHEN brand IN ('Avian', 'Aquaproof') THEN 'Avian / Aquaproof'
-                            WHEN brand = 'Mowilex' THEN 'Mowilex'
+                            WHEN brand = 'AN' OR brand LIKE '%Dulux%' OR brand LIKE '%Akzo%' THEN 'AkzoNobel (Dulux)'
+                            WHEN brand LIKE '%Jotun%' THEN 'Jotun'
+                            WHEN brand IN ('Nippon', 'Nippon Paint') OR brand LIKE '%Nippon%' THEN 'Nippon Paint'
+                            WHEN brand IN ('Avian', 'Aquaproof') OR brand LIKE '%Avian%' OR brand LIKE '%Aquaproof%' THEN 'Avian / Aquaproof'
+                            WHEN brand LIKE '%Mowilex%' THEN 'Mowilex'
                             ELSE 'Lainnya'
                         END as brand_group,
                         month,
                         AVG(price_galon) as avg_price
                     FROM cbp_raw
                     WHERE category IN ('Super Premium Interior', 'Premium Interior', 'Dulux Interior', 'Super Premium Exterior', 'Premium Exterior', 'Mass Interior', 'Washable Segment')
-                      AND price_galon > 0
+                      AND price_galon >= 1000 AND price_galon <= 5000000
                       AND $whereSql
                     GROUP BY brand_group, month
                     ORDER BY brand_group, month
@@ -6688,11 +6688,11 @@ class PrincipalPortalController extends Controller
                     }
                 }
 
-                // Fill zero if month is missing in trend
+                // Fill null if month is missing in trend
                 foreach ($trendSeries as $bg => &$tMonths) {
                     foreach ($months as $m => $mMeta) {
-                        if (!isset($tMonths[$m])) {
-                            $tMonths[$m] = 0;
+                        if (!isset($tMonths[$m]) || $tMonths[$m] <= 0) {
+                            $tMonths[$m] = null;
                         }
                     }
                     ksort($tMonths);
@@ -6783,7 +6783,7 @@ class PrincipalPortalController extends Controller
                                    AVG($metricCol) as avg_price,
                                    COUNT(*) as cnt
                             FROM cbp_raw
-                            WHERE $catQ AND $metricCol > 0 AND $whereSql
+                            WHERE $catQ AND $metricCol >= 1000 AND $metricCol <= 25000000 AND $whereSql
                             GROUP BY product, brand, month
                             ORDER BY brand, product, month
                         ";

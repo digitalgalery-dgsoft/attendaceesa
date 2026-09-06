@@ -980,14 +980,19 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Deduplikasi Ketat & Normalisasi Kode/Brand**:
       - Deduplikasi multi-kunci berbasis `(sap_member | name_store) + area + product + brand` per bulan untuk memastikan integritas data.
       - Normalisasi brand dan sintesis kode master (`name_store + area + rsm_area + product`).
+    - **Pembersihan Artefak Formula Excel & Penstabilan Grafik Tren MOP (`Tren MOP Bulanan & YoY`)**:
+      - Menyelesaikan masalah grafik tren garis yang terlihat terputus/kosong pada bulan Jan–Jun akibat lonjakan nilai formula tak wajar (*formula calculation artifact* di master Excel seperti `1.86E+16`, `2.16E+12`, dan `1571055.58...`).
+      - Menerapkan batasan ambang batas harga valid pada processor C# (`CleanPrice`): Tin (Rp 1.000 s/d 5.000.000), Galon (Rp 1.000 s/d 5.000.000), Pail (Rp 1.000 s/d 25.000.000).
+      - Menghilangkan nilai non-angka pada kolom `REASON` dan menangani baris dengan *shifted column brand* dengan auto-inference ke brand group utama (AN/Dulux, Jotun, Nippon Paint, Avian/Aquaproof, Mowilex).
+      - Seluruh 7 bulan di tahun 2026 (Januari – Juli) dan 12 bulan di 2025 kini menghasilkan grafik garis tren yang mulus, stabil, dan akurat (rata-rata harga galon berada di kisaran realistis Rp 220.000 – Rp 320.000).
     - **Basis Data SQLite & JSONL Chunks**:
-      - Rekonstruksi database SQLite berindeks penuh: `cbp_2026.sqlite` (94.86 MB / .gz 16.68 MB) dan `cbp_2025.sqlite` (128.11 MB / .gz 22.67 MB).
+      - Rekonstruksi database SQLite berindeks penuh: `cbp_2026.sqlite` (47.61 MB / .gz 8.23 MB) dan `cbp_2025.sqlite` (124.04 MB / .gz 21.94 MB).
       - Menghasilkan 19 file chunk JSONL terkompresi (`cbp_2026_m01..07.jsonl.gz` dan `cbp_2025_m01..12.jsonl.gz`) di `storage/app/dulux_data/chunks/`.
       - Multi-column indexing presisi (`idx_cbp_month`, `idx_cbp_brand`, `idx_cbp_area`, `idx_cbp_store`, `idx_cbp_code`, `idx_cbp_month_code`, `idx_cbp_category`, `idx_cbp_perf`) untuk eksekusi kueri agregasi dashboard secepat kilat (<10ms).
     - **Penyempurnaan Controller Portal & View Raw Data (`PrincipalPortalController.php` & `cbp_dashboard.blade.php`)**:
       - Mendukung routing database tahun dinamis `cbp_{$selectedYear}.sqlite` dengan fallback cerdas ke 2026.
       - Penanganan fallback cerdas `price_*` dan `lowest_*` pada tabel Raw Data dan Export CSV.
-      - Cache key dinaikkan ke versi `cbp_dash_v7_` dan filter dropdown dinamis per tahun `cbp_filter_regions_v11_{year}`, `cbp_filter_areas_v11_{year}`, `cbp_filter_stores_v11_{year}`.
+      - Cache key dinaikkan ke versi `cbp_dash_v8_` dan filter dropdown dinamis per tahun `cbp_filter_regions_v12_{year}`, `cbp_filter_areas_v12_{year}`, `cbp_filter_stores_v12_{year}`.
     - **Deployment & Multi-Server Synchronization**:
       - Sinkronisasi basis data terkompresi `.sqlite.gz` dan seluruh chunk JSONL ke git repository dan deployment ke seluruh node server.
 
