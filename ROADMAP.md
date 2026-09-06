@@ -1036,10 +1036,23 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - **Anti-Flicker State Persistency**: Status sidebar (terbuka/tertutup) disimpan di `localStorage ('portal_sidebar_collapsed')` dan diinisialisasi seawal mungkin di `<head>` sehingga tidak ada layout flashing saat pergantian halaman.
       - **Auto Trigger Resize Event**: Saat sidebar diminimalkan/diperluas, sistem men-dispatch event resize jendela (`window.dispatchEvent(new Event('resize'))`) sehingga grafik ApexCharts pada dashboard dan analitik langsung menyesuaikan lebar layar secara dinamis tanpa terpotong.
       - **Responsivitas Mobile Utuh**: Pada resolusi tablet/ponsel (`<= 1024px`), sidebar tetap berfungsi sebagai responsive off-canvas drawer dengan backdrop blur tanpa terpengaruh mode collapsed desktop.
-    - **Penyederhanaan & Optimasi Halaman Form Builder**:
-      - Menghapus KPI card "Total Laporan Terkirim" dari header Form Builder (`/portal/report-templates`) sesuai permintaan user.
-      - Grid metrik disesuaikan menjadi 3 kolom rapi (`repeat(3, 1fr)` pada desktop, `1fr` pada mobile) untuk 3 kartu utama: *Total Template Form*, *Form Aktif (Mobile)*, dan *Total Field / Pertanyaan*.
-      - Menghapus query kalkulasi `count()` dari tabel submission di controller `reportTemplatesList()`, meningkatkan kecepatan pemuatan halaman Form Builder.
+29. **Chart Garis Perubahan Employee Aktif Tiap Jam (12 Jam Terakhir) di Dashboard Admin (SELESAI 06 September 2026)**:
+    - **Widget Line Chart Interaktif (`ActiveEmployeesHourlyChartWidget`)**:
+      - Ditambahkan langsung pada Dashboard Web Admin Filament (`app/Filament/Widgets/ActiveEmployeesHourlyChartWidget.php`) pada urutan strategis (`sort = 3`, tepat di bawah 4 KPI Overview Stats).
+      - Menampilkan tren pergerakan karyawan aktif tiap jam selama rentang 12 jam terakhir (`now()->subHours(11)` s/d `now()`).
+    - **Multi-Dataset Terpadu**:
+      - **Dataset 1 (Primary Area Line)**: *Total Employee Aktif (On-Duty)* dengan kurva halus (`tension: 0.35`), ketebalan border 3px biru (`#0F52BA`), dan bayangan area elegan.
+      - **Dataset 2 (Dashed Line Green)**: *Check-in Baru (+)* (`#10B981`) menunjukkan lonjakan karyawan yang baru memulai tugas pada jam bersangkutan.
+      - **Dataset 3 (Dashed Line Rose)**: *Check-out Selesai (-)* (`#EF4444`) menunjukkan karyawan yang menyelesaikan shift pada jam bersangkutan.
+    - **Header KPI Summary Bar (Quick Metrics)**:
+      - *Aktif Saat Ini*: Jumlah karyawan yang sedang bertugas saat ini lengkap dengan indikator animasi live pulsating green dot 🟢.
+      - *Puncak Jam Kerja (Peak)*: Jam tersibuk dengan jumlah karyawan aktif terbanyak (misal: `11:00 WIB`).
+      - *Total Check-in Baru*: Akumulasi seluruh check-in dalam 12 jam terakhir.
+      - *Total Check-out*: Akumulasi seluruh check-out dalam 12 jam terakhir.
+    - **Filter Fleksibel & Polling Otomatis**:
+      - Filter dropdown interaktif: Pilihan rentang waktu (*12 Jam Terakhir*, *24 Jam Terakhir*, atau *Hari Ini Sejak 00:00*), filter khusus per Prinsiple, dan filter per Area / Cabang.
+      - Dukungan isolasi role & akses user cabang/prinsiple non-superadmin.
+      - Live polling otomatis setiap 30 detik (`wire:poll.30s="updateChartData"`) untuk memastikan pergerakan karyawan selalu ter-update secara real-time.
 
 ---
 
