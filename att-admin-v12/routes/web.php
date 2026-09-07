@@ -611,23 +611,10 @@ Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
         ]);
         $mark('request_created');
 
-        // Test step by step
-        $template = \App\Models\ReportTemplate::where('code', 'RPT-DULUX-OFFTAKE-01')->first();
-        $mark('template_fetched');
-
-        $offtakeData = $ctrl->calculateOfftakeDashboardData(
-            $template, 9, 2026, 9, 2026, null, null, null, null, 1, 1, 50
-        );
-        $mark('offtake_dash_calculated');
-
-        $ytdData = $ctrl->calculateOfftakeYtdData(
-            $template, 9, 2026, null, null, null, null
-        );
-        $mark('offtake_ytd_calculated');
-
-        // Test full reportDetail
+        // Test full reportDetail directly
+        $mark('before_reportDetail');
         $res = $ctrl->reportDetail($req, 'RPT-DULUX-OFFTAKE-01');
-        $mark('reportDetail_called');
+        $mark('after_reportDetail');
 
         $renderedHtmlLen = 0;
         if ($res instanceof \Illuminate\View\View) {
@@ -635,15 +622,19 @@ Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
             $html = $res->render();
             $renderedHtmlLen = strlen($html);
             $mark('after_render');
+            return response()->json([
+                'status' => 'success',
+                'html_len' => $renderedHtmlLen,
+                'view_name' => $res->getName(),
+                'view_data_keys' => array_keys($res->getData()),
+                'benchmarks' => $benchmarks,
+            ], 200, [], JSON_PRETTY_PRINT);
         }
 
         return response()->json([
             'status' => 'success',
-            'html_len' => $renderedHtmlLen,
+            'response_type' => is_object($res) ? get_class($res) : gettype($res),
             'benchmarks' => $benchmarks,
-            'offtake_sheet1_count' => $offtakeData['sheet1']['total_records'] ?? 0,
-            'offtake_sheet2_count' => $offtakeData['sheet2']['total_stores'] ?? 0,
-            'offtake_sheet1_sample' => array_slice($offtakeData['sheet1']['rows'] ?? [], 0, 2),
         ], 200, [], JSON_PRETTY_PRINT);
     } catch (\Throwable $e) {
         $mark('caught_exception');
