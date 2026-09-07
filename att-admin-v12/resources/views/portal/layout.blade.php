@@ -190,7 +190,7 @@
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
-            padding: 1.25rem 0.85rem;
+            padding: 1rem 0.85rem 1.5rem;
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
@@ -198,6 +198,7 @@
 
         .sidebar-collapsed .sidebar-menu {
             padding: 1rem 0.5rem;
+            gap: 0.25rem;
         }
 
         .sidebar-menu::-webkit-scrollbar {
@@ -209,24 +210,35 @@
         }
 
         .menu-category-label {
-            font-size: 0.7rem;
+            font-size: 0.72rem;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.8px;
-            color: var(--text-muted);
-            padding: 0.85rem 0.75rem 0.4rem;
+            color: #94a3b8;
+            margin-top: 0.75rem;
+            margin-bottom: 0.2rem;
+            padding: 0.35rem 0.65rem;
+            line-height: 1.3;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            flex-shrink: 0;
+            display: block;
+        }
+
+        .menu-category-label:first-child {
+            margin-top: 0.15rem;
         }
 
         .sidebar-collapsed .menu-category-label {
             height: 1px;
+            min-height: 1px;
             background: #f1f5f9;
             margin: 0.5rem 0.4rem;
             padding: 0;
             font-size: 0;
             overflow: hidden;
+            flex-shrink: 0;
         }
 
         .sidebar-nav-item {
@@ -241,6 +253,8 @@
             text-decoration: none;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
+            flex-shrink: 0;
+            line-height: 1.25;
         }
 
         .sidebar-nav-item i.nav-icon {
@@ -688,9 +702,12 @@
             .sidebar-collapsed .menu-category-label {
                 height: auto !important;
                 background: transparent !important;
-                margin: 0 !important;
-                padding: 0.85rem 0.75rem 0.4rem !important;
-                font-size: 0.7rem !important;
+                margin: 0.75rem 0 0.2rem 0 !important;
+                padding: 0.35rem 0.65rem !important;
+                font-size: 0.72rem !important;
+                line-height: 1.3 !important;
+                display: block !important;
+                flex-shrink: 0 !important;
             }
         }
     </style>
