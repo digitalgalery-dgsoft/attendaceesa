@@ -585,24 +585,35 @@ Route::get('/migrate-now', function () {
 
 Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
     try {
-        $logPath = storage_path('logs/laravel.log');
-        $lines = [];
-        if (file_exists($logPath)) {
-            $fp = fopen($logPath, 'r');
-            fseek($fp, max(0, filesize($logPath) - 50000));
-            $content = fread($fp, 50000);
-            fclose($fp);
-            $lines = array_slice(explode("\n", $content), -60);
+        $ctrl = app(\App\Http\Controllers\Portal\PrincipalPortalController::class);
+        $req = \Illuminate\Http\Request::create('/portal/report/RPT-DULUX-OFFTAKE-01', 'GET', [
+            'p' => 18,
+            'start_month' => 9,
+            'start_year' => 2026,
+            'end_month' => 9,
+            'end_year' => 2026,
+        ]);
+        $res = $ctrl->reportDetail($req, 'RPT-DULUX-OFFTAKE-01');
+        if ($res instanceof \Illuminate\View\View) {
+            $html = $res->render();
+            return response()->json([
+                'status' => 'success',
+                'rendered' => true,
+                'html_len' => strlen($html),
+            ]);
         }
         return response()->json([
             'status' => 'success',
-            'log_tail' => $lines,
-        ], 200, [], JSON_PRETTY_PRINT);
+            'response_type' => get_class($res),
+        ]);
     } catch (\Throwable $e) {
         return response()->json([
             'status' => 'error',
-            'message' => $e->getMessage()
-        ], 500);
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => explode("\n", $e->getTraceAsString())
+        ], 500, [], JSON_PRETTY_PRINT);
     }
 });
 
