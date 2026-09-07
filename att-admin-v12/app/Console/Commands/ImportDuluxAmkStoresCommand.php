@@ -223,13 +223,13 @@ class ImportDuluxAmkStoresCommand extends Command
 
                 $emp = null;
                 if (!empty($map['dc_no'])) {
-                    $emp = Employee::where('employee_no', $map['dc_no'])->orWhere('nik', $map['dc_no'])->first();
+                    $emp = Employee::where('employee_no', $map['dc_no'])->first();
                 }
                 if (!$emp && !empty($map['dc_ktp'])) {
                     $emp = Employee::where('identification_id', $map['dc_ktp'])->first();
                 }
                 if (!$emp && !empty($map['dc_name'])) {
-                    $emp = Employee::where('name', 'ilike', $map['dc_name'])->first();
+                    $emp = Employee::where('name', 'ilike', '%' . $map['dc_name'] . '%')->first();
                 }
 
                 if ($emp) {
