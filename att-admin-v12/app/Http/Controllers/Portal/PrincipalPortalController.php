@@ -683,6 +683,9 @@ class PrincipalPortalController extends Controller
      */
     public function reportDetail(Request $request, string $code)
     {
+        @ini_set('memory_limit', '1024M');
+        @set_time_limit(120);
+
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
 
         if (!$tenantPrincipal) {
@@ -6554,6 +6557,9 @@ class PrincipalPortalController extends Controller
      */
     protected function calculateOfftakeDashboardData($template, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $offtakePage = 1, $rawPage = 1, $perPage = 50)
     {
+        @ini_set('memory_limit', '1024M');
+        @set_time_limit(120);
+
         $selectedYear = (int)($endYear ?: $startYear ?: 2026);
         if ($selectedYear <= 0) $selectedYear = 2026;
 
@@ -6603,7 +6609,7 @@ class PrincipalPortalController extends Controller
         $startDate = Carbon::createFromDate($selectedYear, $sMonth, 1)->startOfMonth();
         $endDate = Carbon::createFromDate($selectedYear, $eMonth, 1)->endOfMonth();
 
-        $cacheKey = 'offtake_dash_v4_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search . '_' . $offtakePage . '_' . $rawPage);
+        $cacheKey = 'offtake_dash_v5_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search . '_' . $offtakePage . '_' . $rawPage);
 
         return Cache::remember($cacheKey, 300, function() use ($template, $sqlitePath, $sMonth, $eMonth, $selectedYear, $startDate, $endDate, $activeMonths, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $offtakePage, $rawPage, $perPage) {
             try {
@@ -6636,17 +6642,15 @@ class PrincipalPortalController extends Controller
 
                 try {
                     $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
-                    $liveSubs = $liveQuery->get();
+                    $liveSubs = $liveQuery->select(['id', 'report_template_id', 'work_location_id', 'submitted_at', 'submission_date', 'created_at'])
+                        ->with(['workLocation:id,name,code,sap_code,external_id,branch_id,region', 'workLocation.branch:id,name', 'values:id,report_submission_id,form_field_id,field_name,value_text,value_number,value_date,value_json'])
+                        ->get();
 
                     foreach ($liveSubs as $sub) {
                         $valMap = [];
                         foreach ($sub->values as $v) {
                             $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
                             if ($v->field_name) $valMap[$v->field_name] = $val;
-                            if ($v->formField) {
-                                if ($v->formField->field_name) $valMap[$v->formField->field_name] = $val;
-                                if ($v->formField->field_label) $valMap[strtolower(str_replace([' ', '-'], '_', $v->formField->field_label))] = $val;
-                            }
                         }
 
                         $subDate = $sub->submitted_at ? Carbon::parse($sub->submitted_at) : ($sub->submission_date ? Carbon::parse($sub->submission_date) : $sub->created_at);
@@ -6955,6 +6959,9 @@ class PrincipalPortalController extends Controller
      */
     protected function calculateOfftakeYtdData($template, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
     {
+        @ini_set('memory_limit', '1024M');
+        @set_time_limit(120);
+
         $selectedYear = (int)($endYear ?: 2026);
         $p26 = storage_path("app/dulux_data/offtake_{$selectedYear}.sqlite");
         $p25 = storage_path('app/dulux_data/offtake_2025.sqlite');
@@ -6986,7 +6993,7 @@ class PrincipalPortalController extends Controller
         $startDate = Carbon::createFromDate($selectedYear, 1, 1)->startOfYear();
         $endDate = Carbon::createFromDate($selectedYear, $eMonth, 1)->endOfMonth();
 
-        $cacheKey = 'offtake_ytd_v4_' . md5($template->id . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+        $cacheKey = 'offtake_ytd_v5_' . md5($template->id . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
 
         return Cache::remember($cacheKey, 600, function() use ($template, $p26, $p25, $eMonth, $selectedYear, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
             try {
@@ -7018,17 +7025,15 @@ class PrincipalPortalController extends Controller
 
                 try {
                     $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
-                    $liveSubs = $liveQuery->get();
+                    $liveSubs = $liveQuery->select(['id', 'report_template_id', 'work_location_id', 'submitted_at', 'submission_date', 'created_at'])
+                        ->with(['workLocation:id,name,code,sap_code,external_id,branch_id,region', 'workLocation.branch:id,name', 'values:id,report_submission_id,form_field_id,field_name,value_text,value_number,value_date,value_json'])
+                        ->get();
 
                     foreach ($liveSubs as $sub) {
                         $valMap = [];
                         foreach ($sub->values as $v) {
                             $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
                             if ($v->field_name) $valMap[$v->field_name] = $val;
-                            if ($v->formField) {
-                                if ($v->formField->field_name) $valMap[$v->formField->field_name] = $val;
-                                if ($v->formField->field_label) $valMap[strtolower(str_replace([' ', '-'], '_', $v->formField->field_label))] = $val;
-                            }
                         }
 
                         $subDate = $sub->submitted_at ? Carbon::parse($sub->submitted_at) : ($sub->submission_date ? Carbon::parse($sub->submission_date) : $sub->created_at);
@@ -7101,30 +7106,32 @@ class PrincipalPortalController extends Controller
                     \Log::error("Failed to query live offtake submissions in calculateOfftakeYtdData: " . $e->getMessage());
                 }
 
-                $pdo = null;
+                // 2. Open PDO for 2026 (CY)
+                $pdo26 = null;
                 $hasOfftakeTableCy = false;
                 if (file_exists($p26) && filesize($p26) > 10000) {
                     try {
-                        $pdo = new \PDO("sqlite:" . $p26);
-                        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-                        $chk = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='offtake_raw'")->fetchColumn();
+                        $pdo26 = new \PDO("sqlite:" . $p26);
+                        $pdo26->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                        $chk = $pdo26->query("SELECT name FROM sqlite_master WHERE type='table' AND name='offtake_raw'")->fetchColumn();
                         $hasOfftakeTableCy = ($chk === 'offtake_raw');
                     } catch (\Throwable $e) {
-                        $pdo = null;
+                        $pdo26 = null;
                         $hasOfftakeTableCy = false;
                     }
                 }
 
-                $has2025 = false;
+                // 3. Open separate PDO for 2025 (PY)
+                $pdo25 = null;
                 $hasOfftakeTablePy = false;
-                if ($pdo && $hasOfftakeTableCy && file_exists($p25) && filesize($p25) > 10000) {
+                if (file_exists($p25) && filesize($p25) > 10000) {
                     try {
-                        $pdo->exec("ATTACH DATABASE '{$p25}' AS db25");
-                        $chk = $pdo->query("SELECT name FROM db25.sqlite_master WHERE type='table' AND name='offtake_raw'")->fetchColumn();
+                        $pdo25 = new \PDO("sqlite:" . $p25);
+                        $pdo25->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                        $chk = $pdo25->query("SELECT name FROM sqlite_master WHERE type='table' AND name='offtake_raw'")->fetchColumn();
                         $hasOfftakeTablePy = ($chk === 'offtake_raw');
-                        $has2025 = $hasOfftakeTablePy;
                     } catch (\Throwable $e) {
-                        $has2025 = false;
+                        $pdo25 = null;
                         $hasOfftakeTablePy = false;
                     }
                 }
@@ -7133,66 +7140,70 @@ class PrincipalPortalController extends Controller
                 $pyBrands = [];
                 $cyMonthlyMap = [];
                 $pyMonthlyMap = [];
-                $cyStoresRaw = [];
+                $top10Cy = [];
                 $pyStoresMap = [];
+                $totalCyStoreCount = 0;
+                $totalCyVolSum = 0.0;
+                $totalPyVolSum = 0.0;
 
-                if ($pdo && $hasOfftakeTableCy) {
-                    $whereCy = ["month BETWEEN 1 AND ?"];
-                    $paramsCy = [$eMonth];
-                    $wherePy = ["month BETWEEN 1 AND ?"];
-                    $paramsPy = [$eMonth];
+                $whereCy = ["month BETWEEN 1 AND ?"];
+                $paramsCy = [$eMonth];
+                $wherePy = ["month BETWEEN 1 AND ?"];
+                $paramsPy = [$eMonth];
 
-                    if ($selectedRegion) {
-                        $areaToRsm = $this->getDuluxAreaToRsmMap();
-                        $matchingAreas = [];
-                        foreach ($areaToRsm as $aName => $rsmName) {
-                            if (strcasecmp($rsmName, $selectedRegion) === 0) {
-                                $matchingAreas[] = $aName;
-                            }
-                        }
-                        if (!empty($matchingAreas)) {
-                            $placeholders = implode(',', array_fill(0, count($matchingAreas), '?'));
-                            $whereCy[] = "(UPPER(TRIM(area)) IN ($placeholders) OR region = ?)";
-                            $wherePy[] = "(UPPER(TRIM(area)) IN ($placeholders) OR region = ?)";
-                            foreach ($matchingAreas as $ma) {
-                                $paramsCy[] = $ma;
-                                $paramsPy[] = $ma;
-                            }
-                            $paramsCy[] = $selectedRegion;
-                            $paramsPy[] = $selectedRegion;
-                        } else {
-                            $whereCy[] = "region = ?";
-                            $paramsCy[] = $selectedRegion;
-                            $wherePy[] = "region = ?";
-                            $paramsPy[] = $selectedRegion;
+                if ($selectedRegion) {
+                    $areaToRsm = $this->getDuluxAreaToRsmMap();
+                    $matchingAreas = [];
+                    foreach ($areaToRsm as $aName => $rsmName) {
+                        if (strcasecmp($rsmName, $selectedRegion) === 0) {
+                            $matchingAreas[] = $aName;
                         }
                     }
-                    if ($selectedAreaId) {
-                        $whereCy[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
-                        $paramsCy[] = $selectedAreaId;
-                        $wherePy[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
-                        $paramsPy[] = $selectedAreaId;
+                    if (!empty($matchingAreas)) {
+                        $placeholders = implode(',', array_fill(0, count($matchingAreas), '?'));
+                        $whereCy[] = "(UPPER(TRIM(area)) IN ($placeholders) OR region = ?)";
+                        $wherePy[] = "(UPPER(TRIM(area)) IN ($placeholders) OR region = ?)";
+                        foreach ($matchingAreas as $ma) {
+                            $paramsCy[] = $ma;
+                            $paramsPy[] = $ma;
+                        }
+                        $paramsCy[] = $selectedRegion;
+                        $paramsPy[] = $selectedRegion;
+                    } else {
+                        $whereCy[] = "region = ?";
+                        $paramsCy[] = $selectedRegion;
+                        $wherePy[] = "region = ?";
+                        $paramsPy[] = $selectedRegion;
                     }
-                    if ($selectedLocationId) {
-                        $whereCy[] = "name_store = ?";
-                        $paramsCy[] = $selectedLocationId;
-                        $wherePy[] = "name_store = ?";
-                        $paramsPy[] = $selectedLocationId;
-                    }
-                    if ($search) {
-                        $whereCy[] = "(name_store LIKE ? OR sap LIKE ?)";
-                        $paramsCy[] = "%{$search}%";
-                        $paramsCy[] = "%{$search}%";
-                        $wherePy[] = "(name_store LIKE ? OR sap LIKE ?)";
-                        $paramsPy[] = "%{$search}%";
-                        $paramsPy[] = "%{$search}%";
-                    }
+                }
+                if ($selectedAreaId) {
+                    $whereCy[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
+                    $paramsCy[] = $selectedAreaId;
+                    $wherePy[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
+                    $paramsPy[] = $selectedAreaId;
+                }
+                if ($selectedLocationId) {
+                    $whereCy[] = "name_store = ?";
+                    $paramsCy[] = $selectedLocationId;
+                    $wherePy[] = "name_store = ?";
+                    $paramsPy[] = $selectedLocationId;
+                }
+                if ($search) {
+                    $whereCy[] = "(name_store LIKE ? OR sap LIKE ?)";
+                    $paramsCy[] = "%{$search}%";
+                    $paramsCy[] = "%{$search}%";
+                    $wherePy[] = "(name_store LIKE ? OR sap LIKE ?)";
+                    $paramsPy[] = "%{$search}%";
+                    $paramsPy[] = "%{$search}%";
+                }
 
-                    $whereCySql = implode(' AND ', $whereCy);
-                    $wherePySql = implode(' AND ', $wherePy);
+                $whereCySql = implode(' AND ', $whereCy);
+                $wherePySql = implode(' AND ', $wherePy);
 
-                    // 1. Product/Brand Comparison
-                    $brandStmtCy = $pdo->prepare("
+                // Query CY (2026)
+                if ($pdo26 && $hasOfftakeTableCy) {
+                    // 1. Brand Comparison
+                    $brandStmtCy = $pdo26->prepare("
                         SELECT 
                             CASE WHEN brand LIKE '%Catylac%' THEN 'Offtake Catylac' ELSE 'Offtake Dulux' END as brand_group,
                             SUM(volume_liter) as vol
@@ -7201,27 +7212,10 @@ class PrincipalPortalController extends Controller
                         GROUP BY brand_group
                     ");
                     $brandStmtCy->execute($paramsCy);
-                    $cyBrands = $brandStmtCy->fetchAll(\PDO::FETCH_KEY_PAIR);
+                    $cyBrands = $brandStmtCy->fetchAll(\PDO::FETCH_KEY_PAIR) ?: [];
 
-                    if ($has2025) {
-                        try {
-                            $brandStmtPy = $pdo->prepare("
-                                SELECT 
-                                    CASE WHEN brand LIKE '%Catylac%' THEN 'Offtake Catylac' ELSE 'Offtake Dulux' END as brand_group,
-                                    SUM(volume_liter) as vol
-                                FROM db25.offtake_raw
-                                WHERE $wherePySql
-                                GROUP BY brand_group
-                            ");
-                            $brandStmtPy->execute($paramsPy);
-                            $pyBrands = $brandStmtPy->fetchAll(\PDO::FETCH_KEY_PAIR);
-                        } catch (\Throwable $e) {
-                            \Log::warning("Offtake YTD db25 brand query failed: " . $e->getMessage());
-                        }
-                    }
-
-                    // 1b. Monthly Trend Comparison
-                    $monthStmtCy = $pdo->prepare("
+                    // 2. Monthly Trend
+                    $monthStmtCy = $pdo26->prepare("
                         SELECT 
                             month,
                             SUM(volume_liter) as total_vol,
@@ -7241,58 +7235,96 @@ class PrincipalPortalController extends Controller
                         ];
                     }
 
-                    if ($has2025) {
-                        try {
-                            $monthStmtPy = $pdo->prepare("
-                                SELECT 
-                                    month,
-                                    SUM(volume_liter) as total_vol,
-                                    SUM(CASE WHEN brand LIKE '%Catylac%' THEN volume_liter ELSE 0 END) as catylac_vol,
-                                    SUM(CASE WHEN brand NOT LIKE '%Catylac%' THEN volume_liter ELSE 0 END) as dulux_vol
-                                FROM db25.offtake_raw
-                                WHERE $wherePySql
-                                GROUP BY month
-                                ORDER BY month ASC
-                            ");
-                            $monthStmtPy->execute($paramsPy);
-                            while ($mr = $monthStmtPy->fetch(\PDO::FETCH_ASSOC)) {
-                                $pyMonthlyMap[(int)$mr['month']] = [
-                                    'total' => (float)$mr['total_vol'],
-                                    'dulux' => (float)$mr['dulux_vol'],
-                                    'catylac' => (float)$mr['catylac_vol'],
-                                ];
-                            }
-                        } catch (\Throwable $e) {
-                            \Log::warning("Offtake YTD db25 monthly trend failed: " . $e->getMessage());
-                        }
-                    }
+                    // 3. Store Totals
+                    $statStmtCy = $pdo26->prepare("
+                        SELECT COUNT(DISTINCT sap) as cnt, SUM(volume_liter) as tot_vol
+                        FROM offtake_raw
+                        WHERE $whereCySql
+                    ");
+                    $statStmtCy->execute($paramsCy);
+                    $statRow = $statStmtCy->fetch(\PDO::FETCH_ASSOC);
+                    $totalCyStoreCount = (int)($statRow['cnt'] ?? 0);
+                    $totalCyVolSum = (float)($statRow['tot_vol'] ?? 0.0);
 
-                    // 2. Store Comparison
-                    $storeStmtCy = $pdo->prepare("
+                    // 4. Top 10 Stores from 2026
+                    $topStmtCy = $pdo26->prepare("
                         SELECT sap, name_store, MIN(region) as region, MIN(area) as area, MIN(category_store) as channel, SUM(volume_liter) as cy_vol
                         FROM offtake_raw
                         WHERE $whereCySql
                         GROUP BY sap, name_store
+                        ORDER BY cy_vol DESC
+                        LIMIT 10
                     ");
-                    $storeStmtCy->execute($paramsCy);
-                    $cyStoresRaw = $storeStmtCy->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+                    $topStmtCy->execute($paramsCy);
+                    $top10Cy = $topStmtCy->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+                }
 
-                    if ($has2025) {
-                        try {
-                            $storeStmtPy = $pdo->prepare("
-                                SELECT sap, name_store, SUM(volume_liter) as py_vol
-                                FROM db25.offtake_raw
-                                WHERE $wherePySql
-                                GROUP BY sap, name_store
-                            ");
-                            $storeStmtPy->execute($paramsPy);
-                            while ($r = $storeStmtPy->fetch(\PDO::FETCH_ASSOC)) {
-                                $key = $r['sap'] ? 'sap_' . trim($r['sap']) : 'name_' . strtoupper(trim($r['name_store']));
-                                $pyStoresMap[$key] = (float)$r['py_vol'];
-                            }
-                        } catch (\Throwable $e) {
-                            \Log::warning("Offtake YTD db25 store query failed: " . $e->getMessage());
+                // Query PY (2025)
+                if ($pdo25 && $hasOfftakeTablePy) {
+                    try {
+                        // 1. PY Brands
+                        $brandStmtPy = $pdo25->prepare("
+                            SELECT 
+                                CASE WHEN brand LIKE '%Catylac%' THEN 'Offtake Catylac' ELSE 'Offtake Dulux' END as brand_group,
+                                SUM(volume_liter) as vol
+                            FROM offtake_raw
+                            WHERE $wherePySql
+                            GROUP BY brand_group
+                        ");
+                        $brandStmtPy->execute($paramsPy);
+                        $pyBrands = $brandStmtPy->fetchAll(\PDO::FETCH_KEY_PAIR) ?: [];
+
+                        // 2. PY Monthly Trend
+                        $monthStmtPy = $pdo25->prepare("
+                            SELECT 
+                                month,
+                                SUM(volume_liter) as total_vol,
+                                SUM(CASE WHEN brand LIKE '%Catylac%' THEN volume_liter ELSE 0 END) as catylac_vol,
+                                SUM(CASE WHEN brand NOT LIKE '%Catylac%' THEN volume_liter ELSE 0 END) as dulux_vol
+                            FROM offtake_raw
+                            WHERE $wherePySql
+                            GROUP BY month
+                            ORDER BY month ASC
+                        ");
+                        $monthStmtPy->execute($paramsPy);
+                        while ($mr = $monthStmtPy->fetch(\PDO::FETCH_ASSOC)) {
+                            $pyMonthlyMap[(int)$mr['month']] = [
+                                'total' => (float)$mr['total_vol'],
+                                'dulux' => (float)$mr['dulux_vol'],
+                                'catylac' => (float)$mr['catylac_vol'],
+                            ];
                         }
+
+                        // 3. PY Total Volume
+                        $statStmtPy = $pdo25->prepare("
+                            SELECT SUM(volume_liter) as tot_vol
+                            FROM offtake_raw
+                            WHERE $wherePySql
+                        ");
+                        $statStmtPy->execute($paramsPy);
+                        $totalPyVolSum = (float)($statStmtPy->fetchColumn() ?: 0.0);
+
+                        // 4. PY Volume for Top 10 Stores
+                        $topSaps = [];
+                        foreach ($top10Cy as $t) {
+                            if (!empty($t['sap'])) $topSaps[] = trim($t['sap']);
+                        }
+                        if (!empty($topSaps)) {
+                            $sapPlaceholders = implode(',', array_fill(0, count($topSaps), '?'));
+                            $pyStoreStmt = $pdo25->prepare("
+                                SELECT sap, SUM(volume_liter) as py_vol
+                                FROM offtake_raw
+                                WHERE sap IN ($sapPlaceholders) AND $wherePySql
+                                GROUP BY sap
+                            ");
+                            $pyStoreParams = array_merge($topSaps, $paramsPy);
+                            $pyStoreStmt->execute($pyStoreParams);
+                            while ($r = $pyStoreStmt->fetch(\PDO::FETCH_ASSOC)) {
+                                $pyStoresMap['sap_' . trim($r['sap'])] = (float)$r['py_vol'];
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::warning("Offtake YTD pdo25 queries failed: " . $e->getMessage());
                     }
                 }
 
@@ -7360,25 +7392,18 @@ class PrincipalPortalController extends Controller
                     $pyCatylacSeries[] = round($pyCat, 2);
                 }
 
-                // Merge Store Details
-                $unmergedLiveStores = $liveCyStoresMap;
-                $storeDetails = [];
-                $totalStoreCy = 0;
-                $totalStorePy = 0;
-
-                foreach ($cyStoresRaw as $s) {
+                // Merge Top 10 Stores
+                $mergedTopMap = [];
+                foreach ($top10Cy as $s) {
                     $sapKey = $s['sap'] ? 'sap_' . trim($s['sap']) : 'name_' . strtoupper(trim($s['name_store']));
                     $cyVol = (float)$s['cy_vol'];
-                    if (isset($unmergedLiveStores[$sapKey])) {
-                        $cyVol += (float)$unmergedLiveStores[$sapKey]['cy_vol'];
-                        unset($unmergedLiveStores[$sapKey]);
+                    if (isset($liveCyStoresMap[$sapKey])) {
+                        $cyVol += (float)$liveCyStoresMap[$sapKey]['cy_vol'];
+                        unset($liveCyStoresMap[$sapKey]);
                     }
                     $pyVol = (float)($pyStoresMap[$sapKey] ?? 0);
                     $growth = $pyVol > 0 ? (($cyVol - $pyVol) / $pyVol) * 100 : ($cyVol > 0 ? 100 : 0);
-                    $totalStoreCy += $cyVol;
-                    $totalStorePy += $pyVol;
-
-                    $storeDetails[] = [
+                    $mergedTopMap[$sapKey] = [
                         'store_name' => $s['name_store'] . ($s['sap'] ? " ({$s['sap']})" : ''),
                         'region' => $s['region'] ?: '-',
                         'area' => $s['area'] ?: '-',
@@ -7390,14 +7415,11 @@ class PrincipalPortalController extends Controller
                     ];
                 }
 
-                foreach ($unmergedLiveStores as $sapKey => $ls) {
+                foreach ($liveCyStoresMap as $sapKey => $ls) {
                     $cyVol = (float)$ls['cy_vol'];
                     $pyVol = (float)($pyStoresMap[$sapKey] ?? 0);
                     $growth = $pyVol > 0 ? (($cyVol - $pyVol) / $pyVol) * 100 : ($cyVol > 0 ? 100 : 0);
-                    $totalStoreCy += $cyVol;
-                    $totalStorePy += $pyVol;
-
-                    $storeDetails[] = [
+                    $mergedTopMap[$sapKey] = [
                         'store_name' => $ls['name_store'] . ($ls['sap'] ? " ({$ls['sap']})" : ''),
                         'region' => $ls['region'] ?: '-',
                         'area' => $ls['area'] ?: '-',
@@ -7409,15 +7431,12 @@ class PrincipalPortalController extends Controller
                     ];
                 }
 
-                usort($storeDetails, fn($a, $b) => $b['cy_volume'] <=> $a['cy_volume']);
+                usort($mergedTopMap, fn($a, $b) => $b['cy_volume'] <=> $a['cy_volume']);
+                $top10 = array_values(array_slice($mergedTopMap, 0, 10));
 
-                foreach ($storeDetails as &$sd) {
-                    $sd['percentage'] = $totalStoreCy > 0 ? ($sd['cy_volume'] / $totalStoreCy) * 100 : 0;
-                }
-                unset($sd);
-
-                $top10 = array_slice($storeDetails, 0, 10);
-                $overallStoreGrowth = $totalStorePy > 0 ? (($totalStoreCy - $totalStorePy) / $totalStorePy) * 100 : ($totalStoreCy > 0 ? 100 : 0);
+                $finalStoreCy = $totalCyVolSum + array_sum(array_column($liveCyStoresMap, 'cy_vol'));
+                $finalStorePy = $totalPyVolSum;
+                $overallStoreGrowth = $finalStorePy > 0 ? (($finalStoreCy - $finalStorePy) / $finalStorePy) * 100 : ($finalStoreCy > 0 ? 100 : 0);
 
                 return [
                     'details' => $details,
@@ -7433,17 +7452,17 @@ class PrincipalPortalController extends Controller
                     ],
                     'stores' => [
                         'total' => [
-                            'count' => count($storeDetails),
-                            'cy_volume' => $totalStoreCy,
-                            'py_volume' => $totalStorePy,
+                            'count' => max($totalCyStoreCount, count($mergedTopMap)),
+                            'cy_volume' => $finalStoreCy,
+                            'py_volume' => $finalStorePy,
                             'growth' => $overallStoreGrowth
                         ],
                         'top10' => $top10,
-                        'details' => $storeDetails
+                        'details' => $top10
                     ]
                 ];
             } catch (\Throwable $e) {
-                \Log::error("Failed to calculate Offtake YTD: " . $e->getMessage());
+                \Log::error("Failed to calculate Offtake YTD: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
                 return [
                     'details' => [],
                     'total' => ['brand' => 'Total Akzonobel', 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0, 'percentage' => 100],
