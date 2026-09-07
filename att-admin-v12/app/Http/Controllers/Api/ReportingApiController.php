@@ -602,6 +602,25 @@ class ReportingApiController extends Controller
                 ]);
             }
 
+            // Simpan data_kompetitor_list jika dikirimkan dari formulir dinamis CBP
+            if (isset($valuesInput['data_kompetitor_list'])) {
+                $compListRaw = $valuesInput['data_kompetitor_list'];
+                if (is_string($compListRaw)) {
+                    $compListRaw = json_decode($compListRaw, true) ?? [];
+                }
+                if (is_array($compListRaw) && !empty($compListRaw)) {
+                    ReportSubmissionValue::create([
+                        'report_submission_id' => $submission->id,
+                        'report_form_field_id' => null,
+                        'field_name' => 'data_kompetitor_list',
+                        'field_type' => 'json',
+                        'value_text' => json_encode($compListRaw),
+                        'value_number' => count($compListRaw),
+                        'value_json' => $compListRaw,
+                    ]);
+                }
+            }
+
             // Khusus Laporan Daily Maintenance Dulux: Simpan nomor seri & tipe mesin ke Master Toko (WorkLocation)
             if ($template->code === 'RPT-DULUX-DAILY-MAINTENANCE' && $submission->work_location_id) {
                 try {
@@ -1112,6 +1131,29 @@ class ReportingApiController extends Controller
                         'media_url' => $photoPath,
                     ]
                 );
+            }
+
+            // Update/simpan data_kompetitor_list jika dikirimkan dari formulir dinamis CBP
+            if (isset($valuesInput['data_kompetitor_list'])) {
+                $compListRaw = $valuesInput['data_kompetitor_list'];
+                if (is_string($compListRaw)) {
+                    $compListRaw = json_decode($compListRaw, true) ?? [];
+                }
+                if (is_array($compListRaw) && !empty($compListRaw)) {
+                    ReportSubmissionValue::updateOrCreate(
+                        [
+                            'report_submission_id' => $submission->id,
+                            'field_name' => 'data_kompetitor_list',
+                        ],
+                        [
+                            'report_form_field_id' => null,
+                            'field_type' => 'json',
+                            'value_text' => json_encode($compListRaw),
+                            'value_number' => count($compListRaw),
+                            'value_json' => $compListRaw,
+                        ]
+                    );
+                }
             }
 
             DB::commit();

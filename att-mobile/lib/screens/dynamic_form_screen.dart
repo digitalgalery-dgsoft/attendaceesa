@@ -14,6 +14,33 @@ import 'package:att_mobile/services/watermark_camera_service.dart';
 import 'package:att_mobile/widgets/signature_pad_dialog.dart';
 import 'package:att_mobile/widgets/barcode_scanner_dialog.dart';
 
+// Model untuk input dinamis produk kompetitor pada form CBP
+class CompetitorInputItem {
+  String merk;
+  final TextEditingController subbrandCtrl;
+  final TextEditingController tinCtrl;
+  final TextEditingController galonCtrl;
+  final TextEditingController pailCtrl;
+
+  CompetitorInputItem({
+    this.merk = 'JOTUN',
+    String subbrand = '',
+    String tin = '',
+    String galon = '',
+    String pail = '',
+  })  : subbrandCtrl = TextEditingController(text: subbrand),
+        tinCtrl = TextEditingController(text: tin),
+        galonCtrl = TextEditingController(text: galon),
+        pailCtrl = TextEditingController(text: pail);
+
+  void dispose() {
+    subbrandCtrl.dispose();
+    tinCtrl.dispose();
+    galonCtrl.dispose();
+    pailCtrl.dispose();
+  }
+}
+
 class DynamicFormScreen extends StatefulWidget {
   final ReportTemplateModel template;
   final String? storeName;
@@ -36,6 +63,13 @@ class DynamicFormScreen extends StatefulWidget {
 
 class _DynamicFormScreenState extends State<DynamicFormScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  // Dynamic Competitor Items (CBP Report)
+  final List<CompetitorInputItem> _competitorItems = [];
+
+  // Mutual Discount Calculation Flags
+  bool _isSyncingDiscounts = false;
+  String? _activeDiscountType;
 
   // Lokasi Terikat Sesuai Check-in / Visit Aktif
   Map<String, dynamic>? _selectedLocation;
@@ -357,6 +391,108 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
   }
 
+  // 4. CBP AUTO-CALCULATION MUTUAL DISCOUNTS (Nominal <-> Persen)
+  void _syncCbpDiscounts(String triggerSource) {
+    if (_isSyncingDiscounts) return;
+    _isSyncingDiscounts = true;
+
+    try {
+      ReportFormFieldModel? hargaField;
+      ReportFormFieldModel? nominalField;
+      ReportFormFieldModel? persenField;
+
+      for (final f in widget.template.fields) {
+        final name = f.fieldName.toLowerCase();
+        if (name == 'harga_cbp_dulux_rp' || name.contains('harga_cbp')) hargaField = f;
+        if (name == 'diskon_promo_nominal_rp' || (name.contains('diskon') && name.contains('nominal'))) nominalField = f;
+        if (name == 'diskon_promo_persen' || (name.contains('diskon') && name.contains('persen'))) persenField = f;
+      }
+
+      if (hargaField == null || nominalField == null || persenField == null) return;
+
+      final hargaKey = hargaField.id.toString();
+      final nominalKey = nominalField.id.toString();
+      final persenKey = persenField.id.toString();
+
+      final rawHarga = _controllers[hargaKey]?.text.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
+      final double harga = double.tryParse(rawHarga) ?? 0.0;
+
+      if (triggerSource == 'nominal') {
+        _activeDiscountType = 'nominal';
+        final rawNominal = _controllers[nominalKey]?.text.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
+        final double nominal = double.tryParse(rawNominal) ?? 0.0;
+
+        if (nominal > 0 && harga > 0) {
+          final double persen = (nominal / harga) * 100.0;
+          final String formattedPersen = (persen % 1 == 0) ? persen.toInt().toString() : persen.toStringAsFixed(1);
+          if (_controllers[persenKey]?.text != formattedPersen) {
+            _controllers[persenKey]?.text = formattedPersen;
+          }
+          final parsedNum = double.tryParse(formattedPersen) ?? persen;
+          _formValues[persenKey] = parsedNum;
+          _formValues[persenField.fieldName] = parsedNum;
+        } else if (nominal == 0) {
+          _controllers[persenKey]?.clear();
+          _formValues.remove(persenKey);
+          _formValues.remove(persenField.fieldName);
+        }
+      } else if (triggerSource == 'persen') {
+        _activeDiscountType = 'persen';
+        final rawPersen = _controllers[persenKey]?.text.replaceAll(RegExp(r'[^0-9.]'), '') ?? '';
+        final double persen = double.tryParse(rawPersen) ?? 0.0;
+
+        if (persen > 0 && harga > 0) {
+          final double nominal = (persen / 100.0) * harga;
+          final int intNominal = nominal.round();
+          final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+          final String formattedNominal = formatter.format(intNominal);
+
+          if (_controllers[nominalKey]?.text != formattedNominal) {
+            _controllers[nominalKey]?.value = TextEditingValue(
+              text: formattedNominal,
+              selection: TextSelection.collapsed(offset: formattedNominal.length),
+            );
+          }
+          _formValues[nominalKey] = intNominal;
+          _formValues[nominalField.fieldName] = intNominal;
+        } else if (persen == 0) {
+          _controllers[nominalKey]?.clear();
+          _formValues.remove(nominalKey);
+          _formValues.remove(nominalField.fieldName);
+        }
+      } else if (triggerSource == 'harga') {
+        if (_activeDiscountType == 'nominal') {
+          _isSyncingDiscounts = false;
+          _syncCbpDiscounts('nominal');
+          return;
+        } else if (_activeDiscountType == 'persen') {
+          _isSyncingDiscounts = false;
+          _syncCbpDiscounts('persen');
+          return;
+        }
+      }
+    } finally {
+      _isSyncingDiscounts = false;
+    }
+  }
+
+  void _formatCustomCurrency(TextEditingController ctrl, String value) {
+    String cleanDigits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanDigits.isEmpty) {
+      ctrl.value = const TextEditingValue(text: '');
+      return;
+    }
+
+    int intValue = int.tryParse(cleanDigits) ?? 0;
+    final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    String formatted = formatter.format(intValue);
+
+    ctrl.value = TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
   void _initializeForm() {
     for (final field in widget.template.fields) {
       final fieldKey = field.id.toString();
@@ -400,7 +536,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             _existingMultiPhotoUrls[val.fieldName] = urls;
             _existingPhotoUrls[fieldKey] = urls.first;
             _existingPhotoUrls[val.fieldName] = urls.first;
-            }
+          }
           _formValues[fieldKey] = urls;
           _formValues[val.fieldName] = urls;
           continue;
@@ -452,6 +588,81 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     }
 
+    // Inisialisasi daftar produk kompetitor dinamis untuk formulir CBP
+    final bool isCbp = widget.template.code == 'RPT-DULUX-CBP-PRICING' || widget.template.code.contains('CBP');
+    if (isCbp) {
+      for (final itm in _competitorItems) {
+        itm.dispose();
+      }
+      _competitorItems.clear();
+      bool loadedExisting = false;
+
+      if (widget.editSubmission != null) {
+        // 1. Coba baca dari data_kompetitor_list
+        for (final val in widget.editSubmission!.values) {
+          if (val.fieldName == 'data_kompetitor_list' && val.valueJson is List) {
+            for (final item in (val.valueJson as List)) {
+              if (item is Map) {
+                final pTin = item['harga_tin'];
+                final pGalon = item['harga_galon'];
+                final pPail = item['harga_pail'];
+                _competitorItems.add(CompetitorInputItem(
+                  merk: item['merk']?.toString() ?? 'JOTUN',
+                  subbrand: item['subbrand']?.toString() ?? '',
+                  tin: pTin != null && pTin != 0 ? NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(pTin) : '',
+                  galon: pGalon != null && pGalon != 0 ? NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(pGalon) : '',
+                  pail: pPail != null && pPail != 0 ? NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(pPail) : '',
+                ));
+              }
+            }
+            if (_competitorItems.isNotEmpty) {
+              loadedExisting = true;
+            }
+            break;
+          }
+        }
+
+        // 2. Fallback jika data sebelumnya tersimpan di field flat
+        if (!loadedExisting) {
+          String fallbackMerk = 'JOTUN';
+          String fallbackSubbrand = '';
+          String fallbackTin = '';
+          String fallbackGalon = '';
+          String fallbackPail = '';
+
+          for (final val in widget.editSubmission!.values) {
+            final fName = val.fieldName.toLowerCase();
+            if (fName == 'merk_kompetitor') fallbackMerk = val.valueText ?? 'JOTUN';
+            if (fName == 'subbrand_kompetitor') fallbackSubbrand = val.valueText ?? '';
+            if (fName == 'harga_kompetitor_tin_rp') {
+              fallbackTin = val.valueNumber != null && val.valueNumber != 0 ? NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(val.valueNumber) : (val.valueText ?? '');
+            }
+            if (fName == 'harga_kompetitor_galon_rp') {
+              fallbackGalon = val.valueNumber != null && val.valueNumber != 0 ? NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(val.valueNumber) : (val.valueText ?? '');
+            }
+            if (fName == 'harga_kompetitor_pail_rp') {
+              fallbackPail = val.valueNumber != null && val.valueNumber != 0 ? NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(val.valueNumber) : (val.valueText ?? '');
+            }
+          }
+
+          if (fallbackSubbrand.isNotEmpty || fallbackTin.isNotEmpty || fallbackGalon.isNotEmpty || fallbackPail.isNotEmpty) {
+            _competitorItems.add(CompetitorInputItem(
+              merk: fallbackMerk,
+              subbrand: fallbackSubbrand,
+              tin: fallbackTin,
+              galon: fallbackGalon,
+              pail: fallbackPail,
+            ));
+            loadedExisting = true;
+          }
+        }
+      }
+
+      if (!loadedExisting && _competitorItems.isEmpty) {
+        _competitorItems.add(CompetitorInputItem(merk: 'JOTUN'));
+      }
+    }
+
     // Attach reactive calculation listeners
     for (final ctrl in _controllers.values) {
       ctrl.addListener(_recalculateFormulas);
@@ -482,6 +693,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
   @override
   void dispose() {
+    for (final itm in _competitorItems) {
+      itm.dispose();
+    }
     for (final ctrl in _controllers.values) {
       ctrl.removeListener(_recalculateFormulas);
       ctrl.dispose();
@@ -1064,6 +1278,55 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     });
 
+    // Khusus Laporan CBP: Serialize daftar produk kompetitor dinamis ke JSON dan sinkronkan item pertama ke field flat
+    final bool isCbp = widget.template.code == 'RPT-DULUX-CBP-PRICING' || widget.template.code.contains('CBP');
+    if (isCbp && _competitorItems.isNotEmpty) {
+      final List<Map<String, dynamic>> compList = [];
+      for (final item in _competitorItems) {
+        final merk = item.merk.trim();
+        final subbrand = item.subbrandCtrl.text.trim();
+        final tinStr = item.tinCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+        final galonStr = item.galonCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+        final pailStr = item.pailCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+        final tinVal = int.tryParse(tinStr) ?? 0;
+        final galonVal = int.tryParse(galonStr) ?? 0;
+        final pailVal = int.tryParse(pailStr) ?? 0;
+
+        if (subbrand.isNotEmpty || tinVal > 0 || galonVal > 0 || pailVal > 0) {
+          compList.add({
+            'merk': merk.isNotEmpty ? merk : 'JOTUN',
+            'subbrand': subbrand,
+            'harga_tin': tinVal,
+            'harga_galon': galonVal,
+            'harga_pail': pailVal,
+          });
+        }
+      }
+
+      cleanFormValues['data_kompetitor_list'] = compList;
+
+      // Sinkronkan kompetitor ke-1 ke field flat agar 100% backward compatible
+      if (compList.isNotEmpty) {
+        final first = compList.first;
+        cleanFormValues['merk_kompetitor'] = first['merk'];
+        cleanFormValues['subbrand_kompetitor'] = first['subbrand'];
+        cleanFormValues['harga_kompetitor_tin_rp'] = first['harga_tin'];
+        cleanFormValues['harga_kompetitor_galon_rp'] = first['harga_galon'];
+        cleanFormValues['harga_kompetitor_pail_rp'] = first['harga_pail'];
+
+        for (final f in widget.template.fields) {
+          final fn = f.fieldName.toLowerCase();
+          final fKey = f.id.toString();
+          if (fn == 'merk_kompetitor') cleanFormValues[fKey] = first['merk'];
+          if (fn == 'subbrand_kompetitor') cleanFormValues[fKey] = first['subbrand'];
+          if (fn == 'harga_kompetitor_tin_rp') cleanFormValues[fKey] = first['harga_tin'];
+          if (fn == 'harga_kompetitor_galon_rp') cleanFormValues[fKey] = first['harga_galon'];
+          if (fn == 'harga_kompetitor_pail_rp') cleanFormValues[fKey] = first['harga_pail'];
+        }
+      }
+    }
+
     // Gabungkan payload foto (single dan multi-foto)
     final Map<String, dynamic> allPhotosPayload = {};
     _photoFiles.forEach((k, v) => allPhotosPayload[k] = v);
@@ -1121,6 +1384,13 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               _formValues.remove(fieldKey);
               _formValues.remove(f.fieldName);
             }
+          }
+          if (isCbp) {
+            for (final itm in _competitorItems) {
+              itm.dispose();
+            }
+            _competitorItems.clear();
+            _competitorItems.add(CompetitorInputItem(merk: 'JOTUN'));
           }
           _photoFiles.clear();
           _multiPhotoFiles.clear();
@@ -1715,6 +1985,305 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     );
   }
 
+  Widget _buildCompetitorRepeaterSection(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    bool isDarkMode,
+    LocaleProvider locale,
+  ) {
+    ReportFormFieldModel? merkField;
+    for (final f in widget.template.fields) {
+      if (f.fieldName.toLowerCase() == 'merk_kompetitor') {
+        merkField = f;
+        break;
+      }
+    }
+
+    final List<String> merkOptions = (merkField != null && merkField.options.isNotEmpty)
+        ? merkField.options
+        : const [
+            'JOTUN',
+            'NIPPON PAINT',
+            'AVIAN / NO DROP / LENKOTE',
+            'MOWILEX',
+            'PROPAN',
+            'KANSAI / DANAPAINT',
+            'PACIFIC PAINT',
+            'MERK LAINNYA',
+          ];
+
+    final inputBg = isDarkMode ? const Color(0xFF1E1E2D) : const Color(0xFFF8FAFC);
+    final borderColor = isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Section
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: themeColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.compare_arrows_rounded, size: 20, color: themeColor),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Data Produk Kompetitor Sejenis',
+                          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: themeColor.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${_competitorItems.length} Produk',
+                            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: themeColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Bisa menambahkan lebih dari 1 produk kompetitor pembanding sejenis.',
+                      style: TextStyle(fontSize: 11, color: subtitleColor),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // List Repeater Item Cards
+          ..._competitorItems.asMap().entries.map((entry) {
+            final int index = entry.key;
+            final CompetitorInputItem item = entry.value;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: inputBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Sub-header per item
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 11,
+                            backgroundColor: themeColor,
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Produk Kompetitor #${index + 1}',
+                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor),
+                          ),
+                        ],
+                      ),
+                      if (_competitorItems.length > 1)
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              final removed = _competitorItems.removeAt(index);
+                              removed.dispose();
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline_rounded, size: 16, color: Colors.red.shade400),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'Hapus',
+                                  style: TextStyle(fontSize: 11, color: Colors.red.shade400, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const Divider(height: 20),
+
+                  // 1. Merk Kompetitor
+                  Text(
+                    'Nama Merk Kompetitor',
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textColor),
+                  ),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: merkOptions.contains(item.merk) ? item.merk : merkOptions.first,
+                    decoration: _inputDecoration('Pilih Merk Kompetitor', elevatedColor, isDarkMode),
+                    dropdownColor: cardColor,
+                    isExpanded: true,
+                    style: TextStyle(color: textColor, fontSize: 13),
+                    items: merkOptions.map((m) {
+                      return DropdownMenuItem<String>(
+                        value: m,
+                        child: Text(m, style: TextStyle(fontSize: 12.5, color: textColor)),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          item.merk = val;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 2. Subbrand Kompetitor
+                  Text(
+                    'Nama Subbrand Kompetitor',
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textColor),
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: item.subbrandCtrl,
+                    style: TextStyle(color: textColor, fontSize: 13),
+                    decoration: _inputDecoration('Contoh: Majestic, Weatherbond, No Drop...', elevatedColor, isDarkMode),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 3. Harga Jual (Tin / Galon / Pail)
+                  Text(
+                    'Harga Jual Kompetitor (Tin / Galon / Pail)',
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textColor),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      // Tin
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Tin (Rp)', style: TextStyle(fontSize: 10.5, color: subtitleColor)),
+                            const SizedBox(height: 4),
+                            TextFormField(
+                              controller: item.tinCtrl,
+                              keyboardType: TextInputType.number,
+                              style: TextStyle(color: textColor, fontSize: 12),
+                              decoration: _inputDecoration('Rp 0', elevatedColor, isDarkMode),
+                              onChanged: (v) => _formatCustomCurrency(item.tinCtrl, v),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Galon
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Galon (Rp)', style: TextStyle(fontSize: 10.5, color: subtitleColor)),
+                            const SizedBox(height: 4),
+                            TextFormField(
+                              controller: item.galonCtrl,
+                              keyboardType: TextInputType.number,
+                              style: TextStyle(color: textColor, fontSize: 12),
+                              decoration: _inputDecoration('Rp 0', elevatedColor, isDarkMode),
+                              onChanged: (v) => _formatCustomCurrency(item.galonCtrl, v),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Pail
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Pail (Rp)', style: TextStyle(fontSize: 10.5, color: subtitleColor)),
+                            const SizedBox(height: 4),
+                            TextFormField(
+                              controller: item.pailCtrl,
+                              keyboardType: TextInputType.number,
+                              style: TextStyle(color: textColor, fontSize: 12),
+                              decoration: _inputDecoration('Rp 0', elevatedColor, isDarkMode),
+                              onChanged: (v) => _formatCustomCurrency(item.pailCtrl, v),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+
+          // Button: Tambah Produk Kompetitor
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _competitorItems.add(CompetitorInputItem(merk: 'JOTUN'));
+                });
+              },
+              icon: Icon(Icons.add_circle_outline_rounded, size: 18, color: themeColor),
+              label: Text(
+                'Tambah Produk Kompetitor Sejenis',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: themeColor),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: themeColor.withOpacity(0.5)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFieldWidget(
     ReportFormFieldModel field,
     Color themeColor,
@@ -1732,6 +2301,31 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
     final fieldNameLower = field.fieldName.toLowerCase();
     final fieldLabelLower = field.fieldLabel.toLowerCase();
+
+    final bool isCbp = widget.template.code == 'RPT-DULUX-CBP-PRICING' || widget.template.code.contains('CBP');
+
+    // Khusus Laporan CBP: Tampilkan dynamic repeater untuk data kompetitor pada field pertama dan sembunyikan sisanya
+    if (isCbp) {
+      if (fieldNameLower == 'merk_kompetitor') {
+        return _buildCompetitorRepeaterSection(
+          themeColor,
+          cardColor,
+          textColor,
+          subtitleColor,
+          elevatedColor,
+          isDarkMode,
+          locale,
+        );
+      }
+      if (const [
+        'subbrand_kompetitor',
+        'harga_kompetitor_tin_rp',
+        'harga_kompetitor_galon_rp',
+        'harga_kompetitor_pail_rp'
+      ].contains(fieldNameLower)) {
+        return const SizedBox.shrink();
+      }
+    }
 
     final bool isPhoneOrNik = fieldNameLower.contains('hp') ||
         fieldNameLower.contains('phone') ||
@@ -1806,11 +2400,15 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             isFieldCalculated ? 'Dihitung otomatis' : (field.placeholder ?? '0'),
             isFieldReadonly ? readonlyBgColor : elevatedColor,
             isDarkMode,
+            helperText: (isCbp && fieldNameLower.contains('persen')) ? 'Otomatis dihitung jika nominal diisi' : null,
           ),
           validator: (v) => (!isFieldReadonly && field.isRequired) && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
           onChanged: isFieldReadonly ? null : (v) {
             _formValues[fieldKey] = num.tryParse(v);
             _recalculateFormulas();
+            if (isCbp && fieldNameLower.contains('persen')) {
+              _syncCbpDiscounts('persen');
+            }
           },
         );
         break;
@@ -1825,11 +2423,19 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             'Rp 0',
             isFieldReadonly ? readonlyBgColor : elevatedColor,
             isDarkMode,
+            helperText: (isCbp && fieldNameLower.contains('nominal')) ? 'Otomatis dihitung jika persen diisi' : null,
           ),
           validator: (v) => (!isFieldReadonly && field.isRequired) && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
           onChanged: isFieldReadonly ? null : (v) {
             _formatCurrency(fieldKey, v);
             _recalculateFormulas();
+            if (isCbp) {
+              if (fieldNameLower.contains('nominal')) {
+                _syncCbpDiscounts('nominal');
+              } else if (fieldNameLower.contains('harga') || fieldNameLower == 'harga_cbp_dulux_rp') {
+                _syncCbpDiscounts('harga');
+              }
+            }
           },
         );
         break;
@@ -3612,9 +4218,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     );
   }
 
-  InputDecoration _inputDecoration(String hint, Color fillColor, bool isDarkMode) {
+  InputDecoration _inputDecoration(String hint, Color fillColor, bool isDarkMode, {String? helperText}) {
     return InputDecoration(
       hintText: hint,
+      helperText: helperText,
+      helperStyle: const TextStyle(fontSize: 11, color: Color(0xFF0F52BA), fontWeight: FontWeight.w500),
       hintStyle: TextStyle(color: isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400, fontSize: 12.5),
       filled: true,
       fillColor: fillColor,

@@ -7052,49 +7052,106 @@ class PrincipalPortalController extends Controller
                     'is_live' => true,
                 ];
 
-                // 2) Baris Live Kompetitor (jika ada data harga kompetitor yang diinput)
-                $compBrand = trim((string)($valMap['merk_kompetitor'] ?? $valMap['brand_kompetitor'] ?? ''));
-                $compSubbrand = trim((string)($valMap['subbrand_kompetitor'] ?? $valMap['nama_subbrand_kompetitor_yang_dicek'] ?? ''));
-                $compTin = $parseAmount($valMap['harga_kompetitor_tin_rp'] ?? $valMap['harga_jual_kompetitor_kemasan_tin_/_kaleng_1l/1kg_(rp)'] ?? null);
-                $compGalon = $parseAmount($valMap['harga_kompetitor_galon_rp'] ?? $valMap['harga_jual_kompetitor_kemasan_galon_2.5l/4-5kg_(rp)'] ?? null);
-                $compPail = $parseAmount($valMap['harga_kompetitor_pail_rp'] ?? $valMap['harga_jual_kompetitor_kemasan_pail_20l/25kg_(rp)'] ?? null);
+                // 2) Baris Live Kompetitor (Mendukung Multi-Kompetitor Dinamis & Fallback Single Kompetitor)
+                $rawCompList = $valMap['data_kompetitor_list'] ?? null;
+                $compList = [];
+                if (is_string($rawCompList)) {
+                    $compList = json_decode($rawCompList, true) ?? [];
+                } elseif (is_array($rawCompList)) {
+                    $compList = $rawCompList;
+                }
 
-                if ($compGalon > 0 || $compTin > 0 || $compPail > 0) {
-                    $compBrandName = $compBrand ?: 'Kompetitor';
-                    $compProductName = $compSubbrand ? ($compBrandName . ' - ' . $compSubbrand) : ($compBrandName . ' ' . $category);
-                    $compItemCode = md5(strtoupper(trim($storeName)) . '_' . strtoupper(trim($compProductName)));
+                if (!empty($compList)) {
+                    foreach ($compList as $compItem) {
+                        $compBrand = trim((string)($compItem['merk'] ?? $compItem['brand'] ?? ''));
+                        $compSubbrand = trim((string)($compItem['subbrand'] ?? ''));
+                        $compTin = $parseAmount($compItem['harga_tin'] ?? null);
+                        $compGalon = $parseAmount($compItem['harga_galon'] ?? null);
+                        $compPail = $parseAmount($compItem['harga_pail'] ?? null);
 
-                    $liveRows[] = [
-                        'submission_id' => $sub->id,
-                        'submission_code' => $sub->submission_code,
-                        'code' => $compItemCode,
-                        'regional' => $rsmArea,
-                        'sap_member' => $sapMember,
-                        'sap_gab' => '-',
-                        'name_store' => $storeName,
-                        'tl_name' => $tlName,
-                        'area' => $branchName,
-                        'rsm_area' => $rsmArea,
-                        'class' => '-',
-                        'store_type' => '-',
-                        'product' => $compProductName,
-                        'category' => $category,
-                        'product_group' => $compBrandName,
-                        'brand' => $compBrandName,
-                        'brand_raw' => $compBrandName,
-                        'month' => $subMonth,
-                        'trans_date' => $sub->submitted_at->format('Y-m-d'),
-                        'price_tin' => $compTin,
-                        'lowest_tin' => $compTin,
-                        'reason_tin' => '-',
-                        'price_galon' => $compGalon,
-                        'lowest_galon' => $compGalon,
-                        'reason_galon' => '-',
-                        'price_pail' => $compPail,
-                        'lowest_pail' => $compPail,
-                        'reason_pail' => '-',
-                        'is_live' => true,
-                    ];
+                        if ($compGalon > 0 || $compTin > 0 || $compPail > 0) {
+                            $compBrandName = $compBrand ?: 'Kompetitor';
+                            $compProductName = $compSubbrand ? ($compBrandName . ' - ' . $compSubbrand) : ($compBrandName . ' ' . $category);
+                            $compItemCode = md5(strtoupper(trim($storeName)) . '_' . strtoupper(trim($compProductName)));
+
+                            $liveRows[] = [
+                                'submission_id' => $sub->id,
+                                'submission_code' => $sub->submission_code,
+                                'code' => $compItemCode,
+                                'regional' => $rsmArea,
+                                'sap_member' => $sapMember,
+                                'sap_gab' => '-',
+                                'name_store' => $storeName,
+                                'tl_name' => $tlName,
+                                'area' => $branchName,
+                                'rsm_area' => $rsmArea,
+                                'class' => '-',
+                                'store_type' => '-',
+                                'product' => $compProductName,
+                                'category' => $category,
+                                'product_group' => $compBrandName,
+                                'brand' => $compBrandName,
+                                'brand_raw' => $compBrandName,
+                                'month' => $subMonth,
+                                'trans_date' => $sub->submitted_at->format('Y-m-d'),
+                                'price_tin' => $compTin,
+                                'lowest_tin' => $compTin,
+                                'reason_tin' => '-',
+                                'price_galon' => $compGalon,
+                                'lowest_galon' => $compGalon,
+                                'reason_galon' => '-',
+                                'price_pail' => $compPail,
+                                'lowest_pail' => $compPail,
+                                'reason_pail' => '-',
+                                'is_live' => true,
+                            ];
+                        }
+                    }
+                } else {
+                    // Fallback ke single competitor field (kompatibilitas data lama / single entry)
+                    $compBrand = trim((string)($valMap['merk_kompetitor'] ?? $valMap['brand_kompetitor'] ?? ''));
+                    $compSubbrand = trim((string)($valMap['subbrand_kompetitor'] ?? $valMap['nama_subbrand_kompetitor_yang_dicek'] ?? ''));
+                    $compTin = $parseAmount($valMap['harga_kompetitor_tin_rp'] ?? $valMap['harga_jual_kompetitor_kemasan_tin_/_kaleng_1l/1kg_(rp)'] ?? null);
+                    $compGalon = $parseAmount($valMap['harga_kompetitor_galon_rp'] ?? $valMap['harga_jual_kompetitor_kemasan_galon_2.5l/4-5kg_(rp)'] ?? null);
+                    $compPail = $parseAmount($valMap['harga_kompetitor_pail_rp'] ?? $valMap['harga_jual_kompetitor_kemasan_pail_20l/25kg_(rp)'] ?? null);
+
+                    if ($compGalon > 0 || $compTin > 0 || $compPail > 0) {
+                        $compBrandName = $compBrand ?: 'Kompetitor';
+                        $compProductName = $compSubbrand ? ($compBrandName . ' - ' . $compSubbrand) : ($compBrandName . ' ' . $category);
+                        $compItemCode = md5(strtoupper(trim($storeName)) . '_' . strtoupper(trim($compProductName)));
+
+                        $liveRows[] = [
+                            'submission_id' => $sub->id,
+                            'submission_code' => $sub->submission_code,
+                            'code' => $compItemCode,
+                            'regional' => $rsmArea,
+                            'sap_member' => $sapMember,
+                            'sap_gab' => '-',
+                            'name_store' => $storeName,
+                            'tl_name' => $tlName,
+                            'area' => $branchName,
+                            'rsm_area' => $rsmArea,
+                            'class' => '-',
+                            'store_type' => '-',
+                            'product' => $compProductName,
+                            'category' => $category,
+                            'product_group' => $compBrandName,
+                            'brand' => $compBrandName,
+                            'brand_raw' => $compBrandName,
+                            'month' => $subMonth,
+                            'trans_date' => $sub->submitted_at->format('Y-m-d'),
+                            'price_tin' => $compTin,
+                            'lowest_tin' => $compTin,
+                            'reason_tin' => '-',
+                            'price_galon' => $compGalon,
+                            'lowest_galon' => $compGalon,
+                            'reason_galon' => '-',
+                            'price_pail' => $compPail,
+                            'lowest_pail' => $compPail,
+                            'reason_pail' => '-',
+                            'is_live' => true,
+                        ];
+                    }
                 }
             }
         } catch (\Throwable $e) {
