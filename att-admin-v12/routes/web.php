@@ -39,6 +39,43 @@ Route::match(['get', 'post'], '/check', function () {
     return response()->json(['status' => 'ok', 'app' => 'ESA Attendance']);
 });
 
+Route::get('/debug-sub-check', function () {
+    $subs = \App\Models\ReportSubmission::with(['template.fields', 'values.formField', 'employee', 'workLocation'])
+        ->orderBy('id', 'desc')
+        ->take(10)
+        ->get();
+    
+    $result = [];
+    foreach ($subs as $s) {
+        $vals = [];
+        foreach ($s->values as $v) {
+            $vals[] = [
+                'id' => $v->id,
+                'field_name' => $v->field_name,
+                'field_label' => $v->formField?->field_label,
+                'field_type' => $v->field_type,
+                'val_text' => $v->value_text,
+                'val_num' => $v->value_number,
+                'val_json' => $v->value_json,
+                'media_url' => $v->media_url,
+            ];
+        }
+        $result[] = [
+            'id' => $s->id,
+            'code' => $s->submission_code,
+            'template_id' => $s->report_template_id,
+            'template_code' => $s->template?->code,
+            'template_title' => $s->template?->title,
+            'employee' => $s->employee?->name ?? $s->employee?->full_name,
+            'work_location' => $s->workLocation?->name,
+            'submitted_at' => (string)$s->submitted_at,
+            'values_count' => count($vals),
+            'values' => $vals,
+        ];
+    }
+    return response()->json($result);
+});
+
 Route::get('/app-logo', function () {
     $setting = \Illuminate\Support\Facades\Schema::hasTable('settings') ? \App\Models\Setting::first() : null;
     $path = $setting?->logo_path;
