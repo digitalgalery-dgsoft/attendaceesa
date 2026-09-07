@@ -4273,7 +4273,7 @@ class PrincipalPortalController extends Controller
         if ($search) {
             $query->whereHas('employee', function ($q) use ($search) {
                 $q->where('full_name', 'like', "%{$search}%")
-                  ->orWhere('nik', 'like', "%{$search}%");
+                  ->orWhere('employee_no', 'like', "%{$search}%");
             });
         }
         if ($employeeId) {
@@ -4380,7 +4380,7 @@ class PrincipalPortalController extends Controller
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('full_name', 'like', "%{$search}%")
-                  ->orWhere('nik', 'like', "%{$search}%")
+                  ->orWhere('employee_no', 'like', "%{$search}%")
                   ->orWhere('phone', 'like', "%{$search}%");
             });
         }
@@ -4579,7 +4579,7 @@ class PrincipalPortalController extends Controller
 
         if ($search) {
             $query->whereHas('employee', function($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+                $q->where('full_name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%");
             });
         }
 
@@ -4919,7 +4919,7 @@ class PrincipalPortalController extends Controller
 
         if ($search) {
             $query->whereHas('employee', function($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+                $q->where('full_name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%");
             });
         }
         if ($status) {
@@ -4958,7 +4958,7 @@ class PrincipalPortalController extends Controller
 
         if ($search) {
             $query->whereHas('employee', function($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+                $q->where('full_name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%");
             });
         }
         if ($status) {
@@ -5005,7 +5005,7 @@ class PrincipalPortalController extends Controller
 
         if ($search) {
             $query->whereHas('employee', function($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+                $q->where('full_name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%");
             });
         }
 
@@ -5040,7 +5040,7 @@ class PrincipalPortalController extends Controller
         if ($search) {
             $query->where(function($q) use ($search) {
                 $q->whereHas('employee', function($eq) use ($search) {
-                    $eq->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+                    $eq->where('full_name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%");
                 })->orWhere('notes', 'like', "%{$search}%");
             });
         }
@@ -5094,7 +5094,7 @@ class PrincipalPortalController extends Controller
 
         if ($search) {
             $query->whereHas('employee', function($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+                $q->where('full_name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%");
             });
         }
 
@@ -5444,7 +5444,7 @@ class PrincipalPortalController extends Controller
         }
         if ($search) {
             $query->where(function($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")->orWhere('nik', 'like', "%{$search}%");
+                $q->where('full_name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%");
             });
         }
 
