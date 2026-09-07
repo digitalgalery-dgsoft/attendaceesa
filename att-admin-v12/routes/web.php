@@ -584,74 +584,25 @@ Route::get('/migrate-now', function () {
 });
 
 Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
-    register_shutdown_function(function() {
-        $err = error_get_last();
-        if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-            echo json_encode(['fatal_error' => $err]);
-        }
-    });
     try {
-        $sub = \App\Models\ReportSubmission::where('submission_code', 'LIKE', '%JTHH%')
-            ->orWhere('submission_code', 'LIKE', '%X9FI%')
-            ->orderBy('id', 'desc')
-            ->with(['template', 'workLocation.branch', 'employee', 'values.formField'])
-            ->get();
-
-        $subCols = \Illuminate\Support\Facades\Schema::getColumnListing('report_submissions');
-        $valCols = \Illuminate\Support\Facades\Schema::getColumnListing('report_submission_values');
-
-        $template = \App\Models\ReportTemplate::where('code', 'RPT-DULUX-OFFTAKE-01')->first();
-
-        $startDate = \Carbon\Carbon::create(2026, 9, 1)->startOfMonth();
-        $endDate = \Carbon\Carbon::create(2026, 9, 1)->endOfMonth();
-
-        // Check getLiveSubmissionsQuery
-        $ctrl = app(\App\Http\Controllers\Portal\PrincipalPortalController::class);
-        $refLiveQuery = new \ReflectionMethod($ctrl, 'getLiveSubmissionsQuery');
-        $refLiveQuery->setAccessible(true);
-        $liveQuery = $refLiveQuery->invoke($ctrl, $template, $startDate, $endDate, null, null, null, null);
-        $liveQueryCount = (clone $liveQuery)->count();
-
-        // Also test controller method calculateOfftakeDashboardData
-        $refMethod = new \ReflectionMethod($ctrl, 'calculateOfftakeDashboardData');
-        $t0 = microtime(true);
-        $offtakeData = $refMethod->invoke($ctrl, $template, 9, 2026, 9, 2026, null, null, null, null, 1, 1, 50);
-        $t1 = microtime(true);
-
-        // 2. getLiveSubmissionsQuery paginate
-        $startDate = \Carbon\Carbon::create(2026, 9, 1)->startOfMonth();
-        $endDate = \Carbon\Carbon::create(2026, 9, 1)->endOfMonth();
-        $refLive = new \ReflectionMethod($ctrl, 'getLiveSubmissionsQuery');
-        $refLive->setAccessible(true);
-        $liveQ = $refLive->invoke($ctrl, $template, $startDate, $endDate, null, null, null, null);
-        $submissions = $liveQ->orderBy('submitted_at', 'desc')->paginate(20);
-        $t2 = microtime(true);
-
-        // 3. calculateOfftakeYtdData
-        $refYtd = new \ReflectionMethod($ctrl, 'calculateOfftakeYtdData');
-        $refYtd->setAccessible(true);
-        $ytdData = $refYtd->invoke($ctrl, $template, 9, 2026, null, null, null, null);
-        $t3 = microtime(true);
-
+        $logPath = storage_path('logs/laravel.log');
+        $lines = [];
+        if (file_exists($logPath)) {
+            $fp = fopen($logPath, 'r');
+            fseek($fp, max(0, filesize($logPath) - 50000));
+            $content = fread($fp, 50000);
+            fclose($fp);
+            $lines = array_slice(explode("\n", $content), -60);
+        }
         return response()->json([
             'status' => 'success',
-            'time_dash_ms' => round(($t1 - $t0) * 1000, 2),
-            'time_live_ms' => round(($t2 - $t1) * 1000, 2),
-            'time_ytd_ms' => round(($t3 - $t2) * 1000, 2),
-            'dash_total_stores' => $offtakeData['sheet2']['total_stores'] ?? null,
-            'dash_total_records' => $offtakeData['sheet1']['total_records'] ?? null,
-            'live_submissions_count' => $submissions->total(),
-            'ytd_brands_count' => count($ytdData['details'] ?? []),
-            'ytd_stores_count' => count($ytdData['stores']['top10'] ?? []),
+            'log_tail' => $lines,
         ], 200, [], JSON_PRETTY_PRINT);
     } catch (\Throwable $e) {
         return response()->json([
             'status' => 'error',
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'trace' => explode("\n", $e->getTraceAsString())
-        ], 500, [], JSON_PRETTY_PRINT);
+            'message' => $e->getMessage()
+        ], 500);
     }
 });
 
