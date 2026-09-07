@@ -30,7 +30,32 @@ class WorkLocationsTable
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('name')
-                    ->searchable(),
+                    ->label('Nama Toko / Lokasi')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('code')
+                    ->label('Kode SAP')
+                    ->searchable()
+                    ->sortable()
+                    ->default('-'),
+                TextColumn::make('category')
+                    ->label('Kategori Store')
+                    ->searchable()
+                    ->sortable()
+                    ->badge()
+                    ->default('-'),
+                TextColumn::make('machine_type')
+                    ->label('Type Mesin')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false)
+                    ->default('-'),
+                TextColumn::make('machine_serial_no')
+                    ->label('Nomor Mesin')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false)
+                    ->default('-'),
                 TextColumn::make('type')
                     ->badge(),
                 TextColumn::make('region')

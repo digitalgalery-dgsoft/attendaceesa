@@ -147,6 +147,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $commands[] = '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan dulux:clean-work-locations --force';
     }
 
+    if (isset($_GET['import_amk_stores']) && $_GET['import_amk_stores'] === '1') {
+        $commands[] = '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan dulux:import-amk-stores --force';
+    }
+
     if (isset($_GET['artisan_cmd']) && !empty($_GET['artisan_cmd'])) {
         $commands[] = '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan ' . trim($_GET['artisan_cmd']);
     }

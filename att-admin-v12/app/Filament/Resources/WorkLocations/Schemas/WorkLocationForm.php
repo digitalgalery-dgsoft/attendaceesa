@@ -55,7 +55,12 @@ class WorkLocationForm
                         }
                     }),
                 TextInput::make('name')
+                    ->label('Nama Lokasi / Toko')
                     ->required(),
+                TextInput::make('code')
+                    ->label('Kode SAP')
+                    ->placeholder('Contoh: 422401')
+                    ->maxLength(100),
                 Select::make('type')
                     ->options([
                         'office' => 'Office',
@@ -65,7 +70,20 @@ class WorkLocationForm
                         'other' => 'Other',
                     ])
                     ->searchable()
+                    ->default('client')
                     ->required(),
+                TextInput::make('category')
+                    ->label('Kategori Store')
+                    ->placeholder('Contoh: SSO / MTI / Blue Store / Retail')
+                    ->maxLength(100),
+                TextInput::make('machine_type')
+                    ->label('Type Mesin')
+                    ->placeholder('Contoh: D200, Discovery, X-Smart')
+                    ->maxLength(100),
+                TextInput::make('machine_serial_no')
+                    ->label('Nomor Mesin')
+                    ->placeholder('Contoh: D10B0236, 670000001-2041875F')
+                    ->maxLength(100),
 
                 Select::make('region')
                     ->options([

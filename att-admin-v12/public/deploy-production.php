@@ -70,8 +70,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $runImportOos = (isset($_GET['import_oos']) && $_GET['import_oos'] === '1') || (isset($_GET['type']) && $_GET['type'] === 'oos');
     $runImportDaily = (isset($_GET['import_daily']) && $_GET['import_daily'] === '1') || (isset($_GET['type']) && in_array($_GET['type'], ['daily', 'maintenance', 'daily_maintenance']));
     $runCleanLocations = (isset($_GET['clean_dulux_locations']) && $_GET['clean_dulux_locations'] === '1') || (isset($_GET['type']) && in_array($_GET['type'], ['clean_locations', 'clean_work_locations']));
+    $runImportAmkStores = (isset($_GET['import_amk_stores']) && $_GET['import_amk_stores'] === '1') || (isset($_GET['type']) && in_array($_GET['type'], ['amk_stores', 'stores', 'dulux_stores']));
 
-    if ($runCleanLocations) {
+    if ($runImportAmkStores) {
+        $importCmd = 'dulux:import-amk-stores --force';
+        $importTitle = 'DATA STORE / WORK LOCATION DULUX AMK';
+    } elseif ($runCleanLocations) {
         $importCmd = 'dulux:clean-work-locations --force';
         $importTitle = 'PEMBERSIHAN MASTER WORK LOCATION ICI PAINTS';
     } elseif ($runImportDaily) {
