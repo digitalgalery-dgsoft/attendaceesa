@@ -568,13 +568,25 @@ class ReportingApiController extends Controller
 
                 // Handle format data berdasarkan field_type (HANYA untuk non-media)
                 if (!$isMediaField) {
-                    if (in_array($field->field_type, ['number', 'integer', 'currency', 'percentage', 'rating', 'rating_star', 'slider'])) {
+                    if ($field->field_type === 'currency') {
                         if (is_numeric($rawValue)) {
                             $valueNumber = (float) $rawValue;
                         } elseif (is_string($rawValue)) {
-                            // Bersihkan karakter non-digit jika currency (misal: "Rp 1.500.000" -> 1500000)
-                            $cleanNum = preg_replace('/[^0-9.]/', '', $rawValue);
-                            $valueNumber = is_numeric($cleanNum) ? (float) $cleanNum : null;
+                            // Bersihkan semua karakter non-digit untuk currency Rupiah ("Rp 195.000" -> 195000)
+                            $cleanNum = preg_replace('/[^0-9]/', '', $rawValue);
+                            $valueNumber = $cleanNum !== '' ? (float) $cleanNum : null;
+                        }
+                        $valueText = $rawValue !== null ? (string) $rawValue : null;
+                    } elseif (in_array($field->field_type, ['number', 'integer', 'percentage', 'rating', 'rating_star', 'slider'])) {
+                        if (is_numeric($rawValue)) {
+                            $valueNumber = (float) $rawValue;
+                        } elseif (is_string($rawValue)) {
+                            // Normalisasi koma/titik desimal
+                            $standardized = str_replace(',', '.', preg_replace('/[^0-9.,]/', '', $rawValue));
+                            if (substr_count($standardized, '.') > 1) {
+                                $standardized = str_replace('.', '', $standardized);
+                            }
+                            $valueNumber = is_numeric($standardized) ? (float) $standardized : null;
                         }
                         $valueText = $rawValue !== null ? (string) $rawValue : null;
                     } elseif (in_array($field->field_type, ['multi_select', 'checkbox_group', 'sku_list']) || is_array($rawValue)) {
@@ -1097,12 +1109,25 @@ class ReportingApiController extends Controller
 
                 // Format data non-media
                 if (!$isMediaField && $hasNewValue) {
-                    if (in_array($field->field_type, ['number', 'integer', 'currency', 'percentage', 'rating', 'rating_star', 'slider'])) {
+                    if ($field->field_type === 'currency') {
                         if (is_numeric($rawValue)) {
                             $valueNumber = (float) $rawValue;
                         } elseif (is_string($rawValue)) {
-                            $cleanNum = preg_replace('/[^0-9.]/', '', $rawValue);
-                            $valueNumber = is_numeric($cleanNum) ? (float) $cleanNum : null;
+                            // Bersihkan semua karakter non-digit untuk currency Rupiah ("Rp 195.000" -> 195000)
+                            $cleanNum = preg_replace('/[^0-9]/', '', $rawValue);
+                            $valueNumber = $cleanNum !== '' ? (float) $cleanNum : null;
+                        }
+                        $valueText = $rawValue !== null ? (string) $rawValue : null;
+                    } elseif (in_array($field->field_type, ['number', 'integer', 'percentage', 'rating', 'rating_star', 'slider'])) {
+                        if (is_numeric($rawValue)) {
+                            $valueNumber = (float) $rawValue;
+                        } elseif (is_string($rawValue)) {
+                            // Normalisasi koma/titik desimal
+                            $standardized = str_replace(',', '.', preg_replace('/[^0-9.,]/', '', $rawValue));
+                            if (substr_count($standardized, '.') > 1) {
+                                $standardized = str_replace('.', '', $standardized);
+                            }
+                            $valueNumber = is_numeric($standardized) ? (float) $standardized : null;
                         }
                         $valueText = $rawValue !== null ? (string) $rawValue : null;
                     } elseif (in_array($field->field_type, ['multi_select', 'checkbox_group', 'sku_list']) || is_array($rawValue)) {

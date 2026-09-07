@@ -1226,7 +1226,22 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     _controllers.forEach((key, ctrl) {
       final text = ctrl.text.trim();
       if (text.isNotEmpty) {
-        _formValues[key] = text;
+        ReportFormFieldModel? matchedField;
+        for (final f in widget.template.fields) {
+          if (f.id.toString() == key || f.fieldName.toLowerCase() == key.toLowerCase()) {
+            matchedField = f;
+            break;
+          }
+        }
+        if (matchedField != null && matchedField.fieldType == 'currency') {
+          final cleanDigits = text.replaceAll(RegExp(r'[^0-9]'), '');
+          _formValues[key] = int.tryParse(cleanDigits) ?? 0;
+        } else if (matchedField != null && (matchedField.fieldType == 'number' || matchedField.fieldType == 'integer')) {
+          final cleanNum = text.replaceAll(',', '.').replaceAll(RegExp(r'[^0-9.]'), '');
+          _formValues[key] = num.tryParse(cleanNum) ?? (num.tryParse(text) ?? text);
+        } else {
+          _formValues[key] = text;
+        }
       } else if (!_formValues.containsKey(key)) {
         _formValues[key] = '';
       }
@@ -1266,7 +1281,14 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         continue;
       }
       final fieldKey = f.id.toString();
-      final val = _formValues[fieldKey] ?? _formValues[f.fieldName] ?? _controllers[fieldKey]?.text;
+      dynamic val = _formValues[fieldKey] ?? _formValues[f.fieldName] ?? _controllers[fieldKey]?.text;
+      if (f.fieldType == 'currency') {
+        final cleanDigits = val?.toString().replaceAll(RegExp(r'[^0-9]'), '') ?? '';
+        val = int.tryParse(cleanDigits) ?? 0;
+      } else if (f.fieldType == 'number' || f.fieldType == 'integer') {
+        final cleanNum = val?.toString().replaceAll(',', '.').replaceAll(RegExp(r'[^0-9.]'), '') ?? '';
+        val = num.tryParse(cleanNum) ?? (num.tryParse(val?.toString() ?? '') ?? val);
+      }
       if (val != null) {
         cleanFormValues[fieldKey] = val;
         cleanFormValues[f.fieldName] = val;
