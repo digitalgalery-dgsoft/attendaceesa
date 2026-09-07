@@ -14,6 +14,13 @@
                 <span>Raw Data Transaksi</span>
                 <span class="badge-count">{{ number_format($offtakeData['sheet1']['total_records'] ?? 0) }} Baris</span>
             </button>
+            <button type="button" class="offtake-nav-btn {{ ($activeTab ?? 'sheet2') === 'live' ? 'active' : '' }}" id="btn_offtake_tab_live" onclick="switchOfftakeTab('live')">
+                <i class="fa-solid fa-list-check" style="font-size: 0.95rem; color: #2563eb;"></i>
+                <span>Data Laporan Masuk</span>
+                @if(isset($submissions) && $submissions->total() > 0)
+                    <span class="badge-count" style="background: #2563eb; color: #ffffff;">{{ $submissions->total() }}</span>
+                @endif
+            </button>
         </div>
 
         <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
@@ -333,6 +340,288 @@
             </div>
         </div>
     </div>
+
+    <!-- PANE 3: DATA LAPORAN MASUK TERKINI (LIVE SUBMISSIONS & APPROVAL) -->
+    <div id="pane_offtake_live" class="offtake-pane" style="{{ ($activeTab ?? 'sheet2') === 'live' ? 'display: block;' : 'display: none;' }}">
+        <div class="offtake-card">
+            <div class="offtake-card-header">
+                <div>
+                    <h3 class="offtake-card-title">
+                        <i class="fa-solid fa-clipboard-check" style="color: var(--brand-primary);"></i>
+                        Data Laporan Masuk Terkini (Live Submissions & Approval)
+                    </h3>
+                    <div class="offtake-card-sub">
+                        Daftar transaksi penjualan harian (Offtake) yang dikirim langsung oleh Promotor / SPG melalui aplikasi mobile untuk diverifikasi dan disetujui.
+                    </div>
+                </div>
+
+                <div class="offtake-header-meta">
+                    <div class="meta-pill">
+                        <span class="meta-lbl">Total Laporan:</span>
+                        <strong class="meta-val">{{ isset($submissions) ? number_format($submissions->total()) : 0 }} Laporan</strong>
+                    </div>
+                </div>
+            </div>
+
+            @if(isset($submissions) && $submissions->isNotEmpty())
+                <div class="offtake-table-container">
+                    <table class="offtake-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px; text-align: center;">No</th>
+                                <th style="width: 140px;">Kode Laporan</th>
+                                <th style="min-width: 130px;">Waktu Submit</th>
+                                <th style="min-width: 170px;">Promotor / SPG</th>
+                                <th style="min-width: 180px;">Nama Toko / Outlet</th>
+                                <th style="min-width: 130px;">Area & RSM</th>
+                                <th style="min-width: 150px;">Brand & Sub Brand</th>
+                                <th style="min-width: 140px; text-align: right;">Kemasan & Qty</th>
+                                <th style="min-width: 110px; text-align: right;">Total Volume</th>
+                                <th style="text-align: center; width: 100px;">Radius GPS</th>
+                                <th style="text-align: center; width: 120px;">Status</th>
+                                <th style="text-align: center; width: 140px;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($submissions as $idx => $sub)
+                                @php
+                                    $valMap = [];
+                                    foreach ($sub->values as $v) {
+                                        $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
+                                        if ($v->field_name) {
+                                            $valMap[$v->field_name] = $val;
+                                            $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
+                                            $valMap[$slug] = $val;
+                                        }
+                                        if ($v->formField) {
+                                            if ($v->formField->field_name) {
+                                                $valMap[$v->formField->field_name] = $val;
+                                                $slugF = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_name), '_'));
+                                                $valMap[$slugF] = $val;
+                                            }
+                                            if ($v->formField->field_label) {
+                                                $slugL = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_label), '_'));
+                                                $valMap[$slugL] = $val;
+                                            }
+                                        }
+                                    }
+
+                                    $store = $sub->workLocation?->name ?? 'Toko Tidak Terdaftar';
+                                    $sap = $sub->workLocation?->code ?? ($sub->workLocation?->store_code ?? '-');
+                                    $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? '-'));
+                                    $region = $sub->workLocation?->region ?? '-';
+                                    $empName = $sub->employee?->full_name ?? ($sub->employee?->name ?? 'Petugas');
+                                    $empNik = $sub->employee?->nik ?? ($sub->employee?->employee_no ?? '-');
+
+                                    $rawBrand = trim((string)($valMap['brand'] ?? ($valMap['brand_cat'] ?? ($valMap['brand_rm_base'] ?? ''))));
+                                    $rawSubBrand = trim((string)($valMap['sub_brand'] ?? ($valMap['subbrand'] ?? ($valMap['sub_brand_produk'] ?? ($valMap['sub_brand1'] ?? ($valMap['nama_produk'] ?? ''))))));
+                                    if (empty($rawBrand)) {
+                                        if (stripos($rawSubBrand, 'Catylac') !== false) {
+                                            $rawBrand = 'Catylac';
+                                        } elseif (stripos($rawSubBrand, 'Maxilite') !== false) {
+                                            $rawBrand = 'Maxilite';
+                                        } else {
+                                            $rawBrand = 'Dulux';
+                                        }
+                                    }
+                                    if (empty($rawSubBrand)) {
+                                        $rawSubBrand = $rawBrand . ' Product';
+                                    }
+
+                                    $kemasanGalon = trim((string)($valMap['kemasan_galon'] ?? ''));
+                                    $qtyGalon = (float)($valMap['qty_galon'] ?? ($valMap['kuantiti_galon_terjual_unit'] ?? ($valMap['kuantiti_galon_terjual'] ?? 0)));
+                                    $kemasanPail = trim((string)($valMap['kemasan_pail'] ?? ''));
+                                    $qtyPail = (float)($valMap['qty_pail'] ?? ($valMap['kuantiti_pail_terjual_unit'] ?? ($valMap['kuantiti_pail_terjual'] ?? 0)));
+
+                                    $volLiter = (float)($valMap['total_volume_liter'] ?? ($valMap['volume_liter'] ?? 0));
+                                    if ($volLiter <= 0) {
+                                        $volG = (float)($valMap['volume_galon_l'] ?? 0);
+                                        $volP = (float)($valMap['volume_pail_l'] ?? 0);
+                                        if ($volG > 0 || $volP > 0) {
+                                            $volLiter = $volG + $volP;
+                                        } else {
+                                            $gSize = 0;
+                                            if (preg_match('/([0-9]+(?:\.[0-9]+)?)/', $kemasanGalon, $gm)) $gSize = (float)$gm[1];
+                                            $pSize = 0;
+                                            if (preg_match('/([0-9]+(?:\.[0-9]+)?)/', $kemasanPail, $pm)) $pSize = (float)$pm[1];
+                                            $volLiter = ($gSize * $qtyGalon) + ($pSize * $qtyPail);
+                                        }
+                                    }
+
+                                    $status = $sub->status ?? 'pending';
+                                @endphp
+                                <tr>
+                                    <td style="text-align: center; color: #64748b; font-size: 0.8rem; font-weight: 700;">
+                                        {{ $submissions->firstItem() + $idx }}
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" style="font-family: monospace; font-weight: 700; font-size: 0.82rem; color: #0F52BA; text-decoration: none; background: rgba(15, 82, 186, 0.08); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(15, 82, 186, 0.2); display: inline-block;">
+                                            {{ $sub->submission_code }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                            {{ $sub->submitted_at ? $sub->submitted_at->translatedFormat('d M Y') : ($sub->created_at ? $sub->created_at->translatedFormat('d M Y') : '-') }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            {{ $sub->submitted_at ? $sub->submitted_at->format('H:i') : ($sub->created_at ? $sub->created_at->format('H:i') : '-') }} WIB
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                            {{ $empName }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b; font-family: monospace;">
+                                            {{ $empNik }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                            {{ $store }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            SAP: <span class="sap-pill" style="font-size: 0.72rem; padding: 1px 6px;">{{ $sap }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 600; color: #1e293b; font-size: 0.82rem;">
+                                            {{ $area }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            <span class="region-pill" style="font-size: 0.7rem; padding: 1px 5px;">{{ $region }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <span class="brand-tag {{ strtolower($rawBrand) === 'dulux' ? 'brand-tag-dulux' : 'brand-tag-catylac' }}" style="font-size: 0.7rem; padding: 1px 5px;">
+                                                {{ $rawBrand }}
+                                            </span>
+                                        </div>
+                                        <div style="font-size: 0.82rem; font-weight: 600; color: #1e293b; margin-top: 2px;">
+                                            {{ $rawSubBrand }}
+                                        </div>
+                                    </td>
+                                    <td style="text-align: right; font-size: 0.8rem;">
+                                        @if($qtyGalon > 0)
+                                            <div><strong>{{ number_format($qtyGalon) }}</strong> Galon <span style="color: #64748b;">({{ $kemasanGalon ?: '2.5L' }})</span></div>
+                                        @endif
+                                        @if($qtyPail > 0)
+                                            <div><strong>{{ number_format($qtyPail) }}</strong> Pail <span style="color: #64748b;">({{ $kemasanPail ?: '20L' }})</span></div>
+                                        @endif
+                                        @if($qtyGalon <= 0 && $qtyPail <= 0)
+                                            <span style="color: #94a3b8;">-</span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: right; font-weight: 800; color: #0b3d88; font-size: 0.88rem;">
+                                        {{ number_format($volLiter, 2) }} L
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if($sub->is_within_radius)
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #16a34a; background: #dcfce7; padding: 0.25rem 0.55rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-circle-check"></i> Valid
+                                            </span>
+                                        @else
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.55rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> Luar
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if(in_array($status, ['approved', 'verified']))
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-circle-check"></i> Terverifikasi
+                                            </span>
+                                        @elseif($status === 'rejected')
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-circle-xmark"></i> Ditolak
+                                            </span>
+                                        @else
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-clock"></i> Menunggu
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <div style="display: inline-flex; align-items: center; gap: 4px; justify-content: center;">
+                                            <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" class="btn-action-view" title="Lihat Detail & Bukti Nota">
+                                                <i class="fa-solid fa-eye"></i> Detail
+                                            </a>
+                                            @if(in_array($status, ['pending', 'submitted']))
+                                                <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Setujui laporan {{ $sub->submission_code }}?')">
+                                                    @csrf
+                                                    <input type="hidden" name="status" value="approved">
+                                                    <button type="submit" class="btn-action-quick-approve" title="Setujui Laporan">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </button>
+                                                </form>
+                                                <button type="button" class="btn-action-quick-reject" onclick="openOfftakeRejectModal('{{ $sub->id }}', '{{ $sub->submission_code }}')" title="Tolak Laporan">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            @elseif(in_array($status, ['approved', 'verified']))
+                                                <button type="button" class="btn-action-quick-reject" onclick="openOfftakeRejectModal('{{ $sub->id }}', '{{ $sub->submission_code }}')" title="Batalkan / Tolak Laporan">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            @elseif($status === 'rejected')
+                                                <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Ubah status menjadi Disetujui?')">
+                                                    @csrf
+                                                    <input type="hidden" name="status" value="approved">
+                                                    <button type="submit" class="btn-action-quick-approve" title="Setujui Laporan">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                @if($submissions->hasPages())
+                    <div style="padding: 1rem 1.25rem; background: #f8fafc; border-top: 1px solid var(--border-color); border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                        {{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->links('portal.pagination') }}
+                    </div>
+                @endif
+            @else
+                <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+                    <i class="fa-solid fa-clipboard-question" style="font-size: 2.5rem; margin-bottom: 0.75rem; color: #cbd5e1; display: block;"></i>
+                    <div style="font-weight: 700; font-size: 1rem; color: var(--text-heading);">Tidak Ada Data Laporan Masuk</div>
+                    <p style="font-size: 0.85rem; max-width: 420px; margin: 0.35rem auto 0;">
+                        Belum ada laporan Offtake yang dikirimkan pada filter periode / area yang dipilih.
+                    </p>
+                </div>
+            @endif
+        </div>
+    </div>
+
+    <!-- REJECT MODAL -->
+    <div id="offtake_reject_modal" class="portal-modal-backdrop" style="display: none;">
+        <div class="portal-modal-box">
+            <div class="portal-modal-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-circle-xmark" style="color: #dc2626; font-size: 1.25rem;"></i>
+                    <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #0f172a;">Tolak Laporan Masuk</h4>
+                </div>
+                <button type="button" onclick="closeOfftakeRejectModal()" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: #64748b;">&times;</button>
+            </div>
+            <form id="offtake_reject_form" method="POST">
+                @csrf
+                <input type="hidden" name="status" value="rejected">
+                <div style="padding: 1.25rem 1.5rem;">
+                    <p style="font-size: 0.88rem; color: #475569; margin-bottom: 0.75rem;">
+                        Anda akan menolak laporan <strong id="offtake_reject_code" style="font-family: monospace; color: #0f172a;">-</strong>. Berikan alasan penolakan di bawah ini:
+                    </p>
+                    <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #334155; margin-bottom: 0.35rem;">Alasan Penolakan / Catatan:</label>
+                    <textarea name="verification_notes" rows="3" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.6rem 0.75rem; font-size: 0.88rem; font-family: inherit; resize: vertical; box-sizing: border-box;" placeholder="Contoh: Bukti nota tidak jelas, produk salah, dll." required></textarea>
+                </div>
+                <div style="padding: 1rem 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                    <button type="button" onclick="closeOfftakeRejectModal()" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.84rem; font-weight: 600; cursor: pointer; color: #475569;">Batal</button>
+                    <button type="submit" style="padding: 0.5rem 1.15rem; border-radius: 8px; border: none; background: #dc2626; color: #fff; font-size: 0.84rem; font-weight: 700; cursor: pointer;">Konfirmasi Tolak</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -614,32 +903,151 @@
     color: #ffffff;
     border-color: var(--brand-primary);
 }
+
+/* Quick Action & Modal Styles */
+.btn-action-view {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.35rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+    background: #f1f5f9;
+    color: #0F52BA;
+    border: 1px solid #cbd5e1;
+    transition: all 0.15s ease;
+}
+.btn-action-view:hover {
+    background: #0F52BA;
+    color: #ffffff;
+    border-color: #0F52BA;
+}
+
+.btn-action-quick-approve {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.35rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: #16a34a;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(22, 163, 74, 0.2);
+    transition: all 0.15s ease;
+}
+.btn-action-quick-approve:hover {
+    background: #15803d;
+    transform: translateY(-1px);
+}
+
+.btn-action-quick-reject {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.35rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: #dc2626;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(220, 38, 38, 0.2);
+    transition: all 0.15s ease;
+}
+.btn-action-quick-reject:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+}
+
+.portal-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.portal-modal-box {
+    background: #ffffff;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    animation: modalScaleIn 0.2s ease-out;
+}
+@keyframes modalScaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+.portal-modal-header {
+    padding: 1.15rem 1.5rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
 </style>
 
 <script>
 function switchOfftakeTab(tabId) {
     var paneSheet2 = document.getElementById('pane_offtake_sheet2');
     var paneSheet1 = document.getElementById('pane_offtake_sheet1');
+    var paneLive = document.getElementById('pane_offtake_live');
     var btnSheet2 = document.getElementById('btn_offtake_tab_sheet2');
     var btnSheet1 = document.getElementById('btn_offtake_tab_sheet1');
+    var btnLive = document.getElementById('btn_offtake_tab_live');
 
-    if (!paneSheet2 || !paneSheet1) return;
+    if (paneSheet2) paneSheet2.style.display = 'none';
+    if (paneSheet1) paneSheet1.style.display = 'none';
+    if (paneLive) paneLive.style.display = 'none';
+
+    if (btnSheet2) btnSheet2.classList.remove('active');
+    if (btnSheet1) btnSheet1.classList.remove('active');
+    if (btnLive) btnLive.classList.remove('active');
 
     if (tabId === 'sheet1') {
-        paneSheet2.style.display = 'none';
-        paneSheet1.style.display = 'block';
-        btnSheet2.classList.remove('active');
-        btnSheet1.classList.add('active');
+        if (paneSheet1) paneSheet1.style.display = 'block';
+        if (btnSheet1) btnSheet1.classList.add('active');
+    } else if (tabId === 'live') {
+        if (paneLive) paneLive.style.display = 'block';
+        if (btnLive) btnLive.classList.add('active');
     } else {
-        paneSheet1.style.display = 'none';
-        paneSheet2.style.display = 'block';
-        btnSheet1.classList.remove('active');
-        btnSheet2.classList.add('active');
+        if (paneSheet2) paneSheet2.style.display = 'block';
+        if (btnSheet2) btnSheet2.classList.add('active');
     }
 
     // Persist tab parameter in current URL without reloading page
     var url = new URL(window.location);
     url.searchParams.set('tab', tabId);
     window.history.replaceState({}, '', url);
+}
+
+function openOfftakeRejectModal(subId, subCode) {
+    var modal = document.getElementById('offtake_reject_modal');
+    var codeEl = document.getElementById('offtake_reject_code');
+    var form = document.getElementById('offtake_reject_form');
+    if (!modal || !form) return;
+    if (codeEl) codeEl.innerText = subCode;
+    var baseRoute = "{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => ':id', 'p' => $tenantPrincipal->id]) }}";
+    form.action = baseRoute.replace(':id', subId);
+    modal.style.display = 'flex';
+}
+
+function closeOfftakeRejectModal() {
+    var modal = document.getElementById('offtake_reject_modal');
+    if (modal) modal.style.display = 'none';
 }
 </script>

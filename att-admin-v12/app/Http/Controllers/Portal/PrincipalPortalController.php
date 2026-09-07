@@ -1106,7 +1106,7 @@ class PrincipalPortalController extends Controller
 
                 $offtakePage = max(1, (int)$request->query('page', 1));
                 $rawPage = max(1, (int)$request->query('raw_page', 1));
-                $activeTab = $request->query('tab', 'sheet2');
+                $activeTab = $request->query('tab', $request->has('live_page') ? 'live' : ($request->has('raw_page') ? 'sheet1' : 'sheet2'));
 
                 $offtakeData = $this->calculateOfftakeDashboardData(
                     $template,
@@ -1128,7 +1128,7 @@ class PrincipalPortalController extends Controller
                 $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
                     ->where('submission_code', 'NOT LIKE', 'SUB-OFFTAKE%')
                     ->orderBy('submitted_at', 'desc')
-                    ->paginate(20);
+                    ->paginate(20, ['*'], 'live_page');
                 $liveSubmissionsCount = $submissions->total();
                 $dashboardConfig = [];
                 $widgetResults = [];
@@ -1195,11 +1195,11 @@ class PrincipalPortalController extends Controller
                 $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
                     ->where('submission_code', 'NOT LIKE', 'SUB-OFFTAKE%')
                     ->orderBy('submitted_at', 'desc')
-                    ->paginate(20);
+                    ->paginate(20, ['*'], 'live_page');
                 $dashboardConfig = [];
                 $widgetResults = [];
                 $isYtdReport = true;
-                $activeTab = 'sheet2';
+                $activeTab = $request->query('tab', 'sheet2');
 
                 return view('portal.report_detail', compact(
                     'tenantPrincipal',

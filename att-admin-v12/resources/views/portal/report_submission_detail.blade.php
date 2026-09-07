@@ -820,7 +820,7 @@
                 @endif
 
                 {{-- BACK BUTTON --}}
-                <a href="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" class="btn-portal-back">
+                <a href="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id, 'tab' => 'live']) }}" class="btn-portal-back">
                     <i class="fa-solid fa-arrow-left"></i>
                     <span>Kembali</span>
                 </a>
