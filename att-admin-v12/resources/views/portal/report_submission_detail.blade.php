@@ -631,12 +631,49 @@
         $coordinates = ($submission->latitude && $submission->longitude) ? "{$submission->latitude}, {$submission->longitude}" : null;
         $mapsUrl = $coordinates ? "https://www.google.com/maps?q={$submission->latitude},{$submission->longitude}" : null;
 
+        // Cek apakah submission ini memiliki list kompetitor dinamis
+        $hasDynamicCompetitors = false;
+        foreach ($submission->values as $v) {
+            $fn = strtolower((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : '')));
+            if ($fn === 'data_kompetitor_list') {
+                $compData = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
+                if (is_array($compData) && !empty($compData)) {
+                    $hasDynamicCompetitors = true;
+                    break;
+                }
+            }
+        }
+
+        $suppressCompetitorFields = [
+            'merk_kompetitor',
+            'subbrand_kompetitor',
+            'harga_kompetitor_tin_rp',
+            'harga_kompetitor_galon_rp',
+            'harga_kompetitor_pail_rp',
+            'merk_kompetitor_sejenis_di_toko',
+            'nama_subbrand_kompetitor_yang_dicek',
+            'harga_jual_kompetitor_kemasan_galon_2.5l/4-5kg_(rp)',
+            'harga_jual_kompetitor_kemasan_pail_20l/25kg_(rp)',
+            'harga_jual_kompetitor_kemasan_tin_/_kaleng_1l/1kg_(rp)',
+        ];
+
         // Separate text inputs and photo/media attachments to prevent tall empty grid cards
-        $textValues = $submission->values->filter(function($val) {
+        $textValues = $submission->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields) {
             $isMedia = in_array($val->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])
                 || !empty($val->media_url)
                 || !empty($val->file_path);
-            return !$isMedia;
+            if ($isMedia) return false;
+
+            if ($hasDynamicCompetitors) {
+                $fn = strtolower((string)($val->field_name ?: ($val->formField ? $val->formField->field_name : '')));
+                $fl = strtolower((string)($val->formField?->field_label ?? ''));
+                $flClean = str_replace(' ', '_', $fl);
+                if (in_array($fn, $suppressCompetitorFields) || in_array($flClean, $suppressCompetitorFields)) {
+                    return false;
+                }
+            }
+
+            return true;
         });
 
         // Collect all individual media items (including multi-photo JSON array)
@@ -927,7 +964,60 @@
                                         <div class="param-label-text">{{ $fieldLabel }}</div>
                                     </td>
                                     <td class="param-val-col">
-                                        @if($fieldType === 'currency' && $val->value_number !== null)
+                                        @php
+                                            $isCompList = ($val->field_name === 'data_kompetitor_list' || ($val->formField && $val->formField->field_name === 'data_kompetitor_list'));
+                                            $parsedCompList = null;
+                                            if ($isCompList || (is_string($val->value_text) && str_starts_with(trim($val->value_text), '[{') && str_contains($val->value_text, 'harga_'))) {
+                                                $parsedCompList = is_array($val->value_json) ? $val->value_json : json_decode($val->value_text, true);
+                                            }
+                                        @endphp
+                                        @if(!empty($parsedCompList) && is_array($parsedCompList))
+                                            <div style="display: flex; flex-direction: column; gap: 8px; margin: 4px 0;">
+                                                @foreach($parsedCompList as $cIdx => $cItem)
+                                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px;">
+                                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+                                                            <div style="display: flex; align-items: center; gap: 6px;">
+                                                                <span style="font-size: 0.72rem; font-weight: 800; background: #0F52BA; color: #fff; padding: 2px 6px; border-radius: 4px;">#{{ $cIdx + 1 }}</span>
+                                                                <span style="font-size: 0.85rem; font-weight: 800; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">
+                                                                    {{ $cItem['merk'] ?? $cItem['brand'] ?? 'Kompetitor' }}
+                                                                </span>
+                                                            </div>
+                                                            @if(!empty($cItem['subbrand']))
+                                                                <span style="font-size: 0.82rem; font-weight: 700; color: #334155;">
+                                                                    {{ $cItem['subbrand'] }}
+                                                                </span>
+                                                            @endif
+                                                        </div>
+                                                        <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.8rem;">
+                                                            @if(isset($cItem['harga_galon']))
+                                                                <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; display: inline-flex; gap: 4px; align-items: center;">
+                                                                    <span style="color: #64748b; font-size: 0.75rem;">Galon:</span>
+                                                                    <strong style="color: {{ (float)($cItem['harga_galon'] ?? 0) > 0 ? '#15803d' : '#94a3b8' }};">
+                                                                        Rp {{ number_format((float)($cItem['harga_galon'] ?? 0), 0, ',', '.') }}
+                                                                    </strong>
+                                                                </div>
+                                                            @endif
+                                                            @if(isset($cItem['harga_tin']))
+                                                                <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; display: inline-flex; gap: 4px; align-items: center;">
+                                                                    <span style="color: #64748b; font-size: 0.75rem;">Tin:</span>
+                                                                    <strong style="color: {{ (float)($cItem['harga_tin'] ?? 0) > 0 ? '#15803d' : '#94a3b8' }};">
+                                                                        Rp {{ number_format((float)($cItem['harga_tin'] ?? 0), 0, ',', '.') }}
+                                                                    </strong>
+                                                                </div>
+                                                            @endif
+                                                            @if(isset($cItem['harga_pail']))
+                                                                <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; display: inline-flex; gap: 4px; align-items: center;">
+                                                                    <span style="color: #64748b; font-size: 0.75rem;">Pail:</span>
+                                                                    <strong style="color: {{ (float)($cItem['harga_pail'] ?? 0) > 0 ? '#15803d' : '#94a3b8' }};">
+                                                                        Rp {{ number_format((float)($cItem['harga_pail'] ?? 0), 0, ',', '.') }}
+                                                                    </strong>
+                                                                </div>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @elseif($fieldType === 'currency' && $val->value_number !== null)
                                             <span class="val-currency">
                                                 Rp {{ number_format((float)$val->value_number, 0, ',', '.') }}
                                             </span>

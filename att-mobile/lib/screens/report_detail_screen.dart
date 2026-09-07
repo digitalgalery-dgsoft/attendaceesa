@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -364,19 +365,58 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ),
           const SizedBox(height: 8),
 
-          if (_currentSubmission.values.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Center(
-                child: Text('Tidak ada rincian data tersimpan.', style: TextStyle(color: subtitleColor, fontSize: 12.5)),
-              ),
-            )
-          else
-            ..._currentSubmission.values.map((val) => _buildValueCard(val, cardColor, textColor, subtitleColor, elevatedColor, primaryColor, isDarkMode)),
+          () {
+            // Cek apakah ada list kompetitor dinamis
+            bool hasDynamicComp = false;
+            for (final v in _currentSubmission.values) {
+              if (v.fieldName == 'data_kompetitor_list' || (v.valueText != null && v.valueText!.trim().startsWith('[{') && v.valueText!.contains('harga_'))) {
+                hasDynamicComp = true;
+                break;
+              }
+            }
+
+            final suppressFields = {
+              'merk_kompetitor',
+              'subbrand_kompetitor',
+              'harga_kompetitor_tin_rp',
+              'harga_kompetitor_galon_rp',
+              'harga_kompetitor_pail_rp',
+              'merk_kompetitor_sejenis_di_toko',
+              'nama_subbrand_kompetitor_yang_dicek',
+              'harga_jual_kompetitor_kemasan_galon_2.5l/4-5kg_(rp)',
+              'harga_jual_kompetitor_kemasan_pail_20l/25kg_(rp)',
+              'harga_jual_kompetitor_kemasan_tin_/_kaleng_1l/1kg_(rp)',
+            };
+
+            final displayValues = _currentSubmission.values.where((val) {
+              if (hasDynamicComp) {
+                final fn = val.fieldName.toLowerCase();
+                final fl = val.fieldLabel.toLowerCase().replaceAll(' ', '_');
+                if (suppressFields.contains(fn) || suppressFields.contains(fl)) {
+                  return false;
+                }
+              }
+              return true;
+            }).toList();
+
+            if (displayValues.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Center(
+                  child: Text('Tidak ada rincian data tersimpan.', style: TextStyle(color: subtitleColor, fontSize: 12.5)),
+                ),
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: displayValues.map((val) => _buildValueCard(val, cardColor, textColor, subtitleColor, elevatedColor, primaryColor, isDarkMode)).toList(),
+            );
+          }(),
 
           const SizedBox(height: 20),
 
@@ -403,6 +443,182 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
+  Widget _buildCompetitorListCard(
+    List<dynamic> items,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    Color primaryColor,
+    bool isDarkMode,
+  ) {
+    final currencyFmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: primaryColor.withOpacity(0.35), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.store_mall_directory_rounded, size: 18, color: primaryColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Data Produk Kompetitor',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${items.length} Kompetitor',
+                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: primaryColor),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...items.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final item = entry.value;
+            if (item is! Map) return const SizedBox.shrink();
+
+            final merk = item['merk']?.toString() ?? 'Kompetitor';
+            final subbrand = item['subbrand']?.toString() ?? '-';
+
+            num parsePrice(dynamic val) {
+              if (val == null) return 0;
+              if (val is num) return val;
+              if (val is String) {
+                final clean = val.replaceAll(RegExp(r'[^0-9]'), '');
+                return num.tryParse(clean) ?? 0;
+              }
+              return 0;
+            }
+
+            final pTin = parsePrice(item['harga_tin']);
+            final pGalon = parsePrice(item['harga_galon']);
+            final pPail = parsePrice(item['harga_pail']);
+
+            return Container(
+              margin: EdgeInsets.only(bottom: idx == items.length - 1 ? 0 : 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDarkMode ? Colors.black26 : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          '#${idx + 1}',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE0F2FE),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFBAE6FD)),
+                        ),
+                        child: Text(
+                          merk.toUpperCase(),
+                          style: const TextStyle(color: Color(0xFF0369A1), fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          subbrand,
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _buildPriceBadge('Galon (2.5L/4-5Kg)', pGalon, currencyFmt, isDarkMode, highlight: true),
+                      if (pTin > 0)
+                        _buildPriceBadge('Tin (1L/1Kg)', pTin, currencyFmt, isDarkMode),
+                      if (pPail > 0)
+                        _buildPriceBadge('Pail (20L/25Kg)', pPail, currencyFmt, isDarkMode),
+                      if (pTin == 0 && pPail == 0 && pGalon == 0)
+                        Text('Tidak ada harga tercatat', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriceBadge(String label, num price, NumberFormat fmt, bool isDarkMode, {bool highlight = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey.shade900 : Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$label: ',
+            style: TextStyle(fontSize: 10.5, color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600),
+          ),
+          Text(
+            price > 0 ? fmt.format(price) : 'Rp 0',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: price > 0 ? (highlight ? const Color(0xFF149A6E) : (isDarkMode ? Colors.white : Colors.black87)) : Colors.grey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildValueCard(
     ReportSubmissionValueModel val,
     Color cardColor,
@@ -412,6 +628,23 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     Color primaryColor,
     bool isDarkMode,
   ) {
+    // Cek apakah field ini adalah data_kompetitor_list
+    final isCompList = val.fieldName == 'data_kompetitor_list';
+    List<dynamic>? compItems;
+    if (isCompList || (val.valueText != null && val.valueText!.trim().startsWith('[{') && val.valueText!.contains('harga_'))) {
+      if (val.valueJson is List) {
+        compItems = val.valueJson as List;
+      } else if (val.valueText != null && val.valueText!.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(val.valueText!);
+          if (decoded is List) compItems = decoded;
+        } catch (_) {}
+      }
+    }
+
+    if (compItems != null && compItems.isNotEmpty) {
+      return _buildCompetitorListCard(compItems, cardColor, textColor, subtitleColor, elevatedColor, primaryColor, isDarkMode);
+    }
     final isMedia = ['photo', 'camera_photo', 'multi_photo', 'signature'].contains(val.fieldType) || val.mediaFullUrl != null || val.mediaFullUrls.isNotEmpty;
     final hasMedia = val.mediaFullUrls.isNotEmpty || (val.mediaFullUrl != null && val.mediaFullUrl!.isNotEmpty);
 

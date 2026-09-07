@@ -7053,26 +7053,44 @@ class PrincipalPortalController extends Controller
                 ];
 
                 // 2) Baris Live Kompetitor (Mendukung Multi-Kompetitor Dinamis & Fallback Single Kompetitor)
-                $rawCompList = $valMap['data_kompetitor_list'] ?? null;
-                $compList = [];
-                if (is_string($rawCompList)) {
-                    $compList = json_decode($rawCompList, true) ?? [];
-                } elseif (is_array($rawCompList)) {
-                    $compList = $rawCompList;
+                $rawCompList = null;
+                foreach ($sub->values as $v) {
+                    $fName = $v->field_name ?: ($v->formField ? $v->formField->field_name : '');
+                    if ($fName === 'data_kompetitor_list') {
+                        if (is_array($v->value_json) && !empty($v->value_json)) {
+                            $rawCompList = $v->value_json;
+                        } elseif (is_string($v->value_text) && !empty($v->value_text)) {
+                            $rawCompList = json_decode($v->value_text, true);
+                        } elseif (is_string($v->value_json) && !empty($v->value_json)) {
+                            $rawCompList = json_decode($v->value_json, true);
+                        }
+                        if (!empty($rawCompList)) break;
+                    }
                 }
 
+                if (empty($rawCompList)) {
+                    foreach ($sub->values as $v) {
+                        if (is_string($v->value_text) && str_starts_with(trim($v->value_text), '[{') && str_contains($v->value_text, 'harga_')) {
+                            $rawCompList = json_decode($v->value_text, true);
+                            if (is_array($rawCompList) && !empty($rawCompList)) break;
+                        }
+                    }
+                }
+
+                $compList = is_array($rawCompList) ? $rawCompList : [];
+
                 if (!empty($compList)) {
-                    foreach ($compList as $compItem) {
+                    foreach ($compList as $compIdx => $compItem) {
                         $compBrand = trim((string)($compItem['merk'] ?? $compItem['brand'] ?? ''));
                         $compSubbrand = trim((string)($compItem['subbrand'] ?? ''));
                         $compTin = $parseAmount($compItem['harga_tin'] ?? null);
                         $compGalon = $parseAmount($compItem['harga_galon'] ?? null);
                         $compPail = $parseAmount($compItem['harga_pail'] ?? null);
 
-                        if ($compGalon > 0 || $compTin > 0 || $compPail > 0) {
+                        if ($compGalon > 0 || $compTin > 0 || $compPail > 0 || !empty($compSubbrand)) {
                             $compBrandName = $compBrand ?: 'Kompetitor';
                             $compProductName = $compSubbrand ? ($compBrandName . ' - ' . $compSubbrand) : ($compBrandName . ' ' . $category);
-                            $compItemCode = md5(strtoupper(trim($storeName)) . '_' . strtoupper(trim($compProductName)));
+                            $compItemCode = md5(strtoupper(trim($storeName)) . '_' . strtoupper(trim($compProductName)) . '_' . $compIdx);
 
                             $liveRows[] = [
                                 'submission_id' => $sub->id,
@@ -7109,16 +7127,16 @@ class PrincipalPortalController extends Controller
                     }
                 } else {
                     // Fallback ke single competitor field (kompatibilitas data lama / single entry)
-                    $compBrand = trim((string)($valMap['merk_kompetitor'] ?? $valMap['brand_kompetitor'] ?? ''));
+                    $compBrand = trim((string)($valMap['merk_kompetitor'] ?? $valMap['brand_kompetitor'] ?? $valMap['merk_kompetitor_sejenis_di_toko'] ?? ''));
                     $compSubbrand = trim((string)($valMap['subbrand_kompetitor'] ?? $valMap['nama_subbrand_kompetitor_yang_dicek'] ?? ''));
                     $compTin = $parseAmount($valMap['harga_kompetitor_tin_rp'] ?? $valMap['harga_jual_kompetitor_kemasan_tin_/_kaleng_1l/1kg_(rp)'] ?? null);
                     $compGalon = $parseAmount($valMap['harga_kompetitor_galon_rp'] ?? $valMap['harga_jual_kompetitor_kemasan_galon_2.5l/4-5kg_(rp)'] ?? null);
                     $compPail = $parseAmount($valMap['harga_kompetitor_pail_rp'] ?? $valMap['harga_jual_kompetitor_kemasan_pail_20l/25kg_(rp)'] ?? null);
 
-                    if ($compGalon > 0 || $compTin > 0 || $compPail > 0) {
+                    if ($compGalon > 0 || $compTin > 0 || $compPail > 0 || !empty($compSubbrand)) {
                         $compBrandName = $compBrand ?: 'Kompetitor';
                         $compProductName = $compSubbrand ? ($compBrandName . ' - ' . $compSubbrand) : ($compBrandName . ' ' . $category);
-                        $compItemCode = md5(strtoupper(trim($storeName)) . '_' . strtoupper(trim($compProductName)));
+                        $compItemCode = md5(strtoupper(trim($storeName)) . '_' . strtoupper(trim($compProductName)) . '_comp');
 
                         $liveRows[] = [
                             'submission_id' => $sub->id,
