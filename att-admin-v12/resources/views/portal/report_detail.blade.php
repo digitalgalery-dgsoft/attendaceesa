@@ -1555,7 +1555,13 @@
 
     {{-- OUT OF STOCK (OOS) EXECUTIVE DASHBOARD (SUMMARY, WEEKLY PIVOT & RAW SUBMISSIONS) --}}
     @if(isset($isOosReport) && $isOosReport && !empty($oosData))
-        @include('portal.partials.oos_dashboard', ['oosData' => $oosData])
+        @include('portal.partials.oos_dashboard', [
+            'oosData' => $oosData,
+            'submissions' => $submissions ?? null,
+            'liveSubmissionsCount' => $liveSubmissionsCount ?? 0,
+            'activeTab' => $activeTab ?? 'summary',
+            'showNoOos' => $showNoOos ?? false,
+        ])
     @endif
 
     {{-- DAILY MAINTENANCE EXECUTIVE DASHBOARD (SUMMARY, STORE MATRIX & RAW SUBMISSIONS) --}}

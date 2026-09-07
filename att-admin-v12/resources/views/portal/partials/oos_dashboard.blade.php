@@ -19,6 +19,15 @@
                 <span>Raw Data Submissions</span>
                 <span class="badge-count">{{ number_format($oosData['submissions']['total'] ?? 0) }} Baris</span>
             </button>
+            <button type="button" class="oos-nav-btn {{ ($activeTab ?? 'summary') === 'live' ? 'active' : '' }}" id="btn_oos_tab_live" onclick="switchOosTab('live')">
+                <i class="fa-solid fa-inbox" style="font-size: 0.95rem; color: #2563eb;"></i>
+                <span>Data Laporan Masuk</span>
+                @if(isset($submissions) && $submissions->total() > 0)
+                    <span class="badge-count" style="background: #2563eb; color: #ffffff;">{{ $submissions->total() }}</span>
+                @elseif(isset($liveSubmissionsCount) && $liveSubmissionsCount > 0)
+                    <span class="badge-count" style="background: #2563eb; color: #ffffff;">{{ $liveSubmissionsCount }}</span>
+                @endif
+            </button>
         </div>
 
         <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
@@ -290,8 +299,11 @@
                                         {{ $row['sap'] ?: '-' }}
                                     </td>
                                     <td>
-                                        <div style="font-weight: 700; color: var(--text-heading);">
-                                            {{ $row['store_name'] }}
+                                        <div style="font-weight: 700; color: var(--text-heading); display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                                            <span>{{ $row['store_name'] }}</span>
+                                            @if(!empty($row['is_live']))
+                                                <span style="background: #2563eb; color: #fff; font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 2px;">⚡ LIVE</span>
+                                            @endif
                                         </div>
                                     </td>
                                     <td style="text-align: center;">
@@ -468,8 +480,11 @@
                                         {{ $oosData['submissions']['from'] + $idx }}
                                     </td>
                                     <td>
-                                        <div style="font-weight: 700; color: var(--text-heading);">
-                                            {{ !empty($r['submission_date']) ? (str_contains($r['submission_date'], '/') ? $r['submission_date'] : \Carbon\Carbon::parse($r['submission_date'])->format('Y-m-d H:i')) : '-' }}
+                                        <div style="font-weight: 700; color: var(--text-heading); display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                                            <span>{{ !empty($r['submission_date']) ? (str_contains($r['submission_date'], '/') ? $r['submission_date'] : \Carbon\Carbon::parse($r['submission_date'])->format('Y-m-d H:i')) : '-' }}</span>
+                                            @if(!empty($r['is_live']))
+                                                <span style="background: #2563eb; color: #fff; font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 2px;">⚡ LIVE</span>
+                                            @endif
                                         </div>
                                     </td>
                                     <td style="font-family: monospace; font-size: 0.82rem;">{{ $r['tanggal_oos'] ?: '-' }}</td>
@@ -576,6 +591,305 @@
                     </div>
                 </div>
             @endif
+        </div>
+    </div>
+
+    <!-- PANE 4: DATA LAPORAN MASUK TERKINI (LIVE SUBMISSIONS & APPROVAL) -->
+    <div id="pane_oos_live" class="oos-pane" style="{{ ($activeTab ?? 'summary') === 'live' ? 'display: block;' : 'display: none;' }}">
+        <div class="oos-card">
+            <div class="oos-card-header">
+                <div>
+                    <h3 class="oos-card-title">
+                        <i class="fa-solid fa-clipboard-check" style="color: #0b3d88;"></i>
+                        Data Laporan Out of Stock (OOS) Masuk Terkini (Live Submissions & Approval)
+                    </h3>
+                    <div class="oos-card-sub">
+                        Daftar transaksi monitoring Out of Stock yang dikirimkan langsung oleh Promotor / SPG melalui aplikasi mobile untuk diverifikasi dan disetujui.
+                    </div>
+                </div>
+
+                <div class="oos-header-meta">
+                    <div style="font-size: 0.78rem; font-weight: 600; color: #475569; display: inline-flex; align-items: center; gap: 6px; background: #f8fafc; padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <i class="fa-solid fa-arrows-left-right" style="color: #0b3d88;"></i> Geser tabel untuk melihat seluruh parameter & kolom aksi
+                    </div>
+                    <div class="meta-pill" style="background: #eff6ff; border: 1px solid #bfdbfe;">
+                        <span class="meta-lbl" style="color: #1e40af;">Total Laporan:</span>
+                        <strong class="meta-val" style="color: #0b3d88;">{{ isset($submissions) ? number_format($submissions->total()) : (isset($liveSubmissionsCount) ? number_format($liveSubmissionsCount) : 0) }} Laporan</strong>
+                    </div>
+                </div>
+            </div>
+
+            @if(isset($submissions) && $submissions->isNotEmpty())
+                <div class="oos-table-viewport" style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
+                    <table class="oos-table" style="min-width: 1750px; width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px; text-align: center;">No</th>
+                                <th style="width: 140px;">Kode Laporan</th>
+                                <th style="min-width: 130px;">Waktu Submit</th>
+                                <th style="min-width: 170px;">Promotor / SPG</th>
+                                <th style="min-width: 180px;">Nama Toko / Outlet</th>
+                                <th style="min-width: 130px;">Area & RSM</th>
+                                <th style="min-width: 160px;">Produk OOS</th>
+                                <th style="min-width: 120px;">Base / Kategori</th>
+                                <th style="min-width: 120px;">Kemasan</th>
+                                <th style="min-width: 90px; text-align: center;">Lama OOS</th>
+                                <th style="min-width: 100px; text-align: center;">Saran Order</th>
+                                <th style="min-width: 180px;">Alasan Out of Stock (OOS)</th>
+                                <th style="text-align: center; width: 100px;">Radius GPS</th>
+                                <th style="text-align: center; width: 120px;">Status</th>
+                                <th style="text-align: center; width: 160px; min-width: 160px;" class="col-sticky-action">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($submissions as $idx => $sub)
+                                @php
+                                    $valMap = [];
+                                    foreach ($sub->values as $v) {
+                                        $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
+                                        if ($v->field_name) {
+                                            $valMap[$v->field_name] = $val;
+                                            $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
+                                            $valMap[$slug] = $val;
+                                        }
+                                        if ($v->formField) {
+                                            if ($v->formField->field_name) {
+                                                $valMap[$v->formField->field_name] = $val;
+                                                $slugF = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_name), '_'));
+                                                $valMap[$slugF] = $val;
+                                            }
+                                            if ($v->formField->field_label) {
+                                                $slugL = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_label), '_'));
+                                                $valMap[$slugL] = $val;
+                                            }
+                                        }
+                                    }
+
+                                    $store = $sub->workLocation?->name ?? 'Toko Tidak Terdaftar';
+                                    $sap = $sub->workLocation?->code ?? ($sub->workLocation?->store_code ?? '-');
+                                    $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? '-'));
+                                    $region = $sub->workLocation?->region ?? '-';
+                                    $empName = $sub->employee?->full_name ?? ($sub->employee?->name ?? 'Petugas');
+                                    $empNik = $sub->employee?->nik ?? ($sub->employee?->employee_no ?? '-');
+
+                                    $produk = trim((string)($valMap['pilih_produk_dulux_yang_mengalami_out_of_stock_oos'] ?? ($valMap['nama_produk_yang_kosong_oos'] ?? ($valMap['nama_produk_yang_kosong'] ?? ($valMap['produk_oos'] ?? ($valMap['produk'] ?? 'Dulux Product'))))));
+                                    $baseColor = trim((string)($valMap['base_kategori_warna_yang_kosong'] ?? ($valMap['base_tipe_warna'] ?? ($valMap['base_color'] ?? ($valMap['base_warna'] ?? ($valMap['base'] ?? '-'))))));
+                                    $kemasanSize = trim((string)($valMap['kemasan_size_yang_kosong'] ?? ($valMap['ukuran_kemasan_size'] ?? ($valMap['kemasan_size'] ?? ($valMap['kemasan'] ?? '-')))));
+                                    $lamaOos = (int)($valMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? ($valMap['lama_kondisi_oos_jumlah_hari'] ?? ($valMap['lama_oos_hari'] ?? 0)));
+                                    $saranQty = (int)($valMap['saran_kuantiti_order_ke_toko_qty_kemasan'] ?? ($valMap['saran_kuantitas_order_qty_kaleng'] ?? ($valMap['saran_qty_order'] ?? 0)));
+                                    $alasanOos = trim((string)($valMap['penyebab_alasan_out_of_stock_oos'] ?? ($valMap['alasan_oos'] ?? ($valMap['penyebab_alasan_oos'] ?? ($valMap['alasan'] ?? 'Lain-lain')))));
+
+                                    $isNoOos = str_contains(strtolower($alasanOos), 'no oos') || str_contains(strtolower($alasanOos), 'stok lengkap') || str_contains(strtolower($produk), 'no oos');
+                                    $status = $sub->status ?? 'pending';
+                                @endphp
+                                <tr style="{{ $isNoOos ? 'background: #f0fdf4;' : '' }}">
+                                    <td style="text-align: center; color: #64748b; font-size: 0.8rem; font-weight: 700;">
+                                        {{ $submissions->firstItem() + $idx }}
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" style="font-family: monospace; font-weight: 700; font-size: 0.82rem; color: #0F52BA; text-decoration: none; background: rgba(15, 82, 186, 0.08); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(15, 82, 186, 0.2); display: inline-block;">
+                                            {{ $sub->submission_code }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                            {{ $sub->submitted_at ? $sub->submitted_at->translatedFormat('d M Y') : ($sub->created_at ? $sub->created_at->translatedFormat('d M Y') : '-') }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            {{ $sub->submitted_at ? $sub->submitted_at->format('H:i') : ($sub->created_at ? $sub->created_at->format('H:i') : '-') }} WIB
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                            {{ $empName }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b; font-family: monospace;">
+                                            {{ $empNik }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                            {{ $store }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            SAP: <span class="sap-pill" style="font-size: 0.72rem; padding: 1px 6px;">{{ $sap }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 600; color: #1e293b; font-size: 0.82rem;">
+                                            {{ $area }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            <span class="region-badge {{ strtolower($region) }}" style="font-size: 0.7rem; padding: 1px 5px;">{{ $region }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 600; color: {{ $isNoOos ? '#15803d' : '#1e3a8a' }};">
+                                            {{ $produk }}
+                                        </div>
+                                    </td>
+                                    <td style="font-size: 0.82rem; color: #334155;">
+                                        <span style="display: inline-block; padding: 2px 8px; background: #f1f5f9; border-radius: 6px; font-weight: 600; font-size: 0.78rem;">
+                                            {{ $baseColor }}
+                                        </span>
+                                    </td>
+                                    <td style="font-size: 0.82rem; color: #334155;">
+                                        {{ $kemasanSize }}
+                                    </td>
+                                    <td style="text-align: center; font-weight: 700; color: {{ $lamaOos > 0 ? '#dc2626' : '#94a3b8' }};">
+                                        {{ $lamaOos > 0 ? ($lamaOos . ' Hari') : '-' }}
+                                    </td>
+                                    <td style="text-align: center; font-weight: 700;">
+                                        {{ $saranQty > 0 ? $saranQty : '-' }}
+                                    </td>
+                                    <td>
+                                        <div style="font-size: 0.82rem; color: {{ $isNoOos ? '#15803d' : '#b91c1c' }}; font-weight: 600;">
+                                            {{ $alasanOos }}
+                                        </div>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if($sub->is_within_radius)
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #16a34a; background: #dcfce7; padding: 0.25rem 0.55rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-circle-check"></i> Valid
+                                            </span>
+                                        @else
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.55rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> Luar
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if(in_array($status, ['approved', 'verified']))
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-circle-check"></i> Terverifikasi
+                                            </span>
+                                        @elseif($status === 'rejected')
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-circle-xmark"></i> Ditolak
+                                            </span>
+                                        @else
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-clock"></i> Menunggu
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;" class="col-sticky-action">
+                                        <div style="display: inline-flex; align-items: center; gap: 4px; justify-content: center; white-space: nowrap;">
+                                            <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" class="btn-action-view" title="Lihat Detail & Bukti Foto">
+                                                <i class="fa-solid fa-eye"></i> Detail
+                                            </a>
+                                            @if(in_array($status, ['pending', 'submitted']))
+                                                <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Setujui laporan {{ $sub->submission_code }}?')">
+                                                    @csrf
+                                                    <input type="hidden" name="status" value="approved">
+                                                    <button type="submit" class="btn-action-quick-approve" title="Setujui Laporan">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </button>
+                                                </form>
+                                                <button type="button" class="btn-action-quick-reject" onclick="openOosRejectModal('{{ $sub->id }}', '{{ $sub->submission_code }}')" title="Tolak Laporan">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            @elseif(in_array($status, ['approved', 'verified']))
+                                                <button type="button" class="btn-action-quick-reject" onclick="openOosRejectModal('{{ $sub->id }}', '{{ $sub->submission_code }}')" title="Batalkan / Tolak Laporan">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            @elseif($status === 'rejected')
+                                                <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Setujui kembali laporan {{ $sub->submission_code }}?')">
+                                                    @csrf
+                                                    <input type="hidden" name="status" value="approved">
+                                                    <button type="submit" class="btn-action-quick-approve" title="Setujui Kembali">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Live Submissions Pagination Bar -->
+                @if($submissions->hasPages())
+                    <div class="oos-pagination-bar">
+                        <div class="oos-pagination-info">
+                            Menampilkan <strong>{{ $submissions->firstItem() }}</strong> s/d <strong>{{ $submissions->lastItem() }}</strong> dari <strong>{{ number_format($submissions->total()) }}</strong> laporan masuk (Hal <strong>{{ $submissions->currentPage() }}</strong> dari <strong>{{ $submissions->lastPage() }}</strong>)
+                        </div>
+                        <div class="oos-pagination-controls">
+                            @if(!$submissions->onFirstPage())
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->url(1) }}" class="oos-page-btn" title="Halaman Pertama">
+                                    <i class="fa-solid fa-angles-left"></i>
+                                </a>
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->previousPageUrl() }}" class="oos-page-btn">
+                                    <i class="fa-solid fa-chevron-left"></i> Prev
+                                </a>
+                            @else
+                                <span class="oos-page-btn disabled"><i class="fa-solid fa-angles-left"></i></span>
+                                <span class="oos-page-btn disabled"><i class="fa-solid fa-chevron-left"></i> Prev</span>
+                            @endif
+
+                            @for($i = max(1, $submissions->currentPage() - 2); $i <= min($submissions->lastPage(), $submissions->currentPage() + 2); $i++)
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->url($i) }}" class="oos-page-btn {{ $i === $submissions->currentPage() ? 'active' : '' }}">
+                                    {{ $i }}
+                                </a>
+                            @endfor
+
+                            @if($submissions->hasMorePages())
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->nextPageUrl() }}" class="oos-page-btn">
+                                    Next <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->url($submissions->lastPage()) }}" class="oos-page-btn" title="Halaman Terakhir">
+                                    <i class="fa-solid fa-angles-right"></i>
+                                </a>
+                            @else
+                                <span class="oos-page-btn disabled">Next <i class="fa-solid fa-chevron-right"></i></span>
+                                <span class="oos-page-btn disabled"><i class="fa-solid fa-angles-right"></i></span>
+                            @endif
+                        </div>
+                    </div>
+                @endif
+            @else
+                <div style="text-align: center; padding: 3rem 1.5rem; color: #64748b;">
+                    <div style="width: 56px; height: 56px; border-radius: 50%; background: #f1f5f9; display: inline-flex; align-items: center; justify-content: center; font-size: 1.5rem; color: #94a3b8; margin-bottom: 0.75rem;">
+                        <i class="fa-solid fa-inbox"></i>
+                    </div>
+                    <div style="font-weight: 700; color: #1e293b; font-size: 1rem;">Belum Ada Laporan Masuk</div>
+                    <div style="font-size: 0.84rem; color: #64748b; margin-top: 0.25rem;">
+                        Belum ada laporan Out of Stock (OOS) yang dikirim oleh Promotor / SPG untuk filter periode ini.
+                    </div>
+                </div>
+            @endif
+        </div>
+    </div>
+
+    <!-- Modal Tolak Laporan OOS -->
+    <div id="oos_reject_modal" class="portal-modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+        <div class="portal-modal-box">
+            <div class="portal-modal-header">
+                <h4 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i> Tolak Laporan OOS
+                </h4>
+                <button type="button" onclick="closeOosRejectModal()" style="background: none; border: none; font-size: 1.3rem; color: #94a3b8; cursor: pointer; line-height: 1;">&times;</button>
+            </div>
+            <form id="oos_reject_form" method="POST" action="" style="padding: 1.5rem; margin: 0;">
+                @csrf
+                <input type="hidden" name="status" value="rejected">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #334155; margin-bottom: 0.4rem;">Kode Laporan:</label>
+                    <div id="oos_reject_code" style="font-family: monospace; font-weight: 700; color: #0f172a; background: #f1f5f9; padding: 0.5rem 0.75rem; border-radius: 8px; font-size: 0.88rem; border: 1px solid #e2e8f0;"></div>
+                </div>
+                <div style="margin-bottom: 1.25rem;">
+                    <label for="oos_rejection_note" style="display: block; font-size: 0.82rem; font-weight: 700; color: #334155; margin-bottom: 0.4rem;">Alasan Penolakan / Catatan: <span style="color: #ef4444;">*</span></label>
+                    <textarea name="admin_notes" id="oos_rejection_note" rows="3" required placeholder="Tuliskan alasan penolakan secara jelas agar dapat diperbaiki oleh Promotor / SPG..." style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.6rem 0.75rem; font-size: 0.84rem; outline: none; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                    <button type="button" onclick="closeOosRejectModal()" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #475569; font-weight: 700; font-size: 0.82rem; cursor: pointer;">Batal</button>
+                    <button type="submit" style="padding: 0.5rem 1.25rem; border-radius: 8px; border: none; background: #ef4444; color: #fff; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-xmark"></i> Tolak Laporan
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -868,6 +1182,93 @@
     color: #94a3b8;
     font-weight: 700;
 }
+
+/* Action Buttons & Modal Styles */
+.btn-action-view {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.35rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+    background: #f1f5f9;
+    color: #0F52BA;
+    border: 1px solid #cbd5e1;
+    transition: all 0.15s ease;
+}
+.btn-action-view:hover {
+    background: #0F52BA;
+    color: #ffffff;
+    border-color: #0F52BA;
+}
+.btn-action-quick-approve {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.35rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: #16a34a;
+    color: #ffffff;
+    border: 1px solid #15803d;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.btn-action-quick-approve:hover {
+    background: #15803d;
+}
+.btn-action-quick-reject {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.35rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: #ef4444;
+    color: #ffffff;
+    border: 1px solid #dc2626;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.btn-action-quick-reject:hover {
+    background: #dc2626;
+}
+.col-sticky-action {
+    position: sticky;
+    right: 0;
+    background: #ffffff;
+    box-shadow: -3px 0 6px rgba(0, 0, 0, 0.05);
+    z-index: 2;
+}
+.portal-modal-overlay {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+.portal-modal-box {
+    background: #ffffff;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    animation: modalScaleIn 0.2s ease-out;
+}
+@keyframes modalScaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+.portal-modal-header {
+    padding: 1.15rem 1.5rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
 </style>
 
 <script>
@@ -875,10 +1276,14 @@ function switchOosTab(tabId) {
     document.getElementById('pane_oos_summary').style.display = 'none';
     document.getElementById('pane_oos_weekly').style.display = 'none';
     document.getElementById('pane_oos_raw').style.display = 'none';
+    var livePane = document.getElementById('pane_oos_live');
+    if (livePane) livePane.style.display = 'none';
 
     document.getElementById('btn_oos_tab_summary').classList.remove('active');
     document.getElementById('btn_oos_tab_weekly').classList.remove('active');
     document.getElementById('btn_oos_tab_raw').classList.remove('active');
+    var liveBtn = document.getElementById('btn_oos_tab_live');
+    if (liveBtn) liveBtn.classList.remove('active');
 
     if (tabId === 'weekly') {
         document.getElementById('pane_oos_weekly').style.display = 'block';
@@ -886,9 +1291,32 @@ function switchOosTab(tabId) {
     } else if (tabId === 'raw') {
         document.getElementById('pane_oos_raw').style.display = 'block';
         document.getElementById('btn_oos_tab_raw').classList.add('active');
+    } else if (tabId === 'live') {
+        if (livePane) livePane.style.display = 'block';
+        if (liveBtn) liveBtn.classList.add('active');
     } else {
         document.getElementById('pane_oos_summary').style.display = 'block';
         document.getElementById('btn_oos_tab_summary').classList.add('active');
     }
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tabId);
+    window.history.replaceState({}, '', url);
+}
+
+function openOosRejectModal(subId, subCode) {
+    var modal = document.getElementById('oos_reject_modal');
+    var codeEl = document.getElementById('oos_reject_code');
+    var form = document.getElementById('oos_reject_form');
+    if (!modal || !form) return;
+    if (codeEl) codeEl.innerText = subCode;
+    var baseRoute = "{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => ':id', 'p' => $tenantPrincipal->id]) }}";
+    form.action = baseRoute.replace(':id', subId);
+    modal.style.display = 'flex';
+}
+
+function closeOosRejectModal() {
+    var modal = document.getElementById('oos_reject_modal');
+    if (modal) modal.style.display = 'none';
 }
 </script>

@@ -1320,7 +1320,6 @@ class PrincipalPortalController extends Controller
             $showNoOos       = (bool)$request->query('show_no_oos', 0);
             $weeklyPage      = max(1, (int)$request->query('weekly_page', 1));
             $rawPage         = max(1, (int)$request->query('raw_page', 1));
-            $activeTab       = $request->query('tab', 'summary');
 
             $oosData = $this->calculateOosDashboardData(
                 $template,
@@ -1343,12 +1342,14 @@ class PrincipalPortalController extends Controller
             $uniqueStores = 0;
             $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
                 ->orderBy('submitted_at', 'desc')
-                ->paginate(20);
+                ->paginate(20, ['*'], 'live_page');
             $liveSubmissionsCount = $submissions->total();
             $dashboardConfig = [];
             $widgetResults = [];
             $isYtdReport = false;
             $ytdData = [];
+
+            $activeTab = $request->query('tab', $request->has('live_page') ? 'live' : ($request->has('raw_page') ? 'raw' : ($request->has('weekly_page') ? 'weekly' : ($liveSubmissionsCount > 0 && ($oosData['submissions']['total'] ?? 0) <= $liveSubmissionsCount ? 'live' : 'summary'))));
 
             return view('portal.report_detail', compact(
                 'tenantPrincipal',
@@ -1357,6 +1358,7 @@ class PrincipalPortalController extends Controller
                 'activeTemplates',
                 'template',
                 'submissions',
+                'liveSubmissionsCount',
                 'totalTemplateSubmissions',
                 'uniqueStores',
                 'startMonth',
@@ -8824,17 +8826,6 @@ class PrincipalPortalController extends Controller
             }
         }
 
-        if (!file_exists($sqlitePath)) {
-            return [
-                'months' => [],
-                'weeks' => [],
-                'kpis' => ['total_stores' => 0, 'total_oos_cases' => 0, 'no_oos_stores' => 0, 'no_oos_percentage' => 0, 'total_submissions' => 0],
-                'reasons' => [],
-                'weekly' => ['rows' => [], 'weeks' => [], 'grand_total_cases' => 0, 'total_rows' => 0, 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
-                'submissions' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
-            ];
-        }
-
         $sMonth = max(1, min(12, (int)$startMonth));
         $eMonth = max(1, min(12, (int)$endMonth));
         if ($sMonth > $eMonth) {
@@ -8855,201 +8846,472 @@ class PrincipalPortalController extends Controller
         $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
         $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
 
-        $cacheKey = 'oos_dash_v2_' . md5($template->id . "_{$sMonth}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedChannel}_" . ($showNoOos ? '1' : '0') . "_{$search}_{$weeklyPage}_{$rawPage}_{$perPage}");
+        $cacheKey = 'oos_dash_v4_' . md5($template->id . "_{$sMonth}_{$eMonth}_{$startYear}_{$endYear}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedChannel}_" . ($showNoOos ? '1' : '0') . "_{$search}_{$weeklyPage}_{$rawPage}_{$perPage}");
 
-        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sMonth, $eMonth, $activeMonths, $selectedRegion, $selectedAreaName, $selectedStoreName, $selectedChannel, $showNoOos, $search, $weeklyPage, $rawPage, $perPage) {
+        return Cache::remember($cacheKey, 300, function() use ($template, $sqlitePath, $sMonth, $eMonth, $startYear, $endYear, $activeMonths, $selectedRegion, $selectedAreaName, $selectedStoreName, $selectedChannel, $showNoOos, $search, $weeklyPage, $rawPage, $perPage) {
             try {
-                $pdo = new \PDO("sqlite:" . $sqlitePath);
-                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                $startDate = \Carbon\Carbon::createFromDate($startYear, $sMonth, 1)->startOfMonth();
+                $endDate   = \Carbon\Carbon::createFromDate($endYear, $eMonth, 1)->endOfMonth();
+                $areaToRsm = $this->getDuluxAreaToRsmMap();
 
-                $where = ["month BETWEEN ? AND ?"];
-                $params = [$sMonth, $eMonth];
+                // 1. Fetch Live Submissions from PostgreSQL
+                $liveRawRows = [];
+                $liveWeeklyMap = [];
+                $liveReasonsMap = [];
+                $liveStoresSet = [];
+                $liveOosStoresSet = [];
+                $liveOosIncidents = 0;
+                $liveWeeksSet = [];
 
-                if ($selectedChannel && in_array(strtoupper($selectedChannel), ['LSO', 'SSO'])) {
-                    $where[] = "channel = ?";
-                    $params[] = strtoupper($selectedChannel);
-                }
-                if ($selectedRegion) {
-                    $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
-                    $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
-                    $where[] = "(rsm_area IN ($inPlaceholders) OR region = ?)";
-                    foreach ($rsmVariants as $rv) {
-                        $params[] = $rv;
+                try {
+                    $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaName ?: $selectedAreaId, $selectedStoreName ?: $selectedLocationId, $search);
+                    $liveSubs = $liveQuery->select(['id', 'submission_code', 'report_template_id', 'work_location_id', 'employee_id', 'submitted_at', 'created_at', 'status', 'is_within_radius'])
+                        ->with(['workLocation', 'workLocation.branch', 'values', 'values.formField', 'employee'])
+                        ->orderBy('submitted_at', 'desc')
+                        ->get();
+
+                    foreach ($liveSubs as $sub) {
+                        $valMap = [];
+                        foreach ($sub->values as $v) {
+                            $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
+                            if ($v->field_name) {
+                                $valMap[$v->field_name] = $val;
+                                $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
+                                $valMap[$slug] = $val;
+                            }
+                            if ($v->formField) {
+                                if ($v->formField->field_name) {
+                                    $valMap[$v->formField->field_name] = $val;
+                                    $slugF = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_name), '_'));
+                                    $valMap[$slugF] = $val;
+                                }
+                                if ($v->formField->field_label) {
+                                    $slugL = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_label), '_'));
+                                    $valMap[$slugL] = $val;
+                                }
+                            }
+                        }
+
+                        $subDate = $sub->submitted_at ? \Carbon\Carbon::parse($sub->submitted_at) : $sub->created_at;
+                        $transDate = $subDate->format('Y-m-d H:i:s');
+                        $weekVal = (int)($valMap['minggu_ke_week'] ?? ($valMap['week'] ?? ($valMap['minggu_ke'] ?? $subDate->weekOfYear)));
+                        $weekStr = (string)$weekVal;
+
+                        $storeName = $sub->workLocation?->name ?? 'Toko Tidak Terdaftar';
+                        $sap = $sub->workLocation?->code ?? ($sub->workLocation?->store_code ?? '-');
+                        $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? 'Surabaya'));
+                        $cleanA = strtoupper(trim($area));
+                        $region = $areaToRsm[$cleanA] ?? ($sub->workLocation?->region ?? 'East Java');
+                        $rsmArea = $region;
+
+                        $channelRaw = trim((string)($valMap['tipe_gerai_channel_toko'] ?? ($valMap['tipe_toko_channel'] ?? ($valMap['channel'] ?? ''))));
+                        if (stripos($channelRaw, 'LSO') !== false || stripos($channelRaw, 'Modern') !== false) {
+                            $channel = 'LSO';
+                        } else {
+                            $channel = 'SSO';
+                        }
+
+                        if ($selectedChannel && in_array(strtoupper($selectedChannel), ['LSO', 'SSO'])) {
+                            if (strtoupper($channel) !== strtoupper($selectedChannel)) {
+                                continue;
+                            }
+                        }
+
+                        $produk = trim((string)($valMap['pilih_produk_dulux_yang_mengalami_out_of_stock_oos'] ?? ($valMap['nama_produk_yang_kosong_oos'] ?? ($valMap['nama_produk_yang_kosong'] ?? ($valMap['produk_oos'] ?? ($valMap['produk'] ?? ''))))));
+                        if (empty($produk)) {
+                            $produk = 'Dulux Product';
+                        }
+
+                        $baseColor = trim((string)($valMap['base_kategori_warna_yang_kosong'] ?? ($valMap['base_tipe_warna'] ?? ($valMap['base_color'] ?? ($valMap['base_warna'] ?? ($valMap['base'] ?? '-'))))));
+                        if (empty($baseColor)) $baseColor = '-';
+
+                        $kemasanSize = trim((string)($valMap['kemasan_size_yang_kosong'] ?? ($valMap['ukuran_kemasan_size'] ?? ($valMap['kemasan_size'] ?? ($valMap['kemasan'] ?? '-')))));
+                        if (empty($kemasanSize)) $kemasanSize = '-';
+
+                        $lamaOosHari = (int)($valMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? ($valMap['lama_kondisi_oos_jumlah_hari'] ?? ($valMap['lama_oos_hari'] ?? ($valMap['lama_oos'] ?? 0))));
+                        $saranQtyOrder = (int)($valMap['saran_kuantiti_order_ke_toko_qty_kemasan'] ?? ($valMap['saran_kuantitas_order_qty_kaleng'] ?? ($valMap['saran_qty_order'] ?? 0)));
+
+                        $alasanOos = trim((string)($valMap['penyebab_alasan_out_of_stock_oos'] ?? ($valMap['alasan_oos'] ?? ($valMap['penyebab_alasan_oos'] ?? ($valMap['alasan'] ?? 'Lain-lain')))));
+                        if (empty($alasanOos)) $alasanOos = 'Lain-lain';
+
+                        $account = trim((string)($valMap['key_account_khusus_modern_trade'] ?? ($valMap['account'] ?? '-')));
+                        if (empty($account)) $account = '-';
+
+                        $tglOos = trim((string)($valMap['tanggal_monitoring_oos'] ?? ($valMap['tanggal_oos'] ?? $subDate->format('Y-m-d'))));
+
+                        $isOos = (stripos($produk, 'No OOS') !== false || stripos($alasanOos, 'No OOS') !== false || stripos($alasanOos, 'Stok Lengkap') !== false) ? 0 : 1;
+
+                        // Live store tracking
+                        $liveStoresSet[$storeName] = true;
+                        if ($isOos === 1) {
+                            $liveOosStoresSet[$storeName] = true;
+                            $liveOosIncidents++;
+                            $liveWeeksSet[$weekStr] = true;
+
+                            // Group for reasons
+                            if (!isset($liveReasonsMap[$alasanOos])) {
+                                $liveReasonsMap[$alasanOos] = ['stores' => [], 'count' => 0];
+                            }
+                            $liveReasonsMap[$alasanOos]['stores'][$storeName] = true;
+                            $liveReasonsMap[$alasanOos]['count']++;
+
+                            // Group for weekly pivot
+                            $pivKey = strtoupper(trim($storeName)) . '---' . strtoupper(trim($produk)) . '---' . strtoupper(trim($baseColor)) . '---' . strtoupper(trim($kemasanSize)) . '---' . strtoupper(trim($alasanOos));
+                            if (!isset($liveWeeklyMap[$pivKey])) {
+                                $liveWeeklyMap[$pivKey] = [
+                                    'sap' => $sap,
+                                    'store_name' => $storeName,
+                                    'region' => $region,
+                                    'area' => $area,
+                                    'channel' => $channel,
+                                    'produk' => $produk,
+                                    'base_color' => $baseColor,
+                                    'kemasan_size' => $kemasanSize,
+                                    'alasan_oos' => $alasanOos,
+                                    'grand_total' => 0,
+                                    'weeks' => [],
+                                    'is_live' => true,
+                                ];
+                            }
+                            $liveWeeklyMap[$pivKey]['grand_total']++;
+                            $liveWeeklyMap[$pivKey]['weeks'][$weekStr] = ($liveWeeklyMap[$pivKey]['weeks'][$weekStr] ?? 0) + 1;
+                        }
+
+                        // Raw row
+                        $liveRawRows[] = [
+                            'id' => 'live_' . $sub->id,
+                            'channel' => $channel,
+                            'submission_code' => $sub->submission_code,
+                            'submission_date' => $transDate,
+                            'tanggal_oos' => $tglOos,
+                            'week' => $weekStr,
+                            'region' => $region,
+                            'area' => $area,
+                            'rsm_area' => $rsmArea,
+                            'account' => $account,
+                            'sap' => $sap,
+                            'derp' => '-',
+                            'store_name' => $storeName,
+                            'produk' => $produk,
+                            'base_color' => $baseColor,
+                            'kemasan_size' => $kemasanSize,
+                            'lama_oos_hari' => $lamaOosHari,
+                            'saran_qty_order' => $saranQtyOrder,
+                            'alasan_oos' => $alasanOos,
+                            'is_oos' => $isOos,
+                            'is_live' => true,
+                            'submission_id' => $sub->id,
+                            'status' => $sub->status ?? 'pending',
+                        ];
                     }
-                    $params[] = $selectedRegion;
+                } catch (\Throwable $e) {
+                    \Log::warning("Live OOS submissions query failed: " . $e->getMessage());
                 }
-                if ($selectedAreaName) {
-                    $where[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
-                    $params[] = $selectedAreaName;
-                }
-                if ($selectedStoreName) {
-                    $where[] = "store_name = ?";
-                    $params[] = $selectedStoreName;
-                }
-                if ($search) {
-                    $where[] = "(store_name LIKE ? OR sap LIKE ? OR produk LIKE ? OR base_color LIKE ? OR alasan_oos LIKE ?)";
-                    $params[] = "%{$search}%";
-                    $params[] = "%{$search}%";
-                    $params[] = "%{$search}%";
-                    $params[] = "%{$search}%";
-                    $params[] = "%{$search}%";
-                }
-                $whereSql = implode(' AND ', $where);
 
-                // Distinct active weeks
-                $weekStmt = $pdo->prepare("SELECT DISTINCT week FROM oos_raw WHERE $whereSql AND week IS NOT NULL ORDER BY CAST(week AS INTEGER) ASC, week ASC");
-                $weekStmt->execute($params);
-                $activeWeeks = $weekStmt->fetchAll(\PDO::FETCH_COLUMN);
+                // 2. Query SQLite for historical data (if exists)
+                $pdo = null;
+                $hasOosTable = false;
+                if (file_exists($sqlitePath)) {
+                    try {
+                        $pdo = new \PDO("sqlite:" . $sqlitePath);
+                        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                        $chk = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='oos_raw'")->fetchColumn();
+                        $hasOosTable = ($chk === 'oos_raw');
+                    } catch (\Throwable $e) {
+                        $pdo = null;
+                        $hasOosTable = false;
+                    }
+                }
 
-                // 1. KPI Aggregates
-                $kpiStmt = $pdo->prepare("
-                    SELECT 
-                        COUNT(DISTINCT store_name) as total_stores,
-                        COUNT(DISTINCT CASE WHEN is_oos = 1 THEN store_name END) as oos_stores,
-                        SUM(CASE WHEN is_oos = 1 THEN 1 ELSE 0 END) as oos_incidents,
-                        COUNT(*) as total_submissions
-                    FROM oos_raw
-                    WHERE $whereSql
-                ");
-                $kpiStmt->execute($params);
-                $kpiRow = $kpiStmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+                $sqliteWeeks = [];
+                $sqliteAllStores = [];
+                $sqliteOosStores = [];
+                $sqliteOosIncidents = 0;
+                $sqliteTotalSubmissions = 0;
+                $sqliteReasons = [];
+                $sqliteWeeklyRows = [];
+                $sqliteRawRows = [];
 
-                $totalStores = (int)($kpiRow['total_stores'] ?? 0);
-                $oosStores = (int)($kpiRow['oos_stores'] ?? 0);
+                if ($pdo && $hasOosTable) {
+                    $where = ["month BETWEEN ? AND ?"];
+                    $params = [$sMonth, $eMonth];
+
+                    if ($selectedChannel && in_array(strtoupper($selectedChannel), ['LSO', 'SSO'])) {
+                        $where[] = "channel = ?";
+                        $params[] = strtoupper($selectedChannel);
+                    }
+                    if ($selectedRegion) {
+                        $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                        $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                        $where[] = "(rsm_area IN ($inPlaceholders) OR region = ?)";
+                        foreach ($rsmVariants as $rv) {
+                            $params[] = $rv;
+                        }
+                        $params[] = $selectedRegion;
+                    }
+                    if ($selectedAreaName) {
+                        $where[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
+                        $params[] = $selectedAreaName;
+                    }
+                    if ($selectedStoreName) {
+                        $where[] = "store_name = ?";
+                        $params[] = $selectedStoreName;
+                    }
+                    if ($search) {
+                        $where[] = "(store_name LIKE ? OR sap LIKE ? OR produk LIKE ? OR base_color LIKE ? OR alasan_oos LIKE ?)";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                    }
+                    $whereSql = implode(' AND ', $where);
+
+                    // Distinct active weeks
+                    $weekStmt = $pdo->prepare("SELECT DISTINCT week FROM oos_raw WHERE $whereSql AND week IS NOT NULL ORDER BY CAST(week AS INTEGER) ASC, week ASC");
+                    $weekStmt->execute($params);
+                    $sqliteWeeks = $weekStmt->fetchAll(\PDO::FETCH_COLUMN) ?: [];
+
+                    // Store lists & KPI counts
+                    $storeListStmt = $pdo->prepare("SELECT DISTINCT store_name FROM oos_raw WHERE $whereSql");
+                    $storeListStmt->execute($params);
+                    $sqliteAllStores = $storeListStmt->fetchAll(\PDO::FETCH_COLUMN) ?: [];
+
+                    $oosStoreListStmt = $pdo->prepare("SELECT DISTINCT store_name FROM oos_raw WHERE $whereSql AND is_oos = 1");
+                    $oosStoreListStmt->execute($params);
+                    $sqliteOosStores = $oosStoreListStmt->fetchAll(\PDO::FETCH_COLUMN) ?: [];
+
+                    $kpiStmt = $pdo->prepare("
+                        SELECT 
+                            SUM(CASE WHEN is_oos = 1 THEN 1 ELSE 0 END) as oos_incidents,
+                            COUNT(*) as total_submissions
+                        FROM oos_raw
+                        WHERE $whereSql
+                    ");
+                    $kpiStmt->execute($params);
+                    $kpiRow = $kpiStmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+                    $sqliteOosIncidents = (int)($kpiRow['oos_incidents'] ?? 0);
+                    $sqliteTotalSubmissions = (int)($kpiRow['total_submissions'] ?? 0);
+
+                    // Reason Breakdown
+                    $reasonWhere = array_merge($where, ["is_oos = 1"]);
+                    $reasonWhereSql = implode(' AND ', $reasonWhere);
+                    $reasonStmt = $pdo->prepare("
+                        SELECT 
+                            COALESCE(NULLIF(TRIM(alasan_oos), ''), 'Lain-lain') as reason,
+                            COUNT(DISTINCT store_name) as store_count,
+                            COUNT(*) as incident_count
+                        FROM oos_raw
+                        WHERE $reasonWhereSql
+                        GROUP BY reason
+                        ORDER BY incident_count DESC
+                    ");
+                    $reasonStmt->execute($params);
+                    $sqliteReasons = $reasonStmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+                    // SQLite Weekly Pivot Data
+                    $weeklyWhere = array_merge($where, ["is_oos = 1"]);
+                    $weeklyWhereSql = implode(' AND ', $weeklyWhere);
+
+                    $weeklyRowsSql = "
+                        SELECT 
+                            sap, store_name, MIN(region) as region, MIN(area) as area, MIN(channel) as channel,
+                            produk, base_color, kemasan_size, alasan_oos,
+                            COUNT(*) as grand_total
+                        FROM oos_raw
+                        WHERE $weeklyWhereSql
+                        GROUP BY sap, store_name, produk, base_color, kemasan_size, alasan_oos
+                        ORDER BY region ASC, area ASC, store_name ASC, produk ASC
+                    ";
+                    $weeklyRowsStmt = $pdo->prepare($weeklyRowsSql);
+                    $weeklyRowsStmt->execute($params);
+                    $sqliteWeeklyRows = $weeklyRowsStmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+                    // Fetch week breakdown for SQLite weekly rows
+                    if (!empty($sqliteWeeklyRows) && !empty($sqliteWeeks)) {
+                        foreach ($sqliteWeeklyRows as &$wRow) {
+                            $wRow['total_cases'] = (int)$wRow['grand_total'];
+                            $wRow['is_live'] = false;
+                            $wSubWhere = array_merge($weeklyWhere, [
+                                "store_name = ?",
+                                "COALESCE(produk, '') = ?",
+                                "COALESCE(base_color, '') = ?",
+                                "COALESCE(kemasan_size, '') = ?",
+                                "COALESCE(alasan_oos, '') = ?"
+                            ]);
+                            $wSubWhereSql = implode(' AND ', $wSubWhere);
+                            $wSubParams = array_merge($params, [
+                                $wRow['store_name'],
+                                $wRow['produk'] ?? '',
+                                $wRow['base_color'] ?? '',
+                                $wRow['kemasan_size'] ?? '',
+                                $wRow['alasan_oos'] ?? ''
+                            ]);
+
+                            $wBreakdownStmt = $pdo->prepare("
+                                SELECT week, COUNT(*) as cnt
+                                FROM oos_raw
+                                WHERE $wSubWhereSql
+                                GROUP BY week
+                            ");
+                            $wBreakdownStmt->execute($wSubParams);
+                            $wCounts = $wBreakdownStmt->fetchAll(\PDO::FETCH_KEY_PAIR);
+
+                            $weeksData = [];
+                            foreach ($sqliteWeeks as $wk) {
+                                $weeksData[$wk] = (int)($wCounts[$wk] ?? 0);
+                            }
+                            $wRow['weeks'] = $weeksData;
+                        }
+                        unset($wRow);
+                    }
+
+                    // SQLite Raw Submissions
+                    $rawWhere = $where;
+                    if (!$showNoOos) {
+                        $rawWhere[] = "(is_oos = 1 AND UPPER(TRIM(COALESCE(produk, ''))) != 'NO OOS')";
+                    }
+                    $rawWhereSql = implode(' AND ', $rawWhere);
+
+                    $rawSql = "
+                        SELECT 
+                            channel, submission_code, submission_date, tanggal_oos, week,
+                            region, area, rsm_area, account, sap, derp, store_name,
+                            produk, base_color, kemasan_size, lama_oos_hari, saran_qty_order, alasan_oos, is_oos
+                        FROM oos_raw
+                        WHERE $rawWhereSql
+                        ORDER BY tanggal_oos DESC, id DESC
+                    ";
+                    $rawStmt = $pdo->prepare($rawSql);
+                    $rawStmt->execute($params);
+                    $sqliteRawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+                    foreach ($sqliteRawRows as &$sr) {
+                        $sr['is_live'] = false;
+                    }
+                    unset($sr);
+                }
+
+                // 3. Merging Active Weeks
+                $activeWeeks = array_unique(array_merge($sqliteWeeks, array_keys($liveWeeksSet)));
+                usort($activeWeeks, function($a, $b) {
+                    return (int)$a <=> (int)$b;
+                });
+
+                // 4. Merging KPIs
+                $mergedAllStores = array_unique(array_merge($sqliteAllStores, array_keys($liveStoresSet)));
+                $mergedOosStores = array_unique(array_merge($sqliteOosStores, array_keys($liveOosStoresSet)));
+                $totalStores = count($mergedAllStores);
+                $oosStores = count($mergedOosStores);
                 $noOosStores = max(0, $totalStores - $oosStores);
                 $noOosPct = $totalStores > 0 ? round(($noOosStores / $totalStores) * 100, 1) : 0;
-                $oosIncidents = (int)($kpiRow['oos_incidents'] ?? 0);
-                $totalSubmissions = (int)($kpiRow['total_submissions'] ?? 0);
+                $totalOosCases = $sqliteOosIncidents + $liveOosIncidents;
+                $totalSubmissions = $sqliteTotalSubmissions + count($liveRawRows);
 
                 $kpis = [
                     'total_stores' => $totalStores,
-                    'total_oos_cases' => $oosIncidents,
+                    'total_oos_cases' => $totalOosCases,
                     'no_oos_stores' => $noOosStores,
                     'no_oos_percentage' => $noOosPct,
-                    'total_submissions' => $totalSubmissions
+                    'total_submissions' => $totalSubmissions,
                 ];
 
-                // 2. Reason Breakdown (Only Real OOS: is_oos = 1)
-                $reasonWhere = array_merge($where, ["is_oos = 1"]);
-                $reasonWhereSql = implode(' AND ', $reasonWhere);
-                $reasonStmt = $pdo->prepare("
-                    SELECT 
-                        COALESCE(NULLIF(TRIM(alasan_oos), ''), 'Lain-lain') as reason,
-                        COUNT(DISTINCT store_name) as store_count,
-                        COUNT(*) as incident_count
-                    FROM oos_raw
-                    WHERE $reasonWhereSql
-                    GROUP BY reason
-                    ORDER BY incident_count DESC
-                ");
-                $reasonStmt->execute($params);
-                $reasonRows = $reasonStmt->fetchAll(\PDO::FETCH_ASSOC);
-
+                // 5. Merging Reasons
+                $reasonsMap = [];
+                foreach ($sqliteReasons as $sr) {
+                    $reasonsMap[$sr['reason']] = [
+                        'reason' => $sr['reason'],
+                        'store_count' => (int)$sr['store_count'],
+                        'incident_count' => (int)$sr['incident_count'],
+                    ];
+                }
+                foreach ($liveReasonsMap as $lr => $ldata) {
+                    if (!isset($reasonsMap[$lr])) {
+                        $reasonsMap[$lr] = [
+                            'reason' => $lr,
+                            'store_count' => count($ldata['stores']),
+                            'incident_count' => $ldata['count'],
+                        ];
+                    } else {
+                        $reasonsMap[$lr]['store_count'] += count($ldata['stores']);
+                        $reasonsMap[$lr]['incident_count'] += $ldata['count'];
+                    }
+                }
+                uasort($reasonsMap, fn($a, $b) => $b['incident_count'] <=> $a['incident_count']);
                 $reasons = [];
-                foreach ($reasonRows as $r) {
-                    $pct = $oosIncidents > 0 ? round(($r['incident_count'] / $oosIncidents) * 100, 1) : 0;
+                foreach ($reasonsMap as $r) {
+                    $pct = $totalOosCases > 0 ? round(($r['incident_count'] / $totalOosCases) * 100, 1) : 0;
                     $reasons[] = [
                         'reason' => $r['reason'],
-                        'store_count' => (int)$r['store_count'],
-                        'incident_count' => (int)$r['incident_count'],
-                        'percentage' => $pct
+                        'store_count' => $r['store_count'],
+                        'incident_count' => $r['incident_count'],
+                        'percentage' => $pct,
                     ];
                 }
 
-                // 3. Weekly Pivot Table (Grouped by Store, Product, Base/Color, Kemasan, Alasan OOS)
-                $weeklyWhere = array_merge($where, ["is_oos = 1"]);
-                $weeklyWhereSql = implode(' AND ', $weeklyWhere);
+                // 6. Merging Weekly Pivot Rows
+                $mergedWeeklyMap = [];
+                foreach ($sqliteWeeklyRows as $sw) {
+                    $key = strtoupper(trim($sw['store_name'])) . '---' . strtoupper(trim($sw['produk'] ?? '')) . '---' . strtoupper(trim($sw['base_color'] ?? '')) . '---' . strtoupper(trim($sw['kemasan_size'] ?? '')) . '---' . strtoupper(trim($sw['alasan_oos'] ?? ''));
+                    $mergedWeeklyMap[$key] = $sw;
+                }
 
-                $weeklyCountSql = "
-                    SELECT COUNT(DISTINCT store_name || '---' || COALESCE(produk,'') || '---' || COALESCE(base_color,'') || '---' || COALESCE(kemasan_size,'') || '---' || COALESCE(alasan_oos,''))
-                    FROM oos_raw
-                    WHERE $weeklyWhereSql
-                ";
-                $weeklyCountStmt = $pdo->prepare($weeklyCountSql);
-                $weeklyCountStmt->execute($params);
-                $totalWeeklyItems = (int)$weeklyCountStmt->fetchColumn();
-
-                $weeklyOffset = ($weeklyPage - 1) * $perPage;
-
-                $weeklyRowsSql = "
-                    SELECT 
-                        sap, store_name, MIN(region) as region, MIN(area) as area, MIN(channel) as channel,
-                        produk, base_color, kemasan_size, alasan_oos,
-                        COUNT(*) as grand_total
-                    FROM oos_raw
-                    WHERE $weeklyWhereSql
-                    GROUP BY sap, store_name, produk, base_color, kemasan_size, alasan_oos
-                    ORDER BY region ASC, area ASC, store_name ASC, produk ASC
-                    LIMIT $perPage OFFSET $weeklyOffset
-                ";
-                $weeklyRowsStmt = $pdo->prepare($weeklyRowsSql);
-                $weeklyRowsStmt->execute($params);
-                $weeklyRows = $weeklyRowsStmt->fetchAll(\PDO::FETCH_ASSOC);
-
-                // Fetch week breakdown for these paginated rows
-                if (!empty($weeklyRows) && !empty($activeWeeks)) {
-                    foreach ($weeklyRows as &$wRow) {
-                        $wRow['total_cases'] = (int)$wRow['grand_total'];
-                        $wSubWhere = array_merge($weeklyWhere, [
-                            "store_name = ?",
-                            "COALESCE(produk, '') = ?",
-                            "COALESCE(base_color, '') = ?",
-                            "COALESCE(kemasan_size, '') = ?",
-                            "COALESCE(alasan_oos, '') = ?"
-                        ]);
-                        $wSubWhereSql = implode(' AND ', $wSubWhere);
-                        $wSubParams = array_merge($params, [
-                            $wRow['store_name'],
-                            $wRow['produk'] ?? '',
-                            $wRow['base_color'] ?? '',
-                            $wRow['kemasan_size'] ?? '',
-                            $wRow['alasan_oos'] ?? ''
-                        ]);
-
-                        $wBreakdownStmt = $pdo->prepare("
-                            SELECT week, COUNT(*) as cnt
-                            FROM oos_raw
-                            WHERE $wSubWhereSql
-                            GROUP BY week
-                        ");
-                        $wBreakdownStmt->execute($wSubParams);
-                        $wCounts = $wBreakdownStmt->fetchAll(\PDO::FETCH_KEY_PAIR);
-
-                        $weeksData = [];
-                        foreach ($activeWeeks as $wk) {
-                            $weeksData[$wk] = (int)($wCounts[$wk] ?? 0);
+                foreach ($liveWeeklyMap as $key => $lw) {
+                    if (isset($mergedWeeklyMap[$key])) {
+                        $mergedWeeklyMap[$key]['is_live'] = true;
+                        $mergedWeeklyMap[$key]['grand_total'] = ($mergedWeeklyMap[$key]['grand_total'] ?? 0) + $lw['grand_total'];
+                        $mergedWeeklyMap[$key]['total_cases'] = ($mergedWeeklyMap[$key]['total_cases'] ?? 0) + $lw['grand_total'];
+                        foreach ($lw['weeks'] as $wk => $cnt) {
+                            $mergedWeeklyMap[$key]['weeks'][$wk] = ($mergedWeeklyMap[$key]['weeks'][$wk] ?? 0) + $cnt;
                         }
-                        $wRow['weeks'] = $weeksData;
+                    } else {
+                        $mergedWeeklyMap[$key] = $lw;
+                        $mergedWeeklyMap[$key]['total_cases'] = $lw['grand_total'];
                     }
-                    unset($wRow);
                 }
 
-                // 4. Raw Submissions (16 Columns matching Excel)
-                $rawWhere = $where;
-                if (!$showNoOos) {
-                    $rawWhere[] = "(is_oos = 1 AND UPPER(TRIM(COALESCE(produk, ''))) != 'NO OOS')";
+                // Ensure each weekly row has keys for all activeWeeks
+                foreach ($mergedWeeklyMap as &$mw) {
+                    foreach ($activeWeeks as $wk) {
+                        if (!isset($mw['weeks'][$wk])) {
+                            $mw['weeks'][$wk] = 0;
+                        }
+                    }
                 }
-                $rawWhereSql = implode(' AND ', $rawWhere);
+                unset($mw);
 
+                // Sort weekly rows: Live items first, then by region/area/store/produk
+                uasort($mergedWeeklyMap, function($a, $b) {
+                    if (!empty($a['is_live']) && empty($b['is_live'])) return -1;
+                    if (empty($a['is_live']) && !empty($b['is_live'])) return 1;
+                    $cmpR = strcmp($a['region'] ?? '', $b['region'] ?? '');
+                    if ($cmpR !== 0) return $cmpR;
+                    $cmpA = strcmp($a['area'] ?? '', $b['area'] ?? '');
+                    if ($cmpA !== 0) return $cmpA;
+                    $cmpS = strcmp($a['store_name'] ?? '', $b['store_name'] ?? '');
+                    if ($cmpS !== 0) return $cmpS;
+                    return strcmp($a['produk'] ?? '', $b['produk'] ?? '');
+                });
+
+                $allWeeklyRows = array_values($mergedWeeklyMap);
+                $totalWeeklyItems = count($allWeeklyRows);
+                $weeklyOffset = ($weeklyPage - 1) * $perPage;
+                $pagedWeeklyRows = array_slice($allWeeklyRows, $weeklyOffset, $perPage);
+
+                // 7. Merging Raw Submissions
+                $filteredLiveRaw = [];
+                foreach ($liveRawRows as $lr) {
+                    if (!$showNoOos) {
+                        if ($lr['is_oos'] == 0 || strtoupper(trim($lr['produk'])) === 'NO OOS') {
+                            continue;
+                        }
+                    }
+                    $filteredLiveRaw[] = $lr;
+                }
+
+                $allRawRows = array_merge($filteredLiveRaw, $sqliteRawRows);
+                $totalRaw = count($allRawRows);
                 $rawOffset = ($rawPage - 1) * $perPage;
-                $rawCountSql = "SELECT COUNT(*) FROM oos_raw WHERE $rawWhereSql";
-                $rawCountStmt = $pdo->prepare($rawCountSql);
-                $rawCountStmt->execute($params);
-                $totalRaw = (int)$rawCountStmt->fetchColumn();
-
-                $rawSql = "
-                    SELECT 
-                        channel, submission_code, submission_date, tanggal_oos, week,
-                        region, area, rsm_area, account, sap, derp, store_name,
-                        produk, base_color, kemasan_size, lama_oos_hari, saran_qty_order, alasan_oos, is_oos
-                    FROM oos_raw
-                    WHERE $rawWhereSql
-                    ORDER BY tanggal_oos DESC, id DESC
-                    LIMIT $perPage OFFSET $rawOffset
-                ";
-                $rawStmt = $pdo->prepare($rawSql);
-                $rawStmt->execute($params);
-                $rawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC);
+                $pagedRawRows = array_slice($allRawRows, $rawOffset, $perPage);
 
                 return [
                     'months' => $activeMonths,
@@ -9057,9 +9319,9 @@ class PrincipalPortalController extends Controller
                     'kpis' => $kpis,
                     'reasons' => $reasons,
                     'weekly' => [
-                        'rows' => $weeklyRows,
+                        'rows' => $pagedWeeklyRows,
                         'weeks' => $activeWeeks,
-                        'grand_total_cases' => $oosIncidents,
+                        'grand_total_cases' => $totalOosCases,
                         'total_rows' => $totalWeeklyItems,
                         'total' => $totalWeeklyItems,
                         'page' => $weeklyPage,
@@ -9069,7 +9331,7 @@ class PrincipalPortalController extends Controller
                         'to' => min($weeklyOffset + $perPage, $totalWeeklyItems),
                     ],
                     'submissions' => [
-                        'rows' => $rawRows,
+                        'rows' => $pagedRawRows,
                         'total' => $totalRaw,
                         'page' => $rawPage,
                         'per_page' => $perPage,
@@ -9079,7 +9341,7 @@ class PrincipalPortalController extends Controller
                     ]
                 ];
             } catch (\Throwable $e) {
-                \Log::error("Failed to calculate OOS Dashboard: " . $e->getMessage());
+                \Log::error("Failed to calculate OOS Dashboard: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
                 return [
                     'months' => $activeMonths,
                     'weeks' => [],
