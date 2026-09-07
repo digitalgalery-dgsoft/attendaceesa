@@ -598,6 +598,36 @@ Route::get('/cek-admin', function () {
     }
 });
 
+Route::get('/debug-logs', function () {
+    $logPath = storage_path('logs/laravel.log');
+    if (!file_exists($logPath)) {
+        return 'No log file';
+    }
+    $lines = file($logPath);
+    return response(implode('', array_slice($lines, -200)), 200, ['Content-Type' => 'text/plain']);
+});
+
+Route::get('/debug-offtake', function (\Illuminate\Http\Request $request) {
+    try {
+        $controller = app(\App\Http\Controllers\Portal\PrincipalPortalController::class);
+        $request->merge(['p' => 18]);
+        $res = $controller->reportDetail($request, 'RPT-DULUX-OFFTAKE-01');
+        if ($res instanceof \Illuminate\View\View) {
+            return $res->render();
+        }
+        return $res;
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => explode("\n", $e->getTraceAsString())
+        ], 200);
+    }
+});
+
+
 Route::get('/reset-admin', function () {
     try {
         $user = \App\Models\User::first();
