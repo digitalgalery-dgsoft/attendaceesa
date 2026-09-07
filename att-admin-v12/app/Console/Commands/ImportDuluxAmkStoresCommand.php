@@ -17,7 +17,7 @@ class ImportDuluxAmkStoresCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'dulux:import-amk-stores {--force : Jalankan impor tanpa konfirmasi}';
+    protected $signature = 'dulux:import-amk-stores {--force : Jalankan impor tanpa konfirmasi} {--clean : Bersihkan work location Dulux lama sebelum impor}';
 
     /**
      * The console command description.
@@ -133,6 +133,11 @@ class ImportDuluxAmkStoresCommand extends Command
 
         $this->info("Jumlah Master Toko Unik Teridentifikasi: " . count($uniqueStores));
         $this->info("Jumlah Pemetaan Karyawan DC: " . count($employeeMappings));
+
+        if ($this->option('clean')) {
+            $this->warn("Membersihkan master work location lama untuk Principal [{$principal->name}]...");
+            WorkLocation::where('principal_id', $principal->id)->delete();
+        }
 
         // 5. Eksekusi Simpan WorkLocation
         $this->info("\nMemulai proses penyimpanan WorkLocation ke database...");
