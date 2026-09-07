@@ -1010,8 +1010,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
     // Sinkronkan text controllers ke formValues
     _controllers.forEach((key, ctrl) {
-      if (!_formValues.containsKey(key) || _formValues[key] == null) {
-        _formValues[key] = ctrl.text;
+      final text = ctrl.text.trim();
+      if (text.isNotEmpty) {
+        _formValues[key] = text;
+      } else if (!_formValues.containsKey(key)) {
+        _formValues[key] = '';
       }
     });
 
@@ -1042,13 +1045,24 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     submittedCategoryValue ??= 'Item ${_submittedCategories.length + 1}';
 
     // Buat salinan bersih dari formValues tanpa path file lokal perangkat
-    final Map<String, dynamic> cleanFormValues = Map<String, dynamic>.from(_formValues);
+    // Kirim dengan DUA key: ID angka (f.id) dan field_name agar server 100% selalu cocok
+    final Map<String, dynamic> cleanFormValues = {};
     for (var f in widget.template.fields) {
       if (['photo', 'camera_photo', 'multi_photo', 'signature'].contains(f.fieldType)) {
-        cleanFormValues.remove(f.id.toString());
-        cleanFormValues.remove(f.fieldName);
+        continue;
+      }
+      final fieldKey = f.id.toString();
+      final val = _formValues[fieldKey] ?? _formValues[f.fieldName] ?? _controllers[fieldKey]?.text;
+      if (val != null) {
+        cleanFormValues[fieldKey] = val;
+        cleanFormValues[f.fieldName] = val;
       }
     }
+    _formValues.forEach((k, v) {
+      if (!cleanFormValues.containsKey(k) && v != null) {
+        cleanFormValues[k] = v;
+      }
+    });
 
     // Gabungkan payload foto (single dan multi-foto)
     final Map<String, dynamic> allPhotosPayload = {};
