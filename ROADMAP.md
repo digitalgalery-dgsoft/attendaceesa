@@ -1249,6 +1249,7 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Penyempurnaan Agregasi Regional & Peringkat Promotor**:
       - Memperbaiki kalkulasi kolom `Toko Aktif` dan `DC / Promotor` pada tabel **Kontribusi Database Pelanggan per Region (RSM Area)** agar menghitung toko unik dan DC unik dari submisi live secara akurat (tidak lagi bernilai 0 saat SQLite kosong).
       - Menyelaraskan tabel **Top 20 Promotor / DC Teraktif** dengan menggabungkan data promotor/DC pelapor dari submisi live sehingga peringkat promotor produktif langsung terisi dan terurut berdasarkan jumlah konsumen & nilai transaksi (misal: Citra Dewi Demo dengan 1 konsumen terdata).
+      - Menyesuaikan format tampilan card **Total Nilai Transaksi** dan **Rata-Rata Belanja (Basket Size)** agar bersifat dinamis adaptif (menampilkan angka riil seperti `Rp 500.000` jika di bawah Rp 1 Juta, dan otomatis menggunakan akhiran `Juta` atau `Miliar` jika nilai mencapai nominal tersebut, sehingga tidak lagi tampak `Rp 0.00 Miliar` akibat pembagian skala miliaran).
       - Menaikkan cache key kalkulasi dashboard ke `cust_db_v4_` untuk invalidasi instan di seluruh server cluster.
    - **Pembaruan Blade View Portal (`customer_database_dashboard.blade.php` & `report_detail.blade.php`)**:
      - Menambahkan Tab 4 "Data Laporan Masuk" pada navigation toolbar dengan badge counter submisi live.
