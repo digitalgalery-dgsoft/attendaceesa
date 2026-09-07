@@ -3402,14 +3402,13 @@ class PrincipalPortalController extends Controller
                                        SUM(s.volume_liter) as stock_vol,
                                        COALESCE(o.offtake_vol, 0) as offtake_vol,
                                        CASE WHEN COALESCE(o.offtake_vol, 0) > 0 THEN ROUND(SUM(s.volume_liter) / o.offtake_vol, 2) ELSE 0 END as scm
-                                FROM stock_raw s
+                                FROM (SELECT * FROM stock_raw WHERE {$whereSql}) s
                                 LEFT JOIN (
                                     SELECT sap, SUM(volume_liter) as offtake_vol
                                     FROM offtake_db.offtake_raw
                                     WHERE month BETWEEN {$sMonth} AND {$eMonth}
                                     GROUP BY sap
                                 ) o ON s.sap = o.sap
-                                WHERE {$whereSql}
                                 GROUP BY s.sap, s.store_name
                                 ORDER BY CAST(s.sap AS INTEGER) ASC, s.sap ASC
                             ";
@@ -5964,13 +5963,10 @@ class PrincipalPortalController extends Controller
             $activeMonths[$m] = $monthNames[$m] . ' ' . $selectedYear;
         }
 
-        $cacheKey = 'stock_dash_v6_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $selectedBrand . '_' . $search . '_' . $stockPage . '_' . $summPage . '_' . $rawPage);
+        $cacheKey = 'stock_dash_v9_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $selectedBrand . '_' . $search . '_' . $stockPage . '_' . $summPage . '_' . $rawPage);
 
         return Cache::remember($cacheKey, 300, function() use ($template, $sqlitePath, $selectedYear, $sMonth, $eMonth, $activeMonths, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedBrand, $search, $stockPage, $summPage, $rawPage, $perPage) {
             try {
-                $pdo = new \PDO("sqlite:" . $sqlitePath);
-                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-
                 $startDate = \Carbon\Carbon::createFromDate($selectedYear, $sMonth, 1)->startOfMonth();
                 $endDate   = \Carbon\Carbon::createFromDate($selectedYear, $eMonth, 1)->endOfMonth();
                 $areaToRsm = $this->getDuluxAreaToRsmMap();
@@ -6046,10 +6042,10 @@ class PrincipalPortalController extends Controller
                             continue;
                         }
 
-                        $warna = trim((string)($valMap['base_warna'] ?? ($valMap['base_tipe_warna'] ?? ($valMap['base'] ?? ($valMap['warna'] ?? '-')))));
+                        $warna = trim((string)($valMap['base_tipe_warna'] ?? ($valMap['base_warna'] ?? ($valMap['base'] ?? ($valMap['warna'] ?? '-')))));
 
-                        $qtyGalon = (float)($valMap['stok_qty_galon'] ?? ($valMap['kuantiti_galon'] ?? ($valMap['qty_galon'] ?? 0)));
-                        $qtyPail  = (float)($valMap['stok_qty_pail'] ?? ($valMap['kuantiti_pail'] ?? ($valMap['qty_pail'] ?? 0)));
+                        $qtyGalon = (float)($valMap['stok_fisik_kemasan_galon_qty'] ?? ($valMap['stok_qty_galon'] ?? ($valMap['kuantiti_galon'] ?? ($valMap['qty_galon'] ?? 0))));
+                        $qtyPail  = (float)($valMap['stok_fisik_kemasan_pail_qty'] ?? ($valMap['stok_qty_pail'] ?? ($valMap['kuantiti_pail'] ?? ($valMap['qty_pail'] ?? 0))));
                         $kemasanGalon = trim((string)($valMap['kemasan_galon'] ?? '2.5 L'));
                         $kemasanPail  = trim((string)($valMap['kemasan_pail'] ?? '20 L'));
 
@@ -6058,7 +6054,7 @@ class PrincipalPortalController extends Controller
                             $volL = ($qtyGalon * 2.5) + ($qtyPail * 20.0);
                         }
 
-                        $keterangan = trim((string)($valMap['keterangan_stok_toko'] ?? ($valMap['keterangan_kendala_stok_tinter_toko'] ?? ($valMap['keterangan'] ?? '-'))));
+                        $keterangan = trim((string)($valMap['keterangan_kendala_stok_tinter_toko'] ?? ($valMap['keterangan_stok_toko'] ?? ($valMap['keterangan'] ?? '-'))));
 
                         $liveRawRows[] = [
                             'submission_date' => $transDate,
@@ -6081,11 +6077,14 @@ class PrincipalPortalController extends Controller
                             'submission_code' => $sub->submission_code,
                         ];
 
-                        if ($rawBrand === 'Dulux') {
+                        if (stripos($rawBrand, 'Dulux') !== false) {
+                            $bCat = 'dulux';
                             $liveDuluxTotal += $volL;
-                        } elseif ($rawBrand === 'Catylac Smart Choice') {
+                        } elseif (stripos($rawBrand, 'Smart Choice') !== false) {
+                            $bCat = 'sc';
                             $liveCatylacScTotal += $volL;
                         } else {
+                            $bCat = 'catylac';
                             $liveCatylacTotal += $volL;
                         }
                         $liveGrandTotal += $volL;
@@ -6101,11 +6100,12 @@ class PrincipalPortalController extends Controller
                                 'catylac_sc_vol' => 0.0,
                                 'catylac_vol' => 0.0,
                                 'total_vol' => 0.0,
+                                'is_live' => true,
                             ];
                         }
-                        if ($rawBrand === 'Dulux') {
+                        if ($bCat === 'dulux') {
                             $liveStoreTotals[$stKey]['dulux_vol'] += $volL;
-                        } elseif ($rawBrand === 'Catylac Smart Choice') {
+                        } elseif ($bCat === 'sc') {
                             $liveStoreTotals[$stKey]['catylac_sc_vol'] += $volL;
                         } else {
                             $liveStoreTotals[$stKey]['catylac_vol'] += $volL;
@@ -6116,174 +6116,195 @@ class PrincipalPortalController extends Controller
                     \Log::warning("Live stock submissions query failed: " . $e->getMessage());
                 }
 
-                $where = ["month BETWEEN ? AND ?"];
-                $params = [$sMonth, $eMonth];
-
-                if ($selectedRegion) {
-                    $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
-                    $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
-                    $where[] = "(rsm_area IN ($inPlaceholders) OR region = ?)";
-                    foreach ($rsmVariants as $rv) {
-                        $params[] = $rv;
+                // SQLite query for historical data
+                $pdo = null;
+                $hasStockTable = false;
+                if (file_exists($sqlitePath)) {
+                    try {
+                        $pdo = new \PDO("sqlite:" . $sqlitePath);
+                        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                        $chk = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='stock_raw'")->fetchColumn();
+                        $hasStockTable = ($chk === 'stock_raw');
+                    } catch (\Throwable $e) {
+                        $pdo = null;
+                        $hasStockTable = false;
                     }
-                    $params[] = $selectedRegion;
                 }
-                if ($selectedAreaId) {
-                    $where[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
-                    $params[] = $selectedAreaId;
-                }
-                if ($selectedLocationId) {
-                    $where[] = "store_name = ?";
-                    $params[] = $selectedLocationId;
-                }
-                if ($selectedBrand === 'DULUX') {
-                    $where[] = "brand = 'Dulux'";
-                } elseif ($selectedBrand === 'CATYLAC') {
-                    $where[] = "(brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%')";
-                }
-                if ($search) {
-                    $where[] = "(store_name LIKE ? OR sap LIKE ? OR brand LIKE ? OR produk LIKE ?)";
-                    $params[] = "%{$search}%";
-                    $params[] = "%{$search}%";
-                    $params[] = "%{$search}%";
-                    $params[] = "%{$search}%";
-                }
-                $whereSql = implode(' AND ', $where);
 
-                // 1. Pivotable: Grouped by SAP, Store Name with breakdown Dulux, Catylac Smart Choice, Catylac, Grand Total
-                $pivotGrandSql = "
-                    SELECT SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as grand_total_dulux,
-                           SUM(CASE WHEN brand = 'Catylac Smart Choice' THEN volume_liter ELSE 0 END) as grand_total_catylac_sc,
-                           SUM(CASE WHEN brand = 'Catylac' THEN volume_liter ELSE 0 END) as grand_total_catylac,
-                           SUM(volume_liter) as grand_total_all
-                    FROM stock_raw
-                    WHERE $whereSql
-                ";
-                $pivotGrandStmt = $pdo->prepare($pivotGrandSql);
-                $pivotGrandStmt->execute($params);
-                $pivotGrand = $pivotGrandStmt->fetch(\PDO::FETCH_ASSOC) ?: [];
-
-                $countPivotSql = "SELECT COUNT(DISTINCT sap || '---' || store_name) FROM stock_raw WHERE $whereSql";
-                $countPivotStmt = $pdo->prepare($countPivotSql);
-                $countPivotStmt->execute($params);
-                $totalPivotStores = (int)$countPivotStmt->fetchColumn();
+                $pivotStores = [];
+                $pivotGrand = [];
+                $totalPivotStores = 0;
+                $summStores = [];
+                $totStk = 0.0;
+                $totOff = 0.0;
+                $rawRows = [];
+                $totalRaw = 0;
 
                 $pivotOffset = ($stockPage - 1) * $perPage;
-                $pivotStoreSql = "
-                    SELECT sap, store_name, MIN(region) as region, MIN(area) as area,
-                           SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_vol,
-                           SUM(CASE WHEN brand = 'Catylac Smart Choice' THEN volume_liter ELSE 0 END) as catylac_sc_vol,
-                           SUM(CASE WHEN brand = 'Catylac' THEN volume_liter ELSE 0 END) as catylac_vol,
-                           SUM(volume_liter) as total_vol
-                    FROM stock_raw
-                    WHERE $whereSql
-                    GROUP BY sap, store_name
-                    ORDER BY CAST(sap AS INTEGER) ASC, sap ASC
-                    LIMIT $perPage OFFSET $pivotOffset
-                ";
-                $pivotStoreStmt = $pdo->prepare($pivotStoreSql);
-                $pivotStoreStmt->execute($params);
-                $pivotStores = $pivotStoreStmt->fetchAll(\PDO::FETCH_ASSOC);
+                $summOffset  = ($summPage - 1) * $perPage;
+                $rawOffset   = ($rawPage - 1) * $perPage;
 
-                // 2. Summ: SCM calculation (Stock Cover Month = Stock / Offtake)
-                $offtakeSqlite = storage_path('app/dulux_data/offtake_2026.sqlite');
-                $hasOfftake = file_exists($offtakeSqlite);
-                if ($hasOfftake) {
-                    try {
-                        $pdo->exec("ATTACH DATABASE '{$offtakeSqlite}' AS offtake_db");
-                    } catch (\Throwable $e) {
-                        $hasOfftake = false;
+                if ($pdo && $hasStockTable) {
+                    $where = ["month BETWEEN ? AND ?"];
+                    $params = [$sMonth, $eMonth];
+
+                    if ($selectedRegion) {
+                        $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                        $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                        $where[] = "(rsm_area IN ($inPlaceholders) OR region = ?)";
+                        foreach ($rsmVariants as $rv) {
+                            $params[] = $rv;
+                        }
+                        $params[] = $selectedRegion;
                     }
-                }
+                    if ($selectedAreaId) {
+                        $where[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
+                        $params[] = $selectedAreaId;
+                    }
+                    if ($selectedLocationId) {
+                        $where[] = "store_name = ?";
+                        $params[] = $selectedLocationId;
+                    }
+                    if ($selectedBrand === 'DULUX') {
+                        $where[] = "brand = 'Dulux'";
+                    } elseif ($selectedBrand === 'CATYLAC') {
+                        $where[] = "(brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%')";
+                    }
+                    if ($search) {
+                        $where[] = "(store_name LIKE ? OR sap LIKE ? OR brand LIKE ? OR produk LIKE ?)";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                        $params[] = "%{$search}%";
+                    }
+                    $whereSql = implode(' AND ', $where);
 
-                $summOffset = ($summPage - 1) * $perPage;
-                if ($hasOfftake) {
-                    $summSql = "
-                        SELECT s.sap, s.store_name, MIN(s.region) as region, MIN(s.area) as area,
-                               MIN(s.derp) as category_store,
-                               SUM(CASE WHEN s.brand = 'Dulux' THEN s.volume_liter ELSE 0 END) as dulux_stock,
-                               SUM(CASE WHEN (s.brand LIKE '%Catylac%' OR s.brand LIKE '%Smart Choice%') THEN s.volume_liter ELSE 0 END) as catylac_stock,
-                               SUM(s.volume_liter) as total_stock,
-                               COALESCE(o.dulux_offtake, 0) as dulux_offtake,
-                               COALESCE(o.catylac_offtake, 0) as catylac_offtake,
-                               COALESCE(o.total_offtake, 0) as total_offtake
-                        FROM stock_raw s
-                        LEFT JOIN (
-                            SELECT sap,
-                                   SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_offtake,
-                                   SUM(CASE WHEN brand = 'Catylac' THEN volume_liter ELSE 0 END) as catylac_offtake,
-                                   SUM(volume_liter) as total_offtake
-                            FROM offtake_db.offtake_raw
-                            WHERE month BETWEEN {$sMonth} AND {$eMonth}
-                            GROUP BY sap
-                        ) o ON s.sap = o.sap
-                        WHERE {$whereSql}
-                        GROUP BY s.sap, s.store_name
-                        ORDER BY CAST(s.sap AS INTEGER) ASC, s.sap ASC
-                        LIMIT $perPage OFFSET $summOffset
-                    ";
-
-                    $summGrandSql = "
-                        SELECT 
-                            SUM(s.volume_liter) as total_stock,
-                            COALESCE(SUM(o.volume_liter), 0) as total_offtake
-                        FROM stock_raw s
-                        LEFT JOIN offtake_db.offtake_raw o ON s.sap = o.sap AND o.month BETWEEN {$sMonth} AND {$eMonth}
-                        WHERE {$whereSql}
-                    ";
-                } else {
-                    $summSql = "
-                        SELECT sap, store_name, MIN(region) as region, MIN(area) as area,
-                               MIN(derp) as category_store,
-                               SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_stock,
-                               SUM(CASE WHEN (brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%') THEN volume_liter ELSE 0 END) as catylac_stock,
-                               SUM(volume_liter) as total_stock,
-                               0 as dulux_offtake,
-                               0 as catylac_offtake,
-                               0 as total_offtake
+                    // 1. Pivotable: Grouped by SAP, Store Name with breakdown Dulux, Catylac Smart Choice, Catylac, Grand Total
+                    $pivotGrandSql = "
+                        SELECT SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as grand_total_dulux,
+                               SUM(CASE WHEN brand = 'Catylac Smart Choice' THEN volume_liter ELSE 0 END) as grand_total_catylac_sc,
+                               SUM(CASE WHEN brand = 'Catylac' THEN volume_liter ELSE 0 END) as grand_total_catylac,
+                               SUM(volume_liter) as grand_total_all
                         FROM stock_raw
-                        WHERE {$whereSql}
+                        WHERE $whereSql
+                    ";
+                    $pivotGrandStmt = $pdo->prepare($pivotGrandSql);
+                    $pivotGrandStmt->execute($params);
+                    $pivotGrand = $pivotGrandStmt->fetch(\PDO::FETCH_ASSOC) ?: [];
+
+                    $countPivotSql = "SELECT COUNT(DISTINCT sap || '---' || store_name) FROM stock_raw WHERE $whereSql";
+                    $countPivotStmt = $pdo->prepare($countPivotSql);
+                    $countPivotStmt->execute($params);
+                    $totalPivotStores = (int)$countPivotStmt->fetchColumn();
+
+                    $pivotStoreSql = "
+                        SELECT sap, store_name, MIN(region) as region, MIN(area) as area,
+                               SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_vol,
+                               SUM(CASE WHEN brand = 'Catylac Smart Choice' THEN volume_liter ELSE 0 END) as catylac_sc_vol,
+                               SUM(CASE WHEN brand = 'Catylac' THEN volume_liter ELSE 0 END) as catylac_vol,
+                               SUM(volume_liter) as total_vol
+                        FROM stock_raw
+                        WHERE $whereSql
                         GROUP BY sap, store_name
                         ORDER BY CAST(sap AS INTEGER) ASC, sap ASC
-                        LIMIT $perPage OFFSET $summOffset
+                        LIMIT $perPage OFFSET $pivotOffset
                     ";
+                    $pivotStoreStmt = $pdo->prepare($pivotStoreSql);
+                    $pivotStoreStmt->execute($params);
+                    $pivotStores = $pivotStoreStmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
 
-                    $summGrandSql = "
-                        SELECT SUM(volume_liter) as total_stock, 0 as total_offtake
+                    // 2. Summ: SCM calculation (Stock Cover Month = Stock / Offtake)
+                    $offtakeSqlite = storage_path('app/dulux_data/offtake_2026.sqlite');
+                    $hasOfftake = file_exists($offtakeSqlite);
+                    if ($hasOfftake) {
+                        try {
+                            $pdo->exec("ATTACH DATABASE '{$offtakeSqlite}' AS offtake_db");
+                        } catch (\Throwable $e) {
+                            $hasOfftake = false;
+                        }
+                    }
+
+                    if ($hasOfftake) {
+                        $summSql = "
+                            SELECT s.sap, s.store_name, MIN(s.region) as region, MIN(s.area) as area,
+                                   MIN(s.derp) as category_store,
+                                   SUM(CASE WHEN s.brand = 'Dulux' THEN s.volume_liter ELSE 0 END) as dulux_stock,
+                                   SUM(CASE WHEN (s.brand LIKE '%Catylac%' OR s.brand LIKE '%Smart Choice%') THEN s.volume_liter ELSE 0 END) as catylac_stock,
+                                   SUM(s.volume_liter) as total_stock,
+                                   COALESCE(o.dulux_offtake, 0) as dulux_offtake,
+                                   COALESCE(o.catylac_offtake, 0) as catylac_offtake,
+                                   COALESCE(o.total_offtake, 0) as total_offtake
+                            FROM (SELECT * FROM stock_raw WHERE {$whereSql}) s
+                            LEFT JOIN (
+                                SELECT sap,
+                                       SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_offtake,
+                                       SUM(CASE WHEN brand = 'Catylac' THEN volume_liter ELSE 0 END) as catylac_offtake,
+                                       SUM(volume_liter) as total_offtake
+                                FROM offtake_db.offtake_raw
+                                WHERE month BETWEEN {$sMonth} AND {$eMonth}
+                                GROUP BY sap
+                            ) o ON s.sap = o.sap
+                            GROUP BY s.sap, s.store_name
+                            ORDER BY CAST(s.sap AS INTEGER) ASC, s.sap ASC
+                            LIMIT $perPage OFFSET $summOffset
+                        ";
+
+                        try {
+                            $offGrandSql = "
+                                SELECT COALESCE(SUM(volume_liter), 0) as total_offtake
+                                FROM offtake_db.offtake_raw
+                                WHERE month BETWEEN {$sMonth} AND {$eMonth}
+                                  AND sap IN (SELECT DISTINCT sap FROM stock_raw WHERE {$whereSql})
+                            ";
+                            $offGrandStmt = $pdo->prepare($offGrandSql);
+                            $offGrandStmt->execute($params);
+                            $totOff = (float)$offGrandStmt->fetchColumn();
+                        } catch (\Throwable $e) {
+                            $totOff = 0.0;
+                        }
+                    } else {
+                        $summSql = "
+                            SELECT sap, store_name, MIN(region) as region, MIN(area) as area,
+                                   MIN(derp) as category_store,
+                                   SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_stock,
+                                   SUM(CASE WHEN (brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%') THEN volume_liter ELSE 0 END) as catylac_stock,
+                                   SUM(volume_liter) as total_stock,
+                                   0 as dulux_offtake,
+                                   0 as catylac_offtake,
+                                   0 as total_offtake
+                            FROM stock_raw
+                            WHERE {$whereSql}
+                            GROUP BY sap, store_name
+                            ORDER BY CAST(sap AS INTEGER) ASC, sap ASC
+                            LIMIT $perPage OFFSET $summOffset
+                        ";
+                        $totOff = 0.0;
+                    }
+
+                    $summStmt = $pdo->prepare($summSql);
+                    $summStmt->execute($params);
+                    $summStores = $summStmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+                    $totStk = (float)($pivotGrand['grand_total_all'] ?? 0);
+
+                    // 3. Raw Data Submissions (16 Columns matching Excel)
+                    $rawCountSql = "SELECT COUNT(*) FROM stock_raw WHERE $whereSql";
+                    $rawCountStmt = $pdo->prepare($rawCountSql);
+                    $rawCountStmt->execute($params);
+                    $totalRaw = (int)$rawCountStmt->fetchColumn();
+
+                    $rawSql = "
+                        SELECT submission_date, tgl_catat, region, area, sap, store_name,
+                               keterangan, brand, produk, warna, kemasan_galon, qty_galon,
+                               kemasan_pail, qty_pail, volume_liter, conf
                         FROM stock_raw
-                        WHERE {$whereSql}
+                        WHERE $whereSql
+                        ORDER BY submission_date DESC, id DESC
+                        LIMIT $perPage OFFSET $rawOffset
                     ";
+                    $rawStmt = $pdo->prepare($rawSql);
+                    $rawStmt->execute($params);
+                    $rawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
                 }
-
-                $summStmt = $pdo->prepare($summSql);
-                $summStmt->execute($params);
-                $summStores = $summStmt->fetchAll(\PDO::FETCH_ASSOC);
-
-                $summGrandStmt = $pdo->prepare($summGrandSql);
-                $summGrandStmt->execute($params);
-                $summGrand = $summGrandStmt->fetch(\PDO::FETCH_ASSOC) ?: [];
-                $totStk = (float)($summGrand['total_stock'] ?? 0);
-                $totOff = (float)($summGrand['total_offtake'] ?? 0);
-                
-                // 3. Raw Data Submissions (16 Columns matching Excel)
-                $rawOffset = ($rawPage - 1) * $perPage;
-                $rawCountSql = "SELECT COUNT(*) FROM stock_raw WHERE $whereSql";
-                $rawCountStmt = $pdo->prepare($rawCountSql);
-                $rawCountStmt->execute($params);
-                $totalRaw = (int)$rawCountStmt->fetchColumn();
-
-                $rawSql = "
-                    SELECT submission_date, tgl_catat, region, area, sap, store_name,
-                           keterangan, brand, produk, warna, kemasan_galon, qty_galon,
-                           kemasan_pail, qty_pail, volume_liter, conf
-                    FROM stock_raw
-                    WHERE $whereSql
-                    ORDER BY submission_date DESC, id DESC
-                    LIMIT $perPage OFFSET $rawOffset
-                ";
-                $rawStmt = $pdo->prepare($rawSql);
-                $rawStmt->execute($params);
-                $rawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC);
 
                 // Merge live submissions into Pivotable
                 if (!empty($liveStoreTotals)) {
@@ -6300,17 +6321,16 @@ class PrincipalPortalController extends Controller
                     }
                     unset($ps);
 
+                    $totalPivotStores += count($unmatchedPivotStores);
+
                     if (!empty($unmatchedPivotStores) && $stockPage === 1) {
-                        $newStores = [];
-                        foreach ($unmatchedPivotStores as $lst) {
-                            $newStores[] = $lst;
-                            $totalPivotStores++;
-                        }
+                        $newStores = array_values($unmatchedPivotStores);
                         $pivotStores = array_merge($newStores, $pivotStores);
                     }
                 }
 
                 // Merge live submissions into Summ
+                $totalSummStores = $totalPivotStores;
                 if (!empty($liveStoreTotals)) {
                     $unmatchedSummStores = $liveStoreTotals;
                     foreach ($summStores as &$ss) {
@@ -6332,13 +6352,14 @@ class PrincipalPortalController extends Controller
                                 'store_name' => $lst['store_name'],
                                 'region' => $lst['region'],
                                 'area' => $lst['area'],
-                                'category_store' => '-',
+                                'category_store' => 'Retail (Live)',
                                 'dulux_stock' => $lst['dulux_vol'],
                                 'catylac_stock' => $lst['catylac_vol'] + $lst['catylac_sc_vol'],
                                 'total_stock' => $lst['total_vol'],
                                 'dulux_offtake' => 0,
                                 'catylac_offtake' => 0,
                                 'total_offtake' => 0,
+                                'is_live' => true,
                             ];
                         }
                         $summStores = array_merge($newSumm, $summStores);
@@ -6372,7 +6393,7 @@ class PrincipalPortalController extends Controller
                         'total' => $totalPivotStores,
                         'page' => $stockPage,
                         'per_page' => $perPage,
-                        'total_pages' => (int)ceil($totalPivotStores / $perPage),
+                        'total_pages' => max(1, (int)ceil($totalPivotStores / $perPage)),
                         'from' => $totalPivotStores > 0 ? ($pivotOffset + 1) : 0,
                         'to' => min($pivotOffset + $perPage, $totalPivotStores),
                     ],
@@ -6381,26 +6402,26 @@ class PrincipalPortalController extends Controller
                         'total_stock' => $totStk,
                         'total_offtake' => $totOff,
                         'avg_scm' => $avgScm,
-                        'total_stores' => $totalPivotStores,
-                        'total' => $totalPivotStores,
+                        'total_stores' => $totalSummStores,
+                        'total' => $totalSummStores,
                         'page' => $summPage,
                         'per_page' => $perPage,
-                        'total_pages' => (int)ceil($totalPivotStores / $perPage),
-                        'from' => $totalPivotStores > 0 ? ($summOffset + 1) : 0,
-                        'to' => min($summOffset + $perPage, $totalPivotStores),
+                        'total_pages' => max(1, (int)ceil($totalSummStores / $perPage)),
+                        'from' => $totalSummStores > 0 ? ($summOffset + 1) : 0,
+                        'to' => min($summOffset + $perPage, $totalSummStores),
                     ],
                     'submissions' => [
                         'rows' => $rawRows,
                         'total' => $totalRaw,
                         'page' => $rawPage,
                         'per_page' => $perPage,
-                        'total_pages' => (int)ceil($totalRaw / $perPage),
+                        'total_pages' => max(1, (int)ceil($totalRaw / $perPage)),
                         'from' => $totalRaw > 0 ? ($rawOffset + 1) : 0,
                         'to' => min($rawOffset + $perPage, $totalRaw),
                     ]
                 ];
             } catch (\Throwable $e) {
-                \Log::error("Failed to calculate Stock Dashboard: " . $e->getMessage());
+                \Log::error("Failed to calculate Stock Dashboard: " . $e->getMessage() . "\n" . $e->getTraceAsString());
                 return [
                     'months' => $activeMonths,
                     'pivotable' => ['rows' => [], 'grand_total_dulux' => 0, 'grand_total_catylac_sc' => 0, 'grand_total_catylac' => 0, 'grand_total_all' => 0, 'total_stores' => 0, 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],

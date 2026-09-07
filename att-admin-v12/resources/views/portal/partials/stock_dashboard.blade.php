@@ -422,8 +422,11 @@
                                         <span class="sap-pill">{{ $store['sap'] ?: '-' }}</span>
                                     </td>
                                     <td>
-                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.88rem;">
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.88rem; display: flex; align-items: center; gap: 6px;">
                                             {{ $store['store_name'] }}
+                                            @if(!empty($store['is_live']))
+                                                <span style="font-size: 0.68rem; padding: 2px 6px; background: #e0f2fe; color: #0284c7; border-radius: 4px; font-weight: 700; border: 1px solid #bae6fd;">⚡ LIVE</span>
+                                            @endif
                                         </div>
                                     </td>
                                     <td style="text-align: center;">
@@ -585,8 +588,11 @@
                                         <span class="sap-pill">{{ $store['sap'] ?: '-' }}</span>
                                     </td>
                                     <td>
-                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.88rem;">
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.88rem; display: flex; align-items: center; gap: 6px;">
                                             {{ $store['store_name'] }}
+                                            @if(!empty($store['is_live']))
+                                                <span style="font-size: 0.68rem; padding: 2px 6px; background: #e0f2fe; color: #0284c7; border-radius: 4px; font-weight: 700; border: 1px solid #bae6fd;">⚡ LIVE</span>
+                                            @endif
                                         </div>
                                     </td>
                                     <td style="text-align: center;">
@@ -788,7 +794,13 @@
                                         {{ $vL > 0 ? number_format($vL, 2) : '-' }}
                                     </td>
                                     <td style="text-align: right; font-size: 0.82rem; color: #64748b; font-variant-numeric: tabular-nums;">
-                                        {{ $row['conf'] ? number_format((float)$row['conf'], 2) : '-' }}
+                                        @if(!empty($row['is_live']) || ($row['conf'] ?? '') === '⚡ LIVE')
+                                            <span style="font-size: 0.72rem; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 6px; border-radius: 4px; border: 1px solid #bae6fd;">⚡ LIVE</span>
+                                        @elseif(is_numeric($row['conf'] ?? ''))
+                                            {{ number_format((float)$row['conf'], 2) }}
+                                        @else
+                                            {{ $row['conf'] ?: '-' }}
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach
