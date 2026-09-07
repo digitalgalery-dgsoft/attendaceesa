@@ -584,50 +584,20 @@ Route::get('/migrate-now', function () {
 });
 
 Route::get('/cek-admin', function () {
-    $logPath = storage_path('logs/laravel.log');
-    if (!file_exists($logPath)) {
-        return response('laravel.log file not found', 200, ['Content-Type' => 'text/plain']);
-    }
-    $size = filesize($logPath);
-    $fp = fopen($logPath, 'r');
-    $readSize = min($size, 50000);
-    fseek($fp, max(0, $size - $readSize));
-    $content = fread($fp, $readSize);
-    fclose($fp);
-    return response($content, 200, ['Content-Type' => 'text/plain']);
-});
-
-
-
-
-Route::get('/debug-logs', function () {
-    $logPath = storage_path('logs/laravel.log');
-    if (!file_exists($logPath)) {
-        return 'No log file';
-    }
-    $lines = file($logPath);
-    return response(implode('', array_slice($lines, -200)), 200, ['Content-Type' => 'text/plain']);
-});
-
-Route::get('/debug-offtake', function (\Illuminate\Http\Request $request) {
     try {
-        $controller = app(\App\Http\Controllers\Portal\PrincipalPortalController::class);
-        $request->merge(['p' => 18]);
-        $res = $controller->reportDetail($request, 'RPT-DULUX-OFFTAKE-01');
-        if ($res instanceof \Illuminate\View\View) {
-            return $res->render();
-        }
-        return $res;
+        $users = \App\Models\User::all(['id', 'name', 'email']);
+        return response()->json([
+            'status' => 'success',
+            'users' => $users,
+        ]);
     } catch (\Throwable $e) {
         return response()->json([
             'status' => 'error',
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'trace' => explode("\n", $e->getTraceAsString())
-        ], 200);
+            'message' => $e->getMessage()
+        ], 500);
     }
 });
+
 
 
 Route::get('/reset-admin', function () {

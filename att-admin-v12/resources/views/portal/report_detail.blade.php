@@ -1343,13 +1343,13 @@
                                         @endforeach
                                         <tr style="background: #f1f5f9; border-top: 2px solid var(--border-color);">
                                             <td style="font-weight: 800; font-size: 0.95rem;">{{ $ytdData['total']['brand'] ?? 'Total Akzonobel' }}</td>
-                                            <td style="text-align: right; font-weight: 800; font-size: 0.95rem;">{{ number_format($ytdData['total']['cy_volume'], 2) }}</td>
+                                            <td style="text-align: right; font-weight: 800; font-size: 0.95rem;">{{ number_format($ytdData['total']['cy_volume'] ?? 0, 2) }}</td>
                                             <td style="text-align: center; font-weight: 800;">100%</td>
-                                            <td style="text-align: right; font-weight: 800; color: var(--text-muted);">{{ number_format($ytdData['total']['py_volume'], 2) }}</td>
-                                            <td style="text-align: right; font-weight: 800; font-size: 0.95rem; color: {{ $ytdData['total']['growth'] > 0 ? '#10b981' : ($ytdData['total']['growth'] < 0 ? '#ef4444' : 'var(--text-muted)') }};">
-                                                @if($ytdData['total']['growth'] > 0)<i class="fa-solid fa-arrow-trend-up"></i>@endif
-                                                @if($ytdData['total']['growth'] < 0)<i class="fa-solid fa-arrow-trend-down"></i>@endif
-                                                {{ number_format($ytdData['total']['growth'], 1) }}%
+                                            <td style="text-align: right; font-weight: 800; color: var(--text-muted);">{{ number_format($ytdData['total']['py_volume'] ?? 0, 2) }}</td>
+                                            <td style="text-align: right; font-weight: 800; font-size: 0.95rem; color: {{ ($ytdData['total']['growth'] ?? 0) > 0 ? '#10b981' : (($ytdData['total']['growth'] ?? 0) < 0 ? '#ef4444' : 'var(--text-muted)') }};">
+                                                @if(($ytdData['total']['growth'] ?? 0) > 0)<i class="fa-solid fa-arrow-trend-up"></i>@endif
+                                                @if(($ytdData['total']['growth'] ?? 0) < 0)<i class="fa-solid fa-arrow-trend-down"></i>@endif
+                                                {{ number_format($ytdData['total']['growth'] ?? 0, 1) }}%
                                             </td>
                                         </tr>
                                     @else
@@ -1497,10 +1497,10 @@
                                         </tr>
                                     @endforeach
                                     <tr style="background: #f1f5f9; border-top: 2px solid var(--border-color);" class="no-filter">
-                                        <td colspan="5" style="font-weight: 800; font-size: 0.95rem; text-align: right; padding-right: 1.5rem;">TOTAL KESELURUHAN ({{ count($ytdData['stores']['details']) }} TOKO):</td>
-                                        <td style="text-align: right; font-weight: 800; font-size: 0.95rem; color: var(--brand-primary);">{{ number_format($ytdData['stores']['total']['cy_volume'], 2) }}</td>
+                                        <td colspan="5" style="font-weight: 800; font-size: 0.95rem; text-align: right; padding-right: 1.5rem;">TOTAL KESELURUHAN ({{ count($ytdData['stores']['details'] ?? []) }} TOKO):</td>
+                                        <td style="text-align: right; font-weight: 800; font-size: 0.95rem; color: var(--brand-primary);">{{ number_format($ytdData['stores']['total']['cy_volume'] ?? 0, 2) }}</td>
                                         <td style="text-align: center; font-weight: 800;">100%</td>
-                                        <td style="text-align: right; font-weight: 800; color: var(--text-muted);">{{ number_format($ytdData['stores']['total']['py_volume'], 2) }}</td>
+                                        <td style="text-align: right; font-weight: 800; color: var(--text-muted);">{{ number_format($ytdData['stores']['total']['py_volume'] ?? 0, 2) }}</td>
                                         <td style="text-align: right; font-weight: 800; font-size: 0.95rem; color: {{ ($ytdData['stores']['total']['growth'] ?? 0) >= 0 ? '#10b981' : '#ef4444' }};">
                                             @if(($ytdData['stores']['total']['growth'] ?? 0) > 0)<i class="fa-solid fa-arrow-trend-up"></i>@endif
                                             @if(($ytdData['stores']['total']['growth'] ?? 0) < 0)<i class="fa-solid fa-arrow-trend-down"></i>@endif
@@ -1534,7 +1534,13 @@
 
     {{-- OFFTAKE EXECUTIVE DASHBOARD (SHEET 2 PIVOT & SHEET 1 RAW DATA) --}}
     @if(isset($isOfftakeReport) && $isOfftakeReport && !empty($offtakeData))
-        @include('portal.partials.offtake_dashboard', ['offtakeData' => $offtakeData])
+        @include('portal.partials.offtake_dashboard', [
+            'offtakeData' => $offtakeData,
+            'submissions' => $submissions ?? null,
+            'template' => $template ?? null,
+            'tenantPrincipal' => $tenantPrincipal ?? null,
+            'activeTab' => $activeTab ?? 'sheet2'
+        ])
     @endif
 
     {{-- STOCK END EXECUTIVE DASHBOARD (PIVOTABLE, SUMM SCM & RAW DATA) --}}

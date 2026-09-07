@@ -1011,150 +1011,217 @@ class PrincipalPortalController extends Controller
 
         // --- Offtake Custom Handling (Sheet 2 Store Volume Pivot & Sheet 1 Raw Data from offtake_2026.sqlite) ---
         if ($isOfftakeReport) {
-            $sqlitePath = storage_path('app/dulux_data/offtake_2026.sqlite');
-            $gzPath = storage_path('app/dulux_data/offtake_2026.sqlite.gz');
+            try {
+                $selectedYear = (int)($endYear ?: $startYear ?: 2026);
+                if ($selectedYear <= 0) $selectedYear = 2026;
+                $sqlitePath = storage_path("app/dulux_data/offtake_{$selectedYear}.sqlite");
+                $gzPath = storage_path("app/dulux_data/offtake_{$selectedYear}.sqlite.gz");
 
-            // Auto-extract if .sqlite does not exist or corrupted (< 1MB) but .sqlite.gz exists
-            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
-                if (file_exists($gzPath)) {
-                    try {
-                        $zp = gzopen($gzPath, 'rb');
-                        $tmpPath = $sqlitePath . '.tmp.' . uniqid();
-                        $fp = fopen($tmpPath, 'wb');
-                        if ($zp && $fp) {
-                            while (!gzeof($zp)) {
-                                fwrite($fp, gzread($zp, 524288));
+                // Auto-extract if .sqlite does not exist or corrupted (< 1MB) but .sqlite.gz exists
+                if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+                    if (file_exists($gzPath)) {
+                        try {
+                            $zp = gzopen($gzPath, 'rb');
+                            $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                            $fp = fopen($tmpPath, 'wb');
+                            if ($zp && $fp) {
+                                while (!gzeof($zp)) {
+                                    fwrite($fp, gzread($zp, 524288));
+                                }
+                                gzclose($zp);
+                                fclose($fp);
+                                @rename($tmpPath, $sqlitePath);
+                                @chmod($sqlitePath, 0666);
                             }
-                            gzclose($zp);
-                            fclose($fp);
-                            @rename($tmpPath, $sqlitePath);
-                            @chmod($sqlitePath, 0666);
+                        } catch (\Throwable $e) {
+                            \Log::error("Auto-extraction of offtake_{$selectedYear}.sqlite.gz failed: " . $e->getMessage());
                         }
+                    }
+                }
+
+                // Standardized RSM List for Offtake
+                $regions = $this->getDuluxStandardRsmList();
+                $areaToRsm = $this->getDuluxAreaToRsmMap();
+
+                // Areas directly from offtake_raw mapped to RSM
+                $areas = Cache::remember('offtake_filter_areas_v4_' . $selectedYear, 3600, function() use ($sqlitePath, $areaToRsm) {
+                    try {
+                        if (!file_exists($sqlitePath) || filesize($sqlitePath) < 10000) return [];
+                        $pdo = new \PDO("sqlite:" . $sqlitePath);
+                        $chk = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='offtake_raw'")->fetchColumn();
+                        if ($chk !== 'offtake_raw') return [];
+                        $stmt = $pdo->query("SELECT MIN(area) as area_name FROM offtake_raw WHERE area IS NOT NULL AND area != '' GROUP BY UPPER(TRIM(area)) ORDER BY area_name ASC");
+                        $rawAreas = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                        $result = [];
+                        foreach ($rawAreas as $a) {
+                            $cleanA = strtoupper(trim($a['area_name']));
+                            $rsm = $areaToRsm[$cleanA] ?? '';
+                            $result[] = [
+                                'id' => $a['area_name'],
+                                'name' => ucwords(strtolower($a['area_name'])),
+                                'region' => $rsm
+                            ];
+                        }
+                        return $result;
                     } catch (\Throwable $e) {
-                        \Log::error("Auto-extraction of offtake_2026.sqlite.gz failed: " . $e->getMessage());
+                        return [];
                     }
-                }
+                });
+
+                // Stores directly from offtake_raw mapped to RSM
+                $workLocations = Cache::remember('offtake_filter_stores_v4_' . $selectedYear, 3600, function() use ($sqlitePath, $areaToRsm) {
+                    try {
+                        if (!file_exists($sqlitePath) || filesize($sqlitePath) < 10000) return [];
+                        $pdo = new \PDO("sqlite:" . $sqlitePath);
+                        $chk = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='offtake_raw'")->fetchColumn();
+                        if ($chk !== 'offtake_raw') return [];
+                        $stmt = $pdo->query("SELECT DISTINCT MIN(area) as area, sap, name_store FROM offtake_raw WHERE name_store IS NOT NULL AND name_store != '' GROUP BY name_store ORDER BY name_store ASC");
+                        $rawStores = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                        $result = [];
+                        foreach ($rawStores as $s) {
+                            $cleanA = strtoupper(trim($s['area'] ?? ''));
+                            $rsm = $areaToRsm[$cleanA] ?? '';
+                            $result[] = [
+                                'id' => $s['name_store'],
+                                'name' => $s['name_store'],
+                                'region' => $rsm,
+                                'area' => $s['area'],
+                                'sap' => $s['sap']
+                            ];
+                        }
+                        return $result;
+                    } catch (\Throwable $e) {
+                        return [];
+                    }
+                });
+
+                $offtakePage = max(1, (int)$request->query('page', 1));
+                $rawPage = max(1, (int)$request->query('raw_page', 1));
+                $activeTab = $request->query('tab', 'sheet2');
+
+                $offtakeData = $this->calculateOfftakeDashboardData(
+                    $template,
+                    $startMonth,
+                    $startYear,
+                    $endMonth,
+                    $endYear,
+                    $selectedRegion,
+                    $selectedAreaId,
+                    $selectedLocationId,
+                    $search,
+                    $offtakePage,
+                    $rawPage,
+                    50
+                );
+
+                $totalTemplateSubmissions = $offtakeData['sheet1']['total_records'] ?? 0;
+                $uniqueStores = $offtakeData['sheet2']['total_stores'] ?? 0;
+                $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+                    ->orderBy('submitted_at', 'desc')
+                    ->paginate(20);
+                $liveSubmissionsCount = $submissions->total();
+                $dashboardConfig = [];
+                $widgetResults = [];
+                $isYtdReport = true;
+                $ytdData = $this->calculateOfftakeYtdData(
+                    $template,
+                    $endMonth,
+                    $endYear,
+                    $selectedRegion,
+                    $selectedAreaId,
+                    $selectedLocationId,
+                    $search
+                );
+
+                return view('portal.report_detail', compact(
+                    'tenantPrincipal',
+                    'tenantPrincipalsAll',
+                    'brandColor',
+                    'activeTemplates',
+                    'template',
+                    'submissions',
+                    'totalTemplateSubmissions',
+                    'uniqueStores',
+                    'startMonth',
+                    'startYear',
+                    'endMonth',
+                    'endYear',
+                    'search',
+                    'selectedRegion',
+                    'selectedAreaId',
+                    'selectedLocationId',
+                    'regions',
+                    'areas',
+                    'workLocations',
+                    'setting',
+                    'dashboardConfig',
+                    'widgetResults',
+                    'isYtdReport',
+                    'ytdData',
+                    'isCbpReport',
+                    'isOfftakeReport',
+                    'offtakeData',
+                    'activeTab'
+                ));
+            } catch (\Throwable $e) {
+                \Log::error("Error in reportDetail for Offtake: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine() . "\n" . $e->getTraceAsString());
+                $regions = $this->getDuluxStandardRsmList();
+                $areas = [];
+                $workLocations = [];
+                $offtakeData = [
+                    'months' => [Carbon::now()->month => Carbon::now()->translatedFormat('F Y')],
+                    'sheet2' => ['stores' => [], 'grand_total' => [], 'total_stores' => 0, 'page' => 1, 'per_page' => 50, 'total_pages' => 0, 'from' => 0, 'to' => 0],
+                    'sheet1' => ['rows' => [], 'total_records' => 0, 'page' => 1, 'per_page' => 50, 'total_pages' => 0, 'from' => 0, 'to' => 0]
+                ];
+                $ytdData = [
+                    'details' => [],
+                    'total' => ['brand' => 'Total Akzonobel', 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0, 'percentage' => 100],
+                    'monthly_trend' => ['categories' => [], 'cy_total' => [], 'py_total' => []],
+                    'stores' => ['total' => ['count' => 0, 'cy_volume' => 0, 'py_volume' => 0, 'growth' => 0], 'top10' => [], 'details' => []]
+                ];
+                $totalTemplateSubmissions = 0;
+                $uniqueStores = 0;
+                $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+                    ->orderBy('submitted_at', 'desc')
+                    ->paginate(20);
+                $dashboardConfig = [];
+                $widgetResults = [];
+                $isYtdReport = true;
+                $activeTab = 'sheet2';
+
+                return view('portal.report_detail', compact(
+                    'tenantPrincipal',
+                    'tenantPrincipalsAll',
+                    'brandColor',
+                    'activeTemplates',
+                    'template',
+                    'submissions',
+                    'totalTemplateSubmissions',
+                    'uniqueStores',
+                    'startMonth',
+                    'startYear',
+                    'endMonth',
+                    'endYear',
+                    'search',
+                    'selectedRegion',
+                    'selectedAreaId',
+                    'selectedLocationId',
+                    'regions',
+                    'areas',
+                    'workLocations',
+                    'setting',
+                    'dashboardConfig',
+                    'widgetResults',
+                    'isYtdReport',
+                    'ytdData',
+                    'isCbpReport',
+                    'isOfftakeReport',
+                    'offtakeData',
+                    'activeTab'
+                ));
             }
-
-            // Standardized RSM List for Offtake
-            $regions = $this->getDuluxStandardRsmList();
-            $areaToRsm = $this->getDuluxAreaToRsmMap();
-
-            // Areas directly from offtake_raw mapped to RSM
-            $areas = Cache::remember('offtake_filter_areas_v3', 3600, function() use ($sqlitePath, $areaToRsm) {
-                try {
-                    $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT MIN(area) as area_name FROM offtake_raw WHERE area IS NOT NULL AND area != '' GROUP BY UPPER(TRIM(area)) ORDER BY area_name ASC");
-                    $rawAreas = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-                    $result = [];
-                    foreach ($rawAreas as $a) {
-                        $cleanA = strtoupper(trim($a['area_name']));
-                        $rsm = $areaToRsm[$cleanA] ?? '';
-                        $result[] = [
-                            'id' => $a['area_name'],
-                            'name' => ucwords(strtolower($a['area_name'])),
-                            'region' => $rsm
-                        ];
-                    }
-                    return $result;
-                } catch (\Throwable $e) {
-                    return [];
-                }
-            });
-
-            // Stores directly from offtake_raw mapped to RSM
-            $workLocations = Cache::remember('offtake_filter_stores_v3', 3600, function() use ($sqlitePath, $areaToRsm) {
-                try {
-                    $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT DISTINCT MIN(area) as area, sap, name_store FROM offtake_raw WHERE name_store IS NOT NULL AND name_store != '' GROUP BY name_store ORDER BY name_store ASC");
-                    $rawStores = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-                    $result = [];
-                    foreach ($rawStores as $s) {
-                        $cleanA = strtoupper(trim($s['area'] ?? ''));
-                        $rsm = $areaToRsm[$cleanA] ?? '';
-                        $result[] = [
-                            'id' => $s['name_store'],
-                            'name' => $s['name_store'],
-                            'region' => $rsm,
-                            'area' => $s['area'],
-                            'sap' => $s['sap']
-                        ];
-                    }
-                    return $result;
-                } catch (\Throwable $e) {
-                    return [];
-                }
-            });
-
-            $offtakePage = max(1, (int)$request->query('page', 1));
-            $rawPage = max(1, (int)$request->query('raw_page', 1));
-            $activeTab = $request->query('tab', 'sheet2');
-
-            $offtakeData = $this->calculateOfftakeDashboardData(
-                $template,
-                $startMonth,
-                $startYear,
-                $endMonth,
-                $endYear,
-                $selectedRegion,
-                $selectedAreaId,
-                $selectedLocationId,
-                $search,
-                $offtakePage,
-                $rawPage,
-                50
-            );
-
-            $totalTemplateSubmissions = $offtakeData['sheet1']['total_records'] ?? 0;
-            $uniqueStores = $offtakeData['sheet2']['total_stores'] ?? 0;
-            $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
-                ->orderBy('submitted_at', 'desc')
-                ->paginate(20);
-            $liveSubmissionsCount = $submissions->total();
-            $dashboardConfig = [];
-            $widgetResults = [];
-            $isYtdReport = true;
-            $ytdData = $this->calculateOfftakeYtdData(
-                $template,
-                $endMonth,
-                $endYear,
-                $selectedRegion,
-                $selectedAreaId,
-                $selectedLocationId,
-                $search
-            );
-
-            return view('portal.report_detail', compact(
-                'tenantPrincipal',
-                'tenantPrincipalsAll',
-                'brandColor',
-                'activeTemplates',
-                'template',
-                'submissions',
-                'totalTemplateSubmissions',
-                'uniqueStores',
-                'startMonth',
-                'startYear',
-                'endMonth',
-                'endYear',
-                'search',
-                'selectedRegion',
-                'selectedAreaId',
-                'selectedLocationId',
-                'regions',
-                'areas',
-                'workLocations',
-                'setting',
-                'dashboardConfig',
-                'widgetResults',
-                'isYtdReport',
-                'ytdData',
-                'isCbpReport',
-                'isOfftakeReport',
-                'offtakeData',
-                'activeTab'
-            ));
         }
+
 
         // --- Out of Stock (OOS) Custom Handling (Summary, Weekly Pivot & Raw Submissions from oos_2026.sqlite) ---
         if ($isOosReport) {
@@ -6680,11 +6747,16 @@ class PrincipalPortalController extends Controller
 
                 // 2. Query SQLite for Historical Data
                 $pdo = null;
-                if (file_exists($sqlitePath)) {
+                $hasOfftakeTable = false;
+                if (file_exists($sqlitePath) && filesize($sqlitePath) > 10000) {
                     try {
                         $pdo = new \PDO("sqlite:" . $sqlitePath);
                         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                        $chk = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='offtake_raw'")->fetchColumn();
+                        $hasOfftakeTable = ($chk === 'offtake_raw');
                     } catch (\Throwable $e) {
+                        $pdo = null;
+                        $hasOfftakeTable = false;
                         \Log::error("Failed to connect to offtake SQLite: " . $e->getMessage());
                     }
                 }
@@ -6699,7 +6771,7 @@ class PrincipalPortalController extends Controller
                 $grandRow = [];
                 $totalRaw = count($liveRawRows);
 
-                if ($pdo) {
+                if ($pdo && $hasOfftakeTable) {
                     $where = ["month BETWEEN ? AND ?"];
                     $params = [$sMonth, $eMonth];
 
@@ -6814,7 +6886,7 @@ class PrincipalPortalController extends Controller
                     $liveSlice = array_slice($liveRawRows, $rawOffset, $perPage);
                     $rawRows = array_merge($rawRows, $liveSlice);
                     $remainingNeeded = $perPage - count($liveSlice);
-                    if ($remainingNeeded > 0 && $pdo) {
+                    if ($remainingNeeded > 0 && $pdo && $hasOfftakeTable) {
                         $sqliteLimit = $remainingNeeded;
                         $sqliteOffset = 0;
                         $rawSql = "
@@ -6829,7 +6901,7 @@ class PrincipalPortalController extends Controller
                         $rawStmt->execute($params);
                         $rawRows = array_merge($rawRows, $rawStmt->fetchAll(\PDO::FETCH_ASSOC) ?: []);
                     }
-                } elseif ($pdo) {
+                } elseif ($pdo && $hasOfftakeTable) {
                     $sqliteOffset = $rawOffset - $liveCount;
                     $rawSql = "
                         SELECT trans_date, year, month, week, region, area, name_store, sap,
@@ -7030,14 +7102,31 @@ class PrincipalPortalController extends Controller
                 }
 
                 $pdo = null;
-                if (file_exists($p26)) {
-                    $pdo = new \PDO("sqlite:" . $p26);
-                    $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                $hasOfftakeTableCy = false;
+                if (file_exists($p26) && filesize($p26) > 10000) {
+                    try {
+                        $pdo = new \PDO("sqlite:" . $p26);
+                        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                        $chk = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='offtake_raw'")->fetchColumn();
+                        $hasOfftakeTableCy = ($chk === 'offtake_raw');
+                    } catch (\Throwable $e) {
+                        $pdo = null;
+                        $hasOfftakeTableCy = false;
+                    }
                 }
 
-                $has2025 = file_exists($p25);
-                if ($pdo && $has2025) {
-                    $pdo->exec("ATTACH DATABASE '{$p25}' AS db25");
+                $has2025 = false;
+                $hasOfftakeTablePy = false;
+                if ($pdo && $hasOfftakeTableCy && file_exists($p25) && filesize($p25) > 10000) {
+                    try {
+                        $pdo->exec("ATTACH DATABASE '{$p25}' AS db25");
+                        $chk = $pdo->query("SELECT name FROM db25.sqlite_master WHERE type='table' AND name='offtake_raw'")->fetchColumn();
+                        $hasOfftakeTablePy = ($chk === 'offtake_raw');
+                        $has2025 = $hasOfftakeTablePy;
+                    } catch (\Throwable $e) {
+                        $has2025 = false;
+                        $hasOfftakeTablePy = false;
+                    }
                 }
 
                 $cyBrands = [];
@@ -7047,7 +7136,7 @@ class PrincipalPortalController extends Controller
                 $cyStoresRaw = [];
                 $pyStoresMap = [];
 
-                if ($pdo) {
+                if ($pdo && $hasOfftakeTableCy) {
                     $whereCy = ["month BETWEEN 1 AND ?"];
                     $paramsCy = [$eMonth];
                     $wherePy = ["month BETWEEN 1 AND ?"];
