@@ -9,6 +9,9 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 | Kategori | Status | Keterangan |
 | :--- | :---: | :--- |
 | **Portal Principal Dulux (PT ICI Paints Indonesia)** | 🟢 Aktif / Live | `https://dulux.esa-solutions.id/portal` |
+| **Tab Data Laporan Masuk & Approval Offtake** | 🟢 Selesai & Live (100%) | Tab live submissions, quick approve/reject modal, sticky action & horizontal scroll |
+| **Resolusi Query Live Offtake & Out-of-Memory** | 🟢 Selesai (100%) | Eliminasi silent SQL error & filter batch import, query cepat (<1 detik, memori 65MB) |
+| **Multi-Kompetitor Form CBP Mobile (v1.0.124)** | 🟢 Rilis & Live | Input multi-brand kompetitor per toko & rilis APK v1.0.124 |
 | **Laporan Offtake Dulux (Sheet 1 & 2, SCM, Pivotable)** | 🟢 Selesai (100%) | 8.289 data transaksi (Jan–Jul 2026), Rp 37+ Miliar, multi-tab & pivot MoM |
 | **Laporan Out of Stock / OOS Dulux** | 🟢 Selesai (100%) | 7.671 riwayat OOS 2026, analisis alasan, matriks mingguan W1–W52 |
 | **Laporan Daily Maintenance POST & Tinting** | 🟢 Selesai (100%) | 3.842 riwayat cek fisik mesin 324 toko, skor kepatuhan & matriks toko |
@@ -288,6 +291,35 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 
 ---
 
+### 16. Resolusi Query Offtake Live, Tab Data Laporan Masuk & Sistem Approval (7 September 2026)
+- [x] **Investigasi & Resolusi Masalah Data Inputan Live Offtake Tidak Muncul**:
+  - **Akar Masalah 1 (Silent SQL Exception)**: Menemukan dan memperbaiki query data live PostgreSQL pada `PrincipalPortalController.php` yang sebelumnya memilih kolom `submission_date` (kolom yang valid di PostgreSQL adalah `submitted_at`), memicu exception SQL yang tertangkap try-catch dan mengosongkan volume live.
+  - **Akar Masalah 2 (Fatal Out-of-Memory HTTP 500)**: Menemukan bahwa query perbandingan YTD (Jan–Sep 2026) mencoba memuat seluruh baris PostgreSQL tanpa filter, yang memuat **439.819** record data batch migrasi lama (`SUB-OFFTAKE-2026-...`) ke memori PHP. Diatasi dengan menambahkan filter tegas `->where('submission_code', 'NOT LIKE', 'SUB-OFFTAKE%')` sehingga hanya inputan asli aplikasi mobile (`RPT-...`) yang di-query dari PostgreSQL, mengembalikan eksekusi query menjadi sangat cepat (< 1 detik, memori hanya ~65 MB).
+  - **Normalisasi Field Mapping Dinamis**: Memastikan pemetaan field `brand_rm_base`, `sub_brand_base`, `total_volume_liter`, `kuantiti_galon_terjual_unit`, dan `kuantiti_pail_terjual_unit` terpetakan sempurna ke agregasi Rekap Volume Toko (Sheet 2) dan Raw Data Transaksi (Sheet 1).
+- [x] **Penambahan Tab "Data Laporan Masuk" pada Portal Offtake Dulux**:
+  - Menambahkan tab navigasi ke-3 pada toolbar utama laporan offtake (`tab=live`) dengan indikator badge counter jumlah laporan masuk secara real-time.
+  - Menyediakan tabel terstruktur dengan rincian: *No, Kode Laporan (link detail), Waktu Submit (WIB), Promotor / SPG (Nama & NIK), Nama Toko / Outlet (Nama & SAP), Area & RSM, Brand & Sub Brand, Kemasan & Qty (Galon & Pail), Total Volume (L), Radius GPS (Valid/Luar), Status (Menunggu/Terverifikasi/Ditolak), dan Aksi*.
+- [x] **Implementasi Sistem Approval & Verifikasi Laporan Offtake**:
+  - **Tombol Quick Approve (Hijau)**: Memungkinkan Principal langsung memverifikasi dan menyetujui laporan dari baris tabel secara instan (`status = approved`).
+  - **Tombol Quick Reject (Merah)**: Membuka modal dialog interaktif untuk memasukkan catatan atau alasan penolakan sebelum status diubah ke `rejected`.
+  - **Tombol Detail (Biru)**: Menghubungkan ke halaman dokumen detail submisi lengkap dengan foto struk/nota, peta koordinat GPS, rincian 16 parameter, dan tombol verifikasi.
+  - **Navigasi Seamless**: Tombol "Kembali" pada halaman detail otomatis mengembalikan pengguna ke tab `Data Laporan Masuk` (`tab=live`).
+- [x] **Peningkatan UX Horizontal Scroll & Sticky Action Column**:
+  - Menggunakan wrapper `.offtake-table-viewport` dengan `overflow-x: auto;` dan lebar minimum tabel 1.480px agar seluruh kolom memiliki ruang lega dan tabel dapat digeser horizontal dengan halus.
+  - Menerapkan **Sticky Action Column** (`.col-sticky-action`) di sisi paling kanan tabel dengan bayangan pemisah (`box-shadow`), memastikan tombol aksi (*Detail*, *Setujui*, *Tolak*) **selalu terlihat utuh dan tidak terpotong** di semua ukuran layar.
+  - Menambahkan badge petunjuk visual `↔ Geser untuk melihat kolom aksi`.
+
+---
+
+### 17. Multi-Kompetitor Form CBP Mobile & Rilis APK v1.0.124 (7 September 2026)
+- [x] **Dukungan Multi-Entry Kompetitor Laporan CBP**:
+  - Menyesuaikan arsitektur pelaporan Competitor Brand Price (CBP) pada aplikasi mobile agar petugas SPG / Promotor dapat menginput beberapa merk kompetitor (Jotun, Nippon, Avian, Mowilex, Propan) dalam satu kunjungan tanpa menimpa (*overwrite*) data kompetitor sebelumnya.
+  - Menyempurnakan parsing dan visualisasi data multi-kompetitor pada portal web dan riwayat submission.
+- [x] **Rilis APK Attendance ESA Mobile v1.0.124**:
+  - Build dan perilisan file instalasi APK versi terbaru `app-release-v1.0.124.apk` yang terintegrasi dengan validasi biometrik wajah dan form laporan multi-kompetitor.
+
+---
+
 ## 🎯 Rencana Pengembangan Selanjutnya (Next Milestones)
 
 | No | Target Fitur / Peningkatan | Prioritas | Estimasi / Keterangan |
@@ -299,5 +331,5 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 
 ---
 
-*Terakhir diperbarui: 6 September 2026*  
+*Terakhir diperbarui: 7 September 2026*  
 *Pengembang: Digital Galery / DGSoft - Tim Attendance ESA*
