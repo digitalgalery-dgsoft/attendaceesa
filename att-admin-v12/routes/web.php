@@ -39,6 +39,59 @@ Route::match(['get', 'post'], '/check', function () {
     return response()->json(['status' => 'ok', 'app' => 'ESA Attendance']);
 });
 
+Route::get('/debug-cbp', function () {
+    if (function_exists('opcache_reset')) {
+        @opcache_reset();
+    }
+    \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+    
+    $sub = \App\Models\ReportSubmission::where('submission_code', 'RPT-20260907-OY2T')
+        ->orWhere('id', '>', 0)
+        ->latest('id')
+        ->with('values.formField', 'workLocation.branch')
+        ->first();
+
+    $vals = [];
+    if ($sub) {
+        foreach ($sub->values as $v) {
+            $vals[] = [
+                'field_name' => $v->field_name,
+                'form_field_name' => $v->formField?->field_name,
+                'form_field_label' => $v->formField?->field_label,
+                'value_number' => $v->value_number,
+                'value_text' => $v->value_text,
+                'value_json' => $v->value_json,
+            ];
+        }
+    }
+
+    $template = \App\Models\ReportTemplate::where('code', 'RPT-DULUX-CBP-PRICING')->first();
+    $cbpData = [];
+    if ($template) {
+        try {
+            $controller = app(\App\Http\Controllers\Portal\PrincipalPortalController::class);
+            $method = new \ReflectionMethod($controller, 'calculateCbpDashboardData');
+            $method->setAccessible(true);
+            $cbpData = $method->invoke($controller, $template, 9, 2026, 9, 2026, null, null, null, '', 1, 10);
+        } catch (\Throwable $e) {
+            $cbpData = ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()];
+        }
+    }
+
+    return response()->json([
+        'opcache_reset' => function_exists('opcache_reset'),
+        'submission_found' => (bool)$sub,
+        'submission_id' => $sub?->id,
+        'submission_code' => $sub?->submission_code,
+        'template_id' => $sub?->report_template_id,
+        'submitted_at' => (string)$sub?->submitted_at,
+        'values' => $vals,
+        'raw_data_count' => $cbpData['raw_data']['total'] ?? 0,
+        'raw_data_first_3' => array_slice($cbpData['raw_data']['rows'] ?? [], 0, 3),
+        'debug_cbp_data' => isset($cbpData['error']) ? $cbpData : 'ok',
+    ]);
+});
+
 Route::get('/app-logo', function () {
     $setting = \Illuminate\Support\Facades\Schema::hasTable('settings') ? \App\Models\Setting::first() : null;
     $path = $setting?->logo_path;
