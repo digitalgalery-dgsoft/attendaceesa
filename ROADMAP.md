@@ -1159,4 +1159,16 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
      - **Server 3: PT Anugrah Talenta Berkarya (ATK)**: `38.103.170.224` / `atk.esa-solutions.id` (Status: `HTTP 200 OK`)
    - Seluruh pipeline mencakup penarikan kode Git terbaru, sinkronisasi lintas seluruh virtual host di `/www/wwwroot`, pembaruan storage symlink, kompilasi aset Livewire, pembersihan cache Laravel (`artisan optimize:clear`), dan restart layanan PHP-FPM secara terkoordinasi.
 
-
+6. **Portal Principal - Integrasi Real-Time Submisi Mobile (Stock End & Out of Stock / OOS Dulux)**:
+   - **Laporan Stock End Dulux (`RPT-DULUX-STOCK-END`)**:
+     - Menghubungkan data submisi mobile dari PostgreSQL `report_submissions` ke seluruh tab portal principal: *Tab 1 (Rekap Volume Stock Toko)*, *Tab 2 (Ringkasan SCM & Stock)*, *Tab 3 (Raw Data Submissions)*, dan *Tab 4 (Data Laporan Masuk)*.
+     - Memetakan field dinamis form: `brand_produk` (`DULUX` / `CATYLAC`), `kategori_produk`, `kemasan`, `stok_awal`, `stok_masuk`, `penjualan`, dan `stok_akhir`.
+     - Menambahkan badge neon `⚡ LIVE` pada toko dan submisi real-time, serta pagination independen `live_page`.
+   - **Laporan Out of Stock Dulux (`RPT-DULUX-OOS-SSO`)**:
+     - Menghubungkan data checklist OOS promotor/SPG dari mobile ke seluruh tab:
+       - **Tab 1 (Ringkasan Eksekutif & Alasan OOS)**: KPI real-time *Total Toko Terpantau*, *Total Kasus OOS Riil*, *Total Submission Laporan*, serta tabel analisis frekuensi dan persentase alasan OOS.
+       - **Tab 2 (Rekapitulasi OOS Mingguan Toko)**: Pivot matrix per toko, produk, base warna, kemasan, dan minggu pelaporan (Week 37 dll) dengan badge `⚡ LIVE`.
+       - **Tab 3 (Raw Data Submissions)**: 16 kolom data mentah checklist OOS dengan penanda `⚡ LIVE`.
+       - **Tab 4 (Data Laporan Masuk)**: Tab dedikasi untuk monitoring submisi live lengkap dengan status radius GPS, rincian produk/alasan, serta tombol aksi **Quick Approve** dan **Quick Reject** (dengan modal input alasan penolakan).
+     - Menyelaraskan seluruh slug form: `pilih_produk_dulux_yang_mengalami_out_of_stock_oos`, `base_kategori_warna_yang_kosong`, `kemasan_size_yang_kosong`, `lama_kondisi_barang_kosong_jumlah_hari`, `saran_kuantiti_order_ke_toko_qty_kemasan`, `penyebab_alasan_out_of_stock_oos`, dan `tipe_gerai_channel_toko`.
+     - Telah tervalidasi aktif di production: `https://dulux.esa-solutions.id/portal/report/RPT-DULUX-OOS-SSO`.
