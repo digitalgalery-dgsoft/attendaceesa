@@ -6859,6 +6859,16 @@ class PrincipalPortalController extends Controller
             $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
             $liveSubs = $liveQuery->get();
 
+            $parseAmount = function ($val) {
+                if ($val === null || $val === '') return 0.0;
+                if (is_numeric($val)) return (float)$val;
+                if (is_string($val)) {
+                    $clean = preg_replace('/[^0-9]/', '', $val);
+                    return is_numeric($clean) ? (float)$clean : 0.0;
+                }
+                return 0.0;
+            };
+
             foreach ($liveSubs as $sub) {
                 $valMap = [];
                 foreach ($sub->values as $v) {
@@ -6878,24 +6888,125 @@ class PrincipalPortalController extends Controller
                     }
                 }
 
-                $productName = trim((string)($valMap['subbrand_produk'] ?? $valMap['produk'] ?? $valMap['product'] ?? $valMap['nama_produk'] ?? ''));
-                $brandCat = trim((string)($valMap['brand_cat'] ?? $valMap['brand'] ?? $valMap['merk'] ?? ''));
-                $category = trim((string)($valMap['kategori_produk'] ?? $valMap['kategori'] ?? $valMap['category'] ?? 'Dulux Interior'));
+                // Resolusi Nama Produk Dulux
+                $rawProd = $valMap['produk_dulux_cbp'] 
+                    ?? $valMap['pilih_produk_dulux_yang_dicek_harganya'] 
+                    ?? $valMap['subbrand_produk'] 
+                    ?? $valMap['produk'] 
+                    ?? $valMap['product'] 
+                    ?? $valMap['nama_produk'] 
+                    ?? '';
 
-                $isAn = (stripos($brandCat, 'Dulux') !== false || stripos($brandCat, 'Akzo') !== false || stripos($brandCat, 'AN') !== false || stripos($productName, 'Ambiance') !== false || stripos($productName, 'Pentalite') !== false || stripos($productName, 'Catylac') !== false || stripos($productName, 'Weathershield') !== false || stripos($productName, 'Easy Clean') !== false || stripos($productName, 'Aquashield') !== false || stripos($productName, 'V-Gloss') !== false);
-                $brandGroup = $isAn ? 'AN' : ($brandCat ?: 'Kompetitor');
+                if (is_numeric($rawProd) && (int)$rawProd > 0) {
+                    $prodObj = Product::find((int)$rawProd);
+                    $productName = $prodObj?->name ?? 'Dulux Product';
+                } else {
+                    $productName = trim((string)$rawProd);
+                }
 
-                $pTin = (float)($valMap['harga_tin_rp'] ?? $valMap['harga_tin'] ?? $valMap['tin'] ?? 0);
-                $lTin = (float)($valMap['harga_terendah_tin_rp'] ?? $valMap['harga_terendah_tin'] ?? $pTin);
+                if (empty($productName)) {
+                    $productName = 'Dulux Product';
+                }
+
+                // Normalisasi Standard Sub-Brand & Kategori CBP
+                $standardProduct = $productName;
+                $category = trim((string)($valMap['kategori_produk'] ?? $valMap['kategori'] ?? $valMap['category'] ?? ''));
+
+                if (stripos($productName, 'Aquashield') !== false) {
+                    $standardProduct = 'Aquashield';
+                    if (empty($category)) $category = 'Waterproofing';
+                } elseif (stripos($productName, 'Ambiance') !== false) {
+                    $standardProduct = 'Ambiance Emulsion';
+                    if (empty($category)) $category = 'Super Premium Interior';
+                } elseif (stripos($productName, 'Pentalite') !== false) {
+                    $standardProduct = 'Pentalite';
+                    if (empty($category)) $category = 'Dulux Interior';
+                } elseif (stripos($productName, 'Easy Clean') !== false || stripos($productName, 'EasyClean') !== false) {
+                    $standardProduct = 'Easy Clean';
+                    if (empty($category)) $category = 'Washable Segment';
+                } elseif (stripos($productName, 'Powerflexx') !== false) {
+                    $standardProduct = 'Weathershield Powerflexx';
+                    if (empty($category)) $category = 'Super Premium Exterior';
+                } elseif (stripos($productName, 'Weathershield') !== false) {
+                    $standardProduct = 'Weathershield Core Dualshield';
+                    if (empty($category)) $category = 'Premium Exterior';
+                } elseif (stripos($productName, 'Catylac') !== false) {
+                    if (stripos($productName, 'Eksterior') !== false || stripos($productName, 'Exterior') !== false) {
+                        $standardProduct = 'Catylac Exterior';
+                        if (empty($category)) $category = 'Economy Exterior';
+                    } else {
+                        $standardProduct = 'Catylac Interior';
+                        if (empty($category)) $category = 'Mass Interior';
+                    }
+                } elseif (stripos($productName, 'V-Gloss') !== false || stripos($productName, 'VGloss') !== false) {
+                    $standardProduct = 'V-Gloss High Gloss';
+                    if (empty($category)) $category = 'Enamel';
+                } elseif (stripos($productName, 'Alkali Killer') !== false) {
+                    $standardProduct = 'Alkali Killer';
+                    if (empty($category)) $category = 'Sealer Premium Interior';
+                }
+
+                if (empty($category)) {
+                    $category = 'Dulux Interior';
+                }
+
+                // Resolusi Harga Kemasan Dulux
+                $pTin = $parseAmount($valMap['harga_tin_rp'] ?? $valMap['harga_tin'] ?? $valMap['tin'] ?? null);
+                $lTin = $parseAmount($valMap['harga_terendah_tin_rp'] ?? $valMap['harga_terendah_tin'] ?? null) ?: $pTin;
                 $rTin = (string)($valMap['alasan_promo_keterangan'] ?? $valMap['reason_tin'] ?? '');
 
-                $pGalon = (float)($valMap['harga_galon_rp'] ?? $valMap['harga_galon'] ?? $valMap['galon'] ?? 0);
-                $lGalon = (float)($valMap['harga_terendah_galon_rp'] ?? $valMap['harga_terendah_galon'] ?? $pGalon);
+                $pGalon = $parseAmount($valMap['harga_galon_rp'] ?? $valMap['harga_galon'] ?? $valMap['galon'] ?? null);
+                $lGalon = $parseAmount($valMap['harga_terendah_galon_rp'] ?? $valMap['harga_terendah_galon'] ?? null) ?: $pGalon;
                 $rGalon = (string)($valMap['alasan_promo_keterangan'] ?? $valMap['reason_galon'] ?? '');
 
-                $pPail = (float)($valMap['harga_pail_rp'] ?? $valMap['harga_pail'] ?? $valMap['pail'] ?? 0);
-                $lPail = (float)($valMap['harga_terendah_pail_rp'] ?? $valMap['harga_terendah_pail'] ?? $pPail);
+                $pPail = $parseAmount($valMap['harga_pail_rp'] ?? $valMap['harga_pail'] ?? $valMap['pail'] ?? null);
+                $lPail = $parseAmount($valMap['harga_terendah_pail_rp'] ?? $valMap['harga_terendah_pail'] ?? null) ?: $pPail;
                 $rPail = (string)($valMap['alasan_promo_keterangan'] ?? $valMap['reason_pail'] ?? '');
+
+                // Ambil dari isian form CBP Dulux utama (harga_cbp_dulux_rp & kemasan_produk)
+                $cbpPrice = $parseAmount($valMap['harga_cbp_dulux_rp'] 
+                    ?? $valMap['harga_jual_toko_ke_konsumen_dulux_(cbp_rp)'] 
+                    ?? $valMap['cbp_rp'] 
+                    ?? null);
+                $kemasan = strtolower((string)($valMap['kemasan_produk'] ?? $valMap['kemasan'] ?? ''));
+                $promoNote = (string)($valMap['keterangan_promo_toko'] ?? $valMap['keterangan_program_promo_/_bundling_toko'] ?? '');
+                $diskonNominal = $parseAmount($valMap['diskon_promo_nominal_rp'] ?? $valMap['diskon_/_potongan_harga_promo_toko_(nominal_rp)'] ?? null);
+                $diskonPersen = $parseAmount($valMap['diskon_promo_persen'] ?? $valMap['diskon_/_potongan_harga_promo_toko_(persen_%)'] ?? null);
+
+                if ($cbpPrice > 0) {
+                    $lowestCalc = $cbpPrice;
+                    if ($diskonNominal > 0) {
+                        $lowestCalc = max(0, $cbpPrice - $diskonNominal);
+                    } elseif ($diskonPersen > 0) {
+                        $lowestCalc = max(0, round($cbpPrice * (1 - ($diskonPersen / 100))));
+                    }
+
+                    $reasonStr = $promoNote;
+                    if ($diskonNominal > 0 && empty($reasonStr)) {
+                        $reasonStr = 'Diskon Rp ' . number_format($diskonNominal, 0, ',', '.');
+                    } elseif ($diskonPersen > 0 && empty($reasonStr)) {
+                        $reasonStr = "Diskon {$diskonPersen}%";
+                    }
+
+                    if (stripos($kemasan, 'tin') !== false || (stripos($kemasan, '1') !== false && stripos($kemasan, 'liter') !== false)) {
+                        if ($pTin <= 0) $pTin = $cbpPrice;
+                        if ($lTin <= 0) $lTin = $lowestCalc;
+                        if (empty($rTin)) $rTin = $reasonStr ?: '-';
+                    } elseif (stripos($kemasan, 'pail') !== false || stripos($kemasan, '20') !== false || stripos($kemasan, '25') !== false) {
+                        if ($pPail <= 0) $pPail = $cbpPrice;
+                        if ($lPail <= 0) $lPail = $lowestCalc;
+                        if (empty($rPail)) $rPail = $reasonStr ?: '-';
+                    } else {
+                        // Default kemasan adalah Galon (2.5L / 4-5Kg)
+                        if ($pGalon <= 0) $pGalon = $cbpPrice;
+                        if ($lGalon <= 0) $lGalon = $lowestCalc;
+                        if (empty($rGalon)) $rGalon = $reasonStr ?: '-';
+                    }
+                }
+
+                if ($lTin <= 0 && $pTin > 0) $lTin = $pTin;
+                if ($lGalon <= 0 && $pGalon > 0) $lGalon = $pGalon;
+                if ($lPail <= 0 && $pPail > 0) $lPail = $pPail;
 
                 $subMonth = (int)$sub->submitted_at->format('n');
                 $storeName = $sub->workLocation?->name ?? 'Toko Tidak Terdaftar';
@@ -6906,8 +7017,9 @@ class PrincipalPortalController extends Controller
                 $tlName = $sub->employee?->supervisor?->name ?? $sub->employee?->supervisor_name ?? ($sub->employee?->name . ' (Demo)') ?? '-';
                 $sapMember = $sub->workLocation?->code ?? '-';
 
-                $itemCode = md5(strtoupper(trim($storeName)) . '_' . strtoupper(trim($productName ?: 'Dulux')));
+                $itemCode = md5(strtoupper(trim($storeName)) . '_' . strtoupper(trim($standardProduct)));
 
+                // 1) Baris Live Dulux
                 $liveRows[] = [
                     'submission_id' => $sub->id,
                     'submission_code' => $sub->submission_code,
@@ -6921,11 +7033,11 @@ class PrincipalPortalController extends Controller
                     'rsm_area' => $rsmArea,
                     'class' => '-',
                     'store_type' => '-',
-                    'product' => $productName ?: 'Dulux Product',
+                    'product' => $standardProduct,
                     'category' => $category,
-                    'product_group' => $isAn ? 'Dulux' : $brandCat,
-                    'brand' => $brandGroup,
-                    'brand_raw' => $brandCat,
+                    'product_group' => 'Dulux',
+                    'brand' => 'AN',
+                    'brand_raw' => 'AN (AkzoNobel / Dulux)',
                     'month' => $subMonth,
                     'trans_date' => $sub->submitted_at->format('Y-m-d'),
                     'price_tin' => $pTin,
@@ -6939,6 +7051,51 @@ class PrincipalPortalController extends Controller
                     'reason_pail' => $rPail,
                     'is_live' => true,
                 ];
+
+                // 2) Baris Live Kompetitor (jika ada data harga kompetitor yang diinput)
+                $compBrand = trim((string)($valMap['merk_kompetitor'] ?? $valMap['brand_kompetitor'] ?? ''));
+                $compSubbrand = trim((string)($valMap['subbrand_kompetitor'] ?? $valMap['nama_subbrand_kompetitor_yang_dicek'] ?? ''));
+                $compTin = $parseAmount($valMap['harga_kompetitor_tin_rp'] ?? $valMap['harga_jual_kompetitor_kemasan_tin_/_kaleng_1l/1kg_(rp)'] ?? null);
+                $compGalon = $parseAmount($valMap['harga_kompetitor_galon_rp'] ?? $valMap['harga_jual_kompetitor_kemasan_galon_2.5l/4-5kg_(rp)'] ?? null);
+                $compPail = $parseAmount($valMap['harga_kompetitor_pail_rp'] ?? $valMap['harga_jual_kompetitor_kemasan_pail_20l/25kg_(rp)'] ?? null);
+
+                if ($compGalon > 0 || $compTin > 0 || $compPail > 0) {
+                    $compBrandName = $compBrand ?: 'Kompetitor';
+                    $compProductName = $compSubbrand ? ($compBrandName . ' - ' . $compSubbrand) : ($compBrandName . ' ' . $category);
+                    $compItemCode = md5(strtoupper(trim($storeName)) . '_' . strtoupper(trim($compProductName)));
+
+                    $liveRows[] = [
+                        'submission_id' => $sub->id,
+                        'submission_code' => $sub->submission_code,
+                        'code' => $compItemCode,
+                        'regional' => $rsmArea,
+                        'sap_member' => $sapMember,
+                        'sap_gab' => '-',
+                        'name_store' => $storeName,
+                        'tl_name' => $tlName,
+                        'area' => $branchName,
+                        'rsm_area' => $rsmArea,
+                        'class' => '-',
+                        'store_type' => '-',
+                        'product' => $compProductName,
+                        'category' => $category,
+                        'product_group' => $compBrandName,
+                        'brand' => $compBrandName,
+                        'brand_raw' => $compBrandName,
+                        'month' => $subMonth,
+                        'trans_date' => $sub->submitted_at->format('Y-m-d'),
+                        'price_tin' => $compTin,
+                        'lowest_tin' => $compTin,
+                        'reason_tin' => '-',
+                        'price_galon' => $compGalon,
+                        'lowest_galon' => $compGalon,
+                        'reason_galon' => '-',
+                        'price_pail' => $compPail,
+                        'lowest_pail' => $compPail,
+                        'reason_pail' => '-',
+                        'is_live' => true,
+                    ];
+                }
             }
         } catch (\Throwable $e) {
             \Log::error("Failed to query CBP live submissions: " . $e->getMessage());
@@ -7273,6 +7430,19 @@ class PrincipalPortalController extends Controller
                 $trendSeries[$bg][$m] = round($lr['price_galon'], 0);
             }
 
+            // Cek apakah ada baris SQLite yang cocok untuk toko & produk ini
+            $matchedCode = null;
+            foreach ($sqliteRawRows as $sr) {
+                if (strcasecmp(trim($sr['name_store']), trim($lr['name_store'])) === 0 &&
+                    (strcasecmp(trim($sr['product']), trim($lr['product'])) === 0 || stripos($sr['product'], $lr['product']) !== false || stripos($lr['product'], $sr['product']) !== false)) {
+                    $matchedCode = $sr['code'];
+                    break;
+                }
+            }
+            if ($matchedCode && isset($mergedRawMap[$matchedCode])) {
+                $code = $matchedCode;
+            }
+
             // Raw Data Table
             if (!isset($mergedRawMap[$code])) {
                 $mergedRawMap[$code] = [
@@ -7294,6 +7464,8 @@ class PrincipalPortalController extends Controller
                     'submission_code' => $lr['submission_code'],
                     'submission_id' => $lr['submission_id'],
                 ];
+            } else {
+                $mergedRawMap[$code]['is_live'] = true;
             }
             $mergedRawMap[$code]['monthly_prices'][$m] = [
                 'code' => $code,
@@ -7430,6 +7602,14 @@ class PrincipalPortalController extends Controller
         )));
 
         // Finalize Paginated Raw Data
+        uasort($mergedRawMap, function ($a, $b) {
+            $aLive = !empty($a['is_live']) ? 1 : 0;
+            $bLive = !empty($b['is_live']) ? 1 : 0;
+            if ($aLive !== $bLive) {
+                return $bLive <=> $aLive;
+            }
+            return 0;
+        });
         $allRawRows = array_values($mergedRawMap);
         $totalRawCount = count($allRawRows);
         $rawOffset = ($rawPage - 1) * $rawPerPage;
