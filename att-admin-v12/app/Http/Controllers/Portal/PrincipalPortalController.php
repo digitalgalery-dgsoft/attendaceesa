@@ -625,55 +625,15 @@ class PrincipalPortalController extends Controller
         $startMonth = (int) ($request->query('start_month') ?? $request->query('month') ?? 0);
         $startYear  = (int) ($request->query('start_year') ?? $request->query('year') ?? 0);
 
-        // Jika tidak ditentukan di request, pilih secara cerdas bulan terakhir yang memiliki data pada template ini
+        // Jika tidak ditentukan di request, defaultkan ke bulan & tahun berjalan
         if (!$hasExplicitDate || $startMonth <= 0 || $startYear <= 0) {
-            $latestSubDate = Cache::remember("rep_tpl_latest_date_{$template->id}", 600, function() use ($template) {
-                return DB::table('report_submissions')
-                    ->where('report_template_id', $template->id)
-                    ->max('submitted_at');
-            });
-            if ($latestSubDate) {
-                $c = Carbon::parse($latestSubDate);
-                $isDuluxCustom2026 = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') || str_contains($template->code, 'OOS') || str_contains($template->code, 'STOCK');
-                $isDuluxCustomerDb = ($template->code === 'RPT-DULUX-DATABASE-PELANGGAN' || str_contains($template->code, 'PELANGGAN'));
-
-                if ($isDuluxCustomerDb) {
-                    $startMonth = 1;
-                    $startYear  = 2025;
-                    $endMonth   = (int) ($request->query('end_month') ?? 12);
-                    $endYear    = (int) ($request->query('end_year') ?? 2026);
-                } elseif ($isDuluxCustom2026) {
-                    $startMonth = 1;
-                    $startYear  = 2026;
-                    $endMonth   = (int) ($request->query('end_month') ?? 7);
-                    $endYear    = (int) ($request->query('end_year') ?? 2026);
-                } else {
-                    $startMonth = $c->month;
-                    $startYear  = $c->year;
-                    $endMonth   = (int) ($request->query('end_month') ?? $c->month);
-                    $endYear    = (int) ($request->query('end_year') ?? $c->year);
-                }
-            } else {
-                $isDuluxCustom2026 = in_array($template->code, ['RPT-DULUX-CBP-PRICING', 'RPT-DULUX-OFFTAKE-01', 'RPT-DULUX-DAILY-MAINTENANCE']) || str_contains($template->code, 'DAILY-MAINTENANCE') || str_contains($template->code, 'OOS') || str_contains($template->code, 'STOCK');
-                $isDuluxCustomerDb = ($template->code === 'RPT-DULUX-DATABASE-PELANGGAN' || str_contains($template->code, 'PELANGGAN'));
-
-                if ($isDuluxCustomerDb) {
-                    $startMonth = 1;
-                    $startYear  = 2025;
-                    $endMonth   = (int) ($request->query('end_month') ?? 12);
-                    $endYear    = (int) ($request->query('end_year') ?? 2026);
-                } elseif ($isDuluxCustom2026) {
-                    $startMonth = 1;
-                    $startYear  = 2026;
-                    $endMonth   = (int) ($request->query('end_month') ?? 7);
-                    $endYear    = (int) ($request->query('end_year') ?? 2026);
-                } else {
-                    $startMonth = Carbon::now()->month;
-                    $startYear  = Carbon::now()->year;
-                    $endMonth   = (int) ($request->query('end_month') ?? Carbon::now()->month);
-                    $endYear    = (int) ($request->query('end_year') ?? Carbon::now()->year);
-                }
-            }
+            $startMonth = (int) Carbon::now()->month;
+            $startYear  = (int) Carbon::now()->year;
+            $endMonth   = (int) ($request->query('end_month') ?? Carbon::now()->month);
+            $endYear    = (int) ($request->query('end_year') ?? Carbon::now()->year);
+        } else {
+            $endMonth   = (int) ($request->query('end_month') ?? $startMonth);
+            $endYear    = (int) ($request->query('end_year') ?? $startYear);
         }
 
         $endMonth   = (int) ($request->query('end_month') ?? ($endMonth ?: $startMonth));
