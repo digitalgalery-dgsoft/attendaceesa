@@ -11,6 +11,26 @@ use Filament\Tables\Table;
 
 class WorkLocationsTable
 {
+    public static function canViewDuluxColumns(): bool
+    {
+        $user = auth()->user();
+        if (!$user) return true;
+        if ($user->isSuperAdmin()) return true;
+
+        if (method_exists($user, 'getAccessiblePrincipalIds')) {
+            $principalIds = $user->getAccessiblePrincipalIds();
+            if (!empty($principalIds)) {
+                return \App\Models\Principal::whereIn('id', $principalIds)
+                    ->where(function ($q) {
+                        $q->where('name', 'ilike', '%ici%')
+                          ->orWhere('name', 'ilike', '%dulux%');
+                    })
+                    ->exists();
+            }
+        }
+        return true;
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -37,23 +57,29 @@ class WorkLocationsTable
                     ->label('Kode SAP')
                     ->searchable()
                     ->sortable()
+                    ->visible(fn () => self::canViewDuluxColumns())
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->default('-'),
                 TextColumn::make('category')
                     ->label('Kategori Store')
                     ->searchable()
                     ->sortable()
                     ->badge()
+                    ->visible(fn () => self::canViewDuluxColumns())
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->default('-'),
                 TextColumn::make('machine_type')
                     ->label('Type Mesin')
                     ->searchable()
                     ->sortable()
+                    ->visible(fn () => self::canViewDuluxColumns())
                     ->toggleable(isToggledHiddenByDefault: false)
                     ->default('-'),
                 TextColumn::make('machine_serial_no')
                     ->label('Nomor Mesin')
                     ->searchable()
                     ->sortable()
+                    ->visible(fn () => self::canViewDuluxColumns())
                     ->toggleable(isToggledHiddenByDefault: false)
                     ->default('-'),
                 TextColumn::make('type')

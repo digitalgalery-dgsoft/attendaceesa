@@ -16,6 +16,30 @@ use Filament\Schemas\Schema;
 
 class WorkLocationForm
 {
+    public static function isDuluxPrincipal(?string $principalId): bool
+    {
+        if (!$principalId) {
+            $user = auth()->user();
+            if ($user && method_exists($user, 'getAccessiblePrincipalIds')) {
+                $accessibleIds = $user->getAccessiblePrincipalIds();
+                if (!empty($accessibleIds)) {
+                    return \App\Models\Principal::whereIn('id', $accessibleIds)
+                        ->where(function ($q) {
+                            $q->where('name', 'ilike', '%ici%')
+                              ->orWhere('name', 'ilike', '%dulux%');
+                        })->exists();
+                }
+            }
+            return false;
+        }
+
+        $principal = \App\Models\Principal::find($principalId);
+        if (!$principal) return false;
+
+        $pName = strtolower($principal->name);
+        return str_contains($pName, 'ici') || str_contains($pName, 'dulux');
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -57,10 +81,6 @@ class WorkLocationForm
                 TextInput::make('name')
                     ->label('Nama Lokasi / Toko')
                     ->required(),
-                TextInput::make('code')
-                    ->label('Kode SAP')
-                    ->placeholder('Contoh: 422401')
-                    ->maxLength(100),
                 Select::make('type')
                     ->options([
                         'office' => 'Office',
@@ -72,18 +92,30 @@ class WorkLocationForm
                     ->searchable()
                     ->default('client')
                     ->required(),
-                TextInput::make('category')
-                    ->label('Kategori Store')
-                    ->placeholder('Contoh: SSO / MTI / Blue Store / Retail')
-                    ->maxLength(100),
-                TextInput::make('machine_type')
-                    ->label('Type Mesin')
-                    ->placeholder('Contoh: D200, Discovery, X-Smart')
-                    ->maxLength(100),
-                TextInput::make('machine_serial_no')
-                    ->label('Nomor Mesin')
-                    ->placeholder('Contoh: D10B0236, 670000001-2041875F')
-                    ->maxLength(100),
+
+                \Filament\Schemas\Components\Section::make('Informasi Khusus Store Dulux (ICI PAINTS)')
+                    ->description('Field khusus klasifikasi toko dan mesin tinting cat untuk prinsiple PT ICI PAINTS INDONESIA (Dulux).')
+                    ->icon('heroicon-o-paint-brush')
+                    ->visible(fn ($get, $record) => self::isDuluxPrincipal($get('principal_id') ?? $record?->principal_id))
+                    ->schema([
+                        TextInput::make('code')
+                            ->label('Kode SAP')
+                            ->placeholder('Contoh: 422401')
+                            ->maxLength(100),
+                        TextInput::make('category')
+                            ->label('Kategori Store')
+                            ->placeholder('Contoh: SSO / MTI / Blue Store / Retail')
+                            ->maxLength(100),
+                        TextInput::make('machine_type')
+                            ->label('Type Mesin')
+                            ->placeholder('Contoh: D200, Discovery, X-Smart')
+                            ->maxLength(100),
+                        TextInput::make('machine_serial_no')
+                            ->label('Nomor Mesin')
+                            ->placeholder('Contoh: D10B0236, 670000001-2041875F')
+                            ->maxLength(100),
+                    ])
+                    ->columns(2),
 
                 Select::make('region')
                     ->options([
