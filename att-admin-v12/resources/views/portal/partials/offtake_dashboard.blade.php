@@ -20,7 +20,7 @@
             <!-- Periode Indicator -->
             <div style="font-size: 0.84rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; background: #fff; padding: 0.5rem 0.9rem; border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <i class="fa-solid fa-calendar-days" style="color: var(--brand-primary);"></i>
-                <span>Periode: <strong>{{ reset($offtakeData['months']) }} – {{ end($offtakeData['months']) }}</strong></span>
+                <span>Periode: <strong>{{ !empty($offtakeData['months']) ? (collect($offtakeData['months'])->first() . (count($offtakeData['months']) > 1 ? ' – ' . collect($offtakeData['months'])->last() : '')) : '-' }}</strong></span>
             </div>
 
             <!-- Export Buttons -->
@@ -54,7 +54,7 @@
                 <div class="offtake-header-meta">
                     <div class="meta-pill">
                         <span class="meta-lbl">Total Toko Terfilter:</span>
-                        <strong class="meta-val">{{ number_format($offtakeData['sheet2']['total_stores']) }} Toko</strong>
+                        <strong class="meta-val">{{ number_format($offtakeData['sheet2']['total_stores'] ?? 0) }} Toko</strong>
                     </div>
                     <div class="meta-pill meta-pill-highlight">
                         <span class="meta-lbl">Grand Total Volume:</span>
@@ -101,20 +101,18 @@
                                     <td style="text-align: center;">
                                         <span class="region-pill">{{ $store['region'] ?: '-' }}</span>
                                     </td>
-                                    <td>
-                                        <span style="font-size: 0.82rem; color: #475569; font-weight: 500;">
-                                            {{ $store['area'] ?: '-' }}
-                                        </span>
+                                    <td style="font-size: 0.84rem; color: #475569;">
+                                        {{ $store['area'] ?: '-' }}
                                     </td>
                                     @foreach($offtakeData['months'] as $mKey => $mLabel)
                                         @php
                                             $mVol = (float)($store["m_{$mKey}"] ?? 0);
                                         @endphp
-                                        <td style="text-align: right; font-weight: {{ $mVol > 0 ? '600' : '400' }}; color: {{ $mVol > 0 ? '#1e293b' : '#94a3b8' }};">
+                                        <td style="text-align: right; font-size: 0.85rem; font-weight: {{ $mVol > 0 ? '600' : '400' }}; color: {{ $mVol > 0 ? '#0f172a' : '#94a3b8' }};">
                                             {{ $mVol > 0 ? number_format($mVol, 2) : '-' }}
                                         </td>
                                     @endforeach
-                                    <td style="text-align: right; font-weight: 800; color: var(--brand-primary); font-size: 0.92rem; background: #f8fafc;">
+                                    <td style="text-align: right; font-weight: 800; color: var(--brand-primary); font-size: 0.9rem; background: #f8fafc;">
                                         {{ number_format($totalVol, 2) }}
                                     </td>
                                 </tr>
@@ -122,37 +120,39 @@
                         @else
                             <tr>
                                 <td colspan="{{ 6 + count($offtakeData['months']) }}" style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
-                                    <i class="fa-solid fa-box-open" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
+                                    <i class="fa-solid fa-inbox" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
                                     <div>Tidak ada data penjualan toko untuk filter yang dipilih.</div>
                                 </td>
                             </tr>
                         @endif
                     </tbody>
-                    <tfoot>
-                        <tr class="tfoot-grand-total">
-                            <td colspan="5" style="text-align: right; font-weight: 800; font-size: 0.92rem; letter-spacing: 0.5px; padding-right: 1.5rem;">
-                                GRAND TOTAL (SELURUH TOKO TERFILTER):
-                            </td>
-                            @foreach($offtakeData['months'] as $mKey => $mLabel)
-                                @php
-                                    $gMVol = (float)($offtakeData['sheet2']['grand_total']["m_{$mKey}"] ?? 0);
-                                @endphp
-                                <td style="text-align: right; font-weight: 800; font-size: 0.92rem;">
-                                    {{ number_format($gMVol, 2) }}
+                    @if(!empty($offtakeData['sheet2']['stores']))
+                        <tfoot>
+                            <tr class="offtake-grand-row">
+                                <td colspan="5" style="text-align: right; font-weight: 800; font-size: 0.86rem; color: #0f172a; padding-right: 1.25rem;">
+                                    GRAND TOTAL
                                 </td>
-                            @endforeach
-                            <td style="text-align: right; font-weight: 900; font-size: 1.05rem; background: #0b3d88 !important; color: #fff !important;">
-                                {{ number_format((float)($offtakeData['sheet2']['grand_total']['total_vol'] ?? 0), 2) }}
-                            </td>
-                        </tr>
-                    </tfoot>
+                                @foreach($offtakeData['months'] as $mKey => $mLabel)
+                                    @php
+                                        $gMonthVol = (float)($offtakeData['sheet2']['grand_total']["m_{$mKey}"] ?? 0);
+                                    @endphp
+                                    <td style="text-align: right; font-weight: 800; font-size: 0.88rem; color: #0b3d88;">
+                                        {{ number_format($gMonthVol, 2) }}
+                                    </td>
+                                @endforeach
+                                <td style="text-align: right; font-weight: 900; font-size: 0.95rem; color: #0b3d88; background: #e0e7ff;">
+                                    {{ number_format($offtakeData['sheet2']['grand_total']['total_vol'] ?? 0, 2) }}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    @endif
                 </table>
             </div>
 
             <!-- Table Pagination & Navigation Bar -->
             <div class="offtake-table-footer">
                 <div style="font-size: 0.85rem; color: #64748b;">
-                    Menampilkan <strong>{{ $offtakeData['sheet2']['from'] }}</strong> – <strong>{{ $offtakeData['sheet2']['to'] }}</strong> dari <strong>{{ number_format($offtakeData['sheet2']['total_stores']) }}</strong> toko
+                    Menampilkan <strong>{{ $offtakeData['sheet2']['from'] }}</strong> – <strong>{{ $offtakeData['sheet2']['to'] }}</strong> dari <strong>{{ number_format($offtakeData['sheet2']['total_stores'] ?? 0) }}</strong> toko
                 </div>
 
                 @if(($offtakeData['sheet2']['total_pages'] ?? 1) > 1)
@@ -205,7 +205,7 @@
                 <div class="offtake-header-meta">
                     <div class="meta-pill">
                         <span class="meta-lbl">Total Transaksi Terfilter:</span>
-                        <strong class="meta-val">{{ number_format($offtakeData['sheet1']['total_records']) }} Baris</strong>
+                        <strong class="meta-val">{{ number_format($offtakeData['sheet1']['total_records'] ?? 0) }} Baris</strong>
                     </div>
                 </div>
             </div>
@@ -259,7 +259,7 @@
                                         {{ $r['area'] ?: '-' }}
                                     </td>
                                     <td>
-                                        <span class="brand-tag {{ strtolower($r['brand']) === 'dulux' ? 'brand-tag-dulux' : 'brand-tag-catylac' }}">
+                                        <span class="brand-tag {{ strtolower($r['brand'] ?? '') === 'dulux' ? 'brand-tag-dulux' : 'brand-tag-catylac' }}">
                                             {{ $r['brand'] ?: '-' }}
                                         </span>
                                     </td>
@@ -267,13 +267,13 @@
                                         {{ $r['sub_brand'] ?: '-' }}
                                     </td>
                                     <td style="text-align: right; font-size: 0.82rem;">
-                                        {{ !empty($r['kemasan_galon']) && $r['kemasan_galon'] !== '0' ? $r['kemasan_galon'] . ' L' : '-' }}
+                                        {{ !empty($r['kemasan_galon']) && $r['kemasan_galon'] !== '0' && $r['kemasan_galon'] !== '-' ? (str_contains($r['kemasan_galon'], 'L') ? $r['kemasan_galon'] : $r['kemasan_galon'] . ' L') : '-' }}
                                     </td>
                                     <td style="text-align: right; font-weight: 600;">
                                         {{ !empty($r['qty_galon']) ? number_format((float)$r['qty_galon']) : '-' }}
                                     </td>
                                     <td style="text-align: right; font-size: 0.82rem;">
-                                        {{ !empty($r['kemasan_pail']) && $r['kemasan_pail'] !== '0' ? $r['kemasan_pail'] . ' L' : '-' }}
+                                        {{ !empty($r['kemasan_pail']) && $r['kemasan_pail'] !== '0' && $r['kemasan_pail'] !== '-' ? (str_contains($r['kemasan_pail'], 'L') ? $r['kemasan_pail'] : $r['kemasan_pail'] . ' L') : '-' }}
                                     </td>
                                     <td style="text-align: right; font-weight: 600;">
                                         {{ !empty($r['qty_pail']) ? number_format((float)$r['qty_pail']) : '-' }}
@@ -298,7 +298,7 @@
             <!-- Table Pagination & Navigation Bar -->
             <div class="offtake-table-footer">
                 <div style="font-size: 0.85rem; color: #64748b;">
-                    Menampilkan <strong>{{ $offtakeData['sheet1']['from'] }}</strong> – <strong>{{ $offtakeData['sheet1']['to'] }}</strong> dari <strong>{{ number_format($offtakeData['sheet1']['total_records']) }}</strong> transaksi
+                    Menampilkan <strong>{{ $offtakeData['sheet1']['from'] }}</strong> – <strong>{{ $offtakeData['sheet1']['to'] }}</strong> dari <strong>{{ number_format($offtakeData['sheet1']['total_records'] ?? 0) }}</strong> transaksi
                 </div>
 
                 @if(($offtakeData['sheet1']['total_pages'] ?? 1) > 1)
