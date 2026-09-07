@@ -200,18 +200,24 @@ class ImportDuluxAmkStoresCommand extends Command
             }
 
             try {
-                // Cari lokasi yang sudah ada (berdasarkan code SAP, store_code, atau name + principal)
-                $existing = WorkLocation::where('principal_id', $principal->id)
-                    ->where(function ($q) use ($sData) {
-                        if (!empty($sData['code'])) {
-                            $q->where('code', $sData['code']);
-                        }
-                        if (!empty($sData['store_code'])) {
-                            $q->orWhere('store_code', $sData['store_code']);
-                        }
-                        $q->orWhere('name', $sData['name']);
-                    })
-                    ->first();
+                // Cari lokasi yang sudah ada (berdasarkan code SAP, store_code, atau name jika tanpa SAP)
+                $existing = null;
+                if (!empty($sData['code'])) {
+                    $existing = WorkLocation::where('principal_id', $principal->id)
+                        ->where('code', $sData['code'])
+                        ->first();
+                }
+                if (!$existing && !empty($sData['store_code'])) {
+                    $existing = WorkLocation::where('principal_id', $principal->id)
+                        ->where('store_code', $sData['store_code'])
+                        ->first();
+                }
+                if (!$existing && !empty($sData['name'])) {
+                    $existing = WorkLocation::where('principal_id', $principal->id)
+                        ->where('name', $sData['name'])
+                        ->whereNull('code')
+                        ->first();
+                }
 
                 if ($existing) {
                     $existing->update($locPayload);
