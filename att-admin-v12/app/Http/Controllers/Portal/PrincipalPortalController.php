@@ -355,7 +355,13 @@ class PrincipalPortalController extends Controller
     protected function getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion = null, $selectedAreaId = null, $selectedLocationId = null, $search = null)
     {
         $query = ReportSubmission::where('report_submissions.report_template_id', $template->id)
-            ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
+            ->where(function ($dateQ) use ($startDate, $endDate) {
+                $dateQ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
+                      ->orWhere(function ($subDateQ) use ($startDate, $endDate) {
+                          $subDateQ->whereNull('report_submissions.submitted_at')
+                                   ->whereBetween('report_submissions.created_at', [$startDate, $endDate]);
+                      });
+            })
             ->with([
                 'employee.branch',
                 'employee.supervisor',
@@ -6609,7 +6615,7 @@ class PrincipalPortalController extends Controller
         $startDate = Carbon::createFromDate($selectedYear, $sMonth, 1)->startOfMonth();
         $endDate = Carbon::createFromDate($selectedYear, $eMonth, 1)->endOfMonth();
 
-        $cacheKey = 'offtake_dash_v5_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search . '_' . $offtakePage . '_' . $rawPage);
+        $cacheKey = 'offtake_dash_v8_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search . '_' . $offtakePage . '_' . $rawPage);
 
         return Cache::remember($cacheKey, 300, function() use ($template, $sqlitePath, $sMonth, $eMonth, $selectedYear, $startDate, $endDate, $activeMonths, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $offtakePage, $rawPage, $perPage) {
             try {
@@ -6642,8 +6648,8 @@ class PrincipalPortalController extends Controller
 
                 try {
                     $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
-                    $liveSubs = $liveQuery->select(['id', 'report_template_id', 'work_location_id', 'submitted_at', 'submission_date', 'created_at'])
-                        ->with(['workLocation:id,name,code,sap_code,external_id,branch_id,region', 'workLocation.branch:id,name', 'values:id,report_submission_id,form_field_id,field_name,value_text,value_number,value_date,value_json'])
+                    $liveSubs = $liveQuery->select(['id', 'submission_code', 'report_template_id', 'work_location_id', 'employee_id', 'submitted_at', 'submission_date', 'created_at'])
+                        ->with(['workLocation', 'workLocation.branch', 'values'])
                         ->get();
 
                     foreach ($liveSubs as $sub) {
@@ -6660,7 +6666,7 @@ class PrincipalPortalController extends Controller
                         $subWeek = (int)$subDate->weekOfYear;
 
                         $nameStore = $sub->workLocation?->name ?? $sub->store_name ?? 'Toko Tidak Terdaftar';
-                        $sap = $sub->workLocation?->code ?? ($sub->workLocation?->sap_code ?? ($sub->workLocation?->external_id ?? '-'));
+                        $sap = $sub->workLocation?->code ?? ($sub->workLocation?->store_code ?? '-');
                         $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? 'AREA LAIN'));
                         $region = $areaToRsm[strtoupper(trim($area))] ?? ($sub->workLocation?->region ?? 'East Java');
 
@@ -6993,7 +6999,7 @@ class PrincipalPortalController extends Controller
         $startDate = Carbon::createFromDate($selectedYear, 1, 1)->startOfYear();
         $endDate = Carbon::createFromDate($selectedYear, $eMonth, 1)->endOfMonth();
 
-        $cacheKey = 'offtake_ytd_v5_' . md5($template->id . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+        $cacheKey = 'offtake_ytd_v8_' . md5($template->id . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
 
         return Cache::remember($cacheKey, 600, function() use ($template, $p26, $p25, $eMonth, $selectedYear, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
             try {
@@ -7025,8 +7031,8 @@ class PrincipalPortalController extends Controller
 
                 try {
                     $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
-                    $liveSubs = $liveQuery->select(['id', 'report_template_id', 'work_location_id', 'submitted_at', 'submission_date', 'created_at'])
-                        ->with(['workLocation:id,name,code,sap_code,external_id,branch_id,region', 'workLocation.branch:id,name', 'values:id,report_submission_id,form_field_id,field_name,value_text,value_number,value_date,value_json'])
+                    $liveSubs = $liveQuery->select(['id', 'submission_code', 'report_template_id', 'work_location_id', 'employee_id', 'submitted_at', 'submission_date', 'created_at'])
+                        ->with(['workLocation', 'workLocation.branch', 'values'])
                         ->get();
 
                     foreach ($liveSubs as $sub) {
@@ -7041,7 +7047,7 @@ class PrincipalPortalController extends Controller
                         if ($subMonth < 1 || $subMonth > $eMonth) continue;
 
                         $nameStore = $sub->workLocation?->name ?? $sub->store_name ?? 'Toko Tidak Terdaftar';
-                        $sap = $sub->workLocation?->code ?? ($sub->workLocation?->sap_code ?? ($sub->workLocation?->external_id ?? '-'));
+                        $sap = $sub->workLocation?->code ?? ($sub->workLocation?->store_code ?? '-');
                         $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? 'AREA LAIN'));
                         $region = $areaToRsm[strtoupper(trim($area))] ?? ($sub->workLocation?->region ?? 'East Java');
 

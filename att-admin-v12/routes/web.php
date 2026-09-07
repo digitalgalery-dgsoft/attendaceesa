@@ -585,53 +585,11 @@ Route::get('/migrate-now', function () {
 
 Route::get('/cek-admin', function () {
     try {
-        $today = \Carbon\Carbon::now()->format('Y-m-d');
-        $subsToday = \App\Models\ReportSubmission::with(['template', 'workLocation', 'employee', 'values'])
-            ->whereDate('created_at', '>=', $today)
-            ->orWhereDate('submitted_at', '>=', $today)
-            ->orWhereDate('submission_date', '>=', $today)
-            ->orderBy('id', 'desc')
-            ->get();
-
-        $allRecent = \App\Models\ReportSubmission::with(['template', 'workLocation', 'employee', 'values'])
-            ->orderBy('id', 'desc')
-            ->take(10)
-            ->get();
-
+        $users = \App\Models\User::all(['id', 'name', 'email']);
         return response()->json([
             'status' => 'success',
-            'today_date' => $today,
-            'now_timestamp' => (string)now(),
-            'today_count' => $subsToday->count(),
-            'today_submissions' => $subsToday->map(function($s) {
-                return [
-                    'id' => $s->id,
-                    'submission_code' => $s->submission_code,
-                    'report_template_id' => $s->report_template_id,
-                    'template_code' => $s->template?->code,
-                    'template_title' => $s->template?->title,
-                    'employee' => $s->employee?->name,
-                    'store_name' => $s->workLocation?->name ?? $s->store_name,
-                    'sap' => $s->workLocation?->code ?? $s->workLocation?->sap_code,
-                    'submitted_at' => (string)$s->submitted_at,
-                    'submission_date' => (string)$s->submission_date,
-                    'created_at' => (string)$s->created_at,
-                    'values_count' => $s->values->count(),
-                    'values' => $s->values->pluck('value_text', 'field_name')
-                ];
-            }),
-            'recent_10_submissions' => $allRecent->map(function($s) {
-                return [
-                    'id' => $s->id,
-                    'submission_code' => $s->submission_code,
-                    'report_template_id' => $s->report_template_id,
-                    'template_code' => $s->template?->code,
-                    'employee' => $s->employee?->name,
-                    'store_name' => $s->workLocation?->name ?? $s->store_name,
-                    'created_at' => (string)$s->created_at,
-                ];
-            })
-        ], 200, [], JSON_PRETTY_PRINT);
+            'users' => $users,
+        ]);
     } catch (\Throwable $e) {
         return response()->json([
             'status' => 'error',
