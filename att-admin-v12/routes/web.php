@@ -584,104 +584,15 @@ Route::get('/migrate-now', function () {
 });
 
 Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
-    $logFile = storage_path('logs/checkpoint.txt');
-    $errFile = storage_path('logs/last_error.json');
-
-    if ($request->has('read_log')) {
-        return response()->json([
-            'checkpoint' => file_exists($logFile) ? file_get_contents($logFile) : null,
-            'last_error' => file_exists($errFile) ? json_decode(file_get_contents($errFile), true) : null,
-        ]);
-    }
-
-    if ($request->has('count_subs')) {
-        $cTotal = \App\Models\ReportSubmission::where('report_template_id', 31)->count();
-        $cYtd = \App\Models\ReportSubmission::where('report_template_id', 31)
-            ->whereBetween('submitted_at', ['2026-01-01 00:00:00', '2026-09-30 23:59:59'])
-            ->count();
-        $cSep = \App\Models\ReportSubmission::where('report_template_id', 31)
-            ->whereBetween('submitted_at', ['2026-09-01 00:00:00', '2026-09-30 23:59:59'])
-            ->count();
-        $cLiveOnly = \App\Models\ReportSubmission::where('report_template_id', 31)
-            ->where('submission_code', 'NOT LIKE', 'SUB-OFFTAKE%')
-            ->count();
-        $cRptOnly = \App\Models\ReportSubmission::where('report_template_id', 31)
-            ->where('submission_code', 'LIKE', 'RPT-%')
-            ->count();
-        $sample = \App\Models\ReportSubmission::where('report_template_id', 31)
-            ->select('id', 'submission_code', 'submitted_at', 'created_at')
-            ->latest('id')
-            ->limit(10)
-            ->get();
-        return response()->json([
-            'total_template_31' => $cTotal,
-            'ytd_2026' => $cYtd,
-            'sep_2026' => $cSep,
-            'live_not_sub_offtake' => $cLiveOnly,
-            'live_rpt_only' => $cRptOnly,
-            'sample' => $sample,
-        ]);
-    }
-
-    $reservedMemory = str_repeat(' ', 1024 * 128);
-    register_shutdown_function(function() use (&$reservedMemory, $errFile, $logFile) {
-        $reservedMemory = null;
-        $err = error_get_last();
-        if ($err) {
-            file_put_contents($errFile, json_encode($err, JSON_PRETTY_PRINT));
-            file_put_contents($logFile, "SHUTDOWN ERROR: " . json_encode($err) . "\n", FILE_APPEND);
-        }
-    });
-
-    file_put_contents($logFile, "START: " . date('Y-m-d H:i:s') . "\n");
-    $log = function($step) use ($logFile) {
-        file_put_contents($logFile, "STEP: $step | Mem: " . round(memory_get_usage(true)/1024/1024, 2) . "MB\n", FILE_APPEND);
-    };
-
-    $log('init');
-
     try {
-        $log('before_ctrl_resolve');
-        $ctrl = app(\App\Http\Controllers\Portal\PrincipalPortalController::class);
-        $log('after_ctrl_resolve');
-
-        $req = \Illuminate\Http\Request::create('/portal/report/RPT-DULUX-OFFTAKE-01', 'GET', [
-            'p' => 18,
-            'start_month' => 9,
-            'start_year' => 2026,
-            'end_month' => 9,
-            'end_year' => 2026,
-        ]);
-        $log('after_request_create');
-
-        $log('before_reportDetail');
-        $res = $ctrl->reportDetail($req, 'RPT-DULUX-OFFTAKE-01');
-        $log('after_reportDetail');
-
-        if ($res instanceof \Illuminate\View\View) {
-            $log('before_render');
-            $html = $res->render();
-            $log('after_render_len_' . strlen($html));
-            return response()->json([
-                'status' => 'success',
-                'html_len' => strlen($html),
-                'view_name' => $res->getName(),
-            ]);
-        }
-
-        $log('after_non_view_response');
+        $user = \App\Models\User::first();
         return response()->json([
             'status' => 'success',
-            'response_type' => is_object($res) ? get_class($res) : gettype($res),
+            'user' => $user ? $user->email : null,
+            'time' => now()->toDateTimeString(),
         ]);
     } catch (\Throwable $e) {
-        $log('EXCEPTION: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-        return response()->json([
-            'status' => 'error',
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-        ], 500);
+        return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
     }
 });
 
