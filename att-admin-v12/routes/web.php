@@ -583,20 +583,42 @@ Route::get('/migrate-now', function () {
     return \Illuminate\Support\Facades\Artisan::output();
 });
 
-Route::get('/cek-admin', function () {
+Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
     try {
-        $users = \App\Models\User::all(['id', 'name', 'email']);
+        $logPath = storage_path('logs/laravel.log');
+        $recentLogs = '';
+        if (file_exists($logPath)) {
+            $lines = file($logPath);
+            $recentLogs = implode('', array_slice($lines, -100));
+        }
+
+        $controller = app(\App\Http\Controllers\Portal\PrincipalPortalController::class);
+        $request->merge(['p' => 18]);
+        
+        // Let's test reportDetail execution directly
+        $res = $controller->reportDetail($request, 'RPT-DULUX-OFFTAKE-01');
+        $rendered = '';
+        if ($res instanceof \Illuminate\View\View) {
+            $rendered = 'View OK, data keys: ' . implode(', ', array_keys($res->getData()));
+        }
+
         return response()->json([
             'status' => 'success',
-            'users' => $users,
+            'rendered' => $rendered,
+            'recent_logs' => $recentLogs
         ]);
     } catch (\Throwable $e) {
         return response()->json([
-            'status' => 'error',
-            'message' => $e->getMessage()
-        ], 500);
+            'status' => 'exception_caught',
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => explode("\n", $e->getTraceAsString()),
+            'recent_logs' => $recentLogs ?? ''
+        ], 200);
     }
 });
+
 
 Route::get('/debug-logs', function () {
     $logPath = storage_path('logs/laravel.log');
