@@ -9,6 +9,7 @@ use App\Models\Principal;
 use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CheckDuluxWorkLocationsCommand extends Command
 {
@@ -25,8 +26,27 @@ class CheckDuluxWorkLocationsCommand extends Command
         $totalRaw = DB::table('work_locations')->count();
         $this->info("Total baris raw di table work_locations: {$totalRaw}");
 
-        $totalModel = WorkLocation::count();
-        $this->info("Total baris via Eloquent WorkLocation: {$totalModel}");
+        $columns = Schema::getColumnListing('work_locations');
+        $this->info("Kolom table work_locations: " . json_encode($columns));
+
+        // Test insert 1 dummy record and check
+        try {
+            $testId = DB::table('work_locations')->insertGetId([
+                'name' => 'TEST_STORE_DEBUG',
+                'company_id' => 1,
+                'principal_id' => 18,
+                'latitude' => -6.2,
+                'longitude' => 106.8,
+                'radius_meter' => 100,
+                'is_active' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $this->info("Berhasil insert test record dengan ID: {$testId}");
+            DB::table('work_locations')->where('id', $testId)->delete();
+        } catch (\Throwable $e) {
+            $this->error("Gagal insert test record: " . $e->getMessage());
+        }
 
         // Cek direktori lain di /www/wwwroot
         $this->info("\n--- Cek Direktori di /www/wwwroot ---");

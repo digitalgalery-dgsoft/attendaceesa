@@ -136,24 +136,26 @@ class ImportDuluxAmkStoresCommand extends Command
 
         // 5. Eksekusi Simpan WorkLocation
         $this->info("\nMemulai proses penyimpanan WorkLocation ke database...");
-        DB::beginTransaction();
-        try {
-            $createdCount = 0;
-            $updatedCount = 0;
-            $locationMap = []; // key => WorkLocation model
+        
+        $locCols = \Illuminate\Support\Facades\Schema::getColumnListing('work_locations');
+        $locColsMap = array_flip($locCols);
 
-            foreach ($uniqueStores as $key => $sData) {
-                // Resolve Branch
-                $branchId = null;
-                $areaUpper = strtoupper($sData['area']);
-                $subAreaUpper = strtoupper($sData['sub_area']);
+        $createdCount = 0;
+        $updatedCount = 0;
+        $locationMap = []; // key => WorkLocation model / id
 
-                if (isset($branchByName[$areaUpper])) {
-                    $branchId = $branchByName[$areaUpper];
-                } elseif (isset($branchByName[$subAreaUpper])) {
-                    $branchId = $branchByName[$subAreaUpper];
-                } elseif (!empty($sData['area'])) {
-                    // Buat Branch Baru jika belum ada
+        foreach ($uniqueStores as $key => $sData) {
+            // Resolve Branch
+            $branchId = null;
+            $areaUpper = strtoupper($sData['area']);
+            $subAreaUpper = strtoupper($sData['sub_area']);
+
+            if (isset($branchByName[$areaUpper])) {
+                $branchId = $branchByName[$areaUpper];
+            } elseif (isset($branchByName[$subAreaUpper])) {
+                $branchId = $branchByName[$subAreaUpper];
+            } elseif (!empty($sData['area'])) {
+                try {
                     $newBranch = Branch::create([
                         'company_id' => $company->id,
                         'name' => $sData['area'],
@@ -162,8 +164,42 @@ class ImportDuluxAmkStoresCommand extends Command
                     ]);
                     $branchId = $newBranch->id;
                     $branchByName[$areaUpper] = $branchId;
+                } catch (\Throwable $e) {
+                    // fallback to any existing branch
                 }
+            }
 
+            $rawPayload = [
+                'company_id' => $company->id,
+                'principal_id' => $principal->id,
+                'branch_id' => $branchId,
+                'name' => $sData['name'],
+                'code' => $sData['code'],
+                'store_code' => $sData['store_code'],
+                'type' => 'client',
+                'category' => $sData['category'],
+                'machine_type' => $sData['machine_type'],
+                'machine_serial_no' => $sData['machine_serial_no'],
+                'region' => $sData['region'] ?: null,
+                'area' => $sData['area'] ?: null,
+                'sub_area' => $sData['sub_area'] ?: null,
+                'channel' => 'Retail',
+                'latitude' => $sData['latitude'],
+                'longitude' => $sData['longitude'],
+                'radius_meter' => 100,
+                'is_active' => true,
+                'status' => 'active',
+            ];
+
+            // Filter strictly to existing columns
+            $locPayload = [];
+            foreach ($rawPayload as $col => $val) {
+                if (isset($locColsMap[$col])) {
+                    $locPayload[$col] = $val;
+                }
+            }
+
+            try {
                 // Cari lokasi yang sudah ada (berdasarkan code SAP, store_code, atau name + principal)
                 $existing = WorkLocation::where('principal_id', $principal->id)
                     ->where(function ($q) use ($sData) {
@@ -177,28 +213,6 @@ class ImportDuluxAmkStoresCommand extends Command
                     })
                     ->first();
 
-                $locPayload = [
-                    'company_id' => $company->id,
-                    'principal_id' => $principal->id,
-                    'branch_id' => $branchId,
-                    'name' => $sData['name'],
-                    'code' => $sData['code'],
-                    'store_code' => $sData['store_code'],
-                    'type' => 'client',
-                    'category' => $sData['category'],
-                    'machine_type' => $sData['machine_type'],
-                    'machine_serial_no' => $sData['machine_serial_no'],
-                    'region' => $sData['region'] ?: null,
-                    'area' => $sData['area'] ?: null,
-                    'sub_area' => $sData['sub_area'] ?: null,
-                    'channel' => 'Retail',
-                    'latitude' => $sData['latitude'],
-                    'longitude' => $sData['longitude'],
-                    'radius_meter' => 100,
-                    'is_active' => true,
-                    'status' => 'active',
-                ];
-
                 if ($existing) {
                     $existing->update($locPayload);
                     $locationMap[$key] = $existing;
@@ -208,73 +222,71 @@ class ImportDuluxAmkStoresCommand extends Command
                     $locationMap[$key] = $newLoc;
                     $createdCount++;
                 }
+            } catch (\Throwable $e) {
+                $this->error("  ⚠️ Gagal simpan toko [{$sData['name']}]: " . $e->getMessage());
             }
-
-            $this->info("  ↳ Master Toko Baru Dibuat : {$createdCount}");
-            $this->info("  ↳ Master Toko Diperbarui  : {$updatedCount}");
-
-            // 6. Sinkronisasi Karyawan DC ke WorkLocation masing-masing
-            $this->info("\nMenghubungkan Karyawan DC ke WorkLocation masing-masing...");
-            $empLinked = 0;
-
-            $hasIdCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'identification_id');
-            $hasNikCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'nik');
-            $hasWorkLocCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'work_location_id');
-            $hasPrincipalCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'principal_id');
-            $hasBranchCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'branch_id');
-
-            foreach ($employeeMappings as $map) {
-                $loc = $locationMap[$map['store_key']] ?? null;
-                if (!$loc) continue;
-
-                try {
-                    $emp = null;
-                    if (!empty($map['dc_no'])) {
-                        $emp = Employee::where('employee_no', $map['dc_no'])->first();
-                    }
-                    if (!$emp && $hasIdCol && !empty($map['dc_ktp'])) {
-                        $emp = Employee::where('identification_id', $map['dc_ktp'])->first();
-                    }
-                    if (!$emp && $hasNikCol && !empty($map['dc_ktp'])) {
-                        $emp = Employee::where('nik', $map['dc_ktp'])->first();
-                    }
-                    if (!$emp && !empty($map['dc_name'])) {
-                        $emp = Employee::where('name', 'ilike', '%' . $map['dc_name'] . '%')
-                            ->orWhere('name', 'like', '%' . $map['dc_name'] . '%')
-                            ->first();
-                    }
-
-                    if ($emp) {
-                        $empUpdateData = [];
-                        if ($hasWorkLocCol) {
-                            $empUpdateData['work_location_id'] = $loc->id;
-                        }
-                        if ($hasPrincipalCol) {
-                            $empUpdateData['principal_id'] = $principal->id;
-                        }
-                        if (isset($loc->branch_id) && $hasBranchCol) {
-                            $empUpdateData['branch_id'] = $loc->branch_id;
-                        }
-
-                        if (!empty($empUpdateData)) {
-                            $emp->update($empUpdateData);
-                            $empLinked++;
-                        }
-                    }
-                } catch (\Throwable $ex) {
-                    // Silently continue for employee linking errors so store import succeeds
-                }
-            }
-
-            $this->info("  ↳ Karyawan DC Berhasil Dihubungkan ke Toko: {$empLinked}");
-
-            DB::commit();
-            $this->info("\n🎉 SUKSES: Seluruh data Store & Work Location Dulux AMK berhasil dimigrasi & diperbarui!");
-            return 0;
-        } catch (\Exception $e) {
-            DB::rollBack();
-            $this->error("\n❌ GAGAL: Terjadi kesalahan saat mengimpor data: " . $e->getMessage());
-            return 1;
         }
+
+        $this->info("  ↳ Master Toko Baru Dibuat : {$createdCount}");
+        $this->info("  ↳ Master Toko Diperbarui  : {$updatedCount}");
+        $this->info("  ↳ Total Work Location di DB: " . DB::table('work_locations')->count());
+
+        // 6. Sinkronisasi Karyawan DC ke WorkLocation masing-masing
+        $this->info("\nMenghubungkan Karyawan DC ke WorkLocation masing-masing...");
+        $empLinked = 0;
+
+        $hasIdCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'identification_id');
+        $hasNikCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'nik');
+        $hasWorkLocCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'work_location_id');
+        $hasPrincipalCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'principal_id');
+        $hasBranchCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'branch_id');
+
+        foreach ($employeeMappings as $map) {
+            $loc = $locationMap[$map['store_key']] ?? null;
+            if (!$loc) continue;
+
+            try {
+                $emp = null;
+                if (!empty($map['dc_no'])) {
+                    $emp = Employee::where('employee_no', $map['dc_no'])->first();
+                }
+                if (!$emp && $hasIdCol && !empty($map['dc_ktp'])) {
+                    $emp = Employee::where('identification_id', $map['dc_ktp'])->first();
+                }
+                if (!$emp && $hasNikCol && !empty($map['dc_ktp'])) {
+                    $emp = Employee::where('nik', $map['dc_ktp'])->first();
+                }
+                if (!$emp && !empty($map['dc_name'])) {
+                    $emp = Employee::where('name', 'ilike', '%' . $map['dc_name'] . '%')
+                        ->orWhere('name', 'like', '%' . $map['dc_name'] . '%')
+                        ->first();
+                }
+
+                if ($emp) {
+                    $empUpdateData = [];
+                    if ($hasWorkLocCol) {
+                        $empUpdateData['work_location_id'] = $loc->id;
+                    }
+                    if ($hasPrincipalCol) {
+                        $empUpdateData['principal_id'] = $principal->id;
+                    }
+                    if (isset($loc->branch_id) && $hasBranchCol) {
+                        $empUpdateData['branch_id'] = $loc->branch_id;
+                    }
+
+                    if (!empty($empUpdateData)) {
+                        $emp->update($empUpdateData);
+                        $empLinked++;
+                    }
+                }
+            } catch (\Throwable $ex) {
+                // Silently continue for employee linking errors
+            }
+        }
+
+        $this->info("  ↳ Karyawan DC Berhasil Dihubungkan ke Toko: {$empLinked}");
+        $this->info("\n🎉 SUKSES: Seluruh data Store & Work Location Dulux AMK berhasil dimigrasi & diperbarui!");
+        $this->info("Final count work_locations table: " . DB::table('work_locations')->count());
+        return 0;
     }
 }

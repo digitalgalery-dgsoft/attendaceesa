@@ -69,10 +69,11 @@ class WorkLocationsTable
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'active' => 'success',
                         'inactive' => 'danger',
+                        default => 'gray',
                     }),
                 TextColumn::make('latitude')
                     ->numeric()
