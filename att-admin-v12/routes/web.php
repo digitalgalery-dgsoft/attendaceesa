@@ -588,10 +588,15 @@ Route::get('/cek-admin', function () {
     if (!file_exists($logPath)) {
         return response('laravel.log file not found', 200, ['Content-Type' => 'text/plain']);
     }
-    $lines = file($logPath);
-    $tail = array_slice($lines, -250);
-    return response(implode('', $tail), 200, ['Content-Type' => 'text/plain']);
+    $size = filesize($logPath);
+    $fp = fopen($logPath, 'r');
+    $readSize = min($size, 50000);
+    fseek($fp, max(0, $size - $readSize));
+    $content = fread($fp, $readSize);
+    fclose($fp);
+    return response($content, 200, ['Content-Type' => 'text/plain']);
 });
+
 
 
 
