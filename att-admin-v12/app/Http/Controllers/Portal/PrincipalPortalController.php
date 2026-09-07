@@ -8846,9 +8846,9 @@ class PrincipalPortalController extends Controller
         $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
         $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
 
-        $cacheKey = 'oos_dash_v4_' . md5($template->id . "_{$sMonth}_{$eMonth}_{$startYear}_{$endYear}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedChannel}_" . ($showNoOos ? '1' : '0') . "_{$search}_{$weeklyPage}_{$rawPage}_{$perPage}");
+        $cacheKey = 'oos_dash_v5_' . md5($template->id . "_{$sMonth}_{$eMonth}_{$startYear}_{$endYear}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedChannel}_" . ($showNoOos ? '1' : '0') . "_{$search}_{$weeklyPage}_{$rawPage}_{$perPage}");
 
-        return Cache::remember($cacheKey, 300, function() use ($template, $sqlitePath, $sMonth, $eMonth, $startYear, $endYear, $activeMonths, $selectedRegion, $selectedAreaName, $selectedStoreName, $selectedChannel, $showNoOos, $search, $weeklyPage, $rawPage, $perPage) {
+        return Cache::remember($cacheKey, 300, function() use ($template, $sqlitePath, $sMonth, $eMonth, $startYear, $endYear, $activeMonths, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedAreaName, $selectedStoreName, $selectedChannel, $showNoOos, $search, $weeklyPage, $rawPage, $perPage) {
             try {
                 $startDate = \Carbon\Carbon::createFromDate($startYear, $sMonth, 1)->startOfMonth();
                 $endDate   = \Carbon\Carbon::createFromDate($endYear, $eMonth, 1)->endOfMonth();
@@ -8864,11 +8864,8 @@ class PrincipalPortalController extends Controller
                 $liveWeeksSet = [];
 
                 try {
-                    $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaName ?: $selectedAreaId, $selectedStoreName ?: $selectedLocationId, $search);
-                    $liveSubs = $liveQuery->select(['id', 'submission_code', 'report_template_id', 'work_location_id', 'employee_id', 'submitted_at', 'created_at', 'status', 'is_within_radius'])
-                        ->with(['workLocation', 'workLocation.branch', 'values', 'values.formField', 'employee'])
-                        ->orderBy('submitted_at', 'desc')
-                        ->get();
+                    $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
+                    $liveSubs = $liveQuery->orderBy('submitted_at', 'desc')->get();
 
                     foreach ($liveSubs as $sub) {
                         $valMap = [];
