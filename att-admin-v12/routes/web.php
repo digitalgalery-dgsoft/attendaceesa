@@ -598,6 +598,26 @@ Route::get('/cek-admin', function () {
     }
 });
 
+Route::get('/debug-offtake', function (\Illuminate\Http\Request $request) {
+    try {
+        $controller = app(\App\Http\Controllers\Portal\PrincipalPortalController::class);
+        $res = $controller->reportDetail($request, 'RPT-DULUX-OFFTAKE-01');
+        if ($res instanceof \Illuminate\View\View) {
+            $rendered = $res->render();
+            return response('SUCCESSFULLY RENDERED: ' . strlen($rendered) . ' bytes', 200, ['Content-Type' => 'text/plain']);
+        }
+        return response('SUCCESS: ' . get_class($res), 200, ['Content-Type' => 'text/plain']);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => collect($e->getTrace())->take(15)->map(fn($t) => ($t['file'] ?? '') . ':' . ($t['line'] ?? '') . ' ' . ($t['function'] ?? ''))
+        ], 500);
+    }
+});
+
 
 
 Route::get('/reset-admin', function () {
