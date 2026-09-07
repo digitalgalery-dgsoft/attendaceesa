@@ -17,13 +17,52 @@ class CheckDuluxWorkLocationsCommand extends Command
 
     public function handle()
     {
-        $this->info("=== DIAGNOSIS WORK LOCATIONS ===");
+        $this->info("=== DIAGNOSIS ENVIRONMENT & WORK LOCATIONS ===");
+        $this->info("Base Path: " . base_path());
+        $this->info("DB Default: " . config('database.default'));
+        $this->info("DB Config: " . json_encode(config('database.connections.' . config('database.default'))));
         
         $totalRaw = DB::table('work_locations')->count();
         $this->info("Total baris raw di table work_locations: {$totalRaw}");
 
         $totalModel = WorkLocation::count();
         $this->info("Total baris via Eloquent WorkLocation: {$totalModel}");
+
+        // Cek direktori lain di /www/wwwroot
+        $this->info("\n--- Cek Direktori di /www/wwwroot ---");
+        if (is_dir('/www/wwwroot')) {
+            $dirs = glob('/www/wwwroot/*', GLOB_ONLYDIR);
+            foreach ($dirs as $d) {
+                $envFile = $d . '/.env';
+                $dbInfo = 'No .env';
+                if (file_exists($envFile)) {
+                    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                    $dbVals = [];
+                    foreach ($lines as $l) {
+                        if (preg_match('/^(DB_DATABASE|DB_USERNAME|DB_CONNECTION|DB_HOST)=(.*)$/', trim($l), $m)) {
+                            $dbVals[$m[1]] = trim($m[2]);
+                        }
+                    }
+                    $dbInfo = json_encode($dbVals);
+                }
+                $this->info("Dir: {$d} => {$dbInfo}");
+            }
+        }
+
+        // Cek Nginx Vhosts
+        $this->info("\n--- Cek Nginx Vhost for amk.esa-solutions.id ---");
+        if (is_dir('/www/server/panel/vhost/nginx')) {
+            $vhosts = glob('/www/server/panel/vhost/nginx/*.conf');
+            foreach ($vhosts as $vf) {
+                $content = file_get_contents($vf);
+                if (str_contains($content, 'amk.esa-solutions.id') || str_contains($content, 'esa-solutions.id')) {
+                    $this->info("VHost: {$vf}");
+                    if (preg_match('/root\s+([^;]+);/', $content, $rm)) {
+                        $this->info("  ↳ root: " . trim($rm[1]));
+                    }
+                }
+            }
+        }
 
         $principals = Principal::all();
         $this->info("\n--- Data Principals ---");
@@ -37,21 +76,6 @@ class CheckDuluxWorkLocationsCommand extends Command
         foreach ($companies as $co) {
             $c = WorkLocation::where('company_id', $co->id)->count();
             $this->info("[ID: {$co->id}] {$co->name} -> {$c} work locations");
-        }
-
-        $this->info("\n--- Sample 3 Work Locations ---");
-        $samples = WorkLocation::with(['principal', 'company', 'branch'])->take(3)->get();
-        foreach ($samples as $s) {
-            $this->info("ID: {$s->id} | Name: {$s->name} | Code: {$s->code} | Cat: {$s->category} | Principal: " . ($s->principal ? $s->principal->name : 'NULL') . " | Company: " . ($s->company ? $s->company->name : 'NULL') . " | Branch: " . ($s->branch ? $s->branch->name : 'NULL'));
-        }
-
-        $this->info("\n--- Users & Scopes ---");
-        $users = User::all();
-        foreach ($users as $u) {
-            $branchIds = method_exists($u, 'getAccessibleBranchIds') ? $u->getAccessibleBranchIds() : [];
-            $principalIds = method_exists($u, 'getAccessiblePrincipalIds') ? $u->getAccessiblePrincipalIds() : [];
-            $isSuper = method_exists($u, 'isSuperAdmin') ? ($u->isSuperAdmin() ? 'YES' : 'NO') : 'N/A';
-            $this->info("User [ID: {$u->id}] {$u->name} ({$u->email}) | isSuperAdmin: {$isSuper} | BranchIds: " . json_encode($branchIds) . " | PrincipalIds: " . json_encode($principalIds));
         }
 
         return 0;
