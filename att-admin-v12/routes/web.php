@@ -585,56 +585,15 @@ Route::get('/migrate-now', function () {
 
 Route::get('/cek-admin', function () {
     try {
-        $logPath = storage_path('logs/laravel.log');
-        $lines = [];
-        if (file_exists($logPath)) {
-            $fp = fopen($logPath, 'rb');
-            if ($fp) {
-                $pos = -1;
-                $lineCount = 0;
-                $buffer = '';
-                fseek($fp, 0, SEEK_END);
-                $fileSize = ftell($fp);
-                $seekBytes = min($fileSize, 65536); // read last 64KB
-                fseek($fp, -$seekBytes, SEEK_END);
-                $content = fread($fp, $seekBytes);
-                fclose($fp);
-                $allLines = explode("\n", $content);
-                $lines = array_slice($allLines, -60);
-            }
-        }
-        return response(implode("\n", $lines), 200, ['Content-Type' => 'text/plain']);
-    } catch (\Throwable $e) {
-        return response('Error reading log: ' . $e->getMessage(), 500);
-    }
-});
-
-Route::get('/debug-offtake', function (\Illuminate\Http\Request $request) {
-    ini_set('display_errors', '1');
-    error_reporting(E_ALL);
-    
-    register_shutdown_function(function() {
-        $err = error_get_last();
-        if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-            echo "\n\n=== FATAL SHUTDOWN ERROR ===\n" . json_encode($err, JSON_PRETTY_PRINT);
-        }
-    });
-
-    try {
-        $controller = app(\App\Http\Controllers\Portal\PrincipalPortalController::class);
-        $res = $controller->reportDetail($request, 'RPT-DULUX-OFFTAKE-01');
-        if ($res instanceof \Illuminate\View\View) {
-            $rendered = $res->render();
-            return response('SUCCESSFULLY RENDERED: ' . strlen($rendered) . ' bytes', 200, ['Content-Type' => 'text/plain']);
-        }
-        return response('SUCCESS: ' . get_class($res), 200, ['Content-Type' => 'text/plain']);
+        $users = \App\Models\User::all(['id', 'name', 'email']);
+        return response()->json([
+            'status' => 'success',
+            'users' => $users,
+        ]);
     } catch (\Throwable $e) {
         return response()->json([
             'status' => 'error',
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'trace' => collect($e->getTrace())->take(15)->map(fn($t) => ($t['file'] ?? '') . ':' . ($t['line'] ?? '') . ' ' . ($t['function'] ?? ''))
+            'message' => $e->getMessage()
         ], 500);
     }
 });
