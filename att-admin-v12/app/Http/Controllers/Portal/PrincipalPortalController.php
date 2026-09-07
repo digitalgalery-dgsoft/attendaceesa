@@ -964,12 +964,12 @@ class PrincipalPortalController extends Controller
                 50
             );
 
-            $totalTemplateSubmissions = 0;
-            $uniqueStores = 0;
             $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
                 ->orderBy('submitted_at', 'desc')
-                ->paginate(20);
+                ->paginate(20, ['*'], 'live_page');
             $liveSubmissionsCount = $submissions->total();
+            $totalTemplateSubmissions = ($stockData['submissions']['total'] ?? 0);
+            $uniqueStores = ($stockData['pivotable']['total_stores'] ?? 0);
             $dashboardConfig = [];
             $widgetResults = [];
             $isYtdReport = false;
@@ -984,6 +984,8 @@ class PrincipalPortalController extends Controller
                 $search
             );
 
+            $activeTab = $request->query('tab', $request->has('live_page') ? 'live' : ($request->has('raw_page') ? 'raw' : ($request->has('summ_page') ? 'summ' : ($request->has('page') ? 'pivotable' : ($liveSubmissionsCount > 0 && ($stockData['submissions']['total'] ?? 0) <= $liveSubmissionsCount ? 'live' : 'monthly')))));
+
             return view('portal.report_detail', compact(
                 'tenantPrincipal',
                 'tenantPrincipalsAll',
@@ -991,6 +993,7 @@ class PrincipalPortalController extends Controller
                 'activeTemplates',
                 'template',
                 'submissions',
+                'liveSubmissionsCount',
                 'totalTemplateSubmissions',
                 'uniqueStores',
                 'startMonth',
@@ -5961,12 +5964,157 @@ class PrincipalPortalController extends Controller
             $activeMonths[$m] = $monthNames[$m] . ' ' . $selectedYear;
         }
 
-        $cacheKey = 'stock_dash_v3_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $selectedBrand . '_' . $search . '_' . $stockPage . '_' . $summPage . '_' . $rawPage);
+        $cacheKey = 'stock_dash_v6_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $selectedBrand . '_' . $search . '_' . $stockPage . '_' . $summPage . '_' . $rawPage);
 
-        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sMonth, $eMonth, $activeMonths, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedBrand, $search, $stockPage, $summPage, $rawPage, $perPage) {
+        return Cache::remember($cacheKey, 300, function() use ($template, $sqlitePath, $selectedYear, $sMonth, $eMonth, $activeMonths, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedBrand, $search, $stockPage, $summPage, $rawPage, $perPage) {
             try {
                 $pdo = new \PDO("sqlite:" . $sqlitePath);
                 $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+                $startDate = \Carbon\Carbon::createFromDate($selectedYear, $sMonth, 1)->startOfMonth();
+                $endDate   = \Carbon\Carbon::createFromDate($selectedYear, $eMonth, 1)->endOfMonth();
+                $areaToRsm = $this->getDuluxAreaToRsmMap();
+
+                $liveRawRows = [];
+                $liveStoreTotals = [];
+                $liveDuluxTotal = 0.0;
+                $liveCatylacScTotal = 0.0;
+                $liveCatylacTotal = 0.0;
+                $liveGrandTotal = 0.0;
+
+                try {
+                    $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
+                    $liveSubs = $liveQuery->select(['id', 'submission_code', 'report_template_id', 'work_location_id', 'employee_id', 'submitted_at', 'created_at', 'status', 'is_within_radius'])
+                        ->with(['workLocation', 'workLocation.branch', 'values', 'values.formField', 'employee'])
+                        ->orderBy('submitted_at', 'desc')
+                        ->get();
+
+                    foreach ($liveSubs as $sub) {
+                        $valMap = [];
+                        foreach ($sub->values as $v) {
+                            $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
+                            if ($v->field_name) {
+                                $valMap[$v->field_name] = $val;
+                                $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
+                                $valMap[$slug] = $val;
+                            }
+                            if ($v->formField) {
+                                if ($v->formField->field_name) {
+                                    $valMap[$v->formField->field_name] = $val;
+                                    $slugF = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_name), '_'));
+                                    $valMap[$slugF] = $val;
+                                }
+                                if ($v->formField->field_label) {
+                                    $slugL = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_label), '_'));
+                                    $valMap[$slugL] = $val;
+                                }
+                            }
+                        }
+
+                        $subDate = $sub->submitted_at ? \Carbon\Carbon::parse($sub->submitted_at) : $sub->created_at;
+                        $transDate = $subDate->format('Y-m-d H:i:s');
+                        $tglCatat = $subDate->format('Y-m-d');
+
+                        $storeName = $sub->workLocation?->name ?? 'Toko Tidak Terdaftar';
+                        $sap = $sub->workLocation?->code ?? ($sub->workLocation?->store_code ?? '-');
+                        $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? 'Surabaya'));
+                        $cleanA = strtoupper(trim($area));
+                        $region = $areaToRsm[$cleanA] ?? ($sub->workLocation?->region ?? 'East Java');
+
+                        $produk = trim((string)($valMap['produk_stock_end'] ?? ($valMap['produk'] ?? ($valMap['pilih_produk_dulux_catylac_yang_dicek'] ?? ($valMap['nama_produk'] ?? '')))));
+                        if (empty($produk)) {
+                            $produk = 'Dulux / Catylac Product';
+                        }
+
+                        $rawBrand = trim((string)($valMap['brand'] ?? ($valMap['brand_cat'] ?? '')));
+                        if (empty($rawBrand)) {
+                            if (stripos($produk, 'Smart Choice') !== false) {
+                                $rawBrand = 'Catylac Smart Choice';
+                            } elseif (stripos($produk, 'Catylac') !== false) {
+                                $rawBrand = 'Catylac';
+                            } elseif (stripos($produk, 'Maxilite') !== false) {
+                                $rawBrand = 'Maxilite';
+                            } else {
+                                $rawBrand = 'Dulux';
+                            }
+                        }
+
+                        if ($selectedBrand === 'DULUX' && stripos($rawBrand, 'Dulux') === false) {
+                            continue;
+                        }
+                        if ($selectedBrand === 'CATYLAC' && (stripos($rawBrand, 'Catylac') === false && stripos($rawBrand, 'Smart Choice') === false)) {
+                            continue;
+                        }
+
+                        $warna = trim((string)($valMap['base_warna'] ?? ($valMap['base_tipe_warna'] ?? ($valMap['base'] ?? ($valMap['warna'] ?? '-')))));
+
+                        $qtyGalon = (float)($valMap['stok_qty_galon'] ?? ($valMap['kuantiti_galon'] ?? ($valMap['qty_galon'] ?? 0)));
+                        $qtyPail  = (float)($valMap['stok_qty_pail'] ?? ($valMap['kuantiti_pail'] ?? ($valMap['qty_pail'] ?? 0)));
+                        $kemasanGalon = trim((string)($valMap['kemasan_galon'] ?? '2.5 L'));
+                        $kemasanPail  = trim((string)($valMap['kemasan_pail'] ?? '20 L'));
+
+                        $volL = (float)($valMap['total_volume_stok_liter'] ?? ($valMap['volume_liter'] ?? 0));
+                        if ($volL <= 0) {
+                            $volL = ($qtyGalon * 2.5) + ($qtyPail * 20.0);
+                        }
+
+                        $keterangan = trim((string)($valMap['keterangan_stok_toko'] ?? ($valMap['keterangan_kendala_stok_tinter_toko'] ?? ($valMap['keterangan'] ?? '-'))));
+
+                        $liveRawRows[] = [
+                            'submission_date' => $transDate,
+                            'tgl_catat' => $tglCatat,
+                            'region' => $region,
+                            'area' => $area,
+                            'sap' => $sap,
+                            'store_name' => $storeName,
+                            'keterangan' => $keterangan,
+                            'brand' => $rawBrand,
+                            'produk' => $produk,
+                            'warna' => $warna,
+                            'kemasan_galon' => $kemasanGalon,
+                            'qty_galon' => $qtyGalon,
+                            'kemasan_pail' => $kemasanPail,
+                            'qty_pail' => $qtyPail,
+                            'volume_liter' => $volL,
+                            'conf' => '⚡ LIVE',
+                            'is_live' => true,
+                            'submission_code' => $sub->submission_code,
+                        ];
+
+                        if ($rawBrand === 'Dulux') {
+                            $liveDuluxTotal += $volL;
+                        } elseif ($rawBrand === 'Catylac Smart Choice') {
+                            $liveCatylacScTotal += $volL;
+                        } else {
+                            $liveCatylacTotal += $volL;
+                        }
+                        $liveGrandTotal += $volL;
+
+                        $stKey = trim($sap) . '---' . strtoupper(trim($storeName));
+                        if (!isset($liveStoreTotals[$stKey])) {
+                            $liveStoreTotals[$stKey] = [
+                                'sap' => $sap,
+                                'store_name' => $storeName,
+                                'region' => $region,
+                                'area' => $area,
+                                'dulux_vol' => 0.0,
+                                'catylac_sc_vol' => 0.0,
+                                'catylac_vol' => 0.0,
+                                'total_vol' => 0.0,
+                            ];
+                        }
+                        if ($rawBrand === 'Dulux') {
+                            $liveStoreTotals[$stKey]['dulux_vol'] += $volL;
+                        } elseif ($rawBrand === 'Catylac Smart Choice') {
+                            $liveStoreTotals[$stKey]['catylac_sc_vol'] += $volL;
+                        } else {
+                            $liveStoreTotals[$stKey]['catylac_vol'] += $volL;
+                        }
+                        $liveStoreTotals[$stKey]['total_vol'] += $volL;
+                    }
+                } catch (\Throwable $e) {
+                    \Log::warning("Live stock submissions query failed: " . $e->getMessage());
+                }
 
                 $where = ["month BETWEEN ? AND ?"];
                 $params = [$sMonth, $eMonth];
@@ -6063,7 +6211,7 @@ class PrincipalPortalController extends Controller
                         LEFT JOIN (
                             SELECT sap,
                                    SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_offtake,
-                                   SUM(CASE WHEN (brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%') THEN volume_liter ELSE 0 END) as catylac_offtake,
+                                   SUM(CASE WHEN brand = 'Catylac' THEN volume_liter ELSE 0 END) as catylac_offtake,
                                    SUM(volume_liter) as total_offtake
                             FROM offtake_db.offtake_raw
                             WHERE month BETWEEN {$sMonth} AND {$eMonth}
@@ -6076,15 +6224,11 @@ class PrincipalPortalController extends Controller
                     ";
 
                     $summGrandSql = "
-                        SELECT SUM(s.volume_liter) as total_stock,
-                               COALESCE(SUM(o.total_offtake), 0) as total_offtake
+                        SELECT 
+                            SUM(s.volume_liter) as total_stock,
+                            COALESCE(SUM(o.volume_liter), 0) as total_offtake
                         FROM stock_raw s
-                        LEFT JOIN (
-                            SELECT sap, SUM(volume_liter) as total_offtake
-                            FROM offtake_db.offtake_raw
-                            WHERE month BETWEEN {$sMonth} AND {$eMonth}
-                            GROUP BY sap
-                        ) o ON s.sap = o.sap
+                        LEFT JOIN offtake_db.offtake_raw o ON s.sap = o.sap AND o.month BETWEEN {$sMonth} AND {$eMonth}
                         WHERE {$whereSql}
                     ";
                 } else {
@@ -6120,8 +6264,7 @@ class PrincipalPortalController extends Controller
                 $summGrand = $summGrandStmt->fetch(\PDO::FETCH_ASSOC) ?: [];
                 $totStk = (float)($summGrand['total_stock'] ?? 0);
                 $totOff = (float)($summGrand['total_offtake'] ?? 0);
-                $avgScm = $totOff > 0 ? round($totStk / $totOff, 2) : 0;
-
+                
                 // 3. Raw Data Submissions (16 Columns matching Excel)
                 $rawOffset = ($rawPage - 1) * $perPage;
                 $rawCountSql = "SELECT COUNT(*) FROM stock_raw WHERE $whereSql";
@@ -6142,14 +6285,89 @@ class PrincipalPortalController extends Controller
                 $rawStmt->execute($params);
                 $rawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC);
 
+                // Merge live submissions into Pivotable
+                if (!empty($liveStoreTotals)) {
+                    $unmatchedPivotStores = $liveStoreTotals;
+                    foreach ($pivotStores as &$ps) {
+                        $k = trim($ps['sap'] ?? '') . '---' . strtoupper(trim($ps['store_name'] ?? ''));
+                        if (isset($unmatchedPivotStores[$k])) {
+                            $ps['dulux_vol'] = (float)($ps['dulux_vol'] ?? 0) + $unmatchedPivotStores[$k]['dulux_vol'];
+                            $ps['catylac_sc_vol'] = (float)($ps['catylac_sc_vol'] ?? 0) + $unmatchedPivotStores[$k]['catylac_sc_vol'];
+                            $ps['catylac_vol'] = (float)($ps['catylac_vol'] ?? 0) + $unmatchedPivotStores[$k]['catylac_vol'];
+                            $ps['total_vol'] = (float)($ps['total_vol'] ?? 0) + $unmatchedPivotStores[$k]['total_vol'];
+                            unset($unmatchedPivotStores[$k]);
+                        }
+                    }
+                    unset($ps);
+
+                    if (!empty($unmatchedPivotStores) && $stockPage === 1) {
+                        $newStores = [];
+                        foreach ($unmatchedPivotStores as $lst) {
+                            $newStores[] = $lst;
+                            $totalPivotStores++;
+                        }
+                        $pivotStores = array_merge($newStores, $pivotStores);
+                    }
+                }
+
+                // Merge live submissions into Summ
+                if (!empty($liveStoreTotals)) {
+                    $unmatchedSummStores = $liveStoreTotals;
+                    foreach ($summStores as &$ss) {
+                        $k = trim($ss['sap'] ?? '') . '---' . strtoupper(trim($ss['store_name'] ?? ''));
+                        if (isset($unmatchedSummStores[$k])) {
+                            $ss['dulux_stock'] = (float)($ss['dulux_stock'] ?? 0) + $unmatchedSummStores[$k]['dulux_vol'];
+                            $ss['catylac_stock'] = (float)($ss['catylac_stock'] ?? 0) + $unmatchedSummStores[$k]['catylac_vol'] + $unmatchedSummStores[$k]['catylac_sc_vol'];
+                            $ss['total_stock'] = (float)($ss['total_stock'] ?? 0) + $unmatchedSummStores[$k]['total_vol'];
+                            unset($unmatchedSummStores[$k]);
+                        }
+                    }
+                    unset($ss);
+
+                    if (!empty($unmatchedSummStores) && $summPage === 1) {
+                        $newSumm = [];
+                        foreach ($unmatchedSummStores as $lst) {
+                            $newSumm[] = [
+                                'sap' => $lst['sap'],
+                                'store_name' => $lst['store_name'],
+                                'region' => $lst['region'],
+                                'area' => $lst['area'],
+                                'category_store' => '-',
+                                'dulux_stock' => $lst['dulux_vol'],
+                                'catylac_stock' => $lst['catylac_vol'] + $lst['catylac_sc_vol'],
+                                'total_stock' => $lst['total_vol'],
+                                'dulux_offtake' => 0,
+                                'catylac_offtake' => 0,
+                                'total_offtake' => 0,
+                            ];
+                        }
+                        $summStores = array_merge($newSumm, $summStores);
+                    }
+                }
+                $totStk += $liveGrandTotal;
+                $avgScm = $totOff > 0 ? round($totStk / $totOff, 2) : 0;
+
+                // Merge live submissions into Raw Rows
+                if (!empty($liveRawRows)) {
+                    if ($rawPage === 1) {
+                        $rawRows = array_merge($liveRawRows, $rawRows);
+                    }
+                    $totalRaw += count($liveRawRows);
+                }
+
+                $grandTotalDulux = (float)($pivotGrand['grand_total_dulux'] ?? 0) + $liveDuluxTotal;
+                $grandTotalCatylacSc = (float)($pivotGrand['grand_total_catylac_sc'] ?? 0) + $liveCatylacScTotal;
+                $grandTotalCatylac = (float)($pivotGrand['grand_total_catylac'] ?? 0) + $liveCatylacTotal;
+                $grandTotalAll = (float)($pivotGrand['grand_total_all'] ?? 0) + $liveGrandTotal;
+
                 return [
                     'months' => $activeMonths,
                     'pivotable' => [
                         'rows' => $pivotStores,
-                        'grand_total_dulux' => (float)($pivotGrand['grand_total_dulux'] ?? 0),
-                        'grand_total_catylac_sc' => (float)($pivotGrand['grand_total_catylac_sc'] ?? 0),
-                        'grand_total_catylac' => (float)($pivotGrand['grand_total_catylac'] ?? 0),
-                        'grand_total_all' => (float)($pivotGrand['grand_total_all'] ?? 0),
+                        'grand_total_dulux' => $grandTotalDulux,
+                        'grand_total_catylac_sc' => $grandTotalCatylacSc,
+                        'grand_total_catylac' => $grandTotalCatylac,
+                        'grand_total_all' => $grandTotalAll,
                         'total_stores' => $totalPivotStores,
                         'total' => $totalPivotStores,
                         'page' => $stockPage,
@@ -6288,18 +6506,21 @@ class PrincipalPortalController extends Controller
             'top_stores' => [],
         ];
 
-        if (!file_exists($p26)) {
-            return $emptyResult;
-        }
+        $cacheKey = 'stock_monthly_comp_v4_' . md5($template->id . '_' . $targetMonth . '_' . $currentYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $selectedBrand . '_' . $search);
 
-        $cacheKey = 'stock_monthly_comp_v2_' . md5($template->id . '_' . $targetMonth . '_' . $currentYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $selectedBrand . '_' . $search);
-
-        return Cache::remember($cacheKey, 600, function() use ($p26, $p25, $targetMonth, $currentYear, $previousYear, $monthName, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedBrand, $search, $emptyResult) {
+        return Cache::remember($cacheKey, 300, function() use ($template, $p26, $p25, $targetMonth, $currentYear, $previousYear, $monthName, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedBrand, $search, $emptyResult) {
             try {
-                $pdo = new \PDO("sqlite:" . $p26);
-                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                $pdo = null;
+                if (file_exists($p26)) {
+                    try {
+                        $pdo = new \PDO("sqlite:" . $p26);
+                        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                    } catch (\Throwable $e) {
+                        $pdo = null;
+                    }
+                }
 
-                $has2025 = file_exists($p25);
+                $has2025 = ($pdo && file_exists($p25));
                 if ($has2025) {
                     try {
                         $pdo->exec("ATTACH DATABASE '{$p25}' AS db25");
@@ -6361,24 +6582,179 @@ class PrincipalPortalController extends Controller
                 $whereCySql = implode(' AND ', $whereCy);
                 $wherePySql = implode(' AND ', $wherePy);
 
-                // 1. Total KPI & Brand Breakdown for Current Year
-                $kpiStmtCy = $pdo->prepare("
-                    SELECT 
-                        SUM(volume_liter) as total_vol,
-                        COUNT(DISTINCT sap || '---' || store_name) as total_stores,
-                        SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_vol,
-                        SUM(CASE WHEN (brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%') THEN volume_liter ELSE 0 END) as catylac_vol
-                    FROM stock_raw
-                    WHERE $whereCySql
-                ");
-                $kpiStmtCy->execute($paramsCy);
-                $kpiCy = $kpiStmtCy->fetch(\PDO::FETCH_ASSOC) ?: [];
-                $cyVolume = (float)($kpiCy['total_vol'] ?? 0);
-                $cyStores = (int)($kpiCy['total_stores'] ?? 0);
-                $duluxVol = (float)($kpiCy['dulux_vol'] ?? 0);
-                $catylacVol = (float)($kpiCy['catylac_vol'] ?? 0);
+                // 1. Total KPI & Brand Breakdown for Current Year from SQLite
+                $cyVolume = 0.0;
+                $cyStores = 0;
+                $duluxVol = 0.0;
+                $catylacVol = 0.0;
+                $cyDailyRaw = [];
+                $cyStoresAll = [];
 
-                // Total KPI for Previous Year
+                if ($pdo) {
+                    $kpiStmtCy = $pdo->prepare("
+                        SELECT 
+                            SUM(volume_liter) as total_vol,
+                            COUNT(DISTINCT sap || '---' || store_name) as total_stores,
+                            SUM(CASE WHEN brand = 'Dulux' THEN volume_liter ELSE 0 END) as dulux_vol,
+                            SUM(CASE WHEN (brand LIKE '%Catylac%' OR brand LIKE '%Smart Choice%') THEN volume_liter ELSE 0 END) as catylac_vol
+                        FROM stock_raw
+                        WHERE $whereCySql
+                    ");
+                    $kpiStmtCy->execute($paramsCy);
+                    $kpiCy = $kpiStmtCy->fetch(\PDO::FETCH_ASSOC) ?: [];
+                    $cyVolume = (float)($kpiCy['total_vol'] ?? 0);
+                    $cyStores = (int)($kpiCy['total_stores'] ?? 0);
+                    $duluxVol = (float)($kpiCy['dulux_vol'] ?? 0);
+                    $catylacVol = (float)($kpiCy['catylac_vol'] ?? 0);
+
+                    // 2. Daily Trend Query (Grouped by Day of Month: 1..31)
+                    $dayExprCy = "CAST(COALESCE(NULLIF(substr(submission_date, 9, 2), ''), NULLIF(substr(tgl_catat, 9, 2), ''), '20') AS INTEGER)";
+                    $dailyStmtCy = $pdo->prepare("
+                        SELECT 
+                            $dayExprCy as day_of_month,
+                            SUM(volume_liter) as daily_vol
+                        FROM stock_raw
+                        WHERE $whereCySql
+                        GROUP BY day_of_month
+                        ORDER BY day_of_month ASC
+                    ");
+                    $dailyStmtCy->execute($paramsCy);
+                    $cyDailyRaw = $dailyStmtCy->fetchAll(\PDO::FETCH_KEY_PAIR) ?: [];
+
+                    // Store-level comparison in SQLite
+                    $storeStmtCy = $pdo->prepare("
+                        SELECT sap, store_name, MIN(region) as region, MIN(area) as area, MIN(derp) as channel, SUM(volume_liter) as cy_vol
+                        FROM stock_raw
+                        WHERE $whereCySql
+                        GROUP BY sap, store_name
+                        ORDER BY cy_vol DESC
+                    ");
+                    $storeStmtCy->execute($paramsCy);
+                    $cyStoresAll = $storeStmtCy->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+                }
+
+                // 2. Merge Live Submissions from PostgreSQL
+                try {
+                    $startDate = \Carbon\Carbon::createFromDate($currentYear, $targetMonth, 1)->startOfMonth();
+                    $endDate   = \Carbon\Carbon::createFromDate($currentYear, $targetMonth, 1)->endOfMonth();
+                    $areaToRsm = $this->getDuluxAreaToRsmMap();
+
+                    $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
+                    $liveSubs = $liveQuery->select(['id', 'submission_code', 'report_template_id', 'work_location_id', 'employee_id', 'submitted_at', 'created_at', 'status'])
+                        ->with(['workLocation', 'workLocation.branch', 'values', 'values.formField', 'employee'])
+                        ->get();
+
+                    $storeMap = [];
+                    foreach ($cyStoresAll as $s) {
+                        $sKey = ($s['sap'] ?: '-') . '---' . $s['store_name'];
+                        $storeMap[$sKey] = [
+                            'sap' => $s['sap'],
+                            'store_name' => $s['store_name'],
+                            'region' => $s['region'] ?: '-',
+                            'area' => $s['area'] ?: '-',
+                            'channel' => !empty($s['channel']) ? $s['channel'] : 'Retail',
+                            'cy_vol' => (float)$s['cy_vol'],
+                        ];
+                    }
+
+                    foreach ($liveSubs as $sub) {
+                        $valMap = [];
+                        foreach ($sub->values as $v) {
+                            $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
+                            if ($v->field_name) {
+                                $valMap[$v->field_name] = $val;
+                                $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
+                                $valMap[$slug] = $val;
+                            }
+                            if ($v->formField) {
+                                if ($v->formField->field_name) {
+                                    $valMap[$v->formField->field_name] = $val;
+                                    $slugF = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_name), '_'));
+                                    $valMap[$slugF] = $val;
+                                }
+                                if ($v->formField->field_label) {
+                                    $slugL = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_label), '_'));
+                                    $valMap[$slugL] = $val;
+                                }
+                            }
+                        }
+
+                        $produk = trim((string)($valMap['produk_stock_end'] ?? ($valMap['produk'] ?? ($valMap['pilih_produk_dulux_catylac_yang_dicek'] ?? ($valMap['nama_produk'] ?? '')))));
+                        if (empty($produk)) {
+                            $produk = 'Dulux / Catylac Product';
+                        }
+
+                        $rawBrand = trim((string)($valMap['brand'] ?? ($valMap['brand_cat'] ?? '')));
+                        if (empty($rawBrand)) {
+                            if (stripos($produk, 'Smart Choice') !== false) {
+                                $rawBrand = 'Catylac Smart Choice';
+                            } elseif (stripos($produk, 'Catylac') !== false) {
+                                $rawBrand = 'Catylac';
+                            } elseif (stripos($produk, 'Maxilite') !== false) {
+                                $rawBrand = 'Maxilite';
+                            } else {
+                                $rawBrand = 'Dulux';
+                            }
+                        }
+
+                        $isDulux = (stripos($rawBrand, 'Dulux') !== false);
+                        $isCatylac = (stripos($rawBrand, 'Catylac') !== false || stripos($rawBrand, 'Smart Choice') !== false);
+
+                        if ($selectedBrand === 'DULUX' && !$isDulux) {
+                            continue;
+                        }
+                        if ($selectedBrand === 'CATYLAC' && !$isCatylac) {
+                            continue;
+                        }
+
+                        $qtyGalon = (float)($valMap['stok_qty_galon'] ?? ($valMap['kuantiti_galon'] ?? ($valMap['qty_galon'] ?? ($valMap['stok_fisik_kemasan_galon_qty'] ?? 0))));
+                        $qtyPail  = (float)($valMap['stok_qty_pail'] ?? ($valMap['kuantiti_pail'] ?? ($valMap['qty_pail'] ?? ($valMap['stok_fisik_kemasan_pail_qty'] ?? 0))));
+                        $volLiter = (float)($valMap['total_volume_stok_liter'] ?? ($valMap['volume_liter'] ?? 0));
+                        if ($volLiter <= 0) {
+                            $volLiter = ($qtyGalon * 2.5) + ($qtyPail * 20.0);
+                        }
+
+                        $subDate = $sub->submitted_at ? \Carbon\Carbon::parse($sub->submitted_at) : $sub->created_at;
+                        $day = (int)$subDate->format('j');
+
+                        $cyVolume += $volLiter;
+                        if ($isDulux) {
+                            $duluxVol += $volLiter;
+                        }
+                        if ($isCatylac) {
+                            $catylacVol += $volLiter;
+                        }
+
+                        $cyDailyRaw[$day] = ($cyDailyRaw[$day] ?? 0) + $volLiter;
+
+                        $storeName = $sub->workLocation?->name ?? 'Toko Tidak Terdaftar';
+                        $sap = $sub->workLocation?->code ?? ($sub->workLocation?->store_code ?? '-');
+                        $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? 'Surabaya'));
+                        $cleanA = strtoupper(trim($area));
+                        $region = $areaToRsm[$cleanA] ?? ($sub->workLocation?->region ?? 'East Java');
+
+                        $sKey = ($sap ?: '-') . '---' . $storeName;
+                        if (!isset($storeMap[$sKey])) {
+                            $storeMap[$sKey] = [
+                                'sap' => $sap,
+                                'store_name' => $storeName,
+                                'region' => $region,
+                                'area' => $area,
+                                'channel' => 'Retail',
+                                'cy_vol' => 0.0,
+                            ];
+                        }
+                        $storeMap[$sKey]['cy_vol'] += $volLiter;
+                    }
+
+                    $cyStoresAll = array_values($storeMap);
+                    usort($cyStoresAll, fn($a, $b) => $b['cy_vol'] <=> $a['cy_vol']);
+                    $cyStores = count($cyStoresAll);
+                } catch (\Throwable $e) {
+                    \Log::error("Error merging live submissions into stock monthly compare: " . $e->getMessage());
+                }
+
+                // Total KPI for Previous Year (SQLite db25)
                 $pyVolume = 0.0;
                 $pyStores = 0;
                 $pyDuluxVol = 0.0;
@@ -6411,20 +6787,6 @@ class PrincipalPortalController extends Controller
                 $pyAvg = $pyStores > 0 ? ($pyVolume / $pyStores) : 0;
                 $duluxPct = $cyVolume > 0 ? ($duluxVol / $cyVolume) * 100 : 0;
                 $catylacPct = $cyVolume > 0 ? ($catylacVol / $cyVolume) * 100 : 0;
-
-                // 2. Daily Trend Query (Grouped by Day of Month: 1..31)
-                $dayExprCy = "CAST(COALESCE(NULLIF(substr(submission_date, 9, 2), ''), NULLIF(substr(tgl_catat, 9, 2), ''), '20') AS INTEGER)";
-                $dailyStmtCy = $pdo->prepare("
-                    SELECT 
-                        $dayExprCy as day_of_month,
-                        SUM(volume_liter) as daily_vol
-                    FROM stock_raw
-                    WHERE $whereCySql
-                    GROUP BY day_of_month
-                    ORDER BY day_of_month ASC
-                ");
-                $dailyStmtCy->execute($paramsCy);
-                $cyDailyRaw = $dailyStmtCy->fetchAll(\PDO::FETCH_KEY_PAIR) ?: [];
 
                 $pyDailyRaw = [];
                 if ($has2025) {
@@ -6476,17 +6838,6 @@ class PrincipalPortalController extends Controller
                         'growth' => $growth,
                     ];
                 }
-
-                // 3. Store-level comparison in that specific month (Top 10 Stores)
-                $storeStmtCy = $pdo->prepare("
-                    SELECT sap, store_name, MIN(region) as region, MIN(area) as area, MIN(derp) as channel, SUM(volume_liter) as cy_vol
-                    FROM stock_raw
-                    WHERE $whereCySql
-                    GROUP BY sap, store_name
-                    ORDER BY cy_vol DESC
-                ");
-                $storeStmtCy->execute($paramsCy);
-                $cyStoresAll = $storeStmtCy->fetchAll(\PDO::FETCH_ASSOC);
 
                 $pyStoresMap = [];
                 if ($has2025) {

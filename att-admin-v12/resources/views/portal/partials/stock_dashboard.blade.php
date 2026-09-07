@@ -24,6 +24,15 @@
                 <span>Raw Data Submissions</span>
                 <span class="badge-count">{{ number_format($stockData['submissions']['total'] ?? 0) }} Baris</span>
             </button>
+            <button type="button" class="stock-nav-btn {{ ($activeTab ?? 'monthly') === 'live' ? 'active' : '' }}" id="btn_stock_tab_live" onclick="switchStockTab('live')">
+                <i class="fa-solid fa-inbox" style="font-size: 0.95rem; color: #2563eb;"></i>
+                <span>Data Laporan Masuk</span>
+                @if(isset($submissions) && $submissions->total() > 0)
+                    <span class="badge-count" style="background: #2563eb; color: #ffffff;">{{ $submissions->total() }}</span>
+                @elseif(isset($liveSubmissionsCount) && $liveSubmissionsCount > 0)
+                    <span class="badge-count" style="background: #2563eb; color: #ffffff;">{{ $liveSubmissionsCount }}</span>
+                @endif
+            </button>
         </div>
 
         <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
@@ -823,6 +832,321 @@
         </div>
     </div>
 
+    <!-- ========================================================================= -->
+    <!-- PANE 5: DATA LAPORAN MASUK TERKINI (LIVE SUBMISSIONS & APPROVAL)          -->
+    <!-- ========================================================================= -->
+    <div id="pane_stock_live" class="stock-pane" style="{{ ($activeTab ?? 'monthly') === 'live' ? 'display: block;' : 'display: none;' }}">
+        <div class="stock-card">
+            <div class="stock-card-header">
+                <div>
+                    <h3 class="stock-card-title">
+                        <i class="fa-solid fa-clipboard-check" style="color: #0b3d88;"></i>
+                        Data Laporan Stock End Masuk Terkini (Live Submissions & Approval)
+                    </h3>
+                    <div class="stock-card-sub">
+                        Daftar transaksi Stock Opname Bulanan & Tinter Dulux yang dikirimkan langsung oleh Promotor / SPG melalui aplikasi mobile untuk diverifikasi dan disetujui.
+                    </div>
+                </div>
+
+                <div class="stock-header-meta">
+                    <div style="font-size: 0.78rem; font-weight: 600; color: #475569; display: inline-flex; align-items: center; gap: 6px; background: #f8fafc; padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <i class="fa-solid fa-arrows-left-right" style="color: #0b3d88;"></i> Geser tabel untuk melihat seluruh parameter & kolom aksi
+                    </div>
+                    <div class="meta-pill" style="background: #eff6ff; border: 1px solid #bfdbfe;">
+                        <span class="meta-lbl" style="color: #1e40af;">Total Laporan:</span>
+                        <strong class="meta-val" style="color: #0b3d88;">{{ isset($submissions) ? number_format($submissions->total()) : (isset($liveSubmissionsCount) ? number_format($liveSubmissionsCount) : 0) }} Laporan</strong>
+                    </div>
+                </div>
+            </div>
+
+            @if(isset($submissions) && $submissions->isNotEmpty())
+                <div class="stock-table-viewport" style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
+                    <table class="stock-table" style="min-width: 1750px; width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px; text-align: center;">No</th>
+                                <th style="width: 140px;">Kode Laporan</th>
+                                <th style="min-width: 130px;">Waktu Submit</th>
+                                <th style="min-width: 170px;">Promotor / SPG</th>
+                                <th style="min-width: 180px;">Nama Toko / Outlet</th>
+                                <th style="min-width: 130px;">Area & RSM</th>
+                                <th style="min-width: 160px;">Produk & Brand</th>
+                                <th style="min-width: 120px;">Base / Warna</th>
+                                <th style="min-width: 130px; text-align: right;">Stok Fisik Kemasan</th>
+                                <th style="min-width: 110px; text-align: right; background: #0b3d88 !important; color: #fff !important;">Total Volume</th>
+                                <th style="min-width: 160px;">Mesin & Tinta Tinter</th>
+                                <th style="min-width: 130px;">Akses Gudang</th>
+                                <th style="min-width: 140px;">Keterangan Kendala</th>
+                                <th style="text-align: center; width: 100px;">Radius GPS</th>
+                                <th style="text-align: center; width: 120px;">Status</th>
+                                <th style="text-align: center; width: 160px; min-width: 160px;" class="col-sticky-action">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($submissions as $idx => $sub)
+                                @php
+                                    $valMap = [];
+                                    foreach ($sub->values as $v) {
+                                        $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
+                                        if ($v->field_name) {
+                                            $valMap[$v->field_name] = $val;
+                                            $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
+                                            $valMap[$slug] = $val;
+                                        }
+                                        if ($v->formField) {
+                                            if ($v->formField->field_name) {
+                                                $valMap[$v->formField->field_name] = $val;
+                                                $slugF = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_name), '_'));
+                                                $valMap[$slugF] = $val;
+                                            }
+                                            if ($v->formField->field_label) {
+                                                $slugL = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_label), '_'));
+                                                $valMap[$slugL] = $val;
+                                            }
+                                        }
+                                    }
+
+                                    $store = $sub->workLocation?->name ?? 'Toko Tidak Terdaftar';
+                                    $sap = $sub->workLocation?->code ?? ($sub->workLocation?->store_code ?? '-');
+                                    $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? '-'));
+                                    $region = $sub->workLocation?->region ?? '-';
+                                    $empName = $sub->employee?->full_name ?? ($sub->employee?->name ?? 'Petugas');
+                                    $empNik = $sub->employee?->nik ?? ($sub->employee?->employee_no ?? '-');
+
+                                    $produk = trim((string)($valMap['produk_stock_end'] ?? ($valMap['produk'] ?? ($valMap['pilih_produk_dulux_catylac_yang_dicek'] ?? ($valMap['nama_produk'] ?? '')))));
+                                    if (empty($produk)) {
+                                        $produk = 'Dulux / Catylac Product';
+                                    }
+
+                                    $rawBrand = trim((string)($valMap['brand'] ?? ($valMap['brand_cat'] ?? '')));
+                                    if (empty($rawBrand)) {
+                                        if (stripos($produk, 'Smart Choice') !== false) {
+                                            $rawBrand = 'Catylac Smart Choice';
+                                        } elseif (stripos($produk, 'Catylac') !== false) {
+                                            $rawBrand = 'Catylac';
+                                        } elseif (stripos($produk, 'Maxilite') !== false) {
+                                            $rawBrand = 'Maxilite';
+                                        } else {
+                                            $rawBrand = 'Dulux';
+                                        }
+                                    }
+
+                                    $baseWarna = trim((string)($valMap['base_tipe_warna'] ?? ($valMap['base_warna'] ?? ($valMap['warna'] ?? ($valMap['base'] ?? '-')))));
+
+                                    $qtyGalon = (float)($valMap['stok_fisik_kemasan_galon_qty'] ?? ($valMap['stok_qty_galon'] ?? ($valMap['kuantiti_galon'] ?? ($valMap['qty_galon'] ?? 0))));
+                                    $qtyPail = (float)($valMap['stok_fisik_kemasan_pail_qty'] ?? ($valMap['stok_qty_pail'] ?? ($valMap['kuantiti_pail'] ?? ($valMap['qty_pail'] ?? 0))));
+
+                                    $volLiter = (float)($valMap['total_volume_stok_liter'] ?? ($valMap['volume_liter'] ?? 0));
+                                    if ($volLiter <= 0) {
+                                        $volLiter = ($qtyGalon * 2.5) + ($qtyPail * 20.0);
+                                    }
+
+                                    $tinterKat = trim((string)($valMap['kategori_tinter_mesin_tinting'] ?? ($valMap['kategori_tinter'] ?? ($valMap['mesin_tinting'] ?? ''))));
+                                    $tinterWarna = trim((string)($valMap['tipe_tinter_warna_pasta_pewarna'] ?? ($valMap['tipe_tinter_warna'] ?? ($valMap['warna_tinter'] ?? ''))));
+                                    $tinterQty = trim((string)($valMap['kuantiti_jumlah_kaleng_tinta_tinter'] ?? ($valMap['qty_kaleng_tinta'] ?? ($valMap['kuantiti_tinta'] ?? ''))));
+                                    $tinterStatus = trim((string)($valMap['status_ketersediaan_tinter_di_toko'] ?? ($valMap['status_ketersediaan_tinter'] ?? ($valMap['status_tinter'] ?? ''))));
+                                    $gudangAkses = trim((string)($valMap['status_akses_pengecekan_gudang_toko'] ?? ($valMap['status_akses_gudang'] ?? ($valMap['akses_gudang'] ?? ''))));
+                                    $keterangan = trim((string)($valMap['keterangan_kendala_stok_tinter_toko'] ?? ($valMap['keterangan_stok_toko'] ?? ($valMap['keterangan'] ?? ''))));
+
+                                    $status = $sub->status ?? 'pending';
+                                @endphp
+                                <tr>
+                                    <td style="text-align: center; color: #64748b; font-size: 0.8rem; font-weight: 700;">
+                                        {{ $submissions->firstItem() + $idx }}
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" style="font-family: monospace; font-weight: 700; font-size: 0.82rem; color: #0F52BA; text-decoration: none; background: rgba(15, 82, 186, 0.08); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(15, 82, 186, 0.2); display: inline-block;">
+                                            {{ $sub->submission_code }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                            {{ $sub->submitted_at ? $sub->submitted_at->translatedFormat('d M Y') : ($sub->created_at ? $sub->created_at->translatedFormat('d M Y') : '-') }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            {{ $sub->submitted_at ? $sub->submitted_at->format('H:i') : ($sub->created_at ? $sub->created_at->format('H:i') : '-') }} WIB
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                            {{ $empName }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b; font-family: monospace;">
+                                            {{ $empNik }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                            {{ $store }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            SAP: <span class="sap-pill" style="font-size: 0.72rem; padding: 1px 6px;">{{ $sap }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 600; color: #1e293b; font-size: 0.82rem;">
+                                            {{ $area }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            <span class="region-badge {{ strtolower($region) }}" style="font-size: 0.7rem; padding: 1px 5px;">{{ $region }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <span class="brand-tag {{ strtolower($rawBrand) === 'dulux' ? 'brand-tag-dulux' : 'brand-tag-catylac' }}" style="font-size: 0.7rem; padding: 1px 5px;">
+                                                {{ $rawBrand }}
+                                            </span>
+                                        </div>
+                                        <div style="font-size: 0.82rem; font-weight: 600; color: #1e293b; margin-top: 2px;">
+                                            {{ $produk }}
+                                        </div>
+                                    </td>
+                                    <td style="font-size: 0.82rem; color: #334155;">
+                                        <span style="display: inline-block; padding: 2px 8px; background: #f1f5f9; border-radius: 6px; font-weight: 600; font-size: 0.78rem;">
+                                            {{ $baseWarna }}
+                                        </span>
+                                    </td>
+                                    <td style="text-align: right; font-size: 0.8rem;">
+                                        @if($qtyGalon > 0)
+                                            <div><strong>{{ number_format($qtyGalon) }}</strong> Galon</div>
+                                        @endif
+                                        @if($qtyPail > 0)
+                                            <div><strong>{{ number_format($qtyPail) }}</strong> Pail</div>
+                                        @endif
+                                        @if($qtyGalon <= 0 && $qtyPail <= 0)
+                                            <span style="color: #94a3b8;">-</span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: right; font-weight: 800; color: #0b3d88; font-size: 0.88rem; background: #f0f7ff;">
+                                        {{ number_format($volLiter, 2) }} L
+                                    </td>
+                                    <td style="font-size: 0.8rem; color: #334155;">
+                                        @if(!empty($tinterKat) || !empty($tinterWarna) || !empty($tinterQty))
+                                            <div><strong>{{ $tinterKat ?: 'Tinter' }}</strong>: {{ $tinterWarna ?: '-' }}</div>
+                                            <div style="font-size: 0.74rem; color: #64748b;">
+                                                Qty: <strong>{{ $tinterQty ?: '0' }}</strong> kaleng
+                                                @if(!empty($tinterStatus))
+                                                    • <span style="color: #059669; font-weight: 600;">{{ $tinterStatus }}</span>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <span style="color: #94a3b8;">-</span>
+                                        @endif
+                                    </td>
+                                    <td style="font-size: 0.78rem; color: #475569;">
+                                        {{ $gudangAkses ?: '-' }}
+                                    </td>
+                                    <td style="font-size: 0.78rem; color: #475569; max-width: 160px; white-space: normal;">
+                                        {{ $keterangan ?: '-' }}
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if($sub->is_within_radius)
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #16a34a; background: #dcfce7; padding: 0.25rem 0.55rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-circle-check"></i> Valid
+                                            </span>
+                                        @else
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.55rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> Luar
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if(in_array($status, ['approved', 'verified']))
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-circle-check"></i> Terverifikasi
+                                            </span>
+                                        @elseif($status === 'rejected')
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-circle-xmark"></i> Ditolak
+                                            </span>
+                                        @else
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-clock"></i> Menunggu
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;" class="col-sticky-action">
+                                        <div style="display: inline-flex; align-items: center; gap: 4px; justify-content: center; white-space: nowrap;">
+                                            <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" class="btn-action-view" title="Lihat Detail & Bukti Foto">
+                                                <i class="fa-solid fa-eye"></i> Detail
+                                            </a>
+                                            @if(in_array($status, ['pending', 'submitted']))
+                                                <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Setujui laporan {{ $sub->submission_code }}?')">
+                                                    @csrf
+                                                    <input type="hidden" name="status" value="approved">
+                                                    <button type="submit" class="btn-action-quick-approve" title="Setujui Laporan">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </button>
+                                                </form>
+                                                <button type="button" class="btn-action-quick-reject" onclick="openStockRejectModal('{{ $sub->id }}', '{{ $sub->submission_code }}')" title="Tolak Laporan">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            @elseif(in_array($status, ['approved', 'verified']))
+                                                <button type="button" class="btn-action-quick-reject" onclick="openStockRejectModal('{{ $sub->id }}', '{{ $sub->submission_code }}')" title="Batalkan / Tolak Laporan">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            @elseif($status === 'rejected')
+                                                <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Ubah status menjadi Disetujui?')">
+                                                    @csrf
+                                                    <input type="hidden" name="status" value="approved">
+                                                    <button type="submit" class="btn-action-quick-approve" title="Setujui Laporan">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                @if($submissions->hasPages())
+                    <div style="padding: 1rem 1.25rem; background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                        {{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->links('portal.pagination') }}
+                    </div>
+                @endif
+            @else
+                <div style="text-align: center; padding: 3.5rem 1rem; color: var(--text-muted);">
+                    <i class="fa-solid fa-boxes-stacked" style="font-size: 2.5rem; margin-bottom: 0.75rem; color: #cbd5e1; display: block;"></i>
+                    <div style="font-weight: 700; font-size: 1rem; color: #1e293b;">Tidak Ada Data Laporan Masuk</div>
+                    <p style="font-size: 0.85rem; max-width: 440px; margin: 0.35rem auto 0; color: #64748b;">
+                        Belum ada laporan Stock End & Tinter yang dikirimkan melalui aplikasi mobile pada filter periode / area yang dipilih.
+                    </p>
+                </div>
+            @endif
+        </div>
+    </div>
+
+    <!-- REJECT MODAL -->
+    <div id="stock_reject_modal" class="portal-modal-backdrop" style="display: none;">
+        <div class="portal-modal-box">
+            <div class="portal-modal-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-circle-xmark" style="color: #dc2626; font-size: 1.25rem;"></i>
+                    <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #0f172a;">Tolak Laporan Stock End</h4>
+                </div>
+                <button type="button" onclick="closeStockRejectModal()" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: #64748b;">&times;</button>
+            </div>
+            <form id="stock_reject_form" method="POST">
+                @csrf
+                <input type="hidden" name="status" value="rejected">
+                <div style="padding: 1.25rem 1.5rem;">
+                    <p style="font-size: 0.88rem; color: #475569; margin-bottom: 0.75rem;">
+                        Anda akan menolak laporan <strong id="stock_reject_code" style="font-family: monospace; color: #0f172a;">-</strong>. Berikan alasan penolakan di bawah ini:
+                    </p>
+                    <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #334155; margin-bottom: 0.35rem;">Alasan Penolakan / Catatan:</label>
+                    <textarea name="verification_notes" rows="3" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.6rem 0.75rem; font-size: 0.88rem; font-family: inherit; resize: vertical; box-sizing: border-box;" placeholder="Contoh: Bukti foto stok kurang jelas, salah input kuantiti, dll." required></textarea>
+                </div>
+                <div style="padding: 1rem 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                    <button type="button" onclick="closeStockRejectModal()" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.84rem; font-weight: 600; cursor: pointer; color: #475569;">Batal</button>
+                    <button type="submit" style="padding: 0.5rem 1.15rem; border-radius: 8px; border: none; background: #dc2626; color: #fff; font-size: 0.84rem; font-weight: 700; cursor: pointer;">Konfirmasi Tolak</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </div>
 
 <!-- STYLES -->
@@ -1149,6 +1473,140 @@
         color: #0f172a;
         padding: 0 6px;
     }
+
+    /* Brand Tags */
+    .brand-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .brand-tag-dulux {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+    .brand-tag-catylac {
+        background: #d1fae5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+    }
+
+    /* Sticky Action Column */
+    .col-sticky-action {
+        position: sticky;
+        right: 0;
+        z-index: 4;
+        background: #ffffff;
+        box-shadow: -3px 0 8px rgba(0, 0, 0, 0.08);
+    }
+    th.col-sticky-action {
+        z-index: 12;
+        background: #0b3d88 !important;
+        color: #ffffff !important;
+    }
+    .stock-table tr:hover td.col-sticky-action {
+        background: #f8fafc !important;
+    }
+
+    /* Quick Action & Modal Styles */
+    .btn-action-view {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0.35rem 0.65rem;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-decoration: none;
+        background: #f1f5f9;
+        color: #0F52BA;
+        border: 1px solid #cbd5e1;
+        transition: all 0.15s ease;
+    }
+    .btn-action-view:hover {
+        background: #0F52BA;
+        color: #ffffff;
+        border-color: #0F52BA;
+    }
+
+    .btn-action-quick-approve {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0.35rem 0.65rem;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        background: #16a34a;
+        color: #ffffff;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(22, 163, 74, 0.2);
+        transition: all 0.15s ease;
+    }
+    .btn-action-quick-approve:hover {
+        background: #15803d;
+        transform: translateY(-1px);
+    }
+
+    .btn-action-quick-reject {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0.35rem 0.65rem;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        background: #dc2626;
+        color: #ffffff;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(220, 38, 38, 0.2);
+        transition: all 0.15s ease;
+    }
+    .btn-action-quick-reject:hover {
+        background: #b91c1c;
+        transform: translateY(-1px);
+    }
+
+    .portal-modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .portal-modal-box {
+        background: #ffffff;
+        border-radius: 16px;
+        width: 90%;
+        max-width: 480px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        overflow: hidden;
+        animation: modalScaleIn 0.2s ease-out;
+    }
+    @keyframes modalScaleIn {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+    .portal-modal-header {
+        padding: 1.15rem 1.5rem;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
 </style>
 
 <!-- JAVASCRIPT TAB SWITCHER & APEXCHARTS INITIALIZATION -->
@@ -1291,4 +1749,20 @@
             }
         @endif
     });
+
+    function openStockRejectModal(subId, subCode) {
+        var modal = document.getElementById('stock_reject_modal');
+        var codeEl = document.getElementById('stock_reject_code');
+        var form = document.getElementById('stock_reject_form');
+        if (!modal || !form) return;
+        if (codeEl) codeEl.innerText = subCode;
+        var baseRoute = "{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => ':id', 'p' => $tenantPrincipal->id]) }}";
+        form.action = baseRoute.replace(':id', subId);
+        modal.style.display = 'flex';
+    }
+
+    function closeStockRejectModal() {
+        var modal = document.getElementById('stock_reject_modal');
+        if (modal) modal.style.display = 'none';
+    }
 </script>

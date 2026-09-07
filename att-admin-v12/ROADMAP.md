@@ -320,6 +320,37 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 
 ---
 
+### 18. Resolusi Laporan Stock End Dulux (Stock Opname Bulanan & Tinter), Tab Data Laporan Masuk & Unifikasi Live Data (7 September 2026)
+- [x] **Investigasi & Analisis Akar Masalah (Root Cause Analysis)**:
+  - **Data Tidak Masuk ke Portal Principal**: Dashboard Stock End sebelumnya (`calculateStockDashboardData` & `calculateStockMonthlyCompareData`) hanya membaca file SQLite statis (`stock_2026.sqlite` yang hanya berisi data historis bulan 1 s/d 7). Data transaksi live dari aplikasi mobile (`RPT-2026...`) disimpan di database utama PostgreSQL (`report_submissions` dan `report_submission_values`) dan belum terhubung ke kalkulasi dashboard stock.
+  - **Ketiadaan Tab Data Masuk & Fitur Approval**: Berbeda dengan modul Offtake, halaman laporan Stock End (`stock_dashboard.blade.php`) belum memiliki tab "Data Laporan Masuk" dan mekanisme verifikasi/approval untuk tim Principal.
+- [x] **Unifikasi Database (PostgreSQL Live Submissions + Historical SQLite)**:
+  - Mengimplementasikan `getLiveSubmissionsQuery()` pada `calculateStockDashboardData` dan `calculateStockMonthlyCompareData` di `PrincipalPortalController.php`.
+  - Normalisasi nama field dinamis dari form input aplikasi mobile:
+    - Produk: `produk_stock_end`, `produk`, `pilih_produk_dulux_catylac_yang_dicek`, `nama_produk`.
+    - Brand: `brand`, `brand_cat`, dengan deteksi otomatis (*Dulux*, *Catylac*, *Catylac Smart Choice*, *Maxilite*).
+    - Base / Warna: `base_tipe_warna`, `base_warna`, `warna`, `base`.
+    - Kemasan & Kuantiti: `stok_fisik_kemasan_galon_qty`, `stok_qty_galon`, `stok_fisik_kemasan_pail_qty`, `stok_qty_pail`.
+    - Volume (L): `total_volume_stok_liter` atau rumus kalkulasi presisi `(Galon * 2.5) + (Pail * 20.0)`.
+    - Tinter & Mesin: `kategori_tinter_mesin_tinting`, `tipe_tinter_warna_pasta_pewarna`, `kuantiti_jumlah_kaleng_tinta_tinter`, `status_ketersediaan_tinter_di_toko`.
+    - Gudang & Keterangan: `status_akses_pengecekan_gudang_toko`, `keterangan_kendala_stok_tinter_toko`.
+  - Menggabungkan data live ke seluruh visualisasi Stock End:
+    - **Tab 1: Tren Harian & Komparasi Bulanan**: Volume harian, KPI total volume, perbandingan pertumbuhan, dan Top 10 Toko.
+    - **Tab 2: Rekap Volume Stock Toko (Pivot)**: Baris toko live, akumulasi volume bulanan per toko, dan Grand Total.
+    - **Tab 3: Ringkasan SCM & Stock**: Akumulasi total stok, status aman/kritis, dan monitoring toko.
+    - **Tab 4: Raw Data Submissions**: Entri baris transaksi live dengan label `⚡ LIVE` berstatus terverifikasi/menunggu.
+- [x] **Penambahan Tab "Data Laporan Masuk" pada Portal Stock End**:
+  - Menambahkan tab navigasi ke-5 (`id="btn_stock_tab_live"`, `tab=live`) dengan badge penghitung real-time jumlah laporan masuk.
+  - Jika membuka periode bulan berjalan (e.g. September 2026) di mana SQLite kosong dan terdapat submisi baru dari mobile, portal secara cerdas otomatis membuka tab `Data Laporan Masuk`.
+  - Menampilkan tabel komprehensif (16 kolom): *No, Kode Laporan, Waktu Submit, Promotor / SPG, Nama Toko / Outlet (SAP), Area & RSM, Produk & Brand, Base / Warna, Stok Fisik Kemasan (Galon & Pail Qty), Total Volume (L), Mesin & Tinta Tinter, Akses Gudang, Keterangan Kendala, Radius GPS, Status, dan Aksi*.
+- [x] **Implementasi Sistem Approval & Verifikasi Stock End**:
+  - **Tombol Quick Approve (Hijau)**: Langsung memverifikasi laporan dari baris tabel secara instan.
+  - **Tombol Quick Reject (Merah)**: Membuka modal dialog penolakan (`stock_reject_modal`) untuk memasukkan alasan penolakan.
+  - **Tombol Detail (Biru)**: Mengarahkan ke halaman detail dokumen submisi lengkap dengan foto bukti fisik rak display/gudang/mesin tinter, koordinat GPS, dan 11 parameter isian.
+  - **Sticky Action Column**: Kolom aksi menempel di sisi kanan tabel (`.col-sticky-action`) sehingga tidak pernah terpotong saat digeser secara horizontal.
+
+---
+
 ## 🎯 Rencana Pengembangan Selanjutnya (Next Milestones)
 
 | No | Target Fitur / Peningkatan | Prioritas | Estimasi / Keterangan |
