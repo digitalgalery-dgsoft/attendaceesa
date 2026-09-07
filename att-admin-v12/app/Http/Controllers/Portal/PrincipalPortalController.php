@@ -10107,7 +10107,7 @@ class PrincipalPortalController extends Controller
         $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
         $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
 
-        $cacheKey = 'cust_db_v3_' . md5($template->id . "_{$sYear}_{$sMonth}_{$eYear}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedCustomerType}_{$selectedBrand}_{$selectedReason}_{$search}_{$topStorePage}_{$rawPage}_{$perPage}");
+        $cacheKey = 'cust_db_v4_' . md5($template->id . "_{$sYear}_{$sMonth}_{$eYear}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedCustomerType}_{$selectedBrand}_{$selectedReason}_{$search}_{$topStorePage}_{$rawPage}_{$perPage}");
 
         return Cache::remember($cacheKey, 60, function() use ($template, $sqlitePath, $sYear, $sMonth, $eYear, $eMonth, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedAreaName, $selectedStoreName, $selectedCustomerType, $selectedBrand, $selectedReason, $search, $topStorePage, $rawPage, $perPage) {
             try {
@@ -10704,6 +10704,8 @@ class PrincipalPortalController extends Controller
 
                     // Merge by Region
                     $rsmMap = [];
+                    $rsmStoresTracker = [];
+                    $rsmDcsTracker = [];
                     foreach ($byRegion as $reg) {
                         $rsmMap[$reg['rsm_area']] = $reg;
                     }
@@ -10724,10 +10726,23 @@ class PrincipalPortalController extends Controller
                         $rsmMap[$rsm]['total_count']++;
                         $rsmMap[$rsm]['total_val'] += $lr['value_pembelian'];
                         if ($lr['is_switched']) $rsmMap[$rsm]['switched_cnt']++;
+
+                        if (!empty($lr['store_name'])) {
+                            $rsmStoresTracker[$rsm][$lr['store_name']] = true;
+                        }
+                        if (!empty($lr['nama_dc']) && $lr['nama_dc'] !== '-') {
+                            $rsmDcsTracker[$rsm][$lr['nama_dc']] = true;
+                        }
                     }
-                    foreach ($rsmMap as &$rsmRef) {
+                    foreach ($rsmMap as $rsmKey => &$rsmRef) {
                         $rsmRef['pct'] = $newTotal > 0 ? round(($rsmRef['total_count'] / $newTotal) * 100, 1) : 0;
                         $rsmRef['avg_val'] = $rsmRef['total_count'] > 0 ? ($rsmRef['total_val'] / $rsmRef['total_count']) : 0;
+
+                        $liveStoresCount = isset($rsmStoresTracker[$rsmKey]) ? count($rsmStoresTracker[$rsmKey]) : 0;
+                        $liveDcsCount = isset($rsmDcsTracker[$rsmKey]) ? count($rsmDcsTracker[$rsmKey]) : 0;
+
+                        $rsmRef['stores'] = $totOrig == 0 ? $liveStoresCount : max((int)$rsmRef['stores'], $liveStoresCount);
+                        $rsmRef['dcs'] = $totOrig == 0 ? $liveDcsCount : max((int)$rsmRef['dcs'], $liveDcsCount);
                     }
                     unset($rsmRef);
                     usort($rsmMap, fn($a, $b) => $b['total_val'] <=> $a['total_val']);
@@ -10766,6 +10781,40 @@ class PrincipalPortalController extends Controller
                     usort($storeRowsMap, fn($a, $b) => $b['total_val'] <=> $a['total_val']);
                     $storeRows = array_values(array_slice($storeRowsMap, 0, $perPage));
                     $totalStores = $totOrig == 0 ? count($storeRowsMap) : max($totalStores, count($storeRowsMap));
+
+                    // Merge Top DCs / Promotors
+                    $topDcMap = [];
+                    foreach ($topDcs as $dc) {
+                        $topDcMap[$dc['nama_dc']] = $dc;
+                    }
+                    foreach ($liveRecords as $lr) {
+                        $dcName = $lr['nama_dc'];
+                        if (empty($dcName) || $dcName === '-') {
+                            continue;
+                        }
+                        if (!isset($topDcMap[$dcName])) {
+                            $topDcMap[$dcName] = [
+                                'nama_dc' => $dcName,
+                                'store_name' => $lr['store_name'],
+                                'rsm_area' => $lr['rsm_area'],
+                                'total_customers' => 0,
+                                'total_val' => 0,
+                                'switched_cnt' => 0,
+                            ];
+                        }
+                        $topDcMap[$dcName]['total_customers']++;
+                        $topDcMap[$dcName]['total_val'] += $lr['value_pembelian'];
+                        if ($lr['is_switched']) {
+                            $topDcMap[$dcName]['switched_cnt']++;
+                        }
+                    }
+                    usort($topDcMap, function($a, $b) {
+                        if ($b['total_customers'] !== $a['total_customers']) {
+                            return $b['total_customers'] <=> $a['total_customers'];
+                        }
+                        return $b['total_val'] <=> $a['total_val'];
+                    });
+                    $topDcs = array_values(array_slice($topDcMap, 0, 20));
 
                     // Prepend live submissions to raw rows
                     $rawRows = array_merge($liveRecords, $rawRows);
