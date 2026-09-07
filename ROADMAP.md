@@ -1227,3 +1227,48 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
      - **Server 3: PT Anugrah Talenta Berkarya (ATK)**: `38.103.170.224` / `atk.esa-solutions.id` (HTTP 200 OK)
    - Portal Principal Dulux Daily Maintenance telah diverifikasi langsung dan beroperasi normal secara real-time di:
      `https://dulux.esa-solutions.id/portal/report/RPT-DULUX-DAILY-MAINTENANCE`
+
+---
+
+## ✅ Catatan Rilis & Penyempurnaan Sistem (8 September 2026)
+
+1. **Laporan Data Pelanggan Dulux (`RPT-DULUX-DATABASE-PELANGGAN`) - Integrasi Real-Time Submisi Mobile ke Portal Principal & Tab 4 Data Laporan Masuk**:
+   - **Identifikasi Masalah**:
+     - Laporan Data Pelanggan Dulux yang disubmit promotor/SPG dari aplikasi mobile berhasil tersimpan di database PostgreSQL (`report_submissions`) dan muncul di Admin Dashboard, tetapi di Portal Principal (`https://dulux.esa-solutions.id/portal/report/RPT-DULUX-DATABASE-PELANGGAN`) data bernilai 0 / kosong pada filter periode aktif (September 2026). Hal ini terjadi karena controller portal sebelumnya hanya menghitung agregasi dari arsip historis SQLite (`customer_db.sqlite`) yang datanya hanya ada hingga pertengahan 2026.
+     - Portal Principal Laporan Data Pelanggan Dulux sebelumnya belum memiliki **Tab 4 (Data Laporan Masuk)** seperti halnya laporan Daily Maintenance dan OOS SSO untuk monitoring dan verifikasi real-time data yang baru masuk.
+   - **Penyelesaian Backend (`PrincipalPortalController.php`)**:
+     - Mengintegrasikan query real-time PostgreSQL `getLiveSubmissionsQuery()` langsung ke dalam method kalkulasi `calculateCustomerDbDashboardData()`.
+     - Memetakan seluruh field dinamis formulir database pelanggan Dulux:
+       - Profil Konsumen: `nama_konsumen_pelanggan`, `no_handphone_whatsapp`, `tipe_konsumen`.
+       - Keputusan Pembelian & Brand Switch: `alasan_membeli_cat_dulux`, `merk_cat_yang_dicari`, `merk_cat_yang_dibeli`, `alasan_beralih_ke_merk_lain`.
+       - Transaksi & Pengecatan: `tujuan_pengecatan`, `jenis_cat_yang_dibeli`, `total_nilai_pembelian_rp`.
+       - Bukti Dokumentasi: `foto_struk_kwitansi_pembelian` dan `foto_kegiatan_konsumen`.
+     - Menggabungkan data live secara dinamis ke seluruh ringkasan KPI: *Total Pelanggan Terdata*, *Total Nilai Belanja (Rp)*, *Rata-rata Keranjang Belanja*, *Toko Aktif*, *Distributor Terlibat*, *Pelanggan Switch Merk*, dan *Pelanggan Membeli Dulux*.
+     - Menggabungkan data live ke seluruh grafik Consumer Insights (tipe pelanggan, alasan pembelian, perbandingan merk dicari vs dibeli, alasan switch merk, tujuan pengecatan, jenis cat dibeli), Matriks Ranking Wilayah / Regional, Toko dengan Pelanggan Terbanyak (dengan penanda `⚡ LIVE`), dan Raw Data Submissions.
+     - Menghitung `$liveSubmissionsCount` dan mengatur active tab fallback cerdas ke Tab 4 (`live_data`) jika ada data live dan data arsip SQLite 0 baris pada filter aktif.
+     - Mengupdate cache key ke `cust_db_v3_` (TTL 60 detik) untuk pembaruan instan tanpa lagging.
+   - **Pembaruan Blade View Portal (`customer_database_dashboard.blade.php` & `report_detail.blade.php`)**:
+     - Menambahkan Tab 4 "Data Laporan Masuk" pada navigation toolbar dengan badge counter submisi live.
+     - Menyediakan tabel monitoring live komprehensif: Kode Laporan & Waktu Submit, SPG / DC Pelapor, Toko & Kode SAP, Profil Pelanggan & No. HP/WA, Tipe Konsumen & Status Switch Merk, Merk Dicari vs Dibeli, Nilai Belanja (Rp), Thumbnail Foto Struk & Kegiatan Konsumen, Status Radius GPS Toko, Status Approval, dan Tombol Quick Action.
+     - Menyediakan tombol aksi cepat **Setujui** (Quick Approve) dan **Tolak Laporan** (Quick Reject dengan modal pop-up alasan penolakan/rejection notes).
+     - Menyediakan modal lightbox foto bukti resolusi penuh untuk foto struk dan foto kegiatan konsumen.
+     - Menambahkan penanda neon `⚡ LIVE` pada toko di Tab 2 dan Tab 3 yang memiliki laporan masuk dari mobile.
+
+2. **Perbaikan Tampilan Multi-Foto & Form Media di Detail Laporan Admin Dashboard (`ReportSubmissionResource`) & Detail Portal**:
+   - **Identifikasi Masalah**:
+     - Foto yang diambil dari aplikasi mobile memiliki multiple foto (misal 2 foto: Struk & Kegiatan Konsumen), namun di halaman detail Admin Dashboard hanya 1 foto yang tampil di panel Foto Bukti & Dokumentasi.
+     - Field foto yang opsional/kosong muncul di tabel text values sebagai baris teks dengan tanda `-`.
+   - **Penyelesaian (`view.blade.php` Filament & `report_submission_detail.blade.php` Portal)**:
+     - Memperbaiki pemisahan field: memastikan semua field bertipe `photo`, `camera_photo`, `multi_photo`, dan `signature` dikeluarkan secara bersih dari daftar `$textValues`.
+     - Memperbaiki parsing media pada Panel 2 "Foto Bukti & Dokumentasi": secara rekursif mengekstrak semua foto dari `value_json` (array URL), `media_url`, `file_path`, maupun `value_text` (comma-separated string).
+     - Menambahkan penanda indeks foto dinamis seperti `(1/2)` dan `(2/2)` pada label header foto jika satu field memiliki multiple foto.
+     - Mengaktifkan modal click-to-zoom (lightbox) untuk setiap kartu foto di Admin Dashboard Filament maupun Portal Detail.
+
+3. **Multi-Server Production Deployment & Cluster Synchronisation**:
+   - Seluruh perubahan source code (backend API, blade template portal, filament view, dan dokumentasi) telah berhasil di-deploy ke seluruh cluster server production via webhook `deploy-production.php`:
+     - **Server 1: PT Arina Multi Karya (AMK)**: `38.103.170.235` / `amk.esa-solutions.id` (HTTP 200 OK)
+     - **Server 2: PT Alva Karya Perkasa (AKP)**: `38.103.170.223` / `akp.esa-solutions.id` (HTTP 200 OK)
+     - **Server 3: PT Anugrah Talenta Berkarya (ATK)**: `38.103.170.224` / `atk.esa-solutions.id` (HTTP 200 OK)
+   - Portal Principal Dulux Data Pelanggan telah diverifikasi langsung dan beroperasi normal secara real-time di:
+     `https://dulux.esa-solutions.id/portal/report/RPT-DULUX-DATABASE-PELANGGAN`
+
