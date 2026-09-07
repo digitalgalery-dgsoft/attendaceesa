@@ -1522,7 +1522,14 @@
 
     {{-- CBP EXECUTIVE DASHBOARD (DASHBOARD 1 & DASHBOARD 2) --}}
     @if(isset($isCbpReport) && $isCbpReport && !empty($cbpData))
-        @include('portal.partials.cbp_dashboard', ['cbpData' => $cbpData])
+        @include('portal.partials.cbp_dashboard', [
+            'cbpData' => $cbpData,
+            'submissions' => $submissions ?? null,
+            'template' => $template ?? null,
+            'tenantPrincipal' => $tenantPrincipal ?? null,
+            'endYear' => $endYear ?? 2026,
+            'startYear' => $startYear ?? 2026
+        ])
     @endif
 
     {{-- OFFTAKE EXECUTIVE DASHBOARD (SHEET 2 PIVOT & SHEET 1 RAW DATA) --}}
