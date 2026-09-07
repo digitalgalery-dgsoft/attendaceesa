@@ -69,8 +69,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $runImportStock = (isset($_GET['import_stock']) && $_GET['import_stock'] === '1') || (isset($_GET['type']) && $_GET['type'] === 'stock');
     $runImportOos = (isset($_GET['import_oos']) && $_GET['import_oos'] === '1') || (isset($_GET['type']) && $_GET['type'] === 'oos');
     $runImportDaily = (isset($_GET['import_daily']) && $_GET['import_daily'] === '1') || (isset($_GET['type']) && in_array($_GET['type'], ['daily', 'maintenance', 'daily_maintenance']));
+    $runCleanLocations = (isset($_GET['clean_dulux_locations']) && $_GET['clean_dulux_locations'] === '1') || (isset($_GET['type']) && in_array($_GET['type'], ['clean_locations', 'clean_work_locations']));
 
-    if ($runImportDaily) {
+    if ($runCleanLocations) {
+        $importCmd = 'dulux:clean-work-locations --force';
+        $importTitle = 'PEMBERSIHAN MASTER WORK LOCATION ICI PAINTS';
+    } elseif ($runImportDaily) {
         $importCmd = 'dulux:import-daily-maintenance';
         $importTitle = 'DAILY MAINTENANCE DULUX';
     } elseif ($runImportOos) {

@@ -269,22 +269,6 @@ class ImportDuluxDailyMaintenanceCommand extends Command
                     $workLocId = $locByCode[$sap];
                 } elseif ($storeName !== '' && isset($locByName[strtoupper($storeName)])) {
                     $workLocId = $locByName[strtoupper($storeName)];
-                } else {
-                    $newLoc = WorkLocation::create([
-                        'company_id' => $companyId,
-                        'name' => $storeName ?: ('Toko Dulux ' . $sap),
-                        'type' => 'client',
-                        'latitude' => -6.2000000,
-                        'longitude' => 106.8166667,
-                        'radius_meter' => 100,
-                        'region' => $region ?: null,
-                        'area' => $area ?: null,
-                        'principal_id' => $duluxPrincipal->id,
-                        'is_active' => true,
-                    ]);
-                    $workLocId = $newLoc->id;
-                    if ($storeName !== '') $locByName[strtoupper($storeName)] = $workLocId;
-                    if ($sap !== '') $locByCode[$sap] = $workLocId;
                 }
 
                 $subDate = $row['submission_date'] ?? $now;

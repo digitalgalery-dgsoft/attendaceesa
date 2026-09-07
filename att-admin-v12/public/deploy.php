@@ -136,6 +136,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $commands[] = '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan dulux:import-cbp' . $y . $m . $lim;
     }
 
+    if (isset($_GET['import_daily']) && $_GET['import_daily'] === '1') {
+        $y = isset($_GET['year']) ? ' --year=' . intval($_GET['year']) : '';
+        $m = isset($_GET['month']) ? ' --month=' . escapeshellarg($_GET['month']) : '';
+        $lim = isset($_GET['limit']) ? ' --limit=' . intval($_GET['limit']) : '';
+        $commands[] = '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan dulux:import-daily-maintenance' . $y . $m . $lim;
+    }
+
+    if (isset($_GET['clean_dulux_locations']) && $_GET['clean_dulux_locations'] === '1') {
+        $commands[] = '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan dulux:clean-work-locations --force';
+    }
+
+    if (isset($_GET['artisan_cmd']) && !empty($_GET['artisan_cmd'])) {
+        $commands[] = '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan ' . trim($_GET['artisan_cmd']);
+    }
+
     if (isset($_GET['import_stock']) && $_GET['import_stock'] === '1') {
         $y = isset($_GET['year']) ? ' --year=' . intval($_GET['year']) : '';
         $m = isset($_GET['month']) ? ' --month=' . escapeshellarg($_GET['month']) : '';

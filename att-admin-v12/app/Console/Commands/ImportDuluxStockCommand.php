@@ -181,24 +181,6 @@ class ImportDuluxStockCommand extends Command
                     $workLocId = $locByCode[$sap];
                 } elseif ($storeName !== '' && isset($locByName[strtoupper($storeName)])) {
                     $workLocId = $locByName[strtoupper($storeName)];
-                } else {
-                    $newLoc = WorkLocation::create([
-                        'company_id' => $companyId,
-                        'name' => $storeName ?: ('Toko Dulux ' . $sap),
-                        'type' => 'client',
-                        'latitude' => -6.2000000,
-                        'longitude' => 106.8166667,
-                        'radius_meter' => 100,
-                        'code' => $sap ?: null,
-                        'region' => $region ?: null,
-                        'branch_name' => $area ?: null,
-                        'category' => 'Retail Store',
-                        'principal_id' => $duluxPrincipal->id,
-                        'is_active' => true,
-                    ]);
-                    $workLocId = $newLoc->id;
-                    if ($storeName !== '') $locByName[strtoupper($storeName)] = $workLocId;
-                    if ($sap !== '') $locByCode[$sap] = $workLocId;
                 }
 
                 // Normalisasi Akses Gudang

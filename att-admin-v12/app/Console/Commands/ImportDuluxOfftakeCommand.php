@@ -172,27 +172,8 @@ class ImportDuluxOfftakeCommand extends Command
                 $sap = trim($row['sap'] ?? '');
                 $sUpper = strtoupper($storeName);
 
-                // Find or create WorkLocation
+                // Find WorkLocation if exists
                 $workLocId = $locByName[$sUpper] ?? ($locByCode[$sap] ?? null);
-                if (!$workLocId && !empty($storeName)) {
-                    $newLoc = WorkLocation::create([
-                        'company_id' => $companyId,
-                        'name' => $storeName,
-                        'type' => 'client',
-                        'latitude' => -6.2000000,
-                        'longitude' => 106.8166667,
-                        'radius_meter' => 100,
-                        'code' => $sap ?: null,
-                        'region' => $row['region'] ?: null,
-                        'branch_name' => $row['area'] ?: null,
-                        'category' => $row['category_store'] ?: 'Blue Store',
-                        'principal_id' => $duluxPrincipal->id,
-                        'is_active' => true,
-                    ]);
-                    $workLocId = $newLoc->id;
-                    $locByName[$sUpper] = $workLocId;
-                    if ($sap) $locByCode[$sap] = $workLocId;
-                }
 
                 $transDate = $row['trans_date'] ?: ($targetYear . '-01-01');
                 $submittedAt = $transDate . ' 12:00:00';
