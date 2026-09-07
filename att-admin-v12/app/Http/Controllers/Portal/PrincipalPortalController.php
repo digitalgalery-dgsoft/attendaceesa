@@ -6615,7 +6615,7 @@ class PrincipalPortalController extends Controller
         $startDate = Carbon::createFromDate($selectedYear, $sMonth, 1)->startOfMonth();
         $endDate = Carbon::createFromDate($selectedYear, $eMonth, 1)->endOfMonth();
 
-        $cacheKey = 'offtake_dash_v8_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search . '_' . $offtakePage . '_' . $rawPage);
+        $cacheKey = 'offtake_dash_v9_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search . '_' . $offtakePage . '_' . $rawPage);
 
         return Cache::remember($cacheKey, 300, function() use ($template, $sqlitePath, $sMonth, $eMonth, $selectedYear, $startDate, $endDate, $activeMonths, $selectedRegion, $selectedAreaId, $selectedLocationId, $search, $offtakePage, $rawPage, $perPage) {
             try {
@@ -6648,18 +6648,22 @@ class PrincipalPortalController extends Controller
 
                 try {
                     $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
-                    $liveSubs = $liveQuery->select(['id', 'submission_code', 'report_template_id', 'work_location_id', 'employee_id', 'submitted_at', 'submission_date', 'created_at'])
+                    $liveSubs = $liveQuery->select(['id', 'submission_code', 'report_template_id', 'work_location_id', 'employee_id', 'submitted_at', 'created_at'])
                         ->with(['workLocation', 'workLocation.branch', 'values'])
                         ->get();
 
                     foreach ($liveSubs as $sub) {
                         $valMap = [];
                         foreach ($sub->values as $v) {
-                            $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
-                            if ($v->field_name) $valMap[$v->field_name] = $val;
+                            $val = $v->value_number ?? $v->value_text ?? $v->value_json;
+                            if ($v->field_name) {
+                                $valMap[$v->field_name] = $val;
+                                $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
+                                $valMap[$slug] = $val;
+                            }
                         }
 
-                        $subDate = $sub->submitted_at ? Carbon::parse($sub->submitted_at) : ($sub->submission_date ? Carbon::parse($sub->submission_date) : $sub->created_at);
+                        $subDate = $sub->submitted_at ? Carbon::parse($sub->submitted_at) : $sub->created_at;
                         $transDate = $subDate->format('Y-m-d H:i:s');
                         $subYear = (int)$subDate->year;
                         $subMonth = (int)$subDate->month;
@@ -6670,8 +6674,8 @@ class PrincipalPortalController extends Controller
                         $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? 'AREA LAIN'));
                         $region = $areaToRsm[strtoupper(trim($area))] ?? ($sub->workLocation?->region ?? 'East Java');
 
-                        $rawBrand = trim((string)($valMap['brand'] ?? ($valMap['brand_cat'] ?? '')));
-                        $rawSubBrand = trim((string)($valMap['sub_brand'] ?? ($valMap['subbrand'] ?? ($valMap['sub_brand_produk'] ?? ($valMap['nama_produk'] ?? '')))));
+                        $rawBrand = trim((string)($valMap['brand'] ?? ($valMap['brand_cat'] ?? ($valMap['brand_rm_base'] ?? ''))));
+                        $rawSubBrand = trim((string)($valMap['sub_brand'] ?? ($valMap['subbrand'] ?? ($valMap['sub_brand_produk'] ?? ($valMap['sub_brand1'] ?? ($valMap['nama_produk'] ?? ''))))));
                         if (empty($rawBrand)) {
                             if (stripos($rawSubBrand, 'Catylac') !== false) {
                                 $rawBrand = 'Catylac';
@@ -6686,11 +6690,11 @@ class PrincipalPortalController extends Controller
                         }
 
                         $kemasanGalon = trim((string)($valMap['kemasan_galon'] ?? ''));
-                        $qtyGalon = $parseAmount($valMap['qty_galon'] ?? 0);
+                        $qtyGalon = $parseAmount($valMap['qty_galon'] ?? ($valMap['kuantiti_galon_terjual_unit'] ?? ($valMap['kuantiti_galon_terjual'] ?? 0)));
                         $kemasanPail = trim((string)($valMap['kemasan_pail'] ?? ''));
-                        $qtyPail = $parseAmount($valMap['qty_pail'] ?? 0);
+                        $qtyPail = $parseAmount($valMap['qty_pail'] ?? ($valMap['kuantiti_pail_terjual_unit'] ?? ($valMap['kuantiti_pail_terjual'] ?? 0)));
 
-                        $volLiter = $parseAmount($valMap['total_volume_liter'] ?? null);
+                        $volLiter = $parseAmount($valMap['total_volume_liter'] ?? ($valMap['volume_liter'] ?? null));
                         if ($volLiter <= 0) {
                             $volG = $parseAmount($valMap['volume_galon_l'] ?? 0);
                             $volP = $parseAmount($valMap['volume_pail_l'] ?? 0);
@@ -6999,7 +7003,7 @@ class PrincipalPortalController extends Controller
         $startDate = Carbon::createFromDate($selectedYear, 1, 1)->startOfYear();
         $endDate = Carbon::createFromDate($selectedYear, $eMonth, 1)->endOfMonth();
 
-        $cacheKey = 'offtake_ytd_v8_' . md5($template->id . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+        $cacheKey = 'offtake_ytd_v9_' . md5($template->id . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
 
         return Cache::remember($cacheKey, 600, function() use ($template, $p26, $p25, $eMonth, $selectedYear, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
             try {
@@ -7031,18 +7035,22 @@ class PrincipalPortalController extends Controller
 
                 try {
                     $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
-                    $liveSubs = $liveQuery->select(['id', 'submission_code', 'report_template_id', 'work_location_id', 'employee_id', 'submitted_at', 'submission_date', 'created_at'])
+                    $liveSubs = $liveQuery->select(['id', 'submission_code', 'report_template_id', 'work_location_id', 'employee_id', 'submitted_at', 'created_at'])
                         ->with(['workLocation', 'workLocation.branch', 'values'])
                         ->get();
 
                     foreach ($liveSubs as $sub) {
                         $valMap = [];
                         foreach ($sub->values as $v) {
-                            $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
-                            if ($v->field_name) $valMap[$v->field_name] = $val;
+                            $val = $v->value_number ?? $v->value_text ?? $v->value_json;
+                            if ($v->field_name) {
+                                $valMap[$v->field_name] = $val;
+                                $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
+                                $valMap[$slug] = $val;
+                            }
                         }
 
-                        $subDate = $sub->submitted_at ? Carbon::parse($sub->submitted_at) : ($sub->submission_date ? Carbon::parse($sub->submission_date) : $sub->created_at);
+                        $subDate = $sub->submitted_at ? Carbon::parse($sub->submitted_at) : $sub->created_at;
                         $subMonth = (int)$subDate->month;
                         if ($subMonth < 1 || $subMonth > $eMonth) continue;
 
@@ -7051,8 +7059,8 @@ class PrincipalPortalController extends Controller
                         $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? 'AREA LAIN'));
                         $region = $areaToRsm[strtoupper(trim($area))] ?? ($sub->workLocation?->region ?? 'East Java');
 
-                        $rawBrand = trim((string)($valMap['brand'] ?? ($valMap['brand_cat'] ?? '')));
-                        $rawSubBrand = trim((string)($valMap['sub_brand'] ?? ($valMap['subbrand'] ?? ($valMap['sub_brand_produk'] ?? ($valMap['nama_produk'] ?? '')))));
+                        $rawBrand = trim((string)($valMap['brand'] ?? ($valMap['brand_cat'] ?? ($valMap['brand_rm_base'] ?? ''))));
+                        $rawSubBrand = trim((string)($valMap['sub_brand'] ?? ($valMap['subbrand'] ?? ($valMap['sub_brand_produk'] ?? ($valMap['sub_brand1'] ?? ($valMap['nama_produk'] ?? ''))))));
                         if (empty($rawBrand)) {
                             if (stripos($rawSubBrand, 'Catylac') !== false) {
                                 $rawBrand = 'Catylac';
@@ -7064,11 +7072,11 @@ class PrincipalPortalController extends Controller
                         }
 
                         $kemasanGalon = trim((string)($valMap['kemasan_galon'] ?? ''));
-                        $qtyGalon = $parseAmount($valMap['qty_galon'] ?? 0);
+                        $qtyGalon = $parseAmount($valMap['qty_galon'] ?? ($valMap['kuantiti_galon_terjual_unit'] ?? ($valMap['kuantiti_galon_terjual'] ?? 0)));
                         $kemasanPail = trim((string)($valMap['kemasan_pail'] ?? ''));
-                        $qtyPail = $parseAmount($valMap['qty_pail'] ?? 0);
+                        $qtyPail = $parseAmount($valMap['qty_pail'] ?? ($valMap['kuantiti_pail_terjual_unit'] ?? ($valMap['kuantiti_pail_terjual'] ?? 0)));
 
-                        $volLiter = $parseAmount($valMap['total_volume_liter'] ?? null);
+                        $volLiter = $parseAmount($valMap['total_volume_liter'] ?? ($valMap['volume_liter'] ?? null));
                         if ($volLiter <= 0) {
                             $volG = $parseAmount($valMap['volume_galon_l'] ?? 0);
                             $volP = $parseAmount($valMap['volume_pail_l'] ?? 0);
