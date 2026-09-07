@@ -332,6 +332,83 @@ class PrincipalPortalController extends Controller
     }
 
     /**
+     * Map any Sales Area / Branch / City name to standardized RSM Area
+     */
+    protected function mapAreaToRsm(string $areaName, ?string $fallbackRsm = null): string
+    {
+        $clean = strtoupper(trim($areaName));
+        $map = $this->getDuluxAreaToRsmMap();
+        if (isset($map[$clean])) {
+            return $map[$clean];
+        }
+        foreach ($map as $key => $rsm) {
+            if (str_contains($clean, $key)) {
+                return $rsm;
+            }
+        }
+        return $fallbackRsm ?: 'East Java';
+    }
+
+    /**
+     * Reusable Eloquent query for live mobile/admin submissions matching active filters
+     */
+    protected function getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+    {
+        $query = ReportSubmission::where('report_submissions.report_template_id', $template->id)
+            ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
+            ->with([
+                'employee.branch',
+                'employee.reportingTo',
+                'workLocation.branch',
+                'values.formField'
+            ]);
+
+        if ($selectedRegion) {
+            $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+            $query->where(function($q) use ($rsmVariants, $selectedRegion) {
+                $q->whereHas('workLocation', function($wq) use ($rsmVariants, $selectedRegion) {
+                    $wq->whereIn('region', $rsmVariants)->orWhere('region', $selectedRegion);
+                })->orWhereHas('workLocation.branch', function($bq) use ($rsmVariants, $selectedRegion) {
+                    $bq->whereIn('region', $rsmVariants)->orWhere('region', $selectedRegion);
+                });
+            });
+        }
+
+        if ($selectedAreaId) {
+            if (is_numeric($selectedAreaId)) {
+                $query->whereHas('workLocation', fn($w) => $w->where('branch_id', $selectedAreaId));
+            } else {
+                $query->whereHas('workLocation.branch', fn($b) => $b->where('name', 'ILIKE', "%{$selectedAreaId}%"));
+            }
+        }
+
+        if ($selectedLocationId) {
+            if (is_numeric($selectedLocationId)) {
+                $query->where('work_location_id', $selectedLocationId);
+            } else {
+                $query->whereHas('workLocation', fn($w) => $w->where('name', 'ILIKE', "%{$selectedLocationId}%"));
+            }
+        }
+
+        if ($search) {
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $query->where(function ($subQ) use ($search, $likeOp) {
+                $subQ->where('submission_code', $likeOp, "%{$search}%")
+                    ->orWhereIn('report_submissions.employee_id', function ($eQ) use ($search, $likeOp) {
+                        $eQ->select('id')->from('employees')
+                           ->where('full_name', $likeOp, "%{$search}%")
+                           ->orWhere('employee_no', $likeOp, "%{$search}%");
+                    })->orWhereIn('report_submissions.work_location_id', function ($wQ) use ($search, $likeOp) {
+                        $wQ->select('id')->from('work_locations')
+                           ->where('name', $likeOp, "%{$search}%");
+                    });
+            });
+        }
+
+        return $query;
+    }
+
+    /**
      * Base query for report templates belonging to the scoped principals
      */
     protected function getTemplateBaseQuery(array $scopedPrincipalIds, ?Principal $tenantPrincipal = null)
@@ -726,7 +803,10 @@ class PrincipalPortalController extends Controller
 
             $totalTemplateSubmissions = $cbpData['kpis']['total_records'] ?? 0;
             $uniqueStores = $cbpData['kpis']['unique_stores'] ?? 0;
-            $submissions = new LengthAwarePaginator([], $totalTemplateSubmissions, 20, 1);
+            $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+                ->orderBy('submitted_at', 'desc')
+                ->paginate(20);
+            $liveSubmissionsCount = $submissions->total();
             $dashboardConfig = [];
             $widgetResults = [];
             $isYtdReport = false;
@@ -739,6 +819,7 @@ class PrincipalPortalController extends Controller
                 'activeTemplates',
                 'template',
                 'submissions',
+                'liveSubmissionsCount',
                 'totalTemplateSubmissions',
                 'uniqueStores',
                 'startMonth',
@@ -876,7 +957,10 @@ class PrincipalPortalController extends Controller
 
             $totalTemplateSubmissions = 0;
             $uniqueStores = 0;
-            $submissions = new LengthAwarePaginator([], 0, 20, 1);
+            $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+                ->orderBy('submitted_at', 'desc')
+                ->paginate(20);
+            $liveSubmissionsCount = $submissions->total();
             $dashboardConfig = [];
             $widgetResults = [];
             $isYtdReport = false;
@@ -1023,7 +1107,10 @@ class PrincipalPortalController extends Controller
 
             $totalTemplateSubmissions = 0;
             $uniqueStores = 0;
-            $submissions = new LengthAwarePaginator([], 0, 20, 1);
+            $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+                ->orderBy('submitted_at', 'desc')
+                ->paginate(20);
+            $liveSubmissionsCount = $submissions->total();
             $dashboardConfig = [];
             $widgetResults = [];
             $isYtdReport = true;
@@ -1172,7 +1259,10 @@ class PrincipalPortalController extends Controller
 
             $totalTemplateSubmissions = 0;
             $uniqueStores = 0;
-            $submissions = new LengthAwarePaginator([], 0, 20, 1);
+            $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+                ->orderBy('submitted_at', 'desc')
+                ->paginate(20);
+            $liveSubmissionsCount = $submissions->total();
             $dashboardConfig = [];
             $widgetResults = [];
             $isYtdReport = false;
@@ -1335,7 +1425,10 @@ class PrincipalPortalController extends Controller
 
             $totalTemplateSubmissions = 0;
             $uniqueStores = 0;
-            $submissions = new LengthAwarePaginator([], 0, 20, 1);
+            $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+                ->orderBy('submitted_at', 'desc')
+                ->paginate(20);
+            $liveSubmissionsCount = $submissions->total();
             $dashboardConfig = [];
             $widgetResults = [];
             $isYtdReport = false;
@@ -1515,7 +1608,10 @@ class PrincipalPortalController extends Controller
 
             $totalTemplateSubmissions = 0;
             $uniqueStores = 0;
-            $submissions = new LengthAwarePaginator([], 0, 20, 1);
+            $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+                ->orderBy('submitted_at', 'desc')
+                ->paginate(20);
+            $liveSubmissionsCount = $submissions->total();
             $dashboardConfig = [];
             $widgetResults = [];
             $isYtdReport = false;
@@ -2430,14 +2526,7 @@ class PrincipalPortalController extends Controller
                     $monthNames = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug', 9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec'];
                     $exportMonths = [];
                     for ($m = $sMonth; $m <= $eMonth; $m++) {
-                        if ($m >= 1 && $m <= 7) {
-                            $exportMonths[$m] = ($monthNames[$m] ?? "Bln $m") . ' ' . $endYear;
-                        }
-                    }
-                    if (empty($exportMonths)) {
-                        for ($m = 1; $m <= 7; $m++) {
-                            $exportMonths[$m] = $monthNames[$m] . ' ' . $endYear;
-                        }
+                        $exportMonths[$m] = ($monthNames[$m] ?? "Bln $m") . ' ' . $endYear;
                     }
 
                     $headerRow = [
@@ -2622,16 +2711,7 @@ class PrincipalPortalController extends Controller
                     ];
                     $exportMonths = [];
                     for ($m = $sMonth; $m <= $eMonth; $m++) {
-                        if ($m >= 1 && $m <= 7) {
-                            $exportMonths[$m] = $monthNames[$m] . ' ' . $endYear;
-                        }
-                    }
-                    if (empty($exportMonths)) {
-                        for ($m = 1; $m <= 7; $m++) {
-                            $exportMonths[$m] = $monthNames[$m] . ' ' . $endYear;
-                        }
-                        $sMonth = 1;
-                        $eMonth = 7;
+                        $exportMonths[$m] = $monthNames[$m] . ' ' . $endYear;
                     }
 
                     $where = ["month BETWEEN ? AND ?"];
@@ -5578,19 +5658,9 @@ class PrincipalPortalController extends Controller
             4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli',
             8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
         ];
-        $maxMonth = ($selectedYear == 2025) ? 12 : 7;
         $activeMonths = [];
         for ($m = $sMonth; $m <= $eMonth; $m++) {
-            if ($m >= 1 && $m <= $maxMonth) {
-                $activeMonths[$m] = $monthNames[$m] . ' ' . $selectedYear;
-            }
-        }
-        if (empty($activeMonths)) {
-            for ($m = 1; $m <= $maxMonth; $m++) {
-                $activeMonths[$m] = $monthNames[$m] . ' ' . $selectedYear;
-            }
-            $sMonth = 1;
-            $eMonth = $maxMonth;
+            $activeMonths[$m] = $monthNames[$m] . ' ' . $selectedYear;
         }
 
         $cacheKey = 'stock_dash_v3_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $selectedBrand . '_' . $search . '_' . $stockPage . '_' . $summPage . '_' . $rawPage);
@@ -6246,16 +6316,7 @@ class PrincipalPortalController extends Controller
         ];
         $activeMonths = [];
         for ($m = $sMonth; $m <= $eMonth; $m++) {
-            if ($m >= 1 && $m <= 7) {
-                $activeMonths[$m] = $monthNames[$m] . ' ' . $endYear;
-            }
-        }
-        if (empty($activeMonths)) {
-            for ($m = 1; $m <= 7; $m++) {
-                $activeMonths[$m] = $monthNames[$m] . ' ' . $endYear;
-            }
-            $sMonth = 1;
-            $eMonth = 7;
+            $activeMonths[$m] = $monthNames[$m] . ' ' . $endYear;
         }
 
         $cacheKey = 'offtake_dash_v2_' . md5($template->id . '_' . $sMonth . '_' . $eMonth . '_' . $endYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search . '_' . $offtakePage . '_' . $rawPage);
@@ -6764,62 +6825,204 @@ class PrincipalPortalController extends Controller
             $fallbackPath = storage_path('app/dulux_data/cbp_2026.sqlite');
             if (file_exists($fallbackPath)) {
                 $sqlitePath = $fallbackPath;
-            } else {
-                return null;
             }
         }
 
-        $cacheKey = 'cbp_dash_v7_' . md5($template->id . '_' . $selectedYear . '_' . $startYear . '_' . $startMonth . '_' . $endYear . '_' . $endMonth . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
+        // Prepare Months (Full range from sMonth to eMonth, 1..12 without artificial caps)
+        $sMonth = max(1, min(12, (int)$startMonth));
+        $eMonth = max(1, min(12, (int)$endMonth));
+        if ($sMonth > $eMonth) {
+            $tmp = $sMonth;
+            $sMonth = $eMonth;
+            $eMonth = $tmp;
+        }
 
-        $aggData = Cache::remember($cacheKey, 300, function() use ($sqlitePath, $selectedYear, $startMonth, $startYear, $endMonth, $endYear, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
+        $monthNames = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug', 9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec'];
+        $months = [];
+        for ($m = $sMonth; $m <= $eMonth; $m++) {
+            $dateObj = Carbon::create($selectedYear, $m, 1);
+            $months[$m] = [
+                'm' => $m,
+                'short' => $monthNames[$m] ?? "Bln $m",
+                'label' => ($monthNames[$m] ?? "Bln $m") . ' ' . $selectedYear,
+                'date_header' => strtoupper($dateObj->translatedFormat('F Y'))
+            ];
+        }
+
+        $startDate = Carbon::createFromDate($selectedYear, $sMonth, 1)->startOfMonth();
+        $endDate = Carbon::createFromDate($selectedYear, $eMonth, 1)->endOfMonth();
+
+        // 1. Fetch Live Submissions from PostgreSQL
+        $liveRows = [];
+        $liveUniqueStores = [];
+        try {
+            $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
+            $liveSubs = $liveQuery->get();
+
+            foreach ($liveSubs as $sub) {
+                $valMap = [];
+                foreach ($sub->values as $v) {
+                    $valMap[$v->field_name] = $v->value_number ?? $v->value_text;
+                }
+
+                $productName = trim((string)($valMap['subbrand_produk'] ?? $valMap['product'] ?? $valMap['nama_produk'] ?? ''));
+                $brandCat = trim((string)($valMap['brand_cat'] ?? $valMap['brand'] ?? ''));
+                $category = trim((string)($valMap['kategori_produk'] ?? $valMap['category'] ?? 'Dulux Interior'));
+
+                $isAn = (stripos($brandCat, 'Dulux') !== false || stripos($brandCat, 'Akzo') !== false || stripos($brandCat, 'AN') !== false || stripos($productName, 'Ambiance') !== false || stripos($productName, 'Pentalite') !== false || stripos($productName, 'Catylac') !== false || stripos($productName, 'Weathershield') !== false || stripos($productName, 'Easy Clean') !== false || stripos($productName, 'Aquashield') !== false || stripos($productName, 'V-Gloss') !== false);
+                $brandGroup = $isAn ? 'AN' : ($brandCat ?: 'Kompetitor');
+
+                $pTin = (float)($valMap['harga_tin_rp'] ?? 0);
+                $lTin = (float)($valMap['harga_terendah_tin_rp'] ?? $pTin);
+                $rTin = (string)($valMap['alasan_promo_keterangan'] ?? '');
+
+                $pGalon = (float)($valMap['harga_galon_rp'] ?? 0);
+                $lGalon = (float)($valMap['harga_terendah_galon_rp'] ?? $pGalon);
+                $rGalon = (string)($valMap['alasan_promo_keterangan'] ?? '');
+
+                $pPail = (float)($valMap['harga_pail_rp'] ?? 0);
+                $lPail = (float)($valMap['harga_terendah_pail_rp'] ?? $pPail);
+                $rPail = (string)($valMap['alasan_promo_keterangan'] ?? '');
+
+                $subMonth = (int)$sub->submitted_at->format('n');
+                $storeName = $sub->workLocation?->name ?? 'Toko Tidak Terdaftar';
+                $liveUniqueStores[$storeName] = true;
+                $branchName = $sub->workLocation?->branch?->name ?? '-';
+                $cleanBranch = strtoupper(trim($branchName));
+                $rsmArea = $this->mapAreaToRsm($cleanBranch, $sub->workLocation?->region ?? 'RSM JAWA TIMUR');
+                $tlName = $sub->employee?->reportingTo?->name ?? $sub->employee?->supervisor_name ?? ($sub->employee?->name . ' (Demo)') ?? '-';
+                $sapMember = $sub->workLocation?->code ?? '-';
+
+                $itemCode = md5(strtoupper(trim($storeName)) . '_' . strtoupper(trim($productName ?: 'Dulux')));
+
+                $liveRows[] = [
+                    'submission_id' => $sub->id,
+                    'submission_code' => $sub->submission_code,
+                    'code' => $itemCode,
+                    'regional' => $rsmArea,
+                    'sap_member' => $sapMember,
+                    'sap_gab' => '-',
+                    'name_store' => $storeName,
+                    'tl_name' => $tlName,
+                    'area' => $branchName,
+                    'rsm_area' => $rsmArea,
+                    'class' => '-',
+                    'store_type' => '-',
+                    'product' => $productName ?: 'Dulux Product',
+                    'category' => $category,
+                    'product_group' => $isAn ? 'Dulux' : $brandCat,
+                    'brand' => $brandGroup,
+                    'brand_raw' => $brandCat,
+                    'month' => $subMonth,
+                    'trans_date' => $sub->submitted_at->format('Y-m-d'),
+                    'price_tin' => $pTin,
+                    'lowest_tin' => $lTin,
+                    'reason_tin' => $rTin,
+                    'price_galon' => $pGalon,
+                    'lowest_galon' => $lGalon,
+                    'reason_galon' => $rGalon,
+                    'price_pail' => $pPail,
+                    'lowest_pail' => $lPail,
+                    'reason_pail' => $rPail,
+                    'is_live' => true,
+                ];
+            }
+        } catch (\Throwable $e) {
+            \Log::error("Failed to query CBP live submissions: " . $e->getMessage());
+        }
+
+        // 2. Sections Configuration
+        $sectionsConfig = [
+            'd1' => [
+                'super_premium_interior' => [
+                    'title' => 'Super Premium Interior',
+                    'category_query' => "category = 'Super Premium Interior'",
+                    'metric' => 'price_galon',
+                    'unit' => 'Galon (2.5L / 4-5Kg)',
+                    'benchmark_product' => 'Ambiance Emulsion',
+                    'benchmark_label' => '100% = Ambiance Emulsion'
+                ],
+                'premium_interior' => [
+                    'title' => 'Dulux Interior / Premium Interior',
+                    'category_query' => "category IN ('Premium Interior', 'Dulux Interior')",
+                    'metric' => 'price_galon',
+                    'unit' => 'Galon (2.5L / 4-5Kg)',
+                    'benchmark_product' => 'Pentalite',
+                    'benchmark_label' => '100% = Pentalite'
+                ],
+                'washable' => [
+                    'title' => 'Washable Segment / EasyClean',
+                    'category_query' => "category = 'Washable Segment'",
+                    'metric' => 'price_galon',
+                    'unit' => 'Galon (2.5L / 4-5Kg)',
+                    'benchmark_product' => 'Easy Clean',
+                    'benchmark_label' => '100% = EasyClean'
+                ],
+                'super_premium_exterior' => [
+                    'title' => 'Super Premium Exterior',
+                    'category_query' => "category = 'Super Premium Exterior'",
+                    'metric' => 'price_galon',
+                    'unit' => 'Galon (2.5L / 4-5Kg)',
+                    'benchmark_product' => 'Weathershield Powerflexx',
+                    'benchmark_label' => '100% = Weathershield Powerflexx'
+                ],
+                'premium_exterior' => [
+                    'title' => 'Premium Exterior',
+                    'category_query' => "category = 'Premium Exterior'",
+                    'metric' => 'price_galon',
+                    'unit' => 'Galon (2.5L / 4-5Kg)',
+                    'benchmark_product' => 'Weathershield Core Dualshield',
+                    'benchmark_label' => '100% = Weathershield Core'
+                ],
+                'mass_interior' => [
+                    'title' => 'Mass Interior',
+                    'category_query' => "category = 'Mass Interior'",
+                    'metric' => 'price_galon',
+                    'unit' => 'Galon (2.5L / 4-5Kg)',
+                    'benchmark_product' => 'Catylac Interior',
+                    'benchmark_label' => '100% = Catylac Interior'
+                ],
+            ],
+            'd2' => [
+                'enamel' => [
+                    'title' => 'Enamel (Cat Kayu & Besi)',
+                    'category_query' => "category = 'Enamel'",
+                    'metric' => 'price_tin',
+                    'unit' => 'Tin (1 Liter / 1 Kg)',
+                    'benchmark_product' => 'V-Gloss High Gloss',
+                    'benchmark_label' => '100% = V-Gloss High Gloss'
+                ],
+                'waterproofing' => [
+                    'title' => 'Waterproofing (Pelapis Anti Bocor)',
+                    'category_query' => "category = 'Waterproofing'",
+                    'metric' => 'price_galon',
+                    'unit' => 'Galon (2.5L / 4-5Kg)',
+                    'benchmark_product' => 'Aquashield',
+                    'benchmark_label' => '100% = Aquashield'
+                ],
+            ]
+        ];
+
+        // 3. Query SQLite Data (for historical records)
+        $sqliteKpis = ['total_records' => 0, 'unique_stores' => 0, 'sum_an_galon' => 0, 'count_an_galon' => 0, 'sum_comp_galon' => 0, 'count_comp_galon' => 0];
+        $trendSeries = [
+            'AkzoNobel (Dulux)' => [],
+            'Jotun' => [],
+            'Nippon Paint' => [],
+            'Avian / Aquaproof' => [],
+            'Mowilex' => [],
+        ];
+        $sectionProducts = ['d1' => [], 'd2' => []];
+        $sqliteRawRows = [];
+        $sqliteRawTotal = 0;
+
+        if (file_exists($sqlitePath)) {
             try {
                 $pdo = new \PDO("sqlite:" . $sqlitePath);
                 $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 
-                // Resolve Area Name & Store Name if filtered
-                $selectedAreaName = null;
-                if ($selectedAreaId) {
-                    $selectedAreaName = is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId;
-                }
-                $selectedStoreName = null;
-                if ($selectedLocationId) {
-                    $selectedStoreName = is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId;
-                }
-
-                // Prepare Months
-                $sMonth = max(1, min(12, (int)$startMonth));
-                $eMonth = max(1, min(12, (int)$endMonth));
-                if ($sMonth > $eMonth) {
-                    $tmp = $sMonth;
-                    $sMonth = $eMonth;
-                    $eMonth = $tmp;
-                }
-
-                $maxMonth = ($selectedYear == 2026) ? 7 : 12;
-                $monthNames = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug', 9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec'];
-                $months = [];
-                for ($m = $sMonth; $m <= $eMonth; $m++) {
-                    if ($m >= 1 && $m <= $maxMonth) {
-                        $dateObj = Carbon::create($endYear, $m, 1);
-                        $months[$m] = [
-                            'm' => $m,
-                            'short' => $monthNames[$m] ?? "Bln $m",
-                            'label' => ($monthNames[$m] ?? "Bln $m") . ' ' . $endYear,
-                            'date_header' => strtoupper($dateObj->translatedFormat('F Y'))
-                        ];
-                    }
-                }
-                if (empty($months)) {
-                    for ($m = 1; $m <= $maxMonth; $m++) {
-                        $dateObj = Carbon::create($endYear, $m, 1);
-                        $months[$m] = [
-                            'm' => $m,
-                            'short' => $monthNames[$m],
-                            'label' => $monthNames[$m] . ' ' . $endYear,
-                            'date_header' => strtoupper($dateObj->translatedFormat('F Y'))
-                        ];
-                    }
-                }
+                $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
+                $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
 
                 $whereClauses = ["month BETWEEN ? AND ?"];
                 $params = [min(array_keys($months)), max(array_keys($months))];
@@ -6851,20 +7054,30 @@ class PrincipalPortalController extends Controller
 
                 $whereSql = implode(" AND ", $whereClauses);
 
-                // 1. Overall KPIs
+                // SQLite KPI
                 $kpiSql = "
                     SELECT COUNT(*) as total_records,
                            COUNT(DISTINCT name_store) as unique_stores,
-                           AVG(CASE WHEN brand = 'AN' AND price_galon >= 1000 AND price_galon <= 5000000 THEN price_galon END) as avg_an_galon,
-                           AVG(CASE WHEN brand != 'AN' AND brand != '' AND price_galon >= 1000 AND price_galon <= 5000000 THEN price_galon END) as avg_comp_galon
+                           SUM(CASE WHEN brand = 'AN' AND price_galon >= 1000 AND price_galon <= 5000000 THEN price_galon ELSE 0 END) as sum_an_galon,
+                           SUM(CASE WHEN brand = 'AN' AND price_galon >= 1000 AND price_galon <= 5000000 THEN 1 ELSE 0 END) as count_an_galon,
+                           SUM(CASE WHEN brand != 'AN' AND brand != '' AND price_galon >= 1000 AND price_galon <= 5000000 THEN price_galon ELSE 0 END) as sum_comp_galon,
+                           SUM(CASE WHEN brand != 'AN' AND brand != '' AND price_galon >= 1000 AND price_galon <= 5000000 THEN 1 ELSE 0 END) as count_comp_galon
                     FROM cbp_raw
                     WHERE $whereSql
                 ";
                 $stmt = $pdo->prepare($kpiSql);
                 $stmt->execute($params);
-                $kpiRow = $stmt->fetch(\PDO::FETCH_ASSOC);
+                $kRow = $stmt->fetch(\PDO::FETCH_ASSOC);
+                if ($kRow) {
+                    $sqliteKpis['total_records'] = (int)($kRow['total_records'] ?? 0);
+                    $sqliteKpis['unique_stores'] = (int)($kRow['unique_stores'] ?? 0);
+                    $sqliteKpis['sum_an_galon'] = (float)($kRow['sum_an_galon'] ?? 0);
+                    $sqliteKpis['count_an_galon'] = (int)($kRow['count_an_galon'] ?? 0);
+                    $sqliteKpis['sum_comp_galon'] = (float)($kRow['sum_comp_galon'] ?? 0);
+                    $sqliteKpis['count_comp_galon'] = (int)($kRow['count_comp_galon'] ?? 0);
+                }
 
-                // 2. Trend Series for Line Chart
+                // SQLite Trends
                 $trendSql = "
                     SELECT 
                         CASE 
@@ -6886,107 +7099,14 @@ class PrincipalPortalController extends Controller
                 ";
                 $stmt = $pdo->prepare($trendSql);
                 $stmt->execute($params);
-                $trendRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-
-                $trendSeries = [
-                    'AkzoNobel (Dulux)' => [],
-                    'Jotun' => [],
-                    'Nippon Paint' => [],
-                    'Avian / Aquaproof' => [],
-                    'Mowilex' => [],
-                ];
-                foreach ($trendRows as $tr) {
+                foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $tr) {
                     $bg = $tr['brand_group'];
                     if (isset($trendSeries[$bg])) {
                         $trendSeries[$bg][$tr['month']] = round((float)$tr['avg_price'], 0);
                     }
                 }
 
-                // Fill null if month is missing in trend
-                foreach ($trendSeries as $bg => &$tMonths) {
-                    foreach ($months as $m => $mMeta) {
-                        if (!isset($tMonths[$m]) || $tMonths[$m] <= 0) {
-                            $tMonths[$m] = null;
-                        }
-                    }
-                    ksort($tMonths);
-                }
-                unset($tMonths);
-
-                // 3. Sections for Dashboard (1) & Dashboard (2)
-                $sectionsConfig = [
-                    'd1' => [
-                        'super_premium_interior' => [
-                            'title' => 'Super Premium Interior',
-                            'category_query' => "category = 'Super Premium Interior'",
-                            'metric' => 'price_galon',
-                            'unit' => 'Galon (2.5L / 4-5Kg)',
-                            'benchmark_product' => 'Ambiance Emulsion',
-                            'benchmark_label' => '100% = Ambiance Emulsion'
-                        ],
-                        'premium_interior' => [
-                            'title' => 'Dulux Interior / Premium Interior',
-                            'category_query' => "category IN ('Premium Interior', 'Dulux Interior')",
-                            'metric' => 'price_galon',
-                            'unit' => 'Galon (2.5L / 4-5Kg)',
-                            'benchmark_product' => 'Pentalite',
-                            'benchmark_label' => '100% = Pentalite'
-                        ],
-                        'washable' => [
-                            'title' => 'Washable Segment / EasyClean',
-                            'category_query' => "category = 'Washable Segment'",
-                            'metric' => 'price_galon',
-                            'unit' => 'Galon (2.5L / 4-5Kg)',
-                            'benchmark_product' => 'Easy Clean',
-                            'benchmark_label' => '100% = EasyClean'
-                        ],
-                        'super_premium_exterior' => [
-                            'title' => 'Super Premium Exterior',
-                            'category_query' => "category = 'Super Premium Exterior'",
-                            'metric' => 'price_galon',
-                            'unit' => 'Galon (2.5L / 4-5Kg)',
-                            'benchmark_product' => 'Weathershield Powerflexx',
-                            'benchmark_label' => '100% = Weathershield Powerflexx'
-                        ],
-                        'premium_exterior' => [
-                            'title' => 'Premium Exterior',
-                            'category_query' => "category = 'Premium Exterior'",
-                            'metric' => 'price_galon',
-                            'unit' => 'Galon (2.5L / 4-5Kg)',
-                            'benchmark_product' => 'Weathershield Core Dualshield',
-                            'benchmark_label' => '100% = Weathershield Core'
-                        ],
-                        'mass_interior' => [
-                            'title' => 'Mass Interior',
-                            'category_query' => "category = 'Mass Interior'",
-                            'metric' => 'price_galon',
-                            'unit' => 'Galon (2.5L / 4-5Kg)',
-                            'benchmark_product' => 'Catylac Interior',
-                            'benchmark_label' => '100% = Catylac Interior'
-                        ],
-                    ],
-                    'd2' => [
-                        'enamel' => [
-                            'title' => 'Enamel (Cat Kayu & Besi)',
-                            'category_query' => "category = 'Enamel'",
-                            'metric' => 'price_tin',
-                            'unit' => 'Tin (1 Liter / 1 Kg)',
-                            'benchmark_product' => 'V-Gloss High Gloss',
-                            'benchmark_label' => '100% = V-Gloss High Gloss'
-                        ],
-                        'waterproofing' => [
-                            'title' => 'Waterproofing (Pelapis Anti Bocor)',
-                            'category_query' => "category = 'Waterproofing'",
-                            'metric' => 'price_galon',
-                            'unit' => 'Galon (2.5L / 4-5Kg)',
-                            'benchmark_product' => 'Aquashield',
-                            'benchmark_label' => '100% = Aquashield'
-                        ],
-                    ]
-                ];
-
-                $dashboards = ['d1' => [], 'd2' => []];
-
+                // SQLite Sections
                 foreach (['d1', 'd2'] as $dKey) {
                     foreach ($sectionsConfig[$dKey] as $sKey => $cfg) {
                         $metricCol = $cfg['metric'];
@@ -7001,7 +7121,6 @@ class PrincipalPortalController extends Controller
                             GROUP BY product, brand, month
                             ORDER BY brand, product, month
                         ";
-
                         $stmt = $pdo->prepare($sqlSec);
                         $stmt->execute($params);
                         $secRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
@@ -7010,7 +7129,6 @@ class PrincipalPortalController extends Controller
                         foreach ($secRows as $r) {
                             $p = trim($r['product']);
                             if (empty($p)) continue;
-
                             if (!isset($prods[$p])) {
                                 $b = trim($r['brand']);
                                 if (empty($b)) {
@@ -7031,222 +7149,302 @@ class PrincipalPortalController extends Controller
                             }
                             $prods[$p]['prices'][$r['month']] = (float)$r['avg_price'];
                         }
-
-                        // Determine Benchmark Prices
-                        $bmPrices = $prods[$cfg['benchmark_product']]['prices'] ?? [];
-                        if (empty($bmPrices)) {
-                            foreach ($prods as $p => $info) {
-                                if ($info['brand'] === 'AN' && !empty($info['prices'])) {
-                                    $bmPrices = $info['prices'];
-                                    $prods[$p]['is_benchmark'] = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        // Calculate Indices, MoM Growth and Averages
-                        foreach ($prods as $p => &$info) {
-                            $validPrices = [];
-                            $validIndices = [];
-                            $validMoMs = [];
-                            foreach ($months as $m => $mMeta) {
-                                $price = $info['prices'][$m] ?? null;
-                                $bmPrice = $bmPrices[$m] ?? null;
-                                if ($price && $price > 0) {
-                                    $validPrices[] = $price;
-                                }
-                                if ($price && $bmPrice && $bmPrice > 0) {
-                                    $idx = ($price / $bmPrice) * 100;
-                                    $info['indices'][$m] = $idx;
-                                    $validIndices[] = $idx;
-                                } else {
-                                    $info['indices'][$m] = null;
-                                }
-
-                                // MoM Growth (%): (Current Month Price - Previous Month Price) / Previous Month Price * 100
-                                $prevPrice = $info['prices'][$m - 1] ?? null;
-                                if ($prevPrice && $prevPrice > 0 && $price && $price > 0) {
-                                    $mom = (($price - $prevPrice) / $prevPrice) * 100;
-                                    $info['mom_growth'][$m] = $mom;
-                                    $validMoMs[] = $mom;
-                                } else {
-                                    $info['mom_growth'][$m] = null;
-                                }
-                            }
-                            $info['avg_price'] = count($validPrices) > 0 ? (array_sum($validPrices) / count($validPrices)) : 0;
-                            $info['avg_index'] = count($validIndices) > 0 ? (array_sum($validIndices) / count($validIndices)) : 0;
-                            $info['avg_mom'] = count($validMoMs) > 0 ? (array_sum($validMoMs) / count($validMoMs)) : null;
-                        }
-                        unset($info);
-
-                        // Sort products
-                        uasort($prods, function($a, $b) {
-                            if ($a['is_benchmark']) return -1;
-                            if ($b['is_benchmark']) return 1;
-                            if ($a['brand'] === 'AN' && $b['brand'] !== 'AN') return -1;
-                            if ($a['brand'] !== 'AN' && $b['brand'] === 'AN') return 1;
-                            return strcasecmp($a['product'], $b['product']);
-                        });
-
-                        $dashboards[$dKey][$sKey] = [
-                            'title' => $cfg['title'],
-                            'unit' => $cfg['unit'],
-                            'benchmark_label' => $cfg['benchmark_label'],
-                            'benchmark_product' => $cfg['benchmark_product'],
-                            'products' => $prods
-                        ];
+                        $sectionProducts[$dKey][$sKey] = $prods;
                     }
                 }
 
-                $avgAn = (float)($kpiRow['avg_an_galon'] ?? 0);
-                $avgComp = (float)($kpiRow['avg_comp_galon'] ?? 0);
+                // SQLite Raw Data
+                $rawWhereClauses = ["month BETWEEN ? AND ?"];
+                $rawParams = [$sMonth, $eMonth];
+                if ($selectedRegion) {
+                    $rawWhereClauses[] = "regional = ?";
+                    $rawParams[] = $selectedRegion;
+                }
+                if ($selectedAreaName) {
+                    $rawWhereClauses[] = "(UPPER(area) LIKE ? OR UPPER(rsm_area) LIKE ?)";
+                    $rawParams[] = "%" . strtoupper($selectedAreaName) . "%";
+                    $rawParams[] = "%" . strtoupper($selectedAreaName) . "%";
+                }
+                if ($selectedStoreName) {
+                    $rawWhereClauses[] = "name_store LIKE ?";
+                    $rawParams[] = "%$selectedStoreName%";
+                }
+                if ($search) {
+                    $rawWhereClauses[] = "(product LIKE ? OR brand LIKE ? OR name_store LIKE ? OR sap_member LIKE ? OR sap_gab LIKE ? OR tl_name LIKE ?)";
+                    $rawParams[] = "%$search%";
+                    $rawParams[] = "%$search%";
+                    $rawParams[] = "%$search%";
+                    $rawParams[] = "%$search%";
+                    $rawParams[] = "%$search%";
+                    $rawParams[] = "%$search%";
+                }
+                $rawWhereSql = implode(" AND ", $rawWhereClauses);
 
-                return [
-                    'months' => $months,
-                    'kpis' => [
-                        'total_records' => (int)($kpiRow['total_records'] ?? 0),
-                        'unique_stores' => (int)($kpiRow['unique_stores'] ?? 0),
-                        'avg_an_galon' => $avgAn,
-                        'avg_comp_galon' => $avgComp,
-                        'ratio_index' => ($avgComp > 0) ? (($avgAn / $avgComp) * 100) : 100,
-                    ],
-                    'trend_series' => $trendSeries,
-                    'dashboard1' => $dashboards['d1'],
-                    'dashboard2' => $dashboards['d2']
-                ];
+                $countStmt = $pdo->prepare("SELECT COUNT(DISTINCT code) FROM cbp_raw WHERE $rawWhereSql");
+                $countStmt->execute($rawParams);
+                $sqliteRawTotal = (int)$countStmt->fetchColumn();
+
+                $rawSql = "
+                    SELECT code, regional, sap_member, sap_gab, name_store, tl_name, area, rsm_area, class, store_type, product, category, product_group
+                    FROM cbp_raw
+                    WHERE $rawWhereSql
+                    GROUP BY code
+                    ORDER BY regional, area, name_store, product
+                ";
+                $rawStmt = $pdo->prepare($rawSql);
+                $rawStmt->execute($rawParams);
+                $sqliteRawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // Populate prices for sqlite rows
+                $codes = array_column($sqliteRawRows, 'code');
+                $activeMonthKeys = array_keys($months);
+                if (!empty($codes) && !empty($activeMonthKeys)) {
+                    $codePlaceholders = implode(',', array_fill(0, count($codes), '?'));
+                    $monthPlaceholders = implode(',', array_fill(0, count($activeMonthKeys), '?'));
+
+                    $priceSql = "
+                        SELECT code, month, trans_date,
+                               price_tin, lowest_tin, reason_tin,
+                               price_galon, lowest_galon, reason_galon,
+                               price_pail, lowest_pail, reason_pail
+                        FROM cbp_raw
+                        WHERE code IN ($codePlaceholders) AND month IN ($monthPlaceholders)
+                    ";
+                    $priceStmt = $pdo->prepare($priceSql);
+                    $priceStmt->execute(array_merge($codes, $activeMonthKeys));
+                    $priceRows = $priceStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                    $pivoted = [];
+                    foreach ($priceRows as $pr) {
+                        $pivoted[$pr['code']][$pr['month']] = $pr;
+                    }
+                    foreach ($sqliteRawRows as &$it) {
+                        $it['monthly_prices'] = $pivoted[$it['code']] ?? [];
+                    }
+                    unset($it);
+                }
             } catch (\Throwable $e) {
-                \Log::error("Failed to calculate CBP Dashboard: " . $e->getMessage());
-                return null;
+                \Log::error("SQLite query error in CBP: " . $e->getMessage());
             }
-        });
-
-        if (!$aggData) {
-            return null;
         }
 
-        $months = $aggData['months'] ?? [];
+        // 4. Merge Live Submissions with SQLite Data
+        $mergedRawMap = [];
+        // First add sqlite rows
+        foreach ($sqliteRawRows as $sr) {
+            $mergedRawMap[$sr['code']] = $sr;
+        }
 
-        // Fetch Paginated Raw Data (Matching Excel Sheet 'Raw Data')
-        try {
-            $pdo = new \PDO("sqlite:" . $sqlitePath);
-            $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        // Then merge live submissions
+        foreach ($liveRows as $lr) {
+            $code = $lr['code'];
+            $m = $lr['month'];
 
-            $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
-            $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
-
-            $sMonth = max(1, min(12, (int)$startMonth));
-            $eMonth = max(1, min(12, (int)$endMonth));
-            if ($sMonth > $eMonth) {
-                $tmp = $sMonth; $sMonth = $eMonth; $eMonth = $tmp;
+            // KPIs
+            if ($lr['brand'] === 'AN' && $lr['price_galon'] >= 1000 && $lr['price_galon'] <= 5000000) {
+                $sqliteKpis['sum_an_galon'] += $lr['price_galon'];
+                $sqliteKpis['count_an_galon']++;
+            } elseif ($lr['brand'] !== 'AN' && $lr['price_galon'] >= 1000 && $lr['price_galon'] <= 5000000) {
+                $sqliteKpis['sum_comp_galon'] += $lr['price_galon'];
+                $sqliteKpis['count_comp_galon']++;
             }
 
-            $whereClauses = ["month BETWEEN ? AND ?"];
-            $params = [$sMonth, $eMonth];
-
-            if ($selectedRegion) {
-                $whereClauses[] = "regional = ?";
-                $params[] = $selectedRegion;
-            }
-            if ($selectedAreaName) {
-                $whereClauses[] = "(UPPER(area) LIKE ? OR UPPER(rsm_area) LIKE ?)";
-                $params[] = "%" . strtoupper($selectedAreaName) . "%";
-                $params[] = "%" . strtoupper($selectedAreaName) . "%";
-            }
-            if ($selectedStoreName) {
-                $whereClauses[] = "name_store LIKE ?";
-                $params[] = "%$selectedStoreName%";
-            }
-            if ($search) {
-                $whereClauses[] = "(product LIKE ? OR brand LIKE ? OR name_store LIKE ? OR sap_member LIKE ? OR sap_gab LIKE ? OR tl_name LIKE ?)";
-                $params[] = "%$search%";
-                $params[] = "%$search%";
-                $params[] = "%$search%";
-                $params[] = "%$search%";
-                $params[] = "%$search%";
-                $params[] = "%$search%";
+            // Trends
+            $bg = ($lr['brand'] === 'AN') ? 'AkzoNobel (Dulux)' : (
+                stripos($lr['brand_raw'], 'Jotun') !== false ? 'Jotun' : (
+                stripos($lr['brand_raw'], 'Nippon') !== false ? 'Nippon Paint' : (
+                (stripos($lr['brand_raw'], 'Avian') !== false || stripos($lr['brand_raw'], 'Aquaproof') !== false) ? 'Avian / Aquaproof' : (
+                stripos($lr['brand_raw'], 'Mowilex') !== false ? 'Mowilex' : 'Lainnya'
+            ))));
+            if (isset($trendSeries[$bg]) && $lr['price_galon'] >= 1000 && $lr['price_galon'] <= 5000000) {
+                $trendSeries[$bg][$m] = round($lr['price_galon'], 0);
             }
 
-            $whereSql = implode(" AND ", $whereClauses);
+            // Raw Data Table
+            if (!isset($mergedRawMap[$code])) {
+                $mergedRawMap[$code] = [
+                    'code' => $code,
+                    'regional' => $lr['regional'],
+                    'sap_member' => $lr['sap_member'],
+                    'sap_gab' => $lr['sap_gab'],
+                    'name_store' => $lr['name_store'],
+                    'tl_name' => $lr['tl_name'],
+                    'area' => $lr['area'],
+                    'rsm_area' => $lr['rsm_area'],
+                    'class' => $lr['class'],
+                    'store_type' => $lr['store_type'],
+                    'product' => $lr['product'],
+                    'category' => $lr['category'],
+                    'product_group' => $lr['product_group'],
+                    'monthly_prices' => [],
+                    'is_live' => true,
+                    'submission_code' => $lr['submission_code'],
+                    'submission_id' => $lr['submission_id'],
+                ];
+            }
+            $mergedRawMap[$code]['monthly_prices'][$m] = [
+                'code' => $code,
+                'month' => $m,
+                'trans_date' => $lr['trans_date'],
+                'price_tin' => $lr['price_tin'],
+                'lowest_tin' => $lr['lowest_tin'],
+                'reason_tin' => $lr['reason_tin'],
+                'price_galon' => $lr['price_galon'],
+                'lowest_galon' => $lr['lowest_galon'],
+                'reason_galon' => $lr['reason_galon'],
+                'price_pail' => $lr['price_pail'],
+                'lowest_pail' => $lr['lowest_pail'],
+                'reason_pail' => $lr['reason_pail'],
+                'is_live' => true,
+                'submission_code' => $lr['submission_code'],
+                'submission_id' => $lr['submission_id'],
+            ];
 
-            // Ensure SQLite indexes exist for ultra-fast multi-month queries
-            try {
-                $pdo->exec("
-                    CREATE INDEX IF NOT EXISTS idx_cbp_code ON cbp_raw(code);
-                    CREATE INDEX IF NOT EXISTS idx_cbp_month_code ON cbp_raw(month, code);
-                ");
-            } catch (\Throwable $e) {}
+            // Sections
+            foreach (['d1', 'd2'] as $dKey) {
+                foreach ($sectionsConfig[$dKey] as $sKey => $cfg) {
+                    if (stripos($lr['category'], $sKey) !== false || (stripos($cfg['title'], $lr['category']) !== false)) {
+                        $pName = $lr['product'];
+                        if (!isset($sectionProducts[$dKey][$sKey][$pName])) {
+                            $sectionProducts[$dKey][$sKey][$pName] = [
+                                'product' => $pName,
+                                'brand' => $lr['brand'],
+                                'is_benchmark' => ($pName === $cfg['benchmark_product']),
+                                'prices' => [],
+                                'indices' => [],
+                                'mom_growth' => [],
+                                'avg_price' => 0,
+                                'avg_index' => 0,
+                                'avg_mom' => null,
+                            ];
+                        }
+                        $metricVal = ($cfg['metric'] === 'price_tin') ? $lr['price_tin'] : $lr['price_galon'];
+                        if ($metricVal > 0) {
+                            $sectionProducts[$dKey][$sKey][$pName]['prices'][$m] = $metricVal;
+                        }
+                    }
+                }
+            }
+        }
 
-            // Count distinct store + product items matching filter
-            $countStmt = $pdo->prepare("SELECT COUNT(DISTINCT code) FROM cbp_raw WHERE $whereSql");
-            $countStmt->execute($params);
-            $rawTotal = (int)$countStmt->fetchColumn();
+        // Fill null in trendSeries
+        foreach ($trendSeries as $bg => &$tMonths) {
+            foreach ($months as $m => $mMeta) {
+                if (!isset($tMonths[$m]) || $tMonths[$m] <= 0) {
+                    $tMonths[$m] = null;
+                }
+            }
+            ksort($tMonths);
+        }
+        unset($tMonths);
 
-            $rawOffset = ($rawPage - 1) * $rawPerPage;
-            $rawSql = "
-                SELECT code, regional, sap_member, sap_gab, name_store, tl_name, area, rsm_area, class, store_type, product, category, product_group
-                FROM cbp_raw
-                WHERE $whereSql
-                GROUP BY code
-                ORDER BY regional, area, name_store, product
-                LIMIT $rawPerPage OFFSET $rawOffset
-            ";
-            $rawStmt = $pdo->prepare($rawSql);
-            $rawStmt->execute($params);
-            $rawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC);
+        // Finalize Dashboard 1 and 2 Sections (Indices, MoM, Sort)
+        $dashboards = ['d1' => [], 'd2' => []];
+        foreach (['d1', 'd2'] as $dKey) {
+            foreach ($sectionsConfig[$dKey] as $sKey => $cfg) {
+                $prods = $sectionProducts[$dKey][$sKey] ?? [];
 
-            // Fetch monthly prices for these 50 items across the filtered months
-            $codes = array_column($rawRows, 'code');
-            $activeMonthKeys = array_keys($months);
-
-            if (!empty($codes) && !empty($activeMonthKeys)) {
-                $codePlaceholders = implode(',', array_fill(0, count($codes), '?'));
-                $monthPlaceholders = implode(',', array_fill(0, count($activeMonthKeys), '?'));
-
-                $priceSql = "
-                    SELECT code, month, trans_date,
-                           price_tin, lowest_tin, reason_tin,
-                           price_galon, lowest_galon, reason_galon,
-                           price_pail, lowest_pail, reason_pail
-                    FROM cbp_raw
-                    WHERE code IN ($codePlaceholders) AND month IN ($monthPlaceholders)
-                ";
-                $priceStmt = $pdo->prepare($priceSql);
-                $priceStmt->execute(array_merge($codes, $activeMonthKeys));
-                $priceRows = $priceStmt->fetchAll(\PDO::FETCH_ASSOC);
-
-                $pivoted = [];
-                foreach ($priceRows as $pr) {
-                    $pivoted[$pr['code']][$pr['month']] = $pr;
+                // Determine Benchmark Prices
+                $bmPrices = $prods[$cfg['benchmark_product']]['prices'] ?? [];
+                if (empty($bmPrices)) {
+                    foreach ($prods as $p => $info) {
+                        if ($info['brand'] === 'AN' && !empty($info['prices'])) {
+                            $bmPrices = $info['prices'];
+                            $prods[$p]['is_benchmark'] = true;
+                            break;
+                        }
+                    }
                 }
 
-                foreach ($rawRows as &$it) {
-                    $it['monthly_prices'] = $pivoted[$it['code']] ?? [];
-                }
-                unset($it);
-            }
+                foreach ($prods as $p => &$info) {
+                    $validPrices = [];
+                    $validIndices = [];
+                    $validMoMs = [];
+                    foreach ($months as $m => $mMeta) {
+                        $price = $info['prices'][$m] ?? null;
+                        $bmPrice = $bmPrices[$m] ?? null;
+                        if ($price && $price > 0) {
+                            $validPrices[] = $price;
+                        }
+                        if ($price && $bmPrice && $bmPrice > 0) {
+                            $idx = ($price / $bmPrice) * 100;
+                            $info['indices'][$m] = $idx;
+                            $validIndices[] = $idx;
+                        } else {
+                            $info['indices'][$m] = null;
+                        }
 
-            $aggData['raw_data'] = [
-                'rows' => $rawRows,
-                'total' => $rawTotal,
+                        $prevPrice = $info['prices'][$m - 1] ?? null;
+                        if ($prevPrice && $prevPrice > 0 && $price && $price > 0) {
+                            $mom = (($price - $prevPrice) / $prevPrice) * 100;
+                            $info['mom_growth'][$m] = $mom;
+                            $validMoMs[] = $mom;
+                        } else {
+                            $info['mom_growth'][$m] = null;
+                        }
+                    }
+                    $info['avg_price'] = count($validPrices) > 0 ? (array_sum($validPrices) / count($validPrices)) : 0;
+                    $info['avg_index'] = count($validIndices) > 0 ? (array_sum($validIndices) / count($validIndices)) : 0;
+                    $info['avg_mom'] = count($validMoMs) > 0 ? (array_sum($validMoMs) / count($validMoMs)) : null;
+                }
+                unset($info);
+
+                uasort($prods, function($a, $b) {
+                    if ($a['is_benchmark']) return -1;
+                    if ($b['is_benchmark']) return 1;
+                    if ($a['brand'] === 'AN' && $b['brand'] !== 'AN') return -1;
+                    if ($a['brand'] !== 'AN' && $b['brand'] === 'AN') return 1;
+                    return strcasecmp($a['product'], $b['product']);
+                });
+
+                $dashboards[$dKey][$sKey] = [
+                    'title' => $cfg['title'],
+                    'unit' => $cfg['unit'],
+                    'benchmark_label' => $cfg['benchmark_label'],
+                    'benchmark_product' => $cfg['benchmark_product'],
+                    'products' => $prods
+                ];
+            }
+        }
+
+        // Finalize KPIs
+        $avgAn = $sqliteKpis['count_an_galon'] > 0 ? ($sqliteKpis['sum_an_galon'] / $sqliteKpis['count_an_galon']) : 0;
+        $avgComp = $sqliteKpis['count_comp_galon'] > 0 ? ($sqliteKpis['sum_comp_galon'] / $sqliteKpis['count_comp_galon']) : 0;
+        $totalRecords = $sqliteKpis['total_records'] + count($liveRows);
+        $uniqueStores = count(array_unique(array_merge(
+            array_column($sqliteRawRows, 'name_store'),
+            array_keys($liveUniqueStores)
+        )));
+
+        // Finalize Paginated Raw Data
+        $allRawRows = array_values($mergedRawMap);
+        $totalRawCount = count($allRawRows);
+        $rawOffset = ($rawPage - 1) * $rawPerPage;
+        $pagedRawRows = array_slice($allRawRows, $rawOffset, $rawPerPage);
+
+        $aggData = [
+            'months' => $months,
+            'kpis' => [
+                'total_records' => $totalRecords,
+                'unique_stores' => $uniqueStores,
+                'avg_an_galon' => $avgAn,
+                'avg_comp_galon' => $avgComp,
+                'ratio_index' => ($avgComp > 0) ? (($avgAn / $avgComp) * 100) : 100,
+            ],
+            'trend_series' => $trendSeries,
+            'dashboard1' => $dashboards['d1'],
+            'dashboard2' => $dashboards['d2'],
+            'raw_data' => [
+                'rows' => $pagedRawRows,
+                'total' => $totalRawCount,
                 'page' => $rawPage,
                 'per_page' => $rawPerPage,
-                'total_pages' => (int)ceil($rawTotal / $rawPerPage),
-                'from' => $rawTotal > 0 ? ($rawOffset + 1) : 0,
-                'to' => min($rawOffset + $rawPerPage, $rawTotal),
+                'total_pages' => (int)ceil($totalRawCount / $rawPerPage),
+                'from' => $totalRawCount > 0 ? ($rawOffset + 1) : 0,
+                'to' => min($rawOffset + $rawPerPage, $totalRawCount),
                 'months' => $months
-            ];
-        } catch (\Throwable $e) {
-            \Log::error("Failed to query CBP Raw Data: " . $e->getMessage());
-            $aggData['raw_data'] = [
-                'rows' => [],
-                'total' => 0,
-                'page' => 1,
-                'per_page' => $rawPerPage,
-                'total_pages' => 0,
-                'from' => 0,
-                'to' => 0
-            ];
-        }
+            ]
+        ];
 
         return $aggData;
     }

@@ -16,11 +16,22 @@
                 <i class="fa-solid fa-file-excel" style="font-size: 1rem; color: #107c41;"></i>
                 <span>Raw Data</span>
             </button>
+            <button type="button" class="cbp-nav-btn" id="btn_cbp_tab_live" onclick="switchCbpMainTab('live')">
+                <i class="fa-solid fa-list-check" style="font-size: 1rem; color: #2563eb;"></i>
+                <span>Data Laporan Masuk</span>
+                @if(isset($submissions) && $submissions->total() > 0)
+                    <span style="background: #2563eb; color: #ffffff; font-size: 0.72rem; font-weight: 800; padding: 2px 7px; border-radius: 9999px; margin-left: 6px;">{{ $submissions->total() }}</span>
+                @endif
+            </button>
         </div>
 
         <div style="font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
             <i class="fa-solid fa-clock-rotate-left"></i>
-            <span>Periode Data: <strong>Januari – Juli {{ $endYear }}</strong></span>
+            @php
+                $firstMonthLabel = !empty($cbpData['months']) ? ($cbpData['months'][min(array_keys($cbpData['months']))]['label'] ?? "Jan $endYear") : "Jan $endYear";
+                $lastMonthLabel = !empty($cbpData['months']) ? ($cbpData['months'][max(array_keys($cbpData['months']))]['label'] ?? "Des $endYear") : "Des $endYear";
+            @endphp
+            <span>Periode Data: <strong>{{ $firstMonthLabel }} – {{ $lastMonthLabel }}</strong></span>
         </div>
     </div>
 
@@ -681,7 +692,14 @@
                                         <span style="color: var(--text-muted);">-</span>
                                     @endif
                                 </td>
-                                <td style="text-align: left; font-weight: 600; color: var(--text-heading);">{{ $r['product'] }}</td>
+                                <td style="text-align: left; font-weight: 600; color: var(--text-heading);">
+                                    {{ $r['product'] }}
+                                    @if(!empty($r['is_live']))
+                                        <span style="font-size: 0.68rem; font-weight: 700; background: #eff6ff; color: #1d4ed8; padding: 2px 6px; border-radius: 4px; border: 1px solid #bfdbfe; margin-left: 4px;" title="Data Terkini dari Aplikasi Mobile">
+                                            <i class="fa-solid fa-mobile-screen"></i> Live
+                                        </span>
+                                    @endif
+                                </td>
                                 <td style="text-align: left; color: var(--text-muted);">{{ $r['category'] }}</td>
                                 <td style="text-align: left; color: var(--text-muted);">{{ $r['product_group'] }}</td>
 
@@ -798,6 +816,191 @@
         </div>
     </div>
 
+    <!-- PANE 4: DATA LAPORAN MASUK TERKINI (LIVE SUBMISSIONS DARI MOBILE / ADMIN) -->
+    <div id="cbp_pane_live" class="cbp-pane-container" style="display: none;">
+        <div class="cbp-sec-card" style="margin-bottom: 1.5rem;">
+            <div class="cbp-sec-header">
+                <div>
+                    <div class="cbp-sec-title">
+                        <i class="fa-solid fa-clipboard-check" style="color: var(--brand-primary); font-size: 1.15rem;"></i>
+                        <span>Data Laporan Masuk Terkini (Live Submissions)</span>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                        Daftar isian laporan CBP yang dikirim langsung oleh SPG / Promotor melalui aplikasi mobile & form pelaporan.
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <span style="font-size: 0.82rem; font-weight: 700; background: #eff6ff; color: #1d4ed8; padding: 0.4rem 0.85rem; border-radius: 8px; border: 1px solid #bfdbfe;">
+                        Total {{ $submissions->total() }} Laporan Masuk
+                    </span>
+                </div>
+            </div>
+
+            @if($submissions->isNotEmpty())
+                <div style="overflow-x: auto;">
+                    <table class="custom-table" style="margin-bottom: 0;">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px; text-align: center;">No</th>
+                                <th style="width: 150px;">Kode Laporan</th>
+                                <th style="min-width: 140px;">Waktu Submit</th>
+                                <th style="min-width: 180px;">Promotor / SPG</th>
+                                <th style="min-width: 190px;">Nama Toko / Outlet</th>
+                                <th style="min-width: 140px;">Area Sales & RSM</th>
+                                <th style="min-width: 160px;">Produk / Brand</th>
+                                <th style="min-width: 140px;">Kategori</th>
+                                <th style="min-width: 150px; text-align: right;">Harga (Galon / Tin / Pail)</th>
+                                <th style="text-align: center; width: 100px;">Radius GPS</th>
+                                <th style="text-align: center; width: 120px;">Status</th>
+                                <th style="text-align: center; width: 110px;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($submissions as $idx => $sub)
+                                @php
+                                    $valMap = [];
+                                    foreach ($sub->values as $v) {
+                                        $valMap[$v->field_name] = $v->value_number ?? $v->value_text;
+                                    }
+                                    $pName = $valMap['subbrand_produk'] ?? $valMap['product'] ?? '-';
+                                    $bName = $valMap['brand_cat'] ?? $valMap['brand'] ?? '-';
+                                    $catName = $valMap['kategori_produk'] ?? $valMap['category'] ?? '-';
+                                    $pGalon = (float)($valMap['harga_galon_rp'] ?? 0);
+                                    $pTin = (float)($valMap['harga_tin_rp'] ?? 0);
+                                    $pPail = (float)($valMap['harga_pail_rp'] ?? 0);
+                                    $status = $sub->status ?? 'pending';
+                                    $store = $sub->workLocation?->name ?? 'Toko Tidak Terdaftar';
+                                    $branch = $sub->workLocation?->branch?->name ?? '-';
+                                @endphp
+                                <tr>
+                                    <td style="color: var(--text-muted); font-weight: 700; text-align: center;">
+                                        {{ $submissions->firstItem() + $idx }}
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" style="font-family: monospace; font-weight: 700; font-size: 0.82rem; color: #0F52BA; text-decoration: none; background: rgba(15, 82, 186, 0.08); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(15, 82, 186, 0.2); display: inline-block;">
+                                            {{ $sub->submission_code }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: var(--text-heading); font-size: 0.85rem;">
+                                            {{ $sub->submitted_at ? $sub->submitted_at->translatedFormat('d M Y') : '-' }}
+                                        </div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                            {{ $sub->submitted_at ? $sub->submitted_at->format('H:i') : '-' }} WIB
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: var(--text-heading); font-size: 0.85rem;">
+                                            {{ $sub->employee?->full_name ?? $sub->employee?->name ?? 'Petugas' }}
+                                        </div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">
+                                            {{ $sub->employee?->nik ?? ($sub->employee?->employee_no ?? '-') }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: var(--text-heading); font-size: 0.85rem;">
+                                            {{ $store }}
+                                        </div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                            Kode: {{ $sub->workLocation?->code ?? '-' }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 600; color: var(--text-heading); font-size: 0.82rem;">
+                                            {{ $branch }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: var(--text-muted);">
+                                            {{ $sub->workLocation?->region ?? '-' }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: var(--brand-primary); font-size: 0.85rem;">
+                                            {{ $pName }}
+                                        </div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                            {{ $bName }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span style="font-size: 0.75rem; font-weight: 600; background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 6px;">
+                                            {{ $catName }}
+                                        </span>
+                                    </td>
+                                    <td style="text-align: right;">
+                                        @if($pGalon > 0)
+                                            <div style="font-weight: 700; color: var(--text-heading); font-size: 0.82rem;">
+                                                G: Rp {{ number_format($pGalon, 0, ',', '.') }}
+                                            </div>
+                                        @endif
+                                        @if($pTin > 0)
+                                            <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                                T: Rp {{ number_format($pTin, 0, ',', '.') }}
+                                            </div>
+                                        @endif
+                                        @if($pPail > 0)
+                                            <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                                P: Rp {{ number_format($pPail, 0, ',', '.') }}
+                                            </div>
+                                        @endif
+                                        @if($pGalon <= 0 && $pTin <= 0 && $pPail <= 0)
+                                            <span style="color: var(--text-muted); font-size: 0.8rem;">-</span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if($sub->is_within_radius)
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #16a34a; background: #dcfce7; padding: 0.25rem 0.6rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-circle-check"></i> Valid
+                                            </span>
+                                        @else
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.6rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> Luar Radius
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if(in_array($status, ['approved', 'verified']))
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 0.25rem 0.6rem; border-radius: 8px;">
+                                                Terverifikasi
+                                            </span>
+                                        @elseif($status === 'rejected')
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 0.25rem 0.6rem; border-radius: 8px;">
+                                                Ditolak
+                                            </span>
+                                        @else
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.6rem; border-radius: 8px;">
+                                                Menunggu
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" style="display: inline-flex; align-items: center; gap: 4px; padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.78rem; font-weight: 700; text-decoration: none; background: #f1f5f9; color: #0F52BA; border: 1px solid #cbd5e1; transition: all 0.15s ease;" onmouseover="this.style.background='#0F52BA'; this.style.color='#fff';" onmouseout="this.style.background='#f1f5f9'; this.style.color='#0F52BA';">
+                                            <i class="fa-solid fa-eye"></i> Detail
+                                        </a>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                @if($submissions->hasPages())
+                    <div style="padding: 1rem 1.25rem; background: #f8fafc; border-top: 1px solid var(--border-color); border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                        {{ $submissions->appends(request()->query())->links('portal.pagination') }}
+                    </div>
+                @endif
+            @else
+                <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+                    <i class="fa-solid fa-clipboard-question" style="font-size: 2.5rem; margin-bottom: 0.75rem; color: #cbd5e1; display: block;"></i>
+                    <div style="font-weight: 700; font-size: 1rem; color: var(--text-heading);">Tidak Ada Data Laporan Masuk</div>
+                    <p style="font-size: 0.85rem; max-width: 420px; margin: 0.35rem auto 0;">
+                        Belum ada laporan CBP yang dikirimkan pada filter periode / area yang dipilih.
+                    </p>
+                </div>
+            @endif
+        </div>
+    </div>
+
 </div>
 
 <script>
@@ -810,24 +1013,14 @@
         var paneD1 = document.getElementById('cbp_pane_d1');
         var paneD2 = document.getElementById('cbp_pane_d2');
         var paneRaw = document.getElementById('cbp_pane_raw');
+        var paneLive = document.getElementById('cbp_pane_live');
         var canvas = document.getElementById('dashboard_canvas');
 
-        if (tabName === 'd1') {
-            if (paneD1) paneD1.style.display = 'block';
-            if (paneD2) paneD2.style.display = 'none';
-            if (paneRaw) paneRaw.style.display = 'none';
-            if (canvas) canvas.style.display = 'none';
-        } else if (tabName === 'd2') {
-            if (paneD1) paneD1.style.display = 'none';
-            if (paneD2) paneD2.style.display = 'block';
-            if (paneRaw) paneRaw.style.display = 'none';
-            if (canvas) canvas.style.display = 'none';
-        } else if (tabName === 'raw') {
-            if (paneD1) paneD1.style.display = 'none';
-            if (paneD2) paneD2.style.display = 'none';
-            if (paneRaw) paneRaw.style.display = 'block';
-            if (canvas) canvas.style.display = 'none';
-        }
+        if (paneD1) paneD1.style.display = (tabName === 'd1') ? 'block' : 'none';
+        if (paneD2) paneD2.style.display = (tabName === 'd2') ? 'block' : 'none';
+        if (paneRaw) paneRaw.style.display = (tabName === 'raw') ? 'block' : 'none';
+        if (paneLive) paneLive.style.display = (tabName === 'live') ? 'block' : 'none';
+        if (canvas) canvas.style.display = 'none';
 
         try {
             var url = new URL(window.location.href);
@@ -838,8 +1031,11 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         var urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('tab') === 'raw' || urlParams.get('raw_page')) {
+        var activeTab = urlParams.get('tab');
+        if (activeTab === 'raw' || urlParams.get('raw_page')) {
             switchCbpMainTab('raw');
+        } else if (activeTab === 'live' || urlParams.get('page')) {
+            switchCbpMainTab('live');
         }
     });
 
