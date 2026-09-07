@@ -1511,12 +1511,14 @@ class PrincipalPortalController extends Controller
             $uniqueStores = 0;
             $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
                 ->orderBy('submitted_at', 'desc')
-                ->paginate(20);
+                ->paginate(20, ['*'], 'live_page');
             $liveSubmissionsCount = $submissions->total();
             $dashboardConfig = [];
             $widgetResults = [];
             $isYtdReport = false;
             $ytdData = [];
+
+            $activeTab = $request->query('tab', $request->has('live_page') ? 'live' : ($request->has('raw_page') ? 'raw' : ($request->has('store_page') ? 'stores' : ($liveSubmissionsCount > 0 && ($dailyMaintenanceData['submissions']['total'] ?? 0) <= $liveSubmissionsCount ? 'live' : 'summary'))));
 
             return view('portal.report_detail', compact(
                 'tenantPrincipal',
@@ -1525,6 +1527,7 @@ class PrincipalPortalController extends Controller
                 'activeTemplates',
                 'template',
                 'submissions',
+                'liveSubmissionsCount',
                 'totalTemplateSubmissions',
                 'uniqueStores',
                 'startMonth',
@@ -2529,7 +2532,7 @@ class PrincipalPortalController extends Controller
             return back()->with('error', 'Status verifikasi tidak valid.');
         }
 
-        $notes = $request->input('verification_notes');
+        $notes = $request->input('verification_notes') ?? $request->input('admin_notes');
 
         $submission->update([
             'status' => $status,
@@ -9395,9 +9398,216 @@ class PrincipalPortalController extends Controller
             $activeMonths[$m] = $monthNames[$m];
         }
 
-        $cacheKey = 'dm_dash_v3_' . md5($template->id . "_{$sYear}_{$sMonth}_{$eYear}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedMachineType}_{$selectedCategory}_{$search}_{$storePage}_{$rawPage}_{$perPage}");
+        $cacheKey = 'dm_dash_v5_' . md5($template->id . "_{$sYear}_{$sMonth}_{$eYear}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedMachineType}_{$selectedCategory}_{$search}_{$storePage}_{$rawPage}_{$perPage}");
 
-        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sYear, $sMonth, $eYear, $eMonth, $activeMonths, $selectedRegion, $selectedAreaName, $selectedStoreName, $selectedMachineType, $selectedCategory, $search, $storePage, $rawPage, $perPage) {
+        return Cache::remember($cacheKey, 60, function() use ($template, $sqlitePath, $sYear, $sMonth, $eYear, $eMonth, $activeMonths, $selectedRegion, $selectedAreaId, $selectedAreaName, $selectedLocationId, $selectedStoreName, $selectedMachineType, $selectedCategory, $search, $storePage, $rawPage, $perPage) {
+            $startDate = \Carbon\Carbon::createFromDate($sYear, $sMonth, 1)->startOfMonth();
+            $endDate   = \Carbon\Carbon::createFromDate($eYear, $eMonth, 1)->endOfMonth();
+
+            // 1. Query live submissions from PostgreSQL (report_submissions)
+            $liveRows = [];
+            $liveStoresSet = [];
+            $liveMachinesSet = [];
+            $liveTintaOk = 0;
+            $liveNozzleOk = 0;
+            $liveMix2winOk = 0;
+            $livePembersihanOk = 0;
+            $liveByMachine = [];
+            $liveByCategory = [];
+            $liveByRegion = [];
+            $liveStoreMatrix = [];
+
+            try {
+                $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
+                $liveSubs = $liveQuery->orderBy('submitted_at', 'desc')->get();
+                $areaToRsm = $this->getDuluxAreaToRsmMap();
+
+                foreach ($liveSubs as $sub) {
+                    $valMap = [];
+                    foreach ($sub->values as $v) {
+                        $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
+                        if ($v->field_name) {
+                            $valMap[$v->field_name] = $val;
+                            $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
+                            $valMap[$slug] = $val;
+                        }
+                        if ($v->formField) {
+                            if ($v->formField->field_name) {
+                                $valMap[$v->formField->field_name] = $val;
+                                $slugF = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_name), '_'));
+                                $valMap[$slugF] = $val;
+                            }
+                            if ($v->formField->field_label) {
+                                $slugL = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_label), '_'));
+                                $valMap[$slugL] = $val;
+                            }
+                        }
+                    }
+
+                    $subDate = $sub->submitted_at ? \Carbon\Carbon::parse($sub->submitted_at) : $sub->created_at;
+                    $tanggalReport = $subDate ? $subDate->format('Y-m-d') : date('Y-m-d');
+                    $submissionDate = $subDate ? $subDate->format('Y-m-d H:i:s') : date('Y-m-d H:i:s');
+
+                    $storeName = $sub->workLocation?->name ?? 'Toko Demo Kalilor';
+                    $sapCode = $sub->workLocation?->code ?? ($sub->workLocation?->store_code ?? '-');
+                    $category = $sub->workLocation?->category ?? ($sub->workLocation?->channel ?? 'SSO');
+                    if (empty($category)) $category = 'SSO';
+                    $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? 'Surabaya'));
+                    $cleanA = strtoupper(trim($area));
+                    $rsmArea = $areaToRsm[$cleanA] ?? ($sub->workLocation?->region ?? 'East Java');
+
+                    $machineTypeRaw = trim((string)($valMap['tipe_mesin_tinting_post_di_toko'] ?? ($valMap['tipe_mesin_post'] ?? ($valMap['tipe_mesin'] ?? 'D200'))));
+                    $machineType = 'Other';
+                    if (stripos($machineTypeRaw, 'D200') !== false) {
+                        $machineType = 'D200';
+                    } elseif (stripos($machineTypeRaw, 'Discovery') !== false) {
+                        $machineType = 'Discovery';
+                    } elseif (stripos($machineTypeRaw, 'XProtint') !== false || stripos($machineTypeRaw, 'X-Protint') !== false) {
+                        $machineType = 'Xprotint';
+                    } elseif (stripos($machineTypeRaw, 'Element') !== false) {
+                        $machineType = 'Element 2';
+                    } elseif (stripos($machineTypeRaw, 'Manual') !== false) {
+                        $machineType = 'Manual';
+                    } elseif (!empty($machineTypeRaw)) {
+                        $machineType = $machineTypeRaw;
+                    }
+
+                    $machineNo = trim((string)($valMap['nomor_seri_no_mesin_post_dulux'] ?? ($valMap['no_mesin_post'] ?? ($valMap['no_mesin'] ?? ($valMap['nomor_mesin'] ?? '-')))));
+                    if (empty($machineNo)) $machineNo = '-';
+
+                    // Check filters
+                    if ($selectedMachineType && !empty($selectedMachineType)) {
+                        if (strcasecmp($machineType, $selectedMachineType) !== 0 && stripos($machineTypeRaw, $selectedMachineType) === false) {
+                            continue;
+                        }
+                    }
+                    if ($selectedCategory && !empty($selectedCategory)) {
+                        if (strcasecmp($category, $selectedCategory) !== 0) {
+                            continue;
+                        }
+                    }
+
+                    $nozzleStatus = trim((string)($valMap['status_pemeriksaan_kebersihan_nozzle_brush_cleaning'] ?? ($valMap['status_nozzle_cleaning'] ?? ($valMap['kebersihan_nozzle'] ?? ''))));
+                    $sirkulasiStatus = trim((string)($valMap['status_sirkulasi_agitasi_pasta_tinter'] ?? ($valMap['status_sirkulasi_tinter'] ?? ($valMap['sirkulasi_agitasi'] ?? ''))));
+                    $mix2winStatus = trim((string)($valMap['status_partisipasi_program_mix2win_toko'] ?? ($valMap['status_program_mix2win'] ?? ($valMap['partisipasi_mix2win'] ?? ''))));
+                    $softwareStatus = trim((string)($valMap['status_software_tinting_komputer_database_formula_warna'] ?? ($valMap['status_software_komputer'] ?? '')));
+                    $kesimpulan = trim((string)($valMap['kesimpulan_kondisi_mesin_rekomendasi_maintenance'] ?? ($valMap['kesimpulan_maintenance'] ?? ($valMap['kesimpulan'] ?? '-'))));
+
+                    $tintaOk = (stripos($sirkulasiStatus, 'normal') !== false || stripos($sirkulasiStatus, 'aman') !== false) ? 1 : 0;
+                    $nozzleOk = (stripos($nozzleStatus, 'bersih') !== false || stripos($nozzleStatus, 'normal') !== false) ? 1 : 0;
+                    $mix2winOk = (stripos($mix2winStatus, 'aktif') !== false || stripos($mix2winStatus, 'normal') !== false) ? 1 : 0;
+                    $cleanOk = ($nozzleOk && $tintaOk) ? 1 : 0;
+
+                    $d200NozzleOk = (stripos($machineType, 'D200') !== false && $nozzleOk) ? 1 : 0;
+                    $discoveryBrushOk = (stripos($machineType, 'Discovery') !== false && $nozzleOk) ? 1 : 0;
+                    $manualNozzleOk = (stripos($machineType, 'Manual') !== false && $nozzleOk) ? 1 : 0;
+                    $mix2winSteps = $mix2winOk ? 12 : 0;
+
+                    $empName = $sub->employee?->full_name ?? ($sub->employee?->name ?? 'Petugas DC');
+                    $tlName = $sub->employee?->supervisor?->full_name ?? ($sub->employee?->supervisor?->name ?? '-');
+
+                    $liveStoresSet[$storeName] = true;
+                    if ($machineNo !== '-') {
+                        $liveMachinesSet[$machineNo] = true;
+                    }
+                    if ($tintaOk) $liveTintaOk++;
+                    if ($nozzleOk) $liveNozzleOk++;
+                    if ($mix2winOk) $liveMix2winOk++;
+                    if ($cleanOk) $livePembersihanOk++;
+
+                    // Machine breakdown
+                    if (!isset($liveByMachine[$machineType])) {
+                        $liveByMachine[$machineType] = ['submissions' => 0, 'stores' => [], 'machines' => [], 'tinta_sum' => 0, 'clean_sum' => 0];
+                    }
+                    $liveByMachine[$machineType]['submissions']++;
+                    $liveByMachine[$machineType]['stores'][$storeName] = true;
+                    if ($machineNo !== '-') $liveByMachine[$machineType]['machines'][$machineNo] = true;
+                    $liveByMachine[$machineType]['tinta_sum'] += $tintaOk;
+                    $liveByMachine[$machineType]['clean_sum'] += $cleanOk;
+
+                    // Category breakdown
+                    if (!isset($liveByCategory[$category])) {
+                        $liveByCategory[$category] = ['submissions' => 0, 'stores' => [], 'machines' => [], 'tinta_sum' => 0, 'clean_sum' => 0];
+                    }
+                    $liveByCategory[$category]['submissions']++;
+                    $liveByCategory[$category]['stores'][$storeName] = true;
+                    if ($machineNo !== '-') $liveByCategory[$category]['machines'][$machineNo] = true;
+                    $liveByCategory[$category]['tinta_sum'] += $tintaOk;
+                    $liveByCategory[$category]['clean_sum'] += $cleanOk;
+
+                    // Region breakdown
+                    if (!isset($liveByRegion[$rsmArea])) {
+                        $liveByRegion[$rsmArea] = ['submissions' => 0, 'stores' => [], 'machines' => [], 'tinta_sum' => 0, 'clean_sum' => 0];
+                    }
+                    $liveByRegion[$rsmArea]['submissions']++;
+                    $liveByRegion[$rsmArea]['stores'][$storeName] = true;
+                    if ($machineNo !== '-') $liveByRegion[$rsmArea]['machines'][$machineNo] = true;
+                    $liveByRegion[$rsmArea]['tinta_sum'] += $tintaOk;
+                    $liveByRegion[$rsmArea]['clean_sum'] += $cleanOk;
+
+                    // Store Matrix row
+                    $smKey = $storeName . '---' . $machineNo;
+                    if (!isset($liveStoreMatrix[$smKey])) {
+                        $liveStoreMatrix[$smKey] = [
+                            'store_name' => $storeName,
+                            'sap_code' => $sapCode,
+                            'category' => $category,
+                            'rsm_area' => $rsmArea,
+                            'area' => $area,
+                            'machine_type' => $machineType,
+                            'machine_no' => $machineNo,
+                            'total_checks' => 0,
+                            'last_date' => $tanggalReport,
+                            'tinta_ok_cnt' => 0,
+                            'clean_ok_cnt' => 0,
+                            'compliance_pct' => 0,
+                            'is_live' => true,
+                        ];
+                    }
+                    $liveStoreMatrix[$smKey]['total_checks']++;
+                    $liveStoreMatrix[$smKey]['tinta_ok_cnt'] += $tintaOk;
+                    $liveStoreMatrix[$smKey]['clean_ok_cnt'] += $cleanOk;
+                    if ($tanggalReport > $liveStoreMatrix[$smKey]['last_date']) {
+                        $liveStoreMatrix[$smKey]['last_date'] = $tanggalReport;
+                    }
+
+                    // Raw row
+                    $liveRows[] = [
+                        'year' => (int)$subDate->format('Y'),
+                        'month' => (int)$subDate->format('n'),
+                        'submission_date' => $submissionDate,
+                        'tanggal_report' => $tanggalReport,
+                        'store_name' => $storeName,
+                        'sap_code' => $sapCode,
+                        'category' => $category,
+                        'rsm_area' => $rsmArea,
+                        'area' => $area,
+                        'tl_name' => $tlName,
+                        'machine_type' => $machineType,
+                        'machine_no' => $machineNo,
+                        'dc_name' => $empName,
+                        'kesimpulan' => $kesimpulan,
+                        'tinta_ok' => $tintaOk,
+                        'd200_nozzle_ok' => $d200NozzleOk,
+                        'discovery_brush_ok' => $discoveryBrushOk,
+                        'manual_nozzle_ok' => $manualNozzleOk,
+                        'mix2win_steps_ok' => $mix2winSteps,
+                        'pembersihan_all_ok' => $cleanOk,
+                        'is_live' => true,
+                        'submission_code' => $sub->submission_code,
+                        'submission_id' => $sub->id,
+                        'status' => $sub->status ?? 'pending',
+                    ];
+                }
+
+                foreach ($liveStoreMatrix as $k => $sm) {
+                    $liveStoreMatrix[$k]['compliance_pct'] = $sm['total_checks'] > 0 ? round(($sm['tinta_ok_cnt'] / $sm['total_checks']) * 100, 1) : 0;
+                }
+            } catch (\Throwable $ex) {
+                \Log::warning("Live submissions query failed in daily maintenance: " . $ex->getMessage());
+            }
+
+            // 2. Query historical SQLite data
             try {
                 $pdo = new \PDO("sqlite:" . $sqlitePath);
                 $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
@@ -9450,7 +9660,7 @@ class PrincipalPortalController extends Controller
 
                 $whereSql = implode(' AND ', $where);
 
-                // 1. KPIs
+                // KPIs from SQLite
                 $kpiSql = "
                     SELECT 
                         COUNT(*) as total_submissions,
@@ -9468,71 +9678,203 @@ class PrincipalPortalController extends Controller
                 $kpiRow = $stmt->fetch(\PDO::FETCH_ASSOC);
 
                 $totSub = (int)($kpiRow['total_submissions'] ?? 0);
+                $sumTinta = (int)($kpiRow['sum_tinta'] ?? 0) + $liveTintaOk;
+                $sumNozzle = (int)($kpiRow['sum_nozzle'] ?? 0) + $liveNozzleOk;
+                $sumMix2win = (int)($kpiRow['sum_mix2win'] ?? 0) + $liveMix2winOk;
+                $sumClean = (int)($kpiRow['sum_pembersihan'] ?? 0) + $livePembersihanOk;
+                $combinedTotSub = $totSub + count($liveRows);
+
+                $totalStores = $totSub > 0 ? ((int)($kpiRow['total_stores'] ?? 0) + count($liveStoresSet)) : count($liveStoresSet);
+                $totalMachines = $totSub > 0 ? ((int)($kpiRow['total_machines'] ?? 0) + count($liveMachinesSet)) : count($liveMachinesSet);
+
                 $kpis = [
-                    'total_submissions' => $totSub,
-                    'total_stores' => (int)($kpiRow['total_stores'] ?? 0),
-                    'total_machines' => (int)($kpiRow['total_machines'] ?? 0),
-                    'tinta_rate' => $totSub > 0 ? round(((int)$kpiRow['sum_tinta'] / $totSub) * 100, 1) : 0,
-                    'nozzle_rate' => $totSub > 0 ? round(((int)$kpiRow['sum_nozzle'] / $totSub) * 100, 1) : 0,
-                    'mix2win_rate' => $totSub > 0 ? round(((int)$kpiRow['sum_mix2win'] / $totSub) * 100, 1) : 0,
-                    'pembersihan_rate' => $totSub > 0 ? round(((int)$kpiRow['sum_pembersihan'] / $totSub) * 100, 1) : 0,
+                    'total_submissions' => $combinedTotSub,
+                    'total_stores' => $totalStores,
+                    'total_machines' => $totalMachines,
+                    'tinta_rate' => $combinedTotSub > 0 ? round(($sumTinta / $combinedTotSub) * 100, 1) : 0,
+                    'nozzle_rate' => $combinedTotSub > 0 ? round(($sumNozzle / $combinedTotSub) * 100, 1) : 0,
+                    'mix2win_rate' => $combinedTotSub > 0 ? round(($sumMix2win / $combinedTotSub) * 100, 1) : 0,
+                    'pembersihan_rate' => $combinedTotSub > 0 ? round(($sumClean / $combinedTotSub) * 100, 1) : 0,
                 ];
 
-                // 2. Breakdown per Machine Type
+                // Breakdown per Machine Type
                 $mTypeSql = "
                     SELECT 
                         machine_type,
                         COUNT(*) as submissions,
                         COUNT(DISTINCT store_name) as stores,
                         COUNT(DISTINCT machine_no) as machines,
-                        ROUND(AVG(tinta_ok) * 100, 1) as avg_tinta,
-                        ROUND(AVG(pembersihan_all_ok) * 100, 1) as avg_clean
+                        SUM(tinta_ok) as sum_tinta,
+                        SUM(pembersihan_all_ok) as sum_clean
                     FROM dm_raw
                     WHERE $whereSql
                     GROUP BY machine_type
-                    ORDER BY submissions DESC
                 ";
                 $stmt = $pdo->prepare($mTypeSql);
                 $stmt->execute($params);
-                $byMachine = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                $byMachineRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-                // 3. Breakdown per Category
+                $machineAgg = [];
+                foreach ($byMachineRows as $bm) {
+                    $mt = $bm['machine_type'] ?: 'Other';
+                    $machineAgg[$mt] = [
+                        'machine_type' => $mt,
+                        'submissions' => (int)$bm['submissions'],
+                        'stores' => (int)$bm['stores'],
+                        'machines' => (int)$bm['machines'],
+                        'sum_tinta' => (int)$bm['sum_tinta'],
+                        'sum_clean' => (int)$bm['sum_clean'],
+                    ];
+                }
+                foreach ($liveByMachine as $mt => $lm) {
+                    if (!isset($machineAgg[$mt])) {
+                        $machineAgg[$mt] = [
+                            'machine_type' => $mt,
+                            'submissions' => 0,
+                            'stores' => 0,
+                            'machines' => 0,
+                            'sum_tinta' => 0,
+                            'sum_clean' => 0,
+                        ];
+                    }
+                    $machineAgg[$mt]['submissions'] += $lm['submissions'];
+                    $machineAgg[$mt]['stores'] += count($lm['stores']);
+                    $machineAgg[$mt]['machines'] += count($lm['machines']);
+                    $machineAgg[$mt]['sum_tinta'] += $lm['tinta_sum'];
+                    $machineAgg[$mt]['sum_clean'] += $lm['clean_sum'];
+                }
+                $byMachine = [];
+                foreach ($machineAgg as $mt => $d) {
+                    $byMachine[] = [
+                        'machine_type' => $mt,
+                        'submissions' => $d['submissions'],
+                        'stores' => $d['stores'],
+                        'machines' => $d['machines'],
+                        'avg_tinta' => $d['submissions'] > 0 ? round(($d['sum_tinta'] / $d['submissions']) * 100, 1) : 0,
+                        'avg_clean' => $d['submissions'] > 0 ? round(($d['sum_clean'] / $d['submissions']) * 100, 1) : 0,
+                    ];
+                }
+                usort($byMachine, fn($a, $b) => $b['submissions'] <=> $a['submissions']);
+
+                // Breakdown per Category
                 $catSql = "
                     SELECT 
                         category,
                         COUNT(*) as submissions,
                         COUNT(DISTINCT store_name) as stores,
                         COUNT(DISTINCT machine_no) as machines,
-                        ROUND(AVG(tinta_ok) * 100, 1) as avg_tinta,
-                        ROUND(AVG(pembersihan_all_ok) * 100, 1) as avg_clean
+                        SUM(tinta_ok) as sum_tinta,
+                        SUM(pembersihan_all_ok) as sum_clean
                     FROM dm_raw
                     WHERE $whereSql
                     GROUP BY category
-                    ORDER BY submissions DESC
                 ";
                 $stmt = $pdo->prepare($catSql);
                 $stmt->execute($params);
-                $byCategory = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                $byCatRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-                // 4. Breakdown per Regional RSM Area
+                $catAgg = [];
+                foreach ($byCatRows as $bc) {
+                    $cat = $bc['category'] ?: 'SSO';
+                    $catAgg[$cat] = [
+                        'category' => $cat,
+                        'submissions' => (int)$bc['submissions'],
+                        'stores' => (int)$bc['stores'],
+                        'machines' => (int)$bc['machines'],
+                        'sum_tinta' => (int)$bc['sum_tinta'],
+                        'sum_clean' => (int)$bc['sum_clean'],
+                    ];
+                }
+                foreach ($liveByCategory as $cat => $lc) {
+                    if (!isset($catAgg[$cat])) {
+                        $catAgg[$cat] = [
+                            'category' => $cat,
+                            'submissions' => 0,
+                            'stores' => 0,
+                            'machines' => 0,
+                            'sum_tinta' => 0,
+                            'sum_clean' => 0,
+                        ];
+                    }
+                    $catAgg[$cat]['submissions'] += $lc['submissions'];
+                    $catAgg[$cat]['stores'] += count($lc['stores']);
+                    $catAgg[$cat]['machines'] += count($lc['machines']);
+                    $catAgg[$cat]['sum_tinta'] += $lc['tinta_sum'];
+                    $catAgg[$cat]['sum_clean'] += $lc['clean_sum'];
+                }
+                $byCategory = [];
+                foreach ($catAgg as $cat => $d) {
+                    $byCategory[] = [
+                        'category' => $cat,
+                        'submissions' => $d['submissions'],
+                        'stores' => $d['stores'],
+                        'machines' => $d['machines'],
+                        'avg_tinta' => $d['submissions'] > 0 ? round(($d['sum_tinta'] / $d['submissions']) * 100, 1) : 0,
+                        'avg_clean' => $d['submissions'] > 0 ? round(($d['sum_clean'] / $d['submissions']) * 100, 1) : 0,
+                    ];
+                }
+                usort($byCategory, fn($a, $b) => $b['submissions'] <=> $a['submissions']);
+
+                // Breakdown per Regional RSM Area
                 $rsmSql = "
                     SELECT 
                         rsm_area,
                         COUNT(*) as submissions,
                         COUNT(DISTINCT store_name) as stores,
                         COUNT(DISTINCT machine_no) as machines,
-                        ROUND(AVG(tinta_ok) * 100, 1) as avg_tinta,
-                        ROUND(AVG(pembersihan_all_ok) * 100, 1) as avg_clean
+                        SUM(tinta_ok) as sum_tinta,
+                        SUM(pembersihan_all_ok) as sum_clean
                     FROM dm_raw
                     WHERE $whereSql
                     GROUP BY rsm_area
-                    ORDER BY submissions DESC
                 ";
                 $stmt = $pdo->prepare($rsmSql);
                 $stmt->execute($params);
-                $byRegion = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                $byRsmRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-                // 5. Store Matrix Paginated
+                $rsmAgg = [];
+                foreach ($byRsmRows as $br) {
+                    $rsm = $br['rsm_area'] ?: 'Other';
+                    $rsmAgg[$rsm] = [
+                        'rsm_area' => $rsm,
+                        'submissions' => (int)$br['submissions'],
+                        'stores' => (int)$br['stores'],
+                        'machines' => (int)$br['machines'],
+                        'sum_tinta' => (int)$br['sum_tinta'],
+                        'sum_clean' => (int)$br['sum_clean'],
+                    ];
+                }
+                foreach ($liveByRegion as $rsm => $lr) {
+                    if (!isset($rsmAgg[$rsm])) {
+                        $rsmAgg[$rsm] = [
+                            'rsm_area' => $rsm,
+                            'submissions' => 0,
+                            'stores' => 0,
+                            'machines' => 0,
+                            'sum_tinta' => 0,
+                            'sum_clean' => 0,
+                        ];
+                    }
+                    $rsmAgg[$rsm]['submissions'] += $lr['submissions'];
+                    $rsmAgg[$rsm]['stores'] += count($lr['stores']);
+                    $rsmAgg[$rsm]['machines'] += count($lr['machines']);
+                    $rsmAgg[$rsm]['sum_tinta'] += $lr['tinta_sum'];
+                    $rsmAgg[$rsm]['sum_clean'] += $lr['clean_sum'];
+                }
+                $byRegion = [];
+                foreach ($rsmAgg as $rsm => $d) {
+                    $byRegion[] = [
+                        'rsm_area' => $rsm,
+                        'submissions' => $d['submissions'],
+                        'stores' => $d['stores'],
+                        'machines' => $d['machines'],
+                        'avg_tinta' => $d['submissions'] > 0 ? round(($d['sum_tinta'] / $d['submissions']) * 100, 1) : 0,
+                        'avg_clean' => $d['submissions'] > 0 ? round(($d['sum_clean'] / $d['submissions']) * 100, 1) : 0,
+                    ];
+                }
+                usort($byRegion, fn($a, $b) => $b['submissions'] <=> $a['submissions']);
+
+                // Store Matrix Paginated
                 $storeCountSql = "
                     SELECT COUNT(*) FROM (
                         SELECT store_name, machine_no FROM dm_raw WHERE $whereSql GROUP BY store_name, machine_no
@@ -9562,7 +9904,13 @@ class PrincipalPortalController extends Controller
                 $stmt->execute($params);
                 $storeRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-                // 6. Raw Submissions Paginated
+                // Merge live store matrix
+                $combinedStoreTotal = $totalStoreMatrix + count($liveStoreMatrix);
+                if ($storePage === 1 && !empty($liveStoreMatrix)) {
+                    $storeRows = array_slice(array_merge(array_values($liveStoreMatrix), $storeRows), 0, $perPage);
+                }
+
+                // Raw Submissions Paginated
                 $rawCountSql = "SELECT COUNT(*) FROM dm_raw WHERE $whereSql";
                 $stmt = $pdo->prepare($rawCountSql);
                 $stmt->execute($params);
@@ -9584,6 +9932,12 @@ class PrincipalPortalController extends Controller
                 $stmt->execute($params);
                 $rawRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
+                // Merge live raw submissions
+                $combinedRawTotal = $totalRaw + count($liveRows);
+                if ($rawPage === 1 && !empty($liveRows)) {
+                    $rawRows = array_slice(array_merge($liveRows, $rawRows), 0, $perPage);
+                }
+
                 return [
                     'months' => $activeMonths,
                     'kpis' => $kpis,
@@ -9592,34 +9946,102 @@ class PrincipalPortalController extends Controller
                     'by_region' => $byRegion,
                     'store_matrix' => [
                         'rows' => $storeRows,
-                        'total_rows' => $totalStoreMatrix,
-                        'total' => $totalStoreMatrix,
+                        'total_rows' => $combinedStoreTotal,
+                        'total' => $combinedStoreTotal,
                         'page' => $storePage,
                         'per_page' => $perPage,
-                        'total_pages' => (int)ceil($totalStoreMatrix / $perPage),
-                        'from' => $totalStoreMatrix > 0 ? ($storeOffset + 1) : 0,
-                        'to' => min($storeOffset + $perPage, $totalStoreMatrix),
+                        'total_pages' => (int)ceil(max(1, $combinedStoreTotal) / $perPage),
+                        'from' => $combinedStoreTotal > 0 ? ($storeOffset + 1) : 0,
+                        'to' => min($storeOffset + $perPage, $combinedStoreTotal),
                     ],
                     'submissions' => [
                         'rows' => $rawRows,
-                        'total' => $totalRaw,
+                        'total' => $combinedRawTotal,
                         'page' => $rawPage,
                         'per_page' => $perPage,
-                        'total_pages' => (int)ceil($totalRaw / $perPage),
-                        'from' => $totalRaw > 0 ? ($rawOffset + 1) : 0,
-                        'to' => min($rawOffset + $perPage, $totalRaw),
+                        'total_pages' => (int)ceil(max(1, $combinedRawTotal) / $perPage),
+                        'from' => $combinedRawTotal > 0 ? ($rawOffset + 1) : 0,
+                        'to' => min($rawOffset + $perPage, $combinedRawTotal),
                     ]
                 ];
             } catch (\Throwable $e) {
-                \Log::error("Failed to calculate Daily Maintenance Dashboard: " . $e->getMessage());
+                \Log::error("Failed to calculate Daily Maintenance Dashboard from SQLite: " . $e->getMessage());
+
+                $combinedTotSub = count($liveRows);
+                $kpis = [
+                    'total_submissions' => $combinedTotSub,
+                    'total_stores' => count($liveStoresSet),
+                    'total_machines' => count($liveMachinesSet),
+                    'tinta_rate' => $combinedTotSub > 0 ? round(($liveTintaOk / $combinedTotSub) * 100, 1) : 0,
+                    'nozzle_rate' => $combinedTotSub > 0 ? round(($liveNozzleOk / $combinedTotSub) * 100, 1) : 0,
+                    'mix2win_rate' => $combinedTotSub > 0 ? round(($liveMix2winOk / $combinedTotSub) * 100, 1) : 0,
+                    'pembersihan_rate' => $combinedTotSub > 0 ? round(($livePembersihanOk / $combinedTotSub) * 100, 1) : 0,
+                ];
+
+                $byMachine = [];
+                foreach ($liveByMachine as $mt => $lm) {
+                    $byMachine[] = [
+                        'machine_type' => $mt,
+                        'submissions' => $lm['submissions'],
+                        'stores' => count($lm['stores']),
+                        'machines' => count($lm['machines']),
+                        'avg_tinta' => $lm['submissions'] > 0 ? round(($lm['tinta_sum'] / $lm['submissions']) * 100, 1) : 0,
+                        'avg_clean' => $lm['submissions'] > 0 ? round(($lm['clean_sum'] / $lm['submissions']) * 100, 1) : 0,
+                    ];
+                }
+
+                $byCategory = [];
+                foreach ($liveByCategory as $cat => $lc) {
+                    $byCategory[] = [
+                        'category' => $cat,
+                        'submissions' => $lc['submissions'],
+                        'stores' => count($lc['stores']),
+                        'machines' => count($lc['machines']),
+                        'avg_tinta' => $lc['submissions'] > 0 ? round(($lc['tinta_sum'] / $lc['submissions']) * 100, 1) : 0,
+                        'avg_clean' => $lc['submissions'] > 0 ? round(($lc['clean_sum'] / $lc['submissions']) * 100, 1) : 0,
+                    ];
+                }
+
+                $byRegion = [];
+                foreach ($liveByRegion as $rsm => $lr) {
+                    $byRegion[] = [
+                        'rsm_area' => $rsm,
+                        'submissions' => $lr['submissions'],
+                        'stores' => count($lr['stores']),
+                        'machines' => count($lr['machines']),
+                        'avg_tinta' => $lr['submissions'] > 0 ? round(($lr['tinta_sum'] / $lr['submissions']) * 100, 1) : 0,
+                        'avg_clean' => $lr['submissions'] > 0 ? round(($lr['clean_sum'] / $lr['submissions']) * 100, 1) : 0,
+                    ];
+                }
+
+                $combinedStoreTotal = count($liveStoreMatrix);
+                $combinedRawTotal = count($liveRows);
+
                 return [
                     'months' => $activeMonths,
-                    'kpis' => ['total_submissions' => 0, 'total_stores' => 0, 'total_machines' => 0, 'tinta_rate' => 0, 'nozzle_rate' => 0, 'mix2win_rate' => 0, 'pembersihan_rate' => 0],
-                    'by_machine_type' => [],
-                    'by_category' => [],
-                    'by_region' => [],
-                    'store_matrix' => ['rows' => [], 'total_rows' => 0, 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0],
-                    'submissions' => ['rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'total_pages' => 0, 'from' => 0, 'to' => 0]
+                    'kpis' => $kpis,
+                    'by_machine_type' => $byMachine,
+                    'by_category' => $byCategory,
+                    'by_region' => $byRegion,
+                    'store_matrix' => [
+                        'rows' => array_values($liveStoreMatrix),
+                        'total_rows' => $combinedStoreTotal,
+                        'total' => $combinedStoreTotal,
+                        'page' => 1,
+                        'per_page' => $perPage,
+                        'total_pages' => 1,
+                        'from' => $combinedStoreTotal > 0 ? 1 : 0,
+                        'to' => $combinedStoreTotal,
+                    ],
+                    'submissions' => [
+                        'rows' => $liveRows,
+                        'total' => $combinedRawTotal,
+                        'page' => 1,
+                        'per_page' => $perPage,
+                        'total_pages' => 1,
+                        'from' => $combinedRawTotal > 0 ? 1 : 0,
+                        'to' => $combinedRawTotal,
+                    ]
                 ];
             }
         });

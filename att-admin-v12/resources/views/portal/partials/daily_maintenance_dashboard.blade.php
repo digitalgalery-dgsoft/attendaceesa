@@ -22,6 +22,16 @@
                 <span>Data Mentah Submission</span>
                 <span class="badge-count">{{ number_format($dmData['submissions']['total'] ?? 0) }}</span>
             </a>
+            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'tab' => 'live', 'p' => $tenantPrincipal->id])) }}" 
+               class="dm-tab-btn {{ ($activeTab ?? '') === 'live' ? 'active' : '' }}">
+                <i class="fa-solid fa-inbox text-primary"></i>
+                <span>Data Laporan Masuk</span>
+                @if(isset($submissions) && $submissions->total() > 0)
+                    <span class="badge-count" style="background: #2563eb; color: #ffffff;">{{ $submissions->total() }}</span>
+                @elseif(isset($liveSubmissionsCount) && $liveSubmissionsCount > 0)
+                    <span class="badge-count" style="background: #2563eb; color: #ffffff;">{{ $liveSubmissionsCount }}</span>
+                @endif
+            </a>
         </div>
 
         {{-- EXPORT BUTTONS --}}
@@ -323,6 +333,9 @@
                                 <td class="text-muted fw-bold">{{ $dmData['store_matrix']['from'] + $idx }}</td>
                                 <td>
                                     <div class="fw-bold text-dark">{{ $sr['store_name'] }}</div>
+                                    @if(!empty($sr['is_live']))
+                                        <span class="badge bg-primary text-white" style="font-size: 0.68rem; padding: 2px 6px; margin-top: 2px; display: inline-flex; align-items: center; gap: 3px;"><i class="fa-solid fa-bolt"></i> LIVE</span>
+                                    @endif
                                 </td>
                                 <td><code>{{ $sr['sap_code'] ?: '-' }}</code></td>
                                 <td>
@@ -482,6 +495,9 @@
                                 <td class="small text-muted">{{ $r['tanggal_report'] }}</td>
                                 <td>
                                     <div class="fw-bold text-dark">{{ $r['store_name'] }}</div>
+                                    @if(!empty($r['is_live']))
+                                        <span class="badge bg-primary text-white" style="font-size: 0.68rem; padding: 2px 6px; margin-top: 2px; display: inline-flex; align-items: center; gap: 3px;"><i class="fa-solid fa-bolt"></i> LIVE</span>
+                                    @endif
                                 </td>
                                 <td><code>{{ $r['sap_code'] ?: '-' }}</code></td>
                                 <td><span class="badge bg-light-dark text-dark">{{ $r['category'] ?: 'SSO' }}</span></td>
@@ -595,6 +611,316 @@
                            class="dm-page-btn {{ $curPage >= $totPages ? 'disabled' : '' }}" title="Halaman Terakhir">
                             <i class="fa-solid fa-angles-right"></i>
                         </a>
+                    </div>
+                </div>
+            @endif
+        </div>
+    @endif
+
+    {{-- ========================================================================= --}}
+    {{-- TAB 4: DATA LAPORAN MASUK (LIVE SUBMISSIONS & VERIFIKASI) --}}
+    {{-- ========================================================================= --}}
+    @if(($activeTab ?? '') === 'live')
+        <div class="dm-card">
+            <div class="dm-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h5 class="dm-card-title mb-1"><i class="fa-solid fa-inbox text-primary"></i> Data Laporan Masuk & Verifikasi Daily Maintenance</h5>
+                    <p class="text-muted small mb-0">Verifikasi berkala kondisi mesin tinting POST, kebersihan nozzle, sirkulasi pasta, dan program Mix2Win langsung dari DC/Promotor.</p>
+                </div>
+                <div class="meta-pill">
+                    <span class="meta-lbl">Total Laporan Masuk:</span>
+                    <strong class="meta-val" style="color: #2563eb;">{{ number_format(isset($submissions) ? $submissions->total() : 0) }} Laporan</strong>
+                </div>
+            </div>
+
+            @if(isset($submissions) && $submissions->isNotEmpty())
+                <div class="dm-table-scroll-container" style="max-height: 600px;">
+                    <table class="dm-table table-hover" style="min-width: 1750px;">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px; text-align: center;">No</th>
+                                <th style="width: 150px;">Kode Laporan</th>
+                                <th style="min-width: 140px;">Waktu Submit</th>
+                                <th style="min-width: 170px;">Promotor / DC</th>
+                                <th style="min-width: 180px;">Nama Toko / Outlet</th>
+                                <th style="min-width: 140px;">Area & RSM</th>
+                                <th style="min-width: 160px;">Tipe & No Mesin</th>
+                                <th style="min-width: 180px;">Kebersihan Nozzle & Brush</th>
+                                <th style="min-width: 170px;">Sirkulasi Pasta Tinter</th>
+                                <th style="min-width: 170px;">Program Mix2Win</th>
+                                <th style="min-width: 170px;">Software Komputer</th>
+                                <th style="min-width: 120px; text-align: center;">Bukti Foto</th>
+                                <th style="min-width: 180px;">Kesimpulan SPG</th>
+                                <th style="text-align: center; width: 110px;">Radius GPS</th>
+                                <th style="text-align: center; width: 130px;">Status</th>
+                                <th style="text-align: center; width: 170px; min-width: 170px; position: sticky; right: 0; background: #f8fafc; z-index: 6;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($submissions as $idx => $sub)
+                                @php
+                                    $valMap = [];
+                                    $photos = [];
+                                    foreach ($sub->values as $v) {
+                                        $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
+                                        if ($v->field_name) {
+                                            $valMap[$v->field_name] = $val;
+                                            $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
+                                            $valMap[$slug] = $val;
+                                        }
+                                        if ($v->formField) {
+                                            if ($v->formField->field_name) {
+                                                $valMap[$v->formField->field_name] = $val;
+                                                $slugF = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_name), '_'));
+                                                $valMap[$slugF] = $val;
+                                            }
+                                            if ($v->formField->field_label) {
+                                                $slugL = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_label), '_'));
+                                                $valMap[$slugL] = $val;
+                                            }
+                                        }
+
+                                        // Collect photos
+                                        $isPhoto = in_array($v->field_type, ['photo', 'camera_photo', 'multi_photo'])
+                                            || str_contains((string)$v->field_name, 'foto')
+                                            || !empty($v->media_url)
+                                            || !empty($v->file_path);
+
+                                        if ($isPhoto) {
+                                            $rawP = $v->value_text ?: ($v->file_path ?: $v->media_url);
+                                            if ($rawP && is_string($rawP) && !str_starts_with($rawP, '/data/user/')) {
+                                                $cleanP = trim($rawP);
+                                                $photoUrl = (str_starts_with($cleanP, 'http://') || str_starts_with($cleanP, 'https://'))
+                                                    ? $cleanP
+                                                    : asset('storage/' . ltrim(str_replace('storage/', '', $cleanP), '/'));
+                                                $photos[] = [
+                                                    'url' => $photoUrl,
+                                                    'label' => $v->formField?->field_label ?? ($v->field_name ?: 'Foto Dokumentasi')
+                                                ];
+                                            }
+                                        }
+                                    }
+
+                                    $store = $sub->workLocation?->name ?? ($sub->store_name ?? 'Toko Tidak Terdaftar');
+                                    $sap = $sub->workLocation?->code ?? ($sub->workLocation?->store_code ?? '-');
+                                    $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? '-'));
+                                    $region = $sub->workLocation?->region ?? '-';
+                                    $empName = $sub->employee?->full_name ?? ($sub->employee?->name ?? 'Petugas');
+                                    $empNik = $sub->employee?->nik ?? ($sub->employee?->employee_no ?? '-');
+
+                                    $tipeMesin = trim((string)($valMap['tipe_mesin_tinting_post_di_toko'] ?? ($valMap['tipe_mesin_post'] ?? ($valMap['tipe_mesin'] ?? '-'))));
+                                    $noMesin = trim((string)($valMap['nomor_seri_no_mesin_post_dulux'] ?? ($valMap['no_mesin_post'] ?? ($valMap['no_mesin'] ?? '-'))));
+                                    $statusNozzle = trim((string)($valMap['status_pemeriksaan_kebersihan_nozzle_brush_cleaning'] ?? ($valMap['status_nozzle_cleaning'] ?? ($valMap['kebersihan_nozzle'] ?? '-'))));
+                                    $statusTinter = trim((string)($valMap['status_sirkulasi_agitasi_pasta_tinter'] ?? ($valMap['status_sirkulasi_tinter'] ?? ($valMap['sirkulasi_agitasi'] ?? '-'))));
+                                    $statusMix2win = trim((string)($valMap['status_partisipasi_program_mix2win_toko'] ?? ($valMap['status_program_mix2win'] ?? ($valMap['partisipasi_mix2win'] ?? '-'))));
+                                    $statusSoftware = trim((string)($valMap['status_software_tinting_komputer_database_formula_warna'] ?? ($valMap['status_software_komputer'] ?? '-')));
+                                    $kesimpulan = trim((string)($valMap['kesimpulan_kondisi_mesin_rekomendasi_maintenance'] ?? ($valMap['kesimpulan_maintenance'] ?? ($valMap['kesimpulan'] ?? '-'))));
+
+                                    $isNozzleClean = stripos($statusNozzle, 'bersih') !== false;
+                                    $isTinterNormal = stripos($statusTinter, 'normal') !== false || stripos($statusTinter, 'aman') !== false;
+                                    $isMix2winOk = stripos($statusMix2win, 'aktif') !== false;
+                                    $isSoftwareNormal = stripos($statusSoftware, 'normal') !== false;
+                                    $status = $sub->status ?? 'pending';
+                                @endphp
+                                <tr>
+                                    <td style="text-align: center; color: #64748b; font-weight: 700;">
+                                        {{ $submissions->firstItem() + $idx }}
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" 
+                                           style="font-family: monospace; font-weight: 700; font-size: 0.82rem; color: #0F52BA; text-decoration: none; background: rgba(15, 82, 186, 0.08); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(15, 82, 186, 0.2); display: inline-block;">
+                                            {{ $sub->submission_code }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                            {{ $sub->submitted_at ? $sub->submitted_at->translatedFormat('d M Y') : ($sub->created_at ? $sub->created_at->translatedFormat('d M Y') : '-') }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            {{ $sub->submitted_at ? $sub->submitted_at->format('H:i') : ($sub->created_at ? $sub->created_at->format('H:i') : '-') }} WIB
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                            {{ $empName }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b; font-family: monospace;">
+                                            {{ $empNik }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ $store }}</div>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            SAP: <span class="badge bg-light-secondary text-secondary" style="font-family: monospace;">{{ $sap }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark small">{{ $area }}</div>
+                                        <span class="region-badge" style="font-size: 0.7rem; padding: 1px 6px;">{{ $region }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-primary small">{{ $tipeMesin }}</div>
+                                        <span class="serial-badge">{{ $noMesin }}</span>
+                                    </td>
+                                    <td>
+                                        @if($isNozzleClean)
+                                            <span class="badge bg-light-success text-success" style="font-size: 0.75rem;"><i class="fa-solid fa-circle-check"></i> {{ $statusNozzle }}</span>
+                                        @else
+                                            <span class="badge bg-light-danger text-danger" style="font-size: 0.75rem;"><i class="fa-solid fa-triangle-exclamation"></i> {{ $statusNozzle }}</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($isTinterNormal)
+                                            <span class="badge bg-light-success text-success" style="font-size: 0.75rem;"><i class="fa-solid fa-circle-check"></i> {{ $statusTinter }}</span>
+                                        @else
+                                            <span class="badge bg-light-warning text-warning" style="font-size: 0.75rem;"><i class="fa-solid fa-circle-exclamation"></i> {{ $statusTinter }}</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($isMix2winOk)
+                                            <span class="badge bg-light-success text-success" style="font-size: 0.75rem;"><i class="fa-solid fa-circle-check"></i> {{ $statusMix2win }}</span>
+                                        @else
+                                            <span class="badge bg-light-warning text-warning" style="font-size: 0.75rem;"><i class="fa-solid fa-circle-xmark"></i> {{ $statusMix2win }}</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($isSoftwareNormal)
+                                            <span class="badge bg-light-success text-success" style="font-size: 0.75rem;"><i class="fa-solid fa-circle-check"></i> {{ $statusSoftware }}</span>
+                                        @else
+                                            <span class="badge bg-light-danger text-danger" style="font-size: 0.75rem;"><i class="fa-solid fa-triangle-exclamation"></i> {{ $statusSoftware }}</span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if(!empty($photos))
+                                            <div style="display: inline-flex; align-items: center; gap: 4px;">
+                                                @foreach($photos as $pIdx => $p)
+                                                    <img src="{{ $p['url'] }}" 
+                                                         alt="{{ $p['label'] }}" 
+                                                         title="{{ $p['label'] }}"
+                                                         onclick="openDmPhotoModal('{{ $p['url'] }}', '{{ addslashes($p['label']) }}', '{{ $sub->submission_code }}')"
+                                                         style="width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; transition: transform 0.15s ease;"
+                                                         onmouseover="this.style.transform='scale(1.15)'"
+                                                         onmouseout="this.style.transform='scale(1)'"
+                                                         onerror="this.style.display='none'">
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <span class="text-muted small">-</span>
+                                        @endif
+                                    </td>
+                                    <td class="small text-muted" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ $kesimpulan }}">
+                                        {{ $kesimpulan ?: '-' }}
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if($sub->is_within_radius)
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #16a34a; background: #dcfce7; padding: 0.25rem 0.55rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-circle-check"></i> Valid
+                                            </span>
+                                        @else
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.55rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> Luar
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if(in_array($status, ['approved', 'verified']))
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-circle-check"></i> Terverifikasi
+                                            </span>
+                                        @elseif($status === 'rejected')
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-circle-xmark"></i> Ditolak
+                                            </span>
+                                        @else
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-clock"></i> Menunggu
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center; position: sticky; right: 0; background: #ffffff; z-index: 5; box-shadow: -2px 0 6px rgba(0,0,0,0.03);">
+                                        <div style="display: inline-flex; align-items: center; gap: 4px; justify-content: center; white-space: nowrap;">
+                                            <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" class="btn-action-view" title="Lihat Detail & Bukti Lengkap">
+                                                <i class="fa-solid fa-eye"></i> Detail
+                                            </a>
+                                            @if(in_array($status, ['pending', 'submitted']))
+                                                <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Setujui laporan {{ $sub->submission_code }}?')">
+                                                    @csrf
+                                                    <input type="hidden" name="status" value="approved">
+                                                    <button type="submit" class="btn-action-quick-approve" title="Setujui Laporan">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </button>
+                                                </form>
+                                                <button type="button" class="btn-action-quick-reject" onclick="openDmRejectModal('{{ $sub->id }}', '{{ $sub->submission_code }}')" title="Tolak Laporan">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            @elseif(in_array($status, ['approved', 'verified']))
+                                                <button type="button" class="btn-action-quick-reject" onclick="openDmRejectModal('{{ $sub->id }}', '{{ $sub->submission_code }}')" title="Batalkan / Tolak Laporan">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            @elseif($status === 'rejected')
+                                                <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Setujui kembali laporan {{ $sub->submission_code }}?')">
+                                                    @csrf
+                                                    <input type="hidden" name="status" value="approved">
+                                                    <button type="submit" class="btn-action-quick-approve" title="Setujui Kembali">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Live Submissions Pagination Bar -->
+                @if($submissions->hasPages())
+                    <div class="dm-pagination-bar">
+                        <div class="dm-pagination-info">
+                            Menampilkan <strong>{{ $submissions->firstItem() }}</strong> s/d <strong>{{ $submissions->lastItem() }}</strong> dari <strong>{{ number_format($submissions->total()) }}</strong> laporan masuk (Hal <strong>{{ $submissions->currentPage() }}</strong> dari <strong>{{ $submissions->lastPage() }}</strong>)
+                        </div>
+                        <div class="dm-pagination-controls">
+                            @if(!$submissions->onFirstPage())
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->url(1) }}" class="dm-page-btn" title="Halaman Pertama">
+                                    <i class="fa-solid fa-angles-left"></i>
+                                </a>
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->previousPageUrl() }}" class="dm-page-btn">
+                                    <i class="fa-solid fa-chevron-left"></i> Prev
+                                </a>
+                            @else
+                                <span class="dm-page-btn disabled"><i class="fa-solid fa-angles-left"></i></span>
+                                <span class="dm-page-btn disabled"><i class="fa-solid fa-chevron-left"></i> Prev</span>
+                            @endif
+
+                            @for($i = max(1, $submissions->currentPage() - 2); $i <= min($submissions->lastPage(), $submissions->currentPage() + 2); $i++)
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->url($i) }}" class="dm-page-btn {{ $i === $submissions->currentPage() ? 'active' : '' }}">
+                                    {{ $i }}
+                                </a>
+                            @endfor
+
+                            @if($submissions->hasMorePages())
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->nextPageUrl() }}" class="dm-page-btn">
+                                    Next <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->url($submissions->lastPage()) }}" class="dm-page-btn" title="Halaman Terakhir">
+                                    <i class="fa-solid fa-angles-right"></i>
+                                </a>
+                            @else
+                                <span class="dm-page-btn disabled">Next <i class="fa-solid fa-chevron-right"></i></span>
+                                <span class="dm-page-btn disabled"><i class="fa-solid fa-angles-right"></i></span>
+                            @endif
+                        </div>
+                    </div>
+                @endif
+            @else
+                <div style="text-align: center; padding: 3.5rem 1.5rem; color: #64748b;">
+                    <div style="width: 60px; height: 60px; border-radius: 50%; background: #eff6ff; display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #2563eb; margin-bottom: 0.85rem;">
+                        <i class="fa-solid fa-inbox"></i>
+                    </div>
+                    <div style="font-weight: 700; color: #0f172a; font-size: 1.05rem;">Belum Ada Laporan Masuk</div>
+                    <div style="font-size: 0.84rem; color: #64748b; margin-top: 0.35rem; max-width: 480px; margin-left: auto; margin-right: auto;">
+                        Belum ada laporan Daily Maintenance yang dikirimkan oleh DC/Promotor untuk filter periode ini. Laporan yang di-submit dari aplikasi akan otomatis muncul di sini.
                     </div>
                 </div>
             @endif
@@ -1158,4 +1484,188 @@
     color: #94a3b8;
     font-weight: 700;
 }
+
+/* ACTION BUTTONS & MODAL STYLES */
+.btn-action-view {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.35rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+    background: #f1f5f9;
+    color: #0F52BA;
+    border: 1px solid #cbd5e1;
+    transition: all 0.15s ease;
+}
+.btn-action-view:hover {
+    background: #0F52BA;
+    color: #ffffff;
+    border-color: #0F52BA;
+}
+
+.btn-action-quick-approve {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.35rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: #16a34a;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(22, 163, 74, 0.2);
+    transition: all 0.15s ease;
+}
+.btn-action-quick-approve:hover {
+    background: #15803d;
+    transform: translateY(-1px);
+}
+
+.btn-action-quick-reject {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.35rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: #dc2626;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(220, 38, 38, 0.2);
+    transition: all 0.15s ease;
+}
+.btn-action-quick-reject:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+}
+
+.dm-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.dm-modal-box {
+    background: #ffffff;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    animation: modalScaleIn 0.2s ease-out;
+}
+@keyframes modalScaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+.dm-modal-header {
+    padding: 1.15rem 1.5rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
 </style>
+
+{{-- MODAL TOLAK LAPORAN DAILY MAINTENANCE --}}
+<div id="dm_reject_modal" class="dm-modal-backdrop" style="display: none;">
+    <div class="dm-modal-box">
+        <div class="dm-modal-header">
+            <h5 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i> Tolak Laporan Maintenance
+            </h5>
+            <button type="button" onclick="closeDmRejectModal()" style="background: none; border: none; font-size: 1.3rem; color: #94a3b8; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+        <form id="dm_reject_form" method="POST" action="" style="padding: 1.5rem; margin: 0;">
+            @csrf
+            <input type="hidden" name="status" value="rejected">
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #334155; margin-bottom: 0.4rem;">Kode Laporan:</label>
+                <div id="dm_reject_code" style="font-family: monospace; font-weight: 700; color: #0f172a; background: #f1f5f9; padding: 0.5rem 0.75rem; border-radius: 8px; font-size: 0.88rem; border: 1px solid #e2e8f0;"></div>
+            </div>
+            <div style="margin-bottom: 1.25rem;">
+                <label for="dm_rejection_note" style="display: block; font-size: 0.82rem; font-weight: 700; color: #334155; margin-bottom: 0.4rem;">Alasan Penolakan / Catatan: <span style="color: #ef4444;">*</span></label>
+                <textarea name="admin_notes" id="dm_rejection_note" rows="3" required placeholder="Tuliskan catatan alasan penolakan agar dapat diperbaiki oleh Promotor / DC..." style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.6rem 0.75rem; font-size: 0.84rem; outline: none; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" onclick="closeDmRejectModal()" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #475569; font-weight: 700; font-size: 0.82rem; cursor: pointer;">Batal</button>
+                <button type="submit" style="padding: 0.5rem 1.25rem; border-radius: 8px; border: none; background: #ef4444; color: #fff; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-xmark"></i> Tolak Laporan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- MODAL LIGHTBOX FOTO PREVIEW --}}
+<div id="dm_photo_modal" class="dm-modal-backdrop" style="display: none;" onclick="if(event.target === this) closeDmPhotoModal();">
+    <div class="dm-modal-box" style="max-width: 600px; text-align: center; background: #0f172a; color: #ffffff;">
+        <div style="padding: 0.9rem 1.25rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1);">
+            <div style="text-align: left;">
+                <div id="dm_photo_title" style="font-weight: 700; font-size: 0.9rem;">Foto Bukti</div>
+                <div id="dm_photo_sub" style="font-size: 0.75rem; color: #94a3b8; font-family: monospace;"></div>
+            </div>
+            <button type="button" onclick="closeDmPhotoModal()" style="background: none; border: none; font-size: 1.5rem; color: #94a3b8; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+        <div style="padding: 1rem; display: flex; justify-content: center; align-items: center; min-height: 250px; max-height: 75vh; overflow: auto;">
+            <img id="dm_photo_img" src="" alt="Preview" style="max-width: 100%; max-height: 70vh; border-radius: 8px; object-fit: contain; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+        </div>
+        <div style="padding: 0.75rem 1.25rem; background: rgba(0,0,0,0.3); display: flex; justify-content: flex-end;">
+            <a id="dm_photo_link" href="" target="_blank" style="color: #60a5fa; font-size: 0.8rem; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Buka Ukuran Penuh
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+function openDmRejectModal(subId, subCode) {
+    var modal = document.getElementById('dm_reject_modal');
+    var codeEl = document.getElementById('dm_reject_code');
+    var form = document.getElementById('dm_reject_form');
+    if (!modal || !form) return;
+    if (codeEl) codeEl.innerText = subCode;
+    var baseRoute = "{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => ':id', 'p' => $tenantPrincipal->id]) }}";
+    form.action = baseRoute.replace(':id', subId);
+    modal.style.display = 'flex';
+}
+
+function closeDmRejectModal() {
+    var modal = document.getElementById('dm_reject_modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function openDmPhotoModal(url, label, subCode) {
+    var modal = document.getElementById('dm_photo_modal');
+    var img = document.getElementById('dm_photo_img');
+    var title = document.getElementById('dm_photo_title');
+    var sub = document.getElementById('dm_photo_sub');
+    var link = document.getElementById('dm_photo_link');
+    if (!modal || !img) return;
+    img.src = url;
+    if (title) title.innerText = label || 'Foto Dokumentasi';
+    if (sub) sub.innerText = subCode || '';
+    if (link) link.href = url;
+    modal.style.display = 'flex';
+}
+
+function closeDmPhotoModal() {
+    var modal = document.getElementById('dm_photo_modal');
+    if (modal) modal.style.display = 'none';
+}
+</script>

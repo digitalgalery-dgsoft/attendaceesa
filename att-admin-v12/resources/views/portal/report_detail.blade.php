@@ -1566,7 +1566,12 @@
 
     {{-- DAILY MAINTENANCE EXECUTIVE DASHBOARD (SUMMARY, STORE MATRIX & RAW SUBMISSIONS) --}}
     @if(isset($isDailyMaintenanceReport) && $isDailyMaintenanceReport && !empty($dailyMaintenanceData))
-        @include('portal.partials.daily_maintenance_dashboard', ['dmData' => $dailyMaintenanceData])
+        @include('portal.partials.daily_maintenance_dashboard', [
+            'dmData' => $dailyMaintenanceData,
+            'submissions' => $submissions ?? null,
+            'liveSubmissionsCount' => $liveSubmissionsCount ?? 0,
+            'activeTab' => $activeTab ?? 'summary'
+        ])
     @endif
 
     {{-- CUSTOMER DATABASE & CONSUMER INSIGHTS DASHBOARD (INSIGHTS, REGIONAL & RAW SUBMISSIONS) --}}
