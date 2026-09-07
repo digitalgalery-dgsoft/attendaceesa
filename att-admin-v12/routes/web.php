@@ -602,6 +602,12 @@ Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
         $cSep = \App\Models\ReportSubmission::where('report_template_id', 31)
             ->whereBetween('submitted_at', ['2026-09-01 00:00:00', '2026-09-30 23:59:59'])
             ->count();
+        $cLiveOnly = \App\Models\ReportSubmission::where('report_template_id', 31)
+            ->where('submission_code', 'NOT LIKE', 'SUB-OFFTAKE%')
+            ->count();
+        $cRptOnly = \App\Models\ReportSubmission::where('report_template_id', 31)
+            ->where('submission_code', 'LIKE', 'RPT-%')
+            ->count();
         $sample = \App\Models\ReportSubmission::where('report_template_id', 31)
             ->select('id', 'submission_code', 'submitted_at', 'created_at')
             ->latest('id')
@@ -611,6 +617,8 @@ Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
             'total_template_31' => $cTotal,
             'ytd_2026' => $cYtd,
             'sep_2026' => $cSep,
+            'live_not_sub_offtake' => $cLiveOnly,
+            'live_rpt_only' => $cRptOnly,
             'sample' => $sample,
         ]);
     }
