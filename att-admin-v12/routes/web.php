@@ -611,41 +611,20 @@ Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
         $refMethod->setAccessible(true);
         $dashData = $refMethod->invoke($ctrl, $template, 9, 2026, 9, 2026, null, null, null, null, 1, 1, 50);
 
+        // Test calculateOfftakeYtdData
+        $refMethodYtd = new \ReflectionMethod($ctrl, 'calculateOfftakeYtdData');
+        $refMethodYtd->setAccessible(true);
+        $ytdData = $refMethodYtd->invoke($ctrl, $template, 9, 2026, null, null, null, null);
+
         return response()->json([
             'status' => 'success',
-            'report_submissions_columns' => $subCols,
-            'report_submission_values_columns' => $valCols,
-            'template_id' => $template ? $template->id : null,
-            'live_query_count' => $liveQueryCount,
-            'matched_by_code' => $sub->map(function ($s) {
-                return [
-                    'id' => $s->id,
-                    'submission_code' => $s->submission_code,
-                    'report_template_id' => $s->report_template_id,
-                    'submitted_at' => (string)$s->submitted_at,
-                    'created_at' => (string)$s->created_at,
-                    'work_location_id' => $s->work_location_id,
-                    'store_name' => $s->workLocation ? $s->workLocation->name : null,
-                    'branch_name' => $s->workLocation && $s->workLocation->branch ? $s->workLocation->branch->name : null,
-                    'values' => $s->values->map(function ($v) {
-                        return [
-                            'field_name' => $v->field_name,
-                            'field_name_slug' => $v->field_name ? strtolower(str_replace([' ', '-', '(', ')', '/'], '_', trim($v->field_name))) : null,
-                            'form_field_name' => $v->formField ? $v->formField->field_name : null,
-                            'form_field_label' => $v->formField ? $v->formField->label : null,
-                            'value_text' => $v->value_text,
-                            'value_number' => $v->value_number,
-                            'value_json' => $v->value_json,
-                        ];
-                    }),
-                ];
-            }),
             'dash_total_stores' => $dashData['sheet2']['total_stores'] ?? null,
             'dash_total_records' => $dashData['sheet1']['total_records'] ?? null,
             'dash_sheet1_rows_count' => count($dashData['sheet1']['rows'] ?? []),
-            'dash_sheet1_rows_sample' => array_slice($dashData['sheet1']['rows'] ?? [], 0, 5),
             'dash_sheet2_stores_count' => count($dashData['sheet2']['stores'] ?? []),
-            'dash_sheet2_stores_sample' => array_slice($dashData['sheet2']['stores'] ?? [], 0, 5),
+            'ytd_brands_count' => count($ytdData['brands'] ?? []),
+            'ytd_growth' => $ytdData['growth_pct'] ?? null,
+            'ytd_stores_count' => count($ytdData['stores'] ?? []),
         ], 200, [], JSON_PRETTY_PRINT);
     } catch (\Throwable $e) {
         return response()->json([
