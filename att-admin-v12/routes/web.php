@@ -583,22 +583,80 @@ Route::get('/migrate-now', function () {
     return \Illuminate\Support\Facades\Artisan::output();
 });
 
-Route::get('/cek-admin', function () {
+Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
     try {
-        $users = \App\Models\User::all(['id', 'name', 'email']);
+        $sub = \App\Models\ReportSubmission::where('submission_code', 'LIKE', '%JTHH%')
+            ->orWhere('submission_code', 'LIKE', '%X9FI%')
+            ->orderBy('id', 'desc')
+            ->with(['template', 'workLocation.branch', 'employee', 'values.formField'])
+            ->get();
+
+        $subCols = \Illuminate\Support\Facades\Schema::getColumnListing('report_submissions');
+        $valCols = \Illuminate\Support\Facades\Schema::getColumnListing('report_submission_values');
+
+        $template = \App\Models\ReportTemplate::where('code', 'RPT-DULUX-OFFTAKE-01')->first();
+
+        $startDate = \Carbon\Carbon::create(2026, 9, 1)->startOfMonth();
+        $endDate = \Carbon\Carbon::create(2026, 9, 1)->endOfMonth();
+
+        // Check getLiveSubmissionsQuery
+        $ctrl = app(\App\Http\Controllers\Portal\PrincipalPortalController::class);
+        $refLiveQuery = new \ReflectionMethod($ctrl, 'getLiveSubmissionsQuery');
+        $refLiveQuery->setAccessible(true);
+        $liveQuery = $refLiveQuery->invoke($ctrl, $template, $startDate, $endDate, null, null, null, null);
+        $liveQueryCount = (clone $liveQuery)->count();
+
+        // Also test controller method calculateOfftakeDashboardData
+        $refMethod = new \ReflectionMethod($ctrl, 'calculateOfftakeDashboardData');
+        $refMethod->setAccessible(true);
+        $dashData = $refMethod->invoke($ctrl, $template, 9, 2026, 9, 2026, null, null, null, null, 1, 1, 50);
+
         return response()->json([
             'status' => 'success',
-            'users' => $users,
-        ]);
+            'report_submissions_columns' => $subCols,
+            'report_submission_values_columns' => $valCols,
+            'template_id' => $template ? $template->id : null,
+            'live_query_count' => $liveQueryCount,
+            'matched_by_code' => $sub->map(function ($s) {
+                return [
+                    'id' => $s->id,
+                    'submission_code' => $s->submission_code,
+                    'report_template_id' => $s->report_template_id,
+                    'submitted_at' => (string)$s->submitted_at,
+                    'created_at' => (string)$s->created_at,
+                    'work_location_id' => $s->work_location_id,
+                    'store_name' => $s->workLocation ? $s->workLocation->name : null,
+                    'branch_name' => $s->workLocation && $s->workLocation->branch ? $s->workLocation->branch->name : null,
+                    'values' => $s->values->map(function ($v) {
+                        return [
+                            'field_name' => $v->field_name,
+                            'field_name_slug' => $v->field_name ? strtolower(str_replace([' ', '-', '(', ')', '/'], '_', trim($v->field_name))) : null,
+                            'form_field_name' => $v->formField ? $v->formField->field_name : null,
+                            'form_field_label' => $v->formField ? $v->formField->label : null,
+                            'value_text' => $v->value_text,
+                            'value_number' => $v->value_number,
+                            'value_json' => $v->value_json,
+                        ];
+                    }),
+                ];
+            }),
+            'dash_total_stores' => $dashData['sheet2']['total_stores'] ?? null,
+            'dash_total_records' => $dashData['sheet1']['total_records'] ?? null,
+            'dash_sheet1_rows_count' => count($dashData['sheet1']['rows'] ?? []),
+            'dash_sheet1_rows_sample' => array_slice($dashData['sheet1']['rows'] ?? [], 0, 5),
+            'dash_sheet2_stores_count' => count($dashData['sheet2']['stores'] ?? []),
+            'dash_sheet2_stores_sample' => array_slice($dashData['sheet2']['stores'] ?? [], 0, 5),
+        ], 200, [], JSON_PRETTY_PRINT);
     } catch (\Throwable $e) {
         return response()->json([
             'status' => 'error',
-            'message' => $e->getMessage()
-        ], 500);
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => explode("\n", $e->getTraceAsString())
+        ], 500, [], JSON_PRETTY_PRINT);
     }
 });
-
-
 
 Route::get('/reset-admin', function () {
     try {
