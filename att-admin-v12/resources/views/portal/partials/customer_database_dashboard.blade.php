@@ -50,6 +50,31 @@
     </div>
 
     {{-- EXECUTIVE KPI HIGHLIGHT CARDS (6 CARDS) --}}
+    @php
+        $totVal = (float)($custData['kpis']['total_value'] ?? 0);
+        if ($totVal >= 1000000000) {
+            $totValFormatted = 'Rp ' . number_format($totVal / 1000000000, 2);
+            $totValUnit = 'Miliar';
+        } elseif ($totVal >= 1000000) {
+            $totValFormatted = 'Rp ' . number_format($totVal / 1000000, 2);
+            $totValUnit = 'Juta';
+        } else {
+            $totValFormatted = 'Rp ' . number_format($totVal, 0, ',', '.');
+            $totValUnit = '';
+        }
+
+        $avgVal = (float)($custData['kpis']['avg_basket_size'] ?? 0);
+        if ($avgVal >= 1000000000) {
+            $avgValFormatted = 'Rp ' . number_format($avgVal / 1000000000, 2);
+            $avgValUnit = 'Miliar';
+        } elseif ($avgVal >= 1000000) {
+            $avgValFormatted = 'Rp ' . number_format($avgVal / 1000000, 2);
+            $avgValUnit = 'Juta';
+        } else {
+            $avgValFormatted = 'Rp ' . number_format($avgVal, 0, ',', '.');
+            $avgValUnit = '';
+        }
+    @endphp
     <div class="cust-kpi-grid">
         <div class="cust-kpi-card">
             <div class="cust-kpi-icon blue">
@@ -68,7 +93,12 @@
             </div>
             <div class="cust-kpi-content">
                 <span class="cust-kpi-label">Total Nilai Transaksi</span>
-                <div class="cust-kpi-val">Rp {{ number_format(($custData['kpis']['total_value'] ?? 0) / 1000000000, 2) }} <span class="cust-kpi-unit">Miliar</span></div>
+                <div class="cust-kpi-val" title="Nilai riil: Rp {{ number_format($totVal, 0, ',', '.') }}">
+                    {{ $totValFormatted }}
+                    @if($totValUnit)
+                        <span class="cust-kpi-unit">{{ $totValUnit }}</span>
+                    @endif
+                </div>
                 <span class="cust-kpi-sub">Estimasi belanja cat & material</span>
             </div>
         </div>
@@ -79,7 +109,12 @@
             </div>
             <div class="cust-kpi-content">
                 <span class="cust-kpi-label">Rata-Rata Belanja (Basket Size)</span>
-                <div class="cust-kpi-val">Rp {{ number_format(($custData['kpis']['avg_basket_size'] ?? 0) / 1000000, 2) }} <span class="cust-kpi-unit">Juta</span></div>
+                <div class="cust-kpi-val" title="Nilai riil: Rp {{ number_format($avgVal, 0, ',', '.') }}">
+                    {{ $avgValFormatted }}
+                    @if($avgValUnit)
+                        <span class="cust-kpi-unit">{{ $avgValUnit }}</span>
+                    @endif
+                </div>
                 <span class="cust-kpi-sub">Rata-rata nilai per konsumen</span>
             </div>
         </div>
