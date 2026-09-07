@@ -160,11 +160,71 @@ class ReportingApiController extends Controller
 
         $cutoffLabel = $startDate->translatedFormat('d M Y') . ' – ' . $endDate->translatedFormat('d M Y');
 
+        // Hitung Hari Kerja Efektif (Workday) Karyawan dalam periode cut-off (hari libur & off tidak dihitung)
+        $holidays = \App\Models\Holiday::whereBetween('holiday_date', [
+            $startDate->toDateString(),
+            $endDate->toDateString()
+        ])->pluck('holiday_date')->map(function ($d) {
+            return Carbon::parse($d)->toDateString();
+        })->flip()->toArray();
+
+        $schedulesMap = \App\Models\EmployeeSchedule::where('employee_id', $employee->id)
+            ->whereBetween('schedule_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get()
+            ->keyBy('schedule_date');
+
+        $deptWorkingDays = $employee->department?->working_days ?? null;
+        $effectiveWorkdayDates = [];
+
+        $currDate = $startDate->copy()->startOfDay();
+        $endDateLimit = $endDate->copy()->startOfDay();
+
+        while ($currDate->lte($endDateLimit)) {
+            $dateStr = $currDate->toDateString();
+            $isHoliday = isset($holidays[$dateStr]);
+
+            if (!$isHoliday) {
+                if ($schedulesMap->has($dateStr)) {
+                    $sched = $schedulesMap->get($dateStr);
+                    $sType = strtolower($sched->schedule_type ?? 'workday');
+                    if (!in_array($sType, ['dayoff', 'holiday', 'off'])) {
+                        $effectiveWorkdayDates[] = $dateStr;
+                    }
+                } else {
+                    $dow = $currDate->dayOfWeek;
+                    $iso = $currDate->dayOfWeekIso;
+                    $isWorkDay = false;
+
+                    if (!empty($deptWorkingDays)) {
+                        $workingDaysArr = is_array($deptWorkingDays) ? $deptWorkingDays : json_decode($deptWorkingDays, true);
+                        if (is_array($workingDaysArr)) {
+                            $normalized = array_map('strval', $workingDaysArr);
+                            $isWorkDay = in_array(strval($dow), $normalized) || in_array(strval($iso), $normalized);
+                        }
+                    } else {
+                        $isWorkDay = in_array($dow, [1, 2, 3, 4, 5]);
+                    }
+
+                    if ($isWorkDay) {
+                        $effectiveWorkdayDates[] = $dateStr;
+                    }
+                }
+            }
+            $currDate->addDay();
+        }
+
         // Ambil riwayat submission karyawan dalam periode cut-off aktif
         $cutoffSubmissions = ReportSubmission::where('employee_id', $employee->id)
             ->whereBetween('submitted_at', [$startDate, $endDate])
             ->get()
             ->groupBy('report_template_id');
+
+        // Submissions hari ini untuk cek kepatuhan & penguncian berurutan
+        $todayStr = $now->toDateString();
+        $todaySubmissions = ReportSubmission::where('employee_id', $employee->id)
+            ->whereDate('submitted_at', $todayStr)
+            ->with('values')
+            ->get();
 
         $dailyTargetTotal = 0;
         $dailySubmittedTotal = 0;
@@ -179,14 +239,36 @@ class ReportingApiController extends Controller
         $targetStoreId = $request->query('store_id') ?? $request->query('location_id') ?? $employee->work_location_id;
         $targetStore = $targetStoreId ? \App\Models\WorkLocation::find($targetStoreId) : null;
 
+        // Urutan Alur Pelaporan Wajib Dulux
+        $duluxOrder = [
+            'RPT-DULUX-OFFTAKE-01' => 1,
+            'RPT-DULUX-STOCK-END' => 2,
+            'RPT-DULUX-OOS-SSO' => 3,
+            'RPT-DULUX-CBP-PRICING' => 4,
+            'RPT-DULUX-DAILY-MAINTENANCE' => 5,
+            'RPT-DULUX-DATABASE-PELANGGAN' => 6,
+        ];
+
+        $templates = $templates->sortBy(function ($t) use ($duluxOrder) {
+            return $duluxOrder[$t->code] ?? 999;
+        })->values();
+
+        $prevStepCompleted = true;
+        $prevStepTitle = null;
+        $stepCounter = 1;
+
         // Format data template dan fields untuk konsumsi mobile
         $formatted = $templates->map(function ($t) use (
             $employee, 
             $allMatchingPrincipalIds, 
             $targetStore, 
+            $targetStoreId,
             $startDate, 
             $endDate, 
             $cutoffSubmissions, 
+            $todaySubmissions,
+            $effectiveWorkdayDates,
+            $duluxOrder,
             $now,
             &$dailyTargetTotal,
             &$dailySubmittedTotal,
@@ -195,11 +277,14 @@ class ReportingApiController extends Controller
             &$monthlyTargetTotal,
             &$monthlySubmittedTotal,
             &$overallTargetTotal,
-            &$overallSubmittedTotal
+            &$overallSubmittedTotal,
+            &$prevStepCompleted,
+            &$prevStepTitle,
+            &$stepCounter
         ) {
             $scheduleType = strtolower($t->schedule_type ?? 'daily');
             $targetCount = max(1, (int) ($t->target_count ?? 1));
-            $cutoffTarget = $t->calculateCutoffTarget($startDate, $endDate);
+            $cutoffTarget = $t->calculateCutoffTarget($startDate, $endDate, $employee, $effectiveWorkdayDates);
             $templateSubs = $cutoffSubmissions->get($t->id, collect());
             $cutoffSubmitted = $templateSubs->count();
             $cutoffProgressPercent = $cutoffTarget > 0 ? (int) min(100, round(($cutoffSubmitted / $cutoffTarget) * 100)) : 0;
@@ -280,6 +365,65 @@ class ReportingApiController extends Controller
 
             $productNames = $templateProducts->pluck('name')->toArray();
 
+            // Evaluasi pengisian hari ini untuk toko aktif
+            $templateTodaySubs = $todaySubmissions->where('report_template_id', $t->id);
+            if ($targetStoreId) {
+                $templateTodaySubs = $templateTodaySubs->filter(function ($s) use ($targetStoreId) {
+                    return empty($s->work_location_id) || $s->work_location_id == $targetStoreId;
+                });
+            }
+
+            // Temukan field produk pada template ini
+            $prodFieldNames = $t->fields->filter(function ($f) {
+                $name = strtolower($f->field_name);
+                $type = strtolower($f->field_type);
+                return $type === 'product_select' || $type === 'product' || in_array($name, ['produk_stock_end', 'produk_oos', 'produk', 'product', 'sub_brand', 'subbrand_produk']);
+            })->pluck('field_name')->toArray();
+
+            $submittedProductNames = [];
+            $submittedProductIds = [];
+
+            foreach ($templateTodaySubs as $sub) {
+                foreach ($sub->values as $val) {
+                    if (in_array($val->field_name, $prodFieldNames) || in_array($val->field_type, ['product_select', 'product'])) {
+                        $pName = trim((string)($val->value_text ?? ''));
+                        if ($pName !== '') {
+                            $submittedProductNames[] = $pName;
+                        }
+                    }
+                }
+            }
+            $submittedProductNames = array_values(array_unique($submittedProductNames));
+
+            foreach ($templateProducts as $tp) {
+                if (in_array(strtolower($tp->name), array_map('strtolower', $submittedProductNames))) {
+                    $submittedProductIds[] = $tp->id;
+                }
+            }
+            $submittedProductIds = array_values(array_unique($submittedProductIds));
+
+            $hasProductBinding = !empty($prodFieldNames) && $templateProducts->isNotEmpty();
+
+            if ($hasProductBinding) {
+                $isCompletedToday = count($submittedProductNames) >= $templateProducts->count() && $templateProducts->count() > 0;
+            } else {
+                $isCompletedToday = $templateTodaySubs->isNotEmpty();
+            }
+
+            // Gating / Step Locking
+            $isDuluxSequential = isset($duluxOrder[$t->code]);
+            $stepNumber = $isDuluxSequential ? $duluxOrder[$t->code] : $stepCounter++;
+
+            if ($isDuluxSequential) {
+                $isStepLocked = !$prevStepCompleted;
+                $lockedReason = $isStepLocked ? "Harap selesaikan {$prevStepTitle} terlebih dahulu." : null;
+                $prevStepCompleted = $isCompletedToday;
+                $prevStepTitle = $t->title;
+            } else {
+                $isStepLocked = false;
+                $lockedReason = null;
+            }
+
             return [
                 'id' => $t->id,
                 'code' => $t->code,
@@ -294,6 +438,15 @@ class ReportingApiController extends Controller
                 'cutoff_progress_percent' => $cutoffProgressPercent,
                 'target_ratio_display' => "{$cutoffSubmitted}/{$cutoffTarget} ({$cutoffProgressPercent}%)",
                 'is_today_scheduled' => $isTodayScheduled,
+                'step_number' => $stepNumber,
+                'is_step_locked' => $isStepLocked,
+                'locked_reason' => $lockedReason,
+                'is_completed_today' => $isCompletedToday,
+                'has_product_binding' => $hasProductBinding,
+                'submitted_products' => $submittedProductNames,
+                'submitted_product_ids' => $submittedProductIds,
+                'total_products_count' => $templateProducts->count(),
+                'remaining_products_count' => max(0, $templateProducts->count() - count($submittedProductNames)),
                 'assigned_positions' => $t->positions->pluck('name')->values()->toArray(),
                 'assigned_employees' => $t->employees->pluck('full_name')->values()->toArray(),
                 'icon' => $t->icon ?? 'document-text',
@@ -1464,5 +1617,187 @@ class ReportingApiController extends Controller
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
 
         return $earthRadius * $c;
+    }
+
+    /**
+     * Check reporting compliance for Checkout or Visit-out.
+     */
+    public function checkCompliance(Request $request): JsonResponse
+    {
+        $employee = $this->getAuthenticatedEmployee($request);
+        if (!$employee) {
+            return response()->json(['status' => 'error', 'message' => 'Data karyawan tidak ditemukan.'], 404);
+        }
+
+        $type = $request->query('type', 'checkout');
+        $locationId = $request->query('work_location_id') ?: $request->query('store_id');
+
+        $pending = self::checkPendingReportsStatic($employee, $type, $locationId ? (int)$locationId : null);
+
+        return response()->json([
+            'status' => 'success',
+            'can_proceed' => empty($pending),
+            'type' => $type,
+            'pending_reports' => $pending,
+            'pending_count' => count($pending),
+            'message' => empty($pending) 
+                ? 'Semua laporan wajib telah diselesaikan.' 
+                : 'Terdapat laporan wajib yang belum diselesaikan.',
+        ]);
+    }
+
+    /**
+     * Helper statis untuk mengecek laporan wajib yang belum selesai hari ini.
+     */
+    public static function checkPendingReportsStatic(\App\Models\Employee $employee, string $type = 'checkout', ?int $workLocationId = null): array
+    {
+        $now = Carbon::now('Asia/Jakarta');
+        $todayStr = $now->toDateString();
+
+        // 1. Dapatkan principal IDs yang relevan
+        $scopedPrincipalIds = [];
+        if ($employee->principal_id) {
+            $scopedPrincipalIds[] = $employee->principal_id;
+        }
+        if ($employee->principal) {
+            $scopedPrincipalIds[] = $employee->principal->id;
+            $principalNameUpper = strtoupper($employee->principal->name);
+            if (Str::contains($principalNameUpper, 'DULUX') || Str::contains($principalNameUpper, 'AKZONOBEL') || Str::contains($principalNameUpper, 'ICI')) {
+                $duluxIds = Principal::where('name', 'LIKE', '%DULUX%')
+                    ->orWhere('name', 'LIKE', '%AKZONOBEL%')
+                    ->orWhere('name', 'LIKE', '%ICI%')
+                    ->orWhere('subdomain', 'dulux')
+                    ->pluck('id')->toArray();
+                $scopedPrincipalIds = array_merge($scopedPrincipalIds, $duluxIds);
+            }
+        }
+        $scopedPrincipalIds = array_values(array_unique(array_filter($scopedPrincipalIds)));
+
+        // 2. Query template aktif
+        $query = ReportTemplate::where('is_active', true)
+            ->with(['principals', 'positions', 'employees', 'products', 'fields']);
+
+        if (!empty($scopedPrincipalIds)) {
+            $query->where(function ($q) use ($scopedPrincipalIds) {
+                $q->whereIn('principal_id', $scopedPrincipalIds)
+                  ->orWhereHas('principals', function ($pq) use ($scopedPrincipalIds) {
+                      $pq->whereIn('principals.id', $scopedPrincipalIds);
+                  });
+            });
+        }
+
+        $templates = $query->get()->filter(function ($t) use ($employee) {
+            $hasAssignedEmployees = $t->employees->isNotEmpty();
+            $hasAssignedPositions = $t->positions->isNotEmpty();
+            if ($hasAssignedEmployees && !$t->employees->contains('id', $employee->id)) {
+                return false;
+            }
+            if ($hasAssignedPositions && (!$employee->position_id || !$t->positions->contains('id', $employee->position_id))) {
+                return false;
+            }
+            return true;
+        })->values();
+
+        $duluxOrder = [
+            'RPT-DULUX-OFFTAKE-01' => 1,
+            'RPT-DULUX-STOCK-END' => 2,
+            'RPT-DULUX-OOS-SSO' => 3,
+            'RPT-DULUX-CBP-PRICING' => 4,
+            'RPT-DULUX-DAILY-MAINTENANCE' => 5,
+            'RPT-DULUX-DATABASE-PELANGGAN' => 6,
+        ];
+
+        $templates = $templates->sortBy(function ($t) use ($duluxOrder) {
+            return $duluxOrder[$t->code] ?? 999;
+        })->values();
+
+        // 3. Ambil submissions hari ini
+        $todaySubsQuery = ReportSubmission::where('employee_id', $employee->id)
+            ->whereDate('submitted_at', $todayStr)
+            ->with('values');
+
+        $todaySubmissions = $todaySubsQuery->get();
+
+        $pending = [];
+
+        foreach ($templates as $t) {
+            $scheduleType = strtolower($t->schedule_type ?? 'daily');
+            
+            // Cek apakah template dijadwalkan hari ini
+            $isDueToday = false;
+            if ($scheduleType === 'daily') {
+                $isDueToday = $t->isScheduledForDate($now);
+            } elseif ($scheduleType === 'weekly') {
+                $isDueToday = $t->isScheduledForDate($now);
+            } elseif ($scheduleType === 'monthly') {
+                $isDueToday = $t->isScheduledForDate($now);
+            } else {
+                $isDueToday = true;
+            }
+
+            if (!$isDueToday) {
+                continue;
+            }
+
+            // Filter submissions untuk template ini
+            $tSubs = $todaySubmissions->where('report_template_id', $t->id);
+            if ($workLocationId) {
+                $tSubs = $tSubs->filter(function($s) use ($workLocationId) {
+                    return empty($s->work_location_id) || $s->work_location_id == $workLocationId;
+                });
+            }
+
+            // Cek produk jika template mengikat produk
+            $tProducts = $t->products;
+            if ($tProducts->isEmpty()) {
+                if (Str::startsWith($t->code, 'RPT-DULUX-') || Str::contains(strtoupper($t->title), 'DULUX')) {
+                    $cleanIds = Principal::where('name', 'LIKE', '%DULUX%')
+                        ->orWhere('name', 'LIKE', '%AKZONOBEL%')
+                        ->orWhere('name', 'LIKE', '%ICI%')
+                        ->orWhere('subdomain', 'dulux')
+                        ->pluck('id')->toArray();
+                    if (!empty($cleanIds)) {
+                        $tProducts = \App\Models\Product::whereIn('principal_id', $cleanIds)
+                            ->where(function ($q) {
+                                $q->where('is_active', true)->orWhere('is_active', 1)->orWhereNull('is_active');
+                            })->get();
+                    }
+                }
+            }
+
+            $prodFieldNames = $t->fields->filter(function($f) {
+                $name = strtolower($f->field_name);
+                $type = strtolower($f->field_type);
+                return $type === 'product_select' || $type === 'product' || in_array($name, ['produk_stock_end', 'produk_oos', 'produk', 'product', 'sub_brand', 'subbrand_produk']);
+            })->pluck('field_name')->toArray();
+
+            $hasProductBinding = !empty($prodFieldNames) && $tProducts->isNotEmpty();
+
+            if ($hasProductBinding) {
+                $submittedProdNames = [];
+                foreach ($tSubs as $sub) {
+                    foreach ($sub->values as $val) {
+                        if (in_array($val->field_name, $prodFieldNames) || in_array($val->field_type, ['product_select', 'product'])) {
+                            $pName = trim((string)($val->value_text ?? ''));
+                            if ($pName !== '') {
+                                $submittedProdNames[] = strtolower($pName);
+                            }
+                        }
+                    }
+                }
+                $submittedProdNames = array_unique($submittedProdNames);
+
+                if (count($submittedProdNames) < $tProducts->count()) {
+                    $sisa = $tProducts->count() - count($submittedProdNames);
+                    $pending[] = "{$t->title} (Sisa {$sisa} produk)";
+                }
+            } else {
+                if ($tSubs->isEmpty()) {
+                    $pending[] = $t->title;
+                }
+            }
+        }
+
+        return $pending;
     }
 }

@@ -8,7 +8,10 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 
 | Kategori | Status | Keterangan |
 | :--- | :---: | :--- |
-| **Portal Principal Dulux (PT ICI Paints Indonesia)** | 🟢 Aktif / Live | `https://dulux.esa-solutions.id/portal` |
+| **Alur Pelaporan Berjenjang Dulux (6 Langkah)** | 🟢 Selesai (100%) | Urutan wajib: Offtake -> Stok End -> OOS -> CBP -> Daily Maint -> DB Pelanggan |
+| **Single-Product Submission & Disable Terlapor** | 🟢 Selesai (100%) | 1 submission per produk, disable & tandai produk terlapor hari itu, tombol dinamis |
+| **Attendance Gate (Check-Out & Visit-Out)** | 🟢 Selesai (100%) | Blokir check-out / visit-out jika ada laporan atau produk wajib belum lengkap hari itu |
+| **Target Laporan Hari Kerja Efektif** | 🟢 Selesai (100%) | Target cut-off hanya menghitung workday, mengabaikan libur dan hari off |
 | **Tab Data Laporan Masuk & Approval Offtake** | 🟢 Selesai & Live (100%) | Tab live submissions, quick approve/reject modal, sticky action & horizontal scroll |
 | **Resolusi Query Live Offtake & Out-of-Memory** | 🟢 Selesai (100%) | Eliminasi silent SQL error & filter batch import, query cepat (<1 detik, memori 65MB) |
 | **Multi-Kompetitor Form CBP Mobile (v1.0.124)** | 🟢 Rilis & Live | Input multi-brand kompetitor per toko & rilis APK v1.0.124 |
@@ -349,6 +352,32 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
   - **Tombol Detail (Biru)**: Mengarahkan ke halaman detail dokumen submisi lengkap dengan foto bukti fisik rak display/gudang/mesin tinter, koordinat GPS, dan 11 parameter isian.
   - **Sticky Action Column**: Kolom aksi menempel di sisi kanan tabel (`.col-sticky-action`) sehingga tidak pernah terpotong saat digeser secara horizontal.
 
+### 19. Alur Pelaporan Sekuensial Berjenjang Dulux, Single-Product Submission & Attendance Gate (8 September 2026)
+- [x] **Alur Pelaporan Berjenjang Wajib (Strict Sequential Workflow 6 Langkah)**:
+  - Mengurutkan 6 laporan wajib Dulux:
+    1. **Offtake** (`RPT-DULUX-OFFTAKE-01`)
+    2. **Stok End** (`RPT-DULUX-STOCK-END`)
+    3. **OOS** (`RPT-DULUX-OOS-SSO`)
+    4. **CBP** (`RPT-DULUX-CBP-PRICING`)
+    5. **Daily Maintenance** (`RPT-DULUX-DAILY-MAINTENANCE`)
+    6. **Database Pelanggan** (`RPT-DULUX-DATABASE-PELANGGAN`)
+  - Setiap laporan berstatus terkunci (`is_step_locked`) dan hanya terbuka otomatis jika laporan pada langkah sebelumnya telah diselesaikan seluruhnya pada hari tersebut.
+  - Pada layar hub pelaporan (`ReportingHubScreen`), ditambahkan nomor langkah visual (*Langkah 1 s/d 6*), badge status terkunci, dan modal peringatan interaktif jika mengklik langkah yang belum terbuka.
+- [x] **Single-Product Submission Per Form & Disable Produk Terlapor**:
+  - Setiap produk dikirim sebagai 1 data submission mandiri ke backend (`ReportSubmission`), bukan digabung menjadi 1 payload besar.
+  - Produk yang sudah dikirimkan laporannya hari itu dibuat disabled (`enabled: false`), dicoret teksnya (*strikethrough*), dan ditandai badge hijau terang: **`Sudah Dilaporkan Hari Ini ✓`** baik di Dropdown maupun di Bottom Sheet Catalog Picker.
+  - Jika pengguna mengetikkan atau memilih produk yang telah dilaporkan, form menampilkan banner peringatan amber dan tombol submit memblokir duplikasi.
+  - **Tombol Dinamis & Kartu Progres Produk**:
+    - Menampilkan kartu progres `X / Y Produk` dengan progress bar real-time.
+    - Ketika sisa produk > 1: Tombol utama berbunyi **"Kirim & Lanjut Produk Berikutnya"** (mengirim 1 data produk, mengosongkan input produk, dan otomatis berpindah ke produk berikutnya). Tombol kedua **"Kirim & Selesai"** dalam status terkunci/disabled.
+    - Ketika berada pada produk terakhir (sisa <= 1): Tombol berubah menjadi hijau menonjol: **"Kirim & Selesai (Produk Terakhir ✓)"**. Submisi ini menyelesaikan langkah dan kembali ke layar hub untuk membuka langkah selanjutnya.
+- [x] **Pembatasan Check-Out & Visit-Out (Attendance Gate)**:
+  - Karyawan tidak dapat melakukan Check-Out kehadiran ataupun Visit-Out kunjungan toko jika seluruh laporan wajib hari itu (termasuk seluruh produk wajib) belum tuntas dilaporkan.
+  - Endpoint backend validasi absensi (`checkout` & `visit_out`) menolak aksi dengan HTTP 422 `PENDING_REPORTS_REQUIRED` dan daftar nama laporan yang masih pending.
+  - Aplikasi mobile memvalidasi kepatuhan secara pre-emptive di `DashboardScreen` dan menangani response 422 di `AttendanceLocationScreen`, memunculkan dialog peringatan dengan tombol cepat **"Isi Laporan Sekarang"** yang langsung membuka layar pelaporan.
+- [x] **Kalkulasi Target Cut-off Berdasarkan Hari Kerja Efektif**:
+  - Menyesuaikan kalkulasi target cut-off di `ReportTemplate::calculateCutoffTarget` untuk hanya menghitung hari kerja efektif karyawan (`schedule_type == 'workday'`), mengabaikan hari libur nasional (`Holiday`) dan hari libur shift (`dayoff`).
+
 ---
 
 ## 🎯 Rencana Pengembangan Selanjutnya (Next Milestones)
@@ -362,5 +391,5 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 
 ---
 
-*Terakhir diperbarui: 7 September 2026*  
+*Terakhir diperbarui: 8 September 2026*  
 *Pengembang: Digital Galery / DGSoft - Tim Attendance ESA*

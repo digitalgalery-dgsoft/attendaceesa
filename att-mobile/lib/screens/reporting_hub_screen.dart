@@ -50,7 +50,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
     if (auth.token != null) {
-      repProvider.fetchTemplates(auth.token!, forceRefresh: force);
+      repProvider.fetchTemplates(auth.token!, forceRefresh: force, storeId: widget.workLocationId);
       repProvider.fetchHistory(auth.token!);
       repProvider.fetchStores(auth.token!, forceRefresh: force);
     }
@@ -451,7 +451,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
               ),
             )
           else
-            ...provider.templates.map((template) => _buildTemplateCard(
+            ...(List<ReportTemplateModel>.from(provider.templates)..sort((a, b) => a.stepNumber.compareTo(b.stepNumber))).map((template) => _buildTemplateCard(
                   template,
                   primaryColor,
                   cardColor,
@@ -724,6 +724,41 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
+            if (template.isStepLocked) {
+              showDialog(
+                context: context,
+                builder: (dialogCtx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  backgroundColor: cardColor,
+                  title: Row(
+                    children: [
+                      Icon(Icons.lock_rounded, color: Colors.orange.shade700, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Laporan Terkunci',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                    ],
+                  ),
+                  content: Text(
+                    template.lockedReason ?? 'Harap selesaikan laporan langkah sebelumnya terlebih dahulu sesuai urutan alur kerja.',
+                    style: TextStyle(fontSize: 13, color: subtitleColor),
+                  ),
+                  actions: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: defaultColor,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Mengerti', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              );
+              return;
+            }
+
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => DynamicFormScreen(
@@ -736,7 +771,7 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
             ).then((_) {
               final auth = Provider.of<AuthProvider>(context, listen: false);
               if (auth.token != null) {
-                Provider.of<DynamicReportingProvider>(context, listen: false).fetchTemplates(auth.token!, forceRefresh: true);
+                Provider.of<DynamicReportingProvider>(context, listen: false).fetchTemplates(auth.token!, forceRefresh: true, storeId: widget.workLocationId);
                 Provider.of<DynamicReportingProvider>(context, listen: false).fetchHistory(auth.token!);
               }
             });
@@ -746,6 +781,79 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Step Number & Status Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: template.isCompletedToday
+                            ? const Color(0xFF149A6E).withOpacity(0.12)
+                            : (template.isStepLocked ? Colors.orange.withOpacity(0.12) : themeColor.withOpacity(0.12)),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: template.isCompletedToday
+                              ? const Color(0xFF149A6E).withOpacity(0.3)
+                              : (template.isStepLocked ? Colors.orange.withOpacity(0.3) : themeColor.withOpacity(0.3)),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            template.isCompletedToday
+                                ? Icons.check_circle_rounded
+                                : (template.isStepLocked ? Icons.lock_rounded : Icons.play_arrow_rounded),
+                            size: 12,
+                            color: template.isCompletedToday
+                                ? const Color(0xFF149A6E)
+                                : (template.isStepLocked ? Colors.orange.shade700 : themeColor),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Langkah ${template.stepNumber}',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: template.isCompletedToday
+                                  ? const Color(0xFF149A6E)
+                                  : (template.isStepLocked ? Colors.orange.shade700 : themeColor),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (template.isCompletedToday)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF149A6E).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'Selesai Hari Ini ✓',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF149A6E)),
+                        ),
+                      )
+                    else if (template.isStepLocked)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Terkunci',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800),
+                        ),
+                      ),
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -779,7 +887,9 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                         ],
                       ),
                     ),
-                    Icon(Icons.arrow_forward_ios_rounded, color: subtitleColor, size: 14),
+                    template.isStepLocked
+                        ? Icon(Icons.lock_rounded, color: Colors.orange.shade700, size: 18)
+                        : Icon(Icons.arrow_forward_ios_rounded, color: subtitleColor, size: 14),
                   ],
                 ),
                 
@@ -881,6 +991,19 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                         style: TextStyle(fontSize: 10, color: themeColor, fontWeight: FontWeight.bold),
                       ),
                     ),
+                    if (template.hasProductBinding && template.totalProductsCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          color: template.isCompletedToday ? const Color(0xFF149A6E).withOpacity(0.12) : themeColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(color: template.isCompletedToday ? const Color(0xFF149A6E).withOpacity(0.3) : themeColor.withOpacity(0.3), width: 0.8),
+                        ),
+                        child: Text(
+                          '${template.submittedProducts.length}/${template.totalProductsCount} Produk',
+                          style: TextStyle(fontSize: 10, color: template.isCompletedToday ? const Color(0xFF149A6E) : themeColor, fontWeight: FontWeight.bold),
+                        ),
+                      ),
                     Text(
                       '${template.fieldsCount} Parameter',
                       style: TextStyle(fontSize: 10.5, color: subtitleColor, fontWeight: FontWeight.w500),

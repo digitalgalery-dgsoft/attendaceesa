@@ -446,7 +446,12 @@ class AttendanceProvider with ChangeNotifier {
       } else {
         _isLoading = false;
         notifyListeners();
-        return {'success': false, 'message': decodedData['message'] ?? 'Gagal'};
+        return {
+          'success': false,
+          'message': decodedData['message'] ?? 'Gagal',
+          'code': decodedData['code'],
+          'pending_reports': decodedData['pending_reports'],
+        };
       }
     } catch (e) {
       debugPrint('[Attendance] Jaringan offline/gagal: $e. Menyimpan aksi ke antrean lokal...');

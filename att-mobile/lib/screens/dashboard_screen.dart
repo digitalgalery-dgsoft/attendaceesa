@@ -979,7 +979,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             final bool isFaceBlockedForCheckin = !attProvider.isCheckedIn && _isFaceBlocked(authProvider);
 
                             return InkWell(
-                              onTap: () {
+                              onTap: () async {
                                 if (attProvider.hasCheckedOutToday) return;
                                 if (isFaceBlockedForCheckin) {
                                   _checkFaceMasterOrBlock(context);
@@ -1003,6 +1003,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                     );
                                     return;
                                   }
+                                  final canProceed = await _checkReportingComplianceBeforeExit(context, 'checkout');
+                                  if (!canProceed) return;
+
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkout'))).then((_) { attProvider.loadDashboardData(); });
                                 } else {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkin'))).then((_) { attProvider.loadDashboardData(); });
@@ -1230,7 +1233,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
                           return Expanded(
                             child: InkWell(
-                              onTap: canDoVisitOut ? () {
+                              onTap: canDoVisitOut ? () async {
+                                int? visitLocId;
+                                for (final log in attProvider.todayLogs) {
+                                  if (log['log_type'] == 'visit_in' && log['metadata'] != null) {
+                                    visitLocId = int.tryParse(log['metadata']['work_location_id']?.toString() ?? '');
+                                    break;
+                                  }
+                                }
+                                final canProceed = await _checkReportingComplianceBeforeExit(context, 'visit_out', workLocationId: visitLocId);
+                                if (!canProceed) return;
+
                                 Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'visit_out'))).then((_) { attProvider.loadDashboardData(); });
                               } : null,
                               child: Container(
@@ -1860,6 +1873,155 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _checkReportingComplianceBeforeExit(BuildContext context, String type, {int? workLocationId}) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+    if (auth.token == null) return true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final res = await repProvider.checkCompliance(
+        auth.token!,
+        type: type,
+        workLocationId: workLocationId,
+      );
+
+      if (!mounted) return false;
+      Navigator.of(context, rootNavigator: true).pop(); // Dismiss loading
+
+      if (res['can_proceed'] == false) {
+        final pendingList = List<String>.from(res['pending_reports'] ?? []);
+        _showPendingReportsDialog(context, type, pendingList, workLocationId: workLocationId);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      return true;
+    }
+  }
+
+  void _showPendingReportsDialog(BuildContext context, String type, List<String> pendingReports, {int? workLocationId}) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final typeName = type == 'checkout' ? 'Check-Out' : 'Visit-Out';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+        actionsPadding: const EdgeInsets.all(16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.assignment_late_rounded, color: Colors.amber, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Laporan Wajib Belum Selesai',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.white : const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Sebelum melakukan $typeName, Anda wajib menyelesaikan seluruh laporan kerja hari ini:',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 180),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDarkMode ? const Color(0xFF12121A) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: pendingReports.isNotEmpty ? pendingReports.length : 1,
+                separatorBuilder: (_, __) => const Divider(height: 10),
+                itemBuilder: (ctx, i) {
+                  final title = pendingReports.isNotEmpty ? pendingReports[i] : 'Laporan Harian Belum Lengkap';
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(Icons.radio_button_unchecked_rounded, size: 14, color: Colors.orange),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDarkMode ? Colors.white : const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ReportingHubScreen(workLocationId: workLocationId),
+                ),
+              );
+            },
+            icon: const Icon(Icons.assignment_outlined, size: 16, color: Colors.white),
+            label: const Text('Isi Laporan Sekarang', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 12.5)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F52BA),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
+          ),
         ],
       ),
     );

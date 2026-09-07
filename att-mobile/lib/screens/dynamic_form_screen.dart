@@ -85,6 +85,120 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   final List<String> _submittedCategoryLog = [];
   int _sessionSubmissionCount = 0;
 
+  // Multi-Product & Sequential Submission Tracking
+  final Set<String> _submittedProductNames = {};
+
+  void _initSubmittedProducts() {
+    for (final p in widget.template.submittedProducts) {
+      final clean = p.trim().toLowerCase();
+      if (clean.isNotEmpty) {
+        _submittedProductNames.add(clean);
+      }
+    }
+  }
+
+  bool _isProductSubmitted(String? productName) {
+    if (productName == null || productName.trim().isEmpty) return false;
+    final clean = productName.trim().toLowerCase();
+    if (_submittedProductNames.contains(clean)) return true;
+    for (final sub in _submittedProductNames) {
+      if (sub == clean) return true;
+    }
+    return false;
+  }
+
+  bool _isTemplateProductSubmitted(TemplateProductModel p) {
+    if (widget.template.submittedProductIds.contains(p.id)) return true;
+    if (_isProductSubmitted(p.name)) return true;
+    if (p.skuCode != null && _isProductSubmitted(p.skuCode!)) return true;
+    return false;
+  }
+
+  bool _isOptionSubmitted(String opt) {
+    if (_isProductSubmitted(opt)) return true;
+    final products = _getProducts();
+    final matched = products.cast<TemplateProductModel?>().firstWhere(
+      (p) => p != null && (p.name.toLowerCase() == opt.toLowerCase() || (p.skuCode != null && p.skuCode!.toLowerCase() == opt.toLowerCase())),
+      orElse: () => null,
+    );
+    if (matched != null) {
+      return _isTemplateProductSubmitted(matched);
+    }
+    return false;
+  }
+
+  bool _hasProductBinding() {
+    if (widget.template.hasProductBinding) return true;
+    if (_getProducts().isNotEmpty) return true;
+    final code = widget.template.code.toUpperCase();
+    if (code == 'RPT-DULUX-OFFTAKE-01' ||
+        code == 'RPT-DULUX-STOCK-END' ||
+        code == 'RPT-DULUX-OOS-SSO' ||
+        code == 'RPT-DULUX-CBP-PRICING') {
+      return true;
+    }
+    return widget.template.fields.any((f) => _isProductField(f));
+  }
+
+  int _getTotalProductsCount() {
+    final prods = _getProducts();
+    if (prods.isNotEmpty) return prods.length;
+    for (final f in widget.template.fields) {
+      if (_isProductField(f) && f.options.isNotEmpty) {
+        return f.options.length;
+      }
+    }
+    return widget.template.totalProductsCount > 0 ? widget.template.totalProductsCount : 0;
+  }
+
+  int _getRemainingProductsCount() {
+    final total = _getTotalProductsCount();
+    if (total == 0) return 0;
+    final prods = _getProducts();
+    if (prods.isNotEmpty) {
+      return prods.where((p) => !_isTemplateProductSubmitted(p)).length;
+    }
+    for (final f in widget.template.fields) {
+      if (_isProductField(f) && f.options.isNotEmpty) {
+        return f.options.where((opt) => !_isOptionSubmitted(opt)).length;
+      }
+    }
+    final rem = total - _submittedProductNames.length;
+    return rem > 0 ? rem : 0;
+  }
+
+  void _autoSelectNextUnsubmittedProduct() {
+    final products = _getProducts();
+    TemplateProductModel? nextProduct;
+    for (final p in products) {
+      if (!_isTemplateProductSubmitted(p)) {
+        nextProduct = p;
+        break;
+      }
+    }
+
+    for (final f in widget.template.fields) {
+      if (_isProductField(f)) {
+        final fieldKey = f.id.toString();
+        if (nextProduct != null) {
+          _onProductSelected(nextProduct, fieldKey);
+        } else if (f.options.isNotEmpty) {
+          final nextOpt = f.options.firstWhere(
+            (opt) => !_isOptionSubmitted(opt),
+            orElse: () => '',
+          );
+          if (nextOpt.isNotEmpty) {
+            setState(() {
+              _controllers[fieldKey]?.text = nextOpt;
+              _formValues[fieldKey] = nextOpt;
+              _formValues[f.fieldName] = nextOpt;
+            });
+          }
+        }
+      }
+    }
+  }
+
   // State nilai form dinamis
   final Map<String, dynamic> _formValues = {};
   final Map<String, File> _photoFiles = {};
@@ -109,6 +223,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     _selectedWorkLocationId = widget.workLocationId;
     _selectedStoreName = widget.storeName ?? '';
 
+    _initSubmittedProducts();
     _initializeForm();
     _fetchCurrentLocation();
 
@@ -757,6 +872,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     for (final ctrl in _controllers.values) {
       ctrl.addListener(_recalculateFormulas);
     }
+
+    // Pre-select first unsubmitted product if in sequential product mode
+    if (widget.editSubmission == null && _hasProductBinding()) {
+      _autoSelectNextUnsubmittedProduct();
+    }
+
     _recalculateFormulas();
   }
 
@@ -1363,6 +1484,19 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
     submittedCategoryValue ??= 'Item ${_submittedCategories.length + 1}';
 
+    // Cegah pengiriman ganda untuk produk yang telah dilaporkan hari ini
+    if (widget.editSubmission == null && _hasProductBinding() && submittedCategoryValue.isNotEmpty && _isProductSubmitted(submittedCategoryValue)) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Produk Sudah Dilaporkan'),
+        description: Text('Produk "$submittedCategoryValue" sudah dilaporkan hari ini. Silakan pilih produk lain.'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      setState(() => _isSubmitting = false);
+      return;
+    }
+
     // Buat salinan bersih dari formValues tanpa path file lokal perangkat
     // Kirim dengan DUA key: ID angka (f.id) dan field_name agar server 100% selalu cocok
     final Map<String, dynamic> cleanFormValues = {};
@@ -1486,9 +1620,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         setState(() {
           _submittedCategories.add(submittedCategoryValue!);
           _submittedCategoryLog.add(submittedCategoryValue);
+          _submittedProductNames.add(submittedCategoryValue.toLowerCase().trim());
           _sessionSubmissionCount++;
 
-          // Reset non-persistent fields for next category entry
+          // Reset non-persistent fields for next category / product entry
           for (final f in widget.template.fields) {
             final fieldKey = f.id.toString();
             if (!['date', 'datepicker'].contains(f.fieldType)) {
@@ -1513,6 +1648,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
         _recalculateFormulas();
 
+        // Otomatis pilih produk berikutnya yang belum dilaporkan
+        _autoSelectNextUnsubmittedProduct();
+
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
             0,
@@ -1521,19 +1659,31 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           );
         }
 
+        // Sinkronkan status template di background
+        final auth = Provider.of<AuthProvider>(context, listen: false);
+        if (auth.token != null) {
+          repProvider.fetchTemplates(auth.token!, forceRefresh: true, storeId: _selectedWorkLocationId);
+        }
+
+        final int rem = _getRemainingProductsCount();
         toastification.show(
           context: context,
           type: result['is_offline'] == true ? ToastificationType.info : ToastificationType.success,
-          title: Text(result['is_offline'] == true ? 'Tersimpan Offline' : 'Kategori Tersimpan'),
-          description: Text('"$submittedCategoryValue" berhasil disimpan. Silakan lanjutkan input kategori berikutnya.'),
+          title: Text(result['is_offline'] == true ? 'Tersimpan Offline' : 'Laporan Produk Terkirim'),
+          description: Text(rem > 0
+              ? 'Laporan untuk "$submittedCategoryValue" berhasil dikirim. Sisa $rem produk lagi yang harus dilaporkan hari ini.'
+              : 'Laporan untuk "$submittedCategoryValue" berhasil dikirim. Seluruh produk telah selesai dilaporkan!'),
           autoCloseDuration: const Duration(seconds: 4),
         );
       } else {
+        if (submittedCategoryValue != null) {
+          _submittedProductNames.add(submittedCategoryValue.toLowerCase().trim());
+        }
         toastification.show(
           context: context,
           type: result['is_offline'] == true ? ToastificationType.info : ToastificationType.success,
-          title: Text(widget.editSubmission != null ? 'Laporan Diperbarui' : (result['is_offline'] == true ? 'Tersimpan Offline' : 'Laporan Terkirim')),
-          description: Text(result['message'] ?? 'Berhasil menyimpan laporan.'),
+          title: Text(widget.editSubmission != null ? 'Laporan Diperbarui' : (result['is_offline'] == true ? 'Tersimpan Offline' : 'Laporan Terkirim & Selesai')),
+          description: Text(result['message'] ?? 'Seluruh laporan produk berhasil diselesaikan.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
         Navigator.of(context).pop(true);
@@ -2050,6 +2200,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   elevation: 2,
                 ),
               )
+            else if (_hasProductBinding() && _getTotalProductsCount() > 0)
+              _buildProductProgressAndButtons(themeColor, cardColor, textColor, subtitleColor, isDarkMode)
             else
               Row(
                 children: [
@@ -2094,6 +2246,182 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProductProgressAndButtons(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    bool isDarkMode,
+  ) {
+    final int total = _getTotalProductsCount();
+    final int remaining = _getRemainingProductsCount();
+    final int submitted = total >= remaining ? total - remaining : 0;
+    final double progress = total > 0 ? (submitted / total).clamp(0.0, 1.0) : 0.0;
+    final bool isLastProduct = remaining <= 1;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Product Progress Card
+        Container(
+          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isLastProduct
+                  ? Colors.green.withOpacity(0.4)
+                  : themeColor.withOpacity(0.3),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        isLastProduct ? Icons.check_circle_outline_rounded : Icons.inventory_2_outlined,
+                        size: 18,
+                        color: isLastProduct ? Colors.green : themeColor,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Progres Laporan Produk',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isLastProduct ? Colors.green.withOpacity(0.12) : themeColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '$submitted / $total Produk',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: isLastProduct ? Colors.green : themeColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isLastProduct ? Colors.green : themeColor,
+                  ),
+                  minHeight: 7,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 13,
+                    color: subtitleColor,
+                  ),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      isLastProduct
+                          ? (remaining == 0
+                              ? 'Seluruh produk telah dilaporkan hari ini ✓'
+                              : 'Ini adalah produk terakhir. Tombol "Kirim & Selesai" aktif!')
+                          : 'Sisa $remaining produk lagi. Setiap produk dikirim sebagai 1 laporan.',
+                      style: TextStyle(fontSize: 11, color: subtitleColor),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // Sequential Submission Action Buttons
+        if (remaining > 1) ...[
+          ElevatedButton.icon(
+            onPressed: _isSubmitting ? null : () => _submitForm(isNewInput: true),
+            icon: _isSubmitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+            label: Text(
+              _isSubmitting ? 'Mengirim Data Produk...' : 'Kirim & Lanjut Produk Berikutnya',
+              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: themeColor,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: null,
+            icon: const Icon(Icons.lock_outline_rounded, size: 16, color: Colors.grey),
+            label: Text(
+              'Kirim & Selesai (Terkunci: sisa $remaining produk)',
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.grey),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              side: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ] else ...[
+          ElevatedButton.icon(
+            onPressed: _isSubmitting ? null : () => _submitForm(isNewInput: false),
+            icon: _isSubmitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+            label: Text(
+              _isSubmitting ? 'Mengirim & Menyelesaikan...' : 'Kirim & Selesai (Produk Terakhir ✓)',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade600,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 3,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -2624,6 +2952,23 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           }
         }
 
+        final isProductSelect = _isProductField(field);
+
+        if (isProductSelect && (currentDropdownVal == null || _isOptionSubmitted(currentDropdownVal.toString()))) {
+          final firstUnsubmitted = effectiveOptions.firstWhere(
+            (opt) => !_isOptionSubmitted(opt),
+            orElse: () => '',
+          );
+          if (firstUnsubmitted.isNotEmpty) {
+            currentDropdownVal = firstUnsubmitted;
+            _formValues[fieldKey] = firstUnsubmitted;
+            _formValues[field.fieldName] = firstUnsubmitted;
+            if (_controllers.containsKey(fieldKey)) {
+              _controllers[fieldKey]!.text = firstUnsubmitted;
+            }
+          }
+        }
+
         if (currentDropdownVal != null && !effectiveOptions.contains(currentDropdownVal.toString())) {
           effectiveOptions.insert(0, currentDropdownVal.toString());
         }
@@ -2648,22 +2993,48 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       (p) => p?.name.toLowerCase() == opt.toLowerCase(),
                       orElse: () => null,
                     );
+                final isOptSubmitted = isProductSelect && _isOptionSubmitted(opt);
                 return DropdownMenuItem<String>(
                   value: opt,
+                  enabled: !isOptSubmitted,
                   child: Row(
                     children: [
                       if (matchedProduct != null) ...[
-                        const Icon(Icons.inventory_2_outlined, size: 16, color: Color(0xFFE53935)),
+                        Icon(
+                          Icons.inventory_2_outlined,
+                          size: 16,
+                          color: isOptSubmitted ? Colors.grey : const Color(0xFFE53935),
+                        ),
                         const SizedBox(width: 6),
                       ],
                       Expanded(
                         child: Text(
                           opt,
-                          style: TextStyle(fontSize: 12.5, color: isFieldReadonly ? subtitleColor : textColor),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: isOptSubmitted
+                                ? Colors.grey.shade400
+                                : (isFieldReadonly ? subtitleColor : textColor),
+                            decoration: isOptSubmitted ? TextDecoration.lineThrough : null,
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (matchedProduct != null && (matchedProduct.formattedPrice != null || matchedProduct.brand != null)) ...[
+                      if (isOptSubmitted) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(color: Colors.green.withOpacity(0.3)),
+                          ),
+                          child: const Text(
+                            'Sudah Dilaporkan ✓',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green),
+                          ),
+                        ),
+                      ] else if (matchedProduct != null && (matchedProduct.formattedPrice != null || matchedProduct.brand != null)) ...[
                         const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -3558,9 +3929,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     if (isExcluded) return false;
 
     final matchesProduct = name == 'produk' || name == 'product' || name == 'sku' ||
+                           name == 'sub_brand' || name == 'subbrand_produk' ||
                            name.contains('nama_produk') || name.contains('nama_sku') ||
                            name.contains('sku_produk') || name.contains('sku_warna') ||
                            name.contains('sku_barang') || name.contains('pilih_produk') ||
+                           name.contains('produk_stock_end') || name.contains('produk_oos') ||
                            label.contains('nama & sku') || label.contains('sku produk') ||
                            label.contains('sku / nama') || label.contains('pilih produk') ||
                            label.contains('sku / nama warna') ||
@@ -3713,6 +4086,35 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 ),
               ],
             ],
+          ),
+        ],
+
+        // Peringatan jika produk terpilih sudah dilaporkan hari ini
+        if (currentText.isNotEmpty && _isProductSubmitted(currentText)) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDarkMode ? Colors.amber.shade900.withOpacity(0.2) : const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber.shade600, width: 1.2),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, size: 18, color: isDarkMode ? Colors.amber.shade300 : Colors.amber.shade900),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Produk "$currentText" sudah dilaporkan hari ini ✓. Harap pilih produk lain yang belum dilaporkan.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: isDarkMode ? Colors.amber.shade200 : Colors.amber.shade900,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
 
@@ -4284,21 +4686,28 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                             itemBuilder: (ctx, idx) {
                               final p = filteredProducts[idx];
                               final isCurrent = _controllers[fieldKey]?.text == p.name || _formValues[fieldKey] == p.name;
+                              final isSubmitted = _isTemplateProductSubmitted(p);
 
                               return InkWell(
-                                onTap: () {
-                                  Navigator.of(sheetCtx).pop();
-                                  _onProductSelected(p, fieldKey);
-                                },
+                                onTap: isSubmitted
+                                    ? null
+                                    : () {
+                                        Navigator.of(sheetCtx).pop();
+                                        _onProductSelected(p, fieldKey);
+                                      },
                                 borderRadius: BorderRadius.circular(12),
                                 child: Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: isCurrent ? themeColor.withOpacity(0.08) : itemBg,
+                                    color: isSubmitted
+                                        ? (isDarkMode ? const Color(0xFF161616) : const Color(0xFFF1F5F9))
+                                        : (isCurrent ? themeColor.withOpacity(0.08) : itemBg),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: isCurrent ? themeColor : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
-                                      width: isCurrent ? 1.5 : 1.0,
+                                      color: isSubmitted
+                                          ? (isDarkMode ? Colors.grey.shade900 : Colors.grey.shade300)
+                                          : (isCurrent ? themeColor : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200)),
+                                      width: isCurrent && !isSubmitted ? 1.5 : 1.0,
                                     ),
                                   ),
                                   child: Row(
@@ -4307,12 +4716,14 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                                       Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: isCurrent ? themeColor : themeColor.withOpacity(0.12),
+                                          color: isSubmitted
+                                              ? Colors.green.withOpacity(0.1)
+                                              : (isCurrent ? themeColor : themeColor.withOpacity(0.12)),
                                           borderRadius: BorderRadius.circular(10),
                                         ),
                                         child: Icon(
-                                          Icons.inventory_2_rounded,
-                                          color: isCurrent ? Colors.white : themeColor,
+                                          isSubmitted ? Icons.check_circle_rounded : Icons.inventory_2_rounded,
+                                          color: isSubmitted ? Colors.green : (isCurrent ? Colors.white : themeColor),
                                           size: 18,
                                         ),
                                       ),
@@ -4326,24 +4737,53 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.bold,
-                                                color: isCurrent ? themeColor : sheetText,
+                                                color: isSubmitted
+                                                    ? Colors.grey.shade500
+                                                    : (isCurrent ? themeColor : sheetText),
+                                                decoration: isSubmitted ? TextDecoration.lineThrough : null,
                                               ),
                                             ),
+                                            if (isSubmitted) ...[
+                                              const SizedBox(height: 4),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.green.withOpacity(0.12),
+                                                  borderRadius: BorderRadius.circular(5),
+                                                  border: Border.all(color: Colors.green.withOpacity(0.3)),
+                                                ),
+                                                child: const Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.check_circle, size: 11, color: Colors.green),
+                                                    SizedBox(width: 3),
+                                                    Text(
+                                                      'Sudah Dilaporkan Hari Ini ✓',
+                                                      style: TextStyle(
+                                                        color: Colors.green,
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
                                             const SizedBox(height: 4),
                                             Wrap(
                                               spacing: 6,
                                               runSpacing: 4,
                                               children: [
                                                 if (p.skuCode != null && p.skuCode!.isNotEmpty)
-                                                  _buildProductInfoChip('SKU: ${p.skuCode}', themeColor, isDarkMode),
+                                                  _buildProductInfoChip('SKU: ${p.skuCode}', isSubmitted ? Colors.grey : themeColor, isDarkMode),
                                                 if (p.barcode != null && p.barcode!.isNotEmpty)
-                                                  _buildProductInfoChip('Barcode: ${p.barcode}', Colors.purple, isDarkMode),
+                                                  _buildProductInfoChip('Barcode: ${p.barcode}', isSubmitted ? Colors.grey : Colors.purple, isDarkMode),
                                                 if (p.category != null && p.category!.isNotEmpty)
-                                                  _buildProductInfoChip(p.category!, Colors.teal, isDarkMode),
+                                                  _buildProductInfoChip(p.category!, isSubmitted ? Colors.grey : Colors.teal, isDarkMode),
                                                 if (p.brand != null && p.brand!.isNotEmpty)
-                                                  _buildProductInfoChip(p.brand!, Colors.indigo, isDarkMode),
+                                                  _buildProductInfoChip(p.brand!, isSubmitted ? Colors.grey : Colors.indigo, isDarkMode),
                                                 if (p.minStock > 0)
-                                                  _buildProductInfoChip('Min: ${p.minStock} ${p.uom}', Colors.amber.shade800, isDarkMode),
+                                                  _buildProductInfoChip('Min: ${p.minStock} ${p.uom}', isSubmitted ? Colors.grey : Colors.amber.shade800, isDarkMode),
                                               ],
                                             ),
                                           ],
@@ -4356,11 +4796,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.green.shade600,
+                                            color: isSubmitted ? Colors.grey : Colors.green.shade600,
                                           ),
                                         ),
                                       ],
-                                      if (isCurrent) ...[
+                                      if (isCurrent && !isSubmitted) ...[
                                         const SizedBox(width: 8),
                                         Icon(Icons.check_circle_rounded, color: themeColor, size: 18),
                                       ],

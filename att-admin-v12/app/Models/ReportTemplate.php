@@ -29,8 +29,9 @@ class ReportTemplate extends Model
 
     /**
      * Hitung total target pengisian laporan dalam rentang periode cut-off tertentu.
+     * Mengambil perhitungan murni dari hari kerja efektif (workday), hari libur dan jadwal off tidak dihitung.
      */
-    public function calculateCutoffTarget(\Carbon\Carbon $startDate, \Carbon\Carbon $endDate): int
+    public function calculateCutoffTarget(\Carbon\Carbon $startDate, \Carbon\Carbon $endDate, $employee = null, ?array $effectiveWorkdayDates = null): int
     {
         $scheduleType = strtolower($this->schedule_type ?? 'daily');
         $targetCount = max(1, (int) ($this->target_count ?? 1));
@@ -50,33 +51,96 @@ class ReportTemplate extends Model
             return $targetCount;
         }
 
+        // Resolusi Hari Kerja Efektif (Workday) jika belum dihitung sebelumnya
+        if ($effectiveWorkdayDates === null) {
+            $effectiveWorkdayDates = [];
+            $holidays = \App\Models\Holiday::whereBetween('holiday_date', [
+                $startDate->toDateString(),
+                $endDate->toDateString()
+            ])->pluck('holiday_date')->map(function ($d) {
+                return \Carbon\Carbon::parse($d)->toDateString();
+            })->flip()->toArray();
+
+            $schedulesMap = collect();
+            $deptWorkingDays = null;
+
+            if ($employee) {
+                $schedulesMap = \App\Models\EmployeeSchedule::where('employee_id', $employee->id)
+                    ->whereBetween('schedule_date', [$startDate->toDateString(), $endDate->toDateString()])
+                    ->get()
+                    ->keyBy('schedule_date');
+
+                $deptWorkingDays = $employee->department?->working_days ?? null;
+            }
+
+            $curr = $startDate->copy()->startOfDay();
+            $end = $endDate->copy()->startOfDay();
+
+            while ($curr->lte($end)) {
+                $dateStr = $curr->toDateString();
+                $isHoliday = isset($holidays[$dateStr]);
+
+                if (!$isHoliday) {
+                    if ($schedulesMap->has($dateStr)) {
+                        $sched = $schedulesMap->get($dateStr);
+                        $sType = strtolower($sched->schedule_type ?? 'workday');
+                        if (!in_array($sType, ['dayoff', 'holiday', 'off'])) {
+                            $effectiveWorkdayDates[] = $dateStr;
+                        }
+                    } else {
+                        // Fallback ke hari kerja departemen / default Senin - Jumat
+                        $dow = $curr->dayOfWeek; // 0 Sun, 1 Mon..
+                        $iso = $curr->dayOfWeekIso; // 1 Mon.. 7 Sun
+                        $isWorkDay = false;
+
+                        if (!empty($deptWorkingDays)) {
+                            $workingDaysArr = is_array($deptWorkingDays) ? $deptWorkingDays : json_decode($deptWorkingDays, true);
+                            if (is_array($workingDaysArr)) {
+                                $normalized = array_map('strval', $workingDaysArr);
+                                $isWorkDay = in_array(strval($dow), $normalized) || in_array(strval($iso), $normalized);
+                            }
+                        } else {
+                            $isWorkDay = in_array($dow, [1, 2, 3, 4, 5]); // Default Mon-Fri
+                        }
+
+                        if ($isWorkDay) {
+                            $effectiveWorkdayDates[] = $dateStr;
+                        }
+                    }
+                }
+                $curr->addDay();
+            }
+        }
+
         if ($scheduleType === 'weekly') {
-            // Hitung estimasi jumlah minggu dalam rentang cut-off (biasanya 4 s/d 5 minggu)
-            $totalDays = max(1, $startDate->diffInDays($endDate->copy()->addDay()));
-            $weeks = max(1, (int) round($totalDays / 7));
-            return $targetCount * $weeks;
+            if (empty($effectiveWorkdayDates)) {
+                return $targetCount;
+            }
+            // Hitung minggu unik yang memiliki hari kerja efektif
+            $uniqueWeeks = [];
+            foreach ($effectiveWorkdayDates as $dStr) {
+                $uniqueWeeks[\Carbon\Carbon::parse($dStr)->format('Y-W')] = true;
+            }
+            $weeksCount = max(1, count($uniqueWeeks));
+            return $targetCount * $weeksCount;
         }
 
         // Default: Daily (Harian)
         if (empty($reportDays)) {
-            // Setiap hari dalam rentang cut-off
-            return max(1, $startDate->diffInDays($endDate->copy()->addDay()));
+            return max(1, count($effectiveWorkdayDates) * $targetCount);
         }
 
-        // Hitung hari yang sesuai dengan pilihan report_days
-        $matchingDays = 0;
-        $curr = $startDate->copy()->startOfDay();
-        $end = $endDate->copy()->startOfDay();
-
-        while ($curr->lte($end)) {
-            $dayName = $dayMap[$curr->dayOfWeekIso] ?? '';
+        // Hitung hari kerja yang sesuai dengan pilihan report_days
+        $matchingCount = 0;
+        foreach ($effectiveWorkdayDates as $dStr) {
+            $dt = \Carbon\Carbon::parse($dStr);
+            $dayName = $dayMap[$dt->dayOfWeekIso] ?? '';
             if (in_array($dayName, $reportDays)) {
-                $matchingDays++;
+                $matchingCount++;
             }
-            $curr->addDay();
         }
 
-        return max(1, $matchingDays);
+        return max(1, $matchingCount * $targetCount);
     }
 
     /**

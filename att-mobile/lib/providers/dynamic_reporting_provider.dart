@@ -30,7 +30,7 @@ class DynamicReportingProvider with ChangeNotifier {
   /**
    * Fetch templates from server or offline cache.
    */
-  Future<void> fetchTemplates(String token, {bool forceRefresh = false}) async {
+  Future<void> fetchTemplates(String token, {bool forceRefresh = false, int? storeId}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -54,8 +54,13 @@ class DynamicReportingProvider with ChangeNotifier {
     }
 
     try {
+      var uriStr = '${Constants.baseUrl}/reporting/templates';
+      if (storeId != null) {
+        uriStr += '?store_id=$storeId';
+      }
+
       final response = await http.get(
-        Uri.parse('${Constants.baseUrl}/reporting/templates'),
+        Uri.parse(uriStr),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -391,5 +396,54 @@ class DynamicReportingProvider with ChangeNotifier {
     _isLoading = false;
     notifyListeners();
     return syncedCount;
+  }
+
+  /**
+   * Check reporting compliance for Checkout or Visit-out.
+   */
+  Future<Map<String, dynamic>> checkCompliance(
+    String token, {
+    required String type,
+    int? workLocationId,
+  }) async {
+    try {
+      var url = '${Constants.baseUrl}/reporting/check-compliance?type=$type';
+      if (workLocationId != null) {
+        url += '&work_location_id=$workLocationId';
+      }
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'can_proceed': data['can_proceed'] == true,
+          'pending_reports': data['pending_reports'] is List ? List<String>.from(data['pending_reports']) : <String>[],
+          'message': data['message']?.toString() ?? '',
+        };
+      }
+    } catch (e) {
+      debugPrint('Error checking reporting compliance: $e');
+    }
+
+    // Local fallback check based on loaded templates if offline or error
+    final pending = <String>[];
+    for (final t in _templates) {
+      if (t.isTodayScheduled && !t.isCompletedToday) {
+        pending.add(t.title);
+      }
+    }
+
+    return {
+      'can_proceed': pending.isEmpty,
+      'pending_reports': pending,
+      'message': pending.isEmpty ? 'Semua laporan wajib selesai.' : 'Masih ada laporan yang belum selesai.',
+    };
   }
 }

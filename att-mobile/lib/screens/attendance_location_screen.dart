@@ -16,6 +16,7 @@ import 'package:att_mobile/utils/image_utils.dart';
 import 'package:att_mobile/models/meeting_model.dart';
 import 'meeting_report_screen.dart';
 import 'profile_screen.dart';
+import 'reporting_hub_screen.dart';
 import 'package:att_mobile/utils/constants.dart';
 
 class ScheduledLocationItem {
@@ -551,15 +552,83 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
       );
       Navigator.pop(context); // Go back to dashboard after submit
     } else {
-      toastification.show(
-        context: context,
-        title: Text(result['message']),
-        type: ToastificationType.error,
-        style: ToastificationStyle.flat,
-        alignment: Alignment.topRight,
-        autoCloseDuration: const Duration(seconds: 5),
-      );
+      if (result['code'] == 'PENDING_REPORTS_REQUIRED' ||
+          (result['message'] != null && result['message'].toString().toLowerCase().contains('belum dapat melakukan'))) {
+        _showPendingReportsAlert(result['message']?.toString() ?? 'Laporan wajib hari ini belum selesai.');
+      } else {
+        toastification.show(
+          context: context,
+          title: Text(result['message']),
+          type: ToastificationType.error,
+          style: ToastificationStyle.flat,
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 5),
+        );
+      }
     }
+  }
+
+  void _showPendingReportsAlert(String message) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.assignment_late_rounded, color: Colors.amber, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Laporan Wajib Belum Selesai',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: TextStyle(
+            fontSize: 13,
+            color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade800,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Tutup'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ReportingHubScreen(
+                    workLocationId: _selectedWorkLocationId,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.assignment_outlined, size: 16, color: Colors.white),
+            label: const Text('Isi Laporan Sekarang', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 12.5)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F52BA),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

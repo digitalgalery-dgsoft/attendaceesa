@@ -426,6 +426,17 @@ class AttendanceController extends Controller
                 if (!$attendance)             return response()->json(['message' => 'Must check in first'], 400);
                 if ($attendance->checkout_at) return response()->json(['message' => 'Already checked out for today'], 400);
 
+                // Validasi seluruh laporan wajib hari ini telah diselesaikan
+                $pendingReports = \App\Http\Controllers\Api\ReportingApiController::checkPendingReportsStatic($employee, 'checkout');
+                if (!empty($pendingReports)) {
+                    return response()->json([
+                        'status' => 'error',
+                        'code' => 'PENDING_REPORTS_REQUIRED',
+                        'message' => 'Check-out ditolak: Anda belum dapat melakukan Check-out karena masih ada laporan wajib hari ini yang belum selesai. Harap selesaikan laporan berikut terlebih dahulu: ' . implode(', ', $pendingReports),
+                        'pending_reports' => $pendingReports,
+                    ], 422);
+                }
+
                 if ($refLocation && $refLocation->latitude && $refLocation->longitude && !$isInsideGeofence) {
                     if (empty($request->note)) {
                         return response()->json(['message' => 'Catatan/alasan wajib diisi karena Anda berada di luar radius lokasi kantor (' . round($distance) . 'm). Radius maksimal: ' . $allowedRadius . 'm'], 400);
@@ -606,6 +617,22 @@ class AttendanceController extends Controller
                     ->where('log_type', 'visit_in')
                     ->orderBy('id', 'desc')
                     ->first();
+
+                $visitLocId = null;
+                if ($lastVisitIn && isset($lastVisitIn->metadata['visit_location_id'])) {
+                    $visitLocId = (int)$lastVisitIn->metadata['visit_location_id'];
+                }
+
+                // Validasi seluruh laporan wajib di toko ini telah diselesaikan
+                $pendingReports = \App\Http\Controllers\Api\ReportingApiController::checkPendingReportsStatic($employee, 'visit_out', $visitLocId);
+                if (!empty($pendingReports)) {
+                    return response()->json([
+                        'status' => 'error',
+                        'code' => 'PENDING_REPORTS_REQUIRED',
+                        'message' => 'Visit-out ditolak: Anda belum dapat melakukan Visit-out karena masih ada laporan wajib di toko ini yang belum selesai. Harap selesaikan laporan berikut terlebih dahulu: ' . implode(', ', $pendingReports),
+                        'pending_reports' => $pendingReports,
+                    ], 422);
+                }
 
                 if ($lastVisitIn && $lastVisitIn->metadata) {
                     $meta = $lastVisitIn->metadata;

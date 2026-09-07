@@ -15,6 +15,15 @@ class ReportTemplateModel {
   final bool requirePhoto;
   final bool requireSignature;
   final int fieldsCount;
+  final int stepNumber;
+  final bool isStepLocked;
+  final String? lockedReason;
+  final bool isCompletedToday;
+  final bool hasProductBinding;
+  final List<String> submittedProducts;
+  final List<int> submittedProductIds;
+  final int totalProductsCount;
+  final int remainingProductsCount;
   final List<String> reportDays;
   final List<String> assignedPositions;
   final List<String> assignedEmployees;
@@ -38,6 +47,15 @@ class ReportTemplateModel {
     this.requirePhoto = false,
     this.requireSignature = false,
     this.fieldsCount = 0,
+    this.stepNumber = 1,
+    this.isStepLocked = false,
+    this.lockedReason,
+    this.isCompletedToday = false,
+    this.hasProductBinding = false,
+    this.submittedProducts = const [],
+    this.submittedProductIds = const [],
+    this.totalProductsCount = 0,
+    this.remainingProductsCount = 0,
     this.reportDays = const [],
     this.assignedPositions = const [],
     this.assignedEmployees = const [],
@@ -97,12 +115,26 @@ class ReportTemplateModel {
     var rawEmployees = json['assigned_employees'] as List? ?? [];
     List<String> parsedEmployees = rawEmployees.map((e) => e.toString()).toList();
 
+    var rawSubProducts = json['submitted_products'] as List? ?? [];
+    List<String> parsedSubProducts = rawSubProducts.map((e) => e.toString()).toList();
+
+    var rawSubProdIds = json['submitted_product_ids'] as List? ?? [];
+    List<int> parsedSubProdIds = rawSubProdIds.map((e) => int.tryParse(e.toString()) ?? 0).where((e) => e > 0).toList();
+
     final cTarget = json['cutoff_target'] is num ? (json['cutoff_target'] as num).toInt() : (int.tryParse(json['cutoff_target']?.toString() ?? '1') ?? 1);
     final cSubmitted = json['cutoff_submitted'] is num ? (json['cutoff_submitted'] as num).toInt() : (int.tryParse(json['cutoff_submitted']?.toString() ?? '0') ?? 0);
     final cPercent = json['cutoff_progress_percent'] is num 
         ? (json['cutoff_progress_percent'] as num).toInt() 
         : (int.tryParse(json['cutoff_progress_percent']?.toString() ?? '0') ?? (cTarget > 0 ? ((cSubmitted / cTarget) * 100).round() : 0));
     final ratioDisplay = json['target_ratio_display']?.toString() ?? '$cSubmitted/$cTarget ($cPercent%)';
+
+    final sNum = json['step_number'] is num ? (json['step_number'] as num).toInt() : (int.tryParse(json['step_number']?.toString() ?? '1') ?? 1);
+    final sLocked = json['is_step_locked'] == true || json['is_step_locked'] == 1 || json['is_step_locked'] == 'true';
+    final sDone = json['is_completed_today'] == true || json['is_completed_today'] == 1 || json['is_completed_today'] == 'true';
+    final hasBinding = json['has_product_binding'] == true || json['has_product_binding'] == 1 || json['has_product_binding'] == 'true' || productsList.isNotEmpty;
+
+    final totProd = json['total_products_count'] is num ? (json['total_products_count'] as num).toInt() : productsList.length;
+    final remProd = json['remaining_products_count'] is num ? (json['remaining_products_count'] as num).toInt() : (totProd - parsedSubProducts.length).clamp(0, 9999);
 
     return ReportTemplateModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
@@ -121,6 +153,15 @@ class ReportTemplateModel {
       requirePhoto: json['require_photo'] == true || json['require_photo'] == 1,
       requireSignature: json['require_signature'] == true || json['require_signature'] == 1,
       fieldsCount: json['fields_count'] is int ? json['fields_count'] : (fieldsList.length),
+      stepNumber: sNum,
+      isStepLocked: sLocked,
+      lockedReason: json['locked_reason']?.toString(),
+      isCompletedToday: sDone,
+      hasProductBinding: hasBinding,
+      submittedProducts: parsedSubProducts,
+      submittedProductIds: parsedSubProdIds,
+      totalProductsCount: totProd,
+      remainingProductsCount: remProd,
       reportDays: parsedDays,
       assignedPositions: parsedPositions,
       assignedEmployees: parsedEmployees,
@@ -147,6 +188,15 @@ class ReportTemplateModel {
       'require_photo': requirePhoto,
       'require_signature': requireSignature,
       'fields_count': fieldsCount,
+      'step_number': stepNumber,
+      'is_step_locked': isStepLocked,
+      'locked_reason': lockedReason,
+      'is_completed_today': isCompletedToday,
+      'has_product_binding': hasProductBinding,
+      'submitted_products': submittedProducts,
+      'submitted_product_ids': submittedProductIds,
+      'total_products_count': totalProductsCount,
+      'remaining_products_count': remainingProductsCount,
       'report_days': reportDays,
       'assigned_positions': assignedPositions,
       'assigned_employees': assignedEmployees,
