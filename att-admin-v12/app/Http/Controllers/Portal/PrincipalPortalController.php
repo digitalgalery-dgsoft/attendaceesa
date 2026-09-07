@@ -1131,6 +1131,7 @@ class PrincipalPortalController extends Controller
                 $totalTemplateSubmissions = $offtakeData['sheet1']['total_records'] ?? 0;
                 $uniqueStores = $offtakeData['sheet2']['total_stores'] ?? 0;
                 $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+                    ->where('submission_code', 'NOT LIKE', 'SUB-OFFTAKE%')
                     ->orderBy('submitted_at', 'desc')
                     ->paginate(20);
                 $liveSubmissionsCount = $submissions->total();
@@ -1199,6 +1200,7 @@ class PrincipalPortalController extends Controller
                 $totalTemplateSubmissions = 0;
                 $uniqueStores = 0;
                 $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+                    ->where('submission_code', 'NOT LIKE', 'SUB-OFFTAKE%')
                     ->orderBy('submitted_at', 'desc')
                     ->paginate(20);
                 $dashboardConfig = [];
@@ -6655,7 +6657,8 @@ class PrincipalPortalController extends Controller
                 $areaToRsm = $this->getDuluxAreaToRsmMap();
 
                 try {
-                    $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
+                    $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+                        ->where('submission_code', 'NOT LIKE', 'SUB-OFFTAKE%');
                     $liveSubs = $liveQuery->select(['id', 'submission_code', 'report_template_id', 'work_location_id', 'employee_id', 'submitted_at', 'created_at'])
                         ->with(['workLocation', 'workLocation.branch', 'values'])
                         ->get();
@@ -7044,7 +7047,8 @@ class PrincipalPortalController extends Controller
 
                 try {
                     @file_put_contents(storage_path('logs/checkpoint.txt'), "YTD_STEP: 2_before_liveQuery_get\n", FILE_APPEND);
-                    $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
+                    $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+                        ->where('submission_code', 'NOT LIKE', 'SUB-OFFTAKE%');
                     $liveSubs = $liveQuery->select(['id', 'submission_code', 'report_template_id', 'work_location_id', 'employee_id', 'submitted_at', 'created_at'])
                         ->with(['workLocation', 'workLocation.branch', 'values'])
                         ->get();
