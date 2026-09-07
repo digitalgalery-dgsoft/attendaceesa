@@ -217,28 +217,52 @@ class ImportDuluxAmkStoresCommand extends Command
             $this->info("\nMenghubungkan Karyawan DC ke WorkLocation masing-masing...");
             $empLinked = 0;
 
+            $hasIdCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'identification_id');
+            $hasNikCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'nik');
+            $hasWorkLocCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'work_location_id');
+            $hasPrincipalCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'principal_id');
+            $hasBranchCol = \Illuminate\Support\Facades\Schema::hasColumn('employees', 'branch_id');
+
             foreach ($employeeMappings as $map) {
                 $loc = $locationMap[$map['store_key']] ?? null;
                 if (!$loc) continue;
 
-                $emp = null;
-                if (!empty($map['dc_no'])) {
-                    $emp = Employee::where('employee_no', $map['dc_no'])->first();
-                }
-                if (!$emp && !empty($map['dc_ktp'])) {
-                    $emp = Employee::where('identification_id', $map['dc_ktp'])->first();
-                }
-                if (!$emp && !empty($map['dc_name'])) {
-                    $emp = Employee::where('name', 'ilike', '%' . $map['dc_name'] . '%')->first();
-                }
+                try {
+                    $emp = null;
+                    if (!empty($map['dc_no'])) {
+                        $emp = Employee::where('employee_no', $map['dc_no'])->first();
+                    }
+                    if (!$emp && $hasIdCol && !empty($map['dc_ktp'])) {
+                        $emp = Employee::where('identification_id', $map['dc_ktp'])->first();
+                    }
+                    if (!$emp && $hasNikCol && !empty($map['dc_ktp'])) {
+                        $emp = Employee::where('nik', $map['dc_ktp'])->first();
+                    }
+                    if (!$emp && !empty($map['dc_name'])) {
+                        $emp = Employee::where('name', 'ilike', '%' . $map['dc_name'] . '%')
+                            ->orWhere('name', 'like', '%' . $map['dc_name'] . '%')
+                            ->first();
+                    }
 
-                if ($emp) {
-                    $emp->update([
-                        'work_location_id' => $loc->id,
-                        'principal_id' => $principal->id,
-                        'branch_id' => $loc->branch_id ?? $emp->branch_id,
-                    ]);
-                    $empLinked++;
+                    if ($emp) {
+                        $empUpdateData = [];
+                        if ($hasWorkLocCol) {
+                            $empUpdateData['work_location_id'] = $loc->id;
+                        }
+                        if ($hasPrincipalCol) {
+                            $empUpdateData['principal_id'] = $principal->id;
+                        }
+                        if (isset($loc->branch_id) && $hasBranchCol) {
+                            $empUpdateData['branch_id'] = $loc->branch_id;
+                        }
+
+                        if (!empty($empUpdateData)) {
+                            $emp->update($empUpdateData);
+                            $empLinked++;
+                        }
+                    }
+                } catch (\Throwable $ex) {
+                    // Silently continue for employee linking errors so store import succeeds
                 }
             }
 
