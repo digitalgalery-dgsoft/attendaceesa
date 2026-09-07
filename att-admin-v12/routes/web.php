@@ -594,6 +594,27 @@ Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
         ]);
     }
 
+    if ($request->has('count_subs')) {
+        $cTotal = \App\Models\ReportSubmission::where('report_template_id', 31)->count();
+        $cYtd = \App\Models\ReportSubmission::where('report_template_id', 31)
+            ->whereBetween('submitted_at', ['2026-01-01 00:00:00', '2026-09-30 23:59:59'])
+            ->count();
+        $cSep = \App\Models\ReportSubmission::where('report_template_id', 31)
+            ->whereBetween('submitted_at', ['2026-09-01 00:00:00', '2026-09-30 23:59:59'])
+            ->count();
+        $sample = \App\Models\ReportSubmission::where('report_template_id', 31)
+            ->select('id', 'submission_code', 'submitted_at', 'created_at')
+            ->latest('id')
+            ->limit(10)
+            ->get();
+        return response()->json([
+            'total_template_31' => $cTotal,
+            'ytd_2026' => $cYtd,
+            'sep_2026' => $cSep,
+            'sample' => $sample,
+        ]);
+    }
+
     $reservedMemory = str_repeat(' ', 1024 * 128);
     register_shutdown_function(function() use (&$reservedMemory, $errFile, $logFile) {
         $reservedMemory = null;
