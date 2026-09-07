@@ -59,14 +59,12 @@ class CreateDuluxDummyEmployeesCommand extends Command
         }
         $this->line("✔ Principal: {$principal->name} (ID: {$principal->id})");
 
-        // 3. Dapatkan / Buat Branch Surabaya
-        $branch = Branch::where('company_id', $company->id)
-            ->where('name', 'ilike', '%surabaya%')
-            ->first();
+        // 3. Dapatkan / Buat Branch Surabaya (Branch tidak memiliki company_id)
+        $branch = Branch::where('name', 'ilike', '%surabaya%')->first();
 
         if (!$branch) {
             $branch = Branch::firstOrCreate(
-                ['name' => 'Surabaya', 'company_id' => $company->id],
+                ['name' => 'Surabaya'],
                 [
                     'code' => 'SBY',
                     'region' => 'Region 3',
@@ -77,8 +75,8 @@ class CreateDuluxDummyEmployeesCommand extends Command
         $this->line("✔ Branch / Area: {$branch->name} (ID: {$branch->id})");
 
         // 4. Dapatkan / Buat Department
-        $department = Department::where('company_id', $company->id)
-            ->where(function ($q) {
+        $department = Department::where('principal_id', $principal->id)
+            ->orWhere(function ($q) {
                 $q->where('name', 'ilike', '%operasional%')
                   ->orWhere('name', 'ilike', '%operation%')
                   ->orWhere('name', 'ilike', '%field%')
@@ -87,9 +85,11 @@ class CreateDuluxDummyEmployeesCommand extends Command
 
         if (!$department) {
             $department = Department::firstOrCreate(
-                ['name' => 'Field Operations', 'company_id' => $company->id],
+                ['name' => 'Field Operations Dulux'],
                 [
-                    'code' => 'FOPS',
+                    'code' => 'DEP-DULUX',
+                    'company_id' => $company->id,
+                    'principal_id' => $principal->id,
                     'is_active' => true,
                 ]
             );
@@ -97,18 +97,20 @@ class CreateDuluxDummyEmployeesCommand extends Command
         $this->line("✔ Department: {$department->name} (ID: {$department->id})");
 
         // 5. Dapatkan / Buat Position: TL (Team Leader)
-        $positionTl = Position::where('company_id', $company->id)
-            ->where(function ($q) {
-                $q->where('name', 'ilike', '%team leader%')
-                  ->orWhere('name', 'ilike', '%tl%');
-            })->first();
+        $positionTl = Position::where(function ($q) use ($principal) {
+            $q->where('principal_id', $principal->id)
+              ->orWhereNull('principal_id');
+        })->where(function ($q) {
+            $q->where('name', 'ilike', '%team leader%')
+              ->orWhere('name', 'ilike', '%tl%');
+        })->first();
 
         if (!$positionTl) {
             $positionTl = Position::firstOrCreate(
-                ['name' => 'Team Leader (TL)', 'company_id' => $company->id],
+                ['name' => 'Team Leader (TL)'],
                 [
                     'code' => 'TL-DULUX',
-                    'department_id' => $department->id,
+                    'company_id' => $company->id,
                     'principal_id' => $principal->id,
                     'is_active' => true,
                 ]
@@ -117,20 +119,22 @@ class CreateDuluxDummyEmployeesCommand extends Command
         $this->line("✔ Position TL: {$positionTl->name} (ID: {$positionTl->id})");
 
         // 6. Dapatkan / Buat Position: DC (Decorative Consultant)
-        $positionDc = Position::where('company_id', $company->id)
-            ->where(function ($q) {
-                $q->where('name', 'ilike', '%decorative consultant%')
-                  ->orWhere('name', 'ilike', '%consultant%')
-                  ->orWhere('name', 'ilike', '%dc%')
-                  ->orWhere('name', 'ilike', '%promotor%');
-            })->first();
+        $positionDc = Position::where(function ($q) use ($principal) {
+            $q->where('principal_id', $principal->id)
+              ->orWhereNull('principal_id');
+        })->where(function ($q) {
+            $q->where('name', 'ilike', '%decorative consultant%')
+              ->orWhere('name', 'ilike', '%dc%')
+              ->orWhere('name', 'ilike', '%consultant%')
+              ->orWhere('name', 'ilike', '%promotor%');
+        })->first();
 
         if (!$positionDc) {
             $positionDc = Position::firstOrCreate(
-                ['name' => 'Decorative Consultant (DC)', 'company_id' => $company->id],
+                ['name' => 'Decorative Consultant (DC)'],
                 [
                     'code' => 'DC-DULUX',
-                    'department_id' => $department->id,
+                    'company_id' => $company->id,
                     'principal_id' => $principal->id,
                     'is_active' => true,
                 ]
