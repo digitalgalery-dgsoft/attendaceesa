@@ -26,27 +26,20 @@ class CheckDuluxWorkLocationsCommand extends Command
         $totalRaw = DB::table('work_locations')->count();
         $this->info("Total baris raw di table work_locations: {$totalRaw}");
 
-        $columns = Schema::getColumnListing('work_locations');
-        $this->info("Kolom table work_locations: " . json_encode($columns));
+        $byPrincipal = DB::table('work_locations')
+            ->select('principal_id', DB::raw('count(*) as count'))
+            ->groupBy('principal_id')
+            ->get();
+        $this->info("Work locations grouped by principal_id: " . json_encode($byPrincipal));
 
-        // Test insert 1 dummy record and check
-        try {
-            $testId = DB::table('work_locations')->insertGetId([
-                'name' => 'TEST_STORE_DEBUG',
-                'company_id' => 1,
-                'principal_id' => 18,
-                'latitude' => -6.2,
-                'longitude' => 106.8,
-                'radius_meter' => 100,
-                'is_active' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-            $this->info("Berhasil insert test record dengan ID: {$testId}");
-            DB::table('work_locations')->where('id', $testId)->delete();
-        } catch (\Throwable $e) {
-            $this->error("Gagal insert test record: " . $e->getMessage());
-        }
+        $distinctCodes = DB::table('work_locations')->whereNotNull('code')->distinct()->count('code');
+        $this->info("Distinct codes in work_locations: {$distinctCodes}");
+
+        $samples = DB::table('work_locations')
+            ->select('id', 'name', 'code', 'category', 'machine_type', 'machine_serial_no', 'latitude', 'longitude', 'principal_id')
+            ->take(5)
+            ->get();
+        $this->info("Sample 5 records: " . json_encode($samples, JSON_PRETTY_PRINT));
 
         // Cek direktori lain di /www/wwwroot
         $this->info("\n--- Cek Direktori di /www/wwwroot ---");
