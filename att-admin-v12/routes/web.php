@@ -585,48 +585,57 @@ Route::get('/migrate-now', function () {
 
 Route::get('/cek-admin', function () {
     try {
-        $subs = \App\Models\ReportSubmission::with(['template', 'workLocation', 'employee', 'values.formField'])
-            ->whereHas('template', function($q) {
-                $q->where('code', 'LIKE', '%OFFTAKE%');
-            })
-            ->orWhere('submission_code', 'LIKE', '%X9FI%')
+        $today = \Carbon\Carbon::now()->format('Y-m-d');
+        $subsToday = \App\Models\ReportSubmission::with(['template', 'workLocation', 'employee', 'values'])
+            ->whereDate('created_at', '>=', $today)
+            ->orWhereDate('submitted_at', '>=', $today)
+            ->orWhereDate('submission_date', '>=', $today)
             ->orderBy('id', 'desc')
-            ->take(5)
             ->get();
 
-        $templates = \App\Models\ReportTemplate::where('code', 'LIKE', '%OFFTAKE%')->get(['id', 'principal_id', 'code', 'title']);
+        $allRecent = \App\Models\ReportSubmission::with(['template', 'workLocation', 'employee', 'values'])
+            ->orderBy('id', 'desc')
+            ->take(10)
+            ->get();
 
         return response()->json([
             'status' => 'success',
-            'templates' => $templates,
-            'submissions' => $subs->map(function($s) {
+            'today_date' => $today,
+            'now_timestamp' => (string)now(),
+            'today_count' => $subsToday->count(),
+            'today_submissions' => $subsToday->map(function($s) {
                 return [
                     'id' => $s->id,
                     'submission_code' => $s->submission_code,
                     'report_template_id' => $s->report_template_id,
                     'template_code' => $s->template?->code,
-                    'work_location_id' => $s->work_location_id,
+                    'template_title' => $s->template?->title,
+                    'employee' => $s->employee?->name,
                     'store_name' => $s->workLocation?->name ?? $s->store_name,
                     'sap' => $s->workLocation?->code ?? $s->workLocation?->sap_code,
-                    'submitted_at' => $s->submitted_at,
-                    'submission_date' => $s->submission_date,
+                    'submitted_at' => (string)$s->submitted_at,
+                    'submission_date' => (string)$s->submission_date,
                     'created_at' => (string)$s->created_at,
-                    'values' => $s->values->map(fn($v) => [
-                        'field_name' => $v->field_name,
-                        'form_field_name' => $v->formField?->field_name,
-                        'form_field_label' => $v->formField?->field_label,
-                        'value_text' => $v->value_text,
-                        'value_number' => $v->value_number,
-                    ])
+                    'values_count' => $s->values->count(),
+                    'values' => $s->values->pluck('value_text', 'field_name')
+                ];
+            }),
+            'recent_10_submissions' => $allRecent->map(function($s) {
+                return [
+                    'id' => $s->id,
+                    'submission_code' => $s->submission_code,
+                    'report_template_id' => $s->report_template_id,
+                    'template_code' => $s->template?->code,
+                    'employee' => $s->employee?->name,
+                    'store_name' => $s->workLocation?->name ?? $s->store_name,
+                    'created_at' => (string)$s->created_at,
                 ];
             })
         ], 200, [], JSON_PRETTY_PRINT);
     } catch (\Throwable $e) {
         return response()->json([
             'status' => 'error',
-            'message' => $e->getMessage(),
-            'line' => $e->getLine(),
-            'file' => $e->getFile()
+            'message' => $e->getMessage()
         ], 500);
     }
 });
