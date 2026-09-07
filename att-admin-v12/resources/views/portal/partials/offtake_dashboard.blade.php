@@ -356,6 +356,9 @@
                 </div>
 
                 <div class="offtake-header-meta">
+                    <div style="font-size: 0.78rem; font-weight: 600; color: #475569; display: inline-flex; align-items: center; gap: 6px; background: #f8fafc; padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <i class="fa-solid fa-arrows-left-right" style="color: var(--brand-primary);"></i> Geser untuk melihat kolom aksi
+                    </div>
                     <div class="meta-pill">
                         <span class="meta-lbl">Total Laporan:</span>
                         <strong class="meta-val">{{ isset($submissions) ? number_format($submissions->total()) : 0 }} Laporan</strong>
@@ -364,8 +367,8 @@
             </div>
 
             @if(isset($submissions) && $submissions->isNotEmpty())
-                <div class="offtake-table-container">
-                    <table class="offtake-table">
+                <div class="offtake-table-viewport" style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
+                    <table class="offtake-table" style="min-width: 1480px; width: 100%;">
                         <thead>
                             <tr>
                                 <th style="width: 50px; text-align: center;">No</th>
@@ -379,7 +382,7 @@
                                 <th style="min-width: 110px; text-align: right;">Total Volume</th>
                                 <th style="text-align: center; width: 100px;">Radius GPS</th>
                                 <th style="text-align: center; width: 120px;">Status</th>
-                                <th style="text-align: center; width: 140px;">Aksi</th>
+                                <th style="text-align: center; width: 170px; min-width: 170px;" class="col-sticky-action">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -541,8 +544,8 @@
                                             </span>
                                         @endif
                                     </td>
-                                    <td style="text-align: center;">
-                                        <div style="display: inline-flex; align-items: center; gap: 4px; justify-content: center;">
+                                    <td style="text-align: center;" class="col-sticky-action">
+                                        <div style="display: inline-flex; align-items: center; gap: 4px; justify-content: center; white-space: nowrap;">
                                             <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" class="btn-action-view" title="Lihat Detail & Bukti Nota">
                                                 <i class="fa-solid fa-eye"></i> Detail
                                             </a>
@@ -902,6 +905,22 @@
     background: var(--brand-primary);
     color: #ffffff;
     border-color: var(--brand-primary);
+}
+
+/* Sticky Action Column */
+.col-sticky-action {
+    position: sticky;
+    right: 0;
+    z-index: 4;
+    background: #ffffff;
+    box-shadow: -3px 0 8px rgba(0, 0, 0, 0.08);
+}
+th.col-sticky-action {
+    z-index: 12;
+    background: var(--brand-primary) !important;
+}
+.offtake-table tr:hover td.col-sticky-action {
+    background: #f8fafc !important;
 }
 
 /* Quick Action & Modal Styles */
