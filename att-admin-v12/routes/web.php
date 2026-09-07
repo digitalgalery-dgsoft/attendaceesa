@@ -608,26 +608,35 @@ Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
 
         // Also test controller method calculateOfftakeDashboardData
         $refMethod = new \ReflectionMethod($ctrl, 'calculateOfftakeDashboardData');
-        $refMethod->setAccessible(true);
-        $dashData = $refMethod->invoke($ctrl, $template, 9, 2026, 9, 2026, null, null, null, null, 1, 1, 50);
+        $t0 = microtime(true);
+        $offtakeData = $refMethod->invoke($ctrl, $template, 9, 2026, 9, 2026, null, null, null, null, 1, 1, 50);
+        $t1 = microtime(true);
 
-        $p26 = storage_path("app/dulux_data/offtake_2026.sqlite");
-        $p25 = storage_path("app/dulux_data/offtake_2025.sqlite");
-        $gz26 = storage_path("app/dulux_data/offtake_2026.sqlite.gz");
-        $gz25 = storage_path("app/dulux_data/offtake_2025.sqlite.gz");
+        // 2. getLiveSubmissionsQuery paginate
+        $startDate = \Carbon\Carbon::create(2026, 9, 1)->startOfMonth();
+        $endDate = \Carbon\Carbon::create(2026, 9, 1)->endOfMonth();
+        $refLive = new \ReflectionMethod($ctrl, 'getLiveSubmissionsQuery');
+        $refLive->setAccessible(true);
+        $liveQ = $refLive->invoke($ctrl, $template, $startDate, $endDate, null, null, null, null);
+        $submissions = $liveQ->orderBy('submitted_at', 'desc')->paginate(20);
+        $t2 = microtime(true);
+
+        // 3. calculateOfftakeYtdData
+        $refYtd = new \ReflectionMethod($ctrl, 'calculateOfftakeYtdData');
+        $refYtd->setAccessible(true);
+        $ytdData = $refYtd->invoke($ctrl, $template, 9, 2026, null, null, null, null);
+        $t3 = microtime(true);
 
         return response()->json([
             'status' => 'success',
-            'p26_exists' => file_exists($p26),
-            'p26_size' => file_exists($p26) ? filesize($p26) : null,
-            'p25_exists' => file_exists($p25),
-            'p25_size' => file_exists($p25) ? filesize($p25) : null,
-            'gz26_exists' => file_exists($gz26),
-            'gz26_size' => file_exists($gz26) ? filesize($gz26) : null,
-            'gz25_exists' => file_exists($gz25),
-            'gz25_size' => file_exists($gz25) ? filesize($gz25) : null,
-            'dash_total_stores' => $dashData['sheet2']['total_stores'] ?? null,
-            'dash_total_records' => $dashData['sheet1']['total_records'] ?? null,
+            'time_dash_ms' => round(($t1 - $t0) * 1000, 2),
+            'time_live_ms' => round(($t2 - $t1) * 1000, 2),
+            'time_ytd_ms' => round(($t3 - $t2) * 1000, 2),
+            'dash_total_stores' => $offtakeData['sheet2']['total_stores'] ?? null,
+            'dash_total_records' => $offtakeData['sheet1']['total_records'] ?? null,
+            'live_submissions_count' => $submissions->total(),
+            'ytd_brands_count' => count($ytdData['details'] ?? []),
+            'ytd_stores_count' => count($ytdData['stores']['top10'] ?? []),
         ], 200, [], JSON_PRETTY_PRINT);
     } catch (\Throwable $e) {
         return response()->json([
