@@ -123,7 +123,7 @@ class CreateDuluxDummyEmployeesCommand extends Command
             [
                 'type' => 'TL',
                 'nik' => 'DULUX-TL-001',
-                'name' => 'Ahmad Fauzi (TL Surabaya)',
+                'name' => 'Ahmad Fauzi Demo (TL Surabaya)',
                 'email' => 'tl.surabaya@dulux-demo.com',
                 'phone' => '081234560001',
                 'gender' => 'male',
@@ -134,7 +134,7 @@ class CreateDuluxDummyEmployeesCommand extends Command
             [
                 'type' => 'DC',
                 'nik' => 'DULUX-DC-001',
-                'name' => 'Budi Santoso (DC Surabaya 1)',
+                'name' => 'Budi Santoso Demo (DC Surabaya 1)',
                 'email' => 'dc1.surabaya@dulux-demo.com',
                 'phone' => '081234560002',
                 'gender' => 'male',
@@ -145,7 +145,7 @@ class CreateDuluxDummyEmployeesCommand extends Command
             [
                 'type' => 'DC',
                 'nik' => 'DULUX-DC-002',
-                'name' => 'Citra Dewi (DC Surabaya 2)',
+                'name' => 'Citra Dewi Demo (DC Surabaya 2)',
                 'email' => 'dc2.surabaya@dulux-demo.com',
                 'phone' => '081234560003',
                 'gender' => 'female',
@@ -156,7 +156,7 @@ class CreateDuluxDummyEmployeesCommand extends Command
             [
                 'type' => 'DC',
                 'nik' => 'DULUX-DC-003',
-                'name' => 'Dedi Pratama (DC Surabaya 3)',
+                'name' => 'Dedi Pratama Demo (DC Surabaya 3)',
                 'email' => 'dc3.surabaya@dulux-demo.com',
                 'phone' => '081234560004',
                 'gender' => 'male',
@@ -167,7 +167,7 @@ class CreateDuluxDummyEmployeesCommand extends Command
             [
                 'type' => 'DC',
                 'nik' => 'DULUX-DC-004',
-                'name' => 'Eka Rahmawati (DC Surabaya 4)',
+                'name' => 'Eka Rahmawati Demo (DC Surabaya 4)',
                 'email' => 'dc4.surabaya@dulux-demo.com',
                 'phone' => '081234560005',
                 'gender' => 'female',
