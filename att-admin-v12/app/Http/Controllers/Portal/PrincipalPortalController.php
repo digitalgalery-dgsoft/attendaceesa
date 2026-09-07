@@ -6862,27 +6862,40 @@ class PrincipalPortalController extends Controller
             foreach ($liveSubs as $sub) {
                 $valMap = [];
                 foreach ($sub->values as $v) {
-                    $valMap[$v->field_name] = $v->value_number ?? $v->value_text;
+                    $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
+                    if ($v->field_name) {
+                        $valMap[$v->field_name] = $val;
+                        $valMap[strtolower(str_replace([' ', '-'], '_', $v->field_name))] = $val;
+                    }
+                    if ($v->formField) {
+                        if ($v->formField->field_name) {
+                            $valMap[$v->formField->field_name] = $val;
+                            $valMap[strtolower(str_replace([' ', '-'], '_', $v->formField->field_name))] = $val;
+                        }
+                        if ($v->formField->field_label) {
+                            $valMap[strtolower(str_replace([' ', '-'], '_', $v->formField->field_label))] = $val;
+                        }
+                    }
                 }
 
-                $productName = trim((string)($valMap['subbrand_produk'] ?? $valMap['product'] ?? $valMap['nama_produk'] ?? ''));
-                $brandCat = trim((string)($valMap['brand_cat'] ?? $valMap['brand'] ?? ''));
-                $category = trim((string)($valMap['kategori_produk'] ?? $valMap['category'] ?? 'Dulux Interior'));
+                $productName = trim((string)($valMap['subbrand_produk'] ?? $valMap['produk'] ?? $valMap['product'] ?? $valMap['nama_produk'] ?? ''));
+                $brandCat = trim((string)($valMap['brand_cat'] ?? $valMap['brand'] ?? $valMap['merk'] ?? ''));
+                $category = trim((string)($valMap['kategori_produk'] ?? $valMap['kategori'] ?? $valMap['category'] ?? 'Dulux Interior'));
 
                 $isAn = (stripos($brandCat, 'Dulux') !== false || stripos($brandCat, 'Akzo') !== false || stripos($brandCat, 'AN') !== false || stripos($productName, 'Ambiance') !== false || stripos($productName, 'Pentalite') !== false || stripos($productName, 'Catylac') !== false || stripos($productName, 'Weathershield') !== false || stripos($productName, 'Easy Clean') !== false || stripos($productName, 'Aquashield') !== false || stripos($productName, 'V-Gloss') !== false);
                 $brandGroup = $isAn ? 'AN' : ($brandCat ?: 'Kompetitor');
 
-                $pTin = (float)($valMap['harga_tin_rp'] ?? 0);
-                $lTin = (float)($valMap['harga_terendah_tin_rp'] ?? $pTin);
-                $rTin = (string)($valMap['alasan_promo_keterangan'] ?? '');
+                $pTin = (float)($valMap['harga_tin_rp'] ?? $valMap['harga_tin'] ?? $valMap['tin'] ?? 0);
+                $lTin = (float)($valMap['harga_terendah_tin_rp'] ?? $valMap['harga_terendah_tin'] ?? $pTin);
+                $rTin = (string)($valMap['alasan_promo_keterangan'] ?? $valMap['reason_tin'] ?? '');
 
-                $pGalon = (float)($valMap['harga_galon_rp'] ?? 0);
-                $lGalon = (float)($valMap['harga_terendah_galon_rp'] ?? $pGalon);
-                $rGalon = (string)($valMap['alasan_promo_keterangan'] ?? '');
+                $pGalon = (float)($valMap['harga_galon_rp'] ?? $valMap['harga_galon'] ?? $valMap['galon'] ?? 0);
+                $lGalon = (float)($valMap['harga_terendah_galon_rp'] ?? $valMap['harga_terendah_galon'] ?? $pGalon);
+                $rGalon = (string)($valMap['alasan_promo_keterangan'] ?? $valMap['reason_galon'] ?? '');
 
-                $pPail = (float)($valMap['harga_pail_rp'] ?? 0);
-                $lPail = (float)($valMap['harga_terendah_pail_rp'] ?? $pPail);
-                $rPail = (string)($valMap['alasan_promo_keterangan'] ?? '');
+                $pPail = (float)($valMap['harga_pail_rp'] ?? $valMap['harga_pail'] ?? $valMap['pail'] ?? 0);
+                $lPail = (float)($valMap['harga_terendah_pail_rp'] ?? $valMap['harga_terendah_pail'] ?? $pPail);
+                $rPail = (string)($valMap['alasan_promo_keterangan'] ?? $valMap['reason_pail'] ?? '');
 
                 $subMonth = (int)$sub->submitted_at->format('n');
                 $storeName = $sub->workLocation?->name ?? 'Toko Tidak Terdaftar';
@@ -6890,7 +6903,7 @@ class PrincipalPortalController extends Controller
                 $branchName = $sub->workLocation?->branch?->name ?? '-';
                 $cleanBranch = strtoupper(trim($branchName));
                 $rsmArea = $this->mapAreaToRsm($cleanBranch, $sub->workLocation?->region ?? 'RSM JAWA TIMUR');
-                $tlName = $sub->employee?->reportingTo?->name ?? $sub->employee?->supervisor_name ?? ($sub->employee?->name . ' (Demo)') ?? '-';
+                $tlName = $sub->employee?->supervisor?->name ?? $sub->employee?->supervisor_name ?? ($sub->employee?->name . ' (Demo)') ?? '-';
                 $sapMember = $sub->workLocation?->code ?? '-';
 
                 $itemCode = md5(strtoupper(trim($storeName)) . '_' . strtoupper(trim($productName ?: 'Dulux')));

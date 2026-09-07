@@ -861,14 +861,27 @@
                                 @php
                                     $valMap = [];
                                     foreach ($sub->values as $v) {
-                                        $valMap[$v->field_name] = $v->value_number ?? $v->value_text;
+                                        $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
+                                        if ($v->field_name) {
+                                            $valMap[$v->field_name] = $val;
+                                            $valMap[strtolower(str_replace([' ', '-'], '_', $v->field_name))] = $val;
+                                        }
+                                        if ($v->formField) {
+                                            if ($v->formField->field_name) {
+                                                $valMap[$v->formField->field_name] = $val;
+                                                $valMap[strtolower(str_replace([' ', '-'], '_', $v->formField->field_name))] = $val;
+                                            }
+                                            if ($v->formField->field_label) {
+                                                $valMap[strtolower(str_replace([' ', '-'], '_', $v->formField->field_label))] = $val;
+                                            }
+                                        }
                                     }
-                                    $pName = $valMap['subbrand_produk'] ?? $valMap['product'] ?? '-';
-                                    $bName = $valMap['brand_cat'] ?? $valMap['brand'] ?? '-';
-                                    $catName = $valMap['kategori_produk'] ?? $valMap['category'] ?? '-';
-                                    $pGalon = (float)($valMap['harga_galon_rp'] ?? 0);
-                                    $pTin = (float)($valMap['harga_tin_rp'] ?? 0);
-                                    $pPail = (float)($valMap['harga_pail_rp'] ?? 0);
+                                    $pName = $valMap['subbrand_produk'] ?? $valMap['produk'] ?? $valMap['product'] ?? $valMap['nama_produk'] ?? $valMap['item'] ?? '-';
+                                    $bName = $valMap['brand_cat'] ?? $valMap['brand'] ?? $valMap['merk'] ?? '-';
+                                    $catName = $valMap['kategori_produk'] ?? $valMap['kategori'] ?? $valMap['category'] ?? '-';
+                                    $pGalon = (float)($valMap['harga_galon_rp'] ?? $valMap['harga_galon'] ?? $valMap['galon'] ?? 0);
+                                    $pTin = (float)($valMap['harga_tin_rp'] ?? $valMap['harga_tin'] ?? $valMap['tin'] ?? 0);
+                                    $pPail = (float)($valMap['harga_pail_rp'] ?? $valMap['harga_pail'] ?? $valMap['pail'] ?? 0);
                                     $status = $sub->status ?? 'pending';
                                     $store = $sub->workLocation?->name ?? 'Toko Tidak Terdaftar';
                                     $branch = $sub->workLocation?->branch?->name ?? '-';
