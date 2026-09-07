@@ -28,9 +28,14 @@ try {
     $endDate   = \Carbon\Carbon::createFromDate(2026, 9, 1)->endOfMonth();
     $liveQueryMethod = $reflection->getMethod('getLiveSubmissionsQuery');
     $liveQueryMethod->setAccessible(true);
+    $allSubs = \App\Models\ReportSubmission::where('report_template_id', $template->id)->get();
+    echo "Total submissions for template ID {$template->id} in DB: " . $allSubs->count() . "\n";
+    foreach ($allSubs as $s) {
+        echo "ID: {$s->id}, Code: {$s->submission_code}, Submitted: {$s->submitted_at}, Created: {$s->created_at}, LocID: {$s->work_location_id}, Status: {$s->status}\n";
+    }
+
     $liveQuery = $liveQueryMethod->invokeArgs($controller, [$template, $startDate, $endDate, null, null, null, null]);
-    
-    echo "LiveQuery SQL: " . $liveQuery->toSql() . "\n";
+    echo "\nLiveQuery SQL: " . $liveQuery->toSql() . "\n";
     echo "LiveQuery Bindings: " . json_encode($liveQuery->getBindings()) . "\n";
     echo "LiveQuery Count: " . $liveQuery->count() . "\n";
     
