@@ -584,6 +584,22 @@ Route::get('/migrate-now', function () {
 });
 
 Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
+    @ini_set('memory_limit', '1024M');
+    @set_time_limit(120);
+    
+    $benchmarks = [];
+    $startAll = microtime(true);
+    
+    $mark = function($name) use (&$benchmarks, $startAll) {
+        $benchmarks[$name] = [
+            'elapsed_ms' => round((microtime(true) - $startAll) * 1000, 2),
+            'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
+            'peak_memory_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2),
+        ];
+    };
+
+    $mark('init');
+
     try {
         $ctrl = app(\App\Http\Controllers\Portal\PrincipalPortalController::class);
         $req = \Illuminate\Http\Request::create('/portal/report/RPT-DULUX-OFFTAKE-01', 'GET', [
@@ -593,25 +609,50 @@ Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
             'end_month' => 9,
             'end_year' => 2026,
         ]);
+        $mark('request_created');
+
+        // Test step by step
+        $template = \App\Models\ReportTemplate::where('code', 'RPT-DULUX-OFFTAKE-01')->first();
+        $mark('template_fetched');
+
+        $offtakeData = $ctrl->calculateOfftakeDashboardData(
+            $template, 9, 2026, 9, 2026, null, null, null, null, 1, 1, 50
+        );
+        $mark('offtake_dash_calculated');
+
+        $ytdData = $ctrl->calculateOfftakeYtdData(
+            $template, 9, 2026, null, null, null, null
+        );
+        $mark('offtake_ytd_calculated');
+
+        // Test full reportDetail
         $res = $ctrl->reportDetail($req, 'RPT-DULUX-OFFTAKE-01');
+        $mark('reportDetail_called');
+
+        $renderedHtmlLen = 0;
         if ($res instanceof \Illuminate\View\View) {
+            $mark('before_render');
             $html = $res->render();
-            return response()->json([
-                'status' => 'success',
-                'rendered' => true,
-                'html_len' => strlen($html),
-            ]);
+            $renderedHtmlLen = strlen($html);
+            $mark('after_render');
         }
+
         return response()->json([
             'status' => 'success',
-            'response_type' => get_class($res),
-        ]);
+            'html_len' => $renderedHtmlLen,
+            'benchmarks' => $benchmarks,
+            'offtake_sheet1_count' => $offtakeData['sheet1']['total_records'] ?? 0,
+            'offtake_sheet2_count' => $offtakeData['sheet2']['total_stores'] ?? 0,
+            'offtake_sheet1_sample' => array_slice($offtakeData['sheet1']['rows'] ?? [], 0, 2),
+        ], 200, [], JSON_PRETTY_PRINT);
     } catch (\Throwable $e) {
+        $mark('caught_exception');
         return response()->json([
             'status' => 'error',
             'message' => $e->getMessage(),
             'file' => $e->getFile(),
             'line' => $e->getLine(),
+            'benchmarks' => $benchmarks,
             'trace' => explode("\n", $e->getTraceAsString())
         ], 500, [], JSON_PRETTY_PRINT);
     }
