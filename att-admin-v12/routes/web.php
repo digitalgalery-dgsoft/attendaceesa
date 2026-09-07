@@ -611,20 +611,23 @@ Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
         $refMethod->setAccessible(true);
         $dashData = $refMethod->invoke($ctrl, $template, 9, 2026, 9, 2026, null, null, null, null, 1, 1, 50);
 
-        // Test calculateOfftakeYtdData
-        $refMethodYtd = new \ReflectionMethod($ctrl, 'calculateOfftakeYtdData');
-        $refMethodYtd->setAccessible(true);
-        $ytdData = $refMethodYtd->invoke($ctrl, $template, 9, 2026, null, null, null, null);
+        $p26 = storage_path("app/dulux_data/offtake_2026.sqlite");
+        $p25 = storage_path("app/dulux_data/offtake_2025.sqlite");
+        $gz26 = storage_path("app/dulux_data/offtake_2026.sqlite.gz");
+        $gz25 = storage_path("app/dulux_data/offtake_2025.sqlite.gz");
 
         return response()->json([
             'status' => 'success',
+            'p26_exists' => file_exists($p26),
+            'p26_size' => file_exists($p26) ? filesize($p26) : null,
+            'p25_exists' => file_exists($p25),
+            'p25_size' => file_exists($p25) ? filesize($p25) : null,
+            'gz26_exists' => file_exists($gz26),
+            'gz26_size' => file_exists($gz26) ? filesize($gz26) : null,
+            'gz25_exists' => file_exists($gz25),
+            'gz25_size' => file_exists($gz25) ? filesize($gz25) : null,
             'dash_total_stores' => $dashData['sheet2']['total_stores'] ?? null,
             'dash_total_records' => $dashData['sheet1']['total_records'] ?? null,
-            'dash_sheet1_rows_count' => count($dashData['sheet1']['rows'] ?? []),
-            'dash_sheet2_stores_count' => count($dashData['sheet2']['stores'] ?? []),
-            'ytd_brands_count' => count($ytdData['brands'] ?? []),
-            'ytd_growth' => $ytdData['growth_pct'] ?? null,
-            'ytd_stores_count' => count($ytdData['stores'] ?? []),
         ], 200, [], JSON_PRETTY_PRINT);
     } catch (\Throwable $e) {
         return response()->json([
