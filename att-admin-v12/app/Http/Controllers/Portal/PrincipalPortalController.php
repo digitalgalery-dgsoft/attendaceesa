@@ -1048,10 +1048,12 @@ class PrincipalPortalController extends Controller
                     }
                 }
 
+                @file_put_contents(storage_path('logs/checkpoint.txt'), "RD_STEP: 1_start_offtake\n", FILE_APPEND);
                 // Standardized RSM List for Offtake
                 $regions = $this->getDuluxStandardRsmList();
                 $areaToRsm = $this->getDuluxAreaToRsmMap();
 
+                @file_put_contents(storage_path('logs/checkpoint.txt'), "RD_STEP: 2_before_areas\n", FILE_APPEND);
                 // Areas directly from offtake_raw mapped to RSM
                 $areas = Cache::remember('offtake_filter_areas_v4_' . $selectedYear, 3600, function() use ($sqlitePath, $areaToRsm) {
                     try {
@@ -1077,6 +1079,7 @@ class PrincipalPortalController extends Controller
                     }
                 });
 
+                @file_put_contents(storage_path('logs/checkpoint.txt'), "RD_STEP: 3_before_workLocations\n", FILE_APPEND);
                 // Stores directly from offtake_raw mapped to RSM
                 $workLocations = Cache::remember('offtake_filter_stores_v4_' . $selectedYear, 3600, function() use ($sqlitePath, $areaToRsm) {
                     try {
@@ -1104,6 +1107,7 @@ class PrincipalPortalController extends Controller
                     }
                 });
 
+                @file_put_contents(storage_path('logs/checkpoint.txt'), "RD_STEP: 4_before_offtakeData\n", FILE_APPEND);
                 $offtakePage = max(1, (int)$request->query('page', 1));
                 $rawPage = max(1, (int)$request->query('raw_page', 1));
                 $activeTab = $request->query('tab', 'sheet2');
@@ -1123,6 +1127,7 @@ class PrincipalPortalController extends Controller
                     50
                 );
 
+                @file_put_contents(storage_path('logs/checkpoint.txt'), "RD_STEP: 5_before_liveSubmissionsQuery\n", FILE_APPEND);
                 $totalTemplateSubmissions = $offtakeData['sheet1']['total_records'] ?? 0;
                 $uniqueStores = $offtakeData['sheet2']['total_stores'] ?? 0;
                 $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
@@ -1132,6 +1137,8 @@ class PrincipalPortalController extends Controller
                 $dashboardConfig = [];
                 $widgetResults = [];
                 $isYtdReport = true;
+
+                @file_put_contents(storage_path('logs/checkpoint.txt'), "RD_STEP: 6_before_ytdData\n", FILE_APPEND);
                 $ytdData = $this->calculateOfftakeYtdData(
                     $template,
                     $endMonth,
@@ -1142,6 +1149,7 @@ class PrincipalPortalController extends Controller
                     $search
                 );
 
+                @file_put_contents(storage_path('logs/checkpoint.txt'), "RD_STEP: 7_before_view\n", FILE_APPEND);
                 return view('portal.report_detail', compact(
                     'tenantPrincipal',
                     'tenantPrincipalsAll',
