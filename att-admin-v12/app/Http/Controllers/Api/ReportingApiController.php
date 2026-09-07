@@ -1252,6 +1252,79 @@ class ReportingApiController extends Controller
         return array_values(array_unique(array_filter($urls)));
     }
 
+    /**
+     * Delete an existing report submission.
+     */
+    public function destroy(Request $request, $id): JsonResponse
+    {
+        $employee = $this->getAuthenticatedEmployee($request);
+
+        if (!$employee) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data karyawan tidak ditemukan.',
+            ], 404);
+        }
+
+        $submission = ReportSubmission::where('id', $id)
+            ->where('employee_id', $employee->id)
+            ->first();
+
+        if (!$submission) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Laporan tidak ditemukan atau Anda tidak memiliki akses.',
+            ], 404);
+        }
+
+        $submission->values()->delete();
+        $submission->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Laporan berhasil dihapus.',
+        ]);
+    }
+
+    /**
+     * Clear report submissions for today (for fresh testing / reset).
+     */
+    public function clearToday(Request $request): JsonResponse
+    {
+        $employee = $this->getAuthenticatedEmployee($request);
+
+        if (!$employee) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data karyawan tidak ditemukan.',
+            ], 404);
+        }
+
+        $date = $request->input('date', Carbon::today('Asia/Jakarta')->toDateString());
+
+        $query = ReportSubmission::query();
+        if (!$request->boolean('all_users')) {
+            $query->where('employee_id', $employee->id);
+        }
+
+        $submissions = $query->where(function ($q) use ($date) {
+            $q->whereDate('submitted_at', $date)
+              ->orWhereDate('created_at', $date);
+        })->get();
+
+        $count = $submissions->count();
+        foreach ($submissions as $sub) {
+            $sub->values()->delete();
+            $sub->delete();
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Berhasil menghapus {$count} laporan untuk tanggal {$date}.",
+            'deleted_count' => $count,
+        ]);
+    }
+
     private function calculateDistance(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
         $earthRadius = 6371000;
