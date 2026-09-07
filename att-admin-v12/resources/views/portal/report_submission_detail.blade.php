@@ -752,6 +752,17 @@
                 }
             }
 
+            // Jika ada lebih dari 1 foto untuk field ini, beri keterangan indeks
+            $totalFieldPhotos = count($foundUrls);
+            foreach ($foundUrls as $fIdx => &$fItem) {
+                if ($totalFieldPhotos > 1) {
+                    $fItem['display_label'] = $fItem['label'] . ' (' . ($fIdx + 1) . '/' . $totalFieldPhotos . ')';
+                } else {
+                    $fItem['display_label'] = $fItem['label'];
+                }
+            }
+            unset($fItem);
+
             $mediaItems = array_merge($mediaItems, $foundUrls);
         }
         $mediaValues = collect($mediaItems);
@@ -1065,13 +1076,13 @@
                             <div class="media-item-card">
                                 <div class="media-item-header">
                                     <span class="media-badge-tag"><i class="fa-solid fa-image"></i> Foto #{{ $loop->iteration }}</span>
-                                    <div class="media-field-title">{{ $m['label'] }}</div>
+                                    <div class="media-field-title">{{ $m['display_label'] ?? $m['label'] }}</div>
                                 </div>
-                                <div class="media-photo-frame" onclick="openPhotoModal('{{ $m['url'] }}', '{{ addslashes($m['label']) }} (Foto #{{ $loop->iteration }})')" title="Klik untuk memperbesar">
+                                <div class="media-photo-frame" onclick="openPhotoModal('{{ $m['url'] }}', '{{ addslashes($m['display_label'] ?? $m['label']) }}')" title="Klik untuk memperbesar">
                                     <img src="{{ $m['url'] }}" alt="{{ $m['label'] }}" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/600x400/e2e8f0/475569?text=Gagal+Memuat+Foto';">
                                 </div>
                                 <div class="media-footer-bar">
-                                    <button type="button" class="media-full-btn" onclick="openPhotoModal('{{ $m['url'] }}', '{{ addslashes($m['label']) }} (Foto #{{ $loop->iteration }})')">
+                                    <button type="button" class="media-full-btn" onclick="openPhotoModal('{{ $m['url'] }}', '{{ addslashes($m['display_label'] ?? $m['label']) }}')">
                                         <i class="fa-solid fa-expand"></i> <span>Lihat Foto Penuh</span>
                                     </button>
                                 </div>

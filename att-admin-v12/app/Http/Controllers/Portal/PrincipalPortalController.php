@@ -1693,16 +1693,18 @@ class PrincipalPortalController extends Controller
                 50
             );
 
-            $totalTemplateSubmissions = 0;
-            $uniqueStores = 0;
+            $totalTemplateSubmissions = $customerDbData['kpis']['total_records'] ?? 0;
+            $uniqueStores = $customerDbData['kpis']['unique_stores'] ?? 0;
             $submissions = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
                 ->orderBy('submitted_at', 'desc')
-                ->paginate(20);
+                ->paginate(20, ['*'], 'live_page');
             $liveSubmissionsCount = $submissions->total();
             $dashboardConfig = [];
             $widgetResults = [];
             $isYtdReport = false;
             $ytdData = [];
+
+            $activeTab = $request->query('tab', $request->has('live_page') ? 'live' : ($request->has('raw_page') ? 'raw' : ($request->has('store_page') ? 'regional_store' : ($liveSubmissionsCount > 0 && ($customerDbData['kpis']['total_records'] ?? 0) <= $liveSubmissionsCount ? 'live' : 'insights'))));
 
             return view('portal.report_detail', compact(
                 'tenantPrincipal',
@@ -1711,6 +1713,7 @@ class PrincipalPortalController extends Controller
                 'activeTemplates',
                 'template',
                 'submissions',
+                'liveSubmissionsCount',
                 'totalTemplateSubmissions',
                 'uniqueStores',
                 'startMonth',
@@ -10104,9 +10107,9 @@ class PrincipalPortalController extends Controller
         $selectedAreaName = $selectedAreaId ? (is_numeric($selectedAreaId) ? Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId) : null;
         $selectedStoreName = $selectedLocationId ? (is_numeric($selectedLocationId) ? WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId) : null;
 
-        $cacheKey = 'cust_db_v1_' . md5($template->id . "_{$sYear}_{$sMonth}_{$eYear}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedCustomerType}_{$selectedBrand}_{$selectedReason}_{$search}_{$topStorePage}_{$rawPage}_{$perPage}");
+        $cacheKey = 'cust_db_v3_' . md5($template->id . "_{$sYear}_{$sMonth}_{$eYear}_{$eMonth}_{$selectedRegion}_{$selectedAreaName}_{$selectedStoreName}_{$selectedCustomerType}_{$selectedBrand}_{$selectedReason}_{$search}_{$topStorePage}_{$rawPage}_{$perPage}");
 
-        return Cache::remember($cacheKey, 300, function() use ($sqlitePath, $sYear, $sMonth, $eYear, $eMonth, $selectedRegion, $selectedAreaName, $selectedStoreName, $selectedCustomerType, $selectedBrand, $selectedReason, $search, $topStorePage, $rawPage, $perPage) {
+        return Cache::remember($cacheKey, 60, function() use ($template, $sqlitePath, $sYear, $sMonth, $eYear, $eMonth, $selectedRegion, $selectedAreaId, $selectedLocationId, $selectedAreaName, $selectedStoreName, $selectedCustomerType, $selectedBrand, $selectedReason, $search, $topStorePage, $rawPage, $perPage) {
             try {
                 $pdo = new \PDO("sqlite:" . $sqlitePath);
                 $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
@@ -10400,6 +10403,374 @@ class PrincipalPortalController extends Controller
                 $stmt = $pdo->prepare($rawSql);
                 $stmt->execute($params);
                 $rawRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                // --- MERGE LIVE SUBMISSIONS FROM POSTGRESQL (report_submissions) ---
+                $liveRecords = [];
+                try {
+                    $startDate = \Carbon\Carbon::createFromDate($sYear, $sMonth, 1)->startOfMonth();
+                    $endDate = \Carbon\Carbon::createFromDate($eYear, $eMonth, 1)->endOfMonth();
+                    $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
+                    $liveSubs = $liveQuery->orderBy('submitted_at', 'desc')->get();
+                    $areaToRsm = $this->getDuluxAreaToRsmMap();
+
+                    foreach ($liveSubs as $sub) {
+                        $valMap = [];
+                        $photos = [];
+                        foreach ($sub->values as $v) {
+                            $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
+                            if ($v->field_name) {
+                                $valMap[$v->field_name] = $val;
+                                $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
+                                $valMap[$slug] = $val;
+                            }
+                            if ($v->formField) {
+                                if ($v->formField->field_name) {
+                                    $valMap[$v->formField->field_name] = $val;
+                                    $slugF = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_name), '_'));
+                                    $valMap[$slugF] = $val;
+                                }
+                                if ($v->formField->field_label) {
+                                    $slugL = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_label), '_'));
+                                    $valMap[$slugL] = $val;
+                                }
+                            }
+
+                            $isPhoto = in_array($v->field_type, ['photo', 'camera_photo', 'multi_photo'])
+                                || str_contains((string)$v->field_name, 'foto')
+                                || !empty($v->media_url)
+                                || !empty($v->file_path);
+                            if ($isPhoto) {
+                                $rawP = $v->value_json ?: ($v->media_url ?: ($v->file_path ?: $v->value_text));
+                                if (is_array($rawP)) {
+                                    foreach ($rawP as $rp) {
+                                        if (is_string($rp) && !empty($rp) && !str_starts_with($rp, '/data/user/')) {
+                                            $cleanP = trim($rp);
+                                            $photos[] = (str_starts_with($cleanP, 'http://') || str_starts_with($cleanP, 'https://'))
+                                                ? $cleanP
+                                                : asset('storage/' . ltrim(str_replace('storage/', '', $cleanP), '/'));
+                                        }
+                                    }
+                                } elseif (is_string($rawP) && !empty($rawP) && !str_starts_with($rawP, '/data/user/')) {
+                                    foreach (explode(',', $rawP) as $rp) {
+                                        $cleanP = trim($rp);
+                                        if (!empty($cleanP) && !str_starts_with($cleanP, '/data/user/')) {
+                                            $photos[] = (str_starts_with($cleanP, 'http://') || str_starts_with($cleanP, 'https://'))
+                                                ? $cleanP
+                                                : asset('storage/' . ltrim(str_replace('storage/', '', $cleanP), '/'));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        $subDate = $sub->submitted_at ? \Carbon\Carbon::parse($sub->submitted_at) : ($sub->created_at ? \Carbon\Carbon::parse($sub->created_at) : now());
+                        $subYear = (int)$subDate->format('Y');
+                        $subMonth = (int)$subDate->format('m');
+                        $tanggal = $subDate->format('Y-m-d');
+                        $submissionDate = $subDate->format('Y-m-d H:i:s');
+
+                        $storeName = $sub->workLocation?->name ?? ($sub->store_name ?? 'Toko Demo Kalilor');
+                        $sapCode = $sub->workLocation?->code ?? ($sub->workLocation?->store_code ?? '-');
+                        $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? 'Surabaya'));
+                        $cleanA = strtoupper(trim($area));
+                        $rsmArea = $areaToRsm[$cleanA] ?? ($sub->workLocation?->region ?? 'East Java');
+                        $namaDc = $sub->employee?->full_name ?? ($sub->employee?->name ?? 'Petugas DC');
+
+                        $namaPelanggan = trim((string)($valMap['nama_lengkap_pelanggan'] ?? ($valMap['nama_pelanggan'] ?? ($valMap['nama_konsumen'] ?? '-'))));
+                        $noHp = trim((string)($valMap['nomor_hp_whatsapp_pelanggan'] ?? ($valMap['no_hp_pelanggan'] ?? ($valMap['no_hp'] ?? '-'))));
+                        $alamat = trim((string)($valMap['alamat_domisili_pelanggan'] ?? ($valMap['alamat_pelanggan'] ?? ($valMap['alamat'] ?? '-'))));
+                        $tipePelanggan = trim((string)($valMap['tipe_kategori_pelanggan'] ?? ($valMap['tipe_pelanggan'] ?? 'Pemilik Rumah')));
+                        $tujuanKeToko = trim((string)($valMap['tujuan_datang_ke_toko'] ?? ($valMap['tujuan_ke_toko'] ?? 'Membeli Cat')));
+                        $brandDicari = trim((string)($valMap['brand_cat_yang_awalnya_dicari_ditanyakan'] ?? ($valMap['brand_dicari'] ?? '-')));
+                        $brandDibeli = trim((string)($valMap['brand_cat_yang_akhirnya_dibeli'] ?? ($valMap['brand_dibeli'] ?? '-')));
+                        $alasan = trim((string)($valMap['alasan_konsumen_memilih_brand_tersebut'] ?? ($valMap['alasan_pilih_brand'] ?? ($valMap['alasan'] ?? 'Rekomendasi DC'))));
+                        $tipePengecatan = trim((string)($valMap['tipe_pekerjaan_pengecatan'] ?? ($valMap['tipe_pengecatan'] ?? 'Pengecatan Ulang')));
+                        $memerlukanPreview = trim((string)($valMap['apakah_memerlukan_preview_warna_visualizer'] ?? ($valMap['memerlukan_preview'] ?? 'Tidak')));
+                        $painterInfo = trim((string)($valMap['program_mitra_dulux_painter_loyalty'] ?? ($valMap['painter_loyalty'] ?? ($valMap['painter_info'] ?? '-'))));
+                        $keterangan = trim((string)($valMap['catatan_khusus_keterangan'] ?? ($valMap['catatan_pelanggan'] ?? ($valMap['keterangan'] ?? '-'))));
+
+                        $rawValNum = $valMap['estimasi_total_nilai_pembelian_rupiah'] ?? ($valMap['total_estimasi_nilai_pembelian_rupiah'] ?? ($valMap['value_pembelian_rp'] ?? ($valMap['value_pembelian'] ?? 0)));
+                        $valuePembelian = is_numeric($rawValNum) ? (float)$rawValNum : (float)preg_replace('/[^0-9.]/', '', (string)$rawValNum);
+
+                        $isDuluxBought = (stripos($brandDibeli, 'dulux') !== false || stripos($brandDibeli, 'catylac') !== false || stripos($brandDibeli, 'aquashield') !== false) ? 1 : 0;
+                        $isDuluxSought = (stripos($brandDicari, 'dulux') !== false || stripos($brandDicari, 'catylac') !== false || stripos($brandDicari, 'aquashield') !== false) ? 1 : 0;
+                        $isSwitched = ($isDuluxBought === 1 && $isDuluxSought === 0 && !empty($brandDicari) && $brandDicari !== '-') ? 1 : 0;
+
+                        if ($selectedCustomerType && !empty($selectedCustomerType) && strcasecmp($tipePelanggan, $selectedCustomerType) !== 0) {
+                            continue;
+                        }
+                        if ($selectedBrand && !empty($selectedBrand) && (stripos($brandDicari, $selectedBrand) === false && stripos($brandDibeli, $selectedBrand) === false)) {
+                            continue;
+                        }
+                        if ($selectedReason && !empty($selectedReason) && stripos($alasan, $selectedReason) === false) {
+                            continue;
+                        }
+
+                        $liveRecords[] = [
+                            'id' => $sub->id,
+                            'submission_code' => $sub->submission_code,
+                            'year' => $subYear,
+                            'month' => $subMonth,
+                            'submission_date' => $submissionDate,
+                            'tanggal' => $tanggal,
+                            'store_name' => $storeName,
+                            'sap_code' => $sapCode,
+                            'sap_gab' => $sapCode . ' - ' . $storeName,
+                            'rsm_area' => $rsmArea,
+                            'area' => $area,
+                            'nama_pelanggan' => $namaPelanggan,
+                            'alamat' => $alamat,
+                            'no_hp' => $noHp,
+                            'tipe_pelanggan' => $tipePelanggan,
+                            'painter_info' => $painterInfo,
+                            'tujuan_ke_toko' => $tujuanKeToko,
+                            'brand_dicari' => $brandDicari,
+                            'brand_dibeli' => $brandDibeli,
+                            'alasan' => $alasan,
+                            'tipe_pengecatan' => $tipePengecatan,
+                            'memerlukan_preview' => $memerlukanPreview,
+                            'value_pembelian' => $valuePembelian,
+                            'is_switched' => $isSwitched,
+                            'is_dulux_bought' => $isDuluxBought,
+                            'nama_dc' => $namaDc,
+                            'keterangan' => $keterangan,
+                            'foto_1' => $photos[0] ?? null,
+                            'foto_2' => $photos[1] ?? null,
+                            'foto_3' => $photos[2] ?? null,
+                            'all_photos' => $photos,
+                            'is_live' => true,
+                            'status' => $sub->status ?? 'pending',
+                            'is_within_radius' => (bool)$sub->is_within_radius,
+                        ];
+                    }
+                } catch (\Throwable $liveErr) {
+                    \Log::warning("Live customer database query error: " . $liveErr->getMessage());
+                }
+
+                if (!empty($liveRecords)) {
+                    $liveCount = count($liveRecords);
+                    $totOrig = (int)($kpis['total_records'] ?? 0);
+                    $newTotal = $totOrig + $liveCount;
+                    $kpis['total_records'] = $newTotal;
+
+                    $liveValSum = array_sum(array_column($liveRecords, 'value_pembelian'));
+                    $kpis['total_value'] = (float)($kpis['total_value'] ?? 0) + $liveValSum;
+                    $kpis['avg_basket_size'] = $newTotal > 0 ? ($kpis['total_value'] / $newTotal) : 0;
+
+                    $liveSwitchedSum = array_sum(array_column($liveRecords, 'is_switched'));
+                    $kpis['switched_cnt'] = (int)($kpis['switched_cnt'] ?? 0) + $liveSwitchedSum;
+                    $kpis['switched_pct'] = $newTotal > 0 ? round(($kpis['switched_cnt'] / $newTotal) * 100, 1) : 0;
+
+                    $liveDuluxSum = array_sum(array_column($liveRecords, 'is_dulux_bought'));
+                    $kpis['dulux_bought_cnt'] = (int)($kpis['dulux_bought_cnt'] ?? 0) + $liveDuluxSum;
+                    $kpis['dulux_bought_pct'] = $newTotal > 0 ? round(($kpis['dulux_bought_cnt'] / $newTotal) * 100, 1) : 0;
+
+                    $liveStores = array_unique(array_filter(array_column($liveRecords, 'store_name')));
+                    $kpis['unique_stores'] = $totOrig == 0 ? count($liveStores) : max((int)$kpis['unique_stores'], count($liveStores));
+
+                    $liveDcs = array_unique(array_filter(array_column($liveRecords, 'nama_dc')));
+                    $kpis['unique_dcs'] = $totOrig == 0 ? count($liveDcs) : max((int)$kpis['unique_dcs'], count($liveDcs));
+
+                    // Merge Consumer Insights - Customer Types
+                    $typeMap = [];
+                    foreach ($customerTypes as $ct) {
+                        $typeMap[$ct['tipe_pelanggan']] = $ct;
+                    }
+                    foreach ($liveRecords as $lr) {
+                        $tp = $lr['tipe_pelanggan'];
+                        if (!isset($typeMap[$tp])) {
+                            $typeMap[$tp] = [
+                                'tipe_pelanggan' => $tp,
+                                'total_count' => 0,
+                                'total_val' => 0,
+                                'avg_val' => 0,
+                                'pct' => 0
+                            ];
+                        }
+                        $typeMap[$tp]['total_count']++;
+                        $typeMap[$tp]['total_val'] += $lr['value_pembelian'];
+                    }
+                    foreach ($typeMap as &$ctRef) {
+                        $ctRef['avg_val'] = $ctRef['total_count'] > 0 ? ($ctRef['total_val'] / $ctRef['total_count']) : 0;
+                        $ctRef['pct'] = $newTotal > 0 ? round(($ctRef['total_count'] / $newTotal) * 100, 1) : 0;
+                    }
+                    unset($ctRef);
+                    usort($typeMap, fn($a, $b) => $b['total_count'] <=> $a['total_count']);
+                    $customerTypes = array_values($typeMap);
+
+                    // Merge Consumer Insights - Reasons
+                    $reasonMap = [];
+                    foreach ($reasons as $r) {
+                        $reasonMap[$r['alasan']] = $r;
+                    }
+                    foreach ($liveRecords as $lr) {
+                        $rsn = $lr['alasan'];
+                        if (!empty($rsn) && $rsn !== '-') {
+                            if (!isset($reasonMap[$rsn])) {
+                                $reasonMap[$rsn] = ['alasan' => $rsn, 'total_count' => 0, 'pct' => 0];
+                            }
+                            $reasonMap[$rsn]['total_count']++;
+                        }
+                    }
+                    foreach ($reasonMap as &$rRef) {
+                        $rRef['pct'] = $newTotal > 0 ? round(($rRef['total_count'] / $newTotal) * 100, 1) : 0;
+                    }
+                    unset($rRef);
+                    usort($reasonMap, fn($a, $b) => $b['total_count'] <=> $a['total_count']);
+                    $reasons = array_values($reasonMap);
+
+                    // Merge Consumer Insights - Brands Bought & Sought
+                    $boughtMap = [];
+                    foreach ($brandsBought as $bb) {
+                        $boughtMap[$bb['brand_dibeli']] = $bb;
+                    }
+                    foreach ($liveRecords as $lr) {
+                        $bd = $lr['brand_dibeli'];
+                        if (!empty($bd) && $bd !== '-') {
+                            if (!isset($boughtMap[$bd])) {
+                                $boughtMap[$bd] = ['brand_dibeli' => $bd, 'cnt' => 0, 'pct' => 0];
+                            }
+                            $boughtMap[$bd]['cnt']++;
+                        }
+                    }
+                    foreach ($boughtMap as &$bbRef) {
+                        $bbRef['pct'] = $newTotal > 0 ? round(($bbRef['cnt'] / $newTotal) * 100, 1) : 0;
+                    }
+                    unset($bbRef);
+                    usort($boughtMap, fn($a, $b) => $b['cnt'] <=> $a['cnt']);
+                    $brandsBought = array_values(array_slice($boughtMap, 0, 8));
+
+                    $soughtMap = [];
+                    foreach ($brandsSought as $bs) {
+                        $soughtMap[$bs['brand_dicari']] = $bs;
+                    }
+                    foreach ($liveRecords as $lr) {
+                        $bc = $lr['brand_dicari'];
+                        if (!empty($bc) && $bc !== '-') {
+                            if (!isset($soughtMap[$bc])) {
+                                $soughtMap[$bc] = ['brand_dicari' => $bc, 'cnt' => 0, 'pct' => 0];
+                            }
+                            $soughtMap[$bc]['cnt']++;
+                        }
+                    }
+                    foreach ($soughtMap as &$bsRef) {
+                        $bsRef['pct'] = $newTotal > 0 ? round(($bsRef['cnt'] / $newTotal) * 100, 1) : 0;
+                    }
+                    unset($bsRef);
+                    usort($soughtMap, fn($a, $b) => $b['cnt'] <=> $a['cnt']);
+                    $brandsSought = array_values(array_slice($soughtMap, 0, 8));
+
+                    // Merge Consumer Insights - Purposes
+                    $purposeMap = [];
+                    foreach ($purposes as $p) {
+                        $purposeMap[$p['tujuan_ke_toko']] = $p;
+                    }
+                    foreach ($liveRecords as $lr) {
+                        $tjk = $lr['tujuan_ke_toko'];
+                        if (!empty($tjk) && $tjk !== '-') {
+                            if (!isset($purposeMap[$tjk])) {
+                                $purposeMap[$tjk] = ['tujuan_ke_toko' => $tjk, 'total_count' => 0, 'pct' => 0];
+                            }
+                            $purposeMap[$tjk]['total_count']++;
+                        }
+                    }
+                    foreach ($purposeMap as &$pRef) {
+                        $pRef['pct'] = $newTotal > 0 ? round(($pRef['total_count'] / $newTotal) * 100, 1) : 0;
+                    }
+                    unset($pRef);
+                    usort($purposeMap, fn($a, $b) => $b['total_count'] <=> $a['total_count']);
+                    $purposes = array_values($purposeMap);
+
+                    // Merge Consumer Insights - Paint Types
+                    $paintMap = [];
+                    foreach ($paintTypes as $pt) {
+                        $paintMap[$pt['tipe_pengecatan']] = $pt;
+                    }
+                    foreach ($liveRecords as $lr) {
+                        $tpn = $lr['tipe_pengecatan'];
+                        if (!empty($tpn) && $tpn !== '-') {
+                            if (!isset($paintMap[$tpn])) {
+                                $paintMap[$tpn] = ['tipe_pengecatan' => $tpn, 'total_count' => 0, 'pct' => 0];
+                            }
+                            $paintMap[$tpn]['total_count']++;
+                        }
+                    }
+                    foreach ($paintMap as &$ptRef) {
+                        $ptRef['pct'] = $newTotal > 0 ? round(($ptRef['total_count'] / $newTotal) * 100, 1) : 0;
+                    }
+                    unset($ptRef);
+                    usort($paintMap, fn($a, $b) => $b['total_count'] <=> $a['total_count']);
+                    $paintTypes = array_values($paintMap);
+
+                    // Merge by Region
+                    $rsmMap = [];
+                    foreach ($byRegion as $reg) {
+                        $rsmMap[$reg['rsm_area']] = $reg;
+                    }
+                    foreach ($liveRecords as $lr) {
+                        $rsm = $lr['rsm_area'] ?: 'East Java';
+                        if (!isset($rsmMap[$rsm])) {
+                            $rsmMap[$rsm] = [
+                                'rsm_area' => $rsm,
+                                'total_count' => 0,
+                                'stores' => 0,
+                                'dcs' => 0,
+                                'total_val' => 0,
+                                'avg_val' => 0,
+                                'pct' => 0,
+                                'switched_cnt' => 0
+                            ];
+                        }
+                        $rsmMap[$rsm]['total_count']++;
+                        $rsmMap[$rsm]['total_val'] += $lr['value_pembelian'];
+                        if ($lr['is_switched']) $rsmMap[$rsm]['switched_cnt']++;
+                    }
+                    foreach ($rsmMap as &$rsmRef) {
+                        $rsmRef['pct'] = $newTotal > 0 ? round(($rsmRef['total_count'] / $newTotal) * 100, 1) : 0;
+                        $rsmRef['avg_val'] = $rsmRef['total_count'] > 0 ? ($rsmRef['total_val'] / $rsmRef['total_count']) : 0;
+                    }
+                    unset($rsmRef);
+                    usort($rsmMap, fn($a, $b) => $b['total_val'] <=> $a['total_val']);
+                    $byRegion = array_values($rsmMap);
+
+                    // Merge Stores
+                    $storeRowsMap = [];
+                    foreach ($storeRows as $sr) {
+                        $storeRowsMap[$sr['store_name']] = $sr;
+                    }
+                    foreach ($liveRecords as $lr) {
+                        $sn = $lr['store_name'];
+                        if (!isset($storeRowsMap[$sn])) {
+                            $storeRowsMap[$sn] = [
+                                'store_name' => $sn,
+                                'sap_code' => $lr['sap_code'],
+                                'rsm_area' => $lr['rsm_area'],
+                                'area' => $lr['area'],
+                                'total_customers' => 0,
+                                'total_val' => 0,
+                                'avg_val' => 0,
+                                'switched_cnt' => 0,
+                                'total_dcs' => 1,
+                                'is_live' => true
+                            ];
+                        }
+                        $storeRowsMap[$sn]['total_customers']++;
+                        $storeRowsMap[$sn]['total_val'] += $lr['value_pembelian'];
+                        if ($lr['is_switched']) $storeRowsMap[$sn]['switched_cnt']++;
+                        $storeRowsMap[$sn]['is_live'] = true;
+                    }
+                    foreach ($storeRowsMap as &$srRef) {
+                        $srRef['avg_val'] = $srRef['total_customers'] > 0 ? ($srRef['total_val'] / $srRef['total_customers']) : 0;
+                    }
+                    unset($srRef);
+                    usort($storeRowsMap, fn($a, $b) => $b['total_val'] <=> $a['total_val']);
+                    $storeRows = array_values(array_slice($storeRowsMap, 0, $perPage));
+                    $totalStores = $totOrig == 0 ? count($storeRowsMap) : max($totalStores, count($storeRowsMap));
+
+                    // Prepend live submissions to raw rows
+                    $rawRows = array_merge($liveRecords, $rawRows);
+                    $totalRaw += $liveCount;
+                }
 
                 return [
                     'kpis' => $kpis,

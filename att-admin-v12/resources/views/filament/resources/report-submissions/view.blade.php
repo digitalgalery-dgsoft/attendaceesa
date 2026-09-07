@@ -73,7 +73,10 @@
 
         // Separate text inputs and photo/media attachments to prevent tall empty grid cards
         $textValues = $record->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields) {
-            if (!empty($val->media_url) || !empty($val->file_path)) return false;
+            $isMedia = in_array($val->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])
+                || !empty($val->media_url)
+                || !empty($val->file_path);
+            if ($isMedia) return false;
 
             if ($hasDynamicCompetitors) {
                 $fn = strtolower((string)($val->field_name ?: ($val->formField ? $val->formField->field_name : '')));
@@ -86,9 +89,97 @@
 
             return true;
         });
-        $mediaValues = $record->values->filter(function($val) {
-            return !empty($val->media_url) || !empty($val->file_path);
-        });
+
+        // Collect all individual media items (including multi-photo JSON array)
+        $mediaItems = [];
+        foreach ($record->values as $val) {
+            $fieldLabel = $val->formField?->field_label ?? ucwords(str_replace('_', ' ', (string)$val->field_name));
+            $isMedia = in_array($val->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])
+                || !empty($val->media_url)
+                || !empty($val->file_path);
+
+            if (!$isMedia) continue;
+
+            $rawPaths = [];
+            if (is_array($val->value_json) && !empty($val->value_json)) {
+                $rawPaths = $val->value_json;
+            } elseif (!empty($val->media_url)) {
+                $rawPaths = [$val->media_url];
+            } elseif (!empty($val->file_path)) {
+                $rawPaths = [$val->file_path];
+            } elseif (!empty($val->value_text) && (str_contains($val->value_text, 'reports/') || str_contains($val->value_text, 'storage/'))) {
+                $rawPaths = array_map('trim', explode(',', $val->value_text));
+            }
+
+            $foundUrls = [];
+            foreach ($rawPaths as $p) {
+                if (empty($p) || !is_string($p)) continue;
+                $clean = trim($p);
+                
+                // Abaikan jika berupa path lokal perangkat android
+                if (str_starts_with($clean, '/data/user/') || str_starts_with($clean, 'data/user/') || str_contains($clean, 'cache/wm_')) {
+                    continue;
+                }
+
+                // If it is a full URL
+                if (str_starts_with($clean, 'http://') || str_starts_with($clean, 'https://')) {
+                    $clean = str_replace('/storage/storage/', '/storage/', $clean);
+                    $url = $clean;
+                } else {
+                    if (str_starts_with($clean, 'storage/')) {
+                        $clean = substr($clean, 8);
+                    } elseif (str_starts_with($clean, '/storage/')) {
+                        $clean = substr($clean, 9);
+                    }
+                    $url = asset('storage/' . ltrim($clean, '/'));
+                }
+
+                $foundUrls[] = [
+                    'label' => $fieldLabel,
+                    'url' => $url,
+                    'path' => $clean,
+                    'field_type' => $val->field_type,
+                ];
+            }
+
+            // Fallback: Jika path di database rusak/lokal tapi file ada di disk server
+            if (empty($foundUrls)) {
+                $subId = $record->id;
+                $fieldId = $val->report_form_field_id;
+                $pattern = "reports/*/report_{$subId}_{$fieldId}_*.jpg";
+                $matches = glob(storage_path("app/public/{$pattern}"));
+                if (empty($matches)) {
+                    $pattern2 = "reports/*/report_{$subId}_*.jpg";
+                    $matches = glob(storage_path("app/public/{$pattern2}"));
+                }
+                if (!empty($matches)) {
+                    foreach ($matches as $match) {
+                        $rel = str_replace(storage_path('app/public/'), '', $match);
+                        $rel = str_replace('\\', '/', $rel);
+                        $foundUrls[] = [
+                            'label' => $fieldLabel,
+                            'url' => asset('storage/' . ltrim($rel, '/')),
+                            'path' => $rel,
+                            'field_type' => $val->field_type,
+                        ];
+                    }
+                }
+            }
+
+            // Jika ada lebih dari 1 foto untuk field ini, beri keterangan indeks
+            $totalFieldPhotos = count($foundUrls);
+            foreach ($foundUrls as $fIdx => &$fItem) {
+                if ($totalFieldPhotos > 1) {
+                    $fItem['display_label'] = $fItem['label'] . ' (' . ($fIdx + 1) . '/' . $totalFieldPhotos . ')';
+                } else {
+                    $fItem['display_label'] = $fItem['label'];
+                }
+            }
+            unset($fItem);
+
+            $mediaItems = array_merge($mediaItems, $foundUrls);
+        }
+        $mediaValues = collect($mediaItems);
     @endphp
 
     <style>
@@ -934,22 +1025,17 @@
                     </div>
 
                     <div class="media-gallery-grid">
-                        @foreach($mediaValues as $val)
-                            @php
-                                $fieldLabel = $val->formField?->field_label ?? ucwords(str_replace('_', ' ', (string)$val->field_name));
-                                $mediaPath = $val->media_url ?? $val->file_path;
-                                $mediaUrl = asset('storage/' . $mediaPath);
-                            @endphp
+                        @foreach($mediaValues as $idx => $m)
                             <div class="media-item-card">
                                 <div class="media-item-header">
                                     <span class="media-badge-tag">📷 Foto #{{ $loop->iteration }}</span>
-                                    <div class="media-field-title">{{ $fieldLabel }}</div>
+                                    <div class="media-field-title">{{ $m['display_label'] ?? $m['label'] }}</div>
                                 </div>
-                                <div class="media-photo-frame" onclick="openAdminPhotoModal('{{ $mediaUrl }}', '{{ addslashes($fieldLabel) }}')" title="Klik untuk memperbesar">
-                                    <img src="{{ $mediaUrl }}" alt="{{ $fieldLabel }}" loading="lazy">
+                                <div class="media-photo-frame" onclick="openAdminPhotoModal('{{ $m['url'] }}', '{{ addslashes($m['display_label'] ?? $m['label']) }}')" title="Klik untuk memperbesar">
+                                    <img src="{{ $m['url'] }}" alt="{{ $m['label'] }}" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/600x400/e2e8f0/475569?text=Gagal+Memuat+Foto';">
                                 </div>
                                 <div class="media-footer-bar">
-                                    <button type="button" class="media-full-btn" onclick="openAdminPhotoModal('{{ $mediaUrl }}', '{{ addslashes($fieldLabel) }}')">
+                                    <button type="button" class="media-full-btn" onclick="openAdminPhotoModal('{{ $m['url'] }}', '{{ addslashes($m['display_label'] ?? $m['label']) }}')">
                                         <span>Lihat Foto Penuh ↗</span>
                                     </button>
                                 </div>

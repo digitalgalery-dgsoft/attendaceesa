@@ -22,6 +22,16 @@
                 <span>Data Mentah Pelanggan</span>
                 <span class="badge-count">{{ number_format($custData['submissions']['total'] ?? 0) }}</span>
             </a>
+            <a href="{{ route('portal.report.detail', array_merge(request()->query(), ['code' => $template->code, 'tab' => 'live', 'p' => $tenantPrincipal->id])) }}" 
+               class="cust-tab-btn {{ ($activeTab ?? '') === 'live' ? 'active' : '' }}">
+                <i class="fa-solid fa-inbox text-primary"></i>
+                <span>Data Laporan Masuk</span>
+                @if(isset($submissions) && $submissions->total() > 0)
+                    <span class="badge-count" style="background: #2563eb; color: #ffffff;">{{ $submissions->total() }}</span>
+                @elseif(isset($liveSubmissionsCount) && $liveSubmissionsCount > 0)
+                    <span class="badge-count" style="background: #2563eb; color: #ffffff;">{{ $liveSubmissionsCount }}</span>
+                @endif
+            </a>
         </div>
 
         {{-- EXPORT BUTTONS --}}
@@ -368,7 +378,12 @@
                                     <tr>
                                         <td>{{ $fromIndex + $i }}</td>
                                         <td>
-                                            <div class="font-medium text-gray-900">{{ $st['store_name'] }}</div>
+                                            <div class="font-medium text-gray-900">
+                                                {{ $st['store_name'] }}
+                                                @if(!empty($st['is_live']))
+                                                    <span class="badge-live-tag">⚡ LIVE</span>
+                                                @endif
+                                            </div>
                                             <div class="text-xs text-gray-500">SAP: {{ $st['sap_code'] ?: '-' }}</div>
                                         </td>
                                         <td>
@@ -506,7 +521,12 @@
                                     <div class="text-xs text-gray-400 whitespace-nowrap">{{ $row['submission_date'] ? explode(' ', $row['submission_date'])[1] ?? '' : '' }}</div>
                                 </td>
                                 <td>
-                                    <div class="font-medium text-gray-900">{{ $row['store_name'] }}</div>
+                                    <div class="font-medium text-gray-900">
+                                        {{ $row['store_name'] }}
+                                        @if(!empty($row['is_live']))
+                                            <span class="badge-live-tag">⚡ LIVE</span>
+                                        @endif
+                                    </div>
                                     <div class="text-xs text-gray-500">SAP: {{ $row['sap_code'] ?: '-' }}</div>
                                 </td>
                                 <td>
@@ -617,9 +637,341 @@
                 </div>
             @endif
         </div>
-    @endif
+    {{-- ========================================================================= --}}
+    {{-- TAB 4: DATA LAPORAN MASUK (LIVE SUBMISSIONS & VERIFIKASI) --}}
+    {{-- ========================================================================= --}}
+    @if(($activeTab ?? '') === 'live')
+        <div class="cust-card">
+            <div class="cust-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h3 class="cust-card-title mb-1"><i class="fa-solid fa-inbox text-primary"></i> Data Laporan Masuk & Verifikasi Data Pelanggan Dulux</h3>
+                    <p class="cust-card-sub mb-0">Verifikasi berkala pendataan profil konsumen, preferensi brand (dicari vs dibeli), dan transaksi cat langsung dari SPG/DC di toko.</p>
+                </div>
+                <div style="background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.2); padding: 6px 14px; border-radius: 10px; display: inline-flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.78rem; color: #64748b; font-weight: 600;">Total Laporan Masuk:</span>
+                    <strong style="color: #2563eb; font-size: 0.95rem;">{{ number_format(isset($submissions) ? $submissions->total() : 0) }} Laporan</strong>
+                </div>
+            </div>
 
-</div>
+            @if(isset($submissions) && $submissions->isNotEmpty())
+                <div class="cust-table-responsive" style="max-height: 650px;">
+                    <table class="cust-table raw-table" style="min-width: 1700px;">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px; text-align: center;">No</th>
+                                <th style="width: 150px;">Kode Laporan</th>
+                                <th style="min-width: 140px;">Waktu Submit</th>
+                                <th style="min-width: 170px;">Promotor / DC</th>
+                                <th style="min-width: 180px;">Nama Toko & SAP</th>
+                                <th style="min-width: 130px;">Area & RSM</th>
+                                <th style="min-width: 180px;">Profil Pelanggan</th>
+                                <th style="min-width: 130px;">Tipe Pelanggan</th>
+                                <th style="min-width: 150px;">Brand Dicari</th>
+                                <th style="min-width: 170px;">Brand Dibeli</th>
+                                <th style="min-width: 140px; text-align: right;">Nilai Belanja</th>
+                                <th style="min-width: 160px;">Alasan Memilih</th>
+                                <th style="min-width: 120px; text-align: center;">Foto Bukti</th>
+                                <th style="text-align: center; width: 100px;">Radius GPS</th>
+                                <th style="text-align: center; width: 120px;">Status</th>
+                                <th style="text-align: center; width: 170px; min-width: 170px; position: sticky; right: 0; background: #f8fafc; z-index: 6;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($submissions as $idx => $sub)
+                                @php
+                                    $valMap = [];
+                                    $photos = [];
+                                    foreach ($sub->values as $v) {
+                                        $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
+                                        if ($v->field_name) {
+                                            $valMap[$v->field_name] = $val;
+                                            $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
+                                            $valMap[$slug] = $val;
+                                        }
+                                        if ($v->formField) {
+                                            if ($v->formField->field_name) {
+                                                $valMap[$v->formField->field_name] = $val;
+                                                $slugF = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_name), '_'));
+                                                $valMap[$slugF] = $val;
+                                            }
+                                            if ($v->formField->field_label) {
+                                                $slugL = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_label), '_'));
+                                                $valMap[$slugL] = $val;
+                                            }
+                                        }
+
+                                        $isPhoto = in_array($v->field_type, ['photo', 'camera_photo', 'multi_photo'])
+                                            || str_contains((string)$v->field_name, 'foto')
+                                            || !empty($v->media_url)
+                                            || !empty($v->file_path);
+
+                                        if ($isPhoto) {
+                                            $rawP = $v->value_json ?: ($v->media_url ?: ($v->file_path ?: $v->value_text));
+                                            $photoLabel = $v->formField?->field_label ?? ($v->field_name ?: 'Foto Bukti');
+                                            if (is_array($rawP)) {
+                                                foreach ($rawP as $pSubIdx => $rp) {
+                                                    if (is_string($rp) && !empty($rp) && !str_starts_with($rp, '/data/user/')) {
+                                                        $cleanP = trim($rp);
+                                                        $photoUrl = (str_starts_with($cleanP, 'http://') || str_starts_with($cleanP, 'https://'))
+                                                            ? $cleanP
+                                                            : asset('storage/' . ltrim(str_replace('storage/', '', $cleanP), '/'));
+                                                        $photos[] = [
+                                                            'url' => $photoUrl,
+                                                            'label' => count($rawP) > 1 ? "{$photoLabel} (" . ($pSubIdx + 1) . "/" . count($rawP) . ")" : $photoLabel
+                                                        ];
+                                                    }
+                                                }
+                                            } elseif (is_string($rawP) && !empty($rawP) && !str_starts_with($rawP, '/data/user/')) {
+                                                $splitP = explode(',', $rawP);
+                                                foreach ($splitP as $pSubIdx => $rp) {
+                                                    $cleanP = trim($rp);
+                                                    if (!empty($cleanP) && !str_starts_with($cleanP, '/data/user/')) {
+                                                        $photoUrl = (str_starts_with($cleanP, 'http://') || str_starts_with($cleanP, 'https://'))
+                                                            ? $cleanP
+                                                            : asset('storage/' . ltrim(str_replace('storage/', '', $cleanP), '/'));
+                                                        $photos[] = [
+                                                            'url' => $photoUrl,
+                                                            'label' => count($splitP) > 1 ? "{$photoLabel} (" . ($pSubIdx + 1) . "/" . count($splitP) . ")" : $photoLabel
+                                                        ];
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    $store = $sub->workLocation?->name ?? ($sub->store_name ?? 'Toko Tidak Terdaftar');
+                                    $sap = $sub->workLocation?->code ?? ($sub->workLocation?->store_code ?? '-');
+                                    $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? '-'));
+                                    $region = $sub->workLocation?->region ?? '-';
+                                    $empName = $sub->employee?->full_name ?? ($sub->employee?->name ?? 'Petugas');
+                                    $empNik = $sub->employee?->nik ?? ($sub->employee?->employee_no ?? '-');
+
+                                    $namaPelanggan = trim((string)($valMap['nama_lengkap_pelanggan'] ?? ($valMap['nama_pelanggan'] ?? ($valMap['nama_konsumen'] ?? '-'))));
+                                    $noHp = trim((string)($valMap['nomor_hp_whatsapp_pelanggan'] ?? ($valMap['no_hp_pelanggan'] ?? ($valMap['no_hp'] ?? '-'))));
+                                    $alamat = trim((string)($valMap['alamat_domisili_pelanggan'] ?? ($valMap['alamat_pelanggan'] ?? ($valMap['alamat'] ?? '-'))));
+                                    $tipePelanggan = trim((string)($valMap['tipe_kategori_pelanggan'] ?? ($valMap['tipe_pelanggan'] ?? 'Pemilik Rumah')));
+                                    $brandDicari = trim((string)($valMap['brand_cat_yang_awalnya_dicari_ditanyakan'] ?? ($valMap['brand_dicari'] ?? '-')));
+                                    $brandDibeli = trim((string)($valMap['brand_cat_yang_akhirnya_dibeli'] ?? ($valMap['brand_dibeli'] ?? '-')));
+                                    $alasan = trim((string)($valMap['alasan_konsumen_memilih_brand_tersebut'] ?? ($valMap['alasan_pilih_brand'] ?? ($valMap['alasan'] ?? 'Rekomendasi DC'))));
+                                    
+                                    $rawValNum = $valMap['estimasi_total_nilai_pembelian_rupiah'] ?? ($valMap['total_estimasi_nilai_pembelian_rupiah'] ?? ($valMap['value_pembelian_rp'] ?? ($valMap['value_pembelian'] ?? 0)));
+                                    $valPembelian = is_numeric($rawValNum) ? (float)$rawValNum : (float)preg_replace('/[^0-9.]/', '', (string)$rawValNum);
+
+                                    $isDuluxBought = (stripos($brandDibeli, 'dulux') !== false || stripos($brandDibeli, 'catylac') !== false || stripos($brandDibeli, 'aquashield') !== false);
+                                    $isDuluxSought = (stripos($brandDicari, 'dulux') !== false || stripos($brandDicari, 'catylac') !== false || stripos($brandDicari, 'aquashield') !== false);
+                                    $isSwitched = ($isDuluxBought && !$isDuluxSought && !empty($brandDicari) && $brandDicari !== '-');
+
+                                    $status = $sub->status ?? 'pending';
+                                @endphp
+                                <tr>
+                                    <td style="text-align: center; color: #64748b; font-weight: 700;">
+                                        {{ $submissions->firstItem() + $idx }}
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" 
+                                           style="font-family: monospace; font-weight: 700; font-size: 0.82rem; color: #0F52BA; text-decoration: none; background: rgba(15, 82, 186, 0.08); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(15, 82, 186, 0.2); display: inline-block;">
+                                            {{ $sub->submission_code }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                            {{ $sub->submitted_at ? $sub->submitted_at->translatedFormat('d M Y') : ($sub->created_at ? $sub->created_at->translatedFormat('d M Y') : '-') }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            {{ $sub->submitted_at ? $sub->submitted_at->format('H:i') : ($sub->created_at ? $sub->created_at->format('H:i') : '-') }} WIB
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">
+                                            {{ $empName }}
+                                        </div>
+                                        <div style="font-size: 0.74rem; color: #64748b; font-family: monospace;">
+                                            {{ $empNik }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">{{ $store }}</div>
+                                        <div style="font-size: 0.74rem; color: #64748b;">
+                                            SAP: <span class="badge bg-light-secondary text-secondary" style="font-family: monospace;">{{ $sap }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 600; font-size: 0.82rem; color: #1e293b;">{{ $area }}</div>
+                                        <span class="region-badge" style="font-size: 0.7rem; padding: 1px 6px;">{{ $region }}</span>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0f172a; font-size: 0.84rem;">{{ $namaPelanggan ?: '-' }}</div>
+                                        @if($noHp && $noHp !== '-')
+                                            @php
+                                                $cleanPh = preg_replace('/[^0-9]/', '', $noHp);
+                                                if (str_starts_with($cleanPh, '0')) {
+                                                    $waPh = '62' . substr($cleanPh, 1);
+                                                } else {
+                                                    $waPh = $cleanPh;
+                                                }
+                                            @endphp
+                                            <a href="https://wa.me/{{ $waPh }}" target="_blank" class="btn-wa-link" style="font-size: 0.72rem; padding: 1px 6px; margin-top: 2px;">
+                                                <i class="fa-brands fa-whatsapp"></i> {{ $noHp }}
+                                            </a>
+                                        @endif
+                                        @if($alamat && $alamat !== '-')
+                                            <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ $alamat }}">
+                                                <i class="fa-solid fa-location-dot"></i> {{ $alamat }}
+                                            </div>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @php
+                                            $typeCls = match($tipePelanggan) {
+                                                'Pemilik Rumah' => 'badge-type-home',
+                                                'Tukang Cat & Bangunan' => 'badge-type-painter',
+                                                'Kontraktor' => 'badge-type-contractor',
+                                                'Mitra Dulux' => 'badge-type-partner',
+                                                default => 'badge-type-other'
+                                            };
+                                        @endphp
+                                        <span class="badge-cust-type {{ $typeCls }}">{{ $tipePelanggan ?: '-' }}</span>
+                                    </td>
+                                    <td>
+                                        <span style="font-weight: 600; color: #475569; font-size: 0.82rem;">{{ $brandDicari ?: '-' }}</span>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0F52BA; font-size: 0.82rem;">{{ $brandDibeli ?: '-' }}</div>
+                                        @if($isSwitched)
+                                            <span class="badge-switch-success" style="font-size: 0.68rem; margin-top: 2px;">
+                                                <i class="fa-solid fa-shuffle"></i> Switch Dulux
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: right; font-family: monospace; font-weight: 700; color: #059669; font-size: 0.85rem; white-space: nowrap;">
+                                        Rp {{ number_format($valPembelian, 0, ',', '.') }}
+                                    </td>
+                                    <td style="font-size: 0.78rem; color: #475569;">
+                                        {{ $alasan ?: '-' }}
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if(!empty($photos))
+                                            <div style="display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: center; max-width: 110px;">
+                                                @foreach($photos as $pIdx => $p)
+                                                    <img src="{{ $p['url'] }}" 
+                                                         alt="{{ $p['label'] }}" 
+                                                         title="{{ $p['label'] }}"
+                                                         onclick="openCustPhotoModal('{{ $p['url'] }}', '{{ addslashes($p['label']) }}', '{{ $sub->submission_code }}')"
+                                                         style="width: 32px; height: 32px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; transition: transform 0.15s ease;"
+                                                         onmouseover="this.style.transform='scale(1.15)'"
+                                                         onmouseout="this.style.transform='scale(1)'"
+                                                         onerror="this.style.display='none'">
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <span class="text-muted small">-</span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if($sub->is_within_radius)
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #16a34a; background: #dcfce7; padding: 0.25rem 0.55rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-circle-check"></i> Valid
+                                            </span>
+                                        @else
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.55rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> Luar
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if(in_array($status, ['approved', 'verified']))
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-circle-check"></i> Terverifikasi
+                                            </span>
+                                        @elseif($status === 'rejected')
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-circle-xmark"></i> Ditolak
+                                            </span>
+                                        @else
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.25rem 0.6rem; border-radius: 8px; display: inline-block;">
+                                                <i class="fa-solid fa-clock"></i> Menunggu
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center; position: sticky; right: 0; background: #ffffff; z-index: 5; box-shadow: -2px 0 6px rgba(0,0,0,0.03);">
+                                        <div style="display: inline-flex; align-items: center; gap: 4px; justify-content: center; white-space: nowrap;">
+                                            <a href="{{ route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" class="btn-action-view" title="Lihat Detail & Bukti Lengkap">
+                                                <i class="fa-solid fa-eye"></i> Detail
+                                            </a>
+                                            @if(in_array($status, ['pending', 'submitted']))
+                                                <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Setujui laporan {{ $sub->submission_code }}?')">
+                                                    @csrf
+                                                    <input type="hidden" name="status" value="approved">
+                                                    <button type="submit" class="btn-action-quick-approve" title="Setujui Laporan">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </button>
+                                                </form>
+                                                <button type="button" class="btn-action-quick-reject" onclick="openCustRejectModal('{{ $sub->id }}', '{{ $sub->submission_code }}')" title="Tolak Laporan">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            @elseif(in_array($status, ['approved', 'verified']))
+                                                <button type="button" class="btn-action-quick-reject" onclick="openCustRejectModal('{{ $sub->id }}', '{{ $sub->submission_code }}')" title="Batalkan / Tolak Laporan">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            @elseif($status === 'rejected')
+                                                <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Setujui kembali laporan {{ $sub->submission_code }}?')">
+                                                    @csrf
+                                                    <input type="hidden" name="status" value="approved">
+                                                    <button type="submit" class="btn-action-quick-approve" title="Setujui Kembali">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                @if($submissions->hasPages())
+                    <div class="cust-pagination-bar">
+                        <div class="cust-pagination-info">
+                            Menampilkan <strong>{{ $submissions->firstItem() }}</strong> s/d <strong>{{ $submissions->lastItem() }}</strong> dari <strong>{{ number_format($submissions->total()) }}</strong> laporan masuk (Hal <strong>{{ $submissions->currentPage() }}</strong> dari <strong>{{ $submissions->lastPage() }}</strong>)
+                        </div>
+                        <div class="cust-pagination-links">
+                            @if(!$submissions->onFirstPage())
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->url(1) }}" class="cust-page-btn" title="Halaman Pertama">
+                                    <i class="fa-solid fa-angles-left"></i>
+                                </a>
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->previousPageUrl() }}" class="cust-page-btn">
+                                    <i class="fa-solid fa-chevron-left"></i> Prev
+                                </a>
+                            @endif
+
+                            @for($i = max(1, $submissions->currentPage() - 2); $i <= min($submissions->lastPage(), $submissions->currentPage() + 2); $i++)
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->url($i) }}" 
+                                   class="cust-page-btn {{ $i == $submissions->currentPage() ? 'active' : '' }}">
+                                    {{ $i }}
+                                </a>
+                            @endfor
+
+                            @if($submissions->hasMorePages())
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->nextPageUrl() }}" class="cust-page-btn">
+                                    Next <i class="fa-solid fa-chevron-right"></i>
+                                </a>
+                                <a href="{{ $submissions->appends(array_merge(request()->query(), ['tab' => 'live']))->url($submissions->lastPage()) }}" class="cust-page-btn" title="Halaman Terakhir">
+                                    <i class="fa-solid fa-angles-right"></i>
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+                @endif
+            @else
+                <div style="padding: 3rem 1.5rem; text-align: center; color: #64748b;">
+                    <i class="fa-solid fa-inbox" style="font-size: 2.5rem; color: #cbd5e1; margin-bottom: 0.75rem; display: block;"></i>
+                    <div style="font-weight: 700; font-size: 1rem; color: #1e293b;">Tidak Ada Data Laporan Masuk</div>
+                    <p style="font-size: 0.85rem; margin-top: 4px;">Belum ada submisi laporan konsumen yang dikirimkan oleh promotor/DC untuk filter periode dan toko ini.</p>
+                </div>
+            @endif
+        </div>
+    @endif
 
 {{-- CSS STYLES FOR CUSTOMER DATABASE DASHBOARD --}}
 <style>
@@ -1267,4 +1619,166 @@
     color: #64748b;
     padding: 0 8px;
 }
+
+/* BADGE LIVE */
+.badge-live-tag {
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    color: #ffffff;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 4px;
+    letter-spacing: 0.3px;
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+}
+
+/* ACTION BUTTONS FOR DATA LAPORAN MASUK */
+.btn-action-view {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.32rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+    background: #f1f5f9;
+    color: #0F52BA;
+    border: 1px solid #cbd5e1;
+    transition: all 0.15s ease;
+}
+.btn-action-view:hover {
+    background: #0F52BA;
+    color: #ffffff;
+    border-color: #0F52BA;
+}
+
+.btn-action-quick-approve {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.32rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: #16a34a;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(22, 163, 74, 0.2);
+    transition: all 0.15s ease;
+}
+.btn-action-quick-approve:hover {
+    background: #15803d;
+    transform: translateY(-1px);
+}
+
+.btn-action-quick-reject {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.32rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: #dc2626;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(220, 38, 38, 0.2);
+    transition: all 0.15s ease;
+}
+.btn-action-quick-reject:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+}
 </style>
+
+{{-- MODAL REJECT WITH REASON UNTUK CUSTOMER DB --}}
+<div id="cust_reject_modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+    <div style="background: #ffffff; border-radius: 14px; width: 100%; max-width: 460px; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); margin: 1rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+            <div style="font-weight: 700; font-size: 1.1rem; color: #b91c1c; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-triangle-exclamation"></i> Tolak Laporan Konsumen
+            </div>
+            <button type="button" onclick="closeCustRejectModal()" style="background: none; border: none; font-size: 1.4rem; color: #94a3b8; cursor: pointer;">&times;</button>
+        </div>
+        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">
+            Anda akan menolak laporan <strong id="cust_reject_code" style="color: #0f172a; font-family: monospace;"></strong>. Masukkan alasan penolakan untuk promotor/DC.
+        </p>
+        <form id="cust_reject_form" method="POST" action="">
+            @csrf
+            <input type="hidden" name="status" value="rejected">
+            <div style="margin-bottom: 1.25rem;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #334155; margin-bottom: 6px;">Alasan Penolakan <span style="color: #ef4444;">*</span></label>
+                <textarea name="rejection_note" rows="3" required placeholder="Contoh: Bukti foto tidak jelas, kontak pelanggan tidak valid, dll..." style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; outline: none; font-family: inherit; resize: vertical;"></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" onclick="closeCustRejectModal()" style="padding: 0.5rem 1rem; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">Batal</button>
+                <button type="submit" style="padding: 0.5rem 1.25rem; background: #ef4444; color: #ffffff; border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">Tolak Laporan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- MODAL LIGHTBOX FOTO BUKTI UNTUK CUSTOMER DB --}}
+<div id="cust_photo_modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);" onclick="if(event.target === this) closeCustPhotoModal()">
+    <div style="background: #1e293b; border-radius: 12px; width: 90%; max-width: 750px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); border: 1px solid #334155;">
+        <div style="padding: 0.75rem 1.25rem; background: #0f172a; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; color: #f8fafc;">
+            <div>
+                <div id="cust_photo_title" style="font-weight: 700; font-size: 0.9rem;">Foto Bukti</div>
+                <div id="cust_photo_sub" style="font-size: 0.75rem; color: #94a3b8; font-family: monospace;"></div>
+            </div>
+            <button type="button" onclick="closeCustPhotoModal()" style="background: none; border: none; font-size: 1.5rem; color: #94a3b8; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+        <div style="padding: 1rem; display: flex; justify-content: center; align-items: center; min-height: 250px; max-height: 75vh; overflow: auto;">
+            <img id="cust_photo_img" src="" alt="Preview" style="max-width: 100%; max-height: 70vh; border-radius: 8px; object-fit: contain; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+        </div>
+        <div style="padding: 0.75rem 1.25rem; background: rgba(0,0,0,0.3); display: flex; justify-content: flex-end;">
+            <a id="cust_photo_link" href="" target="_blank" style="color: #60a5fa; font-size: 0.8rem; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Buka Ukuran Penuh
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+function openCustRejectModal(subId, subCode) {
+    var modal = document.getElementById('cust_reject_modal');
+    var codeEl = document.getElementById('cust_reject_code');
+    var form = document.getElementById('cust_reject_form');
+    if (!modal || !form) return;
+    if (codeEl) codeEl.innerText = subCode;
+    var baseRoute = "{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => ':id', 'p' => $tenantPrincipal->id]) }}";
+    form.action = baseRoute.replace(':id', subId);
+    modal.style.display = 'flex';
+}
+
+function closeCustRejectModal() {
+    var modal = document.getElementById('cust_reject_modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function openCustPhotoModal(url, label, subCode) {
+    var modal = document.getElementById('cust_photo_modal');
+    var img = document.getElementById('cust_photo_img');
+    var title = document.getElementById('cust_photo_title');
+    var sub = document.getElementById('cust_photo_sub');
+    var link = document.getElementById('cust_photo_link');
+    if (!modal || !img) return;
+    img.src = url;
+    if (title) title.innerText = label || 'Foto Bukti';
+    if (sub) sub.innerText = subCode || '';
+    if (link) link.href = url;
+    modal.style.display = 'flex';
+}
+
+function closeCustPhotoModal() {
+    var modal = document.getElementById('cust_photo_modal');
+    if (modal) modal.style.display = 'none';
+}
+</script>

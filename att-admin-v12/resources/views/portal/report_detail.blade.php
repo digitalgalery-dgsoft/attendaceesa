@@ -1576,7 +1576,12 @@
 
     {{-- CUSTOMER DATABASE & CONSUMER INSIGHTS DASHBOARD (INSIGHTS, REGIONAL & RAW SUBMISSIONS) --}}
     @if(isset($isCustomerDbReport) && $isCustomerDbReport && !empty($customerDbData))
-        @include('portal.partials.customer_database_dashboard', ['custData' => $customerDbData])
+        @include('portal.partials.customer_database_dashboard', [
+            'custData' => $customerDbData,
+            'submissions' => $submissions ?? null,
+            'liveSubmissionsCount' => $liveSubmissionsCount ?? 0,
+            'activeTab' => $activeTab ?? 'insights'
+        ])
     @endif
 
     @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport) && (!isset($isDailyMaintenanceReport) || !$isDailyMaintenanceReport) && (!isset($isCustomerDbReport) || !$isCustomerDbReport))
