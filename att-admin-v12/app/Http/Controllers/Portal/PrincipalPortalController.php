@@ -229,6 +229,109 @@ class PrincipalPortalController extends Controller
     }
 
     /**
+     * Standard list of 11 RSM areas for Dulux / ICI Paints
+     */
+    protected function getDuluxStandardRsmList(): array
+    {
+        return [
+            'Bali Nusra',
+            'Central Sumatera',
+            'East Java',
+            'Greater Jakarta',
+            'Kalimantan',
+            'North Central Java',
+            'North Sumatera',
+            'South Central Java',
+            'South Sumatera',
+            'Sulawesi',
+            'West Java',
+        ];
+    }
+
+    /**
+     * Complete Map of Indonesian Dulux Sales Area / City to RSM Area
+     */
+    protected function getDuluxAreaToRsmMap(): array
+    {
+        return [
+            'ACEH' => 'North Sumatera',
+            'MEDAN' => 'North Sumatera',
+            'BATAM' => 'Central Sumatera',
+            'PADANG' => 'Central Sumatera',
+            'PEKANBARU' => 'Central Sumatera',
+            'LAMPUNG' => 'South Sumatera',
+            'PALEMBANG' => 'South Sumatera',
+            'JAMBI' => 'South Sumatera',
+            'BENGKULU' => 'South Sumatera',
+            'BALIKPAPAN' => 'Kalimantan',
+            'SAMARINDA' => 'Kalimantan',
+            'BONTANG' => 'Kalimantan',
+            'BANJARMASIN' => 'Kalimantan',
+            'PONTIANAK' => 'Kalimantan',
+            'KENDARI' => 'Sulawesi',
+            'MAKASSAR' => 'Sulawesi',
+            'MANADO' => 'Sulawesi',
+            'PALU' => 'Sulawesi',
+            'MALUKU' => 'Sulawesi',
+            'PAPUA' => 'Sulawesi',
+            'CIBUBUR' => 'Greater Jakarta',
+            'GARUT' => 'West Java',
+            'BANDUNG' => 'West Java',
+            'CIREBON' => 'West Java',
+            'TASIKMALAYA' => 'West Java',
+            'BOGOR' => 'Greater Jakarta',
+            'BEKASI' => 'Greater Jakarta',
+            'DEPOK' => 'Greater Jakarta',
+            'TANGERANG' => 'Greater Jakarta',
+            'JAKARTA BARAT' => 'Greater Jakarta',
+            'JAKARTA PUSAT' => 'Greater Jakarta',
+            'JAKARTA UTARA' => 'Greater Jakarta',
+            'JAKARTA TIMUR' => 'Greater Jakarta',
+            'JAKARTA SELATAN' => 'Greater Jakarta',
+            'MADIUN' => 'East Java',
+            'SURABAYA' => 'East Java',
+            'MALANG' => 'East Java',
+            'KEDIRI' => 'East Java',
+            'BANYUWANGI' => 'East Java',
+            'JEMBER' => 'Bali Nusra',
+            'BALI' => 'Bali Nusra',
+            'LOMBOK' => 'Bali Nusra',
+            'KUPANG' => 'Bali Nusra',
+            'SEMARANG' => 'North Central Java',
+            'TEGAL' => 'North Central Java',
+            'PEKALONGAN' => 'North Central Java',
+            'KUDUS' => 'North Central Java',
+            'SOLO' => 'South Central Java',
+            'YOGYAKARTA' => 'South Central Java',
+            'PURWOKERTO' => 'South Central Java',
+            'MAGELANG' => 'South Central Java',
+            'CENTRAL JAVA' => 'Central Java',
+        ];
+    }
+
+    /**
+     * Database variations of RSM Area names in legacy tables
+     */
+    protected function getRsmQueryVariants(string $rsm): array
+    {
+        $r = trim($rsm);
+        $map = [
+            'Bali Nusra' => ['Bali Nusra', 'Bali Nusa Puma', 'BALI NUSA PUMA', 'BALI NUSRA', 'Bali'],
+            'Central Sumatera' => ['Central Sumatera', 'Central Sumatra', 'CENTRAL SUMATERA', 'CENTRAL SUMATRA'],
+            'North Sumatera' => ['North Sumatera', 'North Sumatra', 'NORTH SUMATERA', 'NORTH SUMATRA'],
+            'South Sumatera' => ['South Sumatera', 'South Sumatra', 'SOUTH SUMATERA', 'SOUTH SUMATRA'],
+            'West Java' => ['West Java', 'Jawa Barat', 'WEST JAVA', 'JAWA BARAT'],
+            'East Java' => ['East Java', 'Jawa Timur', 'EAST JAVA', 'JAWA TIMUR'],
+            'Kalimantan' => ['Kalimantan', 'KALIMANTAN'],
+            'Sulawesi' => ['Sulawesi', 'SULAWESI'],
+            'Greater Jakarta' => ['Greater Jakarta', 'GREATER JAKARTA'],
+            'North Central Java' => ['North Central Java', 'NORTH CENTRAL JAVA'],
+            'South Central Java' => ['South Central Java', 'SOUTH CENTRAL JAVA'],
+        ];
+        return $map[$r] ?? [$r];
+    }
+
+    /**
      * Base query for report templates belonging to the scoped principals
      */
     protected function getTemplateBaseQuery(array $scopedPrincipalIds, ?Principal $tenantPrincipal = null)
@@ -598,28 +701,23 @@ class PrincipalPortalController extends Controller
                 $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
             }
 
-            $regions = Cache::remember("cbp_filter_regions_v11_{$selectedYear}", 3600, function() use ($sqlitePath) {
-                try {
-                    $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT DISTINCT regional FROM cbp_raw WHERE regional IS NOT NULL AND regional != '' ORDER BY regional");
-                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
-                } catch (\Throwable $e) {
-                    return ['R1', 'R2', 'R3', 'R4'];
-                }
-            });
+            $regions = $this->getDuluxStandardRsmList();
+            $areaToRsm = $this->getDuluxAreaToRsmMap();
 
-            // Areas directly from cbp_raw with regional info
-            $areas = Cache::remember("cbp_filter_areas_v11_{$selectedYear}", 3600, function() use ($sqlitePath) {
+            // Areas directly from cbp_raw with standardized RSM info
+            $areas = Cache::remember("cbp_filter_areas_v13_{$selectedYear}", 3600, function() use ($sqlitePath, $areaToRsm) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT regional, MIN(area) as area_name FROM cbp_raw WHERE area IS NOT NULL AND area != '' GROUP BY regional, UPPER(TRIM(area)) ORDER BY area_name ASC");
+                    $stmt = $pdo->query("SELECT COALESCE(NULLIF(rsm_area,''), regional) as rsm, MIN(area) as area_name FROM cbp_raw WHERE area IS NOT NULL AND area != '' GROUP BY UPPER(TRIM(area)) ORDER BY area_name ASC");
                     $rawAreas = $stmt->fetchAll(\PDO::FETCH_ASSOC);
                     $result = [];
                     foreach ($rawAreas as $a) {
+                        $cleanA = strtoupper(trim($a['area_name']));
+                        $rsm = $areaToRsm[$cleanA] ?? $a['rsm'];
                         $result[] = [
                             'id' => $a['area_name'],
                             'name' => ucwords(strtolower($a['area_name'])),
-                            'region' => $a['regional']
+                            'region' => $rsm
                         ];
                     }
                     return $result;
@@ -628,18 +726,20 @@ class PrincipalPortalController extends Controller
                 }
             });
 
-            // Stores directly from cbp_raw with regional & area info
-            $workLocations = Cache::remember("cbp_filter_stores_v11_{$selectedYear}", 3600, function() use ($sqlitePath) {
+            // Stores directly from cbp_raw with RSM & area info
+            $workLocations = Cache::remember("cbp_filter_stores_v13_{$selectedYear}", 3600, function() use ($sqlitePath, $areaToRsm) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT DISTINCT regional, MIN(area) as area, name_store FROM cbp_raw WHERE name_store IS NOT NULL GROUP BY name_store ORDER BY name_store ASC");
+                    $stmt = $pdo->query("SELECT DISTINCT COALESCE(NULLIF(rsm_area,''), regional) as rsm, MIN(area) as area, name_store FROM cbp_raw WHERE name_store IS NOT NULL GROUP BY name_store ORDER BY name_store ASC");
                     $rawStores = $stmt->fetchAll(\PDO::FETCH_ASSOC);
                     $result = [];
                     foreach ($rawStores as $s) {
+                        $cleanA = strtoupper(trim($s['area'] ?? ''));
+                        $rsm = $areaToRsm[$cleanA] ?? $s['rsm'];
                         $result[] = [
                             'id' => $s['name_store'],
                             'name' => $s['name_store'],
-                            'region' => $s['regional'],
+                            'region' => $rsm,
                             'area' => $s['area']
                         ];
                     }
@@ -737,29 +837,24 @@ class PrincipalPortalController extends Controller
                 }
             }
 
-            // Regions directly from stock_raw
-            $regions = Cache::remember('stock_filter_regions_v2_' . $selectedYear, 3600, function() use ($sqlitePath) {
-                try {
-                    $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT DISTINCT region FROM stock_raw WHERE region IS NOT NULL AND region != '' ORDER BY region");
-                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
-                } catch (\Throwable $e) {
-                    return ['R1', 'R2', 'R3', 'R4'];
-                }
-            });
+            // Standardized RSM List for Stock
+            $regions = $this->getDuluxStandardRsmList();
+            $areaToRsm = $this->getDuluxAreaToRsmMap();
 
-            // Areas directly from stock_raw
-            $areas = Cache::remember('stock_filter_areas_v2_' . $selectedYear, 3600, function() use ($sqlitePath) {
+            // Areas directly from stock_raw with standardized RSM info
+            $areas = Cache::remember('stock_filter_areas_v4_' . $selectedYear, 3600, function() use ($sqlitePath, $areaToRsm) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT region, MIN(area) as area_name FROM stock_raw WHERE area IS NOT NULL AND area != '' GROUP BY region, UPPER(TRIM(area)) ORDER BY area_name ASC");
+                    $stmt = $pdo->query("SELECT COALESCE(NULLIF(rsm_area,''), region) as rsm, MIN(area) as area_name FROM stock_raw WHERE area IS NOT NULL AND area != '' GROUP BY UPPER(TRIM(area)) ORDER BY area_name ASC");
                     $rawAreas = $stmt->fetchAll(\PDO::FETCH_ASSOC);
                     $result = [];
                     foreach ($rawAreas as $a) {
+                        $cleanA = strtoupper(trim($a['area_name']));
+                        $rsm = $areaToRsm[$cleanA] ?? $a['rsm'];
                         $result[] = [
                             'id' => $a['area_name'],
                             'name' => ucwords(strtolower($a['area_name'])),
-                            'region' => $a['region']
+                            'region' => $rsm
                         ];
                     }
                     return $result;
@@ -768,18 +863,20 @@ class PrincipalPortalController extends Controller
                 }
             });
 
-            // Stores directly from stock_raw
-            $workLocations = Cache::remember('stock_filter_stores_v2_' . $selectedYear, 3600, function() use ($sqlitePath) {
+            // Stores directly from stock_raw with RSM info
+            $workLocations = Cache::remember('stock_filter_stores_v4_' . $selectedYear, 3600, function() use ($sqlitePath, $areaToRsm) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT DISTINCT region, MIN(area) as area, sap, store_name FROM stock_raw WHERE store_name IS NOT NULL AND store_name != '' GROUP BY store_name ORDER BY store_name ASC");
+                    $stmt = $pdo->query("SELECT DISTINCT COALESCE(NULLIF(rsm_area,''), region) as rsm, MIN(area) as area, sap, store_name FROM stock_raw WHERE store_name IS NOT NULL AND store_name != '' GROUP BY store_name ORDER BY store_name ASC");
                     $rawStores = $stmt->fetchAll(\PDO::FETCH_ASSOC);
                     $result = [];
                     foreach ($rawStores as $s) {
+                        $cleanA = strtoupper(trim($s['area'] ?? ''));
+                        $rsm = $areaToRsm[$cleanA] ?? $s['rsm'];
                         $result[] = [
                             'id' => $s['store_name'],
                             'name' => $s['store_name'],
-                            'region' => $s['region'],
+                            'region' => $rsm,
                             'area' => $s['area'],
                             'sap' => $s['sap']
                         ];
@@ -895,29 +992,24 @@ class PrincipalPortalController extends Controller
                 }
             }
 
-            // Regions directly from offtake_raw
-            $regions = Cache::remember('offtake_filter_regions_v2', 3600, function() use ($sqlitePath) {
-                try {
-                    $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT DISTINCT region FROM offtake_raw WHERE region IS NOT NULL AND region != '' ORDER BY region");
-                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
-                } catch (\Throwable $e) {
-                    return ['R1', 'R2', 'R3', 'R4'];
-                }
-            });
+            // Standardized RSM List for Offtake
+            $regions = $this->getDuluxStandardRsmList();
+            $areaToRsm = $this->getDuluxAreaToRsmMap();
 
-            // Areas directly from offtake_raw
-            $areas = Cache::remember('offtake_filter_areas_v2', 3600, function() use ($sqlitePath) {
+            // Areas directly from offtake_raw mapped to RSM
+            $areas = Cache::remember('offtake_filter_areas_v3', 3600, function() use ($sqlitePath, $areaToRsm) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT region, MIN(area) as area_name FROM offtake_raw WHERE area IS NOT NULL AND area != '' GROUP BY region, UPPER(TRIM(area)) ORDER BY area_name ASC");
+                    $stmt = $pdo->query("SELECT MIN(area) as area_name FROM offtake_raw WHERE area IS NOT NULL AND area != '' GROUP BY UPPER(TRIM(area)) ORDER BY area_name ASC");
                     $rawAreas = $stmt->fetchAll(\PDO::FETCH_ASSOC);
                     $result = [];
                     foreach ($rawAreas as $a) {
+                        $cleanA = strtoupper(trim($a['area_name']));
+                        $rsm = $areaToRsm[$cleanA] ?? '';
                         $result[] = [
                             'id' => $a['area_name'],
                             'name' => ucwords(strtolower($a['area_name'])),
-                            'region' => $a['region']
+                            'region' => $rsm
                         ];
                     }
                     return $result;
@@ -926,18 +1018,20 @@ class PrincipalPortalController extends Controller
                 }
             });
 
-            // Stores directly from offtake_raw
-            $workLocations = Cache::remember('offtake_filter_stores_v2', 3600, function() use ($sqlitePath) {
+            // Stores directly from offtake_raw mapped to RSM
+            $workLocations = Cache::remember('offtake_filter_stores_v3', 3600, function() use ($sqlitePath, $areaToRsm) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT DISTINCT region, MIN(area) as area, sap, name_store FROM offtake_raw WHERE name_store IS NOT NULL AND name_store != '' GROUP BY name_store ORDER BY name_store ASC");
+                    $stmt = $pdo->query("SELECT DISTINCT MIN(area) as area, sap, name_store FROM offtake_raw WHERE name_store IS NOT NULL AND name_store != '' GROUP BY name_store ORDER BY name_store ASC");
                     $rawStores = $stmt->fetchAll(\PDO::FETCH_ASSOC);
                     $result = [];
                     foreach ($rawStores as $s) {
+                        $cleanA = strtoupper(trim($s['area'] ?? ''));
+                        $rsm = $areaToRsm[$cleanA] ?? '';
                         $result[] = [
                             'id' => $s['name_store'],
                             'name' => $s['name_store'],
-                            'region' => $s['region'],
+                            'region' => $rsm,
                             'area' => $s['area'],
                             'sap' => $s['sap']
                         ];
@@ -1042,29 +1136,25 @@ class PrincipalPortalController extends Controller
                 }
             }
 
-            // Regions directly from oos_raw
-            $regions = Cache::remember('oos_filter_regions_v1', 3600, function() use ($sqlitePath) {
-                try {
-                    $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT DISTINCT region FROM oos_raw WHERE region IS NOT NULL AND region != '' ORDER BY region");
-                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
-                } catch (\Throwable $e) {
-                    return ['R1', 'R2', 'R3', 'R4'];
-                }
-            });
+            // Regions directly from oos_raw (standardized RSM list)
+            // Standardized RSM List for OOS
+            $regions = $this->getDuluxStandardRsmList();
+            $areaToRsm = $this->getDuluxAreaToRsmMap();
 
-            // Areas directly from oos_raw
-            $areas = Cache::remember('oos_filter_areas_v1', 3600, function() use ($sqlitePath) {
+            // Areas directly from oos_raw with standardized RSM info
+            $areas = Cache::remember('oos_filter_areas_v3', 3600, function() use ($sqlitePath, $areaToRsm) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT region, MIN(area) as area_name FROM oos_raw WHERE area IS NOT NULL AND area != '' GROUP BY region, UPPER(TRIM(area)) ORDER BY area_name ASC");
+                    $stmt = $pdo->query("SELECT COALESCE(NULLIF(rsm_area,''), region) as rsm, MIN(area) as area_name FROM oos_raw WHERE area IS NOT NULL AND area != '' GROUP BY UPPER(TRIM(area)) ORDER BY area_name ASC");
                     $rawAreas = $stmt->fetchAll(\PDO::FETCH_ASSOC);
                     $result = [];
                     foreach ($rawAreas as $a) {
+                        $cleanA = strtoupper(trim($a['area_name']));
+                        $rsm = $areaToRsm[$cleanA] ?? $a['rsm'];
                         $result[] = [
                             'id' => $a['area_name'],
                             'name' => ucwords(strtolower($a['area_name'])),
-                            'region' => $a['region']
+                            'region' => $rsm
                         ];
                     }
                     return $result;
@@ -1073,18 +1163,20 @@ class PrincipalPortalController extends Controller
                 }
             });
 
-            // Stores directly from oos_raw
-            $workLocations = Cache::remember('oos_filter_stores_v1', 3600, function() use ($sqlitePath) {
+            // Stores directly from oos_raw with RSM info
+            $workLocations = Cache::remember('oos_filter_stores_v3', 3600, function() use ($sqlitePath, $areaToRsm) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT DISTINCT region, MIN(area) as area, sap, store_name FROM oos_raw WHERE store_name IS NOT NULL AND store_name != '' GROUP BY store_name ORDER BY store_name ASC");
+                    $stmt = $pdo->query("SELECT DISTINCT COALESCE(NULLIF(rsm_area,''), region) as rsm, MIN(area) as area, sap, store_name FROM oos_raw WHERE store_name IS NOT NULL AND store_name != '' GROUP BY store_name ORDER BY store_name ASC");
                     $rawStores = $stmt->fetchAll(\PDO::FETCH_ASSOC);
                     $result = [];
                     foreach ($rawStores as $s) {
+                        $cleanA = strtoupper(trim($s['area'] ?? ''));
+                        $rsm = $areaToRsm[$cleanA] ?? $s['rsm'];
                         $result[] = [
                             'id' => $s['store_name'],
                             'name' => $s['store_name'],
-                            'region' => $s['region'],
+                            'region' => $rsm,
                             'area' => $s['area'],
                             'sap' => $s['sap']
                         ];
@@ -1188,34 +1280,23 @@ class PrincipalPortalController extends Controller
                 }
             }
 
-            // Extract distinct regions directly from dm_raw
-            $regions = Cache::remember('dm_filter_regions_v3', 3600, function() use ($sqlitePath) {
-                try {
-                    $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT DISTINCT rsm_area FROM dm_raw WHERE rsm_area IS NOT NULL AND rsm_area != '' ORDER BY rsm_area");
-                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
-                } catch (\Throwable $e) {
-                    return ['Bali Nusra', 'Central Java', 'Central Sumatera', 'East Java', 'Greater Jakarta', 'Kalimantan', 'LSO', 'North Sumatera', 'South Sumatera', 'Sulawesi', 'West Java'];
-                }
-            });
+            // Standardized RSM List for Daily Maintenance
+            $regions = $this->getDuluxStandardRsmList();
+            $areaToRsm = $this->getDuluxAreaToRsmMap();
 
-            // Extract distinct areas directly from dm_raw
-            $areaCacheKey = 'dm_filter_areas_v3_' . md5($selectedRegion ?: 'all');
-            $areas = Cache::remember($areaCacheKey, 3600, function() use ($sqlitePath, $selectedRegion) {
+            // Extract distinct areas directly from dm_raw mapped to RSM
+            $areas = Cache::remember('dm_filter_areas_v4', 3600, function() use ($sqlitePath, $areaToRsm) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    if ($selectedRegion) {
-                        $stmt = $pdo->prepare("SELECT DISTINCT area, rsm_area FROM dm_raw WHERE rsm_area = ? AND area IS NOT NULL AND area != '' ORDER BY area");
-                        $stmt->execute([$selectedRegion]);
-                    } else {
-                        $stmt = $pdo->query("SELECT DISTINCT area, rsm_area FROM dm_raw WHERE area IS NOT NULL AND area != '' ORDER BY area");
-                    }
+                    $stmt = $pdo->query("SELECT DISTINCT area, rsm_area FROM dm_raw WHERE area IS NOT NULL AND area != '' ORDER BY area");
                     $results = [];
                     foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $a) {
+                        $cleanA = strtoupper(trim($a['area']));
+                        $rsm = $areaToRsm[$cleanA] ?? $a['rsm_area'];
                         $results[] = [
                             'id' => $a['area'],
                             'name' => $a['area'],
-                            'region' => $a['rsm_area']
+                            'region' => $rsm
                         ];
                     }
                     return $results;
@@ -1224,30 +1305,19 @@ class PrincipalPortalController extends Controller
                 }
             });
 
-            // Extract distinct stores directly from dm_raw
-            $storeCacheKey = 'dm_filter_stores_v3_' . md5(($selectedRegion ?: 'all') . '_' . ($selectedAreaId ?: 'all'));
-            $workLocations = Cache::remember($storeCacheKey, 3600, function() use ($sqlitePath, $selectedRegion, $selectedAreaId) {
+            // Extract distinct stores directly from dm_raw mapped to RSM
+            $workLocations = Cache::remember('dm_filter_stores_v4', 3600, function() use ($sqlitePath, $areaToRsm) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $where = ["store_name IS NOT NULL AND store_name != ''"];
-                    $params = [];
-                    if ($selectedRegion) {
-                        $where[] = "rsm_area = ?";
-                        $params[] = $selectedRegion;
-                    }
-                    if ($selectedAreaId) {
-                        $where[] = "area = ?";
-                        $params[] = is_numeric($selectedAreaId) ? (Branch::where('id', $selectedAreaId)->value('name') ?: $selectedAreaId) : $selectedAreaId;
-                    }
-                    $whereSql = implode(' AND ', $where);
-                    $stmt = $pdo->prepare("SELECT DISTINCT store_name, rsm_area, area, sap_code FROM dm_raw WHERE $whereSql ORDER BY store_name");
-                    $stmt->execute($params);
+                    $stmt = $pdo->query("SELECT DISTINCT store_name, rsm_area, area, sap_code FROM dm_raw WHERE store_name IS NOT NULL AND store_name != '' ORDER BY store_name");
                     $result = [];
                     foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $s) {
+                        $cleanA = strtoupper(trim($s['area'] ?? ''));
+                        $rsm = $areaToRsm[$cleanA] ?? $s['rsm_area'];
                         $result[] = [
                             'id' => $s['store_name'],
                             'name' => $s['store_name'],
-                            'region' => $s['rsm_area'],
+                            'region' => $rsm,
                             'area' => $s['area'],
                             'sap' => $s['sap_code']
                         ];
@@ -1377,33 +1447,23 @@ class PrincipalPortalController extends Controller
             }
 
             // Extract distinct regions directly from cust_raw
-            $regions = Cache::remember('cust_filter_regions_v1', 3600, function() use ($sqlitePath) {
-                try {
-                    $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $stmt = $pdo->query("SELECT DISTINCT rsm_area FROM cust_raw WHERE rsm_area IS NOT NULL AND rsm_area != '' ORDER BY rsm_area");
-                    return $stmt->fetchAll(\PDO::FETCH_COLUMN);
-                } catch (\Throwable $e) {
-                    return ['Bali Nusra', 'Central Java', 'Central Sumatera', 'East Java', 'Greater Jakarta', 'Kalimantan', 'North Central Java', 'North Sumatera', 'South Central Java', 'South Sumatera', 'Sulawesi', 'West Java'];
-                }
-            });
+            // Standardized RSM List for Customer DB
+            $regions = $this->getDuluxStandardRsmList();
+            $areaToRsm = $this->getDuluxAreaToRsmMap();
 
-            // Extract distinct areas directly from cust_raw
-            $areaCacheKey = 'cust_filter_areas_v1_' . md5($selectedRegion ?: 'all');
-            $areas = Cache::remember($areaCacheKey, 3600, function() use ($sqlitePath, $selectedRegion) {
+            // Extract distinct areas directly from cust_raw mapped to RSM
+            $areas = Cache::remember('cust_filter_areas_v2', 3600, function() use ($sqlitePath, $areaToRsm) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    if ($selectedRegion) {
-                        $stmt = $pdo->prepare("SELECT DISTINCT area, rsm_area FROM cust_raw WHERE rsm_area = ? AND area IS NOT NULL AND area != '' ORDER BY area");
-                        $stmt->execute([$selectedRegion]);
-                    } else {
-                        $stmt = $pdo->query("SELECT DISTINCT area, rsm_area FROM cust_raw WHERE area IS NOT NULL AND area != '' ORDER BY area");
-                    }
+                    $stmt = $pdo->query("SELECT DISTINCT area, rsm_area FROM cust_raw WHERE area IS NOT NULL AND area != '' ORDER BY area");
                     $results = [];
                     foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $a) {
+                        $cleanA = strtoupper(trim($a['area']));
+                        $rsm = $areaToRsm[$cleanA] ?? $a['rsm_area'];
                         $results[] = [
                             'id' => $a['area'],
                             'name' => $a['area'],
-                            'region' => $a['rsm_area']
+                            'region' => $rsm
                         ];
                     }
                     return $results;
@@ -1412,30 +1472,19 @@ class PrincipalPortalController extends Controller
                 }
             });
 
-            // Extract distinct stores directly from cust_raw
-            $storeCacheKey = 'cust_filter_stores_v1_' . md5(($selectedRegion ?: 'all') . '_' . ($selectedAreaId ?: 'all'));
-            $workLocations = Cache::remember($storeCacheKey, 3600, function() use ($sqlitePath, $selectedRegion, $selectedAreaId) {
+            // Extract distinct stores directly from cust_raw mapped to RSM
+            $workLocations = Cache::remember('cust_filter_stores_v2', 3600, function() use ($sqlitePath, $areaToRsm) {
                 try {
                     $pdo = new \PDO("sqlite:" . $sqlitePath);
-                    $where = ["store_name IS NOT NULL AND store_name != ''"];
-                    $params = [];
-                    if ($selectedRegion) {
-                        $where[] = "rsm_area = ?";
-                        $params[] = $selectedRegion;
-                    }
-                    if ($selectedAreaId) {
-                        $where[] = "area = ?";
-                        $params[] = is_numeric($selectedAreaId) ? (Branch::where('id', $selectedAreaId)->value('name') ?: $selectedAreaId) : $selectedAreaId;
-                    }
-                    $whereSql = implode(' AND ', $where);
-                    $stmt = $pdo->prepare("SELECT DISTINCT store_name, rsm_area, area, sap_code FROM cust_raw WHERE $whereSql ORDER BY store_name");
-                    $stmt->execute($params);
+                    $stmt = $pdo->query("SELECT DISTINCT store_name, rsm_area, area, sap_code FROM cust_raw WHERE store_name IS NOT NULL AND store_name != '' ORDER BY store_name");
                     $result = [];
                     foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $s) {
+                        $cleanA = strtoupper(trim($s['area'] ?? ''));
+                        $rsm = $areaToRsm[$cleanA] ?? $s['rsm_area'];
                         $result[] = [
                             'id' => $s['store_name'],
                             'name' => $s['store_name'],
-                            'region' => $s['rsm_area'],
+                            'region' => $rsm,
                             'area' => $s['area'],
                             'sap' => $s['sap_code']
                         ];
@@ -2453,7 +2502,12 @@ class PrincipalPortalController extends Controller
                     $params = [];
 
                     if ($selectedRegion) {
-                        $whereClauses[] = "regional = ?";
+                        $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                        $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                        $whereClauses[] = "(rsm_area IN ($inPlaceholders) OR regional = ?)";
+                        foreach ($rsmVariants as $rv) {
+                            $params[] = $rv;
+                        }
                         $params[] = $selectedRegion;
                     }
                     if ($selectedAreaName) {
@@ -2624,8 +2678,24 @@ class PrincipalPortalController extends Controller
                     $params = [$sMonth, $eMonth];
 
                     if ($selectedRegion) {
-                        $where[] = "region = ?";
-                        $params[] = $selectedRegion;
+                        $areaToRsm = $this->getDuluxAreaToRsmMap();
+                        $matchingAreas = [];
+                        foreach ($areaToRsm as $aName => $rsmName) {
+                            if (strcasecmp($rsmName, $selectedRegion) === 0) {
+                                $matchingAreas[] = $aName;
+                            }
+                        }
+                        if (!empty($matchingAreas)) {
+                            $placeholders = implode(',', array_fill(0, count($matchingAreas), '?'));
+                            $where[] = "(UPPER(TRIM(area)) IN ($placeholders) OR region = ?)";
+                            foreach ($matchingAreas as $ma) {
+                                $params[] = $ma;
+                            }
+                            $params[] = $selectedRegion;
+                        } else {
+                            $where[] = "region = ?";
+                            $params[] = $selectedRegion;
+                        }
                     }
                     if ($selectedAreaName) {
                         $where[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
@@ -2812,7 +2882,12 @@ class PrincipalPortalController extends Controller
                     $params = [$sMonth, $eMonth];
 
                     if ($selectedRegion) {
-                        $where[] = "region = ?";
+                        $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                        $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                        $where[] = "(rsm_area IN ($inPlaceholders) OR region = ?)";
+                        foreach ($rsmVariants as $rv) {
+                            $params[] = $rv;
+                        }
                         $params[] = $selectedRegion;
                     }
                     if ($selectedAreaName) {
@@ -2853,7 +2928,15 @@ class PrincipalPortalController extends Controller
                         
                         $whereCompareCy = ["month = ?"];
                         $paramsCompareCy = [$endMonth];
-                        if ($selectedRegion) { $whereCompareCy[] = "region = ?"; $paramsCompareCy[] = $selectedRegion; }
+                        if ($selectedRegion) {
+                            $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                            $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                            $whereCompareCy[] = "(rsm_area IN ($inPlaceholders) OR region = ?)";
+                            foreach ($rsmVariants as $rv) {
+                                $paramsCompareCy[] = $rv;
+                            }
+                            $paramsCompareCy[] = $selectedRegion;
+                        }
                         if ($selectedAreaName) { $whereCompareCy[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))"; $paramsCompareCy[] = $selectedAreaName; }
                         if ($selectedStoreName) { $whereCompareCy[] = "store_name = ?"; $paramsCompareCy[] = $selectedStoreName; }
                         if ($selectedBrand === 'DULUX') { $whereCompareCy[] = "brand = 'Dulux'"; }
@@ -3170,7 +3253,12 @@ class PrincipalPortalController extends Controller
                         $params[] = strtoupper($selectedChannel);
                     }
                     if ($selectedRegion) {
-                        $where[] = "region = ?";
+                        $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                        $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                        $where[] = "(rsm_area IN ($inPlaceholders) OR region = ?)";
+                        foreach ($rsmVariants as $rv) {
+                            $params[] = $rv;
+                        }
                         $params[] = $selectedRegion;
                     }
                     if ($selectedAreaName) {
@@ -3418,8 +3506,12 @@ class PrincipalPortalController extends Controller
                     }
 
                     if ($selectedRegion) {
-                        $where[] = "rsm_area = ?";
-                        $params[] = $selectedRegion;
+                        $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                        $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                        $where[] = "rsm_area IN ($inPlaceholders)";
+                        foreach ($rsmVariants as $rv) {
+                            $params[] = $rv;
+                        }
                     }
                     if ($selectedAreaName) {
                         $where[] = "area = ?";
@@ -3613,8 +3705,12 @@ class PrincipalPortalController extends Controller
                     }
 
                     if ($selectedRegion) {
-                        $where[] = "rsm_area = ?";
-                        $params[] = $selectedRegion;
+                        $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                        $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                        $where[] = "rsm_area IN ($inPlaceholders)";
+                        foreach ($rsmVariants as $rv) {
+                            $params[] = $rv;
+                        }
                     }
                     if ($selectedAreaName) {
                         $where[] = "area = ?";
@@ -5548,7 +5644,12 @@ class PrincipalPortalController extends Controller
                 $params = [$sMonth, $eMonth];
 
                 if ($selectedRegion) {
-                    $where[] = "region = ?";
+                    $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                    $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                    $where[] = "(rsm_area IN ($inPlaceholders) OR region = ?)";
+                    foreach ($rsmVariants as $rv) {
+                        $params[] = $rv;
+                    }
                     $params[] = $selectedRegion;
                 }
                 if ($selectedAreaId) {
@@ -5886,9 +5987,15 @@ class PrincipalPortalController extends Controller
                 $paramsPy = [$targetMonth];
 
                 if ($selectedRegion) {
-                    $whereCy[] = "region = ?";
+                    $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                    $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                    $whereCy[] = "(rsm_area IN ($inPlaceholders) OR region = ?)";
+                    $wherePy[] = "(rsm_area IN ($inPlaceholders) OR region = ?)";
+                    foreach ($rsmVariants as $rv) {
+                        $paramsCy[] = $rv;
+                        $paramsPy[] = $rv;
+                    }
                     $paramsCy[] = $selectedRegion;
-                    $wherePy[] = "region = ?";
                     $paramsPy[] = $selectedRegion;
                 }
                 if ($selectedAreaId) {
@@ -6202,8 +6309,24 @@ class PrincipalPortalController extends Controller
                 $params = [$sMonth, $eMonth];
 
                 if ($selectedRegion) {
-                    $where[] = "region = ?";
-                    $params[] = $selectedRegion;
+                    $areaToRsm = $this->getDuluxAreaToRsmMap();
+                    $matchingAreas = [];
+                    foreach ($areaToRsm as $aName => $rsmName) {
+                        if (strcasecmp($rsmName, $selectedRegion) === 0) {
+                            $matchingAreas[] = $aName;
+                        }
+                    }
+                    if (!empty($matchingAreas)) {
+                        $placeholders = implode(',', array_fill(0, count($matchingAreas), '?'));
+                        $where[] = "(UPPER(TRIM(area)) IN ($placeholders) OR region = ?)";
+                        foreach ($matchingAreas as $ma) {
+                            $params[] = $ma;
+                        }
+                        $params[] = $selectedRegion;
+                    } else {
+                        $where[] = "region = ?";
+                        $params[] = $selectedRegion;
+                    }
                 }
                 if ($selectedAreaId) {
                     $where[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
@@ -6366,10 +6489,29 @@ class PrincipalPortalController extends Controller
                 $paramsPy = [$eMonth];
 
                 if ($selectedRegion) {
-                    $whereCy[] = "region = ?";
-                    $paramsCy[] = $selectedRegion;
-                    $wherePy[] = "region = ?";
-                    $paramsPy[] = $selectedRegion;
+                    $areaToRsm = $this->getDuluxAreaToRsmMap();
+                    $matchingAreas = [];
+                    foreach ($areaToRsm as $aName => $rsmName) {
+                        if (strcasecmp($rsmName, $selectedRegion) === 0) {
+                            $matchingAreas[] = $aName;
+                        }
+                    }
+                    if (!empty($matchingAreas)) {
+                        $placeholders = implode(',', array_fill(0, count($matchingAreas), '?'));
+                        $whereCy[] = "(UPPER(TRIM(area)) IN ($placeholders) OR region = ?)";
+                        $wherePy[] = "(UPPER(TRIM(area)) IN ($placeholders) OR region = ?)";
+                        foreach ($matchingAreas as $ma) {
+                            $paramsCy[] = $ma;
+                            $paramsPy[] = $ma;
+                        }
+                        $paramsCy[] = $selectedRegion;
+                        $paramsPy[] = $selectedRegion;
+                    } else {
+                        $whereCy[] = "region = ?";
+                        $paramsCy[] = $selectedRegion;
+                        $wherePy[] = "region = ?";
+                        $paramsPy[] = $selectedRegion;
+                    }
                 }
                 if ($selectedAreaId) {
                     $whereCy[] = "UPPER(TRIM(area)) = UPPER(TRIM(?))";
@@ -6723,7 +6865,12 @@ class PrincipalPortalController extends Controller
                 $params = [min(array_keys($months)), max(array_keys($months))];
 
                 if ($selectedRegion) {
-                    $whereClauses[] = "regional = ?";
+                    $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                    $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                    $whereClauses[] = "(rsm_area IN ($inPlaceholders) OR regional = ?)";
+                    foreach ($rsmVariants as $rv) {
+                        $params[] = $rv;
+                    }
                     $params[] = $selectedRegion;
                 }
                 if ($selectedAreaName) {
@@ -7222,7 +7369,12 @@ class PrincipalPortalController extends Controller
                     $params[] = strtoupper($selectedChannel);
                 }
                 if ($selectedRegion) {
-                    $where[] = "region = ?";
+                    $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                    $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                    $where[] = "(rsm_area IN ($inPlaceholders) OR region = ?)";
+                    foreach ($rsmVariants as $rv) {
+                        $params[] = $rv;
+                    }
                     $params[] = $selectedRegion;
                 }
                 if ($selectedAreaName) {
@@ -7507,8 +7659,12 @@ class PrincipalPortalController extends Controller
                 }
 
                 if ($selectedRegion) {
-                    $where[] = "rsm_area = ?";
-                    $params[] = $selectedRegion;
+                    $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                    $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                    $where[] = "rsm_area IN ($inPlaceholders)";
+                    foreach ($rsmVariants as $rv) {
+                        $params[] = $rv;
+                    }
                 }
                 if ($selectedAreaName) {
                     $where[] = "area = ?";
@@ -7790,8 +7946,12 @@ class PrincipalPortalController extends Controller
                 }
 
                 if ($selectedRegion) {
-                    $where[] = "rsm_area = ?";
-                    $params[] = $selectedRegion;
+                    $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
+                    $inPlaceholders = implode(',', array_fill(0, count($rsmVariants), '?'));
+                    $where[] = "rsm_area IN ($inPlaceholders)";
+                    foreach ($rsmVariants as $rv) {
+                        $params[] = $rv;
+                    }
                 }
                 if ($selectedAreaName) {
                     $where[] = "area = ?";

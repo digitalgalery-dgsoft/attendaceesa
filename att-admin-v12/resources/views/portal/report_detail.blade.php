@@ -1096,17 +1096,19 @@
                 </select>
             </div>
 
-            <!-- Filter Region -->
+            <!-- Filter RSM (Region) -->
             <div style="position: relative;">
                 <select name="region" id="filter_region" class="filter-select-btn" onchange="onRegionFilterChange(this.value)" style="padding-left: 2rem;">
-                    <option value="">🗺️ Semua Region</option>
+                    <option value="">🗺️ Semua RSM</option>
                     @foreach($regions as $r)
                         @php
                             $rArr = is_array($r) ? $r : (is_object($r) ? (array)$r : []);
-                            $rStr = !empty($rArr) ? ($rArr['regional'] ?? $rArr['region'] ?? '') : (is_scalar($r) ? (string)$r : '');
+                            $rStr = !empty($rArr) ? ($rArr['rsm_area'] ?? $rArr['regional'] ?? $rArr['region'] ?? '') : (is_scalar($r) ? (string)$r : '');
+                            $rTrim = trim(preg_replace('/^(rsm|region)\s+/i', '', $rStr));
+                            $rDisplay = !empty($rTrim) ? 'RSM ' . $rTrim : $rStr;
                         @endphp
                         <option value="{{ $rStr }}" {{ $selectedRegion == $rStr ? 'selected' : '' }}>
-                            {{ (str_starts_with(strtoupper($rStr), 'R') && strlen($rStr) <= 3) ? 'Region ' . ltrim($rStr, 'Rr') . ' (' . $rStr . ')' : (str_starts_with(strtoupper($rStr), 'REGION') ? $rStr : 'Region ' . $rStr) }}
+                            {{ $rDisplay }}
                         </option>
                     @endforeach
                 </select>
