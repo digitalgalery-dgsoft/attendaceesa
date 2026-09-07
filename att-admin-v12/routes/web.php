@@ -584,24 +584,38 @@ Route::get('/migrate-now', function () {
 });
 
 Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
-    @ini_set('memory_limit', '1024M');
-    @set_time_limit(120);
-    
-    $benchmarks = [];
-    $startAll = microtime(true);
-    
-    $mark = function($name) use (&$benchmarks, $startAll) {
-        $benchmarks[$name] = [
-            'elapsed_ms' => round((microtime(true) - $startAll) * 1000, 2),
-            'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
-            'peak_memory_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2),
-        ];
+    $logFile = storage_path('logs/checkpoint.txt');
+    $errFile = storage_path('logs/last_error.json');
+
+    if ($request->has('read_log')) {
+        return response()->json([
+            'checkpoint' => file_exists($logFile) ? file_get_contents($logFile) : null,
+            'last_error' => file_exists($errFile) ? json_decode(file_get_contents($errFile), true) : null,
+        ]);
+    }
+
+    $reservedMemory = str_repeat(' ', 1024 * 128);
+    register_shutdown_function(function() use (&$reservedMemory, $errFile, $logFile) {
+        $reservedMemory = null;
+        $err = error_get_last();
+        if ($err) {
+            file_put_contents($errFile, json_encode($err, JSON_PRETTY_PRINT));
+            file_put_contents($logFile, "SHUTDOWN ERROR: " . json_encode($err) . "\n", FILE_APPEND);
+        }
+    });
+
+    file_put_contents($logFile, "START: " . date('Y-m-d H:i:s') . "\n");
+    $log = function($step) use ($logFile) {
+        file_put_contents($logFile, "STEP: $step | Mem: " . round(memory_get_usage(true)/1024/1024, 2) . "MB\n", FILE_APPEND);
     };
 
-    $mark('init');
+    $log('init');
 
     try {
+        $log('before_ctrl_resolve');
         $ctrl = app(\App\Http\Controllers\Portal\PrincipalPortalController::class);
+        $log('after_ctrl_resolve');
+
         $req = \Illuminate\Http\Request::create('/portal/report/RPT-DULUX-OFFTAKE-01', 'GET', [
             'p' => 18,
             'start_month' => 9,
@@ -609,43 +623,36 @@ Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
             'end_month' => 9,
             'end_year' => 2026,
         ]);
-        $mark('request_created');
+        $log('after_request_create');
 
-        // Test full reportDetail directly
-        $mark('before_reportDetail');
+        $log('before_reportDetail');
         $res = $ctrl->reportDetail($req, 'RPT-DULUX-OFFTAKE-01');
-        $mark('after_reportDetail');
+        $log('after_reportDetail');
 
-        $renderedHtmlLen = 0;
         if ($res instanceof \Illuminate\View\View) {
-            $mark('before_render');
+            $log('before_render');
             $html = $res->render();
-            $renderedHtmlLen = strlen($html);
-            $mark('after_render');
+            $log('after_render_len_' . strlen($html));
             return response()->json([
                 'status' => 'success',
-                'html_len' => $renderedHtmlLen,
+                'html_len' => strlen($html),
                 'view_name' => $res->getName(),
-                'view_data_keys' => array_keys($res->getData()),
-                'benchmarks' => $benchmarks,
-            ], 200, [], JSON_PRETTY_PRINT);
+            ]);
         }
 
+        $log('after_non_view_response');
         return response()->json([
             'status' => 'success',
             'response_type' => is_object($res) ? get_class($res) : gettype($res),
-            'benchmarks' => $benchmarks,
-        ], 200, [], JSON_PRETTY_PRINT);
+        ]);
     } catch (\Throwable $e) {
-        $mark('caught_exception');
+        $log('EXCEPTION: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
         return response()->json([
             'status' => 'error',
             'message' => $e->getMessage(),
             'file' => $e->getFile(),
             'line' => $e->getLine(),
-            'benchmarks' => $benchmarks,
-            'trace' => explode("\n", $e->getTraceAsString())
-        ], 500, [], JSON_PRETTY_PRINT);
+        ], 500);
     }
 });
 
