@@ -319,12 +319,16 @@ class ReportTemplate extends Model
             ['field_label' => 'Keterangan / Kendala Stok & Tinter Toko', 'field_name' => 'keterangan_stok_toko', 'field_type' => 'textarea', 'placeholder' => 'Catatan status stok lambat laku (slow moving), kelebihan stok, atau request restock tinter...', 'is_required' => false],
         ];
 
-        ReportFormField::where('report_template_id', $stockEnd->id)->delete();
         foreach ($stockEndFields as $index => $field) {
-            ReportFormField::create(array_merge($field, [
-                'report_template_id' => $stockEnd->id,
-                'order_index' => $index + 1,
-            ]));
+            ReportFormField::updateOrCreate(
+                [
+                    'report_template_id' => $stockEnd->id,
+                    'field_name' => $field['field_name'],
+                ],
+                array_merge($field, [
+                    'order_index' => $index + 1,
+                ])
+            );
         }
 
         // 4. Laporan CBP (Consumer Buying Price) - Dinamis Kompetitor Tin/Galon/Pail, Promo Nominal/Persen, Foto Dihapus
@@ -351,12 +355,16 @@ class ReportTemplate extends Model
                 ['field_label' => 'Keterangan Program Promo / Bundling Toko', 'field_name' => 'keterangan_promo_toko', 'field_type' => 'text', 'placeholder' => 'Contoh: Cashback kupon toko, bundling kuas cat, promo akhir pekan...', 'is_required' => false],
             ];
 
-            ReportFormField::where('report_template_id', $cbpTemplate->id)->delete();
             foreach ($cbpFields as $index => $field) {
-                ReportFormField::create(array_merge($field, [
-                    'report_template_id' => $cbpTemplate->id,
-                    'order_index' => $index + 1,
-                ]));
+                ReportFormField::updateOrCreate(
+                    [
+                        'report_template_id' => $cbpTemplate->id,
+                        'field_name' => $field['field_name'],
+                    ],
+                    array_merge($field, [
+                        'order_index' => $index + 1,
+                    ])
+                );
             }
         }
 
@@ -364,7 +372,6 @@ class ReportTemplate extends Model
         // Nonaktifkan RPT-DULUX-OOS-LSO
         $oosLso = static::where('code', 'RPT-DULUX-OOS-LSO')->first();
         if ($oosLso) {
-            ReportFormField::where('report_template_id', $oosLso->id)->delete();
             $oosLso->update(['is_active' => false]);
         }
 
@@ -416,12 +423,16 @@ class ReportTemplate extends Model
                 ['field_label' => 'Penyebab / Alasan Out of Stock (OOS)', 'field_name' => 'alasan_oos', 'field_type' => 'dropdown', 'options' => $oosReasons, 'is_required' => true],
             ];
 
-            ReportFormField::where('report_template_id', $oosTemplate->id)->delete();
             foreach ($oosFields as $index => $field) {
-                ReportFormField::create(array_merge($field, [
-                    'report_template_id' => $oosTemplate->id,
-                    'order_index' => $index + 1,
-                ]));
+                ReportFormField::updateOrCreate(
+                    [
+                        'report_template_id' => $oosTemplate->id,
+                        'field_name' => $field['field_name'],
+                    ],
+                    array_merge($field, [
+                        'order_index' => $index + 1,
+                    ])
+                );
             }
         }
 
@@ -481,12 +492,16 @@ class ReportTemplate extends Model
                 ['field_label' => 'Foto Interaksi / Nota 3', 'field_name' => 'foto_3', 'field_type' => 'camera_photo', 'is_required' => false],
             ];
 
-            ReportFormField::where('report_template_id', $pelangganTemplate->id)->delete();
             foreach ($pelangganFields as $index => $field) {
-                ReportFormField::create(array_merge($field, [
-                    'report_template_id' => $pelangganTemplate->id,
-                    'order_index' => $index + 1,
-                ]));
+                ReportFormField::updateOrCreate(
+                    [
+                        'report_template_id' => $pelangganTemplate->id,
+                        'field_name' => $field['field_name'],
+                    ],
+                    array_merge($field, [
+                        'order_index' => $index + 1,
+                    ])
+                );
             }
         }
 
@@ -512,12 +527,16 @@ class ReportTemplate extends Model
                 ['field_label' => 'Kesimpulan Kondisi Mesin & Rekomendasi Maintenance', 'field_name' => 'kesimpulan_maintenance', 'field_type' => 'textarea', 'placeholder' => 'Tuliskan kendala teknis atau pasta yang perlu di-restock teknisi...', 'is_required' => false],
             ];
 
-            ReportFormField::where('report_template_id', $maintTemplate->id)->delete();
             foreach ($maintFields as $index => $field) {
-                ReportFormField::create(array_merge($field, [
-                    'report_template_id' => $maintTemplate->id,
-                    'order_index' => $index + 1,
-                ]));
+                ReportFormField::updateOrCreate(
+                    [
+                        'report_template_id' => $maintTemplate->id,
+                        'field_name' => $field['field_name'],
+                    ],
+                    array_merge($field, [
+                        'order_index' => $index + 1,
+                    ])
+                );
             }
         }
 

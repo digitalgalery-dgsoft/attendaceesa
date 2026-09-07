@@ -54,11 +54,6 @@ class ReportingApiController extends Controller
 
         $principalId = $employee->principal_id ?? $employee->department?->principal_id;
         
-        // Auto-heal Dulux template jika diperlukan
-        try {
-            ReportTemplate::syncDuluxMergedStockEnd();
-        } catch (\Throwable $e) {}
-
         // Cari semua template yang ditugaskan ke prinsiple karyawan ini
         $templatesQuery = ReportTemplate::with([
             'fields' => function ($q) {
@@ -497,13 +492,50 @@ class ReportingApiController extends Controller
                 $valuesInput = [];
             }
 
+            \Log::info("Reporting submission payload for [{$template->code}] code {$submissionCode}", [
+                'employee_id' => $employee->id,
+                'values_count' => count($valuesInput),
+                'values_keys' => array_keys($valuesInput),
+            ]);
+
+            // Normalisasi key di valuesInput agar pencarian fleksibel (ID, field_name, label slug, lowercase)
+            $normalizedValues = [];
+            foreach ($valuesInput as $k => $v) {
+                $strK = (string)$k;
+                $normalizedValues[$strK] = $v;
+                $normalizedValues[strtolower(trim($strK))] = $v;
+                $normalizedValues[strtolower(str_replace([' ', '-'], '_', trim($strK)))] = $v;
+            }
+
             // Simpan setiap parameter input
-            foreach ($template->fields as $field) {
+            foreach ($template->fields as $fieldIndex => $field) {
                 $fieldId = (string) $field->id;
                 $fieldName = $field->field_name;
+                $fieldLabel = $field->field_label;
                 
-                // Cari value dari input
-                $rawValue = $valuesInput[$fieldId] ?? $valuesInput[$fieldName] ?? $request->input("val_{$fieldId}") ?? null;
+                // 1. Cari value langsung dari ID atau field_name
+                $rawValue = $valuesInput[$fieldId] ?? $valuesInput[$fieldName] ?? null;
+
+                // 2. Cari dari varian slug dan lowercase nama field / label
+                if ($rawValue === null) {
+                    $slugName = strtolower(str_replace([' ', '-'], '_', (string)$fieldName));
+                    $slugLabel = $fieldLabel ? strtolower(str_replace([' ', '-'], '_', (string)$fieldLabel)) : null;
+                    $rawValue = $normalizedValues[$slugName] ?? ($slugLabel ? ($normalizedValues[$slugLabel] ?? null) : null);
+                }
+
+                // 3. Cari dari request input langsung (form multipart)
+                if ($rawValue === null) {
+                    $rawValue = $request->input("val_{$fieldId}") 
+                        ?? $request->input("val_{$fieldName}") 
+                        ?? $request->input($fieldName) 
+                        ?? $request->input($fieldId) 
+                        ?? null;
+                }
+
+                // 4. Fallback jika mobile app mengirimkan array berindeks urut
+                if ($rawValue === null && array_is_list($valuesInput) && isset($valuesInput[$fieldIndex])) {
+                    $rawValue = $valuesInput[$fieldIndex];
+                }
                 
                 $valueText = null;
                 $valueNumber = null;
