@@ -586,5 +586,26 @@ class ReportTemplate extends Model
                 }
             }
         }
+
+        // 10. Re-link foreign key report_form_field_id pada report_submission_values yang null/yatim
+        try {
+            $orphans = \App\Models\ReportSubmissionValue::where(function ($q) {
+                $q->whereNull('report_form_field_id')
+                  ->orWhere('report_form_field_id', 0);
+            })->with('submission')->limit(500)->get();
+
+            foreach ($orphans as $val) {
+                if ($val->submission && $val->submission->report_template_id) {
+                    $matchedField = \App\Models\ReportFormField::where('report_template_id', $val->submission->report_template_id)
+                        ->where('field_name', $val->field_name)
+                        ->first();
+                    if ($matchedField) {
+                        $val->update(['report_form_field_id' => $matchedField->id]);
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            \Log::warning("Re-linking orphaned report submission values: " . $e->getMessage());
+        }
     }
 }

@@ -53,6 +53,20 @@ class ReportingApiController extends Controller
         }
 
         $principalId = $employee->principal_id ?? $employee->department?->principal_id;
+
+        // Auto-seed missing Dulux fields HANYA jika ada template Dulux aktif yang belum memiliki field sama sekali
+        try {
+            $hasEmptyDuluxTemplate = ReportTemplate::where('is_active', true)
+                ->where('code', 'LIKE', 'RPT-DULUX-%')
+                ->whereDoesntHave('fields')
+                ->exists();
+
+            if ($hasEmptyDuluxTemplate) {
+                ReportTemplate::syncDuluxMergedStockEnd();
+            }
+        } catch (\Throwable $e) {
+            \Log::warning("Auto-sync empty Dulux template fields: " . $e->getMessage());
+        }
         
         // Cari semua template yang ditugaskan ke prinsiple karyawan ini
         $templatesQuery = ReportTemplate::with([
