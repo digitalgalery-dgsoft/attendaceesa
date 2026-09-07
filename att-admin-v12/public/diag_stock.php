@@ -21,9 +21,29 @@ try {
     $template = \App\Models\ReportTemplate::where('code', 'RPT-DULUX-STOCK-END')->first();
     echo "Template: {$template->code} (ID: {$template->id})\n";
 
-    echo "Testing calculateStockDashboardData with CACHE BYPASS...\n";
     $controller = new \App\Http\Controllers\Portal\PrincipalPortalController();
     $reflection = new \ReflectionClass($controller);
+
+    $startDate = \Carbon\Carbon::createFromDate(2026, 9, 1)->startOfMonth();
+    $endDate   = \Carbon\Carbon::createFromDate(2026, 9, 1)->endOfMonth();
+    $liveQueryMethod = $reflection->getMethod('getLiveSubmissionsQuery');
+    $liveQueryMethod->setAccessible(true);
+    $liveQuery = $liveQueryMethod->invokeArgs($controller, [$template, $startDate, $endDate, null, null, null, null]);
+    
+    echo "LiveQuery SQL: " . $liveQuery->toSql() . "\n";
+    echo "LiveQuery Bindings: " . json_encode($liveQuery->getBindings()) . "\n";
+    echo "LiveQuery Count: " . $liveQuery->count() . "\n";
+    
+    $liveSubs = $liveQuery->orderBy('submitted_at', 'desc')->get();
+    echo "Retrieved liveSubs count: " . $liveSubs->count() . "\n";
+    foreach ($liveSubs as $sub) {
+        echo "--- Sub: {$sub->submission_code}, Status: {$sub->status}, Submitted: {$sub->submitted_at}, Loc: " . ($sub->workLocation?->name ?? 'null') . " ---\n";
+        foreach ($sub->values as $val) {
+            echo "  Field: [{$val->field_name}] Slug: [" . ($val->formField?->field_name ?? '') . "] Label: [" . ($val->formField?->field_label ?? '') . "] Val: " . ($val->value_number ?? $val->value_text ?? $val->value_json ?? '') . "\n";
+        }
+    }
+
+    echo "\nTesting calculateStockDashboardData with CACHE BYPASS...\n";
     $method = $reflection->getMethod('calculateStockDashboardData');
     $method->setAccessible(true);
 
@@ -37,7 +57,7 @@ try {
         'ALL', null, 1, 1, 1, 50
     ]);
 
-    echo "RESULT AFTER CACHE FLUSH:\n";
+    echo "\nRESULT AFTER CACHE FLUSH:\n";
     echo "pivotable total_stores: " . ($res['pivotable']['total_stores'] ?? 'null') . "\n";
     echo "pivotable rows count: " . count($res['pivotable']['rows'] ?? []) . "\n";
     echo "summ total_stores: " . ($res['summ']['total_stores'] ?? 'null') . "\n";
