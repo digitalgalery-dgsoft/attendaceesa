@@ -1246,7 +1246,10 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
      - Menggabungkan data live secara dinamis ke seluruh ringkasan KPI: *Total Pelanggan Terdata*, *Total Nilai Belanja (Rp)*, *Rata-rata Keranjang Belanja*, *Toko Aktif*, *Distributor Terlibat*, *Pelanggan Switch Merk*, dan *Pelanggan Membeli Dulux*.
      - Menggabungkan data live ke seluruh grafik Consumer Insights (tipe pelanggan, alasan pembelian, perbandingan merk dicari vs dibeli, alasan switch merk, tujuan pengecatan, jenis cat dibeli), Matriks Ranking Wilayah / Regional, Toko dengan Pelanggan Terbanyak (dengan penanda `⚡ LIVE`), dan Raw Data Submissions.
      - Menghitung `$liveSubmissionsCount` dan mengatur active tab fallback cerdas ke Tab 4 (`live_data`) jika ada data live dan data arsip SQLite 0 baris pada filter aktif.
-     - Mengupdate cache key ke `cust_db_v3_` (TTL 60 detik) untuk pembaruan instan tanpa lagging.
+    - **Penyempurnaan Agregasi Regional & Peringkat Promotor**:
+      - Memperbaiki kalkulasi kolom `Toko Aktif` dan `DC / Promotor` pada tabel **Kontribusi Database Pelanggan per Region (RSM Area)** agar menghitung toko unik dan DC unik dari submisi live secara akurat (tidak lagi bernilai 0 saat SQLite kosong).
+      - Menyelaraskan tabel **Top 20 Promotor / DC Teraktif** dengan menggabungkan data promotor/DC pelapor dari submisi live sehingga peringkat promotor produktif langsung terisi dan terurut berdasarkan jumlah konsumen & nilai transaksi (misal: Citra Dewi Demo dengan 1 konsumen terdata).
+      - Menaikkan cache key kalkulasi dashboard ke `cust_db_v4_` untuk invalidasi instan di seluruh server cluster.
    - **Pembaruan Blade View Portal (`customer_database_dashboard.blade.php` & `report_detail.blade.php`)**:
      - Menambahkan Tab 4 "Data Laporan Masuk" pada navigation toolbar dengan badge counter submisi live.
      - Menyediakan tabel monitoring live komprehensif: Kode Laporan & Waktu Submit, SPG / DC Pelapor, Toko & Kode SAP, Profil Pelanggan & No. HP/WA, Tipe Konsumen & Status Switch Merk, Merk Dicari vs Dibeli, Nilai Belanja (Rp), Thumbnail Foto Struk & Kegiatan Konsumen, Status Radius GPS Toko, Status Approval, dan Tombol Quick Action.
