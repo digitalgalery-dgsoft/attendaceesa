@@ -12,6 +12,7 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 | **Single-Product Submission & Disable Terlapor** | 🟢 Selesai (100%) | 1 submission per produk, disable & tandai produk terlapor hari itu, tombol dinamis |
 | **Attendance Gate (Check-Out & Visit-Out)** | 🟢 Selesai (100%) | Blokir check-out / visit-out jika ada laporan atau produk wajib belum lengkap hari itu |
 | **Target Laporan Hari Kerja Efektif** | 🟢 Selesai (100%) | Target cut-off hanya menghitung workday, mengabaikan libur dan hari off |
+| **Rilis APK Mobile v1.0.126 (Sequential & Product Gate)** | 🟢 Rilis & Live | 107.7MB, sinkron ke Staging (appsend) & 3 Node Production (AMK, AKP, ATK) |
 | **Tab Data Laporan Masuk & Approval Offtake** | 🟢 Selesai & Live (100%) | Tab live submissions, quick approve/reject modal, sticky action & horizontal scroll |
 | **Resolusi Query Live Offtake & Out-of-Memory** | 🟢 Selesai (100%) | Eliminasi silent SQL error & filter batch import, query cepat (<1 detik, memori 65MB) |
 | **Multi-Kompetitor Form CBP Mobile (v1.0.124)** | 🟢 Rilis & Live | Input multi-brand kompetitor per toko & rilis APK v1.0.124 |
@@ -377,6 +378,15 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
   - Aplikasi mobile memvalidasi kepatuhan secara pre-emptive di `DashboardScreen` dan menangani response 422 di `AttendanceLocationScreen`, memunculkan dialog peringatan dengan tombol cepat **"Isi Laporan Sekarang"** yang langsung membuka layar pelaporan.
 - [x] **Kalkulasi Target Cut-off Berdasarkan Hari Kerja Efektif**:
   - Menyesuaikan kalkulasi target cut-off di `ReportTemplate::calculateCutoffTarget` untuk hanya menghitung hari kerja efektif karyawan (`schedule_type == 'workday'`), mengabaikan hari libur nasional (`Holiday`) dan hari libur shift (`dayoff`).
+- [x] **Kompilasi & Rilis APK Mobile v1.0.126 (8 September 2026)**:
+  - Bump versi mobile ke `v1.0.126+126` pada `att-mobile/pubspec.yaml`.
+  - Berhasil melakukan kompilasi release APK (`flutter build apk --release`, 107.7MB, 112.950.361 bytes).
+  - Mengunggah file APK via chunked uploader 22 parts ke server staging (`https://appsend.my.id/app-release.apk`).
+  - Menjalankan sinkronisasi multi-server production deployment cluster, mendistribusikan APK `v1.0.126` ke 3 server production:
+    - **Server 1 (AMK)**: `https://amk.esa-solutions.id/app-release.apk`
+    - **Server 2 (AKP)**: `https://akp.esa-solutions.id/app-release.apk`
+    - **Server 3 (ATK)**: `https://atk.esa-solutions.id/app-release.apk`
+  - Seluruh server production dan staging telah aktif menyajikan APK rilis `v1.0.126` dengan verifikasi health check ping OK (HTTP 200).
 
 ---
 
