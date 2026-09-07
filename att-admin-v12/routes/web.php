@@ -584,6 +584,12 @@ Route::get('/migrate-now', function () {
 });
 
 Route::get('/cek-admin', function (\Illuminate\Http\Request $request) {
+    register_shutdown_function(function() {
+        $err = error_get_last();
+        if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+            echo json_encode(['fatal_error' => $err]);
+        }
+    });
     try {
         $sub = \App\Models\ReportSubmission::where('submission_code', 'LIKE', '%JTHH%')
             ->orWhere('submission_code', 'LIKE', '%X9FI%')
