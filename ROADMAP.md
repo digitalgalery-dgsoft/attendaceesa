@@ -1172,3 +1172,58 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
        - **Tab 4 (Data Laporan Masuk)**: Tab dedikasi untuk monitoring submisi live lengkap dengan status radius GPS, rincian produk/alasan, serta tombol aksi **Quick Approve** dan **Quick Reject** (dengan modal input alasan penolakan).
      - Menyelaraskan seluruh slug form: `pilih_produk_dulux_yang_mengalami_out_of_stock_oos`, `base_kategori_warna_yang_kosong`, `kemasan_size_yang_kosong`, `lama_kondisi_barang_kosong_jumlah_hari`, `saran_kuantiti_order_ke_toko_qty_kemasan`, `penyebab_alasan_out_of_stock_oos`, dan `tipe_gerai_channel_toko`.
      - Telah tervalidasi aktif di production: `https://dulux.esa-solutions.id/portal/report/RPT-DULUX-OOS-SSO`.
+---
+
+## ✅ Catatan Rilis & Penyempurnaan Sistem (7 September 2026)
+
+1. **Laporan Daily Maintenance Dulux (`RPT-DULUX-DAILY-MAINTENANCE`) - Pilihan Mesin Dinamis Berdasarkan Toko & Auto-Fill Nomor Seri (Aplikasi Mobile & Backend API)**:
+   - **Pilihan Mesin Dinamis Berdasarkan Toko/Lokasi**:
+     - Field dropdown `tipe_mesin_post` di aplikasi mobile kini otomatis menampilkan daftar mesin tinting yang hanya dimiliki oleh toko yang sedang dipilih/dikunjungi (misalnya pada **Toko Demo Kalilor**, otomatis hanya muncul `Mesin D200 (Automatic Tinting)` dan `Mesin Discovery (Automatic Tinting)`).
+     - Selalu menyertakan opsi fallback resmi `"Toko Tidak Memiliki Mesin Tinting"`.
+   - **Pengisian Otomatis Nomor Seri Mesin (`no_mesin_post`)**:
+     - Ketika form Daily Maintenance dibuka atau toko dipilih, mesin pertama langsung terpilih dan nomor serinya otomatis terisi ke field `no_mesin_post` (misal `POST-2022-SUB-042` untuk D200).
+     - Saat pengguna mengganti pilihan mesin di dropdown (misal memilih `Mesin Discovery`), nomor seri langsung berganti seketika ke nomor seri yang sesuai (`POST-2023-SUB-089`).
+     - Jika pengguna memilih `"Toko Tidak Memiliki Mesin Tinting"`, nomor seri otomatis terisi `"-"`.
+   - **Database & Model Extension**:
+     - Menambahkan migration `2026_09_07_220000_add_machines_json_to_work_locations_table.php` untuk menambahkan kolom JSON `machines` pada tabel `work_locations`.
+     - Menambahkan casting `'machines' => 'array'` pada model `WorkLocation`.
+     - Mengoptimalkan sinkronisasi data historis mesin toko dari SQLite arsip Daily Maintenance ke PostgreSQL.
+   - **Backend API Reporting**:
+     - Endpoint `/api/v1/reporting/stores` diperkaya dengan atribut `machines` per unit toko.
+     - Endpoint submit laporan `/api/v1/reporting/templates/{code}/submit` otomatis menyimpan dan menyinkronkan mesin toko yang diinput promotor/DC ke database `work_locations`.
+   - **Mobile Dynamic Form Screen (`dynamic_form_screen.dart`)**:
+     - Mengimplementasikan helper `_isDailyMaintenanceTemplate()`, `_getStoreMachinesMap()`, `_autoFillMachineSerial()`, dan `_initStoreMachineForDailyMaintenance()`.
+     - Dropdown `tipe_mesin_post` dan text controller `no_mesin_post` tersinkronisasi secara reaktif.
+
+2. **Rilis Aplikasi Mobile Android APK v1.0.125+125**:
+   - Versi aplikasi mobile resmi dinaikkan ke **`1.0.125+125`** di `pubspec.yaml`.
+   - Kompilasi APK release selesai dengan sukses: `app-release-1.0.125.apk` (112.7 MB).
+   - Diunggah ke server unduhan resmi:
+     - URL Langsung: `https://appsend.my.id/app-release.apk`
+     - Ukuran: 112,770,029 bytes
+     - Checksum MD5: `6c095d0cb524117d886b4fd3f2760649`
+   - Tersinkronkan otomatis ke direktori download di seluruh server cluster production (`amk.esa-solutions.id`, `akp.esa-solutions.id`, `atk.esa-solutions.id`).
+
+3. **Portal Principal Dulux - Integrasi Real-Time Live Submissions Daily Maintenance & Tab Verifikasi**:
+   - **Identifikasi Masalah**: Laporan Daily Maintenance yang di-submit dari mobile berhasil tersimpan di PostgreSQL (`report_submissions`), tetapi di Portal Principal (`https://dulux.esa-solutions.id/portal/report/RPT-DULUX-DAILY-MAINTENANCE`) bernilai 0 karena controller portal sebelumnya hanya membaca arsip historis SQLite (`daily_maintenance.sqlite`) yang berakhir di pertengahan 2026.
+   - **Penyelesaian Backend (`PrincipalPortalController.php`)**:
+     - Menghubungkan query `getLiveSubmissionsQuery()` langsung ke dalam kalkulasi data dashboard Daily Maintenance.
+     - Memetakan field dinamis form: `tipe_mesin_post`, `no_mesin_post`, status checklist (`status_nozzle_cleaning`, `status_sirkulasi_tinter`, `status_software_komputer`, `status_program_mix2win`), rekomendasi teknisi, dan foto bukti (`foto_brush_cleaning`, `foto_mesin_tinting`).
+     - Menggabungkan data live secara dinamis ke seluruh komponen: KPI utama, sebaran mesin, kategori toko, RSM area, matriks toko per unit, dan data mentah.
+     - Menghitung `$liveSubmissionsCount` dan mengatur `$activeTab` cerdas (otomatis membuka tab live jika terdapat data laporan baru dan data arsip SQLite 0 baris pada filter aktif).
+     - Mendukung alasan penolakan (`verification_notes` & `admin_notes`) pada method verifikasi laporan.
+     - Menaikkan cache key dashboard ke `dm_dash_v5_` (TTL 60 detik) untuk pembaruan instan.
+   - **Pembaruan Blade View Portal (`daily_maintenance_dashboard.blade.php` & `report_detail.blade.php`)**:
+     - **Tab 1 (Ringkasan & Kepatuhan)**: Menghitung submission live ke total toko terawat, mesin aktif, dan tingkat kepatuhan prosedur perawatan.
+     - **Tab 2 (Matriks Toko & Mesin Tinting)**: Menampilkan baris toko/mesin dari data live dengan badge penanda `⚡ LIVE`.
+     - **Tab 3 (Data Mentah Submission)**: Menampilkan rekaman data mentah submission live lengkap dengan status checklist dan badge `⚡ LIVE`.
+     - **Tab 4 (Data Laporan Masuk)**: Tab verifikasi interaktif baru dilengkapi badge counter biru, tabel/kartu rincian submission, thumbnail foto bukti (dengan modal preview lightbox), validasi radius GPS, status badge verifikasi, serta tombol aksi cepat **Setujui** (Quick Approve) dan **Tolak Laporan** (Quick Reject dengan modal pop-up alasan penolakan).
+     - Memastikan variabel `$submissions`, `$liveSubmissionsCount`, dan `$activeTab` diteruskan secara lengkap ke komponen blade.
+
+4. **Multi-Server Production Deployment & Cluster Synchronisation**:
+   - Seluruh perubahan source code (backend API, mobile screen, blade template portal, dan migrations) telah berhasil di-deploy ke seluruh cluster server production via webhook `deploy-production.php`:
+     - **Server 1: PT Arina Multi Karya (AMK)**: `38.103.170.235` / `amk.esa-solutions.id` (HTTP 200 OK)
+     - **Server 2: PT Alva Karya Perkasa (AKP)**: `38.103.170.223` / `akp.esa-solutions.id` (HTTP 200 OK)
+     - **Server 3: PT Anugrah Talenta Berkarya (ATK)**: `38.103.170.224` / `atk.esa-solutions.id` (HTTP 200 OK)
+   - Portal Principal Dulux Daily Maintenance telah diverifikasi langsung dan beroperasi normal secara real-time di:
+     `https://dulux.esa-solutions.id/portal/report/RPT-DULUX-DAILY-MAINTENANCE`
