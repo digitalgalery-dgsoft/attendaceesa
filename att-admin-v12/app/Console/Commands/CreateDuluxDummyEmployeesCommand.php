@@ -59,7 +59,7 @@ class CreateDuluxDummyEmployeesCommand extends Command
         }
         $this->line("✔ Principal: {$principal->name} (ID: {$principal->id})");
 
-        // 3. Dapatkan / Buat Branch Surabaya (Branch tidak memiliki company_id)
+        // 3. Dapatkan / Buat Branch Surabaya
         $branch = Branch::where('name', 'ilike', '%surabaya%')->first();
 
         if (!$branch) {
@@ -75,71 +75,38 @@ class CreateDuluxDummyEmployeesCommand extends Command
         $this->line("✔ Branch / Area: {$branch->name} (ID: {$branch->id})");
 
         // 4. Dapatkan / Buat Department
-        $department = Department::where('principal_id', $principal->id)
-            ->orWhere(function ($q) {
-                $q->where('name', 'ilike', '%operasional%')
-                  ->orWhere('name', 'ilike', '%operation%')
-                  ->orWhere('name', 'ilike', '%field%')
-                  ->orWhere('name', 'ilike', '%sales%');
-            })->first();
-
-        if (!$department) {
-            $department = Department::firstOrCreate(
-                ['name' => 'Field Operations Dulux'],
-                [
-                    'code' => 'DEP-DULUX',
-                    'company_id' => $company->id,
-                    'principal_id' => $principal->id,
-                    'is_active' => true,
-                ]
-            );
-        }
+        $department = Department::firstOrCreate(
+            ['name' => 'Field Operations Dulux', 'principal_id' => $principal->id],
+            [
+                'code' => 'DEP-DULUX',
+                'company_id' => $company->id,
+                'is_active' => true,
+            ]
+        );
         $this->line("✔ Department: {$department->name} (ID: {$department->id})");
 
         // 5. Dapatkan / Buat Position: TL (Team Leader)
-        $positionTl = Position::where(function ($q) use ($principal) {
-            $q->where('principal_id', $principal->id)
-              ->orWhereNull('principal_id');
-        })->where(function ($q) {
-            $q->where('name', 'ilike', '%team leader%')
-              ->orWhere('name', 'ilike', '%tl%');
-        })->first();
-
-        if (!$positionTl) {
-            $positionTl = Position::firstOrCreate(
-                ['name' => 'Team Leader (TL)'],
-                [
-                    'code' => 'TL-DULUX',
-                    'company_id' => $company->id,
-                    'principal_id' => $principal->id,
-                    'is_active' => true,
-                ]
-            );
-        }
+        $positionTl = Position::firstOrCreate(
+            ['name' => 'Team Leader (TL)', 'principal_id' => $principal->id],
+            [
+                'code' => 'TL-DULUX',
+                'company_id' => $company->id,
+                'department_id' => $department->id,
+                'is_active' => true,
+            ]
+        );
         $this->line("✔ Position TL: {$positionTl->name} (ID: {$positionTl->id})");
 
         // 6. Dapatkan / Buat Position: DC (Decorative Consultant)
-        $positionDc = Position::where(function ($q) use ($principal) {
-            $q->where('principal_id', $principal->id)
-              ->orWhereNull('principal_id');
-        })->where(function ($q) {
-            $q->where('name', 'ilike', '%decorative consultant%')
-              ->orWhere('name', 'ilike', '%dc%')
-              ->orWhere('name', 'ilike', '%consultant%')
-              ->orWhere('name', 'ilike', '%promotor%');
-        })->first();
-
-        if (!$positionDc) {
-            $positionDc = Position::firstOrCreate(
-                ['name' => 'Decorative Consultant (DC)'],
-                [
-                    'code' => 'DC-DULUX',
-                    'company_id' => $company->id,
-                    'principal_id' => $principal->id,
-                    'is_active' => true,
-                ]
-            );
-        }
+        $positionDc = Position::firstOrCreate(
+            ['name' => 'Decorative Consultant (DC)', 'principal_id' => $principal->id],
+            [
+                'code' => 'DC-DULUX',
+                'company_id' => $company->id,
+                'department_id' => $department->id,
+                'is_active' => true,
+            ]
+        );
         $this->line("✔ Position DC: {$positionDc->name} (ID: {$positionDc->id})");
 
         // 7. Ambil daftar store Dulux untuk penempatan
@@ -156,7 +123,7 @@ class CreateDuluxDummyEmployeesCommand extends Command
             [
                 'type' => 'TL',
                 'nik' => 'DULUX-TL-001',
-                'name' => 'Ahmad Fauzi (TL)',
+                'name' => 'Ahmad Fauzi (TL Surabaya)',
                 'email' => 'tl.surabaya@dulux-demo.com',
                 'phone' => '081234560001',
                 'gender' => 'male',
@@ -167,7 +134,7 @@ class CreateDuluxDummyEmployeesCommand extends Command
             [
                 'type' => 'DC',
                 'nik' => 'DULUX-DC-001',
-                'name' => 'Budi Santoso (DC)',
+                'name' => 'Budi Santoso (DC Surabaya 1)',
                 'email' => 'dc1.surabaya@dulux-demo.com',
                 'phone' => '081234560002',
                 'gender' => 'male',
@@ -178,7 +145,7 @@ class CreateDuluxDummyEmployeesCommand extends Command
             [
                 'type' => 'DC',
                 'nik' => 'DULUX-DC-002',
-                'name' => 'Citra Dewi (DC)',
+                'name' => 'Citra Dewi (DC Surabaya 2)',
                 'email' => 'dc2.surabaya@dulux-demo.com',
                 'phone' => '081234560003',
                 'gender' => 'female',
@@ -189,7 +156,7 @@ class CreateDuluxDummyEmployeesCommand extends Command
             [
                 'type' => 'DC',
                 'nik' => 'DULUX-DC-003',
-                'name' => 'Dedi Pratama (DC)',
+                'name' => 'Dedi Pratama (DC Surabaya 3)',
                 'email' => 'dc3.surabaya@dulux-demo.com',
                 'phone' => '081234560004',
                 'gender' => 'male',
@@ -200,7 +167,7 @@ class CreateDuluxDummyEmployeesCommand extends Command
             [
                 'type' => 'DC',
                 'nik' => 'DULUX-DC-004',
-                'name' => 'Eka Rahmawati (DC)',
+                'name' => 'Eka Rahmawati (DC Surabaya 4)',
                 'email' => 'dc4.surabaya@dulux-demo.com',
                 'phone' => '081234560005',
                 'gender' => 'female',
@@ -276,6 +243,7 @@ class CreateDuluxDummyEmployeesCommand extends Command
                 'name' => $employee->full_name,
                 'email' => $employee->email,
                 'phone' => $employee->phone,
+                'branch' => $branch->name,
                 'position' => $item['type'] === 'TL' ? 'Team Leader (TL)' : 'Decorative Consultant (DC)',
                 'supervisor' => $item['is_supervisor'] ? '-' : ($tlEmployee ? $tlEmployee->full_name : '-'),
                 'store' => $item['store'] ? $item['store']->name . ' (' . ($item['store']->code ?? '-') . ')' : 'Lokasi Terpusat',
@@ -294,11 +262,12 @@ class CreateDuluxDummyEmployeesCommand extends Command
         $this->info('======================================================================');
         
         $this->table(
-            ['Jabatan', 'NIK', 'Nama Karyawan', 'Email Login', 'Password', 'Supervisor', 'Penempatan Store'],
+            ['Jabatan', 'NIK', 'Nama Karyawan', 'Area / Branch', 'Email Login', 'Password', 'Supervisor', 'Penempatan Store'],
             array_map(fn($r) => [
                 $r['type'],
                 $r['nik'],
                 $r['name'],
+                $r['branch'],
                 $r['email'],
                 'password',
                 $r['supervisor'],
