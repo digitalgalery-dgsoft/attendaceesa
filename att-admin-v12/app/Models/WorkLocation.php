@@ -13,6 +13,10 @@ class WorkLocation extends Model
 
     protected $guarded = ['id'];
 
+    protected $casts = [
+        'machines' => 'array',
+    ];
+
     public function company()
     {
         return $this->belongsTo(Company::class);

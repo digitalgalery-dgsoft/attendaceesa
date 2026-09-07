@@ -248,6 +248,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       _selectedWorkLocationId = int.tryParse(loc['id']?.toString() ?? '');
       _selectedStoreName = loc['name']?.toString() ?? '';
       _allowedRadiusMeter = double.tryParse(loc['radius_meter']?.toString() ?? loc['radius']?.toString() ?? '100') ?? 100.0;
+      _initStoreMachineForDailyMaintenance();
     });
 
     _recalculateRadius();
@@ -270,6 +271,95 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         _calculatedDistance = null;
         _isWithinRadius = false;
       });
+    }
+  }
+
+  bool _isDailyMaintenanceTemplate() {
+    final code = widget.template.code.toUpperCase();
+    final title = widget.template.title.toLowerCase();
+    return code == 'RPT-DULUX-DAILY-MAINTENANCE' ||
+        code.contains('DAILY-MAINTENANCE') ||
+        title.contains('daily maintenance');
+  }
+
+  Map<String, String> _getStoreMachinesMap() {
+    final Map<String, String> map = {};
+    if (_selectedLocation == null) return map;
+
+    // 1. Dari array 'machines' pada data store JSON
+    final rawMachines = _selectedLocation!['machines'];
+    if (rawMachines is List && rawMachines.isNotEmpty) {
+      for (final m in rawMachines) {
+        if (m is Map) {
+          final type = m['machine_type']?.toString().trim() ?? m['type']?.toString().trim() ?? '';
+          final serial = m['machine_serial_no']?.toString().trim() ?? m['serial_no']?.toString().trim() ?? m['no']?.toString().trim() ?? '';
+          if (type.isNotEmpty) {
+            map[type] = serial;
+          }
+        }
+      }
+    }
+
+    // 2. Dari field scalar 'machine_type' dan 'machine_serial_no'
+    final singleType = _selectedLocation!['machine_type']?.toString().trim() ?? '';
+    final singleSerial = _selectedLocation!['machine_serial_no']?.toString().trim() ?? '';
+    if (singleType.isNotEmpty && !map.containsKey(singleType)) {
+      map[singleType] = singleSerial;
+    }
+
+    return map;
+  }
+
+  void _autoFillMachineSerial(String? selectedMachine) {
+    if (selectedMachine == null) return;
+    final storeMachinesMap = _getStoreMachinesMap();
+    final isNoMachine = selectedMachine.toLowerCase().contains('tidak memiliki') || selectedMachine.toLowerCase().contains('tidak ada');
+    String serialNo = isNoMachine ? '-' : (storeMachinesMap[selectedMachine] ?? '');
+    if (!isNoMachine && serialNo.isEmpty && storeMachinesMap.length == 1) {
+      serialNo = storeMachinesMap.values.first;
+    }
+
+    for (final f in widget.template.fields) {
+      final fName = f.fieldName.toLowerCase();
+      final fLabel = f.fieldLabel.toLowerCase();
+      if (fName == 'no_mesin_post' || fName.contains('no_mesin') || fLabel.contains('no mesin') || fLabel.contains('nomor seri')) {
+        final serialKey = f.id.toString();
+        if (_controllers.containsKey(serialKey)) {
+          _controllers[serialKey]!.text = serialNo;
+        } else {
+          _controllers[serialKey] = TextEditingController(text: serialNo);
+        }
+        _formValues[serialKey] = serialNo;
+        _formValues['no_mesin_post'] = serialNo;
+        _formValues[f.fieldName] = serialNo;
+      }
+    }
+  }
+
+  void _initStoreMachineForDailyMaintenance() {
+    if (!_isDailyMaintenanceTemplate()) return;
+    if (widget.editSubmission != null) return;
+
+    final storeMachinesMap = _getStoreMachinesMap();
+    if (storeMachinesMap.isEmpty) return;
+
+    for (final f in widget.template.fields) {
+      final fName = f.fieldName.toLowerCase();
+      final fLabel = f.fieldLabel.toLowerCase();
+      if (fName == 'tipe_mesin_post' || fName.contains('tipe_mesin') || fLabel.contains('tipe mesin')) {
+        final machineKey = f.id.toString();
+        final currentVal = _formValues[machineKey]?.toString();
+        if (currentVal == null || currentVal.isEmpty || !storeMachinesMap.containsKey(currentVal)) {
+          final firstMachine = storeMachinesMap.keys.first;
+          _formValues[machineKey] = firstMachine;
+          _formValues['tipe_mesin_post'] = firstMachine;
+          _formValues[f.fieldName] = firstMachine;
+          _autoFillMachineSerial(firstMachine);
+        } else {
+          // Pre-populate serial if already selected
+          _autoFillMachineSerial(currentVal);
+        }
+      }
     }
   }
 
@@ -2491,10 +2581,55 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           }
         }
 
+        // Dynamic Machine Type Filter for Daily Maintenance based on Location / Store
+        final fieldNameLower = field.fieldName.toLowerCase();
+        final fieldLabelLower = field.fieldLabel.toLowerCase();
+        final isDailyMaintenance = _isDailyMaintenanceTemplate();
+        final isMachineTypeField = isDailyMaintenance &&
+            (fieldNameLower == 'tipe_mesin_post' ||
+             fieldNameLower.contains('tipe_mesin') ||
+             fieldLabelLower.contains('tipe mesin') ||
+             fieldLabelLower.contains('mesin tinting post'));
+
+        if (isMachineTypeField) {
+          final storeMachinesMap = _getStoreMachinesMap();
+          if (storeMachinesMap.isNotEmpty) {
+            effectiveOptions = [
+              ...storeMachinesMap.keys,
+              'Toko Tidak Memiliki Mesin Tinting',
+            ];
+          } else {
+            if (!effectiveOptions.contains('Toko Tidak Memiliki Mesin Tinting')) {
+              effectiveOptions.add('Toko Tidak Memiliki Mesin Tinting');
+            }
+          }
+          effectiveOptions = effectiveOptions.toSet().toList();
+        }
+
         // Pastikan nilai value yang dipilih valid ada di daftar options
-        final currentDropdownVal = _formValues[fieldKey];
-        final validDropdownValue = (currentDropdownVal != null && effectiveOptions.contains(currentDropdownVal))
-            ? currentDropdownVal
+        var currentDropdownVal = _formValues[fieldKey] ?? _formValues[field.fieldName] ?? _formValues['tipe_mesin_post'];
+
+        // Auto-select first machine for Daily Maintenance if not yet set
+        if (isMachineTypeField && (currentDropdownVal == null || !effectiveOptions.contains(currentDropdownVal.toString()))) {
+          if (effectiveOptions.isNotEmpty) {
+            currentDropdownVal = effectiveOptions.first;
+            _formValues[fieldKey] = currentDropdownVal;
+            _formValues[field.fieldName] = currentDropdownVal;
+            _formValues['tipe_mesin_post'] = currentDropdownVal;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _autoFillMachineSerial(currentDropdownVal?.toString());
+              }
+            });
+          }
+        }
+
+        if (currentDropdownVal != null && !effectiveOptions.contains(currentDropdownVal.toString())) {
+          effectiveOptions.insert(0, currentDropdownVal.toString());
+        }
+
+        final validDropdownValue = (currentDropdownVal != null && effectiveOptions.contains(currentDropdownVal.toString()))
+            ? currentDropdownVal.toString()
             : null;
 
         final dropdownWidget = DropdownButtonFormField<String>(
@@ -2553,8 +2688,13 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               : (v) {
                   setState(() {
                     _formValues[fieldKey] = v;
+                    _formValues[field.fieldName] = v;
                     if (fieldKey == 'kategori_tinter') {
                       _formValues['tipe_tinter_warna'] = null;
+                    }
+                    if (isMachineTypeField) {
+                      _formValues['tipe_mesin_post'] = v;
+                      _autoFillMachineSerial(v);
                     }
                   });
                 },

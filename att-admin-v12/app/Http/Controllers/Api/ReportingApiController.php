@@ -648,6 +648,30 @@ class ReportingApiController extends Controller
                         if (!empty($noMesinVal)) {
                             $updateData['machine_serial_no'] = $noMesinVal;
                         }
+
+                        // Update atau tambahkan ke daftar array machines
+                        if (!empty($tipeMesinVal) && stripos($tipeMesinVal, 'tidak memiliki') === false) {
+                            $existingMachines = is_array($workLoc->machines) ? $workLoc->machines : [];
+                            $found = false;
+                            foreach ($existingMachines as &$em) {
+                                if (strcasecmp(trim($em['machine_type'] ?? ''), trim($tipeMesinVal)) === 0) {
+                                    if (!empty($noMesinVal)) {
+                                        $em['machine_serial_no'] = $noMesinVal;
+                                    }
+                                    $found = true;
+                                    break;
+                                }
+                            }
+                            unset($em);
+                            if (!$found) {
+                                $existingMachines[] = [
+                                    'machine_type' => $tipeMesinVal,
+                                    'machine_serial_no' => $noMesinVal ?: '',
+                                ];
+                            }
+                            $updateData['machines'] = $existingMachines;
+                        }
+
                         if (!empty($updateData)) {
                             $workLoc->update($updateData);
                         }
@@ -720,6 +744,41 @@ class ReportingApiController extends Controller
                 $data['area'] = $areaName;
                 $data['is_today_itinerary'] = in_array((int)$loc->id, $itineraryLocationIds);
                 $data['radius_meter'] = $loc->getEffectiveRadiusForEmployee($employee);
+
+                // Format & lengkapi daftar mesin untuk Laporan Daily Maintenance
+                $machinesList = [];
+                if (!empty($loc->machines) && is_array($loc->machines)) {
+                    foreach ($loc->machines as $m) {
+                        if (is_array($m)) {
+                            $mType = trim($m['machine_type'] ?? $m['type'] ?? '');
+                            $mSerial = trim($m['machine_serial_no'] ?? $m['serial_no'] ?? '');
+                            if ($mType || $mSerial) {
+                                $machinesList[] = [
+                                    'machine_type' => $mType ?: 'Mesin Tinting',
+                                    'machine_serial_no' => $mSerial,
+                                ];
+                            }
+                        }
+                    }
+                }
+                if (empty($machinesList) && (!empty($loc->machine_type) || !empty($loc->machine_serial_no))) {
+                    $machinesList[] = [
+                        'machine_type' => trim((string)$loc->machine_type) ?: 'Mesin Tinting',
+                        'machine_serial_no' => trim((string)$loc->machine_serial_no),
+                    ];
+                }
+
+                // Default mesin untuk Toko Demo Kalilor jika belum diset
+                if (empty($machinesList) && stripos($loc->name, 'Kalilor') !== false) {
+                    $machinesList = [
+                        ['machine_type' => 'Mesin D200 (Automatic Tinting)', 'machine_serial_no' => 'POST-2022-SUB-042'],
+                        ['machine_type' => 'Mesin Discovery (Automatic Tinting)', 'machine_serial_no' => 'POST-2023-SUB-089'],
+                    ];
+                    $data['machine_type'] = $machinesList[0]['machine_type'];
+                    $data['machine_serial_no'] = $machinesList[0]['machine_serial_no'];
+                }
+
+                $data['machines'] = $machinesList;
                 return $data;
             });
 
