@@ -12,6 +12,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        @ini_set('memory_limit', '1024M');
+
         if (Schema::hasTable('work_locations')) {
             Schema::table('work_locations', function (Blueprint $table) {
                 if (!Schema::hasColumn('work_locations', 'machines')) {
@@ -49,10 +51,9 @@ return new class extends Migration
             try {
                 $pdo = new \PDO("sqlite:" . $sqlitePath);
                 $stmt = $pdo->query("SELECT store_name, sap_code, machine_type, machine_no FROM dm_raw WHERE machine_type IS NOT NULL AND machine_type != '' GROUP BY store_name, machine_type, machine_no");
-                $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
                 
                 $storeMachines = [];
-                foreach ($rows as $r) {
+                while ($r = $stmt->fetch(\PDO::FETCH_ASSOC)) {
                     $sName = strtoupper(trim($r['store_name'] ?? ''));
                     $mType = trim($r['machine_type'] ?? '');
                     $mNo = trim($r['machine_no'] ?? '');

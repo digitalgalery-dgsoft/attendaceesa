@@ -78,20 +78,33 @@ return new class extends Migration
 
         // 3. Re-link foreign key report_form_field_id pada report_submission_values yang null/yatim
         try {
-            $orphans = ReportSubmissionValue::where(function ($q) {
-                $q->whereNull('report_form_field_id')
-                  ->orWhere('report_form_field_id', 0);
-            })->with('submission')->get();
-
-            foreach ($orphans as $val) {
-                if ($val->submission && $val->submission->report_template_id) {
-                    $matchedField = ReportFormField::where('report_template_id', $val->submission->report_template_id)
-                        ->where('field_name', $val->field_name)
-                        ->first();
-                    if ($matchedField) {
-                        $val->update(['report_form_field_id' => $matchedField->id]);
+            @ini_set('memory_limit', '1024M');
+            $driver = Schema::getConnection()->getDriverName();
+            if ($driver === 'pgsql') {
+                \Illuminate\Support\Facades\DB::statement("
+                    UPDATE report_submission_values rsv
+                    SET report_form_field_id = rff.id
+                    FROM report_submissions rs
+                    JOIN report_form_fields rff ON rff.report_template_id = rs.report_template_id AND rff.field_name = rsv.field_name
+                    WHERE rsv.report_submission_id = rs.id
+                      AND (rsv.report_form_field_id IS NULL OR rsv.report_form_field_id = 0)
+                ");
+            } else {
+                ReportSubmissionValue::where(function ($q) {
+                    $q->whereNull('report_form_field_id')
+                      ->orWhere('report_form_field_id', 0);
+                })->chunkById(200, function ($orphans) {
+                    foreach ($orphans as $val) {
+                        if ($val->submission && $val->submission->report_template_id) {
+                            $matchedField = ReportFormField::where('report_template_id', $val->submission->report_template_id)
+                                ->where('field_name', $val->field_name)
+                                ->first();
+                            if ($matchedField) {
+                                $val->update(['report_form_field_id' => $matchedField->id]);
+                            }
+                        }
                     }
-                }
+                });
             }
         } catch (\Throwable $e) {
             \Log::warning("Re-linking orphaned report submission values: " . $e->getMessage());
