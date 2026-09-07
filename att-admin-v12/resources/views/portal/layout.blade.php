@@ -902,20 +902,33 @@
                 @foreach($activeTemplates as $tpl)
                     @php
                         $iconClass = 'fa-solid fa-file-lines';
-                        if (str_contains(strtolower($tpl->title), 'offtake') || str_contains(strtolower($tpl->title), 'jual') || str_contains(strtolower($tpl->title), 'sell')) {
+                        $tStr = strtolower(($tpl->title ?? '') . ' ' . ($tpl->code ?? '') . ' ' . ($tpl->category ?? ''));
+                        if (str_contains($tStr, 'offtake') || str_contains($tStr, 'jual') || str_contains($tStr, 'sell')) {
                             $iconClass = 'fa-solid fa-cart-shopping';
-                        } elseif (str_contains(strtolower($tpl->title), 'stok') || str_contains(strtolower($tpl->title), 'oos')) {
+                        } elseif (str_contains($tStr, 'stock-end') || str_contains($tStr, 'stok end') || str_contains($tStr, 'stock end')) {
                             $iconClass = 'fa-solid fa-boxes-stacked';
-                        } elseif (str_contains(strtolower($tpl->title), 'market') || str_contains(strtolower($tpl->title), 'kompetitor')) {
-                            $iconClass = 'fa-solid fa-chart-pie';
-                        } elseif (str_contains(strtolower($tpl->title), 'display') || str_contains(strtolower($tpl->title), 'sewa') || str_contains(strtolower($tpl->title), 'sos')) {
-                            $iconClass = 'fa-solid fa-store';
-                        } elseif (str_contains(strtolower($tpl->title), 'harga') || str_contains(strtolower($tpl->title), 'price') || str_contains(strtolower($tpl->title), 'promo')) {
+                        } elseif (str_contains($tStr, 'oos') || str_contains($tStr, 'out of stock') || str_contains($tStr, 'barang kosong')) {
+                            $iconClass = 'fa-solid fa-triangle-exclamation';
+                        } elseif (str_contains($tStr, 'cbp') || str_contains($tStr, 'pricing') || str_contains($tStr, 'harga') || str_contains($tStr, 'price')) {
                             $iconClass = 'fa-solid fa-tags';
-                        } elseif (str_contains(strtolower($tpl->title), 'expired') || str_contains(strtolower($tpl->title), 'fefo')) {
+                        } elseif (str_contains($tStr, 'maintenance') || str_contains($tStr, 'maintance') || str_contains($tStr, 'perawatan')) {
+                            $iconClass = 'fa-solid fa-screwdriver-wrench';
+                        } elseif (str_contains($tStr, 'pelanggan') || str_contains($tStr, 'konsumen') || str_contains($tStr, 'database-pelanggan')) {
+                            $iconClass = 'fa-solid fa-address-book';
+                        } elseif (str_contains($tStr, 'market') || str_contains($tStr, 'kompetitor')) {
+                            $iconClass = 'fa-solid fa-chart-pie';
+                        } elseif (str_contains($tStr, 'display') || str_contains($tStr, 'sewa') || str_contains($tStr, 'sos')) {
+                            $iconClass = 'fa-solid fa-store';
+                        } elseif (str_contains($tStr, 'promo')) {
+                            $iconClass = 'fa-solid fa-tag';
+                        } elseif (str_contains($tStr, 'expired') || str_contains($tStr, 'fefo')) {
                             $iconClass = 'fa-solid fa-clock-rotate-left';
-                        } elseif (str_contains(strtolower($tpl->title), 'posm') || str_contains(strtolower($tpl->title), 'stiker')) {
+                        } elseif (str_contains($tStr, 'posm') || str_contains($tStr, 'stiker')) {
                             $iconClass = 'fa-solid fa-bullhorn';
+                        } elseif (str_contains($tStr, 'trafik')) {
+                            $iconClass = 'fa-solid fa-users-viewfinder';
+                        } elseif (str_contains($tStr, 'mitra')) {
+                            $iconClass = 'fa-solid fa-handshake';
                         }
                         $isCurrent = request()->routeIs('portal.report.detail') && request()->route('code') === $tpl->code;
                     @endphp

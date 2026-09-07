@@ -110,15 +110,122 @@ class PrincipalPortalController extends Controller
     }
 
     /**
-     * Helper to retrieve active report templates for tenant principal
+     * Helper to retrieve active report templates for tenant principal sorted by requested portal menu order
      */
     protected function getActiveTemplates(array $scopedPrincipalIds, ?Principal $tenantPrincipal = null)
     {
-        return $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)
+        $templates = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal)
             ->where('report_templates.is_active', true)
             ->with('fields')
-            ->orderBy('report_templates.id')
             ->get();
+
+        return $templates->sort(function ($a, $b) {
+            $orderA = $this->getTemplateMenuSortOrder($a);
+            $orderB = $this->getTemplateMenuSortOrder($b);
+
+            if ($orderA === $orderB) {
+                return $a->id <=> $b->id;
+            }
+
+            return $orderA <=> $orderB;
+        })->values();
+    }
+
+    /**
+     * Get sort priority weight for report template in portal menu navigation.
+     * Requested Order:
+     * 1. Offtake
+     * 2. Stok End
+     * 3. OOS
+     * 4. CBP
+     * 5. Daily Maintenance
+     * 6. Database Pelanggan
+     */
+    protected function getTemplateMenuSortOrder($template): int
+    {
+        $code = strtoupper($template->code ?? '');
+        $title = strtolower($template->title ?? '');
+        $category = strtolower($template->category ?? '');
+
+        // 1. Offtake
+        if (str_contains($code, 'OFFTAKE') || str_contains($title, 'offtake') || $category === 'offtake') {
+            return 10;
+        }
+
+        // 2. Stok End (must check before generic stock / oos)
+        if (
+            str_contains($code, 'STOCK-END') || str_contains($code, 'STOCK_END') ||
+            str_contains($code, 'STOK-END') || str_contains($code, 'STOK_END') ||
+            str_contains($title, 'stock end') || str_contains($title, 'stok end') ||
+            str_contains($title, 'stock ending') || str_contains($title, 'stok ending')
+        ) {
+            return 20;
+        }
+
+        // 3. OOS (Out of Stock)
+        if (
+            str_contains($code, 'OOS') ||
+            str_contains($title, 'oos') ||
+            str_contains($title, 'out of stock') ||
+            str_contains($title, 'barang kosong') ||
+            str_contains($title, 'stok kosong')
+        ) {
+            return 30;
+        }
+
+        // 4. CBP (Pricing / Cek Harga)
+        if (
+            str_contains($code, 'CBP') ||
+            str_contains($code, 'PRICING') ||
+            str_contains($title, 'cbp') ||
+            str_contains($title, 'pricing') ||
+            $category === 'pricing' ||
+            $category === 'price'
+        ) {
+            return 40;
+        }
+
+        // 5. Daily Maintenance
+        if (
+            str_contains($code, 'DAILY-MAINTENANCE') ||
+            str_contains($code, 'DAILY_MAINTENANCE') ||
+            str_contains($code, 'MAINTENANCE') ||
+            str_contains($title, 'daily maintenance') ||
+            str_contains($title, 'daily maintance') ||
+            str_contains($title, 'perawatan harian') ||
+            str_contains($title, 'maintenance')
+        ) {
+            return 50;
+        }
+
+        // 6. Database Pelanggan
+        if (
+            str_contains($code, 'DATABASE-PELANGGAN') ||
+            str_contains($code, 'DATA-PELANGGAN') ||
+            str_contains($code, 'DATABASE_PELANGGAN') ||
+            str_contains($code, 'DATA_PELANGGAN') ||
+            str_contains($title, 'database pelanggan') ||
+            str_contains($title, 'data pelanggan') ||
+            str_contains($title, 'konsumen') ||
+            str_contains($title, 'pelanggan')
+        ) {
+            return 60;
+        }
+
+        // Other generic categories
+        if (str_contains($code, 'TRAFIK') || str_contains($title, 'trafik')) {
+            return 70;
+        }
+
+        if (str_contains($code, 'MITRA') || str_contains($title, 'mitra') || str_contains($title, 'painter')) {
+            return 80;
+        }
+
+        if (str_contains($code, 'STOCK') || str_contains($code, 'STOK') || str_contains($title, 'stok') || str_contains($title, 'stock') || $category === 'stock') {
+            return 85;
+        }
+
+        return 100;
     }
 
     /**
@@ -8047,7 +8154,19 @@ class PrincipalPortalController extends Controller
             $query->where('report_templates.is_active', false);
         }
 
-        $templates = $query->orderBy('report_templates.id', 'desc')->paginate(15);
+        $templates = $query->orderByRaw("
+            CASE 
+                WHEN report_templates.code LIKE '%OFFTAKE%' OR report_templates.title LIKE '%offtake%' OR report_templates.category = 'offtake' THEN 1
+                WHEN report_templates.code LIKE '%STOCK-END%' OR report_templates.code LIKE '%STOK-END%' OR report_templates.title LIKE '%stock end%' OR report_templates.title LIKE '%stok end%' THEN 2
+                WHEN report_templates.code LIKE '%OOS%' OR report_templates.title LIKE '%oos%' OR report_templates.title LIKE '%out of stock%' THEN 3
+                WHEN report_templates.code LIKE '%CBP%' OR report_templates.code LIKE '%PRICING%' OR report_templates.title LIKE '%cbp%' OR report_templates.title LIKE '%pricing%' OR report_templates.category IN ('pricing', 'price') THEN 4
+                WHEN report_templates.code LIKE '%DAILY-MAINTENANCE%' OR report_templates.code LIKE '%MAINTENANCE%' OR report_templates.title LIKE '%maintenance%' OR report_templates.title LIKE '%maintance%' THEN 5
+                WHEN report_templates.code LIKE '%DATABASE-PELANGGAN%' OR report_templates.code LIKE '%DATA-PELANGGAN%' OR report_templates.title LIKE '%pelanggan%' OR report_templates.title LIKE '%konsumen%' THEN 6
+                WHEN report_templates.code LIKE '%TRAFIK%' OR report_templates.title LIKE '%trafik%' THEN 7
+                WHEN report_templates.code LIKE '%MITRA%' OR report_templates.title LIKE '%mitra%' THEN 8
+                ELSE 10
+            END ASC, report_templates.id ASC
+        ")->paginate(15);
 
         // Stats
         $baseStatsQuery = $this->getTemplateBaseQuery($scopedPrincipalIds, $tenantPrincipal);
