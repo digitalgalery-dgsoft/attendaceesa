@@ -7014,6 +7014,7 @@ class PrincipalPortalController extends Controller
         $cacheKey = 'offtake_ytd_v9_' . md5($template->id . '_' . $eMonth . '_' . $selectedYear . '_' . $selectedRegion . '_' . $selectedAreaId . '_' . $selectedLocationId . '_' . $search);
 
         return Cache::remember($cacheKey, 600, function() use ($template, $p26, $p25, $eMonth, $selectedYear, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search) {
+            @file_put_contents(storage_path('logs/checkpoint.txt'), "YTD_STEP: 1_cache_closure_start\n", FILE_APPEND);
             try {
                 // 1. Fetch Live Submissions from PostgreSQL for YTD
                 $liveCyBrands = ['Offtake Dulux' => 0.0, 'Offtake Catylac' => 0.0];
@@ -7042,10 +7043,12 @@ class PrincipalPortalController extends Controller
                 $areaToRsm = $this->getDuluxAreaToRsmMap();
 
                 try {
+                    @file_put_contents(storage_path('logs/checkpoint.txt'), "YTD_STEP: 2_before_liveQuery_get\n", FILE_APPEND);
                     $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
                     $liveSubs = $liveQuery->select(['id', 'submission_code', 'report_template_id', 'work_location_id', 'employee_id', 'submitted_at', 'created_at'])
                         ->with(['workLocation', 'workLocation.branch', 'values'])
                         ->get();
+                    @file_put_contents(storage_path('logs/checkpoint.txt'), "YTD_STEP: 3_after_liveQuery_count_" . $liveSubs->count() . "\n", FILE_APPEND);
 
                     foreach ($liveSubs as $sub) {
                         $valMap = [];
@@ -7128,6 +7131,8 @@ class PrincipalPortalController extends Controller
                     \Log::error("Failed to query live offtake submissions in calculateOfftakeYtdData: " . $e->getMessage());
                 }
 
+                @file_put_contents(storage_path('logs/checkpoint.txt'), "YTD_STEP: 4_after_live_processing\n", FILE_APPEND);
+
                 // 2. Open PDO for 2026 (CY)
                 $pdo26 = null;
                 $hasOfftakeTableCy = false;
@@ -7157,6 +7162,8 @@ class PrincipalPortalController extends Controller
                         $hasOfftakeTablePy = false;
                     }
                 }
+
+                @file_put_contents(storage_path('logs/checkpoint.txt'), "YTD_STEP: 5_pdos_opened (hasCy: " . ($hasOfftakeTableCy ? '1' : '0') . ", hasPy: " . ($hasOfftakeTablePy ? '1' : '0') . ")\n", FILE_APPEND);
 
                 $cyBrands = [];
                 $pyBrands = [];
@@ -7224,6 +7231,7 @@ class PrincipalPortalController extends Controller
 
                 // Query CY (2026)
                 if ($pdo26 && $hasOfftakeTableCy) {
+                    @file_put_contents(storage_path('logs/checkpoint.txt'), "YTD_STEP: 6_before_cy_queries\n", FILE_APPEND);
                     // 1. Brand Comparison
                     $brandStmtCy = $pdo26->prepare("
                         SELECT 
@@ -7279,11 +7287,13 @@ class PrincipalPortalController extends Controller
                     ");
                     $topStmtCy->execute($paramsCy);
                     $top10Cy = $topStmtCy->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+                    @file_put_contents(storage_path('logs/checkpoint.txt'), "YTD_STEP: 7_after_cy_queries\n", FILE_APPEND);
                 }
 
                 // Query PY (2025)
                 if ($pdo25 && $hasOfftakeTablePy) {
                     try {
+                        @file_put_contents(storage_path('logs/checkpoint.txt'), "YTD_STEP: 8_before_py_queries\n", FILE_APPEND);
                         // 1. PY Brands
                         $brandStmtPy = $pdo25->prepare("
                             SELECT 
@@ -7345,6 +7355,7 @@ class PrincipalPortalController extends Controller
                                 $pyStoresMap['sap_' . trim($r['sap'])] = (float)$r['py_vol'];
                             }
                         }
+                        @file_put_contents(storage_path('logs/checkpoint.txt'), "YTD_STEP: 9_after_py_queries\n", FILE_APPEND);
                     } catch (\Throwable $e) {
                         \Log::warning("Offtake YTD pdo25 queries failed: " . $e->getMessage());
                     }
@@ -7459,7 +7470,7 @@ class PrincipalPortalController extends Controller
                 $finalStoreCy = $totalCyVolSum + array_sum(array_column($liveCyStoresMap, 'cy_vol'));
                 $finalStorePy = $totalPyVolSum;
                 $overallStoreGrowth = $finalStorePy > 0 ? (($finalStoreCy - $finalStorePy) / $finalStorePy) * 100 : ($finalStoreCy > 0 ? 100 : 0);
-
+                @file_put_contents(storage_path('logs/checkpoint.txt'), "YTD_STEP: 10_returning_result\n", FILE_APPEND);
                 return [
                     'details' => $details,
                     'total' => $totalRow,
