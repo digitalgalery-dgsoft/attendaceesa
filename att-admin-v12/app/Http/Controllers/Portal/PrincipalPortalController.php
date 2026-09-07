@@ -352,13 +352,13 @@ class PrincipalPortalController extends Controller
     /**
      * Reusable Eloquent query for live mobile/admin submissions matching active filters
      */
-    protected function getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search)
+    protected function getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion = null, $selectedAreaId = null, $selectedLocationId = null, $search = null)
     {
         $query = ReportSubmission::where('report_submissions.report_template_id', $template->id)
             ->whereBetween('report_submissions.submitted_at', [$startDate, $endDate])
             ->with([
                 'employee.branch',
-                'employee.reportingTo',
+                'employee.supervisor',
                 'workLocation.branch',
                 'values.formField'
             ]);
@@ -9066,3 +9066,6 @@ class PrincipalPortalController extends Controller
         ];
     }
 }
+
+
+
