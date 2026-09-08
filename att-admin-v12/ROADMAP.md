@@ -387,6 +387,16 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
     - **Server 2 (AKP)**: `https://akp.esa-solutions.id/app-release.apk`
     - **Server 3 (ATK)**: `https://atk.esa-solutions.id/app-release.apk`
   - Seluruh server production dan staging telah aktif menyajikan APK rilis `v1.0.126` dengan verifikasi health check ping OK (HTTP 200).
+- [x] **Halaman Terpadu Server Monitoring 3 Server Production (`/admin/server-monitoring`)**:
+  - Monitoring metrik CPU, RAM, Disk Storage riil, Active Processes (non-sleeping sesuai aaPanel), Load Average, dan Uptime untuk 3 server production (AMK, AKP, ATK) dalam 1 layar.
+- [x] **Import Master Data Work Location Inhouse (`Store Inhouse Final.xlsb`)**:
+  - Berhasil mengimpor 3.513 lokasi toko inhouse dengan kode acak unik `STR-XXXXXX`, dan menyelaraskan tabel agar menampilkan kolom Code di posisi pertama.
+- [x] **Tab Working Groups di Halaman Employee Schedule Roster & 2-Step Wizard Edit**:
+  - Menambahkan Tab Working Groups langsung di halaman Roster (`/admin/employee-schedules`) tanpa membuat menu sidebar baru.
+  - Menampilkan tabel pola kerja lengkap, modal pop-up rincian seluruh anggota karyawan, serta aksi re-generate, edit, dan hapus.
+  - Merapikan tombol header sehingga hanya ada 1 tombol utama: `Input via Working Group`.
+  - Menyelaraskan form **Edit Working Group** menjadi **2-Step Wizard** yang identik dengan form pembuatan (Step 1: Description & Configuration; Step 2: Implementing Working Group).
+  - Berhasil di-deploy ke server Staging dan seluruh 3 server Production (AMK, AKP, ATK).
 
 ---
 

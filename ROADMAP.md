@@ -1276,3 +1276,47 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
    - Portal Principal Dulux Data Pelanggan telah diverifikasi langsung dan beroperasi normal secara real-time di:
      `https://dulux.esa-solutions.id/portal/report/RPT-DULUX-DATABASE-PELANGGAN`
 
+4. **Halaman Terpadu Server Monitoring 3 Server Production (`/admin/server-monitoring`)**:
+   - **Latar Belakang**: Memantau kesehatan performa 3 server production (PT AMK, PT AKP, PT ATK) secara simultan dalam 1 tampilan tanpa harus membuka console aaPanel masing-masing server secara terpisah.
+   - **Fitur Utama**:
+     - Status koneksi real-time, hostname, dan IP publik masing-masing node.
+     - Utilisasi CPU & RAM dengan progress bar dinamis dan indikator status visual (Normal/Warning/Danger).
+     - Utilisasi Disk Storage riil (pemisahan mount root web `/` yang sebenarnya agar kapasitas disk akurat dan tidak bias oleh pseudo-filesystem).
+     - Perhitungan proses aktif non-sleeping (Running `R` / Disk Sleep `D`) yang selaras dengan metrik aaPanel, bukan sekadar menghitung total ribuan thread sistem.
+     - Metrik Load Average (1m, 5m, 15m) serta Uptime server.
+     - Modal drill-down detail spesifikasi server dan daftar proses aktif teratas.
+
+5. **Import Master Data Work Location Inhouse (`Store Inhouse Final.xlsb`)**:
+   - Parsing dan impor sebanyak 3.513 data toko/lokasi kerja inhouse dari file Excel XLSB ke database PostgreSQL.
+   - Penerapan kode toko acak unik berformat `STR-XXXXXX` secara otomatis untuk menjaga integritas data tanpa konflik ID.
+   - Penyesuaian antarmuka tabel master Work Location di Filament agar menampilkan kolom **Code** di kolom pertama tabel.
+   - Sinkronisasi data work location inhouse ke seluruh server cluster.
+
+6. **Tab Working Groups Terpadu di Halaman Employee Schedule Roster**:
+   - **Integrasi Antarmuka**: Menambahkan tab navigasi interaktif pada halaman Employee Schedule Roster (`/admin/employee-schedules`) yang membagi tampilan menjadi:
+     - **Tab 1: Jadwal Roster (Kalender)**
+     - **Tab 2: Working Groups (Master Pola Kerja)** dilengkapi badge counter jumlah grup aktif.
+   - **Manfaat**: Pengguna dapat melihat daftar seluruh Working Group yang telah dibuat, melakukan pencarian live, dan mengelolanya secara langsung tanpa harus membuat menu baru di sidebar yang memenuhi navigasi.
+   - **Fitur Tab Working Groups**:
+     - Kolom tabel: No, Nama Working Group (dengan metadata pembuat & waktu), Prinsiple, Area / Cabang, Tgl Berlaku, Shift & Jam Kerja Default, Pola Hari Kerja (visualisasi hari kerja Sen–Jum vs libur Sab–Min), Total Anggota, dan Aksi.
+     - Tombol Total Anggota interaktif: Membuka **Modal Popup Rincian Anggota** (NIK, Nama Karyawan, Posisi, Cabang, Shift Khusus, dan Toko Kunjungan).
+     - Tombol Aksi Cepat: **Re-Generate Schedule Roster** (mengenerate ulang jadwal presensi seluruh anggota grup hingga akhir tahun), **Edit**, dan **Hapus**.
+     - Pembersihan tombol ganda: Menghapus tombol duplikat `+ Buat Working Group Baru` sehingga tersisa satu tombol utama yang jelas, yaitu tombol cyan **`Input via Working Group`** di bagian atas header halaman Roster.
+
+7. **Harmonisasi Form Edit Working Group Menjadi 2-Step Wizard**:
+   - **Penyelarasan Desain**: Merombak total halaman Edit Working Group (`/admin/working-groups/{id}/edit`) dari tampilan bawaan Filament repeater standar menjadi **2-Step Wizard** yang identik dan harmonis dengan form pembuatan (`CreateWorkingGroup`).
+   - **Step 1: Description & Configuration**:
+     - Form terisi otomatis (*pre-filled*) dengan data tersimpan: Nama Grup, Tanggal Berlaku, Area/Cabang (multi-select), Prinsiple (multi-select), Shift Default, Toleransi Keterlambatan, Toko Default, dan konfigurasi toggle hari kerja Senin–Minggu (beserta opsi kustom per hari).
+     - Tombol navigasi: *"Batal / Kembali ke Working Groups"* dan *"Lanjut ke Step 2: Implementing Working Group"*.
+   - **Step 2: Implementing Working Group**:
+     - Tabel seluruh karyawan anggota grup eksisting ditampilkan rapi lengkap dengan foto profil, NIK, jabatan, cabang, tombol hapus anggota, pencarian live, paginasi, dan tombol tambah karyawan baru (individual maupun massal per area/prinsiple).
+     - Tombol submit: *"Simpan & Generate Jadwal (Submit)"* memperbarui database, aturan hari kerja, relasi anggota, dan men-generate ulang jadwal presensi hingga akhir tahun, kemudian kembali ke tab Working Groups.
+     - Tombol header: *"Hapus Working Group"* (merah) dengan modal konfirmasi untuk penghapusan permanen.
+
+8. **Deployment & Verifikasi Seluruh Cluster Server Production**:
+   - Telah di-deploy dan diverifikasi melalui staging (`https://appsend.my.id`) serta didistribusikan ke seluruh 3 server cluster production dengan status 100% Aktif & Sehat (HTTP 200):
+     - **Server 1: PT Arina Multi Karya (AMK)**: `38.103.170.235` / `amk.esa-solutions.id` (HTTP 200 OK)
+     - **Server 2: PT Alva Karya Perkasa (AKP)**: `38.103.170.223` / `akp.esa-solutions.id` (HTTP 200 OK)
+     - **Server 3: PT Anugrah Talenta Berkarya (ATK)**: `38.103.170.224` / `atk.esa-solutions.id` (HTTP 200 OK)
+
+
