@@ -324,7 +324,7 @@ class CreateWorkingGroup extends Page
                 ->persistent()
                 ->send();
 
-            return redirect()->to(EmployeeScheduleRoster::getUrl());
+            return redirect()->to(EmployeeScheduleRoster::getUrl(['activeTab' => 'working_groups']));
         } catch (\Throwable $e) {
             DB::rollBack();
             Notification::make()

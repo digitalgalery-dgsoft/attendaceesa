@@ -43,6 +43,15 @@ class EmployeeScheduleRoster extends Page implements HasForms
     public int $page = 1;
     public int $perPage = 25;
 
+    public string $activeTab = 'roster';
+    public ?string $wgSearch = '';
+    public ?int $viewingWgId = null;
+
+    protected $queryString = [
+        'activeTab' => ['except' => 'roster'],
+        'page' => ['except' => 1],
+    ];
+
     public function getMaxContentWidth(): Width | string | null
     {
         return Width::Full;
@@ -56,6 +65,11 @@ class EmployeeScheduleRoster extends Page implements HasForms
     public function mount(): void
     {
         @ini_set('memory_limit', '512M');
+        $this->activeTab = request()->query('activeTab', 'roster');
+        if (!in_array($this->activeTab, ['roster', 'working_groups'])) {
+            $this->activeTab = 'roster';
+        }
+
         $this->form->fill([
             'filter_start_date' => Carbon::now()->startOfMonth()->toDateString(),
             'filter_end_date' => Carbon::now()->endOfMonth()->toDateString(),
@@ -66,6 +80,124 @@ class EmployeeScheduleRoster extends Page implements HasForms
         $this->search = '';
         $this->page = 1;
         $this->perPage = 25;
+    }
+
+    public function setActiveTab(string $tab): void
+    {
+        $this->activeTab = in_array($tab, ['roster', 'working_groups']) ? $tab : 'roster';
+    }
+
+    public function updatedWgSearch(): void
+    {
+        // triggers re-render of working groups list
+    }
+
+    public function viewWorkingGroupMembers(int $id): void
+    {
+        $this->viewingWgId = $id;
+    }
+
+    public function closeWorkingGroupModal(): void
+    {
+        $this->viewingWgId = null;
+    }
+
+    public function deleteWorkingGroup(int $id): void
+    {
+        $wg = \App\Models\WorkingGroup::find($id);
+        if (!$wg) {
+            Notification::make()->title('Working Group tidak ditemukan')->danger()->send();
+            return;
+        }
+
+        $name = $wg->name;
+        $wg->rules()->delete();
+        $wg->members()->delete();
+        $wg->delete();
+
+        Notification::make()
+            ->title('Working Group Berhasil Dihapus')
+            ->body("Working Group '{$name}' dan aturan anggotanya berhasil dihapus.")
+            ->success()
+            ->send();
+    }
+
+    public function regenerateWorkingGroup(int $id): void
+    {
+        $wg = \App\Models\WorkingGroup::find($id);
+        if (!$wg) {
+            Notification::make()->title('Working Group tidak ditemukan')->danger()->send();
+            return;
+        }
+
+        try {
+            $startDate = $wg->data_applied_date ? Carbon::parse($wg->data_applied_date) : Carbon::today();
+            $endDate = $startDate->copy()->endOfYear();
+            $totalGenerated = $wg->generateSchedules($startDate, $endDate);
+
+            Notification::make()
+                ->title('Jadwal Roster Berhasil Di-generate!')
+                ->body("Berhasil mengenerate ulang {$totalGenerated} jadwal presensi untuk anggota {$wg->name} hingga akhir tahun (" . $endDate->translatedFormat('d F Y') . ").")
+                ->success()
+                ->persistent()
+                ->send();
+        } catch (\Throwable $e) {
+            Notification::make()
+                ->title('Gagal Mengenerate Jadwal')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function getWorkingGroupsProperty()
+    {
+        $query = \App\Models\WorkingGroup::query()
+            ->with([
+                'branch',
+                'principal',
+                'defaultShift',
+                'defaultWorkLocation',
+                'creator',
+                'rules.shift',
+                'rules.storeAssignment',
+            ])
+            ->withCount('members');
+
+        if (auth()->check() && !auth()->user()->isSuperAdmin() && auth()->user()->hasPrincipalRestriction()) {
+            $query->whereIn('principal_id', auth()->user()->getAccessiblePrincipalIds());
+        }
+
+        if (!empty($this->wgSearch)) {
+            $term = '%' . strtolower($this->wgSearch) . '%';
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(name) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(COALESCE(area, \'\')) LIKE ?', [$term])
+                  ->orWhereRaw('LOWER(COALESCE(region, \'\')) LIKE ?', [$term]);
+            });
+        }
+
+        return $query->latest('id')->get();
+    }
+
+    public function getViewingWorkingGroupProperty()
+    {
+        if (!$this->viewingWgId) {
+            return null;
+        }
+
+        return \App\Models\WorkingGroup::with([
+            'members.employee.branch',
+            'members.employee.position',
+            'members.shift',
+            'members.firstVisitStore',
+            'rules.shift',
+            'rules.storeAssignment',
+            'principal',
+            'branch',
+            'defaultShift',
+            'defaultWorkLocation',
+        ])->find($this->viewingWgId);
     }
 
     public function rendering(): void
@@ -557,6 +689,31 @@ class EmployeeScheduleRoster extends Page implements HasForms
     protected function getViewData(): array
     {
         @ini_set('memory_limit', '512M');
+
+        if ($this->activeTab === 'working_groups') {
+            return [
+                'employees' => collect(),
+                'totalEmployees' => 0,
+                'schedules' => collect(),
+                'holidayMap' => [],
+                'daysInPeriod' => 0,
+                'startDate' => Carbon::now()->startOfMonth(),
+                'endDate' => Carbon::now()->endOfMonth(),
+                'summary' => [
+                    'total_scheduled' => 0,
+                    'total_workday' => 0,
+                    'total_dayoff' => 0,
+                    'unique_shifts' => 0,
+                ],
+                'pagination' => [
+                    'page' => 1,
+                    'per_page' => $this->perPage,
+                    'total_pages' => 1,
+                    'from' => 0,
+                    'to' => 0,
+                ]
+            ];
+        }
 
         $startDate = Carbon::parse($this->filterData['filter_start_date'] ?? Carbon::now()->startOfMonth()->toDateString())->startOfDay();
         $endDate = Carbon::parse($this->filterData['filter_end_date'] ?? Carbon::now()->endOfMonth()->toDateString())->endOfDay();

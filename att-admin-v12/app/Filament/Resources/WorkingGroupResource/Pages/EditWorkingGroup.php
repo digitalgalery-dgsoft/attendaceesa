@@ -16,4 +16,9 @@ class EditWorkingGroup extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return \App\Filament\Resources\EmployeeSchedules\Pages\EmployeeScheduleRoster::getUrl(['activeTab' => 'working_groups']);
+    }
 }
