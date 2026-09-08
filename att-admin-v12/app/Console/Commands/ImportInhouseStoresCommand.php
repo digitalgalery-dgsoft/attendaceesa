@@ -106,8 +106,8 @@ class ImportInhouseStoresCommand extends Command
             $this->info("✓ Berhasil menghapus {$deleted} record lama.");
         }
 
-        // 5. Cache Branches untuk Company ini
-        $branches = Branch::where('company_id', $company->id)->get();
+        // 5. Cache Branches
+        $branches = Branch::all();
         $branchMap = [];
         foreach ($branches as $b) {
             $branchMap[strtoupper(trim($b->name))] = $b->id;
@@ -152,7 +152,6 @@ class ImportInhouseStoresCommand extends Command
 
                 if (!isset($branchMap[$areaName])) {
                     $newBranch = Branch::create([
-                        'company_id' => $company->id,
                         'name' => $areaName,
                         'code' => 'BRN-' . strtoupper(Str::random(5)),
                         'is_active' => true,
