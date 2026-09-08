@@ -931,4 +931,9 @@ Route::middleware(['web'])->group(function () {
     Route::get('/admin/impersonate-stop', function () {
         return redirect()->route('admin.impersonate.leave');
     })->name('impersonation.leave');
+
+    // 3 Server Production Monitoring (Integrated & NOC Standalone)
+    Route::get('/admin/server-monitoring-view', [\App\Http\Controllers\Admin\ServerMonitoringController::class, 'index'])->name('admin.server-monitoring.view');
+    Route::get('/server-monitoring', [\App\Http\Controllers\Admin\ServerMonitoringController::class, 'standalone'])->name('server.monitoring.standalone');
 });
+

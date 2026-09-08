@@ -17,8 +17,8 @@ class CheckIfInstalled
     {
         // Ignore API routes or webhooks if necessary, but for full protection we apply everywhere except /install
         if (!file_exists(storage_path('app/.installed'))) {
-            // Check if current route is not an installation route
-            if (!$request->is('install') && !$request->is('install/*') && !$request->is('_debugbar/*')) {
+            // Check if current route is not an installation route, api, health check, or monitoring
+            if (!$request->is('install') && !$request->is('install/*') && !$request->is('_debugbar/*') && !$request->is('api/*') && !$request->is('ping') && !$request->is('health') && !$request->is('server-monitoring*')) {
                 return redirect()->route('install.index');
             }
         }

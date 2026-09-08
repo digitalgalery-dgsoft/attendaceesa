@@ -196,5 +196,14 @@ Route::prefix('v1/sync')->group(function () {
     Route::get('/ping', [\App\Http\Controllers\Api\TemplateSyncController::class, 'ping']);
 });
 
+// Production Telemetry Metrics & Actions API (Stateless)
+Route::prefix('v1/system')->group(function () {
+    Route::get('/metrics', [\App\Http\Controllers\Admin\ServerMonitoringController::class, 'getMetrics'])->name('api.system.metrics');
+    Route::post('/action', [\App\Http\Controllers\Admin\ServerMonitoringController::class, 'executeAction'])->name('api.system.action');
+});
+Route::get('/system/metrics', [\App\Http\Controllers\Admin\ServerMonitoringController::class, 'getMetrics']);
+Route::post('/system/action', [\App\Http\Controllers\Admin\ServerMonitoringController::class, 'executeAction']);
+
+
 
 

@@ -19,8 +19,8 @@ class SmartGatewayRelayMiddleware
             return $next($request);
         }
 
-        // Jangan intercept route login, ping, atau endpoint sinkronisasi publik/khusus
-        if ($request->is('api/login') || $request->is('api/v1/auth/login') || $request->is('api/v1/sync/*')) {
+        // Jangan intercept route login, ping, telemetry, atau endpoint sinkronisasi publik/khusus
+        if ($request->is('api/login') || $request->is('api/v1/auth/login') || $request->is('api/v1/sync/*') || $request->is('api/v1/system/*')) {
             return $next($request);
         }
 
