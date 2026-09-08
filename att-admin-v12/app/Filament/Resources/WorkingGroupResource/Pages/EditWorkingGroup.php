@@ -28,7 +28,7 @@ class EditWorkingGroup extends CreateWorkingGroup
         return 'Edit Working Group: ' . ($this->record->name ?? '');
     }
 
-    public function mount($record): void
+    public function mount($record = null): void
     {
         $this->record = $this->resolveRecord($record);
         $this->record->load(['rules', 'members', 'branch', 'principal', 'defaultShift', 'defaultWorkLocation']);

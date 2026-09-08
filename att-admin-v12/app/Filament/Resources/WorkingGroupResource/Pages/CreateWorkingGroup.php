@@ -53,7 +53,7 @@ class CreateWorkingGroup extends Page
         return Width::Full;
     }
 
-    public function mount(): void
+    public function mount($record = null): void
     {
         $this->data_applied_date = Carbon::now()->toDateString();
         $this->default_late_tolerance = 15;
