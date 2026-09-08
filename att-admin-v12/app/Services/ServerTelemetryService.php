@@ -152,11 +152,20 @@ class ServerTelemetryService
 
         // 1. CPU & Load Average
         if ($isLinux) {
-            $loadAvg = function_exists('sys_getloadavg') ? sys_getloadavg() : $nodeDef['load_avg'];
-            if (!$loadAvg || !isset($loadAvg[0])) {
+            try {
+                $loadAvg = function_exists('sys_getloadavg') ? sys_getloadavg() : $nodeDef['load_avg'];
+                if (!$loadAvg || !isset($loadAvg[0])) {
+                    $loadAvg = $nodeDef['load_avg'];
+                }
+                $vcpus = $nodeDef['vcpus'];
+                $cpuCount = @shell_exec('nproc 2>/dev/null');
+                if ($cpuCount && is_numeric(trim($cpuCount))) {
+                    $vcpus = (int)trim($cpuCount);
+                }
+            } catch (\Throwable $e) {
                 $loadAvg = $nodeDef['load_avg'];
+                $vcpus = $nodeDef['vcpus'];
             }
-            $vcpus = $nodeDef['vcpus'];
             $cpuPct = min(100, max(0.5, round(($loadAvg[0] / $vcpus) * 100, 1)));
         } else {
             // Development / calibrated baseline
@@ -165,31 +174,33 @@ class ServerTelemetryService
             $cpuPct = $nodeDef['cpu_pct'];
         }
 
-        // 2. RAM / Memory
+        // 2. RAM / Memory (Aman dari open_basedir restriction aaPanel)
         $totalRamMb = round($nodeDef['ram_gb'] * 1024);
         $usedRamMb = round($nodeDef['ram_used_gb'] * 1024);
         $swapUsedMb = 64;
         $swapTotalMb = 2048;
 
-        if ($isLinux && file_exists('/proc/meminfo')) {
-            $meminfo = @file_get_contents('/proc/meminfo');
-            if ($meminfo) {
-                preg_match('/MemTotal:\s+(\d+)\s+kB/', $meminfo, $mt);
-                preg_match('/MemAvailable:\s+(\d+)\s+kB/', $meminfo, $ma);
-                preg_match('/SwapTotal:\s+(\d+)\s+kB/', $meminfo, $st);
-                preg_match('/SwapFree:\s+(\d+)\s+kB/', $meminfo, $sf);
-
-                if (!empty($mt[1]) && !empty($ma[1])) {
-                    $memTotalKb = (int)$mt[1];
-                    $memAvailKb = (int)$ma[1];
-                    $totalRamMb = round($memTotalKb / 1024);
-                    $usedRamMb = round(($memTotalKb - $memAvailKb) / 1024);
+        if ($isLinux) {
+            try {
+                // free -m via shell_exec berjalan di luar PHP open_basedir sandbox
+                $freeOut = @shell_exec('free -m 2>/dev/null');
+                if ($freeOut) {
+                    $lines = explode("\n", trim($freeOut));
+                    foreach ($lines as $line) {
+                        $parts = preg_split('/\s+/', trim($line));
+                        if (isset($parts[0]) && str_starts_with($parts[0], 'Mem:') && isset($parts[1])) {
+                            $totalRamMb = (int)$parts[1];
+                            // MemAvailable ada di kolom index 6 pada Linux modern (atau free di kolom 3)
+                            $availRamMb = isset($parts[6]) ? (int)$parts[6] : (isset($parts[3]) ? (int)$parts[3] : 0);
+                            $usedRamMb = max(0, $totalRamMb - $availRamMb);
+                        } elseif (isset($parts[0]) && str_starts_with($parts[0], 'Swap:') && isset($parts[1])) {
+                            $swapTotalMb = (int)$parts[1];
+                            $swapUsedMb = isset($parts[2]) ? (int)$parts[2] : 0;
+                        }
+                    }
                 }
-
-                if (!empty($st[1]) && !empty($sf[1])) {
-                    $swapTotalMb = round(((int)$st[1]) / 1024);
-                    $swapUsedMb = round(((int)$st[1] - (int)$sf[1]) / 1024);
-                }
+            } catch (\Throwable $e) {
+                // Gunakan default calibrated jika shell_exec dibatasi
             }
         }
 
@@ -197,16 +208,23 @@ class ServerTelemetryService
         $ramTotalGb = round($totalRamMb / 1024, 2);
         $ramPct = round(($usedRamMb / max(1, $totalRamMb)) * 100, 1);
 
-        // 3. Storage / Disk (Hanya baca '/' di Linux, JANGAN baca C: Windows lokal)
+        // 3. Storage / Disk (Gunakan base_path() agar aman dari open_basedir restriction)
         if ($isLinux) {
-            $diskTotalBytes = @disk_total_space('/') ?: 0;
-            $diskFreeBytes = @disk_free_space('/') ?: 0;
-            if ($diskTotalBytes > 0) {
-                $diskUsedBytes = $diskTotalBytes - $diskFreeBytes;
-                $diskTotalGb = round($diskTotalBytes / (1024 * 1024 * 1024), 1);
-                $diskUsedGb = round($diskUsedBytes / (1024 * 1024 * 1024), 1);
-                $diskPct = round(($diskUsedBytes / $diskTotalBytes) * 100, 1);
-            } else {
+            try {
+                $targetPath = base_path();
+                $diskTotalBytes = @disk_total_space($targetPath) ?: 0;
+                $diskFreeBytes = @disk_free_space($targetPath) ?: 0;
+                if ($diskTotalBytes > 0) {
+                    $diskUsedBytes = $diskTotalBytes - $diskFreeBytes;
+                    $diskTotalGb = round($diskTotalBytes / (1024 * 1024 * 1024), 1);
+                    $diskUsedGb = round($diskUsedBytes / (1024 * 1024 * 1024), 1);
+                    $diskPct = round(($diskUsedBytes / $diskTotalBytes) * 100, 1);
+                } else {
+                    $diskTotalGb = $nodeDef['disk_gb'];
+                    $diskUsedGb = $nodeDef['disk_used_gb'];
+                    $diskPct = $nodeDef['disk_pct'];
+                }
+            } catch (\Throwable $e) {
                 $diskTotalGb = $nodeDef['disk_gb'];
                 $diskUsedGb = $nodeDef['disk_used_gb'];
                 $diskPct = $nodeDef['disk_pct'];
@@ -223,13 +241,17 @@ class ServerTelemetryService
         $activeProcesses = $nodeDef['active_processes'];
 
         if ($isLinux) {
-            $psCount = @shell_exec('ps aux | wc -l');
-            if ($psCount && is_numeric(trim($psCount))) {
-                $totalProcesses = max(1, (int)trim($psCount) - 1);
-            }
-            $psActive = @shell_exec("ps -eo stat 2>/dev/null | grep -c '^[RD]'");
-            if ($psActive && is_numeric(trim($psActive))) {
-                $activeProcesses = max(1, (int)trim($psActive));
+            try {
+                $psCount = @shell_exec('ps aux 2>/dev/null | wc -l');
+                if ($psCount && is_numeric(trim($psCount))) {
+                    $totalProcesses = max(1, (int)trim($psCount) - 1);
+                }
+                $psActive = @shell_exec("ps -eo stat 2>/dev/null | grep -c '^[RD]'");
+                if ($psActive && is_numeric(trim($psActive))) {
+                    $activeProcesses = max(1, (int)trim($psActive));
+                }
+            } catch (\Throwable $e) {
+                // Fallback to calibrated
             }
         }
 
@@ -399,7 +421,7 @@ class ServerTelemetryService
         if ($isRemoteHost) {
             try {
                 $url = "https://{$def['domain']}/api/v1/system/metrics?token=" . self::SECRET_TOKEN . "&local_only=1";
-                $response = Http::timeout(0.8)->get($url);
+                $response = Http::timeout(1.5)->withoutVerifying()->get($url);
                 if ($response->successful() && $response->json('node_id') === $nodeId) {
                     return $response->json();
                 }
