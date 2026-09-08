@@ -35,6 +35,13 @@ class WorkLocationsTable
     {
         return $table
             ->columns([
+                TextColumn::make('code')
+                    ->label('Code')
+                    ->searchable()
+                    ->sortable()
+                    ->copyable()
+                    ->weight('bold')
+                    ->default('-'),
                 TextColumn::make('principal.name')
                     ->label('Prinsiple')
                     ->searchable()
@@ -53,13 +60,6 @@ class WorkLocationsTable
                     ->label('Nama Toko / Lokasi')
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('code')
-                    ->label('Kode SAP')
-                    ->searchable()
-                    ->sortable()
-                    ->visible(fn () => self::canViewDuluxColumns())
-                    ->toggleable(isToggledHiddenByDefault: false)
-                    ->default('-'),
                 TextColumn::make('category')
                     ->label('Kategori Store')
                     ->searchable()

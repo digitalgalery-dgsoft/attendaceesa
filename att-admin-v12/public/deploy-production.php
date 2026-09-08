@@ -71,8 +71,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $runImportDaily = (isset($_GET['import_daily']) && $_GET['import_daily'] === '1') || (isset($_GET['type']) && in_array($_GET['type'], ['daily', 'maintenance', 'daily_maintenance']));
     $runCleanLocations = (isset($_GET['clean_dulux_locations']) && $_GET['clean_dulux_locations'] === '1') || (isset($_GET['type']) && in_array($_GET['type'], ['clean_locations', 'clean_work_locations']));
     $runImportAmkStores = (isset($_GET['import_amk_stores']) && $_GET['import_amk_stores'] === '1') || (isset($_GET['type']) && in_array($_GET['type'], ['amk_stores', 'stores', 'dulux_stores']));
+    $runImportInhouseStores = (isset($_GET['import_inhouse_stores']) && $_GET['import_inhouse_stores'] === '1') || (isset($_GET['type']) && in_array($_GET['type'], ['inhouse', 'inhouse_stores', 'stores_inhouse']));
 
-    if ($runImportAmkStores) {
+    if ($runImportInhouseStores) {
+        $importCmd = 'work-locations:import-inhouse --force';
+        $importTitle = 'DATA MASTER WORK LOCATION INHOUSE (3.513 LOKASI)';
+    } elseif ($runImportAmkStores) {
         $importCmd = 'dulux:import-amk-stores --force';
         $importTitle = 'DATA STORE / WORK LOCATION DULUX AMK';
     } elseif ($runCleanLocations) {
@@ -122,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $remoteScript = "
                 PHP_BIN=\"/www/server/php/83/bin/php -d extension=pgsql.so -d extension=pdo_pgsql.so\"
                 cd {$srv['path']}
-                echo '=== MENJALANKAN ARTISAN COMMAND: {$artisanCmd} ==='
+                echo '=== MENJALANKAN ARTISAN COMMAND ==='
                 \$PHP_BIN artisan {$artisanCmd}
                 echo 'DEPLOY_SUCCESS_FLAG'
             ";

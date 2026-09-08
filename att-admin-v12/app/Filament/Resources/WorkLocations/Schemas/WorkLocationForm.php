@@ -78,6 +78,12 @@ class WorkLocationForm
                             }
                         }
                     }),
+                TextInput::make('code')
+                    ->label('Code')
+                    ->default(fn () => 'LOC-' . strtoupper(\Illuminate\Support\Str::random(6)))
+                    ->afterStateHydrated(fn ($component, ?string $state) => empty($state) ? $component->state('LOC-' . strtoupper(\Illuminate\Support\Str::random(6))) : null)
+                    ->placeholder('Contoh: LOC-A1B2C3 atau Kode SAP')
+                    ->maxLength(100),
                 TextInput::make('name')
                     ->label('Nama Lokasi / Toko')
                     ->required(),
@@ -98,10 +104,6 @@ class WorkLocationForm
                     ->icon('heroicon-o-paint-brush')
                     ->visible(fn ($get, $record) => self::isDuluxPrincipal($get('principal_id') ?? $record?->principal_id))
                     ->schema([
-                        TextInput::make('code')
-                            ->label('Kode SAP')
-                            ->placeholder('Contoh: 422401')
-                            ->maxLength(100),
                         TextInput::make('category')
                             ->label('Kategori Store')
                             ->placeholder('Contoh: SSO / MTI / Blue Store / Retail')

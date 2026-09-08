@@ -13,6 +13,15 @@ class WorkLocation extends Model
 
     protected $guarded = ['id'];
 
+    protected static function booted()
+    {
+        static::creating(function ($location) {
+            if (empty($location->code)) {
+                $location->code = 'LOC-' . strtoupper(\Illuminate\Support\Str::random(6));
+            }
+        });
+    }
+
     protected $casts = [
         'machines' => 'array',
     ];
