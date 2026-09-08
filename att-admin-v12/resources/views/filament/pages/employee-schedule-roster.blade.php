@@ -264,15 +264,7 @@
                 </button>
             </div>
 
-            <div style="display: flex; align-items: center; gap: 10px;">
-                @if($activeTab === 'working_groups')
-                    <a href="{{ \App\Filament\Resources\WorkingGroupResource::getUrl('create') }}"
-                       style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; background: #059669; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; box-shadow: 0 2px 6px rgba(5,150,105,0.25);">
-                        <x-filament::icon icon="heroicon-o-plus" style="width: 16px; height: 16px;" />
-                        <span>+ Buat Working Group Baru</span>
-                    </a>
-                @endif
-            </div>
+            <div></div>
         </div>
 
         @if ($activeTab === 'roster')
@@ -546,9 +538,9 @@
                         </div>
                     </div>
 
-                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
                         {{-- Search Box --}}
-                        <div style="position: relative; min-width: 260px;">
+                        <div style="position: relative; min-width: 280px;">
                             <input
                                 type="text"
                                 wire:model.live.debounce.300ms="wgSearch"
@@ -560,12 +552,6 @@
                                 <x-filament::icon icon="heroicon-o-magnifying-glass" style="width: 16px; height: 16px;" />
                             </div>
                         </div>
-
-                        <a href="{{ \App\Filament\Resources\WorkingGroupResource::getUrl('create') }}"
-                           style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; background: #059669; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; box-shadow: 0 2px 6px rgba(5,150,105,0.25);">
-                            <x-filament::icon icon="heroicon-o-plus" style="width: 16px; height: 16px;" />
-                            <span>+ Buat Working Group Baru</span>
-                        </a>
                     </div>
                 </div>
 
@@ -698,15 +684,8 @@
                                             <x-filament::icon icon="heroicon-o-user-group" style="width: 28px; height: 28px;" />
                                         </div>
                                         <div style="font-weight: 700; font-size: 15px; color: #0f172a;" class="dark:text-white">Belum Ada Working Group</div>
-                                        <div style="font-size: 12.5px; margin-top: 4px; max-width: 400px; margin-left: auto; margin-right: auto;">
-                                            Belum ada pola kerja kelompok yang dibuat. Klik tombol di bawah untuk membuat Working Group baru.
-                                        </div>
-                                        <div style="margin-top: 16px;">
-                                            <a href="{{ \App\Filament\Resources\WorkingGroupResource::getUrl('create') }}"
-                                               style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: 8px; background: #0f52ba; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none;">
-                                                <x-filament::icon icon="heroicon-o-plus" style="width: 16px; height: 16px;" />
-                                                <span>Buat Working Group Baru</span>
-                                            </a>
+                                        <div style="font-size: 12.5px; margin-top: 4px; max-width: 450px; margin-left: auto; margin-right: auto;">
+                                            Belum ada pola kerja kelompok yang dibuat. Klik tombol <strong>"Input via Working Group"</strong> di bagian atas untuk membuat Working Group baru.
                                         </div>
                                     </td>
                                 </tr>

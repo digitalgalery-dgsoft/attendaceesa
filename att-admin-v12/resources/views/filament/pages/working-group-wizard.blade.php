@@ -1396,7 +1396,12 @@
 
                     {{-- FOOTER STEP 1 --}}
                     <div class="wizard-footer-actions">
-                        <div></div>
+                        <a href="{{ \App\Filament\Resources\EmployeeSchedules\Pages\EmployeeScheduleRoster::getUrl(['activeTab' => 'working_groups']) }}"
+                           class="btn-wizard btn-wizard-secondary"
+                           style="text-decoration: none;">
+                            <x-filament::icon icon="heroicon-o-arrow-left" style="width: 18px; height: 18px;" />
+                            <span>Batal / Kembali ke Working Groups</span>
+                        </a>
                         <button type="button" wire:click="goToStep2" class="btn-wizard btn-wizard-primary">
                             <span>Lanjut ke Step 2: Implementing Working Group</span>
                             <x-filament::icon icon="heroicon-o-arrow-right" style="width: 18px; height: 18px;" />
@@ -1413,7 +1418,7 @@
                     <div>
                         <div class="wizard-card-title">Employee Applied</div>
                         <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
-                            Working Group: <strong style="color: #0284c7;">{{ $name }}</strong> &bull; Mulai Berlaku: <strong>{{ \Carbon\Carbon::parse($data_applied_date)->translatedFormat('d F Y') }}</strong>
+                            Working Group: <strong style="color: #0284c7;">{{ $name }}</strong> &bull; Mulai Berlaku: <strong>{{ !empty($data_applied_date) ? \Carbon\Carbon::parse($data_applied_date)->translatedFormat('d F Y') : '-' }}</strong>
                         </div>
                     </div>
 
