@@ -17,7 +17,7 @@ class ImportInhouseStoresCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'work-locations:import-inhouse {--force : Jalankan impor tanpa konfirmasi} {--clean : Hapus data work location inhouse sebelumnya}';
+    protected $signature = 'work-locations:import-inhouse {--force : Jalankan impor tanpa konfirmasi} {--clean : Hapus data work location inhouse sebelumnya} {--principal_id= : Override ID Principal} {--company_id= : Override ID Company}';
 
     /**
      * The console command description.
@@ -53,34 +53,37 @@ class ImportInhouseStoresCommand extends Command
         $this->info("📊 Total data store inhouse di file: {$totalRecords}");
 
         // 2. Identifikasi Company & Principal Sesuai Server
-        $company = Company::first();
-        if (!$company) {
-            $this->error("❌ Tidak ada data Company terdaftar di database.");
+        $principalIdOpt = $this->option('principal_id');
+        $companyIdOpt = $this->option('company_id');
+
+        if ($principalIdOpt) {
+            $principal = Principal::find($principalIdOpt);
+        } else {
+            // Cari Principal Inhouse spesifik server (AMK: ID 12, AKP: ID 53, ATK: ID 37)
+            $principal = Principal::where('name', 'ilike', '%arina multi karya%')->first()
+                ?? Principal::where('name', 'ilike', '%alva karya perkasa%')->first()
+                ?? Principal::where('name', 'ilike', '%anugrah talenta berkarya%')->first()
+                ?? Principal::where('name', 'ilike', '%anugrah terpercaya%')->first()
+                ?? Principal::where('name', 'ilike', '%inhouse%')->first()
+                ?? Principal::first();
+        }
+
+        if (!$principal) {
+            $this->error("❌ Tidak ada Principal terdaftar di database.");
             return 1;
         }
 
-        // Cari Principal Inhouse untuk Company ini
-        $principal = Principal::where('company_id', $company->id)
-            ->where(function ($q) {
-                $q->where('name', 'ilike', '%inhouse%')
-                  ->orWhere('name', 'ilike', '%internal%')
-                  ->orWhere('name', 'ilike', '%arina%')
-                  ->orWhere('name', 'ilike', '%alva%')
-                  ->orWhere('name', 'ilike', '%anugrah%')
-                  ->orWhere('name', 'ilike', '%talenta%');
-            })->first()
-            ?? Principal::where('company_id', $company->id)->first()
-            ?? Principal::where('name', 'ilike', '%inhouse%')->first()
-            ?? Principal::first();
+        if ($companyIdOpt) {
+            $company = Company::find($companyIdOpt);
+        } else {
+            $company = ($principal->company_id ? Company::find($principal->company_id) : null)
+                ?? Company::where('name', 'ilike', '%' . trim(str_replace(['PT', 'pt', '.'], '', $principal->name)) . '%')->first()
+                ?? Company::first();
+        }
 
-        if (!$principal) {
-            $this->warn("⚠️ Principal Inhouse tidak ditemukan. Membuat principal baru...");
-            $principal = Principal::create([
-                'company_id' => $company->id,
-                'name' => $company->name . ' (INHOUSE)',
-                'code' => 'PRI-INHOUSE',
-                'is_active' => true,
-            ]);
+        if (!$company) {
+            $this->error("❌ Tidak ada data Company terdaftar di database.");
+            return 1;
         }
 
         $this->info("🏢 Target Company  : [ID: {$company->id}] {$company->name}");
