@@ -447,18 +447,58 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
     - Bump versi ke `v1.0.130+130` pada `pubspec.yaml` dan `splash_screen.dart`.
     - Build release APK (108.2MB) dan deploy ke server Staging (`appsend.my.id`) serta klaster produksi.
 
-### 📦 Pembaruan Master Data Produk ICI Paint / Dulux (69 Produk Resmi Excel)
+### 📦 Pembaruan Master Data Produk ICI Paint / Dulux & Pricing Matrix Base A-D
 - **Status**: 🟢 **Selesai (100%)**
 - **Tanggal Rilis**: 9 September 2026
 - **Deskripsi Pembaruan**:
   - **Penghapusan 5 Produk Demo**: 5 produk dummy lama (`DLX-WTS-WHT-25L`, `DLX-CTL-INT-5KG`, `DLX-ECL-ANT-25L`, `DLX-AQS-ABU-4KG`, `DLX-PNT-ALM-25L`) dihapus secara permanen dari tabel `products` dan dilepas dari relasi template.
-  - **Impor 69 Produk Resmi dari Excel Final (`List Product Dulux_Updated_Final.xlsx`)**:
-    - 69 produk unik lengkap dengan nama produk, SKU unik (`DLX-...`), kategori brand/base (`Catylac Base`, `Catylac RM`, `Dulux Base`, `Dulux RM`, `Maxilite`), satuan (`Kg` / `Ltr`), dan harga acuan.
-    - Kolom `description` memuat JSON spesifikasi lengkap: ukuran kemasan (Tin, Galon, Pail), konversi liter, harga Ready Mix (Tin, Galon, Pail), dan matriks harga tinting Base A, Base B, Base C, Base D.
+  - **Pembersihan Deskripsi JSON**: Menghilangkan tampilan raw JSON pada deskripsi master produk di Web Portal dan Mobile, menggantinya dengan deskripsi format teks terstruktur.
+  - **Matriks Harga Base A-D & Kemasan (Tin, Galon, Pail)**:
+    - Menambahkan kolom `pricing_matrix` (JSON) pada tabel `products` via migrasi `2026_09_09_164500_add_pricing_matrix_to_products_table.php`.
+    - Menyimpan spesifikasi ukuran kemasan (Tin, Galon, Pail), rasio liter, dan harga acuan per varian Base (Ready Mix, Base A, Base B, Base C, Base D) untuk 69 produk Dulux dari Excel `List Product Dulux_Updated_Final.xlsx`.
+    - Menyediakan modal popup interaktif **"Rincian Base & Kemasan"** pada halaman Master Produk di Portal Principal.
   - **Integrasi Otomatis Template & Form Laporan**:
     - Seluruh 69 produk ditautkan ke template `RPT-DULUX-OFFTAKE-01`, `RPT-DULUX-OOS-SSO`, `RPT-DULUX-DATABASE-PELANGGAN`, `RPT-DULUX-STOCK-END`, dan `RPT-DULUX-CBP-PRICING`.
     - Pilihan dropdown pada form field `produk_oos`, `produk_stock_end`, dan `produk_dulux_cbp` otomatis disinkronkan secara dinamis dari katalog produk aktif.
     - Model `Product` dilengkapi event listener `booted()` sehingga penambahan/perubahan produk baru di masa depan di Web Admin otomatis terintegrasi ke seluruh template pelaporan tanpa perlu perubahan kode manual.
+
+### 📦 Perombakan Form Laporan Offtake Dulux (`RPT-DULUX-OFFTAKE-01`)
+- **Status**: 🟢 **Selesai (100%)**
+- **Tanggal Rilis**: 9 September 2026
+- **Deskripsi Pembaruan**:
+  - **Mode Selector `Sale` vs `No Sale`**:
+    - Di awal form disediakan segmented toggle `Sale` dan `No Sale`.
+    - **Mode No Sale**: Form instan tanpa mewajibkan produk ataupun foto, langsung menampilkan tombol kirim.
+  - **Sistem Keranjang Multi-Produk (Cart)**:
+    - Pengguna dapat memilih produk dari katalog master, memilih varian base, dan menginput kuantiti Tin, Galon, dan Pail dengan preview harga dan kalkulasi subtotal instan (Volume Liter & Nilai Rp).
+    - Tombol `+ Simpan Produk ke Daftar` menyimpan item ke keranjang sementara.
+  - **Halaman Review, Traffic Pengunjung & Foto Bukti**:
+    - Menampilkan rekap visual keranjang produk yang dibeli, banner Grand Total Liter & Grand Total Penjualan (Rp).
+    - Input traffic customer: Customer Masuk, Beli Cat, Beli Dulux (dengan kalkulasi otomatis % market share).
+    - Dialog pilihan pengambilan foto: 📸 **Ambil dari Kamera** (Watermark Geotag) atau 🖼️ **Pilih dari Galeri** (Watermark Geotag).
+  - **Pembersihan Field Lama**: Field usang `status_transaksi` dan `catatan_penjualan` dihapus dari database template.
+
+### 📦 Pelaporan Multi-Produk Offtake (1 Baris Per Produk di Dashboard) & Anti-Duplikasi Foto (APK v1.0.131)
+- **Status**: 🟢 **Selesai & Rilis (100%)**
+- **Tanggal Rilis**: 9 September 2026
+- **Deskripsi Pembaruan**:
+  - **Penyelarasan 1 Baris Per Produk di Dashboard Portal & Raw Data**:
+    - Pada `ReportingApiController.php` (`submit()`), ketika pengguna menginput beberapa produk di keranjang offtake, backend secara otomatis membuat **1 baris `ReportSubmission` terpisah untuk setiap produk** (kode dokumen berseri unik `RPT-...-1`, `RPT-...-2`, dst.) dalam satu transaksi database atomik.
+    - Setiap baris menyimpan data Sub Brand, Brand, Kemasan, Qty, Volume Liter, dan Nilai Penjualan (Rp) produk tersebut secara spesifik, dengan tetap melampirkan data traffic dan foto bukti yang sama.
+    - Pada Dashboard Portal Principal dan ekspor excel Raw Data Transaksi (`sheet1`), setiap produk yang dibeli langsung terdata sebagai baris transaksi tersendiri.
+  - **Pengambilan Foto Bukti (1 Card Offtake + 2 Nota) & Anti-Duplikasi Foto**:
+    - **Auto-Sync Struktur Template Server**: Method `ReportTemplate::syncDuluxOfftakeTemplate()` secara otomatis memastikan field resmi `foto_card_offtake` (photo, 1 foto) dan `foto_nota_penjualan` (multi_photo, multi foto) tersedia dan aktif di seluruh server cluster.
+    - **Deduplikasi di Mobile & Backend**:
+      - Mobile `dynamic_form_screen.dart` mengirimkan file strictly dengan ID field tunggal, mencegah payload ganda.
+      - Backend `saveUploadedPhotos` menerapkan filter hash MD5 (`$seenHashes`) sebelum menyimpan file ke storage, menjamin file yang sama tidak akan pernah tersimpan lebih dari sekali.
+      - **Hasil**: 1 foto Card Offtake + 2 foto Nota tersimpan tepat 3 foto tanpa duplikasi.
+  - **Multi-Server Production Deployment & Rilis APK Mobile v1.0.131+131**:
+    - Seluruh pembaruan backend, database migrations, dan template telah di-deploy dan disinkronkan ke seluruh server cluster:
+      - **Server 1: PT Arina Multi Karya (AMK)**: `38.103.170.235` / `amk.esa-solutions.id` (HTTP 200 OK)
+      - **Server 2: PT Alva Karya Perkasa (AKP)**: `38.103.170.223` / `akp.esa-solutions.id` (HTTP 200 OK)
+      - **Server 3: PT Anugrah Talenta Berkarya (ATK)**: `38.103.170.224` / `atk.esa-solutions.id` (HTTP 200 OK)
+      - **Staging Server**: `appsend.my.id` (HTTP 200 OK)
+    - APK Mobile resmi versi **`v1.0.131+131`** telah berhasil dibuild (`108.6 MB`), diunggah ke server `https://appsend.my.id/app-release.apk`, dan didistribusikan ke seluruh server node.
 
 ---
 
@@ -475,3 +515,4 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 
 *Terakhir diperbarui: 9 September 2026*  
 *Pengembang: Digital Galery / DGSoft - Tim Attendance ESA*
+

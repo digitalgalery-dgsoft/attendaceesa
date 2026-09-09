@@ -1346,5 +1346,78 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
      - Direktori arsip: `APK/app-release-1.0.128.apk`, root workspace, dan `att-admin-v12/public/`.
    - Sesuai instruksi, APK hanya di-build secara lokal (tidak di-push ke GitHub dan belum di-deploy ke server).
 
+3. **Multi-Mesin Per Toko (Dulux), Mandatory Daily Maintenance Gating & Icon Penanda Lokasi (APK v1.0.129+129)**:
+   - **Multi-Mesin per Store di Web Admin Filament (`WorkLocationForm.php`)**:
+     - Menambahkan `Repeater::make('machines')` pada form Master Work Location.
+     - Setiap toko kini dapat memiliki 2 atau lebih mesin tinting terdaftar, mencakup tipe mesin (Corob D200, Fast & Fluid HA480/HA680, Santint, Hero, dll.) dan Nomor Seri mesin.
+     - Model `WorkLocation` dilengkapi aksesor cerdas `normalized_machines` yang secara transparan menyatukan data multi-mesin JSON array dengan fallback data mesin skalar tunggal.
+   - **Dynamic Machine Binding & Reporting Gate (`ReportingApiController.php` & `AttendanceController.php`)**:
+     - Backend secara dinamis mengidentifikasi toko tempat karyawan check-in/visit-in hari ini.
+     - Laporan Daily Maintenance POST (`RPT-DULUX-DAILY-MAINTENANCE`) mengunci daftar mesin sesuai yang terdaftar pada toko tersebut.
+     - Menghitung jumlah mesin terlapor vs total mesin (`has_machine_binding`, `submitted_machines`, `total_machines_count`, `remaining_machines_count`).
+     - Laporan Daily Maintenance hanya berstatus selesai (`is_completed_today = true`) jika **seluruh mesin** telah dilaporkan. Jika belum, Langkah 2 (Offtake) tetap terkunci dan Check-out / Visit-out diblokir dengan peringatan sisa mesin.
+   - **Pembaruan Antarmuka Mobile Form Laporan (`DynamicFormScreen`)**:
+     - **Card Info Lokasi / Store Dihilangkan**: Menghilangkan kartu lokasi besar di bagian atas form untuk memaksimalkan ruang kerja visual petugas.
+     - **Icon Penanda Lokasi Interaktif di AppBar**:
+       - 🔴 **Merah**: Belum Check-in / Visit-in (Form terkunci, tombol submit nonaktif).
+       - 🟠 **Orange**: Diluar Radius Lokasi / Store (Menampilkan jarak riil meter dan toleransi radius).
+       - 🟢 **Hijau**: Dalam Radius Lokasi / Store (Posisi GPS aman dalam radius).
+       - Dilengkapi modal dialog detail saat icon diklik yang menampilkan informasi toko, koordinat GPS, dan status radius secara transparan.
+     - **Alur Pelaporan Multi-Mesin**:
+       - Dropdown tipe mesin otomatis menonaktifkan (*disabled & strikethrough*) mesin yang telah dilaporkan hari itu (`✓ Sudah Dilaporkan`).
+       - Otomatis memilih mesin pertama yang belum dilaporkan dan mengisi nomor seri secara otomatis.
+       - Menampilkan progress bar mesin dan tombol dinamis **"Kirim & Lanjut Mesin Berikutnya"** hingga mesin terakhir yang bertuliskan **"Kirim & Selesai (Mesin Terakhir ✓)"**.
+
+4. **Update Patch v1.0.130 (Fix Mesin Dropdown & Label Tombol Daily Maintenance)**:
+   - **Resolusi Dropdown Mesin Drop/Missing**:
+     - Memperbaiki `ReportingApiController.php` pada logic `submit()` agar tidak menimpa (*overwrite/truncate*) array `machines` pada `work_locations`.
+     - Menambahkan migrasi database `2026_09_09_143000_seed_toko_demo_arina_rajawali_machines.php` untuk memastikan Toko Demo Arina Rajawali (ID: 6016) memiliki kedua mesin (`Type Mesin 1` & `Type Mesin 2`).
+     - Memperbarui `_getStoreMachinesMap()` di aplikasi mobile untuk membaca hierarki mesin toko dari payload API, template `storeMachines`, dan fallback bawaan store.
+   - **Penyelarasan Total Progres & Label Tombol Form**:
+     - Mengisolasi template Daily Maintenance dari binding produk (`_isDailyMaintenanceTemplate()` mengembalikan `false` untuk `_hasProductBinding()`).
+     - Menempatkan pengecekan mesin di atas pengecekan produk pada tombol form pelaporan sehingga menampilkan **"Progres Laporan Mesin Tinting (X / Y Mesin)"**, tombol **"Kirim & Lanjut Mesin Berikutnya"**, dan **"Kirim & Selesai (Mesin Terakhir ✓)"**.
+
+5. **Pembaruan Master Data Produk Dulux (69 Produk Resmi Excel) & Integrasi Pricing Matrix**:
+   - **Pembersihan Deskripsi JSON**: Menghilangkan tampilan raw JSON pada deskripsi produk di Web Portal dan Mobile, menggantinya dengan deskripsi format teks terstruktur.
+   - **Matriks Harga Base A-D & Kemasan (Tin, Galon, Pail)**:
+     - Menambahkan kolom `pricing_matrix` (JSON) pada tabel `products` via migrasi `2026_09_09_164500_add_pricing_matrix_to_products_table.php`.
+     - Menyimpan spesifikasi ukuran kemasan (Tin, Galon, Pail), rasio liter, dan harga acuan per varian Base (Ready Mix, Base A, Base B, Base C, Base D) untuk 69 produk Dulux.
+     - Menyediakan modal popup interaktif **"Rincian Base & Kemasan"** pada halaman Master Produk di Portal Principal.
+
+6. **Perombakan Form Laporan Offtake Dulux (`RPT-DULUX-OFFTAKE-01`)**:
+   - **Mode Selector `Sale` vs `No Sale`**:
+     - Di awal form disediakan segmented toggle `Sale` dan `No Sale`.
+     - **Mode No Sale**: Form instan tanpa mewajibkan produk ataupun foto, langsung menampilkan tombol kirim.
+   - **Sistem Keranjang Multi-Produk (Cart)**:
+     - Pengguna dapat memilih produk dari katalog master, memilih varian base, dan menginput kuantiti Tin, Galon, dan Pail dengan preview harga dan kalkulasi subtotal instan (Volume Liter & Nilai Rp).
+     - Tombol `+ Simpan Produk ke Daftar` menyimpan item ke keranjang sementara.
+   - **Halaman Review, Traffic Pengunjung & Foto Bukti**:
+     - Menampilkan rekap visual keranjang produk yang dibeli, banner Grand Total Liter & Grand Total Penjualan (Rp).
+     - Input traffic customer: Customer Masuk, Beli Cat, Beli Dulux (dengan kalkulasi otomatis % market share).
+     - Dialog pilihan pengambilan foto: 📸 **Ambil dari Kamera** (Watermark Geotag) atau 🖼️ **Pilih dari Galeri** (Watermark Geotag).
+   - **Pembersihan Field Lama**: Field usang `status_transaksi` dan `catatan_penjualan` dihapus dari database template.
+
+7. **Perbaikan Pelaporan Multi-Produk Offtake (1 Baris Per Produk di Dashboard Portal & Raw Data Transaksi)**:
+   - **Resolusi 1 Baris Menjadi Multi Baris**:
+     - Pada `ReportingApiController.php` (`submit()`), ketika pengguna menginput beberapa produk di keranjang offtake, backend secara otomatis membuat **1 baris `ReportSubmission` terpisah untuk setiap produk** (kode dokumen berseri unik `RPT-...-1`, `RPT-...-2`, dst.) dalam satu transaksi database atomik.
+     - Setiap baris menyimpan data Sub Brand, Brand, Kemasan, Qty, Volume Liter, dan Nilai Penjualan (Rp) produk tersebut secara spesifik, dengan tetap melampirkan data traffic dan foto bukti yang sama.
+     - Pada Dashboard Portal Principal dan ekspor excel Raw Data Transaksi (`sheet1`), setiap produk yang dibeli langsung terdata sebagai baris transaksi tersendiri.
+
+8. **Perbaikan Pengambilan Foto Bukti (1 Card Offtake + 2 Nota) & Anti-Duplikasi Foto**:
+   - **Auto-Sync Struktur Template Server**:
+     - Menambahkan method `ReportTemplate::syncDuluxOfftakeTemplate()` yang secara otomatis memastikan field resmi `foto_card_offtake` (photo, 1 foto) dan `foto_nota_penjualan` (multi_photo, multi foto) tersedia dan aktif di seluruh server cluster.
+   - **Deduplikasi di Mobile & Backend**:
+     - Mobile `dynamic_form_screen.dart` mengirimkan file strictly dengan ID field tunggal, mencegah payload ganda.
+     - Backend `saveUploadedPhotos` menerapkan filter hash MD5 (`$seenHashes`) sebelum menyimpan file ke storage, menjamin file yang sama tidak akan pernah tersimpan lebih dari sekali.
+     - **Hasil**: 1 foto Card Offtake + 2 foto Nota tersimpan tepat 3 foto tanpa duplikasi.
+
+9. **Multi-Server Production Deployment & Rilis APK Mobile v1.0.131+131**:
+   - Seluruh pembaruan backend, database migrations, dan template telah di-deploy dan disinkronkan ke seluruh server cluster:
+     - **Server 1: PT Arina Multi Karya (AMK)**: `38.103.170.235` / `amk.esa-solutions.id` (HTTP 200 OK)
+     - **Server 2: PT Alva Karya Perkasa (AKP)**: `38.103.170.223` / `akp.esa-solutions.id` (HTTP 200 OK)
+     - **Server 3: PT Anugrah Talenta Berkarya (ATK)**: `38.103.170.224` / `atk.esa-solutions.id` (HTTP 200 OK)
+     - **Staging Server**: `appsend.my.id` (HTTP 200 OK)
+   - APK Mobile resmi versi **`v1.0.131+131`** telah berhasil dibuild (`108.6 MB`), diunggah ke server `https://appsend.my.id/app-release.apk`, dan didistribusikan ke seluruh server node.
+
 
 
