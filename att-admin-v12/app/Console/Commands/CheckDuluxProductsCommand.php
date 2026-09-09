@@ -39,10 +39,13 @@ class CheckDuluxProductsCommand extends Command
             $this->line(" - Demo: {$d->sku_code} ({$d->name}), deleted_at=" . ($d->deleted_at ?? 'null'));
         }
 
-        $duluxTemplates = ReportTemplate::where("code", "LIKE", "%DULUX%")->get();
-        $this->line("Dulux templates found: " . $duluxTemplates->count());
-        foreach ($duluxTemplates as $t) {
-            $this->line(" - Template ID={$t->id} [{$t->code}] active=" . ($t->is_active ? '1' : '0') . " pid={$t->principal_id} : {$t->products()->count()} products linked");
+        $allTemplates = ReportTemplate::where("code", "LIKE", "%DULUX%")
+            ->orWhere("title", "LIKE", "%DULUX%")
+            ->orWhereIn("id", [31, 38])
+            ->get();
+        $this->line("Dulux templates (by code/title/id) found: " . $allTemplates->count());
+        foreach ($allTemplates as $t) {
+            $this->line(" - Template ID={$t->id} [{$t->code}] title='{$t->title}' active=" . ($t->is_active ? '1' : '0') . " pid={$t->principal_id} : {$t->products()->count()} products linked");
         }
 
         if ($this->option('fix')) {
