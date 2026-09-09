@@ -714,7 +714,7 @@ return new class extends Migration
         }
 
         // 5. Perbarui options field dropdown produk pada template Dulux
-        $productSelectFields = ReportFormField::whereHas("reportTemplate", function ($q) {
+        $productSelectFields = ReportFormField::whereHas("template", function ($q) {
             $q->where("code", "LIKE", "RPT-DULUX-%")
               ->where("code", "!=", "RPT-DULUX-DAILY-MAINTENANCE");
         })->where(function ($q) {
