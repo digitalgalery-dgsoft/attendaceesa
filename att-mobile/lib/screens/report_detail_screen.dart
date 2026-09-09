@@ -629,9 +629,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     bool isDarkMode,
   ) {
     // Cek apakah field ini adalah data_kompetitor_list
-    final isCompList = val.fieldName == 'data_kompetitor_list';
+    final isCompList = val.fieldName == 'data_kompetitor_list' || (val.fieldName.contains('kompetitor') && !val.fieldName.contains('offtake'));
     List<dynamic>? compItems;
-    if (isCompList || (val.valueText != null && val.valueText!.trim().startsWith('[{') && val.valueText!.contains('harga_'))) {
+    if (isCompList || (val.fieldName != 'offtake_items_json' && val.valueText != null && val.valueText!.trim().startsWith('[{') && val.valueText!.contains('harga_kompetitor'))) {
       if (val.valueJson is List) {
         compItems = val.valueJson as List;
       } else if (val.valueText != null && val.valueText!.isNotEmpty) {

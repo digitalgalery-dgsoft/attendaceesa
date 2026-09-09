@@ -29,7 +29,6 @@ return new class extends Migration
                 'field_name' => 'tipe_laporan_offtake',
                 'field_type' => 'dropdown',
                 'options' => ['Sale', 'No Sale'],
-                'default_value' => 'Sale',
                 'is_required' => true,
                 'is_readonly' => false,
             ],

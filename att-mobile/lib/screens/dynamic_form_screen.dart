@@ -7297,28 +7297,50 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       final Map<String, dynamic> allPhotosPayload = {};
       final Map<String, String> watermarkPayload = {};
 
+      ReportFormFieldModel? cardField;
+      ReportFormFieldModel? notaField;
+      ReportFormFieldModel? genericField;
+
       for (final f in widget.template.fields) {
         final fn = f.fieldName.toLowerCase();
-        final fKey = f.id.toString();
-
         if (fn == 'foto_card_offtake' || fn.contains('card_offtake')) {
-          if (_offtakeCardPhoto != null) {
-            allPhotosPayload[fKey] = _offtakeCardPhoto!;
-            allPhotosPayload[fn] = _offtakeCardPhoto!;
-            if (_offtakeCardPhotoWatermark != null) {
-              watermarkPayload[fKey] = _offtakeCardPhotoWatermark!;
-              watermarkPayload[fn] = _offtakeCardPhotoWatermark!;
-            }
-          }
+          cardField = f;
         } else if (fn == 'foto_nota_penjualan' || fn.contains('nota')) {
-          if (_offtakeNotaPhotos.isNotEmpty) {
-            allPhotosPayload[fKey] = _offtakeNotaPhotos;
-            allPhotosPayload[fn] = _offtakeNotaPhotos;
-            if (_offtakeNotaPhotoWatermarks.isNotEmpty) {
-              watermarkPayload[fKey] = _offtakeNotaPhotoWatermarks.first;
-              watermarkPayload[fn] = _offtakeNotaPhotoWatermarks.first;
-            }
+          notaField = f;
+        } else if (['photo', 'camera_photo', 'multi_photo'].contains(f.fieldType)) {
+          genericField ??= f;
+        }
+      }
+
+      if (cardField != null && _offtakeCardPhoto != null) {
+        allPhotosPayload[cardField.id.toString()] = _offtakeCardPhoto!;
+        if (_offtakeCardPhotoWatermark != null) {
+          watermarkPayload[cardField.id.toString()] = _offtakeCardPhotoWatermark!;
+        }
+      }
+
+      if (notaField != null && _offtakeNotaPhotos.isNotEmpty) {
+        allPhotosPayload[notaField.id.toString()] = _offtakeNotaPhotos;
+        if (_offtakeNotaPhotoWatermarks.isNotEmpty) {
+          watermarkPayload[notaField.id.toString()] = _offtakeNotaPhotoWatermarks.first;
+        }
+      }
+
+      // Backward compatibility jika server hanya punya 1 field foto (nota / generic):
+      if (cardField == null && _offtakeCardPhoto != null) {
+        final target = notaField ?? genericField;
+        if (target != null) {
+          final existing = allPhotosPayload[target.id.toString()];
+          List<File> combined = [];
+          if (existing is List<File>) {
+            combined = List<File>.from(existing);
+          } else if (existing is File) {
+            combined = [existing];
           }
+          combined.insert(0, _offtakeCardPhoto!);
+          allPhotosPayload[target.id.toString()] = combined;
+        } else {
+          allPhotosPayload['foto_card_offtake'] = _offtakeCardPhoto!;
         }
       }
 
