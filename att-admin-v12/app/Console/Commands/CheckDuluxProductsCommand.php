@@ -51,6 +51,23 @@ class CheckDuluxProductsCommand extends Command
             $this->line(" - Template ID={$t->id} [{$t->code}] title='{$t->title}' active=" . ($t->is_active ? '1' : '0') . " pid={$t->principal_id} : {$t->products()->count()} products linked");
         }
 
+        // Check JSON descriptions
+        $jsonDescCount = \Illuminate\Support\Facades\DB::table('products')->where('description', 'LIKE', '{%')->count();
+        $this->line("Products with raw JSON in description: {$jsonDescCount}");
+
+        if ($jsonDescCount > 0) {
+            $this->info("Converting raw JSON descriptions to clean text...");
+            $prods = \Illuminate\Support\Facades\DB::table('products')->where('description', 'LIKE', '{%')->get();
+            foreach ($prods as $p) {
+                $clean = Product::formatDescriptionText($p->description);
+                if ($clean && $clean !== $p->description) {
+                    \Illuminate\Support\Facades\DB::table('products')->where('id', $p->id)->update(['description' => $clean]);
+                }
+            }
+            $remaining = \Illuminate\Support\Facades\DB::table('products')->where('description', 'LIKE', '{%')->count();
+            $this->line("JSON descriptions converted! Remaining JSON: {$remaining}");
+        }
+
         if ($this->option('fix')) {
             $this->info("Running FIX: Re-syncing Dulux products to templates...");
             $migration = require database_path('migrations/2026_09_09_150000_update_ici_paint_products_from_excel.php');

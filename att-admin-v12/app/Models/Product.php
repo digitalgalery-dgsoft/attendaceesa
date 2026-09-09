@@ -33,6 +33,60 @@ class Product extends Model
         'min_stock' => 'integer',
     ];
 
+    public function getDescriptionAttribute(?string $value): ?string
+    {
+        return self::formatDescriptionText($value);
+    }
+
+    public static function formatDescriptionText(?string $desc): ?string
+    {
+        if (empty($desc)) {
+            return $desc;
+        }
+
+        $trimmed = trim($desc);
+        if (str_starts_with($trimmed, '{') && str_ends_with($trimmed, '}')) {
+            $data = json_decode($trimmed, true);
+            if (is_array($data)) {
+                $parts = [];
+                $brand = $data['brand'] ?? '';
+                $brandRmBase = $data['brand_rm_base'] ?? '';
+                if ($brand && $brandRmBase && $brand !== $brandRmBase) {
+                    $parts[] = "{$brand} ({$brandRmBase})";
+                } elseif ($brandRmBase) {
+                    $parts[] = $brandRmBase;
+                } elseif ($brand) {
+                    $parts[] = $brand;
+                }
+
+                $uom = $data['uom'] ?? 'Kg';
+                $pkgs = $data['packaging_sizes'] ?? [];
+                $pkgParts = [];
+                if (!empty($pkgs['tin'])) {
+                    $pkgParts[] = "Tin {$pkgs['tin']} {$uom}";
+                }
+                if (!empty($pkgs['galon'])) {
+                    $pkgParts[] = "Galon {$pkgs['galon']} {$uom}";
+                }
+                if (!empty($pkgs['pail'])) {
+                    $pkgParts[] = "Pail {$pkgs['pail']} {$uom}";
+                }
+
+                if (!empty($pkgParts)) {
+                    $parts[] = "Kemasan: " . implode(', ', $pkgParts);
+                }
+
+                if (!empty($data['conversion_to_liter'])) {
+                    $parts[] = "Konversi: {$data['conversion_to_liter']} Ltr/{$uom}";
+                }
+
+                return !empty($parts) ? implode('. ', $parts) : $desc;
+            }
+        }
+
+        return $desc;
+    }
+
     public function getMinimalStockAttribute(): int
     {
         return (int) ($this->min_stock ?? 0);

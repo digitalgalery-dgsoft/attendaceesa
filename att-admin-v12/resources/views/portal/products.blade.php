@@ -1050,8 +1050,25 @@
         document.getElementById('edit_category').value = prod.category || '';
         document.getElementById('edit_price').value = prod.price || 0;
         document.getElementById('edit_min_stock').value = prod.min_stock || 0;
-        document.getElementById('edit_uom').value = prod.uom || 'Pcs';
-        document.getElementById('edit_description').value = prod.description || '';
+        var rawDesc = (prod.description || '').trim();
+        if (rawDesc.startsWith('{') && rawDesc.endsWith('}')) {
+            try {
+                var d = JSON.parse(rawDesc);
+                var parts = [];
+                var brandInfo = (d.brand && d.brand_rm_base && d.brand !== d.brand_rm_base) ? (d.brand + ' (' + d.brand_rm_base + ')') : (d.brand_rm_base || d.brand || '');
+                if (brandInfo) parts.push(brandInfo);
+                var uom = d.uom || 'Kg';
+                var pkgs = d.packaging_sizes || {};
+                var pkgParts = [];
+                if (pkgs.tin) pkgParts.push('Tin ' + pkgs.tin + ' ' + uom);
+                if (pkgs.galon) pkgParts.push('Galon ' + pkgs.galon + ' ' + uom);
+                if (pkgs.pail) pkgParts.push('Pail ' + pkgs.pail + ' ' + uom);
+                if (pkgParts.length > 0) parts.push('Kemasan: ' + pkgParts.join(', '));
+                if (d.conversion_to_liter) parts.push('Konversi: ' + d.conversion_to_liter + ' Ltr/' + uom);
+                rawDesc = parts.length > 0 ? parts.join('. ') : rawDesc;
+            } catch (e) {}
+        }
+        document.getElementById('edit_description').value = rawDesc;
 
         // Handle existing image in edit modal
         var previewBox = document.getElementById('edit_preview_box');

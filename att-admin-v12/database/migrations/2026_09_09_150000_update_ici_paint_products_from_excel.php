@@ -692,7 +692,7 @@ return new class extends Migration
                     "uom" => $p["uom"],
                     "price" => $p["price"],
                     "min_stock" => 0,
-                    "description" => $p["description"],
+                    "description" => Product::formatDescriptionText($p["description"]),
                     "is_active" => true,
                     "deleted_at" => null,
                 ]
