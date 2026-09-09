@@ -48,7 +48,9 @@ class DynamicReportingProvider with ChangeNotifier {
     if (cachedData != null && !forceRefresh) {
       try {
         final decoded = jsonDecode(cachedData) as List;
-        _templates = decoded.map((item) => ReportTemplateModel.fromJson(item)).toList();
+        _templates = ReportTemplateModel.applyDuluxSequence(
+          decoded.map((item) => ReportTemplateModel.fromJson(item)).toList(),
+        );
         notifyListeners();
       } catch (_) {}
     }
@@ -71,7 +73,9 @@ class DynamicReportingProvider with ChangeNotifier {
         final data = jsonDecode(response.body);
         if (data['status'] == 'success') {
           final List rawList = data['data'] ?? [];
-          _templates = rawList.map((item) => ReportTemplateModel.fromJson(item)).toList();
+          _templates = ReportTemplateModel.applyDuluxSequence(
+            rawList.map((item) => ReportTemplateModel.fromJson(item)).toList(),
+          );
           
           if (data['cutoff_info'] != null) {
             _cutoffInfo = data['cutoff_info'] as Map<String, dynamic>;

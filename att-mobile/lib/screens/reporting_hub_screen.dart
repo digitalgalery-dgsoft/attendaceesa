@@ -8,6 +8,7 @@ import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/providers/locale_provider.dart';
 import 'package:att_mobile/screens/dynamic_form_screen.dart';
 import 'package:att_mobile/screens/report_detail_screen.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class ReportingHubScreen extends StatefulWidget {
   final String? storeName;
@@ -301,8 +302,8 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
     String principalName,
   ) {
     if (provider.isLoading && provider.templates.isEmpty) {
-      return Center(
-        child: CircularProgressIndicator(color: primaryColor),
+      return const Center(
+        child: CustomLoadingIndicator(message: 'Memuat template laporan...'),
       );
     }
 

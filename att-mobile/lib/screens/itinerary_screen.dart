@@ -6,6 +6,7 @@ import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/itinerary_provider.dart';
 import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/screens/add_itinerary_screen.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class ItineraryScreen extends StatefulWidget {
   const ItineraryScreen({super.key});
@@ -82,7 +83,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
       body: Consumer<ItineraryProvider>(
         builder: (context, itineraryProvider, child) {
           if (itineraryProvider.isLoading && itineraryProvider.itineraries.isEmpty) {
-            return Center(child: CircularProgressIndicator(color: primaryColor));
+            return const Center(child: CustomLoadingIndicator(message: 'Memuat jadwal visit...'));
           }
 
           final selectedEvents = _getEventsForDay(

@@ -18,6 +18,7 @@ import 'meeting_report_screen.dart';
 import 'profile_screen.dart';
 import 'reporting_hub_screen.dart';
 import 'package:att_mobile/utils/constants.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class ScheduledLocationItem {
   final String id;
@@ -425,7 +426,13 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+      builder: (context) => const Center(
+        child: CustomLoadingIndicator(
+          size: 85,
+          showBackgroundCard: true,
+          message: 'Menyiapkan absensi...',
+        ),
+      ),
     );
 
     // Get location name for watermark

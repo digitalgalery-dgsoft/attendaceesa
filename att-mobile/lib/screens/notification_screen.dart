@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/notification_provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -58,7 +59,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       body: Consumer<NotificationProvider>(
         builder: (context, notificationProvider, child) {
           if (notificationProvider.isLoading) {
-            return Center(child: CircularProgressIndicator());
+            return const Center(child: CustomLoadingIndicator(message: 'Memuat notifikasi...'));
           }
 
           if (notificationProvider.notifications.isEmpty) {

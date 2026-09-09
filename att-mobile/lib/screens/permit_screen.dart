@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import 'package:att_mobile/screens/permit_form_screen.dart';
 import 'package:att_mobile/utils/constants.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class PermitScreen extends StatefulWidget {
   const PermitScreen({super.key});
@@ -42,10 +43,10 @@ class _PermitScreenState extends State<PermitScreen> {
       backgroundColor: backgroundColor,
       appBar: AppBar(
         title: Text(
-          'Pengajuan Izin',
+          'Izin & Sakit',
           style: TextStyle(
             color: textColor,
-            fontSize: 18,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -56,7 +57,7 @@ class _PermitScreenState extends State<PermitScreen> {
       body: Consumer<PermitProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading && provider.permits.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CustomLoadingIndicator(message: 'Memuat data izin...'));
           }
 
           final currentMonth = DateFormat('MMMM yyyy').format(_selectedDate);

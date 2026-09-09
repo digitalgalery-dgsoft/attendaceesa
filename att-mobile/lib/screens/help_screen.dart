@@ -7,6 +7,7 @@ import 'package:att_mobile/utils/constants.dart';
 import 'package:att_mobile/screens/privacy_policy_screen.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/locale_provider.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class HelpScreen extends StatefulWidget {
   const HelpScreen({super.key});
@@ -130,7 +131,7 @@ class _HelpScreenState extends State<HelpScreen> {
         iconTheme: IconThemeData(color: textColor),
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: primaryColor))
+          ? const Center(child: CustomLoadingIndicator(message: 'Memuat bantuan & kontak...'))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(

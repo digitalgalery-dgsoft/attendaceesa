@@ -396,7 +396,17 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
   - Menampilkan tabel pola kerja lengkap, modal pop-up rincian seluruh anggota karyawan, serta aksi re-generate, edit, dan hapus.
   - Merapikan tombol header sehingga hanya ada 1 tombol utama: `Input via Working Group`.
   - Menyelaraskan form **Edit Working Group** menjadi **2-Step Wizard** yang identik dengan form pembuatan (Step 1: Description & Configuration; Step 2: Implementing Working Group).
-  - Berhasil di-deploy ke server Staging dan seluruh 3 server Production (AMK, AKP, ATK).
+- [x] **Penyelarasan Urutan Alur Pelaporan Sekuensial Dulux & Rilis APK v1.0.128 (9 September 2026)**:
+  - Menyelaraskan urutan wajib pelaporan Dulux (6 langkah berurutan dengan gating/kunci langkah):
+    1. **Langkah 1: Daily Maintenance POST** (`RPT-DULUX-DAILY-MAINTENANCE`)
+    2. **Langkah 2: Offtake** (`RPT-DULUX-OFFTAKE-01`)
+    3. **Langkah 3: Out of Stock / OOS** (`RPT-DULUX-OOS-SSO`)
+    4. **Langkah 4: Database Pelanggan & Konsumen** (`RPT-DULUX-DATABASE-PELANGGAN`)
+    5. **Langkah 5: Stok End (Stock Opname Bulanan)** (`RPT-DULUX-STOCK-END`)
+    6. **Langkah 6: CBP (Consumer Buying Price)** (`RPT-DULUX-CBP-PRICING`)
+  - **Backend API (`ReportingApiController.php`)**: Update `$duluxOrder` di method `index()` dan `checkPendingReportsStatic()`.
+  - **Aplikasi Mobile Flutter (`att-mobile`)**: Menambahkan `duluxOrderMap` dan helper `applyDuluxSequence` di `ReportTemplateModel` dan `DynamicReportingProvider` untuk konsistensi sorting dan gating baik online maupun offline cache.
+  - **Kompilasi APK Lokal v1.0.128+128**: Selesai dikompilasi ke `app-release-1.0.128.apk` (108.1 MB) dan diarsipkan secara lokal (tanpa push ke GitHub dan tanpa deploy server).
 
 ---
 

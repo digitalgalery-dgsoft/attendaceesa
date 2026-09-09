@@ -6,6 +6,7 @@ import '../models/meeting_model.dart';
 import '../providers/attendance_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/constants.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class MeetingDetailScreen extends StatefulWidget {
   final int meetingId;
@@ -171,7 +172,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: primaryColor))
+          ? const Center(child: CustomLoadingIndicator(message: 'Memuat detail rapat...'))
           : _errorMessage != null
               ? Center(
                   child: Padding(

@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:geolocator/geolocator.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class TrackingHistoryScreen extends StatefulWidget {
   const TrackingHistoryScreen({super.key});
@@ -214,7 +215,7 @@ class _TrackingHistoryScreenState extends State<TrackingHistoryScreen> {
           Expanded(
             flex: 3,
             child: _isLoading
-                ? Center(child: CircularProgressIndicator(color: primaryColor))
+                ? const Center(child: CustomLoadingIndicator(message: 'Memuat riwayat jejak...'))
                 : FlutterMap(
                     mapController: _mapController,
                     options: MapOptions(

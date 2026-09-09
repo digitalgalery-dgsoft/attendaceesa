@@ -9,6 +9,7 @@ import 'package:toastification/toastification.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/utils/constants.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class RequestLocationScreen extends StatefulWidget {
   const RequestLocationScreen({super.key});
@@ -655,7 +656,7 @@ class _RequestLocationScreenState extends State<RequestLocationScreen> {
 
   Widget _buildHistoryView(Color primaryColor, bool isDarkMode, Color cardColor, Color textColor, Color subtitleColor) {
     if (_isLoadingHistory) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CustomLoadingIndicator(message: 'Memuat riwayat pengajuan...'));
     }
 
     if (_historyList.isEmpty) {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/overtime_provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class OvertimeScreen extends StatefulWidget {
   const OvertimeScreen({Key? key}) : super(key: key);
@@ -114,7 +115,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
         iconTheme: IconThemeData(color: textColor),
       ),
       body: prov.isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CustomLoadingIndicator(message: 'Memuat data lembur...'))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(

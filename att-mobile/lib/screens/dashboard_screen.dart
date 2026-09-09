@@ -23,6 +23,7 @@ import 'package:att_mobile/screens/blast_info_screen.dart';
 import 'package:att_mobile/services/location_service.dart';
 import 'package:att_mobile/screens/payslip_screen.dart';
 import 'package:att_mobile/screens/help_screen.dart';
+import '../widgets/custom_loading_indicator.dart';
 import 'package:att_mobile/providers/locale_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:att_mobile/screens/chat_screen.dart';
@@ -1886,7 +1887,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
+      builder: (_) => const Center(
+        child: CustomLoadingIndicator(
+          size: 85,
+          showBackgroundCard: true,
+          message: 'Memeriksa laporan...',
+        ),
+      ),
     );
 
     try {

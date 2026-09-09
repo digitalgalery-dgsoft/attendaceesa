@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/payslip_provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class PayslipScreen extends StatefulWidget {
   const PayslipScreen({super.key});
@@ -58,7 +59,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
       body: Consumer<PayslipProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CustomLoadingIndicator(message: 'Memuat slip gaji...'));
           }
 
           if (provider.error.isNotEmpty) {

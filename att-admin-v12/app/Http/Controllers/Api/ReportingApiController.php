@@ -241,12 +241,12 @@ class ReportingApiController extends Controller
 
         // Urutan Alur Pelaporan Wajib Dulux
         $duluxOrder = [
-            'RPT-DULUX-OFFTAKE-01' => 1,
-            'RPT-DULUX-STOCK-END' => 2,
+            'RPT-DULUX-DAILY-MAINTENANCE' => 1,
+            'RPT-DULUX-OFFTAKE-01' => 2,
             'RPT-DULUX-OOS-SSO' => 3,
-            'RPT-DULUX-CBP-PRICING' => 4,
-            'RPT-DULUX-DAILY-MAINTENANCE' => 5,
-            'RPT-DULUX-DATABASE-PELANGGAN' => 6,
+            'RPT-DULUX-DATABASE-PELANGGAN' => 4,
+            'RPT-DULUX-STOCK-END' => 5,
+            'RPT-DULUX-CBP-PRICING' => 6,
         ];
 
         $templates = $templates->sortBy(function ($t) use ($duluxOrder) {
@@ -1699,12 +1699,12 @@ class ReportingApiController extends Controller
         })->values();
 
         $duluxOrder = [
-            'RPT-DULUX-OFFTAKE-01' => 1,
-            'RPT-DULUX-STOCK-END' => 2,
+            'RPT-DULUX-DAILY-MAINTENANCE' => 1,
+            'RPT-DULUX-OFFTAKE-01' => 2,
             'RPT-DULUX-OOS-SSO' => 3,
-            'RPT-DULUX-CBP-PRICING' => 4,
-            'RPT-DULUX-DAILY-MAINTENANCE' => 5,
-            'RPT-DULUX-DATABASE-PELANGGAN' => 6,
+            'RPT-DULUX-DATABASE-PELANGGAN' => 4,
+            'RPT-DULUX-STOCK-END' => 5,
+            'RPT-DULUX-CBP-PRICING' => 6,
         ];
 
         $templates = $templates->sortBy(function ($t) use ($duluxOrder) {

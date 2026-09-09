@@ -30,6 +30,15 @@ class ReportTemplateModel {
   final List<TemplateProductModel> products;
   final List<ReportFormFieldModel> fields;
 
+  static const Map<String, int> duluxOrderMap = {
+    'RPT-DULUX-DAILY-MAINTENANCE': 1,
+    'RPT-DULUX-OFFTAKE-01': 2,
+    'RPT-DULUX-OOS-SSO': 3,
+    'RPT-DULUX-DATABASE-PELANGGAN': 4,
+    'RPT-DULUX-STOCK-END': 5,
+    'RPT-DULUX-CBP-PRICING': 6,
+  };
+
   ReportTemplateModel({
     required this.id,
     required this.code,
@@ -128,7 +137,11 @@ class ReportTemplateModel {
         : (int.tryParse(json['cutoff_progress_percent']?.toString() ?? '0') ?? (cTarget > 0 ? ((cSubmitted / cTarget) * 100).round() : 0));
     final ratioDisplay = json['target_ratio_display']?.toString() ?? '$cSubmitted/$cTarget ($cPercent%)';
 
-    final sNum = json['step_number'] is num ? (json['step_number'] as num).toInt() : (int.tryParse(json['step_number']?.toString() ?? '1') ?? 1);
+    int sNum = json['step_number'] is num ? (json['step_number'] as num).toInt() : (int.tryParse(json['step_number']?.toString() ?? '1') ?? 1);
+    final templateCode = json['code']?.toString() ?? '';
+    if (duluxOrderMap.containsKey(templateCode)) {
+      sNum = duluxOrderMap[templateCode]!;
+    }
     final sLocked = json['is_step_locked'] == true || json['is_step_locked'] == 1 || json['is_step_locked'] == 'true';
     final sDone = json['is_completed_today'] == true || json['is_completed_today'] == 1 || json['is_completed_today'] == 'true';
     final hasBinding = json['has_product_binding'] == true || json['has_product_binding'] == 1 || json['has_product_binding'] == 'true' || productsList.isNotEmpty;
@@ -168,6 +181,113 @@ class ReportTemplateModel {
       products: productsList,
       fields: fieldsList,
     );
+  }
+
+  ReportTemplateModel copyWith({
+    int? id,
+    String? code,
+    String? title,
+    String? description,
+    String? icon,
+    String? color,
+    String? scheduleType,
+    int? targetCount,
+    int? cutoffTarget,
+    int? cutoffSubmitted,
+    int? cutoffProgressPercent,
+    String? targetRatioDisplay,
+    bool? requireGps,
+    bool? requirePhoto,
+    bool? requireSignature,
+    int? fieldsCount,
+    int? stepNumber,
+    bool? isStepLocked,
+    String? lockedReason,
+    bool? isCompletedToday,
+    bool? hasProductBinding,
+    List<String>? submittedProducts,
+    List<int>? submittedProductIds,
+    int? totalProductsCount,
+    int? remainingProductsCount,
+    List<String>? reportDays,
+    List<String>? assignedPositions,
+    List<String>? assignedEmployees,
+    List<TemplateProductModel>? products,
+    List<ReportFormFieldModel>? fields,
+  }) {
+    return ReportTemplateModel(
+      id: id ?? this.id,
+      code: code ?? this.code,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      icon: icon ?? this.icon,
+      color: color ?? this.color,
+      scheduleType: scheduleType ?? this.scheduleType,
+      targetCount: targetCount ?? this.targetCount,
+      cutoffTarget: cutoffTarget ?? this.cutoffTarget,
+      cutoffSubmitted: cutoffSubmitted ?? this.cutoffSubmitted,
+      cutoffProgressPercent: cutoffProgressPercent ?? this.cutoffProgressPercent,
+      targetRatioDisplay: targetRatioDisplay ?? this.targetRatioDisplay,
+      requireGps: requireGps ?? this.requireGps,
+      requirePhoto: requirePhoto ?? this.requirePhoto,
+      requireSignature: requireSignature ?? this.requireSignature,
+      fieldsCount: fieldsCount ?? this.fieldsCount,
+      stepNumber: stepNumber ?? this.stepNumber,
+      isStepLocked: isStepLocked ?? this.isStepLocked,
+      lockedReason: lockedReason ?? this.lockedReason,
+      isCompletedToday: isCompletedToday ?? this.isCompletedToday,
+      hasProductBinding: hasProductBinding ?? this.hasProductBinding,
+      submittedProducts: submittedProducts ?? this.submittedProducts,
+      submittedProductIds: submittedProductIds ?? this.submittedProductIds,
+      totalProductsCount: totalProductsCount ?? this.totalProductsCount,
+      remainingProductsCount: remainingProductsCount ?? this.remainingProductsCount,
+      reportDays: reportDays ?? this.reportDays,
+      assignedPositions: assignedPositions ?? this.assignedPositions,
+      assignedEmployees: assignedEmployees ?? this.assignedEmployees,
+      products: products ?? this.products,
+      fields: fields ?? this.fields,
+    );
+  }
+
+  /// Memastikan urutan alur pelaporan Dulux selalu konsisten di mobile:
+  /// 1. Daily Maintenance POST (RPT-DULUX-DAILY-MAINTENANCE)
+  /// 2. Offtake (RPT-DULUX-OFFTAKE-01)
+  /// 3. OOS (RPT-DULUX-OOS-SSO)
+  /// 4. Database Pelanggan (RPT-DULUX-DATABASE-PELANGGAN)
+  /// 5. Stok End (RPT-DULUX-STOCK-END)
+  /// 6. CBP (RPT-DULUX-CBP-PRICING)
+  static List<ReportTemplateModel> applyDuluxSequence(List<ReportTemplateModel> list) {
+    final hasDulux = list.any((t) => duluxOrderMap.containsKey(t.code));
+    if (!hasDulux) {
+      return List<ReportTemplateModel>.from(list)..sort((a, b) => a.stepNumber.compareTo(b.stepNumber));
+    }
+
+    final sorted = List<ReportTemplateModel>.from(list);
+    sorted.sort((a, b) {
+      final orderA = duluxOrderMap[a.code] ?? (a.stepNumber + 100);
+      final orderB = duluxOrderMap[b.code] ?? (b.stepNumber + 100);
+      return orderA.compareTo(orderB);
+    });
+
+    bool prevStepCompleted = true;
+    String? prevStepTitle;
+
+    return sorted.map((t) {
+      if (duluxOrderMap.containsKey(t.code)) {
+        final step = duluxOrderMap[t.code]!;
+        final isLocked = !prevStepCompleted;
+        final lockedReason = isLocked ? 'Harap selesaikan $prevStepTitle terlebih dahulu.' : null;
+        prevStepCompleted = t.isCompletedToday;
+        prevStepTitle = t.title;
+
+        return t.copyWith(
+          stepNumber: step,
+          isStepLocked: isLocked,
+          lockedReason: lockedReason,
+        );
+      }
+      return t;
+    }).toList();
   }
 
   Map<String, dynamic> toJson() {

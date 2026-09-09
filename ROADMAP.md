@@ -1319,4 +1319,32 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
      - **Server 2: PT Alva Karya Perkasa (AKP)**: `38.103.170.223` / `akp.esa-solutions.id` (HTTP 200 OK)
      - **Server 3: PT Anugrah Talenta Berkarya (ATK)**: `38.103.170.224` / `atk.esa-solutions.id` (HTTP 200 OK)
 
+---
+
+## ✅ Catatan Rilis & Penyempurnaan Sistem (9 September 2026)
+
+1. **Penyelarasan Urutan Alur Pelaporan Sekuensial Dulux (Backend API & Aplikasi Mobile)**:
+   - Menyelaraskan urutan wajib pelaporan Dulux (6 langkah berurutan dengan gating/kunci langkah):
+     1. **Langkah 1: Daily Maintenance POST** (`RPT-DULUX-DAILY-MAINTENANCE`)
+     2. **Langkah 2: Offtake** (`RPT-DULUX-OFFTAKE-01`)
+     3. **Langkah 3: Out of Stock / OOS** (`RPT-DULUX-OOS-SSO`)
+     4. **Langkah 4: Database Pelanggan & Konsumen** (`RPT-DULUX-DATABASE-PELANGGAN`)
+     5. **Langkah 5: Stok End (Stock Opname Bulanan)** (`RPT-DULUX-STOCK-END`)
+     6. **Langkah 6: CBP (Consumer Buying Price)** (`RPT-DULUX-CBP-PRICING`)
+   - **Backend API (`ReportingApiController.php`)**:
+     - Memperbarui matriks urutan `$duluxOrder` di method `index()` dan method pengecekan gate `checkPendingReportsStatic()`.
+   - **Aplikasi Mobile Flutter (`att-mobile`)**:
+     - Menambahkan konstanta `duluxOrderMap` dan helper `applyDuluxSequence` pada `ReportTemplateModel` serta `DynamicReportingProvider` untuk memastikan urutan kartu, penomoran langkah, dan penguncian langkah tetap konsisten dan presisi baik saat online maupun offline cache.
+   - **Peningkatan Visual Loading Screen Mobile**:
+     - Penambahan widget custom loading maskot ESA (`CustomLoadingIndicator`) dan integrasi nama versi dinamis pada `SplashScreen`.
+
+2. **Kompilasi Rilis APK Mobile Android v1.0.128+128 (Lokal Build)**:
+   - Bump versi mobile resmi ke **`1.0.128+128`** di `pubspec.yaml`.
+   - Kompilasi APK release selesai sukses:
+     - Berkas: `app-release-1.0.128.apk` dan `app-release.apk`
+     - Ukuran: 113.380.481 bytes (~108.1 MB)
+     - Direktori arsip: `APK/app-release-1.0.128.apk`, root workspace, dan `att-admin-v12/public/`.
+   - Sesuai instruksi, APK hanya di-build secara lokal (tidak di-push ke GitHub dan belum di-deploy ke server).
+
+
 

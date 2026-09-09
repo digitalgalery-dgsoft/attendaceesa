@@ -7,6 +7,7 @@ import 'package:att_mobile/providers/sales_provider.dart';
 import 'package:toastification/toastification.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class SalesReportScreen extends StatefulWidget {
   const SalesReportScreen({super.key});
@@ -119,7 +120,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                 }).toList();
 
                 return sales.isLoading && sales.salesReports.isEmpty
-                    ? Center(child: CircularProgressIndicator(color: primaryColor))
+                    ? const Center(child: CustomLoadingIndicator(message: 'Memuat laporan penjualan...'))
                     : filteredReports.isEmpty
                     ? const Center(
                         child: Text('Belum ada laporan penjualan.'),

@@ -7,6 +7,7 @@ import 'package:att_mobile/providers/itinerary_provider.dart';
 import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/screens/attendance_location_screen.dart';
 import 'package:att_mobile/screens/request_location_screen.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class AddItineraryScreen extends StatefulWidget {
   final DateTime initialDate;
@@ -234,7 +235,7 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
       body: Consumer<ItineraryProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading && (provider.workLocations.isEmpty || provider.principals.isEmpty)) {
-            return Center(child: CircularProgressIndicator(color: primaryColor));
+            return const Center(child: CustomLoadingIndicator(message: 'Menyiapkan data toko...'));
           }
 
           final areas = provider.workLocations

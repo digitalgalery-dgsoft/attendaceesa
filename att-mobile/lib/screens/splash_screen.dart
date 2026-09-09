@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -11,10 +12,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late AnimationController _animController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+  String _versionName = 'v1.0.128';
 
   @override
   void initState() {
     super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) {
+        setState(() {
+          _versionName = 'v${info.version}';
+        });
+      }
+    }).catchError((_) {});
+
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -142,17 +152,22 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         ],
                       ),
 
-                      // Center: Mascot Illustration
+                      // Center: Mascot Illustration with Loading Logo
                       Expanded(
                         child: Center(
                           child: Image.asset(
-                            'assets/images/maskot_esa.png',
+                            'assets/images/loadinglogo.png',
                             fit: BoxFit.contain,
                             height: MediaQuery.of(context).size.height * 0.44,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.fingerprint,
-                              color: Colors.white,
-                              size: 90,
+                            errorBuilder: (_, __, ___) => Image.asset(
+                              'assets/images/maskot_esa.png',
+                              fit: BoxFit.contain,
+                              height: MediaQuery.of(context).size.height * 0.44,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.fingerprint,
+                                color: Colors.white,
+                                size: 90,
+                              ),
                             ),
                           ),
                         ),
@@ -193,12 +208,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                           ),
 
                           const SizedBox(height: 14),
-                          const Text(
-                            'v1.0.95',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.white54,
-                              fontWeight: FontWeight.w500,
+                          Text(
+                            _versionName,
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              color: Colors.white60,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
                             ),
                           ),
                           const SizedBox(height: 4),

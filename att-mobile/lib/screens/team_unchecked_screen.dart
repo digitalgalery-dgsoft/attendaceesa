@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/custom_loading_indicator.dart';
 
 class TeamUncheckedScreen extends StatefulWidget {
   const TeamUncheckedScreen({super.key});
@@ -203,7 +204,7 @@ class _TeamUncheckedScreenState extends State<TeamUncheckedScreen> {
             if (dashboardProvider.isLoadingUnchecked)
               const SliverFillRemaining(
                 child: Center(
-                  child: CircularProgressIndicator(),
+                  child: CustomLoadingIndicator(message: 'Memuat data tim...'),
                 ),
               )
             else if (filteredList.isEmpty)
