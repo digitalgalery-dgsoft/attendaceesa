@@ -269,9 +269,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 curl -skL -m 180 'https://appsend.my.id/app-release.apk' -o \"{$srv['path']}/public/app-release.apk\" 2>/dev/null || true
                 chmod 644 \"{$srv['path']}/public/app-release.apk\" 2>/dev/null || true
             fi
-            if [ -d '/www/wwwroot/esa-solutions.id/public' ] && [ -f \"{$srv['path']}/public/app-release.apk\" ]; then
-                cp -f \"{$srv['path']}/public/app-release.apk\" '/www/wwwroot/esa-solutions.id/public/app-release.apk' 2>/dev/null || true
-                chmod 644 '/www/wwwroot/esa-solutions.id/public/app-release.apk' 2>/dev/null || true
+            if [ -f \"{$srv['path']}/public/app-release.apk\" ]; then
+                for vhost in /www/wwwroot/*; do
+                    if [ -d \"\$vhost/public\" ]; then
+                        cp -f \"{$srv['path']}/public/app-release.apk\" \"\$vhost/public/app-release.apk\" 2>/dev/null || true
+                        chmod 644 \"\$vhost/public/app-release.apk\" 2>/dev/null || true
+                    fi
+                done
             fi
 
             " . ($runMigration ? "echo '4. Menjalankan Database Migration...' && (\$PHP_BIN artisan migrate --force || true)\n" : "") . "
