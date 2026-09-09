@@ -261,10 +261,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             \\cp -rf vendor/livewire/livewire/dist/* public/livewire/ 2>/dev/null || true
             rm -f public/hot
 
-            echo '3b. Memeriksa ketersediaan file app-release.apk...'
-            if [ ! -f \"{$srv['path']}/public/app-release.apk\" ] || [ \$(stat -c%s \"{$srv['path']}/public/app-release.apk\" 2>/dev/null || echo 0) -lt 10000000 ]; then
-                echo '  ↳ Mengunduh file APK dari server master (appsend.my.id)...'
-                curl -skL -m 120 'https://appsend.my.id/app-release.apk' -o \"{$srv['path']}/public/app-release.apk\" 2>/dev/null || true
+            echo '3b. Memeriksa ketersediaan & pembaruan file app-release.apk...'
+            CURRENT_APK_SIZE=$(stat -c%s \"{$srv['path']}/public/app-release.apk\" 2>/dev/null || echo 0)
+            REMOTE_APK_SIZE=$(curl -skI 'https://appsend.my.id/app-release.apk' | grep -i Content-Length | awk '{print $2}' | tr -d '\r\n')
+            if [ -n \"\$REMOTE_APK_SIZE\" ] && [ \"\$CURRENT_APK_SIZE\" != \"\$REMOTE_APK_SIZE\" ]; then
+                echo \"  ↳ Mengunduh file APK rilis terbaru (\$REMOTE_APK_SIZE bytes) dari appsend.my.id...\"
+                curl -skL -m 180 'https://appsend.my.id/app-release.apk' -o \"{$srv['path']}/public/app-release.apk\" 2>/dev/null || true
                 chmod 644 \"{$srv['path']}/public/app-release.apk\" 2>/dev/null || true
             fi
             if [ -d '/www/wwwroot/esa-solutions.id/public' ] && [ -f \"{$srv['path']}/public/app-release.apk\" ]; then
