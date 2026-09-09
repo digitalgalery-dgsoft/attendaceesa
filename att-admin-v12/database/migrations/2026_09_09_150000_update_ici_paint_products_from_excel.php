@@ -17,8 +17,10 @@ return new class extends Migration
         // 1. Temukan atau Buat Principal ICI Paint
         $dulux = Principal::where("code", "PR-ICI-PAINTS")
             ->orWhere("code", "PR-DULUX")
+            ->orWhere("code", "115")
             ->orWhere("name", "LIKE", "%ICI PAINTS%")
             ->orWhere("name", "LIKE", "%DULUX%")
+            ->orWhere("subdomain", "dulux")
             ->first();
 
         if (!$dulux) {

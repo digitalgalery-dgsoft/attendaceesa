@@ -118,6 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan storage:link',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan migrate --force',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan reporting:link-principals',
+        '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan dulux:check-products --fix',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan cache:clear',
         '/www/server/php/83/bin/php /www/wwwroot/appsend.my.id/artisan optimize:clear',
     ];

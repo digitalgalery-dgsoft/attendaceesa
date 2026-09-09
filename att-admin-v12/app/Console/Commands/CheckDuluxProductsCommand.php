@@ -15,6 +15,9 @@ class CheckDuluxProductsCommand extends Command
     public function handle(): int
     {
         $this->info("Checking Dulux Products in Database...");
+        $defaultConn = config('database.default');
+        $connConfig = config("database.connections.{$defaultConn}");
+        $this->line("DB Connection: default={$defaultConn}, host=" . ($connConfig['host'] ?? 'none') . ", db=" . ($connConfig['database'] ?? 'none') . ", user=" . ($connConfig['username'] ?? 'none'));
 
         $dulux = Principal::where('code', 'PR-ICI-PAINTS')
             ->orWhere('name', 'LIKE', '%ICI PAINTS%')

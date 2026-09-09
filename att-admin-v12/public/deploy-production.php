@@ -280,6 +280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             " . ($runMigration ? "echo '4. Menjalankan Database Migration...' && (\$PHP_BIN artisan migrate --force || true)\n" : "") . "
             " . ($runPrincipals ? "echo '4b. Menyinkronkan Relasi Principal...' && (\$PHP_BIN artisan reporting:link-principals || true)\n" : "") . "
+            " . ($runMigration ? "echo '4d. Sinkronisasi 69 Produk Dulux & Form Template...' && (\$PHP_BIN artisan dulux:check-products --fix || true)\n" : "") . "
             " . ($runImportOfftake ? "echo '4c. Mengimpor Data Offtake Dulux...' && (\$PHP_BIN artisan dulux:import-offtake{$offtakeYear}{$offtakeMonth}{$offtakeLimit} || true)\n" : "") . "
 
             echo '5. Membersihkan cache...'
