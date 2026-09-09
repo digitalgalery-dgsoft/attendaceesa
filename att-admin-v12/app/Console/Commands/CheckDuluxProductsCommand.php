@@ -34,6 +34,10 @@ class CheckDuluxProductsCommand extends Command
 
         $allDuluxProducts = Product::where('principal_id', $dulux->id)->get();
         $this->line("Total Products with principal_id={$dulux->id}: " . $allDuluxProducts->count());
+        $sampleProd = Product::where('sku_code', 'DLX-CATYLAC-CEILING')->first();
+        if ($sampleProd) {
+            $this->line("Sample DLX-CATYLAC-CEILING description: '{$sampleProd->description}'");
+        }
 
         $demoSkus = ['DLX-WTS-WHT-25L', 'DLX-CTL-INT-5KG', 'DLX-ECL-ANT-25L', 'DLX-AQS-ABU-4KG', 'DLX-PNT-ALM-25L'];
         $foundDemo = Product::withTrashed()->whereIn('sku_code', $demoSkus)->get();
