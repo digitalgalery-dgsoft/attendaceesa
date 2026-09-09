@@ -56,7 +56,7 @@ class CheckDuluxProductsCommand extends Command
             $migration = require database_path('migrations/2026_09_09_150000_update_ici_paint_products_from_excel.php');
             $migration->up();
             $this->info("FIX complete! Re-checking...");
-            foreach ($duluxTemplates as $t) {
+            foreach ($allTemplates as $t) {
                 $t->refresh();
                 $this->line(" - After Fix [{$t->code}]: {$t->products()->count()} products linked");
             }
