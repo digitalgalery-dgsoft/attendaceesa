@@ -76,6 +76,10 @@ class CheckDuluxProductsCommand extends Command
             $this->info("Running FIX: Re-syncing Dulux products to templates...");
             $migration = require database_path('migrations/2026_09_09_150000_update_ici_paint_products_from_excel.php');
             $migration->up();
+
+            $this->info("Running FIX: Syncing Dulux Offtake template fields...");
+            ReportTemplate::syncDuluxOfftakeTemplate();
+
             $this->info("FIX complete! Re-checking...");
             foreach ($allTemplates as $t) {
                 $t->refresh();

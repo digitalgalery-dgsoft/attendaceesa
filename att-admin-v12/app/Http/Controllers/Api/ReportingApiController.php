@@ -64,8 +64,17 @@ class ReportingApiController extends Controller
             if ($hasEmptyDuluxTemplate) {
                 ReportTemplate::syncDuluxMergedStockEnd();
             }
+
+            // Pastikan template Offtake memiliki field foto_card_offtake & foto_nota_penjualan
+            $needsOfftakeSync = !ReportFormField::whereHas('template', function ($q) {
+                $q->where('code', 'RPT-DULUX-OFFTAKE-01');
+            })->where('field_name', 'foto_card_offtake')->exists();
+
+            if ($needsOfftakeSync) {
+                ReportTemplate::syncDuluxOfftakeTemplate();
+            }
         } catch (\Throwable $e) {
-            \Log::warning("Auto-sync empty Dulux template fields: " . $e->getMessage());
+            \Log::warning("Auto-sync Dulux template fields: " . $e->getMessage());
         }
         
         // Cari semua template yang ditugaskan ke prinsiple karyawan ini
