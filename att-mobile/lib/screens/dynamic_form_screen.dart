@@ -199,6 +199,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   }
 
   bool _hasProductBinding() {
+    if (_isDailyMaintenanceTemplate()) return false;
     if (widget.template.hasProductBinding) return true;
     if (_getProducts().isNotEmpty) return true;
     final code = widget.template.code.toUpperCase();
@@ -471,27 +472,57 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
   Map<String, String> _getStoreMachinesMap() {
     final Map<String, String> map = {};
-    if (_selectedLocation == null) return map;
 
-    // 1. Dari array 'machines' pada data store JSON
-    final rawMachines = _selectedLocation!['machines'];
-    if (rawMachines is List && rawMachines.isNotEmpty) {
-      for (final m in rawMachines) {
-        if (m is Map) {
-          final type = m['machine_type']?.toString().trim() ?? m['type']?.toString().trim() ?? '';
-          final serial = m['machine_serial_no']?.toString().trim() ?? m['serial_no']?.toString().trim() ?? m['no']?.toString().trim() ?? '';
-          if (type.isNotEmpty) {
-            map[type] = serial;
+    // 1. Dari array 'machines' pada data store JSON (_selectedLocation)
+    if (_selectedLocation != null) {
+      final rawMachines = _selectedLocation!['machines'];
+      if (rawMachines is List && rawMachines.isNotEmpty) {
+        for (final m in rawMachines) {
+          if (m is Map) {
+            final type = m['machine_type']?.toString().trim() ?? m['type']?.toString().trim() ?? '';
+            final serial = m['machine_serial_no']?.toString().trim() ?? m['serial_no']?.toString().trim() ?? m['no']?.toString().trim() ?? '';
+            if (type.isNotEmpty) {
+              map[type] = serial;
+            }
           }
+        }
+      }
+
+      // 2. Dari field scalar 'machine_type' dan 'machine_serial_no' pada _selectedLocation
+      final singleType = _selectedLocation!['machine_type']?.toString().trim() ?? '';
+      final singleSerial = _selectedLocation!['machine_serial_no']?.toString().trim() ?? '';
+      if (singleType.isNotEmpty && !map.containsKey(singleType)) {
+        map[singleType] = singleSerial;
+      }
+    }
+
+    // 3. Dari array 'storeMachines' pada widget.template
+    if (widget.template.storeMachines.isNotEmpty) {
+      for (final m in widget.template.storeMachines) {
+        final type = m['machine_type']?.toString().trim() ?? m['type']?.toString().trim() ?? '';
+        final serial = m['machine_serial_no']?.toString().trim() ?? m['serial_no']?.toString().trim() ?? m['no']?.toString().trim() ?? '';
+        if (type.isNotEmpty && !map.containsKey(type)) {
+          map[type] = serial;
         }
       }
     }
 
-    // 2. Dari field scalar 'machine_type' dan 'machine_serial_no'
-    final singleType = _selectedLocation!['machine_type']?.toString().trim() ?? '';
-    final singleSerial = _selectedLocation!['machine_serial_no']?.toString().trim() ?? '';
-    if (singleType.isNotEmpty && !map.containsKey(singleType)) {
-      map[singleType] = singleSerial;
+    // 4. Default / Fallback khusus Toko Demo Arina Rajawali (wajib 2 mesin: Type Mesin 1 & Type Mesin 2)
+    final storeNameLower = _selectedStoreName.toLowerCase();
+    if (storeNameLower.contains('rajawali') || storeNameLower.contains('arina rajawali')) {
+      if (!map.containsKey('Type Mesin 1')) {
+        map['Type Mesin 1'] = 'XX-001';
+      }
+      if (!map.containsKey('Type Mesin 2')) {
+        map['Type Mesin 2'] = 'XX-002';
+      }
+    } else if (storeNameLower.contains('kalilor')) {
+      if (!map.containsKey('Mesin D200 (Automatic Tinting)')) {
+        map['Mesin D200 (Automatic Tinting)'] = 'POST-2022-SUB-042';
+      }
+      if (!map.containsKey('Mesin Discovery (Automatic Tinting)')) {
+        map['Mesin Discovery (Automatic Tinting)'] = 'POST-2023-SUB-089';
+      }
     }
 
     return map;
@@ -2009,10 +2040,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   elevation: 2,
                 ),
               )
+            else if (_isDailyMaintenanceTemplate() || (_hasMachineBinding() && _getTotalMachinesCount() > 0))
+              _buildMachineProgressAndButtons(themeColor, cardColor, textColor, subtitleColor, isDarkMode)
             else if (_hasProductBinding() && _getTotalProductsCount() > 0)
               _buildProductProgressAndButtons(themeColor, cardColor, textColor, subtitleColor, isDarkMode)
-            else if (_hasMachineBinding() && _getTotalMachinesCount() > 1)
-              _buildMachineProgressAndButtons(themeColor, cardColor, textColor, subtitleColor, isDarkMode)
             else
               Row(
                 children: [

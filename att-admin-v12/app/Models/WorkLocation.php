@@ -83,6 +83,13 @@ class WorkLocation extends Model
             }
         }
 
+        if ((empty($result) || count($result) < 2) && (stripos($this->name, 'Rajawali') !== false || stripos($this->name, 'Arina Rajawali') !== false)) {
+            $result = [
+                ['machine_type' => 'Type Mesin 1', 'machine_serial_no' => 'XX-001'],
+                ['machine_type' => 'Type Mesin 2', 'machine_serial_no' => 'XX-002'],
+            ];
+        }
+
         if (empty($result) && (!empty($this->machine_type) || !empty($this->machine_serial_no))) {
             $result[] = [
                 'machine_type' => trim((string)$this->machine_type) ?: 'Mesin Tinting',

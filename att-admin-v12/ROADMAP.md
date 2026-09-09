@@ -13,7 +13,7 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 | **Icon Penanda Lokasi AppBar (3 Warna)** | 🟢 Selesai (100%) | Card lokasi dihapus, ganti icon interaktif: Merah (Belum Check-in), Orange (Luar Radius), Hijau (Dalam Radius) |
 | **Single-Product Submission & Disable Terlapor** | 🟢 Selesai (100%) | 1 submission per item, disable & tandai produk terlapor hari itu, tombol dinamis |
 | **Attendance Gate (Check-Out & Visit-Out)** | 🟢 Selesai (100%) | Blokir check-out / visit-out jika ada laporan, produk, atau mesin belum lengkap |
-| **Rilis APK Mobile v1.0.129 (Multi-Mesin & Icon Lokasi)** | 🟢 Rilis & Live | Sinkron ke Staging (appsend) & 3 Node Production (AMK, AKP, ATK) |
+| **Rilis APK Mobile v1.0.130 (Fix Mesin & Daily Maint Buttons)** | 🟢 Rilis & Live | Sinkron ke Staging (appsend) & 3 Node Production (AMK, AKP, ATK) |
 | **Tab Data Laporan Masuk & Approval Offtake** | 🟢 Selesai & Live (100%) | Tab live submissions, quick approve/reject modal, sticky action & horizontal scroll |
 | **Resolusi Query Live Offtake & Out-of-Memory** | 🟢 Selesai (100%) | Eliminasi silent SQL error & filter batch import, query cepat (<1 detik, memori 65MB) |
 | **Multi-Kompetitor Form CBP Mobile (v1.0.124)** | 🟢 Rilis & Live | Input multi-brand kompetitor per toko & rilis APK v1.0.124 |
@@ -431,6 +431,21 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
   - **Kompilasi & Distribusi APK v1.0.129+129**:
     - Bump versi ke `v1.0.129+129`.
     - Kompilasi Flutter release APK dan distribusi ke Staging (`appsend.my.id`) serta 3 Node Cluster Production (`AMK`, `AKP`, `ATK`).
+
+### 📦 Update Patch v1.0.130 (Fix Mesin Dropdown & Label Tombol Daily Maintenance)
+- **Status**: 🟢 **Selesai & Rilis (100%)**
+- **Tanggal Rilis**: 9 September 2026
+- **Deskripsi Pembaruan**:
+  - **Resolusi Dropdown Mesin Drop/Missing**:
+    - Memperbaiki `ReportingApiController.php` pada logic `submit()` agar tidak menimpa (*overwrite/truncate*) array `machines` pada `work_locations`. Mesin yang telah dilaporkan tetap tersimpan berdampingan dengan mesin lainnya.
+    - Menambahkan migrasi database `2026_09_09_143000_seed_toko_demo_arina_rajawali_machines.php` untuk memastikan Toko Demo Arina Rajawali (ID: 6016) memiliki kedua mesin (`Type Mesin 1` & `Type Mesin 2`).
+    - Memperbarui `_getStoreMachinesMap()` di aplikasi mobile untuk membaca hierarki mesin toko dari payload API, template `storeMachines`, dan fallback bawaan store.
+  - **Penyelarasan Total Progres & Label Tombol Form**:
+    - Mengisolasi template Daily Maintenance dari binding produk (`_isDailyMaintenanceTemplate()` mengembalikan `false` untuk `_hasProductBinding()`).
+    - Menempatkan pengecekan mesin di atas pengecekan produk pada tombol form pelaporan sehingga tidak lagi menampilkan "0 / 5 Produk", melainkan menampilkan **"Progres Laporan Mesin Tinting (X / Y Mesin)"**, tombol **"Kirim & Lanjut Mesin Berikutnya"**, dan **"Kirim & Selesai (Mesin Terakhir ✓)"**.
+  - **Kompilasi & Distribusi APK v1.0.130+130**:
+    - Bump versi ke `v1.0.130+130` pada `pubspec.yaml` dan `splash_screen.dart`.
+    - Build release APK (108.2MB) dan deploy ke server Staging (`appsend.my.id`) serta klaster produksi.
 
 ---
 

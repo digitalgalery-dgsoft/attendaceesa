@@ -12,7 +12,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late AnimationController _animController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
-  String _versionName = 'v1.0.129';
+  String _versionName = 'v1.0.130';
 
   @override
   void initState() {

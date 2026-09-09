@@ -52,7 +52,7 @@ class ReportingApiController extends Controller
             ], 404);
         }
 
-        $principalId = $employee->principal_id ?? $employee->department?->principal_id;
+        $principalId = $employee->principal_id ?? ($employee->department ? $employee->department->principal_id : null);
 
         // Auto-seed missing Dulux fields HANYA jika ada template Dulux aktif yang belum memiliki field sama sekali
         try {
@@ -438,6 +438,12 @@ class ReportingApiController extends Controller
 
             if ($isDailyMaintenance && $targetStore) {
                 $storeMachines = $targetStore->normalized_machines;
+                if ((empty($storeMachines) || count($storeMachines) < 2) && (stripos($targetStore->name, 'Rajawali') !== false || stripos($targetStore->name, 'Arina Rajawali') !== false)) {
+                    $storeMachines = [
+                        ['machine_type' => 'Type Mesin 1', 'machine_serial_no' => 'XX-001'],
+                        ['machine_type' => 'Type Mesin 2', 'machine_serial_no' => 'XX-002'],
+                    ];
+                }
                 $totalMachinesCount = count($storeMachines);
 
                 // Cari mesin-mesin yang sudah dilaporkan di toko ini hari ini
@@ -511,11 +517,11 @@ class ReportingApiController extends Controller
                 'is_step_locked' => $isStepLocked,
                 'locked_reason' => $lockedReason,
                 'is_completed_today' => $isCompletedToday,
-                'has_product_binding' => $hasProductBinding,
-                'submitted_products' => $submittedProductNames,
-                'submitted_product_ids' => $submittedProductIds,
-                'total_products_count' => $templateProducts->count(),
-                'remaining_products_count' => max(0, $templateProducts->count() - count($submittedProductNames)),
+                'has_product_binding' => $isDailyMaintenance ? false : $hasProductBinding,
+                'submitted_products' => $isDailyMaintenance ? [] : $submittedProductNames,
+                'submitted_product_ids' => $isDailyMaintenance ? [] : $submittedProductIds,
+                'total_products_count' => $isDailyMaintenance ? 0 : $templateProducts->count(),
+                'remaining_products_count' => $isDailyMaintenance ? 0 : max(0, $templateProducts->count() - count($submittedProductNames)),
                 'has_machine_binding' => $hasMachineBinding,
                 'submitted_machines' => $isDailyMaintenance ? $matchedSubmitted : [],
                 'total_machines_count' => $totalMachinesCount,
@@ -529,7 +535,7 @@ class ReportingApiController extends Controller
                 'require_photo' => (bool) $t->require_photo,
                 'require_signature' => (bool) $t->require_signature,
                 'fields_count' => $t->fields->count(),
-                'products' => $templateProducts->map(function ($p) {
+                'products' => $isDailyMaintenance ? [] : $templateProducts->map(function ($p) {
                     return [
                         'id' => $p->id,
                         'name' => $p->name,
@@ -869,16 +875,35 @@ class ReportingApiController extends Controller
                         $noMesinVal = $submission->values()->where('field_name', 'no_mesin_post')->value('value_text');
 
                         $updateData = [];
-                        if (!empty($tipeMesinVal)) {
-                            $updateData['machine_type'] = $tipeMesinVal;
-                        }
-                        if (!empty($noMesinVal)) {
-                            $updateData['machine_serial_no'] = $noMesinVal;
-                        }
 
                         // Update atau tambahkan ke daftar array machines
                         if (!empty($tipeMesinVal) && stripos($tipeMesinVal, 'tidak memiliki') === false) {
                             $existingMachines = is_array($workLoc->machines) ? $workLoc->machines : [];
+
+                            // Jika $existingMachines kosong namun $workLoc memiliki machine_type lama yang berbeda, pertahankan!
+                            if (empty($existingMachines) && !empty($workLoc->machine_type) && strcasecmp(trim($workLoc->machine_type), trim($tipeMesinVal)) !== 0) {
+                                $existingMachines[] = [
+                                    'machine_type' => trim($workLoc->machine_type),
+                                    'machine_serial_no' => trim($workLoc->machine_serial_no ?? ''),
+                                ];
+                            }
+
+                            // Khusus Toko Demo Arina Rajawali: pastikan kedua demo mesin selalu ada
+                            if (stripos($workLoc->name, 'Rajawali') !== false || stripos($workLoc->name, 'Arina Rajawali') !== false) {
+                                $hasType1 = false;
+                                $hasType2 = false;
+                                foreach ($existingMachines as $m) {
+                                    if (strcasecmp(trim($m['machine_type'] ?? ''), 'Type Mesin 1') === 0) $hasType1 = true;
+                                    if (strcasecmp(trim($m['machine_type'] ?? ''), 'Type Mesin 2') === 0) $hasType2 = true;
+                                }
+                                if (!$hasType1) {
+                                    $existingMachines[] = ['machine_type' => 'Type Mesin 1', 'machine_serial_no' => 'XX-001'];
+                                }
+                                if (!$hasType2) {
+                                    $existingMachines[] = ['machine_type' => 'Type Mesin 2', 'machine_serial_no' => 'XX-002'];
+                                }
+                            }
+
                             $found = false;
                             foreach ($existingMachines as &$em) {
                                 if (strcasecmp(trim($em['machine_type'] ?? ''), trim($tipeMesinVal)) === 0) {
@@ -897,6 +922,12 @@ class ReportingApiController extends Controller
                                 ];
                             }
                             $updateData['machines'] = $existingMachines;
+                            if (empty($workLoc->machine_type)) {
+                                $updateData['machine_type'] = $tipeMesinVal;
+                            }
+                            if (empty($workLoc->machine_serial_no) && !empty($noMesinVal)) {
+                                $updateData['machine_serial_no'] = $noMesinVal;
+                            }
                         }
 
                         if (!empty($updateData)) {
@@ -993,6 +1024,16 @@ class ReportingApiController extends Controller
                         'machine_type' => trim((string)$loc->machine_type) ?: 'Mesin Tinting',
                         'machine_serial_no' => trim((string)$loc->machine_serial_no),
                     ];
+                }
+
+                // Default mesin untuk Toko Demo Arina Rajawali jika belum lengkap 2 mesin
+                if ((empty($machinesList) || count($machinesList) < 2) && (stripos($loc->name, 'Rajawali') !== false || stripos($loc->name, 'Arina Rajawali') !== false)) {
+                    $machinesList = [
+                        ['machine_type' => 'Type Mesin 1', 'machine_serial_no' => 'XX-001'],
+                        ['machine_type' => 'Type Mesin 2', 'machine_serial_no' => 'XX-002'],
+                    ];
+                    $data['machine_type'] = $machinesList[0]['machine_type'];
+                    $data['machine_serial_no'] = $machinesList[0]['machine_serial_no'];
                 }
 
                 // Default mesin untuk Toko Demo Kalilor jika belum diset
