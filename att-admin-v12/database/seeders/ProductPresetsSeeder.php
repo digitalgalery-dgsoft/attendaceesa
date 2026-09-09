@@ -15,7 +15,7 @@ class ProductPresetsSeeder extends Seeder
     public function run(): void
     {
         $company = Company::first();
-        $companyId = $company?->id;
+        $companyId = $company ? $company->id : null;
 
         // 1. WINGS SURYA & LION WINGS
         $wingsSurya = Principal::where('code', 'PR-WINGS-SURYA')
@@ -433,77 +433,13 @@ class ProductPresetsSeeder extends Seeder
             }
         }
 
-        // 4. DULUX (PT AKZONOBEL)
-        $dulux = Principal::where('code', 'PR-DULUX')
+        // 4. DULUX (PT ICI PAINTS INDONESIA)
+        $dulux = Principal::where('code', 'PR-ICI-PAINTS')
+            ->orWhere('code', 'PR-DULUX')
+            ->orWhere('name', 'LIKE', '%ICI PAINTS%')
             ->orWhere('name', 'LIKE', '%DULUX%')
-            ->orWhere('name', 'LIKE', '%AKZONOBEL%')
-            ->orWhere('subdomain', 'dulux')
             ->first();
 
-        if ($dulux) {
-            $duluxProducts = [
-                [
-                    'name' => 'Dulux Weathershield Powerflexx Brilliant White 2.5L',
-                    'sku_code' => 'DLX-WTS-WHT-25L',
-                    'barcode' => '8711115100014',
-                    'category' => 'Exterior Paint',
-                    'brand' => 'Dulux Weathershield',
-                    'price' => 345000,
-                    'uom' => 'Can',
-                    'description' => 'Cat dinding luar tahan cuaca ekstrem dengan teknologi elastis penutup retak rambut.',
-                ],
-                [
-                    'name' => 'Dulux Catylac Interior Putih 5kg',
-                    'sku_code' => 'DLX-CTL-INT-5KG',
-                    'barcode' => '8711115200011',
-                    'category' => 'Interior Paint',
-                    'brand' => 'Catylac',
-                    'price' => 135000,
-                    'uom' => 'Pail',
-                    'description' => 'Cat tembok interior cerah menakjubkan dengan daya sebar luas.',
-                ],
-                [
-                    'name' => 'Dulux EasyClean Anti-Bakteri 2.5L',
-                    'sku_code' => 'DLX-ECL-ANT-25L',
-                    'barcode' => '8711115300018',
-                    'category' => 'Interior Paint',
-                    'brand' => 'Dulux EasyClean',
-                    'price' => 215000,
-                    'uom' => 'Can',
-                    'description' => 'Cat interior yang mudah dibersihkan dari noda membandel.',
-                ],
-                [
-                    'name' => 'Dulux Aquashield Pelapis Anti Bocor Abu-Abu 4kg',
-                    'sku_code' => 'DLX-AQS-ABU-4KG',
-                    'barcode' => '8711115400015',
-                    'category' => 'Waterproofing',
-                    'brand' => 'Dulux Aquashield',
-                    'price' => 195000,
-                    'uom' => 'Pail',
-                    'description' => 'Pelapis anti bocor 2X lebih tebal dan elastis tahan air.',
-                ],
-                [
-                    'name' => 'Dulux Pentalite Emulsion Soft Almond 2.5L',
-                    'sku_code' => 'DLX-PNT-ALM-25L',
-                    'barcode' => '8711115500012',
-                    'category' => 'Interior Paint',
-                    'brand' => 'Dulux Pentalite',
-                    'price' => 190000,
-                    'uom' => 'Can',
-                    'description' => 'Cat interior premium dengan hasil akhir matt halus dan mewah.',
-                ],
-            ];
-
-            foreach ($duluxProducts as $p) {
-                Product::updateOrCreate(
-                    ['sku_code' => $p['sku_code']],
-                    array_merge($p, [
-                        'principal_id' => $dulux->id,
-                        'company_id' => $companyId,
-                        'is_active' => true,
-                    ])
-                );
-            }
-        }
+        // 5 demo products have been deprecated and replaced with the 69 official Dulux products in migration 2026_09_09_150000_update_ici_paint_products_from_excel.php
     }
 }

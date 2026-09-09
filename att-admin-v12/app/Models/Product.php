@@ -38,6 +38,28 @@ class Product extends Model
         return (int) ($this->min_stock ?? 0);
     }
 
+    protected static function booted(): void
+    {
+        static::saved(function (Product $product) {
+            if ($product->principal_id) {
+                try {
+                    $templateIds = ReportTemplate::where('principal_id', $product->principal_id)
+                        ->orWhereHas('principals', function ($q) use ($product) {
+                            $q->where('principals.id', $product->principal_id);
+                        })
+                        ->where('code', 'NOT LIKE', '%DAILY-MAINTENANCE%')
+                        ->pluck('id');
+
+                    if ($templateIds->isNotEmpty()) {
+                        $product->reportTemplates()->syncWithoutDetaching($templateIds);
+                    }
+                } catch (\Throwable $e) {
+                    // Silently continue if table not yet migrated
+                }
+            }
+        });
+    }
+
     public function getMinimumStockAttribute(): int
     {
         return (int) ($this->min_stock ?? 0);

@@ -447,6 +447,19 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
     - Bump versi ke `v1.0.130+130` pada `pubspec.yaml` dan `splash_screen.dart`.
     - Build release APK (108.2MB) dan deploy ke server Staging (`appsend.my.id`) serta klaster produksi.
 
+### 📦 Pembaruan Master Data Produk ICI Paint / Dulux (69 Produk Resmi Excel)
+- **Status**: 🟢 **Selesai (100%)**
+- **Tanggal Rilis**: 9 September 2026
+- **Deskripsi Pembaruan**:
+  - **Penghapusan 5 Produk Demo**: 5 produk dummy lama (`DLX-WTS-WHT-25L`, `DLX-CTL-INT-5KG`, `DLX-ECL-ANT-25L`, `DLX-AQS-ABU-4KG`, `DLX-PNT-ALM-25L`) dihapus secara permanen dari tabel `products` dan dilepas dari relasi template.
+  - **Impor 69 Produk Resmi dari Excel Final (`List Product Dulux_Updated_Final.xlsx`)**:
+    - 69 produk unik lengkap dengan nama produk, SKU unik (`DLX-...`), kategori brand/base (`Catylac Base`, `Catylac RM`, `Dulux Base`, `Dulux RM`, `Maxilite`), satuan (`Kg` / `Ltr`), dan harga acuan.
+    - Kolom `description` memuat JSON spesifikasi lengkap: ukuran kemasan (Tin, Galon, Pail), konversi liter, harga Ready Mix (Tin, Galon, Pail), dan matriks harga tinting Base A, Base B, Base C, Base D.
+  - **Integrasi Otomatis Template & Form Laporan**:
+    - Seluruh 69 produk ditautkan ke template `RPT-DULUX-OFFTAKE-01`, `RPT-DULUX-OOS-SSO`, `RPT-DULUX-DATABASE-PELANGGAN`, `RPT-DULUX-STOCK-END`, dan `RPT-DULUX-CBP-PRICING`.
+    - Pilihan dropdown pada form field `produk_oos`, `produk_stock_end`, dan `produk_dulux_cbp` otomatis disinkronkan secara dinamis dari katalog produk aktif.
+    - Model `Product` dilengkapi event listener `booted()` sehingga penambahan/perubahan produk baru di masa depan di Web Admin otomatis terintegrasi ke seluruh template pelaporan tanpa perlu perubahan kode manual.
+
 ---
 
 ## 🎯 Rencana Pengembangan Selanjutnya (Next Milestones)

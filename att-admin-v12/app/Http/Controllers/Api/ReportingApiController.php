@@ -554,8 +554,8 @@ class ReportingApiController extends Controller
                 'fields' => $t->fields->map(function ($f) use ($productNames, $templateProducts, $t, $targetStore) {
                     $options = $f->options ?? [];
 
-                    // HANYA isi options dari productNames jika field_type adalah product_select dan opsi manual kosong
-                    if ($f->field_type === 'product_select' && empty($options)) {
+                    // Sinkronkan options dari productNames jika field_type adalah product_select atau field produk Dulux
+                    if ($f->field_type === 'product_select' || in_array($f->field_name, ['produk_oos', 'produk_stock_end', 'produk_dulux_cbp'])) {
                         if (!empty($productNames)) {
                             $options = $productNames;
                         }
