@@ -7093,25 +7093,95 @@ class PrincipalPortalController extends Controller
                             }
                         }
 
-                        $rawRow = [
-                            'id' => 'live_' . $sub->id,
-                            'trans_date' => $transDate,
-                            'year' => $subYear,
-                            'month' => $subMonth,
-                            'week' => $subWeek,
-                            'region' => $region,
-                            'area' => $area,
-                            'name_store' => $nameStore,
-                            'sap' => $sap,
-                            'sub_brand' => $rawSubBrand,
-                            'brand' => $rawBrand,
-                            'kemasan_galon' => $kemasanGalon ?: '-',
-                            'qty_galon' => $qtyGalon,
-                            'kemasan_pail' => $kemasanPail ?: '-',
-                            'qty_pail' => $qtyPail,
-                            'volume_liter' => $volLiter,
-                        ];
-                        $liveRawRows[] = $rawRow;
+                        // Check if multi-item offtake_items_json is present
+                        $multiItems = null;
+                        if (!empty($valMap['offtake_items_json'])) {
+                            $multiItems = is_array($valMap['offtake_items_json'])
+                                ? $valMap['offtake_items_json']
+                                : json_decode((string)$valMap['offtake_items_json'], true);
+                        }
+
+                        $isNoSale = strtolower(trim((string)($valMap['tipe_laporan_offtake'] ?? ''))) === 'no sale';
+
+                        if ($isNoSale) {
+                            $volLiter = 0.0;
+                            $rawRow = [
+                                'id' => 'live_' . $sub->id,
+                                'trans_date' => $transDate,
+                                'year' => $subYear,
+                                'month' => $subMonth,
+                                'week' => $subWeek,
+                                'region' => $region,
+                                'area' => $area,
+                                'name_store' => $nameStore,
+                                'sap' => $sap,
+                                'sub_brand' => 'NO SALE (TIDAK ADA PENJUALAN)',
+                                'brand' => '-',
+                                'kemasan_galon' => '-',
+                                'qty_galon' => 0,
+                                'kemasan_pail' => '-',
+                                'qty_pail' => 0,
+                                'volume_liter' => 0.0,
+                            ];
+                            $liveRawRows[] = $rawRow;
+                        } elseif (!empty($multiItems) && is_array($multiItems)) {
+                            $calcTotalVol = 0.0;
+                            foreach ($multiItems as $itemIdx => $item) {
+                                $iBrand = $item['brand'] ?? $rawBrand;
+                                $iSubBrand = $item['sub_brand'] ?? ($item['sub_brand2'] ?? $rawSubBrand);
+                                $iKemasanGalon = $item['kemasan_galon'] ?? '-';
+                                $iQtyGalon = (float)($item['qty_galon'] ?? 0);
+                                $iKemasanPail = $item['kemasan_pail'] ?? '-';
+                                $iQtyPail = (float)($item['qty_pail'] ?? 0);
+                                $iVolLiter = (float)($item['subtotal_liter'] ?? 0);
+                                if ($iVolLiter <= 0) {
+                                    $iVolLiter = (float)($item['volume_galon_l'] ?? 0) + (float)($item['volume_pail_l'] ?? 0) + (float)($item['volume_tin_l'] ?? 0);
+                                }
+                                $calcTotalVol += $iVolLiter;
+
+                                $liveRawRows[] = [
+                                    'id' => 'live_' . $sub->id . '_' . $itemIdx,
+                                    'trans_date' => $transDate,
+                                    'year' => $subYear,
+                                    'month' => $subMonth,
+                                    'week' => $subWeek,
+                                    'region' => $region,
+                                    'area' => $area,
+                                    'name_store' => $nameStore,
+                                    'sap' => $sap,
+                                    'sub_brand' => $iSubBrand,
+                                    'brand' => $iBrand,
+                                    'kemasan_galon' => $iKemasanGalon,
+                                    'qty_galon' => $iQtyGalon,
+                                    'kemasan_pail' => $iKemasanPail,
+                                    'qty_pail' => $iQtyPail,
+                                    'volume_liter' => $iVolLiter,
+                                ];
+                            }
+                            if ($calcTotalVol > 0) {
+                                $volLiter = $calcTotalVol;
+                            }
+                        } else {
+                            $rawRow = [
+                                'id' => 'live_' . $sub->id,
+                                'trans_date' => $transDate,
+                                'year' => $subYear,
+                                'month' => $subMonth,
+                                'week' => $subWeek,
+                                'region' => $region,
+                                'area' => $area,
+                                'name_store' => $nameStore,
+                                'sap' => $sap,
+                                'sub_brand' => $rawSubBrand,
+                                'brand' => $rawBrand,
+                                'kemasan_galon' => $kemasanGalon ?: '-',
+                                'qty_galon' => $qtyGalon,
+                                'kemasan_pail' => $kemasanPail ?: '-',
+                                'qty_pail' => $qtyPail,
+                                'volume_liter' => $volLiter,
+                            ];
+                            $liveRawRows[] = $rawRow;
+                        }
 
                         // Store summary aggregation
                         if ($subMonth >= $sMonth && $subMonth <= $eMonth) {

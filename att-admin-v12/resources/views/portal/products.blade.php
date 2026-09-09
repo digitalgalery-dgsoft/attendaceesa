@@ -710,9 +710,14 @@
                                     <span class="category-badge">{{ $prod->category ?? 'Umum' }}</span>
                                 </td>
                                 <td>
-                                    <span style="font-weight: 800; color: #16a34a;">
+                                    <div style="font-weight: 800; color: #16a34a; font-size: 0.9rem;">
                                         {{ $prod->formatted_price }}
-                                    </span>
+                                    </div>
+                                    @if(!empty($prod->pricing_matrix))
+                                        <button type="button" class="btn-pricing-detail" onclick='openPricingMatrixModal(@json($prod))' style="background: rgba(15, 82, 186, 0.08); color: #0f52ba; border: 1px solid rgba(15, 82, 186, 0.2); border-radius: 6px; font-size: 0.72rem; padding: 2px 7px; margin-top: 4px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid fa-table-list"></i> Rincian Base & Kemasan
+                                        </button>
+                                    @endif
                                 </td>
                                 <td>
                                     <span class="stock-min-badge" title="Stock Minimal Standar Toko">
@@ -1027,10 +1032,115 @@
         </div>
     </div>
 
+    <!-- MODAL 4: RINCIAN MATRIKS HARGA BASE & KEMASAN -->
+    <div id="modalPricingMatrix" class="portal-modal-overlay">
+        <div class="portal-modal-card" style="max-width: 680px;">
+            <div class="portal-modal-header">
+                <div>
+                    <h3 class="portal-modal-title" id="pm_title"><i class="fa-solid fa-table-list" style="color: var(--brand-primary);"></i> Rincian Harga Base & Kemasan</h3>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 3px;" id="pm_subtitle">-</div>
+                </div>
+                <button type="button" class="btn-close-modal" onclick="closeModal('modalPricingMatrix')">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="portal-modal-body" style="padding: 1.5rem;">
+                <!-- Packaging Info Banner -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;" id="pm_packaging_box">
+                    <!-- Populated by JS -->
+                </div>
+
+                <!-- Table Matriks Harga -->
+                <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+                        <thead>
+                            <tr style="background: #f1f5f9; border-bottom: 1px solid #e2e8f0; color: #475569;">
+                                <th style="padding: 0.65rem 0.9rem; font-weight: 700;">Tipe / Varian</th>
+                                <th style="padding: 0.65rem 0.9rem; font-weight: 700; text-align: right;" id="th_tin">Tin</th>
+                                <th style="padding: 0.65rem 0.9rem; font-weight: 700; text-align: right;" id="th_galon">Galon</th>
+                                <th style="padding: 0.65rem 0.9rem; font-weight: 700; text-align: right;" id="th_pail">Pail</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pm_table_body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="portal-modal-footer" style="padding: 1rem 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
+                <button type="button" class="btn-cancel-modal" onclick="closeModal('modalPricingMatrix')">Tutup</button>
+            </div>
+        </div>
+    </div>
+
 @endsection
 
 @push('scripts')
 <script>
+    function openPricingMatrixModal(product) {
+        var modal = document.getElementById('modalPricingMatrix');
+        if (!modal) return;
+
+        var matrix = product.pricing_matrix || {};
+        if (typeof matrix === 'string') {
+            try { matrix = JSON.parse(matrix); } catch(e) { matrix = {}; }
+        }
+
+        document.getElementById('pm_title').textContent = product.name;
+        document.getElementById('pm_subtitle').textContent = (product.brand || '') + ' • ' + (product.category || '') + ' (SKU: ' + (product.sku_code || '-') + ')';
+
+        var pkg = matrix.packaging || {};
+        var uom = matrix.segment || product.uom || 'Kg';
+        var pkgHtml = '';
+        pkgHtml += '<div><span style="color:#64748b; font-size:0.75rem;">Kemasan Tin:</span> <strong style="color:#0f172a;">' + (pkg.tin ? pkg.tin + ' ' + uom : '-') + '</strong></div>';
+        pkgHtml += '<div><span style="color:#64748b; font-size:0.75rem;">Kemasan Galon:</span> <strong style="color:#0f172a;">' + (pkg.galon ? pkg.galon + ' ' + uom : '-') + '</strong></div>';
+        pkgHtml += '<div><span style="color:#64748b; font-size:0.75rem;">Kemasan Pail:</span> <strong style="color:#0f172a;">' + (pkg.pail ? pkg.pail + ' ' + uom : '-') + '</strong></div>';
+        if (pkg.conversion) {
+            pkgHtml += '<div><span style="color:#64748b; font-size:0.75rem;">Faktor Pembagi Liter:</span> <strong style="color:#0f52ba;">÷ ' + pkg.conversion + '</strong></div>';
+        }
+        document.getElementById('pm_packaging_box').innerHTML = pkgHtml;
+
+        document.getElementById('th_tin').textContent = 'Tin ' + (pkg.tin ? '(' + pkg.tin + ' ' + uom + ')' : '');
+        document.getElementById('th_galon').textContent = 'Galon ' + (pkg.galon ? '(' + pkg.galon + ' ' + uom + ')' : '');
+        document.getElementById('th_pail').textContent = 'Pail ' + (pkg.pail ? '(' + pkg.pail + ' ' + uom + ')' : '');
+
+        var prices = matrix.prices || {};
+        var fmt = function(v) {
+            if (!v || v <= 0) return '<span style="color:#cbd5e1;">-</span>';
+            return '<strong style="color:#16a34a;">Rp ' + Math.round(v).toLocaleString('id-ID') + '</strong>';
+        };
+
+        var rowsHtml = '';
+        var labels = {
+            'rm': 'Ready Mix (RM)',
+            'base_a': 'Base A (Putih / Light)',
+            'base_b': 'Base B (Medium)',
+            'base_c': 'Base C (Dark)',
+            'base_d': 'Base D (Clear / Deep)'
+        };
+
+        var hasAny = false;
+        ['rm', 'base_a', 'base_b', 'base_c', 'base_d'].forEach(function(k) {
+            var item = prices[k] || {};
+            if (item.tin || item.galon || item.pail) {
+                hasAny = true;
+                rowsHtml += '<tr style="border-bottom: 1px solid #f1f5f9;">' +
+                    '<td style="padding: 0.65rem 0.9rem; font-weight: 600; color: #1e293b;">' + (labels[k] || k) + '</td>' +
+                    '<td style="padding: 0.65rem 0.9rem; text-align: right;">' + fmt(item.tin) + '</td>' +
+                    '<td style="padding: 0.65rem 0.9rem; text-align: right;">' + fmt(item.galon) + '</td>' +
+                    '<td style="padding: 0.65rem 0.9rem; text-align: right;">' + fmt(item.pail) + '</td>' +
+                    '</tr>';
+            }
+        });
+
+        if (!hasAny) {
+            rowsHtml = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #94a3b8;">Harga spesifik Base/Kemasan tidak tersedia. Menggunakan Harga Standar: ' + (product.formatted_price || '-') + '</td></tr>';
+        }
+
+        document.getElementById('pm_table_body').innerHTML = rowsHtml;
+        modal.classList.add('active');
+    }
+
     function openAddModal() {
         removeImagePreview('add_product_image_input', 'add_preview_box');
         document.getElementById('modalAddProduct').classList.add('active');

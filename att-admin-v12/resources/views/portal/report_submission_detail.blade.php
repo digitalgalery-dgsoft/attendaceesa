@@ -1028,6 +1028,39 @@
                                                     </div>
                                                 @endforeach
                                             </div>
+                                        @elseif(!empty($parsedOfftakeList) && is_array($parsedOfftakeList))
+                                            <div style="display: flex; flex-direction: column; gap: 8px; margin: 4px 0; width: 100%;">
+                                                @foreach($parsedOfftakeList as $oIdx => $oItem)
+                                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; text-align: left;">
+                                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+                                                            <div style="display: flex; align-items: center; gap: 6px;">
+                                                                <span style="font-size: 0.72rem; font-weight: 800; background: #0F52BA; color: #fff; padding: 2px 6px; border-radius: 4px;">#{{ $oIdx + 1 }}</span>
+                                                                <span style="font-size: 0.85rem; font-weight: 800; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">
+                                                                    {{ $oItem['brand'] ?? 'Dulux' }}
+                                                                </span>
+                                                                <strong style="font-size: 0.88rem; color: #0f172a;">{{ $oItem['sub_brand'] ?? ($oItem['name'] ?? 'Produk') }}</strong>
+                                                            </div>
+                                                            <div style="text-align: right;">
+                                                                <span style="font-size: 0.82rem; font-weight: 800; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 6px;">
+                                                                    Rp {{ number_format((float)($oItem['subtotal_rp'] ?? ($oItem['nilai_penjualan_rp'] ?? 0)), 0, ',', '.') }}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.8rem; margin-top: 4px;">
+                                                            @if((float)($oItem['qty_tin'] ?? 0) > 0)
+                                                                <span style="background: #fff; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 5px;"><strong>{{ $oItem['qty_tin'] }}</strong> Tin ({{ $oItem['kemasan_tin'] ?? 'Tin' }})</span>
+                                                            @endif
+                                                            @if((float)($oItem['qty_galon'] ?? 0) > 0)
+                                                                <span style="background: #fff; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 5px;"><strong>{{ $oItem['qty_galon'] }}</strong> Galon ({{ $oItem['kemasan_galon'] ?? 'Galon' }})</span>
+                                                            @endif
+                                                            @if((float)($oItem['qty_pail'] ?? 0) > 0)
+                                                                <span style="background: #fff; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 5px;"><strong>{{ $oItem['qty_pail'] }}</strong> Pail ({{ $oItem['kemasan_pail'] ?? 'Pail' }})</span>
+                                                            @endif
+                                                            <span style="background: #eff6ff; color: #1d4ed8; font-weight: 700; padding: 2px 6px; border-radius: 5px;">Volume: {{ number_format((float)($oItem['subtotal_liter'] ?? 0), 2) }} L</span>
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
                                         @elseif($fieldType === 'currency' && $val->value_number !== null)
                                             <span class="val-currency">
                                                 Rp {{ number_format((float)$val->value_number, 0, ',', '.') }}

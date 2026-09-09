@@ -495,24 +495,61 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div>
-                                            <span class="brand-tag {{ strtolower($rawBrand) === 'dulux' ? 'brand-tag-dulux' : 'brand-tag-catylac' }}" style="font-size: 0.7rem; padding: 1px 5px;">
-                                                {{ $rawBrand }}
+                                        @php
+                                            $isNoSaleSub = strtolower(trim((string)($valMap['tipe_laporan_offtake'] ?? ''))) === 'no sale';
+                                            $subMultiItems = !empty($valMap['offtake_items_json']) ? (is_array($valMap['offtake_items_json']) ? $valMap['offtake_items_json'] : json_decode((string)$valMap['offtake_items_json'], true)) : null;
+                                        @endphp
+                                        @if($isNoSaleSub)
+                                            <span class="brand-tag" style="background: #fee2e2; color: #dc2626; font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; font-weight: 700; display: inline-block;">
+                                                <i class="fa-solid fa-ban"></i> No Sale
                                             </span>
-                                        </div>
-                                        <div style="font-size: 0.82rem; font-weight: 600; color: #1e293b; margin-top: 2px;">
-                                            {{ $rawSubBrand }}
-                                        </div>
+                                        @elseif(!empty($subMultiItems) && is_array($subMultiItems))
+                                            <div>
+                                                <span class="brand-tag brand-tag-dulux" style="font-size: 0.7rem; padding: 1px 6px;">
+                                                    {{ count($subMultiItems) }} Produk Terjual
+                                                </span>
+                                            </div>
+                                            <div style="font-size: 0.8rem; font-weight: 600; color: #1e293b; margin-top: 2px;">
+                                                {{ implode(', ', array_slice(array_map(function($it) { return $it['sub_brand'] ?? ($it['sub_brand2'] ?? 'Item'); }, $subMultiItems), 0, 2)) }}{{ count($subMultiItems) > 2 ? '...' : '' }}
+                                            </div>
+                                        @else
+                                            <div>
+                                                <span class="brand-tag {{ strtolower($rawBrand) === 'dulux' ? 'brand-tag-dulux' : 'brand-tag-catylac' }}" style="font-size: 0.7rem; padding: 1px 5px;">
+                                                    {{ $rawBrand }}
+                                                </span>
+                                            </div>
+                                            <div style="font-size: 0.82rem; font-weight: 600; color: #1e293b; margin-top: 2px;">
+                                                {{ $rawSubBrand }}
+                                            </div>
+                                        @endif
                                     </td>
                                     <td style="text-align: right; font-size: 0.8rem;">
-                                        @if($qtyGalon > 0)
-                                            <div><strong>{{ number_format($qtyGalon) }}</strong> Galon <span style="color: #64748b;">({{ $kemasanGalon ?: '2.5L' }})</span></div>
-                                        @endif
-                                        @if($qtyPail > 0)
-                                            <div><strong>{{ number_format($qtyPail) }}</strong> Pail <span style="color: #64748b;">({{ $kemasanPail ?: '20L' }})</span></div>
-                                        @endif
-                                        @if($qtyGalon <= 0 && $qtyPail <= 0)
-                                            <span style="color: #94a3b8;">-</span>
+                                        @if($isNoSaleSub)
+                                            <span style="color: #94a3b8; font-style: italic;">Tidak ada penjualan</span>
+                                        @elseif(!empty($subMultiItems) && is_array($subMultiItems))
+                                            @php
+                                                $totTin = array_sum(array_map(function($it) { return (float)($it['qty_tin'] ?? 0); }, $subMultiItems));
+                                                $totGalon = array_sum(array_map(function($it) { return (float)($it['qty_galon'] ?? 0); }, $subMultiItems));
+                                                $totPail = array_sum(array_map(function($it) { return (float)($it['qty_pail'] ?? 0); }, $subMultiItems));
+                                            @endphp
+                                            @if($totTin > 0) <div><strong>{{ number_format($totTin) }}</strong> Tin</div> @endif
+                                            @if($totGalon > 0) <div><strong>{{ number_format($totGalon) }}</strong> Galon</div> @endif
+                                            @if($totPail > 0) <div><strong>{{ number_format($totPail) }}</strong> Pail</div> @endif
+                                            <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px;">Total: {{ number_format($totTin + $totGalon + $totPail) }} Unit</div>
+                                        @else
+                                            @php $qtyTinSingle = (float)($valMap['qty_tin'] ?? 0); @endphp
+                                            @if($qtyTinSingle > 0)
+                                                <div><strong>{{ number_format($qtyTinSingle) }}</strong> Tin</div>
+                                            @endif
+                                            @if($qtyGalon > 0)
+                                                <div><strong>{{ number_format($qtyGalon) }}</strong> Galon <span style="color: #64748b;">({{ $kemasanGalon ?: '2.5L' }})</span></div>
+                                            @endif
+                                            @if($qtyPail > 0)
+                                                <div><strong>{{ number_format($qtyPail) }}</strong> Pail <span style="color: #64748b;">({{ $kemasanPail ?: '20L' }})</span></div>
+                                            @endif
+                                            @if($qtyGalon <= 0 && $qtyPail <= 0 && $qtyTinSingle <= 0)
+                                                <span style="color: #94a3b8;">-</span>
+                                            @endif
                                         @endif
                                     </td>
                                     <td style="text-align: right; font-weight: 800; color: #0b3d88; font-size: 0.88rem;">

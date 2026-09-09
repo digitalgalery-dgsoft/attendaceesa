@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -198,13 +200,21 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     return false;
   }
 
+  bool _isOfftakeTemplate() {
+    final code = widget.template.code.toUpperCase();
+    final title = widget.template.title.toLowerCase();
+    return code == 'RPT-DULUX-OFFTAKE-01' ||
+        code.contains('OFFTAKE') ||
+        title.contains('offtake');
+  }
+
   bool _hasProductBinding() {
     if (_isDailyMaintenanceTemplate()) return false;
+    if (_isOfftakeTemplate()) return false; // Offtake uses cart + confirmation review, NOT sequential per-product locks!
     if (widget.template.hasProductBinding) return true;
     if (_getProducts().isNotEmpty) return true;
     final code = widget.template.code.toUpperCase();
-    if (code == 'RPT-DULUX-OFFTAKE-01' ||
-        code == 'RPT-DULUX-STOCK-END' ||
+    if (code == 'RPT-DULUX-STOCK-END' ||
         code == 'RPT-DULUX-OOS-SSO' ||
         code == 'RPT-DULUX-CBP-PRICING') {
       return true;
@@ -281,6 +291,25 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
   // Controllers untuk text & currency fields
   final Map<String, TextEditingController> _controllers = {};
+
+  // Offtake Reporting State
+  String _offtakeType = 'sale'; // 'sale' | 'no_sale'
+  int _offtakeStep = 0; // 0: Input & Keranjang, 1: Review & Konfirmasi
+  final List<Map<String, dynamic>> _offtakeCart = [];
+  TemplateProductModel? _currentOfftakeProduct;
+
+  final TextEditingController _offtakeQtyTinCtrl = TextEditingController();
+  final TextEditingController _offtakeQtyGalonCtrl = TextEditingController();
+  final TextEditingController _offtakeQtyPailCtrl = TextEditingController();
+
+  final TextEditingController _offtakeCustMasukCtrl = TextEditingController();
+  final TextEditingController _offtakeCustBeliCatCtrl = TextEditingController();
+  final TextEditingController _offtakeCustBeliDuluxCtrl = TextEditingController();
+
+  File? _offtakeCardPhoto;
+  String? _offtakeCardPhotoWatermark;
+  final List<File> _offtakeNotaPhotos = [];
+  final List<String> _offtakeNotaPhotoWatermarks = [];
 
   // GPS & Status
   double? _latitude;
@@ -979,6 +1008,54 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     }
 
+    // Inisialisasi data laporan Offtake Dulux
+    final bool isOfftake = _isOfftakeTemplate();
+    if (isOfftake) {
+      _offtakeCart.clear();
+      _offtakeType = 'sale';
+      _offtakeStep = 0;
+      _currentOfftakeProduct = null;
+      _offtakeQtyTinCtrl.clear();
+      _offtakeQtyGalonCtrl.clear();
+      _offtakeQtyPailCtrl.clear();
+      _offtakeCustMasukCtrl.clear();
+      _offtakeCustBeliCatCtrl.clear();
+      _offtakeCustBeliDuluxCtrl.clear();
+      _offtakeCardPhoto = null;
+      _offtakeCardPhotoWatermark = null;
+      _offtakeNotaPhotos.clear();
+      _offtakeNotaPhotoWatermarks.clear();
+
+      if (widget.editSubmission != null) {
+        for (final val in widget.editSubmission!.values) {
+          final fn = val.fieldName.toLowerCase();
+          if (fn == 'tipe_laporan_offtake') {
+            _offtakeType = val.valueText == 'no_sale' ? 'no_sale' : 'sale';
+          } else if (fn == 'offtake_items_json') {
+            try {
+              final raw = val.valueJson ?? val.valueText;
+              final list = raw is List ? raw : (raw is String ? jsonDecode(raw) : null);
+              if (list is List) {
+                for (final itm in list) {
+                  if (itm is Map) {
+                    _offtakeCart.add(Map<String, dynamic>.from(itm));
+                  }
+                }
+              }
+            } catch (e) {
+              debugPrint('Error decoding offtake_items_json: $e');
+            }
+          } else if (fn == 'jml_customer_masuk') {
+            _offtakeCustMasukCtrl.text = val.valueNumber?.toInt().toString() ?? (val.valueText ?? '');
+          } else if (fn == 'jml_customer_beli_cat') {
+            _offtakeCustBeliCatCtrl.text = val.valueNumber?.toInt().toString() ?? (val.valueText ?? '');
+          } else if (fn == 'jml_customer_beli_dulux') {
+            _offtakeCustBeliDuluxCtrl.text = val.valueNumber?.toInt().toString() ?? (val.valueText ?? '');
+          }
+        }
+      }
+    }
+
     // Attach reactive calculation listeners
     for (final ctrl in _controllers.values) {
       ctrl.addListener(_recalculateFormulas);
@@ -1015,6 +1092,13 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
   @override
   void dispose() {
+    _offtakeQtyTinCtrl.dispose();
+    _offtakeQtyGalonCtrl.dispose();
+    _offtakeQtyPailCtrl.dispose();
+    _offtakeCustMasukCtrl.dispose();
+    _offtakeCustBeliCatCtrl.dispose();
+    _offtakeCustBeliDuluxCtrl.dispose();
+
     for (final itm in _competitorItems) {
       itm.dispose();
     }
@@ -1880,6 +1964,20 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     final textColor = isDarkMode ? Colors.white : const Color(0xFF0E1830);
     final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
     final elevatedColor = isDarkMode ? Colors.grey.shade800 : const Color(0xFFEDF1F8);
+
+    if (_isOfftakeTemplate()) {
+      return _buildOfftakeScaffold(
+        context: context,
+        canSubmitReport: canSubmitReport,
+        isDarkMode: isDarkMode,
+        themeColor: themeColor,
+        cardColor: cardColor,
+        textColor: textColor,
+        subtitleColor: subtitleColor,
+        elevatedColor: elevatedColor,
+        locale: locale,
+      );
+    }
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -5000,6 +5098,2426 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         borderSide: const BorderSide(color: Color(0xFF0F52BA), width: 1.5),
       ),
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OFFTAKE SPECIALIZED WORKFLOW (SALE vs NO SALE, CART, REVIEW, FOTO BUKTI)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  String _formatRupiah(num amount) {
+    return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(amount);
+  }
+
+  Future<ImageSource?> _showPhotoSourceDialog({required String title}) async {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Provider.of<AuthProvider>(context, listen: false).appColor ?? const Color(0xFF0F52BA);
+    final themeColor = Color(int.tryParse(widget.template.color.replaceAll('#', '0xFF')) ?? primaryColor.value);
+
+    return await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final bg = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+        final textCol = isDarkMode ? Colors.white : const Color(0xFF0E1830);
+
+        return Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: themeColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.add_a_photo_rounded, color: themeColor, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textCol),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Pilih metode pengambilan foto bukti',
+                          style: TextStyle(fontSize: 11.5, color: isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              InkWell(
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: themeColor.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.camera_alt_rounded, color: themeColor, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Kamera (Watermark Geotag)',
+                              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textCol),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Ambil foto langsung dengan stempel lokasi GPS & waktu presisi',
+                              style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded, color: isDarkMode ? Colors.grey.shade600 : Colors.grey.shade400),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              InkWell(
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.photo_library_rounded, color: Colors.teal, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Pilih dari Galeri HP',
+                              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textCol),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Pilih foto dari penyimpanan galeri foto ponsel Anda',
+                              style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded, color: isDarkMode ? Colors.grey.shade600 : Colors.grey.shade400),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickOfftakeCardPhoto() async {
+    final source = await _showPhotoSourceDialog(title: 'Foto Card Offtake (1 Foto)');
+    if (source == null) return;
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final employeeName = auth.employeeData?['full_name'] ?? 'Promotor';
+    final employeeNik = auth.employeeData?['nik'] ?? '';
+    final currentStore = _selectedStoreName.isNotEmpty ? _selectedStoreName : 'Kunjungan Toko';
+
+    WatermarkCaptureResult? res;
+    if (source == ImageSource.camera) {
+      res = await WatermarkCameraService.captureWithWatermark(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+        latitude: _latitude,
+        longitude: _longitude,
+      );
+    } else {
+      res = await WatermarkCameraService.pickFromGallery(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+      );
+    }
+
+    if (res != null && mounted) {
+      setState(() {
+        _offtakeCardPhoto = res!.file;
+        _offtakeCardPhotoWatermark = res.watermarkText;
+      });
+
+      toastification.show(
+        context: context,
+        type: ToastificationType.success,
+        title: const Text('Foto Card Offtake Disimpan'),
+        autoCloseDuration: const Duration(seconds: 2),
+      );
+    }
+  }
+
+  Future<void> _pickOfftakeNotaPhoto() async {
+    final source = await _showPhotoSourceDialog(title: 'Foto Nota Penjualan (Multi-Foto)');
+    if (source == null) return;
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final employeeName = auth.employeeData?['full_name'] ?? 'Promotor';
+    final employeeNik = auth.employeeData?['nik'] ?? '';
+    final currentStore = _selectedStoreName.isNotEmpty ? _selectedStoreName : 'Kunjungan Toko';
+
+    if (source == ImageSource.camera) {
+      final res = await WatermarkCameraService.captureWithWatermark(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+        latitude: _latitude,
+        longitude: _longitude,
+      );
+      if (res != null && mounted) {
+        setState(() {
+          _offtakeNotaPhotos.add(res.file);
+          _offtakeNotaPhotoWatermarks.add(res.watermarkText);
+        });
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          title: Text('Foto Nota Ditambahkan (${_offtakeNotaPhotos.length} Foto)'),
+          autoCloseDuration: const Duration(seconds: 2),
+        );
+      }
+    } else {
+      final results = await WatermarkCameraService.pickMultiFromGallery(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+      );
+      if (results.isNotEmpty && mounted) {
+        setState(() {
+          for (final r in results) {
+            _offtakeNotaPhotos.add(r.file);
+            _offtakeNotaPhotoWatermarks.add(r.watermarkText);
+          }
+        });
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          title: Text('${results.length} Foto Nota Ditambahkan dari Galeri (${_offtakeNotaPhotos.length} Total)'),
+          autoCloseDuration: const Duration(seconds: 2),
+        );
+      }
+    }
+  }
+
+  void _openOfftakeProductPickerBottomSheet(Color themeColor, bool isDarkMode) {
+    final allProducts = _getProducts();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        String searchQuery = '';
+        String selectedFilter = 'Semua';
+
+        final categories = <String>['Semua'];
+        for (final p in allProducts) {
+          final cat = p.category?.trim() ?? '';
+          if (cat.isNotEmpty && !categories.contains(cat)) {
+            categories.add(cat);
+          }
+        }
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final filteredProducts = allProducts.where((p) {
+              final matchesFilter = selectedFilter == 'Semua' || (p.category != null && p.category!.trim().toLowerCase() == selectedFilter.toLowerCase());
+              if (!matchesFilter) return false;
+
+              if (searchQuery.isEmpty) return true;
+              final q = searchQuery.toLowerCase();
+              final matchesName = p.name.toLowerCase().contains(q);
+              final matchesSku = p.skuCode?.toLowerCase().contains(q) ?? false;
+              final matchesBrand = p.brand?.toLowerCase().contains(q) ?? false;
+              return matchesName || matchesSku || matchesBrand;
+            }).toList();
+
+            final sheetBg = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
+            final itemBg = isDarkMode ? const Color(0xFF2A2A2A) : const Color(0xFFF8FAFC);
+            final sheetText = isDarkMode ? Colors.white : const Color(0xFF1E293B);
+            final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: BoxDecoration(
+                color: sheetBg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: themeColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(Icons.format_paint_rounded, color: themeColor, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Pilih Sub Brand Produk Dulux',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: sheetText),
+                              ),
+                              Text(
+                                'Katalog ${allProducts.length} Produk Dulux & Catylac',
+                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(sheetCtx).pop(),
+                          icon: const Icon(Icons.close_rounded),
+                          color: Colors.grey.shade500,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: TextField(
+                      autofocus: false,
+                      style: TextStyle(color: sheetText, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Cari nama produk, Sub Brand...',
+                        hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 12.5),
+                        prefixIcon: Icon(Icons.search_rounded, color: themeColor, size: 20),
+                        filled: true,
+                        fillColor: itemBg,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: themeColor, width: 1.5),
+                        ),
+                      ),
+                      onChanged: (v) => setSheetState(() => searchQuery = v),
+                    ),
+                  ),
+                  if (categories.length > 2) ...[
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      height: 36,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: categories.length,
+                        separatorBuilder: (ctx, i) => const SizedBox(width: 6),
+                        itemBuilder: (ctx, idx) {
+                          final cat = categories[idx];
+                          final isSelected = cat == selectedFilter;
+                          return ChoiceChip(
+                            label: Text(
+                              cat,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? Colors.white : sheetText,
+                              ),
+                            ),
+                            selected: isSelected,
+                            selectedColor: themeColor,
+                            backgroundColor: itemBg,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            side: BorderSide(
+                              color: isSelected ? themeColor : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                            ),
+                            onSelected: (selected) {
+                              if (selected) {
+                                setSheetState(() => selectedFilter = cat);
+                              }
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: filteredProducts.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.search_off_rounded, size: 48, color: Colors.grey.shade400),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Produk tidak ditemukan',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: sheetText),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            itemCount: filteredProducts.length,
+                            separatorBuilder: (ctx, i) => const SizedBox(height: 8),
+                            itemBuilder: (ctx, idx) {
+                              final p = filteredProducts[idx];
+                              final isCurrent = _currentOfftakeProduct?.id == p.id;
+                              final inCart = _offtakeCart.any((itm) => itm['product_id'] == p.id || itm['product_name'] == p.name);
+
+                              final pMatrix = p.pricingMatrix;
+                              final priceGalon = p.getPriceForPackaging('galon');
+                              final pricePail = p.getPriceForPackaging('pail');
+
+                              return InkWell(
+                                onTap: () {
+                                  Navigator.of(sheetCtx).pop();
+                                  setState(() {
+                                    _currentOfftakeProduct = p;
+                                    _offtakeQtyTinCtrl.clear();
+                                    _offtakeQtyGalonCtrl.clear();
+                                    _offtakeQtyPailCtrl.clear();
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isCurrent
+                                        ? themeColor.withOpacity(0.08)
+                                        : itemBg,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isCurrent
+                                          ? themeColor
+                                          : (inCart
+                                              ? Colors.green.withOpacity(0.5)
+                                              : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200)),
+                                      width: isCurrent || inCart ? 1.5 : 1.0,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: inCart
+                                              ? Colors.green.withOpacity(0.12)
+                                              : themeColor.withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Icon(
+                                          inCart ? Icons.check_circle_rounded : Icons.format_paint_rounded,
+                                          color: inCart ? Colors.green : themeColor,
+                                          size: 18,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              p.name,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                                color: isCurrent ? themeColor : sheetText,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Wrap(
+                                              spacing: 5,
+                                              runSpacing: 4,
+                                              children: [
+                                                if (p.brand != null && p.brand!.isNotEmpty)
+                                                  _buildProductInfoChip(p.brand!, Colors.indigo, isDarkMode),
+                                                if (pMatrix?['brand_rm_base'] != null)
+                                                  _buildProductInfoChip(pMatrix!['brand_rm_base'], Colors.teal, isDarkMode),
+                                                if (inCart)
+                                                  _buildProductInfoChip('Sudah di Keranjang ✓', Colors.green, isDarkMode),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Row(
+                                              children: [
+                                                if (priceGalon > 0)
+                                                  Text(
+                                                    'Galon: ${_formatRupiah(priceGalon)}',
+                                                    style: TextStyle(fontSize: 11, color: subtitleColor),
+                                                  ),
+                                                if (priceGalon > 0 && pricePail > 0)
+                                                  Text(' • ', style: TextStyle(color: subtitleColor)),
+                                                if (pricePail > 0)
+                                                  Text(
+                                                    'Pail: ${_formatRupiah(pricePail)}',
+                                                    style: TextStyle(fontSize: 11, color: subtitleColor),
+                                                  ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 20),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildOfftakeScaffold({
+    required BuildContext context,
+    required bool canSubmitReport,
+    required bool isDarkMode,
+    required Color themeColor,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color elevatedColor,
+    required LocaleProvider locale,
+  }) {
+    final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.editSubmission != null ? 'Edit Laporan Offtake' : 'Laporan Offtake Dulux',
+              style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (_selectedStoreName.isNotEmpty)
+              Text(
+                _selectedStoreName,
+                style: TextStyle(color: subtitleColor, fontSize: 11.5, fontWeight: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: _buildLocationStatusIndicator(canSubmitReport, isDarkMode),
+          ),
+        ],
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
+      ),
+      body: ListView(
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        children: [
+          // ─── Mode Switch: SALE vs NO SALE ───────────────────────────────
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // Option: SALE
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() => _offtakeType = 'sale'),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _offtakeType == 'sale'
+                            ? const Color(0xFF149A6E)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: _offtakeType == 'sale'
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFF149A6E).withOpacity(0.35),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.point_of_sale_rounded,
+                            size: 18,
+                            color: _offtakeType == 'sale' ? Colors.white : subtitleColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Ada Penjualan (Sale)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: _offtakeType == 'sale' ? Colors.white : subtitleColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Option: NO SALE
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() => _offtakeType = 'no_sale'),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _offtakeType == 'no_sale'
+                            ? const Color(0xFFE53935)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: _offtakeType == 'no_sale'
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFFE53935).withOpacity(0.35),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.remove_shopping_cart_rounded,
+                            size: 18,
+                            color: _offtakeType == 'no_sale' ? Colors.white : subtitleColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'No Sale (Nol Transaksi)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: _offtakeType == 'no_sale' ? Colors.white : subtitleColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ─── Render Body According to Mode ───────────────────────────────
+          if (_offtakeType == 'no_sale') ...[
+            _buildOfftakeNoSaleBody(themeColor, cardColor, textColor, subtitleColor, isDarkMode, canSubmitReport),
+          ] else ...[
+            // Step Switch Tabs for Sale
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _offtakeStep = 0),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _offtakeStep == 0 ? themeColor.withOpacity(0.12) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _offtakeStep == 0 ? themeColor : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.edit_note_rounded, size: 16, color: _offtakeStep == 0 ? themeColor : subtitleColor),
+                            const SizedBox(width: 6),
+                            Text(
+                              '1. Input Produk (${_offtakeCart.length})',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _offtakeStep == 0 ? themeColor : subtitleColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
+                      onTap: _offtakeCart.isEmpty
+                          ? () {
+                              toastification.show(
+                                context: context,
+                                type: ToastificationType.warning,
+                                title: const Text('Keranjang Masih Kosong'),
+                                description: const Text('Masukkan minimal 1 produk terlebih dahulu.'),
+                                autoCloseDuration: const Duration(seconds: 2),
+                              );
+                            }
+                          : () => setState(() => _offtakeStep = 1),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _offtakeStep == 1 ? themeColor.withOpacity(0.12) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _offtakeStep == 1 ? themeColor : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.fact_check_rounded, size: 16, color: _offtakeStep == 1 ? themeColor : subtitleColor),
+                            const SizedBox(width: 6),
+                            Text(
+                              '2. Review & Submit',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _offtakeStep == 1 ? themeColor : subtitleColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            if (_offtakeStep == 0)
+              _buildOfftakeSaleStep0Body(themeColor, cardColor, textColor, subtitleColor, elevatedColor, isDarkMode)
+            else
+              _buildOfftakeSaleStep1Body(themeColor, cardColor, textColor, subtitleColor, elevatedColor, isDarkMode, canSubmitReport),
+          ],
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfftakeNoSaleBody(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    bool isDarkMode,
+    bool canSubmitReport,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE53935).withOpacity(0.3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE53935).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.store_mall_directory_outlined,
+                  size: 44,
+                  color: Color(0xFFE53935),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Konfirmasi Laporan: NO SALE',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Tidak ada penjualan cat Dulux di toko ini hari ini.\nLaporan akan dicatat dengan Volume 0.00 Liter dan Nilai Penjualan Rp 0.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: subtitleColor,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Column(
+                      children: [
+                        Text('Total Unit', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                        const SizedBox(height: 2),
+                        Text('0 Unit', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+                      ],
+                    ),
+                    Container(height: 24, width: 1, color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                    Column(
+                      children: [
+                        Text('Total Liter', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                        const SizedBox(height: 2),
+                        Text('0.00 L', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+                      ],
+                    ),
+                    Container(height: 24, width: 1, color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                    Column(
+                      children: [
+                        Text('Total Nilai', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                        const SizedBox(height: 2),
+                        Text('Rp 0', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        if (!canSubmitReport)
+          ElevatedButton.icon(
+            onPressed: null,
+            icon: const Icon(Icons.lock_rounded, size: 18, color: Colors.grey),
+            label: const Text(
+              'Wajib Check-In / Visit-In Terlebih Dahulu',
+              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.grey),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              disabledBackgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              disabledForegroundColor: Colors.grey.shade500,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+          )
+        else
+          ElevatedButton.icon(
+            onPressed: _isSubmitting ? null : _submitOfftakeNoSale,
+            icon: _isSubmitting
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+            label: Text(
+              _isSubmitting ? 'Mengirim Laporan No Sale...' : 'Kirim Laporan No Sale Sekarang',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 3,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildOfftakeSaleStep0Body(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    bool isDarkMode,
+  ) {
+    final p = _currentOfftakeProduct;
+    final tinSize = p?.getPackagingSize('tin') ?? 1.0;
+    final galonSize = p?.getPackagingSize('galon') ?? 2.5;
+    final pailSize = p?.getPackagingSize('pail') ?? 20.0;
+    final tinPrice = p?.getPriceForPackaging('tin') ?? 0;
+    final galonPrice = p?.getPriceForPackaging('galon') ?? 0;
+    final pailPrice = p?.getPriceForPackaging('pail') ?? 0;
+
+    final qtyTin = int.tryParse(_offtakeQtyTinCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final qtyGalon = int.tryParse(_offtakeQtyGalonCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final qtyPail = int.tryParse(_offtakeQtyPailCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+
+    final curUnits = qtyTin + qtyGalon + qtyPail;
+    final curLiter = (qtyTin * tinSize) + (qtyGalon * galonSize) + (qtyPail * pailSize);
+    final curRp = (qtyTin * tinPrice) + (qtyGalon * galonPrice) + (qtyPail * pailPrice);
+
+    final grandLiter = _offtakeCart.fold<double>(0.0, (acc, itm) => acc + ((itm['total_liter'] as num?)?.toDouble() ?? 0.0));
+    final grandRp = _offtakeCart.fold<int>(0, (acc, itm) => acc + ((itm['total_nilai_rp'] as num?)?.toInt() ?? 0));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ─── CARD 1: INPUT / PILIH PRODUK ──────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: themeColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.format_paint_rounded, color: themeColor, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pilih Sub Brand Produk',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                        ),
+                        Text(
+                          'Pilih produk dari master data untuk input penjualan',
+                          style: TextStyle(fontSize: 11, color: subtitleColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Button Selector
+              InkWell(
+                onTap: () => _openOfftakeProductPickerBottomSheet(themeColor, isDarkMode),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: elevatedColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: p != null ? themeColor : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                      width: p != null ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        p != null ? Icons.check_circle_rounded : Icons.search_rounded,
+                        color: p != null ? Colors.green : themeColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          p != null ? p.name : 'Tekan untuk memilih Sub Brand produk...',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: p != null ? FontWeight.bold : FontWeight.normal,
+                            color: p != null ? textColor : subtitleColor,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Icon(Icons.arrow_drop_down_rounded, color: subtitleColor, size: 26),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Product Spec Detail
+              if (p != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: themeColor.withOpacity(0.25)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                if (p.brand != null)
+                                  _buildProductInfoChip('Brand: ${p.brand}', Colors.indigo, isDarkMode),
+                                if (p.pricingMatrix?['brand_rm_base'] != null)
+                                  _buildProductInfoChip('RM/Base: ${p.pricingMatrix!['brand_rm_base']}', Colors.teal, isDarkMode),
+                                if (p.pricingMatrix?['sub_brand_2'] != null && p.pricingMatrix!['sub_brand_2'].toString().isNotEmpty)
+                                  _buildProductInfoChip(p.pricingMatrix!['sub_brand_2'], Colors.deepPurple, isDarkMode),
+                              ],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => _openOfftakeProductPickerBottomSheet(themeColor, isDarkMode),
+                            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(40, 26), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                            child: Text('Ganti', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: themeColor)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Divider(height: 1),
+                      const SizedBox(height: 8),
+                      Text('Standar Kemasan & Harga Produk:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor)),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text('Tin (${tinSize % 1 == 0 ? tinSize.toInt() : tinSize}L)', style: TextStyle(fontSize: 10, color: subtitleColor)),
+                                  const SizedBox(height: 2),
+                                  Text(tinPrice > 0 ? _formatRupiah(tinPrice) : '-', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: textColor)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text('Galon (${galonSize % 1 == 0 ? galonSize.toInt() : galonSize}L)', style: TextStyle(fontSize: 10, color: subtitleColor)),
+                                  const SizedBox(height: 2),
+                                  Text(galonPrice > 0 ? _formatRupiah(galonPrice) : '-', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: textColor)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text('Pail (${pailSize % 1 == 0 ? pailSize.toInt() : pailSize}L)', style: TextStyle(fontSize: 10, color: subtitleColor)),
+                                  const SizedBox(height: 2),
+                                  Text(pailPrice > 0 ? _formatRupiah(pailPrice) : '-', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: textColor)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+                Text('Kuantiti Terjual (Pcs / Unit):', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
+                const SizedBox(height: 8),
+
+                // 3 Inputs Row: Tin, Galon, Pail
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Tin', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: subtitleColor)),
+                          const SizedBox(height: 4),
+                          TextFormField(
+                            controller: _offtakeQtyTinCtrl,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                            decoration: _inputDecoration('0', elevatedColor, isDarkMode),
+                            onChanged: (v) => setState(() {}),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Galon', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: subtitleColor)),
+                          const SizedBox(height: 4),
+                          TextFormField(
+                            controller: _offtakeQtyGalonCtrl,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                            decoration: _inputDecoration('0', elevatedColor, isDarkMode),
+                            onChanged: (v) => setState(() {}),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Pail', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: subtitleColor)),
+                          const SizedBox(height: 4),
+                          TextFormField(
+                            controller: _offtakeQtyPailCtrl,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                            decoration: _inputDecoration('0', elevatedColor, isDarkMode),
+                            onChanged: (v) => setState(() {}),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+                // Subtotal for current item
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: themeColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: themeColor.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Subtotal: $curUnits unit (${curLiter.toStringAsFixed(1)} L)',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+                      ),
+                      Text(
+                        _formatRupiah(curRp),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: themeColor),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+                // Button Add to Cart
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      if (curUnits <= 0) {
+                        toastification.show(
+                          context: context,
+                          type: ToastificationType.warning,
+                          title: const Text('Kuantiti Masih Kosong'),
+                          description: const Text('Masukkan minimal 1 unit penjualan (Tin, Galon, atau Pail).'),
+                          autoCloseDuration: const Duration(seconds: 3),
+                        );
+                        return;
+                      }
+
+                      final pMatrix = p.pricingMatrix;
+                      final brandRmBase = pMatrix?['brand_rm_base'] ?? p.brand ?? 'DULUX';
+                      final subBrand1 = pMatrix?['sub_brand_1'] ?? p.name;
+                      final subBrand2 = pMatrix?['sub_brand_2'] ?? '';
+
+                      final existingIdx = _offtakeCart.indexWhere((itm) => itm['product_id'] == p.id || itm['product_name'] == p.name);
+                      setState(() {
+                        if (existingIdx >= 0) {
+                          final prevTin = (_offtakeCart[existingIdx]['qty_tin'] as num?)?.toInt() ?? 0;
+                          final prevGalon = (_offtakeCart[existingIdx]['qty_galon'] as num?)?.toInt() ?? 0;
+                          final prevPail = (_offtakeCart[existingIdx]['qty_pail'] as num?)?.toInt() ?? 0;
+
+                          final newTin = prevTin + qtyTin;
+                          final newGalon = prevGalon + qtyGalon;
+                          final newPail = prevPail + qtyPail;
+
+                          _offtakeCart[existingIdx]['qty_tin'] = newTin;
+                          _offtakeCart[existingIdx]['qty_galon'] = newGalon;
+                          _offtakeCart[existingIdx]['qty_pail'] = newPail;
+                          _offtakeCart[existingIdx]['volume_tin_l'] = newTin * tinSize;
+                          _offtakeCart[existingIdx]['volume_galon_l'] = newGalon * galonSize;
+                          _offtakeCart[existingIdx]['volume_pail_l'] = newPail * pailSize;
+                          _offtakeCart[existingIdx]['total_unit'] = newTin + newGalon + newPail;
+                          _offtakeCart[existingIdx]['total_liter'] = (newTin * tinSize) + (newGalon * galonSize) + (newPail * pailSize);
+                          _offtakeCart[existingIdx]['total_nilai_rp'] = (newTin * tinPrice) + (newGalon * galonPrice) + (newPail * pailPrice);
+                        } else {
+                          _offtakeCart.add({
+                            'product_id': p.id,
+                            'product_name': p.name,
+                            'sub_brand': p.name,
+                            'brand': p.brand ?? 'DULUX',
+                            'brand_rm_base': brandRmBase,
+                            'sub_brand1': subBrand1,
+                            'sub_brand2': subBrand2,
+                            'kemasan_tin': p.packagingInfo['tin'] ?? '${tinSize}L',
+                            'kemasan_galon': p.packagingInfo['galon'] ?? '${galonSize}L',
+                            'kemasan_pail': p.packagingInfo['pail'] ?? '${pailSize}L',
+                            'qty_tin': qtyTin,
+                            'qty_galon': qtyGalon,
+                            'qty_pail': qtyPail,
+                            'volume_tin_l': qtyTin * tinSize,
+                            'volume_galon_l': qtyGalon * galonSize,
+                            'volume_pail_l': qtyPail * pailSize,
+                            'total_unit': curUnits,
+                            'total_liter': curLiter,
+                            'harga_tin': tinPrice,
+                            'harga_galon': galonPrice,
+                            'harga_pail': pailPrice,
+                            'total_nilai_rp': curRp,
+                          });
+                        }
+
+                        _currentOfftakeProduct = null;
+                        _offtakeQtyTinCtrl.clear();
+                        _offtakeQtyGalonCtrl.clear();
+                        _offtakeQtyPailCtrl.clear();
+                      });
+
+                      toastification.show(
+                        context: context,
+                        type: ToastificationType.success,
+                        title: const Text('Produk Disimpan ke Daftar ✓'),
+                        description: Text('${p.name} ($curUnits unit) ditambahkan.'),
+                        autoCloseDuration: const Duration(seconds: 2),
+                      );
+                    },
+                    icon: const Icon(Icons.add_shopping_cart_rounded, size: 18, color: Colors.white),
+                    label: const Text(
+                      '+ Simpan Produk ke Daftar',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: themeColor,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 2,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // ─── CARD 2: DAFTAR PRODUK DALAM KERANJANG ─────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.shopping_cart_checkout_rounded, size: 20, color: themeColor),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Produk Tersimpan (${_offtakeCart.length})',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                    ],
+                  ),
+                  if (_offtakeCart.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() => _offtakeCart.clear());
+                      },
+                      icon: const Icon(Icons.delete_sweep_rounded, size: 16, color: Colors.red),
+                      label: const Text('Kosongkan', style: TextStyle(fontSize: 11, color: Colors.red)),
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(40, 26)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              if (_offtakeCart.isEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+                  alignment: Alignment.center,
+                  child: Column(
+                    children: [
+                      Icon(Icons.shopping_basket_outlined, size: 40, color: Colors.grey.shade400),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Belum Ada Produk yang Disimpan',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Pilih produk dari form di atas, isi kuantiti terjual, lalu tekan tombol "+ Simpan Produk ke Daftar".',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 11.5, color: subtitleColor),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _offtakeCart.length,
+                  separatorBuilder: (ctx, i) => const Divider(height: 16),
+                  itemBuilder: (ctx, idx) {
+                    final itm = _offtakeCart[idx];
+                    final pName = itm['sub_brand'] ?? itm['product_name'] ?? 'Produk';
+                    final qTin = itm['qty_tin'] ?? 0;
+                    final qGalon = itm['qty_galon'] ?? 0;
+                    final qPail = itm['qty_pail'] ?? 0;
+                    final totLit = (itm['total_liter'] as num?)?.toDouble() ?? 0.0;
+                    final totRp = (itm['total_nilai_rp'] as num?)?.toInt() ?? 0;
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 28,
+                          height: 28,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: themeColor.withOpacity(0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '${idx + 1}',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: themeColor),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                pName,
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 8,
+                                children: [
+                                  if (qTin > 0)
+                                    Text('Tin: $qTin', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                                  if (qGalon > 0)
+                                    Text('Galon: $qGalon', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                                  if (qPail > 0)
+                                    Text('Pail: $qPail', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                                  Text('• ${totLit.toStringAsFixed(1)} Liter', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textColor)),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _formatRupiah(totRp),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF149A6E)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            setState(() => _offtakeCart.removeAt(idx));
+                          },
+                          icon: const Icon(Icons.close_rounded, size: 18, color: Colors.red),
+                          tooltip: 'Hapus',
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+
+                // Running Total Bar
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Total Liter', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                        Text('${grandLiter.toStringAsFixed(2)} L', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor)),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('Total Penjualan', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                        Text(_formatRupiah(grandRp), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: themeColor)),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Button Proceed to Review
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() => _offtakeStep = 1);
+                      if (_scrollController.hasClients) {
+                        _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+                      }
+                    },
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 18, color: Colors.white),
+                    label: const Text(
+                      'Lanjut ke Review & Konfirmasi',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF149A6E),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 3,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOfftakeSaleStep1Body(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    bool isDarkMode,
+    bool canSubmitReport,
+  ) {
+    final grandLiter = _offtakeCart.fold<double>(0.0, (acc, itm) => acc + ((itm['total_liter'] as num?)?.toDouble() ?? 0.0));
+    final grandUnit = _offtakeCart.fold<int>(0, (acc, itm) => acc + ((itm['total_unit'] as num?)?.toInt() ?? 0));
+    final grandRp = _offtakeCart.fold<int>(0, (acc, itm) => acc + ((itm['total_nilai_rp'] as num?)?.toInt() ?? 0));
+
+    final custBeliCat = int.tryParse(_offtakeCustBeliCatCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final custBeliDulux = int.tryParse(_offtakeCustBeliDuluxCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final double marketShare = custBeliCat > 0 ? ((custBeliDulux / custBeliCat) * 100.0).clamp(0.0, 100.0) : 0.0;
+    final String marketShareStr = '${marketShare % 1 == 0 ? marketShare.toInt() : marketShare.toStringAsFixed(1)}%';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Top Back Button
+        Row(
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => setState(() => _offtakeStep = 0),
+              icon: const Icon(Icons.arrow_back_rounded, size: 16),
+              label: const Text('Kembali / Tambah Produk', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: themeColor,
+                side: BorderSide(color: themeColor.withOpacity(0.5)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // ─── CARD 1: HERO GRAND TOTAL BANNER ──────────────────────────
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isDarkMode
+                  ? [const Color(0xFF1E3A8A), const Color(0xFF0F766E)]
+                  : [const Color(0xFF0F52BA), const Color(0xFF149A6E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: themeColor.withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'GRAND TOTAL OFFTAKE',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70, letterSpacing: 1.1),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${_offtakeCart.length} Produk',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                _formatRupiah(grandRp),
+                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.water_drop_rounded, size: 14, color: Colors.white),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${grandLiter.toStringAsFixed(2)} Liter',
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.inventory_2_rounded, size: 14, color: Colors.white),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$grandUnit Kemasan',
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // ─── CARD 2: RINCIAN PER PRODUK ────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.list_alt_rounded, size: 18, color: themeColor),
+                  const SizedBox(width: 8),
+                  Text('Rincian Penjualan per Produk', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _offtakeCart.length,
+                separatorBuilder: (ctx, i) => const Divider(height: 12),
+                itemBuilder: (ctx, idx) {
+                  final itm = _offtakeCart[idx];
+                  final pName = itm['sub_brand'] ?? itm['product_name'] ?? 'Produk';
+                  final qTin = itm['qty_tin'] ?? 0;
+                  final qGalon = itm['qty_galon'] ?? 0;
+                  final qPail = itm['qty_pail'] ?? 0;
+                  final totLit = (itm['total_liter'] as num?)?.toDouble() ?? 0.0;
+                  final totRp = (itm['total_nilai_rp'] as num?)?.toInt() ?? 0;
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(pName, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
+                            Text('Tin: $qTin • Galon: $qGalon • Pail: $qPail (${totLit.toStringAsFixed(1)} L)', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                          ],
+                        ),
+                      ),
+                      Text(_formatRupiah(totRp), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: themeColor)),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // ─── CARD 3: DATA TRAFIK PENGUNJUNG TOKO ──────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: themeColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.people_alt_rounded, size: 18, color: themeColor),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Trafik Pengunjung Toko', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor)),
+                        Text('Jumlah pengunjung dan pembeli cat hari ini', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // 1. Jumlah Customer Masuk
+              Text('1. Jumlah Customer Masuk ke Toko', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor)),
+              const SizedBox(height: 4),
+              TextFormField(
+                controller: _offtakeCustMasukCtrl,
+                keyboardType: TextInputType.number,
+                style: TextStyle(fontSize: 13, color: textColor),
+                decoration: _inputDecoration('Contoh: 25 orang', elevatedColor, isDarkMode),
+                onChanged: (v) => setState(() {}),
+              ),
+              const SizedBox(height: 10),
+
+              // 2. Jumlah Cust Beli Cat
+              Text('2. Jumlah Customer yang Beli Cat', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor)),
+              const SizedBox(height: 4),
+              TextFormField(
+                controller: _offtakeCustBeliCatCtrl,
+                keyboardType: TextInputType.number,
+                style: TextStyle(fontSize: 13, color: textColor),
+                decoration: _inputDecoration('Contoh: 15 orang', elevatedColor, isDarkMode),
+                onChanged: (v) => setState(() {}),
+              ),
+              const SizedBox(height: 10),
+
+              // 3. Jumlah Cust Beli Dulux
+              Text('3. Jumlah Customer yang Beli Produk Dulux', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor)),
+              const SizedBox(height: 4),
+              TextFormField(
+                controller: _offtakeCustBeliDuluxCtrl,
+                keyboardType: TextInputType.number,
+                style: TextStyle(fontSize: 13, color: textColor),
+                decoration: _inputDecoration('Contoh: 10 orang', elevatedColor, isDarkMode),
+                onChanged: (v) => setState(() {}),
+              ),
+              const SizedBox(height: 10),
+
+              // Market Share Badge
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Estimasi Market Share Dulux:', style: TextStyle(fontSize: 12, color: subtitleColor)),
+                    Text(
+                      marketShareStr,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF149A6E)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // ─── CARD 4: FOTO CARD OFFTAKE & NOTA PENJUALAN ────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: themeColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.camera_alt_rounded, size: 18, color: themeColor),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Foto Bukti Transaksi', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor)),
+                        Text('Bisa diambil dari Kamera (Watermark) atau Galeri HP', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // ─── 1. Foto Card Offtake (1 Foto) ──────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('1. Foto Card Offtake (Wajib)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
+                  if (_offtakeCardPhoto != null)
+                    const Text('1 Foto Terambil ✓', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              if (_offtakeCardPhoto != null) ...[
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        _offtakeCardPhoto!,
+                        width: double.infinity,
+                        height: 160,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _offtakeCardPhoto = null),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.delete_rounded, color: Colors.white, size: 16),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text('Foto Card Offtake', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                OutlinedButton.icon(
+                  onPressed: _pickOfftakeCardPhoto,
+                  icon: const Icon(Icons.cached_rounded, size: 16),
+                  label: const Text('Ganti Foto Card Offtake', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: themeColor,
+                    side: BorderSide(color: themeColor.withOpacity(0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ] else ...[
+                OutlinedButton.icon(
+                  onPressed: _pickOfftakeCardPhoto,
+                  icon: const Icon(Icons.add_a_photo_rounded, size: 18),
+                  label: const Text('Ambil Foto Card Offtake (Kamera / Galeri)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: themeColor,
+                    side: BorderSide(color: themeColor, width: 1.2),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 18),
+              const Divider(height: 1),
+              const SizedBox(height: 14),
+
+              // ─── 2. Foto Nota Penjualan (Multi-Foto) ────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('2. Foto Nota Penjualan (Multi-Foto)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
+                  if (_offtakeNotaPhotos.isNotEmpty)
+                    Text('${_offtakeNotaPhotos.length} Foto Terambil ✓', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              if (_offtakeNotaPhotos.isNotEmpty) ...[
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: _offtakeNotaPhotos.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final file = entry.value;
+
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.file(
+                            file,
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          top: -6,
+                          right: -6,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _offtakeNotaPhotos.removeAt(idx);
+                                if (idx < _offtakeNotaPhotoWatermarks.length) {
+                                  _offtakeNotaPhotoWatermarks.removeAt(idx);
+                                }
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 4,
+                          left: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: Colors.black87,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Nota ${idx + 1}',
+                              style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 10),
+              ],
+
+              OutlinedButton.icon(
+                onPressed: _pickOfftakeNotaPhoto,
+                icon: const Icon(Icons.add_photo_alternate_rounded, size: 18),
+                label: Text(
+                  _offtakeNotaPhotos.isEmpty
+                      ? 'Tambah Foto Nota Penjualan (Kamera / Galeri)'
+                      : 'Tambah Foto Nota Lainnya (${_offtakeNotaPhotos.length} Foto)',
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF149A6E),
+                  side: const BorderSide(color: Color(0xFF149A6E), width: 1.2),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // ─── SUBMIT BUTTON ─────────────────────────────────────────────
+        if (!canSubmitReport)
+          ElevatedButton.icon(
+            onPressed: null,
+            icon: const Icon(Icons.lock_rounded, size: 18, color: Colors.grey),
+            label: const Text(
+              'Wajib Check-In / Visit-In Terlebih Dahulu',
+              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.grey),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              disabledBackgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              disabledForegroundColor: Colors.grey.shade500,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+          )
+        else
+          ElevatedButton.icon(
+            onPressed: _isSubmitting ? null : _submitOfftakeSale,
+            icon: _isSubmitting
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+            label: Text(
+              _isSubmitting ? 'Mengirim Laporan Offtake...' : 'Kirim Laporan Offtake Selesai',
+              style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF149A6E),
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 3,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _submitOfftakeSale() async {
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.token;
+
+    if (token == null) return;
+
+    final bool isVisiting = attProvider.isVisiting;
+    final bool isCheckedIn = attProvider.isCheckedIn;
+    final bool isEditMode = widget.editSubmission != null;
+    if (!isVisiting && !isCheckedIn && !isEditMode) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Belum Absensi Kehadiran / Visit'),
+        description: const Text('Anda wajib Check-In atau Visit-In terlebih dahulu untuk mengirim laporan.'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    if (_offtakeCart.isEmpty) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Keranjang Masih Kosong'),
+        description: const Text('Silakan masukkan minimal 1 produk terjual ke daftar sebelum mengirim laporan.'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    final bool hasCard = _offtakeCardPhoto != null || (_existingPhotoUrls.containsKey('foto_card_offtake') || _existingPhotoUrls.values.any((u) => u.isNotEmpty));
+    final bool hasNota = _offtakeNotaPhotos.isNotEmpty || (_existingMultiPhotoUrls.containsKey('foto_nota_penjualan') && _existingMultiPhotoUrls['foto_nota_penjualan']!.isNotEmpty);
+
+    if (!hasCard) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Wajib Foto Card Offtake'),
+        description: const Text('Silakan ambil atau pilih foto Card Offtake terlebih dahulu.'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    if (!hasNota) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Wajib Foto Nota Penjualan'),
+        description: const Text('Silakan ambil atau pilih minimal 1 foto Nota Penjualan.'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final double grandLiter = _offtakeCart.fold(0.0, (sum, itm) => sum + ((itm['total_liter'] as num?)?.toDouble() ?? 0.0));
+      final int grandUnit = _offtakeCart.fold(0, (sum, itm) => sum + ((itm['total_unit'] as num?)?.toInt() ?? 0));
+      final int grandRp = _offtakeCart.fold(0, (sum, itm) => sum + ((itm['total_nilai_rp'] as num?)?.toInt() ?? 0));
+
+      final int custMasuk = int.tryParse(_offtakeCustMasukCtrl.text) ?? 0;
+      final int custBeliCat = int.tryParse(_offtakeCustBeliCatCtrl.text) ?? 0;
+      final int custBeliDulux = int.tryParse(_offtakeCustBeliDuluxCtrl.text) ?? 0;
+      final double marketShare = custBeliCat > 0 ? ((custBeliDulux / custBeliCat) * 100.0).clamp(0.0, 100.0) : 0.0;
+      final String marketShareStr = '${marketShare % 1 == 0 ? marketShare.toInt() : marketShare.toStringAsFixed(1)}%';
+
+      final Map<String, dynamic> cleanFormValues = {
+        'tipe_laporan_offtake': 'sale',
+        'total_volume_unit': grandUnit,
+        'total_volume_liter': grandLiter,
+        'total_nilai_sales_rp': grandRp,
+        'jml_customer_masuk': custMasuk,
+        'jml_customer_beli_cat': custBeliCat,
+        'jml_customer_beli_dulux': custBeliDulux,
+        'estimasi_market_share_persen': marketShareStr,
+        'offtake_items_json': jsonEncode(_offtakeCart),
+      };
+
+      if (_offtakeCart.isNotEmpty) {
+        final first = _offtakeCart.first;
+        cleanFormValues['sub_brand'] = first['sub_brand'];
+        cleanFormValues['brand'] = first['brand'];
+        cleanFormValues['brand_rm_base'] = first['brand_rm_base'];
+        cleanFormValues['sub_brand1'] = first['sub_brand1'];
+        cleanFormValues['sub_brand2'] = first['sub_brand2'];
+        cleanFormValues['kemasan_tin'] = first['kemasan_tin'];
+        cleanFormValues['kemasan_galon'] = first['kemasan_galon'];
+        cleanFormValues['kemasan_pail'] = first['kemasan_pail'];
+        cleanFormValues['qty_tin'] = first['qty_tin'];
+        cleanFormValues['qty_galon'] = first['qty_galon'];
+        cleanFormValues['qty_pail'] = first['qty_pail'];
+        cleanFormValues['volume_tin_l'] = first['volume_tin_l'];
+        cleanFormValues['volume_galon_l'] = first['volume_galon_l'];
+        cleanFormValues['volume_pail_l'] = first['volume_pail_l'];
+      }
+
+      for (final f in widget.template.fields) {
+        final fn = f.fieldName.toLowerCase();
+        final fKey = f.id.toString();
+        if (cleanFormValues.containsKey(fn)) {
+          cleanFormValues[fKey] = cleanFormValues[fn];
+        }
+      }
+
+      final Map<String, dynamic> allPhotosPayload = {};
+      final Map<String, String> watermarkPayload = {};
+
+      for (final f in widget.template.fields) {
+        final fn = f.fieldName.toLowerCase();
+        final fKey = f.id.toString();
+
+        if (fn == 'foto_card_offtake' || fn.contains('card_offtake')) {
+          if (_offtakeCardPhoto != null) {
+            allPhotosPayload[fKey] = _offtakeCardPhoto!;
+            allPhotosPayload[fn] = _offtakeCardPhoto!;
+            if (_offtakeCardPhotoWatermark != null) {
+              watermarkPayload[fKey] = _offtakeCardPhotoWatermark!;
+              watermarkPayload[fn] = _offtakeCardPhotoWatermark!;
+            }
+          }
+        } else if (fn == 'foto_nota_penjualan' || fn.contains('nota')) {
+          if (_offtakeNotaPhotos.isNotEmpty) {
+            allPhotosPayload[fKey] = _offtakeNotaPhotos;
+            allPhotosPayload[fn] = _offtakeNotaPhotos;
+            if (_offtakeNotaPhotoWatermarks.isNotEmpty) {
+              watermarkPayload[fKey] = _offtakeNotaPhotoWatermarks.first;
+              watermarkPayload[fn] = _offtakeNotaPhotoWatermarks.first;
+            }
+          }
+        }
+      }
+
+      if (allPhotosPayload.isEmpty) {
+        if (_offtakeCardPhoto != null) allPhotosPayload['foto_card_offtake'] = _offtakeCardPhoto!;
+        if (_offtakeNotaPhotos.isNotEmpty) allPhotosPayload['foto_nota_penjualan'] = _offtakeNotaPhotos;
+      }
+
+      Map<String, dynamic> result;
+      if (widget.editSubmission != null) {
+        result = await repProvider.updateReport(
+          token: token,
+          submissionId: widget.editSubmission!.id,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          address: _selectedLocation?['address'] ?? _address,
+          values: cleanFormValues,
+          photoFiles: allPhotosPayload,
+          existingPhotos: _existingMultiPhotoUrls,
+        );
+      } else {
+        result = await repProvider.submitReport(
+          token: token,
+          templateId: widget.template.id,
+          templateTitle: widget.template.title,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          itineraryItemId: widget.itineraryItemId,
+          latitude: _latitude,
+          longitude: _longitude,
+          address: _selectedLocation?['address'] ?? _address,
+          isWithinRadius: _isWithinRadius,
+          values: cleanFormValues,
+          photoFiles: allPhotosPayload,
+          watermarkTexts: watermarkPayload,
+        );
+      }
+
+      setState(() => _isSubmitting = false);
+
+      if (result['success'] == true && mounted) {
+        if (attProvider.isVisiting) {
+          attProvider.markVisitReportFilled();
+        }
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          title: const Text('Laporan Offtake Terkirim'),
+          description: Text('Total $grandUnit unit (${grandLiter.toStringAsFixed(1)} L) berhasil dilaporkan.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+        Navigator.of(context).pop(true);
+      } else if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Gagal Mengirim Laporan'),
+          description: Text(result['message'] ?? 'Terjadi kesalahan sistem.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Terjadi Kesalahan'),
+          description: Text(e.toString()),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    }
+  }
+
+  Future<void> _submitOfftakeNoSale() async {
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.token;
+
+    if (token == null) return;
+
+    final bool isVisiting = attProvider.isVisiting;
+    final bool isCheckedIn = attProvider.isCheckedIn;
+    final bool isEditMode = widget.editSubmission != null;
+    if (!isVisiting && !isCheckedIn && !isEditMode) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Belum Absensi Kehadiran / Visit'),
+        description: const Text('Anda wajib Check-In atau Visit-In terlebih dahulu untuk mengirim laporan.'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final Map<String, dynamic> cleanFormValues = {
+        'tipe_laporan_offtake': 'no_sale',
+        'sub_brand': 'NO SALE',
+        'brand': 'DULUX',
+        'brand_rm_base': '-',
+        'sub_brand1': '-',
+        'sub_brand2': '-',
+        'kemasan_tin': '-',
+        'kemasan_galon': '-',
+        'kemasan_pail': '-',
+        'qty_tin': 0,
+        'qty_galon': 0,
+        'qty_pail': 0,
+        'volume_tin_l': 0.0,
+        'volume_galon_l': 0.0,
+        'volume_pail_l': 0.0,
+        'total_volume_unit': 0,
+        'total_volume_liter': 0.0,
+        'total_nilai_sales_rp': 0,
+        'jml_customer_masuk': 0,
+        'jml_customer_beli_cat': 0,
+        'jml_customer_beli_dulux': 0,
+        'estimasi_market_share_persen': '0%',
+        'offtake_items_json': '[]',
+      };
+
+      for (final f in widget.template.fields) {
+        final fn = f.fieldName.toLowerCase();
+        final fKey = f.id.toString();
+        if (cleanFormValues.containsKey(fn)) {
+          cleanFormValues[fKey] = cleanFormValues[fn];
+        }
+      }
+
+      Map<String, dynamic> result;
+      if (widget.editSubmission != null) {
+        result = await repProvider.updateReport(
+          token: token,
+          submissionId: widget.editSubmission!.id,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          address: _selectedLocation?['address'] ?? _address,
+          values: cleanFormValues,
+          photoFiles: {},
+          existingPhotos: {},
+        );
+      } else {
+        result = await repProvider.submitReport(
+          token: token,
+          templateId: widget.template.id,
+          templateTitle: widget.template.title,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          itineraryItemId: widget.itineraryItemId,
+          latitude: _latitude,
+          longitude: _longitude,
+          address: _selectedLocation?['address'] ?? _address,
+          isWithinRadius: _isWithinRadius,
+          values: cleanFormValues,
+          photoFiles: {},
+          watermarkTexts: {},
+        );
+      }
+
+      setState(() => _isSubmitting = false);
+
+      if (result['success'] == true && mounted) {
+        if (attProvider.isVisiting) {
+          attProvider.markVisitReportFilled();
+        }
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          title: const Text('Laporan No Sale Terkirim'),
+          description: const Text('Laporan tanpa transaksi penjualan berhasil dikirim.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+        Navigator.of(context).pop(true);
+      } else if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Gagal Mengirim Laporan'),
+          description: Text(result['message'] ?? 'Terjadi kesalahan sistem.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Terjadi Kesalahan'),
+          description: Text(e.toString()),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    }
   }
 }
 

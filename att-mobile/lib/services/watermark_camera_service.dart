@@ -141,6 +141,53 @@ class WatermarkCameraService {
   }
 
   /**
+   * Pick multiple photos from gallery with watermark stamps.
+   */
+  static Future<List<WatermarkCaptureResult>> pickMultiFromGallery({
+    required String employeeName,
+    String? employeeNik,
+    String? storeName,
+  }) async {
+    try {
+      final List<XFile> photos = await _picker.pickMultiImage(
+        imageQuality: 85,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+
+      if (photos.isEmpty) return [];
+
+      final List<WatermarkCaptureResult> results = [];
+      final DateTime now = DateTime.now();
+      final String dateFormatted = DateFormat('dd MMM yyyy, HH:mm:ss').format(now);
+      final String targetStore = (storeName != null && storeName.trim().isNotEmpty) ? storeName.trim() : 'Upload Galeri';
+      final String watermarkSummary = '📁 $targetStore | 👤 $employeeName | 🕒 $dateFormatted';
+
+      for (final photo in photos) {
+        final rawBytes = await File(photo.path).readAsBytes();
+        final watermarkedFile = await _burnWatermark(
+          imageBytes: rawBytes,
+          storeName: targetStore,
+          employeeName: employeeName,
+          employeeNik: employeeNik,
+          timestampStr: dateFormatted,
+          gpsStr: 'Upload dari Galeri HP',
+        );
+        results.add(WatermarkCaptureResult(
+          file: watermarkedFile ?? File(photo.path),
+          watermarkText: watermarkSummary,
+          timestamp: now,
+        ));
+      }
+
+      return results;
+    } catch (e) {
+      debugPrint('Error picking multiple from gallery: $e');
+      return [];
+    }
+  }
+
+  /**
    * Menggambar stempel watermark permanen di atas pixel foto (Anti-Fraud GPS Watermark).
    */
   static Future<File?> _burnWatermark({

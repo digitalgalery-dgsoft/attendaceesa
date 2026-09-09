@@ -375,6 +375,7 @@ class TemplateProductModel {
   final String? formattedPrice;
   final String uom;
   final int minStock;
+  final Map<String, dynamic>? pricingMatrix;
 
   TemplateProductModel({
     required this.id,
@@ -387,9 +388,80 @@ class TemplateProductModel {
     this.formattedPrice,
     this.uom = 'Pcs',
     this.minStock = 0,
+    this.pricingMatrix,
   });
 
+  Map<String, dynamic> get packagingInfo {
+    final raw = pricingMatrix?['packaging'];
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return {};
+  }
+
+  Map<String, dynamic> get pricesInfo {
+    final raw = pricingMatrix?['prices'];
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return {};
+  }
+
+  double? getPackagingSize(String type) {
+    final key = type.toLowerCase().trim();
+    final val = packagingInfo[key];
+    if (val is num) return val.toDouble();
+    if (val != null) return double.tryParse(val.toString());
+    return null;
+  }
+
+  double getPriceForPackaging(String type, {String? baseVariant}) {
+    final key = type.toLowerCase().trim();
+    final pMap = pricesInfo;
+    if (pMap.isEmpty) {
+      if (key == 'galon') return price;
+      return 0.0;
+    }
+
+    // 1. Jika varian Base ditentukan spesifik (misal 'base_a', 'base_b', dst)
+    if (baseVariant != null && pMap.containsKey(baseVariant)) {
+      final sub = pMap[baseVariant];
+      if (sub is Map && sub[key] is num) {
+        return (sub[key] as num).toDouble();
+      }
+    }
+
+    // 2. Jika produk adalah tipe Base
+    final catLower = (category ?? '').toLowerCase();
+    final nameLower = name.toLowerCase();
+    final isBase = catLower.contains('base') || nameLower.contains('base');
+
+    if (isBase) {
+      for (final b in ['base_a', 'base_b', 'base_c', 'base_d']) {
+        final sub = pMap[b];
+        if (sub is Map && sub[key] is num) {
+          return (sub[key] as num).toDouble();
+        }
+      }
+    }
+
+    // 3. Ambil dari RM (Ready Mix)
+    if (pMap.containsKey('rm') && pMap['rm'] is Map) {
+      final rmMap = pMap['rm'] as Map;
+      if (rmMap[key] is num) {
+        return (rmMap[key] as num).toDouble();
+      }
+    }
+
+    // Fallback harga default jika galon
+    if (key == 'galon' && price > 0) return price;
+    return 0.0;
+  }
+
   factory TemplateProductModel.fromJson(Map<String, dynamic> json) {
+    Map<String, dynamic>? parsedMatrix;
+    if (json['pricing_matrix'] is Map) {
+      parsedMatrix = Map<String, dynamic>.from(json['pricing_matrix'] as Map);
+    }
+
     return TemplateProductModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
       name: json['name'] ?? '',
@@ -405,6 +477,7 @@ class TemplateProductModel {
           : (json['minimal_stock'] is num
               ? (json['minimal_stock'] as num).toInt()
               : int.tryParse(json['min_stock']?.toString() ?? json['minimal_stock']?.toString() ?? '0') ?? 0),
+      pricingMatrix: parsedMatrix,
     );
   }
 
@@ -420,6 +493,7 @@ class TemplateProductModel {
       'formatted_price': formattedPrice,
       'uom': uom,
       'min_stock': minStock,
+      'pricing_matrix': pricingMatrix,
     };
   }
 }

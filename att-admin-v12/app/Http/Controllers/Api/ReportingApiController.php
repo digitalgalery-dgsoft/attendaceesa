@@ -549,13 +549,14 @@ class ReportingApiController extends Controller
                         'min_stock' => (int) ($p->min_stock ?? 0),
                         'minimal_stock' => (int) ($p->min_stock ?? 0),
                         'minimum_stock' => (int) ($p->min_stock ?? 0),
+                        'pricing_matrix' => $p->pricing_matrix,
                     ];
                 })->values(),
                 'fields' => $t->fields->map(function ($f) use ($productNames, $templateProducts, $t, $targetStore) {
                     $options = $f->options ?? [];
 
                     // Sinkronkan options dari productNames jika field_type adalah product_select atau field produk Dulux
-                    if ($f->field_type === 'product_select' || in_array($f->field_name, ['produk_oos', 'produk_stock_end', 'produk_dulux_cbp'])) {
+                    if ($f->field_type === 'product_select' || in_array($f->field_name, ['produk_oos', 'produk_stock_end', 'produk_dulux_cbp', 'sub_brand'])) {
                         if (!empty($productNames)) {
                             $options = $productNames;
                         }
@@ -863,6 +864,29 @@ class ReportingApiController extends Controller
                         'value_number' => count($compListRaw),
                         'value_json' => $compListRaw,
                     ]);
+                }
+            }
+
+            // Simpan offtake_items_json jika dikirimkan dari formulir dinamis Offtake
+            if (isset($valuesInput['offtake_items_json'])) {
+                $offtakeItemsRaw = $valuesInput['offtake_items_json'];
+                if (is_string($offtakeItemsRaw)) {
+                    $offtakeItemsRaw = json_decode($offtakeItemsRaw, true) ?? [];
+                }
+                if (is_array($offtakeItemsRaw) && !empty($offtakeItemsRaw)) {
+                    ReportSubmissionValue::updateOrCreate(
+                        [
+                            'report_submission_id' => $submission->id,
+                            'field_name' => 'offtake_items_json',
+                        ],
+                        [
+                            'report_form_field_id' => $template->fields->where('field_name', 'offtake_items_json')->first()?->id,
+                            'field_type' => 'textarea',
+                            'value_text' => json_encode($offtakeItemsRaw),
+                            'value_number' => count($offtakeItemsRaw),
+                            'value_json' => $offtakeItemsRaw,
+                        ]
+                    );
                 }
             }
 

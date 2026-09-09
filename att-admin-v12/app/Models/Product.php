@@ -24,6 +24,7 @@ class Product extends Model
         'uom',
         'image_path',
         'description',
+        'pricing_matrix',
         'is_active',
     ];
 
@@ -31,6 +32,7 @@ class Product extends Model
         'is_active' => 'boolean',
         'price' => 'decimal:2',
         'min_stock' => 'integer',
+        'pricing_matrix' => 'array',
     ];
 
     public function getDescriptionAttribute(?string $value): ?string
