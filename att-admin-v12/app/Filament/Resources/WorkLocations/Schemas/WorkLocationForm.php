@@ -9,6 +9,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\ViewField;
+use Filament\Forms\Components\Repeater;
 use Illuminate\Support\Facades\Http;
 use Dotswan\MapPicker\Fields\Map;
 use Filament\Forms\Set;
@@ -100,20 +101,46 @@ class WorkLocationForm
                     ->required(),
 
                 \Filament\Schemas\Components\Section::make('Informasi Khusus Store Dulux (ICI PAINTS)')
-                    ->description('Field khusus klasifikasi toko dan mesin tinting cat untuk prinsiple PT ICI PAINTS INDONESIA (Dulux).')
+                    ->description('Field khusus klasifikasi toko dan daftar mesin tinting cat untuk prinsiple PT ICI PAINTS INDONESIA (Dulux). 1 toko bisa memiliki 2 atau lebih mesin.')
                     ->icon('heroicon-o-paint-brush')
                     ->visible(fn ($get, $record) => self::isDuluxPrincipal($get('principal_id') ?? $record?->principal_id))
                     ->schema([
                         TextInput::make('category')
                             ->label('Kategori Store')
                             ->placeholder('Contoh: SSO / MTI / Blue Store / Retail')
-                            ->maxLength(100),
+                            ->maxLength(100)
+                            ->columnSpanFull(),
+                        Repeater::make('machines')
+                            ->label('Daftar Mesin Tinting di Toko (Bisa Lebih Dari 1 Mesin)')
+                            ->schema([
+                                TextInput::make('machine_type')
+                                    ->label('Tipe Mesin Tinting')
+                                    ->placeholder('Pilih atau ketik tipe mesin')
+                                    ->datalist([
+                                        'Mesin D200 (Automatic Tinting)',
+                                        'Mesin Discovery (Automatic Tinting)',
+                                        'Mesin XProtint (Automatic Tinting)',
+                                        'Mesin Element 2',
+                                        'Mesin Manual Dispenser',
+                                    ])
+                                    ->required(),
+                                TextInput::make('machine_serial_no')
+                                    ->label('Nomor Seri Mesin (POST)')
+                                    ->placeholder('Contoh: POST-2023-SUB-089 atau D10B0236')
+                                    ->required(),
+                            ])
+                            ->columns(2)
+                            ->columnSpanFull()
+                            ->defaultItems(0)
+                            ->addActionLabel('Tambah Mesin Tinting')
+                            ->collapsible()
+                            ->itemLabel(fn (array $state): ?string => ($state['machine_type'] ?? 'Mesin Baru') . (!empty($state['machine_serial_no']) ? ' (' . $state['machine_serial_no'] . ')' : '')),
                         TextInput::make('machine_type')
-                            ->label('Type Mesin')
+                            ->label('Type Mesin Utama (Fallback)')
                             ->placeholder('Contoh: D200, Discovery, X-Smart')
                             ->maxLength(100),
                         TextInput::make('machine_serial_no')
-                            ->label('Nomor Mesin')
+                            ->label('Nomor Mesin Utama (Fallback)')
                             ->placeholder('Contoh: D10B0236, 670000001-2041875F')
                             ->maxLength(100),
                     ])

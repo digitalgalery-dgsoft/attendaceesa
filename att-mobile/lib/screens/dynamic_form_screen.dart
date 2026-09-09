@@ -88,6 +88,77 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   // Multi-Product & Sequential Submission Tracking
   final Set<String> _submittedProductNames = {};
 
+  // Multi-Machine & Sequential Submission Tracking (Daily Maintenance Dulux)
+  final Set<String> _submittedMachineNames = {};
+
+  void _initSubmittedMachines() {
+    for (final m in widget.template.submittedMachines) {
+      final clean = m.trim().toLowerCase();
+      if (clean.isNotEmpty) {
+        _submittedMachineNames.add(clean);
+      }
+    }
+  }
+
+  bool _isMachineSubmitted(String? machineType) {
+    if (machineType == null || machineType.trim().isEmpty) return false;
+    final clean = machineType.trim().toLowerCase();
+    return _submittedMachineNames.contains(clean);
+  }
+
+  bool _hasMachineBinding() {
+    if (!_isDailyMaintenanceTemplate()) return false;
+    if (widget.template.hasMachineBinding) return true;
+    final map = _getStoreMachinesMap();
+    return map.isNotEmpty;
+  }
+
+  int _getTotalMachinesCount() {
+    final map = _getStoreMachinesMap();
+    if (map.isNotEmpty) return map.length;
+    return widget.template.totalMachinesCount > 0 ? widget.template.totalMachinesCount : 0;
+  }
+
+  int _getRemainingMachinesCount() {
+    final map = _getStoreMachinesMap();
+    if (map.isNotEmpty) {
+      return map.keys.where((type) => !_isMachineSubmitted(type)).length;
+    }
+    final total = _getTotalMachinesCount();
+    final rem = total - _submittedMachineNames.length;
+    return rem > 0 ? rem : 0;
+  }
+
+  void _autoSelectNextUnsubmittedMachine() {
+    if (!_isDailyMaintenanceTemplate()) return;
+    final storeMachinesMap = _getStoreMachinesMap();
+    if (storeMachinesMap.isEmpty) return;
+
+    String? nextMachine;
+    for (final type in storeMachinesMap.keys) {
+      if (!_isMachineSubmitted(type)) {
+        nextMachine = type;
+        break;
+      }
+    }
+
+    nextMachine ??= storeMachinesMap.keys.first;
+
+    for (final f in widget.template.fields) {
+      final fName = f.fieldName.toLowerCase();
+      final fLabel = f.fieldLabel.toLowerCase();
+      if (fName == 'tipe_mesin_post' || fName.contains('tipe_mesin') || fLabel.contains('tipe mesin')) {
+        final machineKey = f.id.toString();
+        setState(() {
+          _formValues[machineKey] = nextMachine;
+          _formValues['tipe_mesin_post'] = nextMachine;
+          _formValues[f.fieldName] = nextMachine;
+          _autoFillMachineSerial(nextMachine);
+        });
+      }
+    }
+  }
+
   void _initSubmittedProducts() {
     for (final p in widget.template.submittedProducts) {
       final clean = p.trim().toLowerCase();
@@ -224,6 +295,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     _selectedStoreName = widget.storeName ?? '';
 
     _initSubmittedProducts();
+    _initSubmittedMachines();
     _initializeForm();
     _fetchCurrentLocation();
 
@@ -458,20 +530,28 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     final storeMachinesMap = _getStoreMachinesMap();
     if (storeMachinesMap.isEmpty) return;
 
+    // Cari mesin pertama yang belum dilaporkan
+    String? targetMachine;
+    for (final m in storeMachinesMap.keys) {
+      if (!_isMachineSubmitted(m)) {
+        targetMachine = m;
+        break;
+      }
+    }
+    targetMachine ??= storeMachinesMap.keys.first;
+
     for (final f in widget.template.fields) {
       final fName = f.fieldName.toLowerCase();
       final fLabel = f.fieldLabel.toLowerCase();
       if (fName == 'tipe_mesin_post' || fName.contains('tipe_mesin') || fLabel.contains('tipe mesin')) {
         final machineKey = f.id.toString();
         final currentVal = _formValues[machineKey]?.toString();
-        if (currentVal == null || currentVal.isEmpty || !storeMachinesMap.containsKey(currentVal)) {
-          final firstMachine = storeMachinesMap.keys.first;
-          _formValues[machineKey] = firstMachine;
-          _formValues['tipe_mesin_post'] = firstMachine;
-          _formValues[f.fieldName] = firstMachine;
-          _autoFillMachineSerial(firstMachine);
+        if (currentVal == null || currentVal.isEmpty || _isMachineSubmitted(currentVal) || !storeMachinesMap.containsKey(currentVal)) {
+          _formValues[machineKey] = targetMachine;
+          _formValues['tipe_mesin_post'] = targetMachine;
+          _formValues[f.fieldName] = targetMachine;
+          _autoFillMachineSerial(targetMachine);
         } else {
-          // Pre-populate serial if already selected
           _autoFillMachineSerial(currentVal);
         }
       }
@@ -1484,6 +1564,33 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
     submittedCategoryValue ??= 'Item ${_submittedCategories.length + 1}';
 
+    // Capture machine identifier for Daily Maintenance
+    String? submittedMachineValue;
+    if (_isDailyMaintenanceTemplate()) {
+      for (final f in widget.template.fields) {
+        final fn = f.fieldName.toLowerCase();
+        if (fn == 'tipe_mesin_post' || fn.contains('tipe_mesin')) {
+          final k = f.id.toString();
+          final val = _formValues[k]?.toString() ?? _controllers[k]?.text ?? _formValues['tipe_mesin_post']?.toString();
+          if (val != null && val.trim().isNotEmpty) {
+            submittedMachineValue = val.trim();
+            break;
+          }
+        }
+      }
+      if (widget.editSubmission == null && _hasMachineBinding() && submittedMachineValue != null && submittedMachineValue.isNotEmpty && _isMachineSubmitted(submittedMachineValue) && !submittedMachineValue.toLowerCase().contains('tidak memiliki')) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.warning,
+          title: const Text('Mesin Sudah Dilaporkan'),
+          description: Text('Mesin "$submittedMachineValue" sudah dilaporkan hari ini. Silakan pilih mesin lain yang belum dilaporkan.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+        setState(() => _isSubmitting = false);
+        return;
+      }
+    }
+
     // Cegah pengiriman ganda untuk produk yang telah dilaporkan hari ini
     if (widget.editSubmission == null && _hasProductBinding() && submittedCategoryValue.isNotEmpty && _isProductSubmitted(submittedCategoryValue)) {
       toastification.show(
@@ -1618,6 +1725,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
       if (isNewInput) {
         setState(() {
+          if (submittedMachineValue != null && submittedMachineValue.isNotEmpty) {
+            _submittedMachineNames.add(submittedMachineValue.toLowerCase().trim());
+          }
           _submittedCategories.add(submittedCategoryValue!);
           _submittedCategoryLog.add(submittedCategoryValue);
           _submittedProductNames.add(submittedCategoryValue.toLowerCase().trim());
@@ -1648,8 +1758,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
         _recalculateFormulas();
 
-        // Otomatis pilih produk berikutnya yang belum dilaporkan
-        _autoSelectNextUnsubmittedProduct();
+        // Otomatis pilih produk atau mesin berikutnya yang belum dilaporkan
+        if (_isDailyMaintenanceTemplate()) {
+          _autoSelectNextUnsubmittedMachine();
+        } else {
+          _autoSelectNextUnsubmittedProduct();
+        }
 
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
@@ -1665,17 +1779,33 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           repProvider.fetchTemplates(auth.token!, forceRefresh: true, storeId: _selectedWorkLocationId);
         }
 
-        final int rem = _getRemainingProductsCount();
-        toastification.show(
-          context: context,
-          type: result['is_offline'] == true ? ToastificationType.info : ToastificationType.success,
-          title: Text(result['is_offline'] == true ? 'Tersimpan Offline' : 'Laporan Produk Terkirim'),
-          description: Text(rem > 0
-              ? 'Laporan untuk "$submittedCategoryValue" berhasil dikirim. Sisa $rem produk lagi yang harus dilaporkan hari ini.'
-              : 'Laporan untuk "$submittedCategoryValue" berhasil dikirim. Seluruh produk telah selesai dilaporkan!'),
-          autoCloseDuration: const Duration(seconds: 4),
-        );
+        if (_isDailyMaintenanceTemplate()) {
+          final int remM = _getRemainingMachinesCount();
+          toastification.show(
+            context: context,
+            type: result['is_offline'] == true ? ToastificationType.info : ToastificationType.success,
+            title: Text(result['is_offline'] == true ? 'Tersimpan Offline' : 'Laporan Mesin Terkirim'),
+            description: Text(remM > 0
+                ? 'Laporan untuk "$submittedMachineValue" berhasil dikirim. Sisa $remM mesin lagi yang harus dilaporkan hari ini.'
+                : 'Laporan untuk "$submittedMachineValue" berhasil dikirim. Seluruh mesin telah selesai dilaporkan!'),
+            autoCloseDuration: const Duration(seconds: 4),
+          );
+        } else {
+          final int rem = _getRemainingProductsCount();
+          toastification.show(
+            context: context,
+            type: result['is_offline'] == true ? ToastificationType.info : ToastificationType.success,
+            title: Text(result['is_offline'] == true ? 'Tersimpan Offline' : 'Laporan Produk Terkirim'),
+            description: Text(rem > 0
+                ? 'Laporan untuk "$submittedCategoryValue" berhasil dikirim. Sisa $rem produk lagi yang harus dilaporkan hari ini.'
+                : 'Laporan untuk "$submittedCategoryValue" berhasil dikirim. Seluruh produk telah selesai dilaporkan!'),
+            autoCloseDuration: const Duration(seconds: 4),
+          );
+        }
       } else {
+        if (submittedMachineValue != null && submittedMachineValue.isNotEmpty) {
+          _submittedMachineNames.add(submittedMachineValue.toLowerCase().trim());
+        }
         if (submittedCategoryValue != null) {
           _submittedProductNames.add(submittedCategoryValue.toLowerCase().trim());
         }
@@ -1683,7 +1813,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           context: context,
           type: result['is_offline'] == true ? ToastificationType.info : ToastificationType.success,
           title: Text(widget.editSubmission != null ? 'Laporan Diperbarui' : (result['is_offline'] == true ? 'Tersimpan Offline' : 'Laporan Terkirim & Selesai')),
-          description: Text(result['message'] ?? 'Seluruh laporan produk berhasil diselesaikan.'),
+          description: Text(result['message'] ?? 'Seluruh laporan berhasil diselesaikan.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
         Navigator.of(context).pop(true);
@@ -1720,28 +1850,34 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
     final elevatedColor = isDarkMode ? Colors.grey.shade800 : const Color(0xFFEDF1F8);
 
-    // Badge status lokasi
-    String locationBadgeTitle = 'LOKASI CHECK-IN';
-    Color locationBadgeColor = themeColor;
-    IconData locationBadgeIcon = Icons.verified_user_rounded;
-
-    if (isVisiting) {
-      locationBadgeTitle = 'LOKASI VISIT AKTIF';
-      locationBadgeColor = const Color(0xFF149A6E);
-      locationBadgeIcon = Icons.directions_walk_rounded;
-    } else if (isEditMode) {
-      locationBadgeTitle = 'LOKASI LAPORAN';
-      locationBadgeColor = const Color(0xFF0F52BA);
-      locationBadgeIcon = Icons.edit_document;
-    }
-
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text(
-          widget.editSubmission != null ? 'Edit ${widget.template.title}' : widget.template.title,
-          style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.editSubmission != null ? 'Edit ${widget.template.title}' : widget.template.title,
+              style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (_selectedStoreName.isNotEmpty)
+              Text(
+                _selectedStoreName,
+                style: TextStyle(color: subtitleColor, fontSize: 11.5, fontWeight: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: _buildLocationStatusIndicator(canSubmitReport, isDarkMode),
+          ),
+        ],
         backgroundColor: backgroundColor,
         elevation: 0,
         iconTheme: IconThemeData(color: textColor),
@@ -1752,333 +1888,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           controller: _scrollController,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           children: [
-            // ─── Header: Lokasi Terikat Otomatis Sesuai Check-In / Visit ───
-            if (canSubmitReport) ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: _selectedLocation != null
-                        ? (_isWithinRadius ? const Color(0xFF149A6E) : const Color(0xFFD98A2B)).withOpacity(0.5)
-                        : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
-                    width: _selectedLocation != null ? 1.5 : 1.0,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Badge Header & Status Terkunci
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: locationBadgeColor.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: locationBadgeColor.withOpacity(0.3), width: 0.8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(locationBadgeIcon, color: locationBadgeColor, size: 14),
-                              const SizedBox(width: 5),
-                              Text(
-                                locationBadgeTitle,
-                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: locationBadgeColor),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
-                          decoration: BoxDecoration(
-                            color: (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.lock_rounded, size: 11, color: subtitleColor),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Terkunci Otomatis',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: subtitleColor),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Nama Toko / Lokasi Terikat
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: themeColor.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(Icons.storefront_rounded, color: themeColor, size: 24),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _selectedStoreName.isNotEmpty ? _selectedStoreName : 'Lokasi Terdaftar',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: textColor,
-                                ),
-                              ),
-                              if (_selectedLocation?['address'] != null && _selectedLocation!['address'].toString().isNotEmpty) ...[
-                                const SizedBox(height: 3),
-                                Text(
-                                  _selectedLocation!['address'].toString(),
-                                  style: TextStyle(fontSize: 11.5, color: subtitleColor),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ] else if (_address != null && _address!.isNotEmpty) ...[
-                                const SizedBox(height: 3),
-                                Text(
-                                  _address!,
-                                  style: TextStyle(fontSize: 11.5, color: subtitleColor),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                              if (_selectedLocation != null) ...[
-                                const SizedBox(height: 6),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  children: [
-                                    if (_selectedLocation!['channel'] != null && _selectedLocation!['channel'].toString().isNotEmpty)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                                        decoration: BoxDecoration(
-                                          color: themeColor.withOpacity(0.12),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          'Tipe: ${_selectedLocation!['channel']}',
-                                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: themeColor),
-                                        ),
-                                      ),
-                                    if (_selectedLocation!['account'] != null && _selectedLocation!['account'].toString().isNotEmpty)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                                        decoration: BoxDecoration(
-                                          color: (isDarkMode ? Colors.teal.shade900 : const Color(0xFFE0F2F1)),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          'Akun: ${_selectedLocation!['account']}',
-                                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.tealAccent : const Color(0xFF00796B)),
-                                        ),
-                                      ),
-                                    if (_selectedLocation!['area'] != null && _selectedLocation!['area'].toString().isNotEmpty)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                                        decoration: BoxDecoration(
-                                          color: (isDarkMode ? Colors.purple.shade900 : const Color(0xFFF3E5F5)),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          'Area: ${_selectedLocation!['area']}',
-                                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.purpleAccent : const Color(0xFF7B1FA2)),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // Dynamic Radius & Geofence Indicator
-                    if (_selectedLocation != null) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                        decoration: BoxDecoration(
-                          color: _isWithinRadius
-                              ? const Color(0xFFE2F6EE)
-                              : (isDarkMode ? const Color(0xFF332010) : const Color(0xFFFFF3E0)),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _isWithinRadius ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _isWithinRadius ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
-                              size: 18,
-                              color: _isWithinRadius ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _calculatedDistance != null
-                                    ? locale.tr('radius_info', params: {
-                                        'distance': _calculatedDistance! >= 1000
-                                            ? '${(_calculatedDistance! / 1000).toStringAsFixed(1)} km'
-                                            : '${_calculatedDistance!.round()} m',
-                                        'allowed': '${_allowedRadiusMeter.round()} m',
-                                      })
-                                    : (_isWithinRadius ? locale.tr('within_radius') : locale.tr('outside_radius')),
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: _isWithinRadius
-                                      ? const Color(0xFF0F7652)
-                                      : (isDarkMode ? Colors.orange.shade200 : const Color(0xFFB46A14)),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    const Divider(height: 20),
-
-                    // GPS Live Status
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.my_location_rounded,
-                          size: 14,
-                          color: _latitude != null ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            _latitude != null
-                                ? '${locale.tr('gps_connected')} (${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)})'
-                                : locale.tr('gps_searching'),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _latitude != null ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (_isFetchingLocation)
-                          const SizedBox(
-                            width: 12,
-                            height: 12,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ] else ...[
-              // ─── Peringatan: Belum Check-in atau Visit-in ───
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDarkMode ? const Color(0xFF2A1515) : const Color(0xFFFFF1F1),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.red.shade400, width: 1.2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.red.withOpacity(0.06),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.lock_clock_rounded, color: Colors.red, size: 22),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Belum Check-In / Visit-In',
-                                style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.red),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Laporan terkunci & tidak dapat dikirim',
-                                style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.red.shade300 : Colors.red.shade700),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Untuk mengisi dan mengirim laporan reporting, Anda wajib melakukan Check-In kehadiran atau Visit-In kunjungan toko terlebih dahulu. Lokasi reporting akan mengikat otomatis ke lokasi absensi aktif Anda.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.4,
-                        color: isDarkMode ? Colors.grey.shade300 : const Color(0xFF552222),
-                      ),
-                    ),
-                    const Divider(height: 20, color: Colors.redAccent),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.my_location_rounded,
-                          size: 14,
-                          color: _latitude != null ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            _latitude != null
-                                ? 'GPS Siap (${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)})'
-                                : 'Mendeteksi koordinat GPS...',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _latitude != null ? const Color(0xFF149A6E) : const Color(0xFFD98A2B),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
 
             // ─── Session Progress Banner (Multi-Category Reporting) ───
             if (_submittedCategories.isNotEmpty) ...[
@@ -2202,6 +2011,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               )
             else if (_hasProductBinding() && _getTotalProductsCount() > 0)
               _buildProductProgressAndButtons(themeColor, cardColor, textColor, subtitleColor, isDarkMode)
+            else if (_hasMachineBinding() && _getTotalMachinesCount() > 1)
+              _buildMachineProgressAndButtons(themeColor, cardColor, textColor, subtitleColor, isDarkMode)
             else
               Row(
                 children: [
@@ -2422,6 +2233,317 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildMachineProgressAndButtons(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    bool isDarkMode,
+  ) {
+    final int total = _getTotalMachinesCount();
+    final int remaining = _getRemainingMachinesCount();
+    final int submitted = total >= remaining ? total - remaining : 0;
+    final double progress = total > 0 ? (submitted / total).clamp(0.0, 1.0) : 0.0;
+    final bool isLastMachine = remaining <= 1;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Machine Progress Card
+        Container(
+          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isLastMachine
+                  ? Colors.green.withOpacity(0.4)
+                  : themeColor.withOpacity(0.3),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        isLastMachine ? Icons.check_circle_outline_rounded : Icons.precision_manufacturing_rounded,
+                        size: 18,
+                        color: isLastMachine ? Colors.green : themeColor,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Progres Laporan Mesin Tinting',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isLastMachine ? Colors.green.withOpacity(0.12) : themeColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '$submitted / $total Mesin',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: isLastMachine ? Colors.green : themeColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isLastMachine ? Colors.green : themeColor,
+                  ),
+                  minHeight: 7,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 13,
+                    color: subtitleColor,
+                  ),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      isLastMachine
+                          ? (remaining == 0
+                              ? 'Seluruh mesin telah dilaporkan hari ini ✓'
+                              : 'Ini adalah mesin terakhir yang wajib dilaporkan. Tombol "Kirim & Selesai" aktif!')
+                          : 'Sisa $remaining mesin lagi di toko ini. Seluruh mesin wajib dilaporkan sebelum lanjut ke langkah berikutnya.',
+                      style: TextStyle(fontSize: 11, color: subtitleColor),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // Sequential Submission Action Buttons
+        if (remaining > 1) ...[
+          ElevatedButton.icon(
+            onPressed: _isSubmitting ? null : () => _submitForm(isNewInput: true),
+            icon: _isSubmitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+            label: Text(
+              _isSubmitting ? 'Mengirim Data Mesin...' : 'Kirim & Lanjut Mesin Berikutnya',
+              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: themeColor,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: null,
+            icon: const Icon(Icons.lock_outline_rounded, size: 16, color: Colors.grey),
+            label: Text(
+              'Kirim & Selesai (Terkunci: sisa $remaining mesin)',
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.grey),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              side: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ] else ...[
+          ElevatedButton.icon(
+            onPressed: _isSubmitting ? null : () => _submitForm(isNewInput: false),
+            icon: _isSubmitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+            label: Text(
+              _isSubmitting ? 'Mengirim & Menyelesaikan...' : 'Kirim & Selesai (Mesin Terakhir ✓)',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade600,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 3,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildLocationStatusIndicator(bool canSubmitReport, bool isDarkMode) {
+    final Color statusColor;
+    final IconData statusIcon;
+    final String statusLabel;
+    final String statusDialogTitle;
+    final String statusDetail;
+
+    if (!canSubmitReport) {
+      statusColor = const Color(0xFFE53935); // Merah = Belum Check-in
+      statusIcon = Icons.location_off_rounded;
+      statusLabel = 'Belum Check-in';
+      statusDialogTitle = 'Belum Check-in';
+      statusDetail = 'Anda belum melakukan Check-in atau Visit-in di Toko/Store ini. Formulir laporan terkunci dan belum dapat dikirim.';
+    } else if (!_isWithinRadius) {
+      statusColor = const Color(0xFFF57C00); // Orange = Diluar Radius Lokasi / Store
+      statusIcon = Icons.wrong_location_rounded;
+      statusLabel = _calculatedDistance != null 
+          ? '${_calculatedDistance!.round()}m (Luar)' 
+          : 'Diluar Radius';
+      statusDialogTitle = 'Diluar Radius Lokasi / Store';
+      statusDetail = _calculatedDistance != null
+          ? 'Jarak Anda: ${_calculatedDistance!.round()} meter dari titik Store (Batas radius: ${_allowedRadiusMeter.round()}m).'
+          : 'Koordinat GPS Anda terdeteksi di luar batas radius Store.';
+    } else {
+      statusColor = const Color(0xFF149A6E); // Hijau = Dalam Radius Lokasi / Store
+      statusIcon = Icons.location_on_rounded;
+      statusLabel = _calculatedDistance != null
+          ? '${_calculatedDistance!.round()}m (Aman)'
+          : 'Dalam Radius';
+      statusDialogTitle = 'Dalam Radius Lokasi / Store';
+      statusDetail = _calculatedDistance != null
+          ? 'Jarak Anda: ${_calculatedDistance!.round()} meter (Aman dalam radius Store ${_allowedRadiusMeter.round()}m).'
+          : 'Posisi GPS Anda berada di dalam area radius Store.';
+    }
+
+    return Tooltip(
+      message: statusDialogTitle,
+      child: GestureDetector(
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Icon(statusIcon, color: statusColor, size: 24),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      statusDialogTitle,
+                      style: TextStyle(color: statusColor, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(statusDetail, style: const TextStyle(fontSize: 13, height: 1.4)),
+                  const SizedBox(height: 12),
+                  if (_selectedStoreName.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        const Icon(Icons.storefront_rounded, size: 16, color: Colors.grey),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _selectedStoreName,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                  if (_latitude != null && _longitude != null) ...[
+                    Row(
+                      children: [
+                        const Icon(Icons.my_location_rounded, size: 16, color: Colors.grey),
+                        const SizedBox(width: 6),
+                        Text(
+                          'GPS: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Tutup', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: statusColor.withOpacity(0.4), width: 1.2),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(statusIcon, color: statusColor, size: 15),
+              const SizedBox(width: 4),
+              Text(
+                statusLabel,
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -2937,16 +3059,20 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         // Pastikan nilai value yang dipilih valid ada di daftar options
         var currentDropdownVal = _formValues[fieldKey] ?? _formValues[field.fieldName] ?? _formValues['tipe_mesin_post'];
 
-        // Auto-select first machine for Daily Maintenance if not yet set
-        if (isMachineTypeField && (currentDropdownVal == null || !effectiveOptions.contains(currentDropdownVal.toString()))) {
-          if (effectiveOptions.isNotEmpty) {
-            currentDropdownVal = effectiveOptions.first;
-            _formValues[fieldKey] = currentDropdownVal;
-            _formValues[field.fieldName] = currentDropdownVal;
-            _formValues['tipe_mesin_post'] = currentDropdownVal;
+        // Auto-select first unsubmitted machine for Daily Maintenance
+        if (isMachineTypeField && (currentDropdownVal == null || _isMachineSubmitted(currentDropdownVal.toString()) || !effectiveOptions.contains(currentDropdownVal.toString()))) {
+          final firstUnsubmitted = effectiveOptions.firstWhere(
+            (opt) => !_isMachineSubmitted(opt) && opt != 'Toko Tidak Memiliki Mesin Tinting',
+            orElse: () => effectiveOptions.isNotEmpty ? effectiveOptions.first : '',
+          );
+          if (firstUnsubmitted.isNotEmpty) {
+            currentDropdownVal = firstUnsubmitted;
+            _formValues[fieldKey] = firstUnsubmitted;
+            _formValues[field.fieldName] = firstUnsubmitted;
+            _formValues['tipe_mesin_post'] = firstUnsubmitted;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
-                _autoFillMachineSerial(currentDropdownVal?.toString());
+                _autoFillMachineSerial(firstUnsubmitted);
               }
             });
           }
@@ -2993,7 +3119,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       (p) => p?.name.toLowerCase() == opt.toLowerCase(),
                       orElse: () => null,
                     );
-                final isOptSubmitted = isProductSelect && _isOptionSubmitted(opt);
+                final isOptSubmitted = (isProductSelect && _isOptionSubmitted(opt)) ||
+                    (isMachineTypeField && _isMachineSubmitted(opt) && opt != 'Toko Tidak Memiliki Mesin Tinting');
                 return DropdownMenuItem<String>(
                   value: opt,
                   enabled: !isOptSubmitted,

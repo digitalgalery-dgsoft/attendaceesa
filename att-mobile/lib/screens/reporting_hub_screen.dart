@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:toastification/toastification.dart';
 import 'package:att_mobile/models/report_template_model.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
+import 'package:att_mobile/providers/attendance_provider.dart';
 import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/providers/locale_provider.dart';
 import 'package:att_mobile/screens/dynamic_form_screen.dart';
@@ -47,11 +48,30 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
     });
   }
 
+  int? _resolveEffectiveStoreId() {
+    if (widget.workLocationId != null) return widget.workLocationId;
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    if (attProvider.isVisiting) {
+      for (final log in attProvider.todayLogs) {
+        if (log['log_type'] == 'visit_in' && log['metadata'] is Map) {
+          final vid = int.tryParse(log['metadata']['visit_location_id']?.toString() ?? '');
+          if (vid != null) return vid;
+        }
+      }
+    }
+    if (attProvider.isCheckedIn && attProvider.todaySchedule != null) {
+      final sid = int.tryParse(attProvider.todaySchedule!['work_location_id']?.toString() ?? '');
+      if (sid != null) return sid;
+    }
+    return null;
+  }
+
   void _loadData({bool force = true}) {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
     if (auth.token != null) {
-      repProvider.fetchTemplates(auth.token!, forceRefresh: force, storeId: widget.workLocationId);
+      final storeId = _resolveEffectiveStoreId();
+      repProvider.fetchTemplates(auth.token!, forceRefresh: force, storeId: storeId);
       repProvider.fetchHistory(auth.token!);
       repProvider.fetchStores(auth.token!, forceRefresh: force);
     }
@@ -765,14 +785,15 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                 builder: (_) => DynamicFormScreen(
                   template: template,
                   storeName: widget.storeName,
-                  workLocationId: widget.workLocationId,
+                  workLocationId: widget.workLocationId ?? _resolveEffectiveStoreId(),
                   itineraryItemId: widget.itineraryItemId,
                 ),
               ),
             ).then((_) {
               final auth = Provider.of<AuthProvider>(context, listen: false);
               if (auth.token != null) {
-                Provider.of<DynamicReportingProvider>(context, listen: false).fetchTemplates(auth.token!, forceRefresh: true, storeId: widget.workLocationId);
+                final storeId = _resolveEffectiveStoreId();
+                Provider.of<DynamicReportingProvider>(context, listen: false).fetchTemplates(auth.token!, forceRefresh: true, storeId: storeId);
                 Provider.of<DynamicReportingProvider>(context, listen: false).fetchHistory(auth.token!);
               }
             });
@@ -1002,6 +1023,19 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                         ),
                         child: Text(
                           '${template.submittedProducts.length}/${template.totalProductsCount} Produk',
+                          style: TextStyle(fontSize: 10, color: template.isCompletedToday ? const Color(0xFF149A6E) : themeColor, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    if (template.hasMachineBinding && template.totalMachinesCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          color: template.isCompletedToday ? const Color(0xFF149A6E).withOpacity(0.12) : themeColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(color: template.isCompletedToday ? const Color(0xFF149A6E).withOpacity(0.3) : themeColor.withOpacity(0.3), width: 0.8),
+                        ),
+                        child: Text(
+                          '${template.submittedMachines.length}/${template.totalMachinesCount} Mesin',
                           style: TextStyle(fontSize: 10, color: template.isCompletedToday ? const Color(0xFF149A6E) : themeColor, fontWeight: FontWeight.bold),
                         ),
                       ),

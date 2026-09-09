@@ -427,7 +427,8 @@ class AttendanceController extends Controller
                 if ($attendance->checkout_at) return response()->json(['message' => 'Already checked out for today'], 400);
 
                 // Validasi seluruh laporan wajib hari ini telah diselesaikan
-                $pendingReports = \App\Http\Controllers\Api\ReportingApiController::checkPendingReportsStatic($employee, 'checkout');
+                $locIdForCheckout = $refLocation ? $refLocation->id : ($attendance->work_location_id ?? null);
+                $pendingReports = \App\Http\Controllers\Api\ReportingApiController::checkPendingReportsStatic($employee, 'checkout', $locIdForCheckout);
                 if (!empty($pendingReports)) {
                     return response()->json([
                         'status' => 'error',

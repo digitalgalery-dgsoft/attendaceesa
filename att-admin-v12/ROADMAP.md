@@ -8,11 +8,12 @@ Dokumen ini merangkum seluruh progres pekerjaan yang telah diselesaikan, arsitek
 
 | Kategori | Status | Keterangan |
 | :--- | :---: | :--- |
-| **Alur Pelaporan Berjenjang Dulux (6 Langkah)** | 🟢 Selesai (100%) | Urutan wajib: Offtake -> Stok End -> OOS -> CBP -> Daily Maint -> DB Pelanggan |
-| **Single-Product Submission & Disable Terlapor** | 🟢 Selesai (100%) | 1 submission per produk, disable & tandai produk terlapor hari itu, tombol dinamis |
-| **Attendance Gate (Check-Out & Visit-Out)** | 🟢 Selesai (100%) | Blokir check-out / visit-out jika ada laporan atau produk wajib belum lengkap hari itu |
-| **Target Laporan Hari Kerja Efektif** | 🟢 Selesai (100%) | Target cut-off hanya menghitung workday, mengabaikan libur dan hari off |
-| **Rilis APK Mobile v1.0.126 (Sequential & Product Gate)** | 🟢 Rilis & Live | 107.7MB, sinkron ke Staging (appsend) & 3 Node Production (AMK, AKP, ATK) |
+| **Urutan Pelaporan Dulux (6 Langkah Wajib)** | 🟢 Selesai & Rilis | Urutan: Daily Maint -> Offtake -> OOS -> DB Pelanggan -> Stok End -> CBP |
+| **Multi-Mesin Per Toko & Machine Gating** | 🟢 Selesai (100%) | 1 Store bisa 2+ mesin, kunci ke toko check-in, seluruh mesin wajib lapor |
+| **Icon Penanda Lokasi AppBar (3 Warna)** | 🟢 Selesai (100%) | Card lokasi dihapus, ganti icon interaktif: Merah (Belum Check-in), Orange (Luar Radius), Hijau (Dalam Radius) |
+| **Single-Product Submission & Disable Terlapor** | 🟢 Selesai (100%) | 1 submission per item, disable & tandai produk terlapor hari itu, tombol dinamis |
+| **Attendance Gate (Check-Out & Visit-Out)** | 🟢 Selesai (100%) | Blokir check-out / visit-out jika ada laporan, produk, atau mesin belum lengkap |
+| **Rilis APK Mobile v1.0.129 (Multi-Mesin & Icon Lokasi)** | 🟢 Rilis & Live | Sinkron ke Staging (appsend) & 3 Node Production (AMK, AKP, ATK) |
 | **Tab Data Laporan Masuk & Approval Offtake** | 🟢 Selesai & Live (100%) | Tab live submissions, quick approve/reject modal, sticky action & horizontal scroll |
 | **Resolusi Query Live Offtake & Out-of-Memory** | 🟢 Selesai (100%) | Eliminasi silent SQL error & filter batch import, query cepat (<1 detik, memori 65MB) |
 | **Multi-Kompetitor Form CBP Mobile (v1.0.124)** | 🟢 Rilis & Live | Input multi-brand kompetitor per toko & rilis APK v1.0.124 |
@@ -406,7 +407,30 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
     6. **Langkah 6: CBP (Consumer Buying Price)** (`RPT-DULUX-CBP-PRICING`)
   - **Backend API (`ReportingApiController.php`)**: Update `$duluxOrder` di method `index()` dan `checkPendingReportsStatic()`.
   - **Aplikasi Mobile Flutter (`att-mobile`)**: Menambahkan `duluxOrderMap` dan helper `applyDuluxSequence` di `ReportTemplateModel` dan `DynamicReportingProvider` untuk konsistensi sorting dan gating baik online maupun offline cache.
-  - **Kompilasi APK Lokal v1.0.128+128**: Selesai dikompilasi ke `app-release-1.0.128.apk` (108.1 MB) dan diarsipkan secara lokal (tanpa push ke GitHub dan tanpa deploy server).
+- [x] **Multi-Mesin Per Toko (Dulux), Mandatory Daily Maintenance Gating & Icon Penanda Lokasi (9 September 2026)**:
+  - **Multi-Mesin per Store di Web Admin Filament (`WorkLocationForm.php`)**:
+    - Menambahkan `Repeater::make('machines')` pada form Master Work Location.
+    - Setiap toko kini dapat memiliki 2 atau lebih mesin tinting terdaftar, mencakup tipe mesin (Corob D200, Fast & Fluid HA480/HA680, Santint, Hero, dll.) dan Nomor Seri mesin.
+    - Model `WorkLocation` dilengkapi aksesor cerdas `normalized_machines` yang secara transparan menyatukan data multi-mesin JSON array dengan fallback data mesin skalar tunggal.
+  - **Dynamic Machine Binding & Reporting Gate (`ReportingApiController.php` & `AttendanceController.php`)**:
+    - Backend secara dinamis mengidentifikasi toko tempat karyawan check-in/visit-in hari ini.
+    - Laporan Daily Maintenance POST (`RPT-DULUX-DAILY-MAINTENANCE`) mengunci daftar mesin sesuai yang terdaftar pada toko tersebut.
+    - Menghitung jumlah mesin terlapor vs total mesin (`has_machine_binding`, `submitted_machines`, `total_machines_count`, `remaining_machines_count`).
+    - Laporan Daily Maintenance hanya berstatus selesai (`is_completed_today = true`) jika **seluruh mesin** telah dilaporkan. Jika belum, Langkah 2 (Offtake) tetap terkunci dan Check-out / Visit-out diblokir dengan peringatan sisa mesin.
+  - **Pembaruan Antarmuka Mobile Form Laporan (`DynamicFormScreen`)**:
+    - **Card Info Lokasi / Store Dihilangkan**: Menghilangkan kartu lokasi besar di bagian atas form untuk memaksimalkan ruang kerja visual petugas.
+    - **Icon Penanda Lokasi Interaktif di AppBar**:
+      - 🔴 **Merah**: Belum Check-in / Visit-in (Form terkunci, tombol submit nonaktif).
+      - 🟠 **Orange**: Diluar Radius Lokasi / Store (Menampilkan jarak riil meter dan toleransi radius).
+      - 🟢 **Hijau**: Dalam Radius Lokasi / Store (Posisi GPS aman dalam radius).
+      - Dilengkapi modal dialog detail saat icon diklik yang menampilkan informasi toko, koordinat GPS, dan status radius secara transparan.
+    - **Alur Pelaporan Multi-Mesin**:
+      - Dropdown tipe mesin otomatis menonaktifkan (*disabled & strikethrough*) mesin yang telah dilaporkan hari itu (`✓ Sudah Dilaporkan`).
+      - Otomatis memilih mesin pertama yang belum dilaporkan dan mengisi nomor seri secara otomatis.
+      - Menampilkan progress bar mesin dan tombol dinamis **"Kirim & Lanjut Mesin Berikutnya"** hingga mesin terakhir yang bertuliskan **"Kirim & Selesai (Mesin Terakhir ✓)"**.
+  - **Kompilasi & Distribusi APK v1.0.129+129**:
+    - Bump versi ke `v1.0.129+129`.
+    - Kompilasi Flutter release APK dan distribusi ke Staging (`appsend.my.id`) serta 3 Node Cluster Production (`AMK`, `AKP`, `ATK`).
 
 ---
 
@@ -421,5 +445,5 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 
 ---
 
-*Terakhir diperbarui: 8 September 2026*  
+*Terakhir diperbarui: 9 September 2026*  
 *Pengembang: Digital Galery / DGSoft - Tim Attendance ESA*

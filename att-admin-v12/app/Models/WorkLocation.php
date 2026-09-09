@@ -58,4 +58,38 @@ class WorkLocation extends Model
 
         return (int) ($this->radius_meter ?? 100);
     }
+
+    /**
+     * Get normalized list of tinting machines for this location.
+     * Combines 'machines' JSON array and fallback to scalar machine_type/machine_serial_no.
+     */
+    public function getNormalizedMachinesAttribute(): array
+    {
+        $result = [];
+        $rawMachines = $this->machines;
+
+        if (is_array($rawMachines) && !empty($rawMachines)) {
+            foreach ($rawMachines as $m) {
+                if (is_array($m)) {
+                    $mType = trim($m['machine_type'] ?? $m['type'] ?? '');
+                    $mSerial = trim($m['machine_serial_no'] ?? $m['serial_no'] ?? '');
+                    if ($mType !== '' || $mSerial !== '') {
+                        $result[] = [
+                            'machine_type' => $mType ?: 'Mesin Tinting',
+                            'machine_serial_no' => $mSerial,
+                        ];
+                    }
+                }
+            }
+        }
+
+        if (empty($result) && (!empty($this->machine_type) || !empty($this->machine_serial_no))) {
+            $result[] = [
+                'machine_type' => trim((string)$this->machine_type) ?: 'Mesin Tinting',
+                'machine_serial_no' => trim((string)$this->machine_serial_no),
+            ];
+        }
+
+        return $result;
+    }
 }

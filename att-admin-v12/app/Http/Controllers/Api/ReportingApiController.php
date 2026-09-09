@@ -235,8 +235,31 @@ class ReportingApiController extends Controller
         $overallTargetTotal = 0;
         $overallSubmittedTotal = 0;
 
-        // Dapatkan WorkLocation / Toko aktif karyawan untuk auto-fill form (jika ada)
-        $targetStoreId = $request->query('store_id') ?? $request->query('location_id') ?? $employee->work_location_id;
+        // Dapatkan WorkLocation / Toko aktif karyawan untuk auto-fill form & kuncian mesin
+        $targetStoreId = $request->query('store_id') ?? $request->query('location_id');
+        if (!$targetStoreId) {
+            $todayVisitIn = \App\Models\AttendanceLog::where('employee_id', $employee->id)
+                ->whereDate('created_at', $todayStr)
+                ->where('log_type', 'visit_in')
+                ->latest()
+                ->first();
+            if ($todayVisitIn && !empty($todayVisitIn->metadata['visit_location_id'])) {
+                $targetStoreId = (int)$todayVisitIn->metadata['visit_location_id'];
+            }
+            if (!$targetStoreId) {
+                $todayAtt = \App\Models\Attendance::where('employee_id', $employee->id)
+                    ->whereDate('attendance_date', $todayStr)
+                    ->first();
+                if ($todayAtt) {
+                    $targetStoreId = $todayAtt->work_location_id 
+                        ?? $todayAtt->checkinLog?->metadata['visit_location_id'] 
+                        ?? $todayAtt->schedule?->work_location_id 
+                        ?? $employee->work_location_id;
+                } else {
+                    $targetStoreId = $employee->work_location_id;
+                }
+            }
+        }
         $targetStore = $targetStoreId ? \App\Models\WorkLocation::find($targetStoreId) : null;
 
         // Urutan Alur Pelaporan Wajib Dulux
@@ -404,7 +427,53 @@ class ReportingApiController extends Controller
 
             $hasProductBinding = !empty($prodFieldNames) && $templateProducts->isNotEmpty();
 
-            if ($hasProductBinding) {
+            // Evaluasi pengikatan mesin untuk Laporan Daily Maintenance Dulux
+            $isDailyMaintenance = ($t->code === 'RPT-DULUX-DAILY-MAINTENANCE');
+            $storeMachines = [];
+            $submittedMachines = [];
+            $matchedSubmitted = [];
+            $hasMachineBinding = false;
+            $totalMachinesCount = 0;
+            $remainingMachinesCount = 0;
+
+            if ($isDailyMaintenance && $targetStore) {
+                $storeMachines = $targetStore->normalized_machines;
+                $totalMachinesCount = count($storeMachines);
+
+                // Cari mesin-mesin yang sudah dilaporkan di toko ini hari ini
+                foreach ($templateTodaySubs as $sub) {
+                    foreach ($sub->values as $val) {
+                        $fName = strtolower($val->field_name ?? '');
+                        if ($fName === 'tipe_mesin_post' || $fName === 'tipe_mesin') {
+                            $mVal = trim((string)($val->value_text ?? ''));
+                            if ($mVal !== '') {
+                                $submittedMachines[] = $mVal;
+                            }
+                        }
+                    }
+                }
+                $submittedMachines = array_values(array_unique($submittedMachines));
+
+                if ($totalMachinesCount > 0) {
+                    $hasMachineBinding = true;
+                    // Cocokkan submittedMachines dengan storeMachines
+                    foreach ($storeMachines as $sm) {
+                        $targetType = strtolower(trim($sm['machine_type']));
+                        foreach ($submittedMachines as $subM) {
+                            if (strtolower(trim($subM)) === $targetType) {
+                                $matchedSubmitted[] = $sm['machine_type'];
+                                break;
+                            }
+                        }
+                    }
+                    $matchedSubmitted = array_values(array_unique($matchedSubmitted));
+                    $remainingMachinesCount = max(0, $totalMachinesCount - count($matchedSubmitted));
+                    $isCompletedToday = (count($matchedSubmitted) >= $totalMachinesCount);
+                } else {
+                    // Jika toko tidak memiliki mesin (0 mesin terdaftar)
+                    $isCompletedToday = $templateTodaySubs->isNotEmpty();
+                }
+            } elseif ($hasProductBinding) {
                 $isCompletedToday = count($submittedProductNames) >= $templateProducts->count() && $templateProducts->count() > 0;
             } else {
                 $isCompletedToday = $templateTodaySubs->isNotEmpty();
@@ -447,6 +516,11 @@ class ReportingApiController extends Controller
                 'submitted_product_ids' => $submittedProductIds,
                 'total_products_count' => $templateProducts->count(),
                 'remaining_products_count' => max(0, $templateProducts->count() - count($submittedProductNames)),
+                'has_machine_binding' => $hasMachineBinding,
+                'submitted_machines' => $isDailyMaintenance ? $matchedSubmitted : [],
+                'total_machines_count' => $totalMachinesCount,
+                'remaining_machines_count' => $remainingMachinesCount,
+                'store_machines' => $storeMachines,
                 'assigned_positions' => $t->positions->pluck('name')->values()->toArray(),
                 'assigned_employees' => $t->employees->pluck('full_name')->values()->toArray(),
                 'icon' => $t->icon ?? 'document-text',
@@ -1718,6 +1792,31 @@ class ReportingApiController extends Controller
 
         $todaySubmissions = $todaySubsQuery->get();
 
+        if (!$workLocationId) {
+            $todayVisitIn = \App\Models\AttendanceLog::where('employee_id', $employee->id)
+                ->whereDate('created_at', $todayStr)
+                ->where('log_type', 'visit_in')
+                ->latest()
+                ->first();
+            if ($todayVisitIn && !empty($todayVisitIn->metadata['visit_location_id'])) {
+                $workLocationId = (int)$todayVisitIn->metadata['visit_location_id'];
+            }
+            if (!$workLocationId) {
+                $todayAtt = \App\Models\Attendance::where('employee_id', $employee->id)
+                    ->whereDate('attendance_date', $todayStr)
+                    ->first();
+                if ($todayAtt) {
+                    $workLocationId = $todayAtt->work_location_id 
+                        ?? $todayAtt->checkinLog?->metadata['visit_location_id'] 
+                        ?? $todayAtt->schedule?->work_location_id 
+                        ?? $employee->work_location_id;
+                } else {
+                    $workLocationId = $employee->work_location_id;
+                }
+            }
+        }
+        $targetLocation = $workLocationId ? \App\Models\WorkLocation::find($workLocationId) : null;
+
         $pending = [];
 
         foreach ($templates as $t) {
@@ -1745,6 +1844,39 @@ class ReportingApiController extends Controller
                 $tSubs = $tSubs->filter(function($s) use ($workLocationId) {
                     return empty($s->work_location_id) || $s->work_location_id == $workLocationId;
                 });
+            }
+
+            // Khusus Laporan Daily Maintenance Dulux: Validasi seluruh mesin terdaftar telah dilaporkan
+            if ($t->code === 'RPT-DULUX-DAILY-MAINTENANCE' && $targetLocation) {
+                $storeMachines = $targetLocation->normalized_machines;
+                if (!empty($storeMachines)) {
+                    $submittedMachineNames = [];
+                    foreach ($tSubs as $sub) {
+                        foreach ($sub->values as $val) {
+                            $fName = strtolower($val->field_name ?? '');
+                            if ($fName === 'tipe_mesin_post' || $fName === 'tipe_mesin') {
+                                $mVal = trim((string)($val->value_text ?? ''));
+                                if ($mVal !== '') {
+                                    $submittedMachineNames[] = strtolower($mVal);
+                                }
+                            }
+                        }
+                    }
+                    $submittedMachineNames = array_unique($submittedMachineNames);
+
+                    $unreportedMachines = [];
+                    foreach ($storeMachines as $sm) {
+                        $mType = trim($sm['machine_type']);
+                        if (!in_array(strtolower($mType), $submittedMachineNames)) {
+                            $unreportedMachines[] = $mType;
+                        }
+                    }
+
+                    if (!empty($unreportedMachines)) {
+                        $pending[] = "{$t->title} (Sisa " . count($unreportedMachines) . " mesin: " . implode(', ', $unreportedMachines) . ")";
+                    }
+                    continue;
+                }
             }
 
             // Cek produk jika template mengikat produk

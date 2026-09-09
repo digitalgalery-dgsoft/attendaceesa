@@ -24,6 +24,11 @@ class ReportTemplateModel {
   final List<int> submittedProductIds;
   final int totalProductsCount;
   final int remainingProductsCount;
+  final bool hasMachineBinding;
+  final List<String> submittedMachines;
+  final int totalMachinesCount;
+  final int remainingMachinesCount;
+  final List<Map<String, dynamic>> storeMachines;
   final List<String> reportDays;
   final List<String> assignedPositions;
   final List<String> assignedEmployees;
@@ -65,6 +70,11 @@ class ReportTemplateModel {
     this.submittedProductIds = const [],
     this.totalProductsCount = 0,
     this.remainingProductsCount = 0,
+    this.hasMachineBinding = false,
+    this.submittedMachines = const [],
+    this.totalMachinesCount = 0,
+    this.remainingMachinesCount = 0,
+    this.storeMachines = const [],
     this.reportDays = const [],
     this.assignedPositions = const [],
     this.assignedEmployees = const [],
@@ -149,6 +159,14 @@ class ReportTemplateModel {
     final totProd = json['total_products_count'] is num ? (json['total_products_count'] as num).toInt() : productsList.length;
     final remProd = json['remaining_products_count'] is num ? (json['remaining_products_count'] as num).toInt() : (totProd - parsedSubProducts.length).clamp(0, 9999);
 
+    final hasMachineBinding = json['has_machine_binding'] == true || json['has_machine_binding'] == 1 || json['has_machine_binding'] == 'true';
+    var rawSubMachines = json['submitted_machines'] as List? ?? [];
+    List<String> parsedSubMachines = rawSubMachines.map((e) => e.toString()).toList();
+    final totMachines = json['total_machines_count'] is num ? (json['total_machines_count'] as num).toInt() : (int.tryParse(json['total_machines_count']?.toString() ?? '0') ?? 0);
+    final remMachines = json['remaining_machines_count'] is num ? (json['remaining_machines_count'] as num).toInt() : (int.tryParse(json['remaining_machines_count']?.toString() ?? '0') ?? (totMachines - parsedSubMachines.length).clamp(0, 9999));
+    var rawStoreMachines = json['store_machines'] as List? ?? [];
+    List<Map<String, dynamic>> parsedStoreMachines = rawStoreMachines.whereType<Map<String, dynamic>>().toList();
+
     return ReportTemplateModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
       code: json['code'] ?? '',
@@ -175,6 +193,11 @@ class ReportTemplateModel {
       submittedProductIds: parsedSubProdIds,
       totalProductsCount: totProd,
       remainingProductsCount: remProd,
+      hasMachineBinding: hasMachineBinding,
+      submittedMachines: parsedSubMachines,
+      totalMachinesCount: totMachines,
+      remainingMachinesCount: remMachines,
+      storeMachines: parsedStoreMachines,
       reportDays: parsedDays,
       assignedPositions: parsedPositions,
       assignedEmployees: parsedEmployees,
@@ -209,6 +232,11 @@ class ReportTemplateModel {
     List<int>? submittedProductIds,
     int? totalProductsCount,
     int? remainingProductsCount,
+    bool? hasMachineBinding,
+    List<String>? submittedMachines,
+    int? totalMachinesCount,
+    int? remainingMachinesCount,
+    List<Map<String, dynamic>>? storeMachines,
     List<String>? reportDays,
     List<String>? assignedPositions,
     List<String>? assignedEmployees,
@@ -241,6 +269,11 @@ class ReportTemplateModel {
       submittedProductIds: submittedProductIds ?? this.submittedProductIds,
       totalProductsCount: totalProductsCount ?? this.totalProductsCount,
       remainingProductsCount: remainingProductsCount ?? this.remainingProductsCount,
+      hasMachineBinding: hasMachineBinding ?? this.hasMachineBinding,
+      submittedMachines: submittedMachines ?? this.submittedMachines,
+      totalMachinesCount: totalMachinesCount ?? this.totalMachinesCount,
+      remainingMachinesCount: remainingMachinesCount ?? this.remainingMachinesCount,
+      storeMachines: storeMachines ?? this.storeMachines,
       reportDays: reportDays ?? this.reportDays,
       assignedPositions: assignedPositions ?? this.assignedPositions,
       assignedEmployees: assignedEmployees ?? this.assignedEmployees,
@@ -317,6 +350,11 @@ class ReportTemplateModel {
       'submitted_product_ids': submittedProductIds,
       'total_products_count': totalProductsCount,
       'remaining_products_count': remainingProductsCount,
+      'has_machine_binding': hasMachineBinding,
+      'submitted_machines': submittedMachines,
+      'total_machines_count': totalMachinesCount,
+      'remaining_machines_count': remainingMachinesCount,
+      'store_machines': storeMachines,
       'report_days': reportDays,
       'assigned_positions': assignedPositions,
       'assigned_employees': assignedEmployees,
