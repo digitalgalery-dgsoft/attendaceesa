@@ -1191,6 +1191,8 @@
             if ($stockGlobalData['total_volume_liter'] <= 0 || $calcLiter > 0) {
                 $stockGlobalData['total_volume_liter'] = $calcLiter;
             }
+        }
+
         if (!$hasDynamicStockItems && ($template->code === 'RPT-DULUX-STOCK-END' || str_contains($template->code, 'STOCK-END'))) {
             $singleProd = '-';
             $singleBrand = 'Dulux';
