@@ -11775,8 +11775,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     if (source == null) return;
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final employeeName = auth.employee?.fullName ?? 'Promotor';
-    final employeeNik = auth.employee?.nik ?? '';
+    final employeeName = auth.employeeData?['full_name'] ?? 'Promotor';
+    final employeeNik = auth.employeeData?['nik'] ?? '';
     final currentStore = _selectedStoreName.isNotEmpty ? _selectedStoreName : 'Kunjungan Toko';
 
     WatermarkCaptureResult? res;
@@ -11920,7 +11920,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           address: _selectedLocation?['address'] ?? _address,
           values: cleanFormValues,
           photoFiles: photoFiles,
-          existingPhotos: _existingPhotoUrls,
+          existingPhotos: _existingMultiPhotoUrls,
         );
       } else {
         result = await repProvider.submitReport(
