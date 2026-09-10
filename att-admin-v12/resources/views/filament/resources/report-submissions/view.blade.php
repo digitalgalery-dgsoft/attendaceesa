@@ -234,8 +234,92 @@
             'penyebab_alasan_out_of_stock_oos',
         ];
 
+        // Cek apakah template ini Laporan Database / Data Pelanggan & Konsumen
+        $tplCode = strtolower((string)($template?->code ?? ''));
+        $tplName = strtolower((string)($template?->name ?? ''));
+        $isCustomerDbReport = str_contains($tplCode, 'pelanggan') || str_contains($tplCode, 'customer') || str_contains($tplName, 'pelanggan') || str_contains($tplName, 'customer');
+
+        $custNama = '';
+        $custPhone = '';
+        $custAlamat = '';
+        $custTipe = '';
+        $custBrandDicari = '';
+        $custBrandDibeli = '';
+        $custAlasan = '';
+        $custTujuan = '';
+        $custTipePengecatan = '';
+        $custPreview = '';
+        $custNilaiBelanja = 0;
+        $custLoyalty = '';
+        $custCatatan = '';
+
+        if ($isCustomerDbReport) {
+            foreach ($record->values as $v) {
+                $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
+                $fl = strtolower(trim((string)($v->formField?->field_label ?? '')));
+                $valStr = trim((string)($v->value_text ?: ($v->value_number ?? '')));
+
+                if (str_contains($fn, 'nama') || str_contains($fl, 'nama lengkap') || str_contains($fl, 'nama pelanggan')) {
+                    if (empty($custNama)) $custNama = $valStr;
+                } elseif (str_contains($fn, 'nomor_hp') || str_contains($fn, 'phone') || str_contains($fn, 'whatsapp') || str_contains($fl, 'nomor hp') || str_contains($fl, 'no hp')) {
+                    if (empty($custPhone)) $custPhone = $valStr;
+                } elseif (str_contains($fn, 'alamat') || str_contains($fn, 'domisili') || str_contains($fl, 'alamat')) {
+                    if (empty($custAlamat)) $custAlamat = $valStr;
+                } elseif (str_contains($fn, 'tipe_pelanggan') || str_contains($fn, 'kategori_pelanggan') || str_contains($fl, 'tipe pelanggan')) {
+                    if (empty($custTipe)) $custTipe = $valStr;
+                } elseif (str_contains($fn, 'brand_dicari') || str_contains($fn, 'brand_awal') || str_contains($fl, 'brand cat yang awalnya')) {
+                    if (empty($custBrandDicari)) $custBrandDicari = $valStr;
+                } elseif (str_contains($fn, 'brand_dibeli') || str_contains($fn, 'brand_akhir') || str_contains($fl, 'brand cat yang akhirnya')) {
+                    if (empty($custBrandDibeli)) $custBrandDibeli = $valStr;
+                } elseif (str_contains($fn, 'alasan') || str_contains($fl, 'alasan konsumen')) {
+                    if (empty($custAlasan)) $custAlasan = $valStr;
+                } elseif (str_contains($fn, 'tujuan') || str_contains($fl, 'tujuan datang')) {
+                    if (empty($custTujuan)) $custTujuan = $valStr;
+                } elseif (str_contains($fn, 'tipe_pengecatan') || str_contains($fl, 'tipe pengecatan') || str_contains($fl, 'jenis pengecatan')) {
+                    if (empty($custTipePengecatan)) $custTipePengecatan = $valStr;
+                } elseif (str_contains($fn, 'visualizer') || str_contains($fl, 'visualizer')) {
+                    if (empty($custPreview)) $custPreview = $valStr;
+                } elseif (str_contains($fn, 'nilai_belanja') || str_contains($fn, 'total_belanja') || str_contains($fl, 'estimasi nilai')) {
+                    $rawNum = preg_replace('/[^0-9]/', '', $valStr);
+                    $custNilaiBelanja = (float)($rawNum ?: 0);
+                } elseif (str_contains($fn, 'loyalty') || str_contains($fn, 'mitra') || str_contains($fl, 'mitra dulux')) {
+                    if (empty($custLoyalty)) $custLoyalty = $valStr;
+                } elseif (str_contains($fn, 'catatan') || str_contains($fl, 'catatan khusus') || str_contains($fl, 'keterangan')) {
+                    if (empty($custCatatan)) $custCatatan = $valStr;
+                }
+            }
+        }
+
+        $suppressCustomerFields = [
+            'nama_lengkap_pelanggan', 'nama_pelanggan', 'nama_konsumen',
+            'nomor_hp_whatsapp_pelanggan', 'nomor_hp_pelanggan', 'no_hp_whatsapp', 'nomor_telepon_pelanggan',
+            'alamat_domisili_pelanggan', 'alamat_pelanggan', 'domisili_pelanggan',
+            'tipe_pelanggan_kategori_konsumen', 'tipe_pelanggan', 'kategori_pelanggan',
+            'brand_cat_yang_awalnya_dicari_ditanyakan', 'brand_cat_yang_awalnya_dicari', 'brand_dicari',
+            'brand_cat_yang_akhirnya_dibeli', 'brand_akhirnya_dibeli', 'brand_dibeli',
+            'alasan_konsumen_memilih_brand_tersebut', 'alasan_konsumen_memilih_brand', 'alasan_memilih_brand',
+            'tujuan_datang_ke_toko', 'tujuan_ke_toko',
+            'tipe_pengecatan_proyek', 'tipe_pengecatan', 'jenis_pengecatan',
+            'apakah_memerlukan_preview_warna_visualizer', 'preview_warna_visualizer',
+            'estimasi_total_nilai_pembelian_belanja_rp', 'estimasi_nilai_belanja_rp', 'nilai_belanja_rp',
+            'kesediaan_bergabung_program_loyalty_mitra_dulux', 'loyalty_mitra_dulux', 'program_loyalty',
+            'catatan_khusus_keterangan', 'catatan_khusus', 'keterangan_tambahan'
+        ];
+
+        $isBrandSwitch = !empty($custBrandDicari) && !empty($custBrandDibeli) && strtolower($custBrandDicari) !== strtolower($custBrandDibeli) && (str_contains(strtolower($custBrandDibeli), 'dulux') || str_contains(strtolower($custBrandDibeli), 'catylac'));
+        $isLoyalDulux = !empty($custBrandDicari) && (str_contains(strtolower($custBrandDicari), 'dulux') || str_contains(strtolower($custBrandDicari), 'catylac')) && (str_contains(strtolower($custBrandDibeli), 'dulux') || str_contains(strtolower($custBrandDibeli), 'catylac'));
+        $isCompetitorBought = !empty($custBrandDibeli) && !str_contains(strtolower($custBrandDibeli), 'dulux') && !str_contains(strtolower($custBrandDibeli), 'catylac');
+
+        $cleanCustPhone = preg_replace('/[^0-9]/', '', (string)$custPhone);
+        if (str_starts_with($cleanCustPhone, '0')) {
+            $waPhone = '62' . substr($cleanCustPhone, 1);
+        } else {
+            $waPhone = $cleanCustPhone;
+        }
+        $waLink = !empty($waPhone) ? 'https://wa.me/' . $waPhone . '?text=' . urlencode('Halo Bapak/Ibu ' . ($custNama ?: 'Pelanggan') . ', terima kasih atas kunjungan Anda di toko rekanan Dulux.') : null;
+
         // Separate text inputs and photo/media attachments to prevent tall empty grid cards
-        $textValues = $record->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields, $hasDynamicOfftakeItems, $suppressOfftakeFields, $hasDynamicOosItems, $suppressOosFields) {
+        $textValues = $record->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields, $hasDynamicOfftakeItems, $suppressOfftakeFields, $hasDynamicOosItems, $suppressOosFields, $isCustomerDbReport, $suppressCustomerFields) {
             $isMedia = in_array($val->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])
                 || !empty($val->media_url)
                 || !empty($val->file_path);
@@ -263,6 +347,12 @@
 
             if ($hasDynamicOosItems) {
                 if (in_array($fn, $suppressOosFields) || in_array($flClean, $suppressOosFields)) {
+                    return false;
+                }
+            }
+
+            if ($isCustomerDbReport) {
+                if (in_array($fn, $suppressCustomerFields) || in_array($flClean, $suppressCustomerFields)) {
                     return false;
                 }
             }
@@ -827,8 +917,354 @@
             background: rgba(15, 82, 186, 0.08);
             text-decoration: underline;
         }
-        .dark .media-full-btn {
-            color: #60a5fa;
+        /* CUSTOMER DATABASE & INTELLIGENCE STYLING */
+        .cust-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .cust-stat-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 1.15rem 1.25rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .dark .cust-stat-card {
+            background: #0f172a;
+            border-color: #1e293b;
+        }
+        .cust-stat-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            flex-shrink: 0;
+        }
+        .cust-stat-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+        .cust-stat-label {
+            font-size: 0.74rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .dark .cust-stat-label {
+            color: #94a3b8;
+        }
+        .cust-stat-value {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .dark .cust-stat-value {
+            color: #f8fafc;
+        }
+        .cust-stat-sub {
+            font-size: 0.74rem;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .dark .cust-stat-sub {
+            color: #94a3b8;
+        }
+
+        .cust-detail-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+            margin-bottom: 1rem;
+        }
+        .dark .cust-detail-card {
+            background: #0f172a;
+            border-color: #1e293b;
+        }
+        .cust-detail-header {
+            padding: 0.85rem 1.25rem;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+        .dark .cust-detail-header {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        .cust-detail-title {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .dark .cust-detail-title {
+            color: #f1f5f9;
+        }
+        .cust-detail-body {
+            padding: 1.15rem 1.25rem;
+        }
+
+        .cust-persona-box {
+            display: flex;
+            align-items: center;
+            gap: 1.15rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px dashed #e2e8f0;
+            margin-bottom: 1rem;
+        }
+        .dark .cust-persona-box {
+            border-color: #334155;
+        }
+        .cust-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #0F52BA 0%, #0284c7 100%);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 800;
+            box-shadow: 0 4px 12px rgba(15, 82, 186, 0.25);
+            flex-shrink: 0;
+        }
+        .cust-persona-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+            flex: 1;
+        }
+        .cust-persona-name {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .dark .cust-persona-name {
+            color: #f8fafc;
+        }
+        .cust-persona-phone {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #64748b;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .dark .cust-persona-phone {
+            color: #94a3b8;
+        }
+
+        .btn-chat-wa {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            background: #25D366;
+            color: #ffffff !important;
+            font-size: 0.78rem;
+            font-weight: 700;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(37, 211, 102, 0.25);
+            margin-left: 6px;
+        }
+        .btn-chat-wa:hover {
+            background: #1ebc57;
+            transform: translateY(-1px);
+        }
+
+        .cust-attributes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 0.85rem;
+        }
+        .cust-attr-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .dark .cust-attr-item {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        .cust-attr-lbl {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .dark .cust-attr-lbl {
+            color: #94a3b8;
+        }
+        .cust-attr-val {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.35;
+        }
+        .dark .cust-attr-val {
+            color: #f8fafc;
+        }
+
+        .conversion-alert {
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.15rem;
+        }
+        .conversion-alert.success {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+        }
+        .conversion-alert.info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+        .conversion-alert.warning {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            color: #92400e;
+        }
+        .dark .conversion-alert.success {
+            background: rgba(6, 95, 70, 0.25);
+            border-color: #065f46;
+            color: #a7f3d0;
+        }
+        .dark .conversion-alert.info {
+            background: rgba(30, 64, 175, 0.25);
+            border-color: #1e40af;
+            color: #bfdbfe;
+        }
+        .dark .conversion-alert.warning {
+            background: rgba(146, 64, 14, 0.25);
+            border-color: #92400e;
+            color: #fde68a;
+        }
+
+        .brand-flow-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.25rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.15rem;
+            flex-wrap: wrap;
+        }
+        .dark .brand-flow-container {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        .brand-flow-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 4px;
+            padding: 0.75rem 1.25rem;
+            border-radius: 10px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            min-width: 170px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }
+        .dark .brand-flow-node {
+            background: #0f172a;
+            border-color: #334155;
+        }
+        .brand-flow-arrow {
+            font-size: 1.5rem;
+            color: #0F52BA;
+            font-weight: 900;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        .brand-flow-arrow span {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+        }
+
+        .value-card {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 1px solid #bbf7d0;
+            border-radius: 12px;
+            padding: 1.15rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+        .dark .value-card {
+            background: rgba(20, 83, 45, 0.3);
+            border-color: #166534;
+        }
+
+        .note-card {
+            background: #fffbeb;
+            border: 1px solid #fef3c7;
+            border-left: 4px solid #f59e0b;
+            border-radius: 10px;
+            padding: 1rem 1.15rem;
+            font-size: 0.88rem;
+            color: #78350f;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+            font-style: italic;
+        }
+        .dark .note-card {
+            background: rgba(120, 53, 15, 0.25);
+            border-color: #78350f;
+            color: #fde68a;
         }
 
         /* OFFTAKE SUMMARY & PRODUCT BREAKDOWN STYLING */
@@ -1184,6 +1620,95 @@
             </div>
         </div>
 
+        {{-- PANEL RINGKASAN DATA PELANGGAN & KONSUMEN --}}
+        @if($isCustomerDbReport)
+            <div class="cust-summary-grid">
+                {{-- CARD 1: PROFIL KONSUMEN --}}
+                <div class="cust-stat-card">
+                    <div class="cust-stat-icon" style="background: rgba(15, 82, 186, 0.12); color: #0F52BA;">
+                        <x-filament::icon icon="heroicon-o-user" style="width: 24px; height: 24px;" />
+                    </div>
+                    <div class="cust-stat-info">
+                        <span class="cust-stat-label">Profil Konsumen</span>
+                        <span class="cust-stat-value">{{ $custNama ?: 'Pelanggan Walk-in' }}</span>
+                        <span class="cust-stat-sub">
+                            @if(!empty($custTipe))
+                                <span style="display: inline-block; padding: 1px 7px; border-radius: 4px; font-weight: 700; font-size: 0.7rem; background: #e0f2fe; color: #0369a1;">
+                                    {{ $custTipe }}
+                                </span>
+                            @else
+                                <span style="color: #64748b;">Konsumen Toko</span>
+                            @endif
+                        </span>
+                    </div>
+                </div>
+
+                {{-- CARD 2: KEPUTUSAN BRAND / BRAND SWITCH --}}
+                <div class="cust-stat-card">
+                    <div class="cust-stat-icon" style="background: {{ $isBrandSwitch ? 'rgba(16, 185, 129, 0.12)' : (str_contains(strtolower($custBrandDibeli), 'dulux') ? 'rgba(15, 82, 186, 0.12)' : 'rgba(245, 158, 11, 0.12)') }}; color: {{ $isBrandSwitch ? '#10b981' : (str_contains(strtolower($custBrandDibeli), 'dulux') ? '#0F52BA' : '#f59e0b') }};">
+                        <x-filament::icon icon="heroicon-o-arrows-right-left" style="width: 24px; height: 24px;" />
+                    </div>
+                    <div class="cust-stat-info">
+                        <span class="cust-stat-label">Keputusan Pembelian</span>
+                        <span class="cust-stat-value" style="color: {{ str_contains(strtolower($custBrandDibeli), 'dulux') ? '#0F52BA' : '#0f172a' }};">
+                            {{ $custBrandDibeli ?: '-' }}
+                        </span>
+                        <span class="cust-stat-sub">
+                            @if($isBrandSwitch)
+                                <span style="color: #15803d; font-weight: 800;">✓ Beralih ke Dulux</span>
+                            @elseif($isLoyalDulux)
+                                <span style="color: #0369a1; font-weight: 700;">★ Loyal Dulux</span>
+                            @elseif(!empty($custBrandDicari))
+                                <span>Awal dicari: {{ $custBrandDicari }}</span>
+                            @else
+                                <span>Preferensi Brand</span>
+                            @endif
+                        </span>
+                    </div>
+                </div>
+
+                {{-- CARD 3: ESTIMASI NILAI BELANJA --}}
+                <div class="cust-stat-card">
+                    <div class="cust-stat-icon" style="background: rgba(16, 185, 129, 0.12); color: #10b981;">
+                        <x-filament::icon icon="heroicon-o-banknotes" style="width: 24px; height: 24px;" />
+                    </div>
+                    <div class="cust-stat-info">
+                        <span class="cust-stat-label">Estimasi Nilai Belanja</span>
+                        <span class="cust-stat-value" style="color: #15803d;">
+                            @if($custNilaiBelanja > 0)
+                                Rp {{ number_format($custNilaiBelanja, 0, ',', '.') }}
+                            @else
+                                -
+                            @endif
+                        </span>
+                        <span class="cust-stat-sub">
+                            {{ !empty($custTujuan) ? $custTujuan : 'Transaksi Konsumen' }}
+                        </span>
+                    </div>
+                </div>
+
+                {{-- CARD 4: PREVIEW WARNA & PROGRAM LOYALTY --}}
+                <div class="cust-stat-card">
+                    <div class="cust-stat-icon" style="background: rgba(168, 85, 247, 0.12); color: #a855f7;">
+                        <x-filament::icon icon="heroicon-o-paint-brush" style="width: 24px; height: 24px;" />
+                    </div>
+                    <div class="cust-stat-info">
+                        <span class="cust-stat-label">Visualizer & Mitra Dulux</span>
+                        <span class="cust-stat-value" style="font-size: 0.95rem;">
+                            Visualizer: {{ (!empty($custPreview) && strtolower($custPreview) !== 'tidak') ? 'Ya' : 'Tidak' }}
+                        </span>
+                        <span class="cust-stat-sub">
+                            @if(!empty($custLoyalty) && (strtolower($custLoyalty) === 'ya' || str_contains(strtolower($custLoyalty), 'bersedia')))
+                                <span style="color: #7c3aed; font-weight: 800;">✓ Mitra Dulux</span>
+                            @else
+                                <span style="color: #64748b;">Belum Terdaftar</span>
+                            @endif
+                        </span>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- PANEL RINGKASAN GLOBAL TRANSAKSI OFFTAKE (AKUMULATIF GLOBAL) --}}
         @if($hasDynamicOfftakeItems)
             <div class="offtake-summary-grid">
@@ -1501,6 +2026,204 @@
                                 </div>
                             </div>
                         @endforeach
+                    </div>
+
+                    @if($textValues->isNotEmpty())
+                        <div style="border-top: 1px solid #e2e8f0; padding: 0.75rem 1.25rem 0.25rem 1.25rem;" class="dark:border-gray-800">
+                            <span style="font-size: 0.78rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Parameter Tambahan</span>
+                        </div>
+                    @endif
+                @elseif($isCustomerDbReport)
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <x-filament::icon icon="heroicon-o-identification" style="width: 18px; height: 18px; color: #0F52BA;" />
+                            <span>Profil & Preferensi Konsumen Dulux</span>
+                        </div>
+                        <span class="panel-count-badge" style="background: #e0f2fe; color: #0284c7; font-weight: 800;">
+                            Database Pelanggan
+                        </span>
+                    </div>
+
+                    <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+                        {{-- 1. IDENTITAS & SEGMENTASI KONSUMEN --}}
+                        <div class="cust-detail-card">
+                            <div class="cust-detail-header">
+                                <div class="cust-detail-title">
+                                    <x-filament::icon icon="heroicon-o-user" style="width: 16px; height: 16px; color: #0F52BA;" />
+                                    <span>Identitas & Segmentasi Konsumen</span>
+                                </div>
+                                @if(!empty($custTipe))
+                                    <span style="font-size: 0.75rem; font-weight: 800; background: #0F52BA; color: #fff; padding: 3px 10px; border-radius: 6px;">
+                                        {{ $custTipe }}
+                                    </span>
+                                @endif
+                            </div>
+                            <div class="cust-detail-body">
+                                <div class="cust-persona-box">
+                                    <div class="cust-avatar">
+                                        {{ strtoupper(substr($custNama ?: 'P', 0, 1)) }}
+                                    </div>
+                                    <div class="cust-persona-meta">
+                                        <div class="cust-persona-name">
+                                            <span>{{ $custNama ?: 'Konsumen Dulux' }}</span>
+                                            @if(!empty($custLoyalty) && (strtolower($custLoyalty) === 'ya' || str_contains(strtolower($custLoyalty), 'bersedia')))
+                                                <span style="font-size: 0.72rem; font-weight: 800; background: #f3e8ff; color: #7c3aed; border: 1px solid #d8b4fe; padding: 2px 8px; border-radius: 999px;">
+                                                    Mitra Dulux
+                                                </span>
+                                            @endif
+                                        </div>
+                                        <div class="cust-persona-phone">
+                                            <x-filament::icon icon="heroicon-o-phone" style="width: 14px; height: 14px; color: #64748b;" />
+                                            <span>{{ $custPhone ?: '-' }}</span>
+                                            @if($waLink)
+                                                <a href="{{ $waLink }}" target="_blank" class="btn-chat-wa">
+                                                    <span>Chat WhatsApp</span>
+                                                </a>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="cust-attributes-grid">
+                                    <div class="cust-attr-item">
+                                        <span class="cust-attr-lbl">Alamat / Domisili</span>
+                                        <span class="cust-attr-val">{{ $custAlamat ?: '-' }}</span>
+                                    </div>
+                                    <div class="cust-attr-item">
+                                        <span class="cust-attr-lbl">Kategori / Tipe Pelanggan</span>
+                                        <span class="cust-attr-val" style="color: #0F52BA;">{{ $custTipe ?: '-' }}</span>
+                                    </div>
+                                    <div class="cust-attr-item">
+                                        <span class="cust-attr-lbl">Program Mitra Dulux</span>
+                                        <span class="cust-attr-val">
+                                            @if(!empty($custLoyalty) && (strtolower($custLoyalty) === 'ya' || str_contains(strtolower($custLoyalty), 'bersedia')))
+                                                <span style="color: #15803d;">✓ Bersedia Bergabung</span>
+                                            @else
+                                                <span style="color: #64748b;">Belum / Tidak Bersedia</span>
+                                            @endif
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- 2. PREFERENSI BRAND & BUYING JOURNEY --}}
+                        <div class="cust-detail-card">
+                            <div class="cust-detail-header">
+                                <div class="cust-detail-title">
+                                    <x-filament::icon icon="heroicon-o-shopping-bag" style="width: 16px; height: 16px; color: #0F52BA;" />
+                                    <span>Preferensi Brand & Buying Journey</span>
+                                </div>
+                                <span style="font-size: 0.74rem; font-weight: 700; color: #64748b;">Customer Decision</span>
+                            </div>
+                            <div class="cust-detail-body">
+                                {{-- CONVERSION STATUS ALERT --}}
+                                @if($isBrandSwitch)
+                                    <div class="conversion-alert success">
+                                        <x-filament::icon icon="heroicon-o-check-badge" style="width: 28px; height: 28px; flex-shrink: 0;" />
+                                        <div>
+                                            <strong style="font-size: 0.92rem; display: block; margin-bottom: 2px;">Brand Switch Berhasil (Win to Dulux)</strong>
+                                            <span style="font-size: 0.8rem; line-height: 1.4;">Konsumen awalnya mencari <strong>{{ $custBrandDicari }}</strong> namun berhasil diyakinkan untuk membeli <strong>{{ $custBrandDibeli }}</strong> berkat rekomendasi promotor.</span>
+                                        </div>
+                                    </div>
+                                @elseif($isLoyalDulux)
+                                    <div class="conversion-alert info">
+                                        <x-filament::icon icon="heroicon-o-star" style="width: 28px; height: 28px; flex-shrink: 0;" />
+                                        <div>
+                                            <strong style="font-size: 0.92rem; display: block; margin-bottom: 2px;">Loyal Customer Dulux</strong>
+                                            <span style="font-size: 0.8rem; line-height: 1.4;">Konsumen datang langsung mencari Dulux dan tetap melakukan pembelian produk keluarga <strong>Dulux / Catylac</strong>.</span>
+                                        </div>
+                                    </div>
+                                @elseif($isCompetitorBought)
+                                    <div class="conversion-alert warning">
+                                        <x-filament::icon icon="heroicon-o-exclamation-circle" style="width: 28px; height: 28px; flex-shrink: 0;" />
+                                        <div>
+                                            <strong style="font-size: 0.92rem; display: block; margin-bottom: 2px;">Pembelian Brand Kompetitor</strong>
+                                            <span style="font-size: 0.8rem; line-height: 1.4;">Konsumen akhirnya membeli brand <strong>{{ $custBrandDibeli }}</strong>. Evaluasi faktor preferensi atau ketersediaan produk.</span>
+                                        </div>
+                                    </div>
+                                @endif
+
+                                {{-- BUYING JOURNEY FLOW --}}
+                                <div class="brand-flow-container">
+                                    <div class="brand-flow-node">
+                                        <span style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Brand Awal Dicari</span>
+                                        <strong style="font-size: 1rem; color: #334155;" class="dark:text-gray-200">{{ $custBrandDicari ?: '-' }}</strong>
+                                    </div>
+                                    <div class="brand-flow-arrow">
+                                        ➔
+                                        <span>Keputusan</span>
+                                    </div>
+                                    <div class="brand-flow-node" style="border: 2px solid {{ str_contains(strtolower($custBrandDibeli), 'dulux') ? '#0F52BA' : '#10b981' }}; background: {{ str_contains(strtolower($custBrandDibeli), 'dulux') ? 'rgba(15, 82, 186, 0.04)' : 'rgba(16, 185, 129, 0.04)' }};">
+                                        <span style="font-size: 0.72rem; font-weight: 800; color: #0F52BA; text-transform: uppercase;">Brand Yang Dibeli</span>
+                                        <strong style="font-size: 1.05rem; color: {{ str_contains(strtolower($custBrandDibeli), 'dulux') ? '#0F52BA' : '#15803d' }};">{{ $custBrandDibeli ?: '-' }}</strong>
+                                    </div>
+                                </div>
+
+                                {{-- REASONS & ATTRIBUTES --}}
+                                <div class="cust-attributes-grid">
+                                    <div class="cust-attr-item">
+                                        <span class="cust-attr-lbl">Alasan Memilih Brand</span>
+                                        <span class="cust-attr-val" style="color: #0b3d88;">{{ $custAlasan ?: '-' }}</span>
+                                    </div>
+                                    <div class="cust-attr-item">
+                                        <span class="cust-attr-lbl">Tujuan Datang ke Toko</span>
+                                        <span class="cust-attr-val">{{ $custTujuan ?: '-' }}</span>
+                                    </div>
+                                    <div class="cust-attr-item">
+                                        <span class="cust-attr-lbl">Tipe Pengecatan / Proyek</span>
+                                        <span class="cust-attr-val">{{ $custTipePengecatan ?: '-' }}</span>
+                                    </div>
+                                    <div class="cust-attr-item">
+                                        <span class="cust-attr-lbl">Preview Warna Visualizer</span>
+                                        <span class="cust-attr-val">
+                                            @if(!empty($custPreview) && strtolower($custPreview) !== 'tidak')
+                                                <span style="color: #15803d; font-weight: 800;">✓ Memerlukan Visualizer</span>
+                                            @else
+                                                <span style="color: #64748b;">Tidak Memerlukan</span>
+                                            @endif
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- 3. ESTIMASI TOTAL NILAI PEMBELIAN --}}
+                        @if($custNilaiBelanja > 0)
+                            <div class="value-card">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="width: 44px; height: 44px; border-radius: 12px; background: #dcfce7; color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                                        <x-filament::icon icon="heroicon-o-banknotes" style="width: 24px; height: 24px;" />
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 0.74rem; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.5px;">Estimasi Total Nilai Pembelian (Belanja)</div>
+                                        <div style="font-size: 1.35rem; font-weight: 900; color: #15803d;">
+                                            Rp {{ number_format($custNilaiBelanja, 0, ',', '.') }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <span style="font-size: 0.78rem; font-weight: 700; background: #bbf7d0; color: #166534; padding: 4px 10px; border-radius: 8px;">
+                                    Closing Penjualan
+                                </span>
+                            </div>
+                        @endif
+
+                        {{-- 4. CATATAN KHUSUS / PREFERENSI --}}
+                        @if(!empty($custCatatan) && $custCatatan !== '-')
+                            <div class="cust-detail-card" style="margin-bottom: 0;">
+                                <div class="cust-detail-header">
+                                    <div class="cust-detail-title">
+                                        <x-filament::icon icon="heroicon-o-chat-bubble-left-ellipsis" style="width: 16px; height: 16px; color: #f59e0b;" />
+                                        <span>Catatan Khusus / Preferensi Konsumen</span>
+                                    </div>
+                                </div>
+                                <div class="cust-detail-body">
+                                    <div class="note-card" style="margin-bottom: 0;">
+                                        "{{ $custCatatan }}"
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
                     </div>
 
                     @if($textValues->isNotEmpty())
