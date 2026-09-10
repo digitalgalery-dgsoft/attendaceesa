@@ -1031,6 +1031,228 @@
         font-style: italic;
         line-height: 1.5;
     }
+
+    /* DAILY MAINTENANCE SUMMARY & DETAIL STYLING */
+    .dm-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .dm-stat-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 1.15rem 1.25rem;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .dm-stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        flex-shrink: 0;
+    }
+    .dm-stat-icon.blue { background: rgba(15, 82, 186, 0.12); color: #0F52BA; }
+    .dm-stat-icon.emerald { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+    .dm-stat-icon.amber { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+    .dm-stat-icon.rose { background: rgba(244, 63, 94, 0.12); color: #f43f5e; }
+    .dm-stat-icon.purple { background: rgba(168, 85, 247, 0.12); color: #a855f7; }
+
+    .dm-stat-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+    .dm-stat-label {
+        font-size: 0.74rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .dm-stat-value {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--text-heading);
+        line-height: 1.2;
+    }
+    .dm-stat-sub {
+        font-size: 0.76rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* DAILY MAINTENANCE MACHINE BANNER & CHECKLIST */
+    .dm-machine-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 1.25rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .dm-machine-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.25rem;
+        flex-wrap: wrap;
+        padding: 1rem 1.25rem;
+        background: linear-gradient(135deg, rgba(15, 82, 186, 0.04) 0%, rgba(2, 132, 199, 0.07) 100%);
+        border: 1px solid rgba(15, 82, 186, 0.15);
+        border-radius: 12px;
+        margin-bottom: 1.25rem;
+    }
+    .dm-machine-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .dm-machine-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #0F52BA 0%, #0284c7 100%);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        box-shadow: 0 4px 10px rgba(15, 82, 186, 0.25);
+        flex-shrink: 0;
+    }
+    .dm-machine-title {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--text-heading);
+        margin: 0 0 4px 0;
+    }
+    .dm-machine-sn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #0369a1;
+        background: #e0f2fe;
+        padding: 2px 8px;
+        border-radius: 6px;
+    }
+    .dm-health-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 800;
+        border-width: 1px;
+        border-style: solid;
+    }
+
+    .dm-checklist-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+    .dm-item-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1rem;
+        transition: all 0.15s ease;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .dm-item-card:hover {
+        border-color: #cbd5e1;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .dm-item-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    .dm-item-title-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .dm-item-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        flex-shrink: 0;
+    }
+    .dm-item-label {
+        font-size: 0.82rem;
+        font-weight: 800;
+        color: var(--text-heading);
+        line-height: 1.2;
+    }
+    .dm-status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 9px;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-weight: 800;
+        border-width: 1px;
+        border-style: solid;
+        align-self: flex-start;
+    }
+    .dm-item-desc {
+        font-size: 0.78rem;
+        color: #64748b;
+        line-height: 1.4;
+        margin-top: 6px;
+    }
+
+    .dm-conclusion-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-left: 4px solid #0F52BA;
+        border-radius: 12px;
+        padding: 1.1rem 1.25rem;
+    }
+    .dm-conclusion-title {
+        font-size: 0.85rem;
+        font-weight: 800;
+        color: var(--text-heading);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+    .dm-conclusion-text {
+        margin: 0;
+        font-size: 0.92rem;
+        color: #334155;
+        line-height: 1.5;
+        font-weight: 500;
+    }
 </style>
 @endpush
 
@@ -1491,8 +1713,115 @@
             'foto_interaksi_pelanggan',
         ];
 
+        // Cek apakah template ini merupakan Laporan Daily Maintenance Mesin Tinting
+        $isDailyMaintenanceReport = (
+            str_contains($template->code, 'DAILY-MAINTENANCE') ||
+            str_contains($template->code, 'DAILY_MAINTENANCE') ||
+            str_contains(strtolower($template->title), 'daily maintenance') ||
+            str_contains(strtolower($template->title), 'maintenance mesin') ||
+            str_contains(strtolower($template->title), 'perawatan mesin')
+        );
+
+        $dmValMap = [];
+        if ($isDailyMaintenanceReport) {
+            foreach ($submission->values as $v) {
+                $val = $v->value_text ?? ($v->value_number ?? $v->value_date ?? $v->value_json);
+                if ($v->field_name) {
+                    $dmValMap[$v->field_name] = $val;
+                    $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
+                    $dmValMap[$slug] = $val;
+                }
+                if ($v->formField) {
+                    if ($v->formField->field_name) {
+                        $dmValMap[$v->formField->field_name] = $val;
+                        $slugF = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_name), '_'));
+                        $dmValMap[$slugF] = $val;
+                    }
+                    if ($v->formField->field_label) {
+                        $slugL = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->formField->field_label), '_'));
+                        $dmValMap[$slugL] = $val;
+                    }
+                }
+            }
+        }
+
+        $dmTipeMesin = trim((string)($dmValMap['tipe_mesin_post'] ?? ($dmValMap['tipe_mesin'] ?? ($dmValMap['jenis_mesin'] ?? ($dmValMap['tipe_mesin_tinting'] ?? '-')))));
+        $dmNoMesin = trim((string)($dmValMap['no_mesin_post'] ?? ($dmValMap['nomor_mesin_post'] ?? ($dmValMap['no_mesin'] ?? ($dmValMap['nomor_seri_mesin'] ?? '-')))));
+        $dmNozzle = trim((string)($dmValMap['status_nozzle_cleaning'] ?? ($dmValMap['nozzle_cleaning'] ?? ($dmValMap['kebersihan_nozzle'] ?? ($dmValMap['status_kebersihan_nozzle'] ?? '-')))));
+        $dmSirkulasi = trim((string)($dmValMap['status_sirkulasi_tinter'] ?? ($dmValMap['sirkulasi_tinter'] ?? ($dmValMap['sirkulasi_pasta_tinter'] ?? '-')))));
+        $dmSoftware = trim((string)($dmValMap['status_software_komputer'] ?? ($dmValMap['software_komputer'] ?? ($dmValMap['kondisi_komputer'] ?? '-')))));
+        $dmMix2win = trim((string)($dmValMap['status_program_mix2win'] ?? ($dmValMap['program_mix2win'] ?? ($dmValMap['mix2win'] ?? ($dmValMap['aplikasi_mix2win'] ?? '-')))));
+        $dmKesimpulan = trim((string)($dmValMap['kesimpulan_maintenance'] ?? ($dmValMap['kesimpulan'] ?? ($dmValMap['catatan_maintenance'] ?? ($dmValMap['keterangan'] ?? '')))));
+
+        $getStatusTone = function($str) {
+            $s = strtolower(trim((string)$str));
+            if (empty($s) || $s === '-') return ['type' => 'neutral', 'color' => '#64748b', 'bg' => '#f1f5f9', 'border' => '#e2e8f0', 'icon' => 'fa-circle-info'];
+            if (str_contains($s, 'rusak') || str_contains($s, 'tersumbat') || str_contains($s, 'error') || str_contains($s, 'mati') || str_contains($s, 'macet') || str_contains($s, 'gagal') || str_contains($s, 'tidak normal')) {
+                return ['type' => 'danger', 'color' => '#e11d48', 'bg' => '#ffe4e6', 'border' => '#fecdd3', 'icon' => 'fa-circle-xmark'];
+            }
+            if (str_contains($s, 'perlu') || str_contains($s, 'kotor') || str_contains($s, 'lambat') || str_contains($s, 'kurang') || str_contains($s, 'update') || str_contains($s, 'hang')) {
+                return ['type' => 'warning', 'color' => '#d97706', 'bg' => '#fef3c7', 'border' => '#fde68a', 'icon' => 'fa-triangle-exclamation'];
+            }
+            if (str_contains($s, 'normal') || str_contains($s, 'bersih') || str_contains($s, 'baik') || str_contains($s, 'lancar') || str_contains($s, 'ready') || str_contains($s, 'ok') || str_contains($s, 'up to date') || str_contains($s, 'pembersihan') || str_contains($s, 'responsif')) {
+                return ['type' => 'success', 'color' => '#15803d', 'bg' => '#dcfce7', 'border' => '#bbf7d0', 'icon' => 'fa-circle-check'];
+            }
+            return ['type' => 'info', 'color' => '#0369a1', 'bg' => '#e0f2fe', 'border' => '#bae6fd', 'icon' => 'fa-circle-check'];
+        };
+
+        $nozzleTone = $getStatusTone($dmNozzle);
+        $sirkulasiTone = $getStatusTone($dmSirkulasi);
+        $softwareTone = $getStatusTone($dmSoftware);
+        $mix2winTone = $getStatusTone($dmMix2win);
+
+        $hasDanger = ($nozzleTone['type'] === 'danger' || $sirkulasiTone['type'] === 'danger' || $softwareTone['type'] === 'danger' || $mix2winTone['type'] === 'danger');
+        $hasWarning = ($nozzleTone['type'] === 'warning' || $sirkulasiTone['type'] === 'warning' || $softwareTone['type'] === 'warning' || $mix2winTone['type'] === 'warning');
+
+        $machineHealth = [
+            'status' => $hasDanger ? 'Kendala Teknis' : ($hasWarning ? 'Perlu Perhatian' : 'Kondisi Prima'),
+            'badge_bg' => $hasDanger ? '#fee2e2' : ($hasWarning ? '#fef3c7' : '#dcfce7'),
+            'badge_color' => $hasDanger ? '#b91c1c' : ($hasWarning ? '#b45309' : '#15803d'),
+            'badge_border' => $hasDanger ? '#fca5a5' : ($hasWarning ? '#fcd34d' : '#86efac'),
+            'icon' => $hasDanger ? 'fa-triangle-exclamation' : ($hasWarning ? 'fa-circle-exclamation' : 'fa-circle-check'),
+            'desc' => $hasDanger ? 'Ditemukan kendala teknis pada mesin/komputer yang memerlukan tindak lanjut teknisi.' : ($hasWarning ? 'Terdapat catatan perawatan berkala yang perlu segera diselesaikan oleh promotor.' : 'Seluruh komponen mesin tinting dan sistem komputer dalam status optimal dan siap operasi.')
+        ];
+
+        $suppressDailyMaintenanceFields = [
+            'tipe_mesin_post',
+            'tipe_mesin',
+            'jenis_mesin',
+            'tipe_mesin_tinting',
+            'no_mesin_post',
+            'nomor_mesin_post',
+            'no_mesin',
+            'nomor_seri_mesin',
+            'status_nozzle_cleaning',
+            'nozzle_cleaning',
+            'kebersihan_nozzle',
+            'status_kebersihan_nozzle',
+            'status_sirkulasi_tinter',
+            'sirkulasi_tinter',
+            'sirkulasi_pasta_tinter',
+            'status_software_komputer',
+            'software_komputer',
+            'kondisi_komputer',
+            'status_program_mix2win',
+            'program_mix2win',
+            'mix2win',
+            'aplikasi_mix2win',
+            'kesimpulan_maintenance',
+            'kesimpulan',
+            'catatan_maintenance',
+            'keterangan',
+            'foto_brush_cleaning',
+            'foto_mesin_tinting',
+            'foto_nozzle_cleaning',
+            'foto_1',
+            'foto_2',
+            'foto_3',
+        ];
+
         // Separate text inputs and photo/media attachments to prevent tall empty grid cards
-        $textValues = $submission->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields, $hasDynamicOfftakeItems, $suppressOfftakeFields, $hasDynamicOosItems, $suppressOosFields, $hasDynamicStockItems, $suppressStockFields, $isCustomerDbReport, $suppressCustomerFields) {
+        $textValues = $submission->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields, $hasDynamicOfftakeItems, $suppressOfftakeFields, $hasDynamicOosItems, $suppressOosFields, $hasDynamicStockItems, $suppressStockFields, $isCustomerDbReport, $suppressCustomerFields, $isDailyMaintenanceReport, $suppressDailyMaintenanceFields) {
             $isMedia = in_array($val->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])
                 || !empty($val->media_url)
                 || !empty($val->file_path);
@@ -1532,6 +1861,12 @@
 
             if ($isCustomerDbReport) {
                 if (in_array($fn, $suppressCustomerFields) || in_array($flClean, $suppressCustomerFields)) {
+                    return false;
+                }
+            }
+
+            if ($isDailyMaintenanceReport) {
+                if (in_array($fn, $suppressDailyMaintenanceFields) || in_array($flClean, $suppressDailyMaintenanceFields)) {
                     return false;
                 }
             }
@@ -2069,6 +2404,70 @@
                     </div>
                 </div>
             </div>
+        @elseif($isDailyMaintenanceReport)
+            <div class="dm-summary-grid">
+                {{-- CARD 1: IDENTITAS MESIN --}}
+                <div class="dm-stat-card">
+                    <div class="dm-stat-icon blue">
+                        <i class="fa-solid fa-gears"></i>
+                    </div>
+                    <div class="dm-stat-info">
+                        <span class="dm-stat-label">Mesin Tinting POS</span>
+                        <span class="dm-stat-value" title="{{ $dmTipeMesin }}">{{ Str::limit($dmTipeMesin, 22) }}</span>
+                        <span class="dm-stat-sub">
+                            <i class="fa-solid fa-barcode" style="color: #0F52BA;"></i> S/N: {{ $dmNoMesin ?: '-' }}
+                        </span>
+                    </div>
+                </div>
+
+                {{-- CARD 2: KEBERSIHAN NOZZLE & BRUSH --}}
+                <div class="dm-stat-card">
+                    <div class="dm-stat-icon {{ $nozzleTone['type'] === 'danger' ? 'rose' : ($nozzleTone['type'] === 'warning' ? 'amber' : 'emerald') }}">
+                        <i class="fa-solid {{ $nozzleTone['type'] === 'danger' ? 'fa-triangle-exclamation' : ($nozzleTone['type'] === 'warning' ? 'fa-broom' : 'fa-spray-can-sparkles') }}"></i>
+                    </div>
+                    <div class="dm-stat-info">
+                        <span class="dm-stat-label">Kebersihan Nozzle</span>
+                        <span class="dm-stat-value" style="color: {{ $nozzleTone['color'] }}; font-size: 1.05rem;" title="{{ $dmNozzle }}">
+                            {{ Str::limit($dmNozzle, 25) }}
+                        </span>
+                        <span class="dm-stat-sub">
+                            <i class="fa-solid {{ $nozzleTone['icon'] }}" style="color: {{ $nozzleTone['color'] }};"></i> Brush & Sponge Cleaning
+                        </span>
+                    </div>
+                </div>
+
+                {{-- CARD 3: SIRKULASI PASTA TINTER --}}
+                <div class="dm-stat-card">
+                    <div class="dm-stat-icon {{ $sirkulasiTone['type'] === 'danger' ? 'rose' : ($sirkulasiTone['type'] === 'warning' ? 'amber' : 'emerald') }}">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </div>
+                    <div class="dm-stat-info">
+                        <span class="dm-stat-label">Sirkulasi Tinter</span>
+                        <span class="dm-stat-value" style="color: {{ $sirkulasiTone['color'] }}; font-size: 1.05rem;" title="{{ $dmSirkulasi }}">
+                            {{ Str::limit($dmSirkulasi, 25) }}
+                        </span>
+                        <span class="dm-stat-sub">
+                            <i class="fa-solid {{ $sirkulasiTone['icon'] }}" style="color: {{ $sirkulasiTone['color'] }};"></i> Agitasi & Aliran Pigmen
+                        </span>
+                    </div>
+                </div>
+
+                {{-- CARD 4: SOFTWARE MIX2WIN & KOMPUTER --}}
+                <div class="dm-stat-card">
+                    <div class="dm-stat-icon {{ ($softwareTone['type'] === 'danger' || $mix2winTone['type'] === 'danger') ? 'rose' : (($softwareTone['type'] === 'warning' || $mix2winTone['type'] === 'warning') ? 'amber' : 'purple') }}">
+                        <i class="fa-solid fa-laptop-code"></i>
+                    </div>
+                    <div class="dm-stat-info">
+                        <span class="dm-stat-label">Software & Mix2Win</span>
+                        <span class="dm-stat-value" style="font-size: 1.02rem;" title="{{ $dmMix2win }}">
+                            Mix2Win: <strong style="color: {{ $mix2winTone['color'] }};">{{ Str::limit($dmMix2win, 18) }}</strong>
+                        </span>
+                        <span class="dm-stat-sub" title="{{ $dmSoftware }}">
+                            PC: <strong style="color: {{ $softwareTone['color'] }};">{{ Str::limit($dmSoftware, 20) }}</strong>
+                        </span>
+                    </div>
+                </div>
+            </div>
         @endif
 
         {{-- SECTION 2: SPLIT CONTENT (DATA FORM TABLE + PHOTO GALLERY) --}}
@@ -2541,6 +2940,160 @@
                                 </div>
                             </div>
                         @endif
+                    </div>
+
+                    @if($textValues->isNotEmpty())
+                        <div style="border-top: 1px solid var(--border-color); padding: 0.75rem 1.25rem 0.25rem 1.25rem;">
+                            <span style="font-size: 0.78rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Parameter Tambahan</span>
+                        </div>
+                    @endif
+                @elseif($isDailyMaintenanceReport)
+                    <div class="panel-header" style="background: linear-gradient(135deg, rgba(15,82,186,0.06) 0%, rgba(2,132,199,0.04) 100%);">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-screwdriver-wrench" style="color: #0F52BA;"></i>
+                            <span>Hasil Inspeksi & Checklist Maintenance Mesin Tinting</span>
+                        </div>
+                        <span class="panel-count-badge" style="background: #e0f2fe; color: #0369a1; font-weight: 800;">
+                            Daily Checklist
+                        </span>
+                    </div>
+
+                    <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1.15rem;">
+                        {{-- 1. IDENTITAS MESIN & STATUS KESEHATAN SISTEM --}}
+                        <div class="dm-machine-banner">
+                            <div class="dm-machine-left">
+                                <div class="dm-machine-icon">
+                                    <i class="fa-solid fa-gears"></i>
+                                </div>
+                                <div>
+                                    <div class="dm-machine-title">{{ $dmTipeMesin }}</div>
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span class="dm-machine-sn">
+                                            <i class="fa-solid fa-barcode"></i> S/N: {{ $dmNoMesin ?: '-' }}
+                                        </span>
+                                        <span style="font-size: 0.8rem; color: var(--text-muted);">
+                                            Petugas: <strong>{{ $employee?->full_name ?? $employee?->name ?? '-' }}</strong>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="dm-health-badge" style="background: {{ $machineHealth['badge_bg'] }}; color: {{ $machineHealth['badge_color'] }}; border-color: {{ $machineHealth['badge_border'] }};">
+                                    <i class="fa-solid {{ $machineHealth['icon'] }}"></i>
+                                    <span>{{ $machineHealth['status'] }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- 2. 4-POINT TECHNICAL INSPECTION CHECKLIST GRID --}}
+                        <div class="dm-checklist-grid">
+                            {{-- POINT 1: NOZZLE CLEANING --}}
+                            <div class="dm-item-card">
+                                <div>
+                                    <div class="dm-item-header">
+                                        <div class="dm-item-title-group">
+                                            <div class="dm-item-icon" style="background: {{ $nozzleTone['bg'] }}; color: {{ $nozzleTone['color'] }};">
+                                                <i class="fa-solid fa-spray-can-sparkles"></i>
+                                            </div>
+                                            <div>
+                                                <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Poin 1</span>
+                                                <div class="dm-item-label">Nozzle & Sponge Cleaning</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="dm-status-pill" style="background: {{ $nozzleTone['bg'] }}; color: {{ $nozzleTone['color'] }}; border-color: {{ $nozzleTone['border'] }};">
+                                        <i class="fa-solid {{ $nozzleTone['icon'] }}"></i>
+                                        <span>{{ $dmNozzle }}</span>
+                                    </div>
+                                    <div class="dm-item-desc">
+                                        Pembersihan lubang nozzle dispenser dengan sikat halus & air hangat untuk mencegah pengeringan pigmen tinter.
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- POINT 2: SIRKULASI TINTER --}}
+                            <div class="dm-item-card">
+                                <div>
+                                    <div class="dm-item-header">
+                                        <div class="dm-item-title-group">
+                                            <div class="dm-item-icon" style="background: {{ $sirkulasiTone['bg'] }}; color: {{ $sirkulasiTone['color'] }};">
+                                                <i class="fa-solid fa-arrows-rotate"></i>
+                                            </div>
+                                            <div>
+                                                <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Poin 2</span>
+                                                <div class="dm-item-label">Sirkulasi Pasta Tinter</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="dm-status-pill" style="background: {{ $sirkulasiTone['bg'] }}; color: {{ $sirkulasiTone['color'] }}; border-color: {{ $sirkulasiTone['border'] }};">
+                                        <i class="fa-solid {{ $sirkulasiTone['icon'] }}"></i>
+                                        <span>{{ $dmSirkulasi }}</span>
+                                    </div>
+                                    <div class="dm-item-desc">
+                                        Pengadukan otomatis (purging & stirring) tabung canister warna agar konsistensi pigmen merata sebelum dispensing.
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- POINT 3: SOFTWARE KOMPUTER --}}
+                            <div class="dm-item-card">
+                                <div>
+                                    <div class="dm-item-header">
+                                        <div class="dm-item-title-group">
+                                            <div class="dm-item-icon" style="background: {{ $softwareTone['bg'] }}; color: {{ $softwareTone['color'] }};">
+                                                <i class="fa-solid fa-desktop"></i>
+                                            </div>
+                                            <div>
+                                                <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Poin 3</span>
+                                                <div class="dm-item-label">Sistem Operasi / PC</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="dm-status-pill" style="background: {{ $softwareTone['bg'] }}; color: {{ $softwareTone['color'] }}; border-color: {{ $softwareTone['border'] }};">
+                                        <i class="fa-solid {{ $softwareTone['icon'] }}"></i>
+                                        <span>{{ $dmSoftware }}</span>
+                                    </div>
+                                    <div class="dm-item-desc">
+                                        Kondisi perangkat keras komputer, respon sistem operasi, dan komunikasi kabel port COM/USB ke mesin tinting.
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- POINT 4: PROGRAM MIX2WIN --}}
+                            <div class="dm-item-card">
+                                <div>
+                                    <div class="dm-item-header">
+                                        <div class="dm-item-title-group">
+                                            <div class="dm-item-icon" style="background: {{ $mix2winTone['bg'] }}; color: {{ $mix2winTone['color'] }};">
+                                                <i class="fa-solid fa-flask"></i>
+                                            </div>
+                                            <div>
+                                                <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Poin 4</span>
+                                                <div class="dm-item-label">Program Formula Mix2Win</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="dm-status-pill" style="background: {{ $mix2winTone['bg'] }}; color: {{ $mix2winTone['color'] }}; border-color: {{ $mix2winTone['border'] }};">
+                                        <i class="fa-solid {{ $mix2winTone['icon'] }}"></i>
+                                        <span>{{ $dmMix2win }}</span>
+                                    </div>
+                                    <div class="dm-item-desc">
+                                        Aplikasi formulasi warna Dulux Mix2Win siap pakai, database formula update, dan siap melayani order tinting konsumen.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- 3. KESIMPULAN & REKOMENDASI MAINTENANCE --}}
+                        <div class="dm-conclusion-card">
+                            <div class="dm-conclusion-title">
+                                <i class="fa-solid fa-clipboard-check" style="color: #0F52BA;"></i>
+                                <span>Kesimpulan & Catatan Maintenance</span>
+                            </div>
+                            <p class="dm-conclusion-text">
+                                {{ $dmKesimpulan ?: $machineHealth['desc'] }}
+                            </p>
+                        </div>
                     </div>
 
                     @if($textValues->isNotEmpty())

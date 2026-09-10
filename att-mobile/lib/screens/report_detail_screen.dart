@@ -7,6 +7,7 @@ import 'package:att_mobile/models/report_template_model.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/screens/dynamic_form_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ReportDetailScreen extends StatefulWidget {
   final ReportSubmissionModel submission;
@@ -138,6 +139,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _launchWhatsApp(String phone) async {
+    String cleanNumber = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanNumber.startsWith('0')) {
+      cleanNumber = '62${cleanNumber.substring(1)}';
+    } else if (cleanNumber.startsWith('8')) {
+      cleanNumber = '62$cleanNumber';
+    }
+    final uri = Uri.parse('https://wa.me/$cleanNumber');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -645,6 +659,167 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               }
             }
 
+            // ── Cek dan Ekstraksi Laporan Data Pelanggan ──
+            final isCustomerDbReport = tmplCode.contains('DATABASE-PELANGGAN') ||
+                tmplCode.contains('DATA-PELANGGAN') ||
+                tmplCode.contains('DATABASE_PELANGGAN') ||
+                tmplCode.contains('DATA_PELANGGAN') ||
+                tmplTitle.contains('DATA PELANGGAN') ||
+                tmplTitle.contains('DATABASE PELANGGAN') ||
+                tmplTitle.contains('KONSUMEN');
+
+            final Map<String, dynamic> custValMap = {};
+            if (isCustomerDbReport) {
+              for (final v in _currentSubmission.values) {
+                final fn = v.fieldName.toLowerCase();
+                final fl = v.fieldLabel.toLowerCase().replaceAll(' ', '_');
+                final val = v.valueText ?? (v.valueNumber != null ? (v.valueNumber! % 1 == 0 ? v.valueNumber!.toInt().toString() : v.valueNumber.toString()) : (v.valueJson != null ? jsonEncode(v.valueJson) : null));
+                if (val != null) {
+                  custValMap[fn] = val;
+                  custValMap[fl] = val;
+                }
+              }
+            }
+
+            final custNama = (custValMap['nama_lengkap_pelanggan'] ?? custValMap['nama_pelanggan'] ?? custValMap['nama_konsumen'] ?? custValMap['nama'] ?? '-').toString().trim();
+            final custPhone = (custValMap['nomor_hp_whatsapp_pelanggan'] ?? custValMap['no_hp_pelanggan'] ?? custValMap['nomor_hp'] ?? custValMap['no_hp'] ?? '-').toString().trim();
+            final custAlamat = (custValMap['alamat_domisili_pelanggan'] ?? custValMap['alamat_pelanggan'] ?? custValMap['alamat_konsumen'] ?? custValMap['alamat'] ?? '-').toString().trim();
+            final custTipe = (custValMap['tipe_kategori_pelanggan'] ?? custValMap['tipe_pelanggan'] ?? custValMap['tipe_konsumen'] ?? 'Pemilik Rumah').toString().trim();
+            final custTujuan = (custValMap['tujuan_datang_ke_toko'] ?? custValMap['tujuan_ke_toko'] ?? custValMap['tujuan'] ?? 'Membeli Cat').toString().trim();
+            final custBrandDicari = (custValMap['brand_cat_yang_awalnya_dicari_ditanyakan'] ?? custValMap['brand_dicari'] ?? custValMap['brand_awalnya_dicari'] ?? '-').toString().trim();
+            final custBrandDibeli = (custValMap['brand_cat_yang_akhirnya_dibeli'] ?? custValMap['brand_dibeli'] ?? custValMap['brand_akhirnya_dibeli'] ?? '-').toString().trim();
+            final custAlasan = (custValMap['alasan_konsumen_memilih_brand_tersebut'] ?? custValMap['alasan_pilih_brand'] ?? custValMap['alasan_memilih'] ?? 'Rekomendasi Promotor').toString().trim();
+            final custTipePengecatan = (custValMap['tipe_pekerjaan_pengecatan'] ?? custValMap['tipe_pengecatan'] ?? '-').toString().trim();
+            final custPreview = (custValMap['apakah_memerlukan_preview_warna_visualizer'] ?? custValMap['memerlukan_preview'] ?? custValMap['preview_warna'] ?? 'Tidak').toString().trim();
+            final rawCustVal = custValMap['estimasi_total_nilai_pembelian_rupiah'] ?? custValMap['total_estimasi_nilai_pembelian_rupiah'] ?? custValMap['value_pembelian_rp'] ?? custValMap['value_pembelian'] ?? '0';
+            final custNilaiBelanja = double.tryParse(rawCustVal.toString().replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+            final custLoyalty = (custValMap['program_mitra_dulux_painter_loyalty'] ?? custValMap['painter_loyalty'] ?? custValMap['program_mitra_dulux'] ?? 'Tidak Bersedia').toString().trim();
+            final custCatatan = (custValMap['catatan_khusus_keterangan'] ?? custValMap['catatan_khusus_pelanggan'] ?? custValMap['keterangan'] ?? custValMap['catatan_pelanggan'] ?? '').toString().trim();
+
+            final isDuluxBought = custBrandDibeli.toLowerCase().contains('dulux') || custBrandDibeli.toLowerCase().contains('catylac') || custBrandDibeli.toLowerCase().contains('aquashield');
+            final isDuluxSought = custBrandDicari.toLowerCase().contains('dulux') || custBrandDicari.toLowerCase().contains('catylac') || custBrandDicari.toLowerCase().contains('aquashield');
+            final isBrandSwitch = isDuluxBought && !isDuluxSought && custBrandDicari.isNotEmpty && custBrandDicari != '-';
+            final isLoyalDulux = isDuluxBought && isDuluxSought;
+            final isCompetitorBought = !isDuluxBought && custBrandDibeli.isNotEmpty && custBrandDibeli != '-' && !custBrandDibeli.toLowerCase().contains('tidak jadi');
+
+            final suppressCustomerFields = {
+              'nama_pelanggan',
+              'nama_lengkap_pelanggan',
+              'nama_konsumen',
+              'nama',
+              'no_hp_pelanggan',
+              'nomor_hp_whatsapp_pelanggan',
+              'nomor_hp_pelanggan',
+              'no_hp',
+              'alamat_pelanggan',
+              'alamat_domisili_pelanggan',
+              'alamat_konsumen',
+              'alamat',
+              'tipe_pelanggan',
+              'tipe_kategori_pelanggan',
+              'tipe_konsumen',
+              'tujuan_ke_toko',
+              'tujuan_datang_ke_toko',
+              'brand_dicari',
+              'brand_cat_yang_awalnya_dicari_ditanyakan',
+              'brand_dibeli',
+              'brand_cat_yang_akhirnya_dibeli',
+              'alasan_pilih_brand',
+              'alasan_konsumen_memilih_brand_tersebut',
+              'tipe_pengecatan',
+              'tipe_pekerjaan_pengecatan',
+              'memerlukan_preview',
+              'apakah_memerlukan_preview_warna_visualizer',
+              'value_pembelian_rp',
+              'estimasi_total_nilai_pembelian_rupiah',
+              'total_estimasi_nilai_pembelian_rupiah',
+              'painter_loyalty',
+              'program_mitra_dulux_painter_loyalty',
+              'keterangan',
+              'catatan_khusus_keterangan',
+              'catatan_khusus_pelanggan',
+              'catatan_pelanggan',
+              'foto_1',
+              'foto_2',
+              'foto_3',
+              'foto_interaksi_pelanggan',
+            };
+
+            final custPhotoValues = _currentSubmission.values.where((v) {
+              final fn = v.fieldName.toLowerCase();
+              final isPhoto = ['photo', 'camera_photo', 'multi_photo'].contains(v.fieldType) || (v.mediaFullUrl != null && v.mediaFullUrl!.isNotEmpty) || v.mediaFullUrls.isNotEmpty;
+              return isPhoto && (fn.contains('foto') || fn.contains('struk') || fn.contains('pelanggan') || fn.contains('interaksi'));
+            }).toList();
+
+            // ── Cek dan Ekstraksi Laporan Daily Maintenance ──
+            final isDailyMaintenanceReport = tmplCode.contains('DAILY-MAINTENANCE') ||
+                tmplCode.contains('DAILY_MAINTENANCE') ||
+                tmplTitle.contains('DAILY MAINTENANCE') ||
+                tmplTitle.contains('MAINTENANCE MESIN') ||
+                tmplTitle.contains('PERAWATAN MESIN');
+
+            final Map<String, dynamic> dmValMap = {};
+            if (isDailyMaintenanceReport) {
+              for (final v in _currentSubmission.values) {
+                final fn = v.fieldName.toLowerCase();
+                final fl = v.fieldLabel.toLowerCase().replaceAll(' ', '_');
+                final val = v.valueText ?? (v.valueNumber != null ? (v.valueNumber! % 1 == 0 ? v.valueNumber!.toInt().toString() : v.valueNumber.toString()) : (v.valueJson != null ? jsonEncode(v.valueJson) : null));
+                if (val != null) {
+                  dmValMap[fn] = val;
+                  dmValMap[fl] = val;
+                }
+              }
+            }
+
+            final dmTipeMesin = (dmValMap['tipe_mesin_post'] ?? dmValMap['tipe_mesin'] ?? dmValMap['jenis_mesin'] ?? dmValMap['tipe_mesin_tinting'] ?? '-').toString().trim();
+            final dmNoMesin = (dmValMap['no_mesin_post'] ?? dmValMap['nomor_mesin_post'] ?? dmValMap['no_mesin'] ?? dmValMap['nomor_seri_mesin'] ?? '-').toString().trim();
+            final dmNozzle = (dmValMap['status_nozzle_cleaning'] ?? dmValMap['nozzle_cleaning'] ?? dmValMap['kebersihan_nozzle'] ?? dmValMap['status_kebersihan_nozzle'] ?? '-').toString().trim();
+            final dmSirkulasi = (dmValMap['status_sirkulasi_tinter'] ?? dmValMap['sirkulasi_tinter'] ?? dmValMap['sirkulasi_pasta_tinter'] ?? '-').toString().trim();
+            final dmSoftware = (dmValMap['status_software_komputer'] ?? dmValMap['software_komputer'] ?? dmValMap['kondisi_komputer'] ?? '-').toString().trim();
+            final dmMix2win = (dmValMap['status_program_mix2win'] ?? dmValMap['program_mix2win'] ?? dmValMap['mix2win'] ?? dmValMap['aplikasi_mix2win'] ?? '-').toString().trim();
+            final dmKesimpulan = (dmValMap['kesimpulan_maintenance'] ?? dmValMap['kesimpulan'] ?? dmValMap['catatan_maintenance'] ?? dmValMap['keterangan'] ?? '').toString().trim();
+
+            final suppressDailyMaintenanceFields = {
+              'tipe_mesin_post',
+              'tipe_mesin',
+              'jenis_mesin',
+              'tipe_mesin_tinting',
+              'no_mesin_post',
+              'nomor_mesin_post',
+              'no_mesin',
+              'nomor_seri_mesin',
+              'status_nozzle_cleaning',
+              'nozzle_cleaning',
+              'kebersihan_nozzle',
+              'status_kebersihan_nozzle',
+              'status_sirkulasi_tinter',
+              'sirkulasi_tinter',
+              'sirkulasi_pasta_tinter',
+              'status_software_komputer',
+              'software_komputer',
+              'kondisi_komputer',
+              'status_program_mix2win',
+              'program_mix2win',
+              'mix2win',
+              'aplikasi_mix2win',
+              'kesimpulan_maintenance',
+              'kesimpulan',
+              'catatan_maintenance',
+              'keterangan',
+              'foto_brush_cleaning',
+              'foto_mesin_tinting',
+              'foto_nozzle_cleaning',
+              'foto_1',
+              'foto_2',
+              'foto_3',
+            };
+
+            final dmPhotoValues = _currentSubmission.values.where((v) {
+              final fn = v.fieldName.toLowerCase();
+              final isPhoto = ['photo', 'camera_photo', 'multi_photo'].contains(v.fieldType) || (v.mediaFullUrl != null && v.mediaFullUrl!.isNotEmpty) || v.mediaFullUrls.isNotEmpty;
+              return isPhoto && (fn.contains('foto') || fn.contains('brush') || fn.contains('mesin') || fn.contains('cleaning') || fn.contains('tinting'));
+            }).toList();
+
             final displayValues = _currentSubmission.values.where((val) {
               final fn = val.fieldName.toLowerCase();
               final fl = val.fieldLabel.toLowerCase().replaceAll(' ', '_');
@@ -675,6 +850,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               }
               if (hasDynamicStock) {
                 if (suppressStockFields.contains(fn) || suppressStockFields.contains(fl)) {
+                  return false;
+                }
+              }
+              if (isCustomerDbReport) {
+                if (suppressCustomerFields.contains(fn) || suppressCustomerFields.contains(fl)) {
+                  return false;
+                }
+              }
+              if (isDailyMaintenanceReport) {
+                if (suppressDailyMaintenanceFields.contains(fn) || suppressDailyMaintenanceFields.contains(fl)) {
                   return false;
                 }
               }
@@ -889,15 +1074,144 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   const SizedBox(height: 12),
                 ],
 
+                // ── 1.7. Panel Custom Laporan Data Pelanggan Dulux ──
+                if (isCustomerDbReport) ...[
+                  _buildCustomerDbSummaryGrid(
+                    nama: custNama,
+                    phone: custPhone,
+                    tipe: custTipe,
+                    tujuan: custTujuan,
+                    brandDicari: custBrandDicari,
+                    brandDibeli: custBrandDibeli,
+                    alasan: custAlasan,
+                    nilaiBelanja: custNilaiBelanja,
+                    preview: custPreview,
+                    loyalty: custLoyalty,
+                    isBrandSwitch: isBrandSwitch,
+                    isLoyalDulux: isLoyalDulux,
+                    isDuluxBought: isDuluxBought,
+                    cardColor: cardColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    isDarkMode: isDarkMode,
+                  ),
+                  const SizedBox(height: 8),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'PROFIL & ANALISIS PERILAKU PELANGGAN',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F52BA).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'Database Konsumen',
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF0F52BA)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _buildCustomerDbDetailCard(
+                    nama: custNama,
+                    phone: custPhone,
+                    alamat: custAlamat,
+                    tipe: custTipe,
+                    tujuan: custTujuan,
+                    brandDicari: custBrandDicari,
+                    brandDibeli: custBrandDibeli,
+                    alasan: custAlasan,
+                    tipePengecatan: custTipePengecatan,
+                    preview: custPreview,
+                    nilaiBelanja: custNilaiBelanja,
+                    loyalty: custLoyalty,
+                    catatan: custCatatan,
+                    isBrandSwitch: isBrandSwitch,
+                    isLoyalDulux: isLoyalDulux,
+                    isCompetitorBought: isCompetitorBought,
+                    isDuluxBought: isDuluxBought,
+                    photoValues: custPhotoValues,
+                    cardColor: cardColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    elevatedColor: elevatedColor,
+                    primaryColor: primaryColor,
+                    isDarkMode: isDarkMode,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // ── 1.8. Panel Custom Laporan Daily Maintenance Mesin Tinting ──
+                if (isDailyMaintenanceReport) ...[
+                  _buildDailyMaintenanceSummaryGrid(
+                    tipeMesin: dmTipeMesin,
+                    noMesin: dmNoMesin,
+                    nozzle: dmNozzle,
+                    sirkulasi: dmSirkulasi,
+                    software: dmSoftware,
+                    mix2win: dmMix2win,
+                    cardColor: cardColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    isDarkMode: isDarkMode,
+                  ),
+                  const SizedBox(height: 8),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'CHECKLIST INSPEKSI TEKNIS MESIN TINTING',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'Daily Maintenance',
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDailyMaintenanceDetailCard(
+                    tipeMesin: dmTipeMesin,
+                    noMesin: dmNoMesin,
+                    nozzle: dmNozzle,
+                    sirkulasi: dmSirkulasi,
+                    software: dmSoftware,
+                    mix2win: dmMix2win,
+                    kesimpulan: dmKesimpulan,
+                    photoValues: dmPhotoValues,
+                    cardColor: cardColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    elevatedColor: elevatedColor,
+                    primaryColor: primaryColor,
+                    isDarkMode: isDarkMode,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
                 // ── 3. Parameter Tambahan / Standar Form ──
                 if (displayValues.isNotEmpty) ...[
                   Text(
-                    (hasDynamicOfftake || hasDynamicOos || isNoOos || hasDynamicStock) ? 'PARAMETER TAMBAHAN' : 'RINCIAN DATA LAPORAN',
+                    (hasDynamicOfftake || hasDynamicOos || isNoOos || hasDynamicStock || isCustomerDbReport || isDailyMaintenanceReport) ? 'PARAMETER TAMBAHAN' : 'RINCIAN DATA LAPORAN',
                     style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
                   ),
                   const SizedBox(height: 8),
                   ...displayValues.map((val) => _buildValueCard(val, cardColor, textColor, subtitleColor, elevatedColor, primaryColor, isDarkMode)),
-                ] else if (!hasDynamicOfftake && !hasDynamicOos && !isNoOos && !hasDynamicStock) ...[
+                ] else if (!hasDynamicOfftake && !hasDynamicOos && !isNoOos && !hasDynamicStock && !isCustomerDbReport && !isDailyMaintenanceReport) ...[
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -1740,6 +2054,1113 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 ),
               ],
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── HELPER WIDGETS DETAIL LAPORAN DATA PELANGGAN ───
+  Widget _buildCustomerDbSummaryGrid({
+    required String nama,
+    required String phone,
+    required String tipe,
+    required String tujuan,
+    required String brandDicari,
+    required String brandDibeli,
+    required String alasan,
+    required double nilaiBelanja,
+    required String preview,
+    required String loyalty,
+    required bool isBrandSwitch,
+    required bool isLoyalDulux,
+    required bool isDuluxBought,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required bool isDarkMode,
+  }) {
+    final currencyFmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.person_rounded,
+                  iconColor: const Color(0xFF0F52BA),
+                  iconBgColor: const Color(0xFF0F52BA).withOpacity(0.12),
+                  label: 'Profil Konsumen',
+                  value: nama,
+                  valueColor: const Color(0xFF0F52BA),
+                  subText: tipe,
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: isBrandSwitch
+                      ? Icons.shuffle_rounded
+                      : (isLoyalDulux ? Icons.shield_rounded : Icons.shopping_bag_outlined),
+                  iconColor: isBrandSwitch
+                      ? const Color(0xFF0284C7)
+                      : (isDuluxBought ? const Color(0xFF10B981) : const Color(0xFFE11D48)),
+                  iconBgColor: (isBrandSwitch
+                          ? const Color(0xFF0284C7)
+                          : (isDuluxBought ? const Color(0xFF10B981) : const Color(0xFFE11D48)))
+                      .withOpacity(0.12),
+                  label: 'Brand Dibeli',
+                  value: brandDibeli,
+                  valueColor: isBrandSwitch
+                      ? const Color(0xFF0284C7)
+                      : (isDuluxBought ? const Color(0xFF15803D) : const Color(0xFFE11D48)),
+                  subText: isBrandSwitch
+                      ? 'Switch ke Dulux'
+                      : (isLoyalDulux ? 'Loyal Dulux' : 'Cari: $brandDicari'),
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.receipt_long_rounded,
+                  iconColor: const Color(0xFF10B981),
+                  iconBgColor: const Color(0xFF10B981).withOpacity(0.12),
+                  label: 'Nilai Pembelian',
+                  value: nilaiBelanja > 0 ? currencyFmt.format(nilaiBelanja) : 'Rp 0',
+                  valueColor: const Color(0xFF15803D),
+                  subText: tujuan,
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.palette_outlined,
+                  iconColor: const Color(0xFF8B5CF6),
+                  iconBgColor: const Color(0xFF8B5CF6).withOpacity(0.12),
+                  label: 'Visualizer & Mitra',
+                  value: preview.toLowerCase().contains('ya') ? 'Visualizer: Ya' : 'Tanpa Demo',
+                  valueColor: const Color(0xFF7C3AED),
+                  subText: (loyalty.toLowerCase().contains('bersedia') && !loyalty.toLowerCase().contains('tidak'))
+                      ? 'Mitra: Bersedia'
+                      : 'Bukan Mitra',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomerDbDetailCard({
+    required String nama,
+    required String phone,
+    required String alamat,
+    required String tipe,
+    required String tujuan,
+    required String brandDicari,
+    required String brandDibeli,
+    required String alasan,
+    required String tipePengecatan,
+    required String preview,
+    required double nilaiBelanja,
+    required String loyalty,
+    required String catatan,
+    required bool isBrandSwitch,
+    required bool isLoyalDulux,
+    required bool isCompetitorBought,
+    required bool isDuluxBought,
+    required List<ReportSubmissionValueModel> photoValues,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color elevatedColor,
+    required Color primaryColor,
+    required bool isDarkMode,
+  }) {
+    final currencyFmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final initials = nama.isNotEmpty ? nama.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase() : 'P';
+    final hasValidPhone = phone.isNotEmpty && phone != '-';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: primaryColor.withOpacity(0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── A. Persona Header (Avatar, Nama, Segmen, WA) ──
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0F52BA), Color(0xFF0284C7)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0F52BA).withOpacity(0.25),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  initials,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      nama,
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFBAE6FD)),
+                          ),
+                          child: Text(
+                            tipe,
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0369A1)),
+                          ),
+                        ),
+                        if (loyalty.toLowerCase().contains('bersedia') && !loyalty.toLowerCase().contains('tidak'))
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFF86EFAC)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.stars_rounded, size: 12, color: Color(0xFF15803D)),
+                                SizedBox(width: 3),
+                                Text(
+                                  'Mitra Dulux',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+          // ── Kontak & Lokasi ──
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: elevatedColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.phone_outlined, size: 14, color: Colors.grey),
+                        const SizedBox(width: 6),
+                        Text(
+                          phone,
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+                        ),
+                      ],
+                    ),
+                    if (hasValidPhone)
+                      InkWell(
+                        onTap: () => _launchWhatsApp(phone),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF25D366),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.chat_bubble_outline_rounded, size: 12, color: Colors.white),
+                              SizedBox(width: 4),
+                              Text(
+                                'Chat WA',
+                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (alamat.isNotEmpty && alamat != '-') ...[
+                  const Divider(height: 12, thickness: 0.5),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          alamat,
+                          style: TextStyle(fontSize: 11.5, color: subtitleColor, height: 1.25),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // ── B. Buying Journey Alert Banner ──
+          if (isBrandSwitch)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF86EFAC)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.track_changes_rounded, color: Color(0xFF16A34A), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '🎯 Brand Switching Berhasil!',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Konsumen awalnya mencari "$brandDicari", dan beralih membeli produk "$brandDibeli".',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF15803D), height: 1.3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (isLoyalDulux)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.shield_outlined, color: Color(0xFF2563EB), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '🛡️ Konsumen Loyal Dulux',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Konsumen konsisten mencari dan membeli produk "$brandDibeli".',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF1D4ED8), height: 1.3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (isCompetitorBought)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFED7AA)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFEA580C), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '⚠️ Membeli Brand Kompetitor',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF9A3412)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Konsumen memutuskan membeli "$brandDibeli" (Awal dicari: $brandDicari).',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFFC2410C), height: 1.3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // ── C. Brand Flow Comparison ──
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: elevatedColor,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.search_rounded, size: 12, color: Colors.grey),
+                          SizedBox(width: 4),
+                          Text('AWAL DICARI', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.3)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        brandDicari,
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Icon(Icons.arrow_forward_rounded, size: 18, color: Color(0xFF0F52BA)),
+              ),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: isDuluxBought ? const Color(0xFF0F52BA).withOpacity(0.08) : const Color(0xFFE11D48).withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: (isDuluxBought ? const Color(0xFF0F52BA) : const Color(0xFFE11D48)).withOpacity(0.35)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.shopping_bag_rounded, size: 12, color: isDuluxBought ? const Color(0xFF0F52BA) : const Color(0xFFE11D48)),
+                          const SizedBox(width: 4),
+                          Text('AKHIR DIBELI', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: isDuluxBought ? const Color(0xFF0F52BA) : const Color(0xFFE11D48), letterSpacing: 0.3)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        brandDibeli,
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDuluxBought ? const Color(0xFF0F52BA) : const Color(0xFFE11D48)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // ── D. Atribut & Alasan Memilih ──
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _buildSpecRowBadge('Alasan', alasan, icon: Icons.comment_outlined, textColor: textColor, subtitleColor: subtitleColor, elevatedColor: elevatedColor),
+              _buildSpecRowBadge('Tujuan', tujuan, icon: Icons.store_outlined, textColor: textColor, subtitleColor: subtitleColor, elevatedColor: elevatedColor),
+              if (tipePengecatan.isNotEmpty && tipePengecatan != '-')
+                _buildSpecRowBadge('Pekerjaan', tipePengecatan, icon: Icons.format_paint_outlined, textColor: textColor, subtitleColor: subtitleColor, elevatedColor: elevatedColor),
+              _buildSpecRowBadge('Visualizer', preview, icon: Icons.remove_red_eye_outlined, textColor: textColor, subtitleColor: subtitleColor, elevatedColor: elevatedColor),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // ── E. Estimasi Nilai Belanja Banner ──
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isDarkMode
+                    ? [const Color(0xFF14532D).withOpacity(0.4), const Color(0xFF064E3B).withOpacity(0.3)]
+                    : [const Color(0xFFF0FDF4), const Color(0xFFDCFCE7)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF86EFAC).withOpacity(0.7)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ESTIMASI NILAI PEMBELIAN',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.green.shade300 : const Color(0xFF15803D), letterSpacing: 0.5),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      currencyFmt.format(nilaiBelanja),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDarkMode ? Colors.green.shade100 : const Color(0xFF166534)),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF16A34A).withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF16A34A), size: 22),
+                ),
+              ],
+            ),
+          ),
+
+          // ── F. Catatan Khusus ──
+          if (catatan.isNotEmpty && catatan != '-') ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: elevatedColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border(left: BorderSide(color: Colors.amber.shade700, width: 3.5)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.format_quote_rounded, size: 16, color: Colors.amber.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      catatan,
+                      style: TextStyle(fontSize: 12, color: textColor, fontStyle: FontStyle.italic, height: 1.35),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // ── G. Lampiran Foto Pelanggan / Struk ──
+          if (photoValues.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              'BUKTI FOTO INTERAKSI & STRUK PEMBELIAN',
+              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.5),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: photoValues.expand((val) {
+                final urls = val.mediaFullUrls.isNotEmpty ? val.mediaFullUrls : (val.mediaFullUrl != null ? [val.mediaFullUrl!] : <String>[]);
+                return urls.map((url) {
+                  return GestureDetector(
+                    onTap: () => _showImageDialog(context, url, val.fieldLabel),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          Image.network(
+                            url,
+                            width: 105,
+                            height: 105,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              width: 105,
+                              height: 105,
+                              color: elevatedColor,
+                              alignment: Alignment.center,
+                              child: const Icon(Icons.broken_image_rounded, size: 24, color: Colors.grey),
+                            ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black87,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.zoom_in, size: 10, color: Colors.white),
+                                SizedBox(width: 2),
+                                Text('Perbesar', style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                });
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpecRowBadge(String label, String value, {required IconData icon, required Color textColor, required Color subtitleColor, required Color elevatedColor}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: elevatedColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: subtitleColor),
+          const SizedBox(width: 4),
+          Text('$label: ', style: TextStyle(fontSize: 10.5, color: subtitleColor)),
+          Text(value, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textColor)),
+        ],
+      ),
+    );
+  }
+
+  // ─── HELPER WIDGETS DETAIL DAILY MAINTENANCE MESIN TINTING ───
+  Widget _buildDailyMaintenanceSummaryGrid({
+    required String tipeMesin,
+    required String noMesin,
+    required String nozzle,
+    required String sirkulasi,
+    required String software,
+    required String mix2win,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required bool isDarkMode,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.precision_manufacturing_rounded,
+                  iconColor: const Color(0xFF0F52BA),
+                  iconBgColor: const Color(0xFF0F52BA).withOpacity(0.12),
+                  label: 'Mesin POS',
+                  value: tipeMesin,
+                  valueColor: const Color(0xFF0F52BA),
+                  subText: 'S/N: $noMesin',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.cleaning_services_rounded,
+                  iconColor: const Color(0xFF10B981),
+                  iconBgColor: const Color(0xFF10B981).withOpacity(0.12),
+                  label: 'Nozzle Cleaning',
+                  value: nozzle,
+                  valueColor: const Color(0xFF15803D),
+                  subText: 'Brush & Sponge',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.sync_rounded,
+                  iconColor: const Color(0xFF0284C7),
+                  iconBgColor: const Color(0xFF0284C7).withOpacity(0.12),
+                  label: 'Sirkulasi Tinter',
+                  value: sirkulasi,
+                  valueColor: const Color(0xFF0284C7),
+                  subText: 'Agitasi Pigmen',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.computer_rounded,
+                  iconColor: const Color(0xFF8B5CF6),
+                  iconBgColor: const Color(0xFF8B5CF6).withOpacity(0.12),
+                  label: 'Software & Mix2Win',
+                  value: mix2win,
+                  valueColor: const Color(0xFF7C3AED),
+                  subText: 'PC: $software',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDailyMaintenanceDetailCard({
+    required String tipeMesin,
+    required String noMesin,
+    required String nozzle,
+    required String sirkulasi,
+    required String software,
+    required String mix2win,
+    required String kesimpulan,
+    required List<ReportSubmissionValueModel> photoValues,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color elevatedColor,
+    required Color primaryColor,
+    required bool isDarkMode,
+  }) {
+    Color getStatusColor(String str) {
+      final s = str.toLowerCase();
+      if (s.contains('rusak') || s.contains('tersumbat') || s.contains('error') || s.contains('mati') || s.contains('macet')) {
+        return const Color(0xFFE11D48);
+      }
+      if (s.contains('perlu') || s.contains('kotor') || s.contains('lambat') || s.contains('update') || s.contains('hang')) {
+        return const Color(0xFFD97706);
+      }
+      return const Color(0xFF15803D);
+    }
+
+    final hasIssue = [nozzle, sirkulasi, software, mix2win].any((s) {
+      final l = s.toLowerCase();
+      return l.contains('rusak') || l.contains('error') || l.contains('tersumbat') || l.contains('macet');
+    });
+
+    final hasWarn = [nozzle, sirkulasi, software, mix2win].any((s) {
+      final l = s.toLowerCase();
+      return l.contains('perlu') || l.contains('kotor') || l.contains('lambat') || l.contains('update');
+    });
+
+    final healthText = hasIssue ? 'Kendala Teknis' : (hasWarn ? 'Perlu Perhatian' : 'Kondisi Prima');
+    final healthColor = hasIssue ? const Color(0xFFE11D48) : (hasWarn ? const Color(0xFFD97706) : const Color(0xFF15803D));
+    final healthBg = hasIssue ? const Color(0xFFFEE2E2) : (hasWarn ? const Color(0xFFFEF3C7) : const Color(0xFFDCFCE7));
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: primaryColor.withOpacity(0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Mesin Identity Header ──
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0F52BA), Color(0xFF0284C7)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0F52BA).withOpacity(0.25),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.build_circle_rounded, color: Colors.white, size: 26),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tipeMesin,
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFBAE6FD)),
+                          ),
+                          child: Text(
+                            'S/N: $noMesin',
+                            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF0369A1), fontFamily: 'monospace'),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: healthBg,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            healthText,
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: healthColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          Text(
+            '4-POINT TECHNICAL INSPECTION CHECKLIST',
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.5),
+          ),
+          const SizedBox(height: 10),
+
+          // ── 4 Checklist Cards ──
+          _buildMaintenanceItemCard(
+            pointNumber: '1',
+            title: 'Nozzle & Sponge Cleaning',
+            status: nozzle,
+            statusColor: getStatusColor(nozzle),
+            desc: 'Pembersihan lubang nozzle dispenser dengan sikat & air hangat untuk mencegah pengeringan pigmen tinter.',
+            icon: Icons.cleaning_services_rounded,
+            elevatedColor: elevatedColor,
+            textColor: textColor,
+            subtitleColor: subtitleColor,
+            isDarkMode: isDarkMode,
+          ),
+          const SizedBox(height: 8),
+
+          _buildMaintenanceItemCard(
+            pointNumber: '2',
+            title: 'Sirkulasi Pasta Tinter',
+            status: sirkulasi,
+            statusColor: getStatusColor(sirkulasi),
+            desc: 'Pengadukan otomatis (purging & stirring) canister warna agar konsistensi pigmen merata.',
+            icon: Icons.sync_rounded,
+            elevatedColor: elevatedColor,
+            textColor: textColor,
+            subtitleColor: subtitleColor,
+            isDarkMode: isDarkMode,
+          ),
+          const SizedBox(height: 8),
+
+          _buildMaintenanceItemCard(
+            pointNumber: '3',
+            title: 'Sistem Operasi / Komputer',
+            status: software,
+            statusColor: getStatusColor(software),
+            desc: 'Respon PC, kestabilan OS, serta komunikasi port COM/USB ke dispenser mesin tinting.',
+            icon: Icons.computer_rounded,
+            elevatedColor: elevatedColor,
+            textColor: textColor,
+            subtitleColor: subtitleColor,
+            isDarkMode: isDarkMode,
+          ),
+          const SizedBox(height: 8),
+
+          _buildMaintenanceItemCard(
+            pointNumber: '4',
+            title: 'Program Formula Mix2Win',
+            status: mix2win,
+            statusColor: getStatusColor(mix2win),
+            desc: 'Aplikasi formulasi warna Dulux Mix2Win siap dispensing & database formula up to date.',
+            icon: Icons.science_rounded,
+            elevatedColor: elevatedColor,
+            textColor: textColor,
+            subtitleColor: subtitleColor,
+            isDarkMode: isDarkMode,
+          ),
+
+          const SizedBox(height: 14),
+
+          // ── Kesimpulan ──
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: elevatedColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border(left: BorderSide(color: primaryColor, width: 3.5)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.assignment_turned_in_rounded, size: 16, color: primaryColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      'KESIMPULAN MAINTENANCE',
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: primaryColor, letterSpacing: 0.4),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  kesimpulan.isNotEmpty && kesimpulan != '-'
+                      ? kesimpulan
+                      : (hasIssue
+                          ? 'Ditemukan kendala teknis pada mesin/komputer yang memerlukan tindak lanjut teknisi.'
+                          : (hasWarn
+                              ? 'Terdapat catatan perawatan berkala yang perlu segera diselesaikan oleh promotor.'
+                              : 'Seluruh komponen mesin tinting dan sistem komputer dalam status optimal dan siap melayani konsumen.')),
+                  style: TextStyle(fontSize: 12, color: textColor, height: 1.35),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Lampiran Foto ──
+          if (photoValues.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              'BUKTI FOTO BRUSH CLEANING & MESIN TINTING',
+              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.5),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: photoValues.expand((val) {
+                final urls = val.mediaFullUrls.isNotEmpty ? val.mediaFullUrls : (val.mediaFullUrl != null ? [val.mediaFullUrl!] : <String>[]);
+                return urls.map((url) {
+                  return GestureDetector(
+                    onTap: () => _showImageDialog(context, url, val.fieldLabel),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          Image.network(
+                            url,
+                            width: 105,
+                            height: 105,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              width: 105,
+                              height: 105,
+                              color: elevatedColor,
+                              alignment: Alignment.center,
+                              child: const Icon(Icons.broken_image_rounded, size: 24, color: Colors.grey),
+                            ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black87,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.zoom_in, size: 10, color: Colors.white),
+                                SizedBox(width: 2),
+                                Text('Perbesar', style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                });
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMaintenanceItemCard({
+    required String pointNumber,
+    required String title,
+    required String status,
+    required Color statusColor,
+    required String desc,
+    required IconData icon,
+    required Color elevatedColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required bool isDarkMode,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: elevatedColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F52BA).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      pointNumber,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F52BA)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    title,
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: statusColor.withOpacity(0.3)),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: statusColor),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            desc,
+            style: TextStyle(fontSize: 10.5, color: subtitleColor, height: 1.3),
           ),
         ],
       ),
