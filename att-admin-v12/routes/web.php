@@ -50,23 +50,25 @@ Route::get('/sync-stock-end-dulux', function () {
 
 Route::get('/debug-dulux-check', function () {
     $tmpl = \App\Models\ReportTemplate::where('code', 'RPT-DULUX-STOCK-END')->first();
-    $sub = \App\Models\ReportSubmission::whereRaw('LOWER(submission_code) LIKE ?', ['%7jty%'])->first();
+    $sub = \App\Models\ReportSubmission::where('id', 1609793)->orWhereRaw('LOWER(submission_code) LIKE ?', ['%7jiy%'])->first();
     $latestSubs = $tmpl ? \App\Models\ReportSubmission::where('report_template_id', $tmpl->id)->orderBy('id', 'desc')->limit(5)->get(['id', 'submission_code', 'submitted_at', 'created_at']) : [];
     $subCount = \App\Models\ReportSubmission::count();
     return response()->json([
         'server_ip' => request()->server('SERVER_ADDR'),
         'http_host' => request()->server('HTTP_HOST'),
-        'git_head' => function_exists('shell_exec') ? trim(@shell_exec('git rev-parse --short HEAD 2>&1') ?? '') : 'disabled',
         'view_file_mtime' => [
             'stock_dashboard' => file_exists(resource_path('views/portal/partials/stock_dashboard.blade.php')) ? date('Y-m-d H:i:s', filemtime(resource_path('views/portal/partials/stock_dashboard.blade.php'))) : 'not found',
             'submission_detail' => file_exists(resource_path('views/portal/report_submission_detail.blade.php')) ? date('Y-m-d H:i:s', filemtime(resource_path('views/portal/report_submission_detail.blade.php'))) : 'not found',
         ],
-        'submission_7jty' => $sub ? [
+        'submission_7jiy' => $sub ? [
             'id' => $sub->id,
             'code' => $sub->submission_code,
             'template_id' => $sub->report_template_id,
+            'values_count' => $sub->values->count(),
             'values' => $sub->values->map(fn($v) => [
+                'field_id' => $v->report_form_field_id,
                 'name' => $v->field_name,
+                'form_field_name' => $v->formField?->field_name,
                 'text' => $v->value_text,
                 'json' => $v->value_json,
                 'num' => $v->value_number
