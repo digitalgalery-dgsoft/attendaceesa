@@ -2522,7 +2522,7 @@ class ReportingApiController extends Controller
             $rawItems = is_array($rawOosVal) ? $rawOosVal : json_decode((string)$rawOosVal, true);
             if (is_array($rawItems)) {
                 foreach ($rawItems as $itm) {
-                    $prevLama = (int)($itm['lama_oos_hari'] ?? 0);
+                    $prevLama = max(1, (int)($itm['lama_oos_hari'] ?? 1));
                     $calcLama = $prevLama + $diffDays;
                     $items[] = [
                         'product_id' => $itm['product_id'] ?? null,
@@ -2567,7 +2567,7 @@ class ReportingApiController extends Controller
                 }
                 $pName = trim((string)($sValMap['produk_oos'] ?? ($sValMap['nama_produk_yang_kosong_oos'] ?? '')));
                 if (!empty($pName) && !str_contains(strtolower($pName), 'no oos')) {
-                    $prevLama = (int)($sValMap['lama_oos_hari'] ?? ($sValMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? 0));
+                    $prevLama = max(1, (int)($sValMap['lama_oos_hari'] ?? ($sValMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? 1)));
                     $calcLama = $prevLama + $diffDays;
                     $items[] = [
                         'product_id' => null,

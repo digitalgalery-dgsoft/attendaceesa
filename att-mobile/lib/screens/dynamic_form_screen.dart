@@ -331,8 +331,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   final TextEditingController _oosKemasanSizeCtrl = TextEditingController();
   final TextEditingController _oosBaseWarnaCtrl = TextEditingController();
   final TextEditingController _oosReadyMixColorCtrl = TextEditingController();
-  final TextEditingController _oosLamaHariCtrl = TextEditingController(text: '0');
-  final TextEditingController _oosSaranQtyCtrl = TextEditingController(text: '0');
+  final TextEditingController _oosLamaHariCtrl = TextEditingController(text: '1');
+  final TextEditingController _oosSaranQtyCtrl = TextEditingController(text: '2');
   final TextEditingController _oosAlasanCtrl = TextEditingController();
   final TextEditingController _oosAlasanLainnyaCtrl = TextEditingController();
 
@@ -1125,8 +1125,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       _oosKemasanSizeCtrl.clear();
       _oosBaseWarnaCtrl.clear();
       _oosReadyMixColorCtrl.clear();
-      _oosLamaHariCtrl.text = '0';
-      _oosSaranQtyCtrl.text = '0';
+      _oosLamaHariCtrl.text = '1';
+      _oosSaranQtyCtrl.text = '2';
       _oosAlasanCtrl.clear();
       _oosAlasanLainnyaCtrl.clear();
 
@@ -7773,10 +7773,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         orElse: () => {},
       );
 
-      int calculatedDays = 0;
+      int calculatedDays = 1;
       int prevSaran = 2;
       if (prevMatch.isNotEmpty) {
-        final prevLama = int.tryParse(prevMatch['lama_oos_hari']?.toString() ?? '0') ?? 0;
+        final prevLama = int.tryParse(prevMatch['lama_oos_hari']?.toString() ?? '1') ?? 1;
         calculatedDays = prevLama + _oosDiffDays;
         prevSaran = int.tryParse(prevMatch['saran_qty_order']?.toString() ?? '2') ?? 2;
         if (prevMatch['alasan_oos'] != null && _oosAlasanCtrl.text.isEmpty) {
@@ -7821,7 +7821,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       return;
     }
 
-    final int lamaHari = int.tryParse(_oosLamaHariCtrl.text) ?? 0;
+    final int lamaHari = int.tryParse(_oosLamaHariCtrl.text) ?? 1;
     final int saranQty = int.tryParse(_oosSaranQtyCtrl.text) ?? 2;
     final String kemasan = _oosKemasanSizeCtrl.text.isNotEmpty ? _oosKemasanSizeCtrl.text : 'Galon (2.5 L)';
     final String base = _oosBaseWarnaCtrl.text.isNotEmpty ? _oosBaseWarnaCtrl.text : 'Base A';
@@ -7853,7 +7853,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       _oosKemasanSizeCtrl.clear();
       _oosBaseWarnaCtrl.clear();
       _oosReadyMixColorCtrl.clear();
-      _oosLamaHariCtrl.text = '0';
+      _oosLamaHariCtrl.text = '1';
       _oosSaranQtyCtrl.text = '2';
       _oosAlasanCtrl.clear();
       _oosAlasanLainnyaCtrl.clear();
@@ -7883,7 +7883,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       return;
     }
 
-    final prevLama = int.tryParse(prev['lama_oos_hari']?.toString() ?? '0') ?? 0;
+    final prevLama = int.tryParse(prev['lama_oos_hari']?.toString() ?? '1') ?? 1;
     final int consecutiveDays = prevLama + _oosDiffDays;
     final prevSaran = int.tryParse(prev['saran_qty_order']?.toString() ?? '2') ?? 2;
     final String kemasan = prev['kemasan_size'] ?? prev['kemasan_size_oos'] ?? 'Galon (2.5 L)';
@@ -8730,7 +8730,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                               decoration: BoxDecoration(color: Colors.blue.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
-                              child: const Text('0 jika baru', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blue)),
+                              child: const Text('1 jika baru', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blue)),
                             ),
                           ],
                         ),
@@ -8746,7 +8746,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                             fillColor: elevatedColor,
                             suffixText: 'Hari',
                             suffixStyle: TextStyle(fontSize: 11, color: subtitleColor),
-                            hintText: '0',
+                            hintText: '1',
                           ),
                         ),
                       ],
@@ -8898,7 +8898,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
                 ..._previousOosItems.map((prev) {
                   final pName = prev['product_name']?.toString() ?? 'Dulux Product';
-                  final prevLama = int.tryParse(prev['lama_oos_hari']?.toString() ?? '0') ?? 0;
+                  final prevLama = int.tryParse(prev['lama_oos_hari']?.toString() ?? '1') ?? 1;
                   final consecutive = prevLama + _oosDiffDays;
                   final inCart = _oosCart.any((c) => c['product_name']?.toString().toLowerCase() == pName.toLowerCase());
 
