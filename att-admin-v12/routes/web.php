@@ -49,9 +49,10 @@ Route::get('/sync-stock-end-dulux', function () {
 });
 
 Route::get('/debug-dulux-check', function () {
-    $sub = \App\Models\ReportSubmission::where('submission_code', 'LIKE', '%7JTY%')->first();
-    $subCount = \App\Models\ReportSubmission::count();
     $tmpl = \App\Models\ReportTemplate::where('code', 'RPT-DULUX-STOCK-END')->first();
+    $sub = \App\Models\ReportSubmission::whereRaw('LOWER(submission_code) LIKE ?', ['%7jty%'])->first();
+    $latestSubs = $tmpl ? \App\Models\ReportSubmission::where('report_template_id', $tmpl->id)->orderBy('id', 'desc')->limit(5)->get(['id', 'submission_code', 'submitted_at', 'created_at']) : [];
+    $subCount = \App\Models\ReportSubmission::count();
     return response()->json([
         'server_ip' => request()->server('SERVER_ADDR'),
         'http_host' => request()->server('HTTP_HOST'),
@@ -71,6 +72,7 @@ Route::get('/debug-dulux-check', function () {
                 'num' => $v->value_number
             ])
         ] : null,
+        'latest_stock_submissions' => $latestSubs,
         'total_submissions' => $subCount,
         'stock_end_template' => $tmpl ? [
             'id' => $tmpl->id,
