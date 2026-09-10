@@ -488,6 +488,10 @@ class ReportingApiController extends Controller
                     // Jika toko tidak memiliki mesin (0 mesin terdaftar)
                     $isCompletedToday = $templateTodaySubs->isNotEmpty();
                 }
+            } elseif (isset($duluxOrder[$t->code])) {
+                // Untuk alur pelaporan berurutan Dulux (Offtake, OOS, Database Pelanggan, Stock End, CBP Pricing),
+                // setiap langkah dianggap selesai hari ini jika sudah disubmit minimal 1 kali hari ini.
+                $isCompletedToday = $templateTodaySubs->isNotEmpty();
             } elseif ($hasProductBinding) {
                 $isCompletedToday = count($submittedProductNames) >= $templateProducts->count() && $templateProducts->count() > 0;
             } else {
@@ -526,11 +530,11 @@ class ReportingApiController extends Controller
                 'is_step_locked' => $isStepLocked,
                 'locked_reason' => $lockedReason,
                 'is_completed_today' => $isCompletedToday,
-                'has_product_binding' => $isDailyMaintenance ? false : $hasProductBinding,
-                'submitted_products' => $isDailyMaintenance ? [] : $submittedProductNames,
-                'submitted_product_ids' => $isDailyMaintenance ? [] : $submittedProductIds,
-                'total_products_count' => $isDailyMaintenance ? 0 : $templateProducts->count(),
-                'remaining_products_count' => $isDailyMaintenance ? 0 : max(0, $templateProducts->count() - count($submittedProductNames)),
+                'has_product_binding' => ($isDailyMaintenance || $isDuluxSequential) ? false : $hasProductBinding,
+                'submitted_products' => ($isDailyMaintenance || $isDuluxSequential) ? [] : $submittedProductNames,
+                'submitted_product_ids' => ($isDailyMaintenance || $isDuluxSequential) ? [] : $submittedProductIds,
+                'total_products_count' => ($isDailyMaintenance || $isDuluxSequential) ? 0 : $templateProducts->count(),
+                'remaining_products_count' => ($isDailyMaintenance || $isDuluxSequential) ? 0 : max(0, $templateProducts->count() - count($submittedProductNames)),
                 'has_machine_binding' => $hasMachineBinding,
                 'submitted_machines' => $isDailyMaintenance ? $matchedSubmitted : [],
                 'total_machines_count' => $totalMachinesCount,
@@ -2170,6 +2174,14 @@ class ReportingApiController extends Controller
                     }
                     continue;
                 }
+            }
+
+            // Khusus template alur pelaporan berurutan Dulux lainnya (Offtake, OOS, Data Pelanggan, Stock End, CBP Pricing)
+            if (isset($duluxOrder[$t->code])) {
+                if ($tSubs->isEmpty()) {
+                    $pending[] = $t->title;
+                }
+                continue;
             }
 
             // Cek produk jika template mengikat produk

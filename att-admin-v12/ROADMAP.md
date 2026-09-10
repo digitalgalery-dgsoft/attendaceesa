@@ -517,6 +517,22 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
   - **Database Migration Konsolidasi Data Legacy (`2026_09_10_084500_consolidate_split_offtake_submissions.php`)**:
     - Menggabungkan data split submission legacy (`RPT-...-1`), mengupdate nilai total unit, volume liter, dan sales rp menjadi akumulasi penuh, merename kode dokumen ke base code tanpa suffix `-1`, serta menghapus baris duplikat `-2`, `-3` beserta nilai formulirnya dari database.
 
+### 🚀 Buka Kunci Langkah 3 & Detail Input Mobile App Mirip Web Portal (v1.0.132+132)
+- **Status**: 🟢 **Selesai & Rilis (100%)**
+- **Tanggal Rilis**: 10 September 2026
+- **Deskripsi Pembaruan**:
+  - **Buka Kunci Langkah 3 (OOS Dulux) Setelah Submit Offtake**:
+    - Di `ReportingApiController.php`, kriteria penyelesaian harian (`is_completed_today`) untuk alur berurutan Dulux (Offtake, OOS, Database Pelanggan, Stock End, CBP Pricing) diselaraskan agar disahkan selesai jika sudah ada minimal 1 submission hari ini (`$templateTodaySubs->isNotEmpty()`).
+    - Sebelumnya, Offtake mengikat 69 produk katalog sehingga menuntut seluruh 69 produk disubmit terpisah agar langkah terbuka. Kini Offtake langsung berstatus `Selesai Hari Ini ✓` begitu laporan transaksi disubmit, dan Langkah 3 (OOS) otomatis terbuka (*unlocked*).
+    - Menghapus badge misleading `1/69 Produk` dari template Offtake dan menggantikannya dengan status selesai yang akurat.
+    - Menyesuaikan validasi checkout absen pulang (`checkExitGate`) agar tidak memblokir user dengan tuntutan "Sisa 68 produk".
+  - **Peningkatan Layar Detail Laporan Mobile (`report_detail_screen.dart`)**:
+    - Mengadopsi desain detail web portal:
+      - **Grid Ringkasan KPI Global**: Menampilkan 4 kartu statistik (Grand Total Penjualan Rp, Grand Total Volume Liter, Total Kuantiti Terjual Unit, dan Traffic & Market Share %).
+      - **Kartu Rincian Pengelompokan Produk Terjual**: Menampilkan setiap produk dalam kartu tersendiri dengan Brand badge (Dulux / Catylac), Nama Produk, Varian RM/Base, Subtotal Rp, serta 3 blok spesifikasi (Harga Standart Acuan, Kuantiti Terjual, Total Volume Liter).
+      - **Pembersihan Parameter Redundan**: Menyembunyikan teks raw JSON dan kolom pecahan tunggal (`kemasan_*`, `qty_*`, dll.) sehingga antarmuka mobile terlihat rapi, bersih, dan profesional.
+  - **Rilis APK Mobile v1.0.132+132**: Versi mobile dinaikkan ke `1.0.132+132` dan dibuild rilis.
+
 ---
 
 ## 🎯 Rencana Pengembangan Selanjutnya (Next Milestones)
