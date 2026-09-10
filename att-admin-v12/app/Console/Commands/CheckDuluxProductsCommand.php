@@ -80,6 +80,9 @@ class CheckDuluxProductsCommand extends Command
             $this->info("Running FIX: Syncing Dulux Offtake template fields...");
             ReportTemplate::syncDuluxOfftakeTemplate();
 
+            $this->info("Running FIX: Syncing Dulux Stock End template fields and healing submissions...");
+            ReportTemplate::syncDuluxMergedStockEnd();
+
             $this->info("FIX complete! Re-checking...");
             foreach ($allTemplates as $t) {
                 $t->refresh();
