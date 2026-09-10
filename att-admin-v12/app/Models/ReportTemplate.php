@@ -386,19 +386,27 @@ class ReportTemplate extends Model
 
         $allTinterOptions = array_merge($dramatoneOptions, $acotoneOptions);
 
+        // Hapus permanen field status ketersediaan tinter jika masih ada
+        ReportFormField::where('report_template_id', $stockEnd->id)
+            ->whereIn('field_name', [
+                'status_ketersediaan_tinter',
+                'status_ketersediaan_tinter_di_toko',
+            ])
+            ->delete();
+
         $stockEndFields = [
-            ['field_label' => 'Pilih Produk Dulux / Catylac yang Dicek', 'field_name' => 'produk_stock_end', 'field_type' => 'product_select', 'is_required' => true],
-            ['field_label' => 'Base / Tipe Warna', 'field_name' => 'base_warna', 'field_type' => 'dropdown', 'options' => ['Base A (Putih/Light)', 'Base B (Medium)', 'Base C (Dark)', 'Base D (Clear/Deep)', 'Ready Mix (Warna Jadi Pabrik)', 'Cat Dasar Primer'], 'is_required' => true],
-            ['field_label' => 'Stok Fisik Kemasan Galon (Qty)', 'field_name' => 'stok_qty_galon', 'field_type' => 'number', 'placeholder' => 'Jumlah galon', 'is_required' => true],
-            ['field_label' => 'Stok Fisik Kemasan Pail (Qty)', 'field_name' => 'stok_qty_pail', 'field_type' => 'number', 'placeholder' => 'Jumlah pail', 'is_required' => true],
-            ['field_label' => 'Estimasi Total Volume Stok di Toko (Liter)', 'field_name' => 'total_volume_stok_liter', 'field_type' => 'number', 'placeholder' => 'Total volume liter', 'is_required' => true],
-            ['field_label' => 'Kategori Tinter / Mesin Tinting', 'field_name' => 'kategori_tinter', 'field_type' => 'dropdown', 'options' => ['Dramatone', 'Acotone', 'Tidak Ada Mesin / Non-Tinting'], 'is_required' => true],
-            ['field_label' => 'Tipe Tinter / Warna Pasta Pewarna', 'field_name' => 'tipe_tinter_warna', 'field_type' => 'dropdown', 'options' => $allTinterOptions, 'is_required' => true],
+            ['field_label' => 'Pilih Produk Dulux / Catylac yang Dicek', 'field_name' => 'produk_stock_end', 'field_type' => 'product_select', 'is_required' => false],
+            ['field_label' => 'Base / Tipe Warna', 'field_name' => 'base_warna', 'field_type' => 'dropdown', 'options' => ['Base A (Putih/Light)', 'Base B (Medium)', 'Base C (Dark)', 'Base D (Clear/Deep)', 'Ready Mix (Warna Jadi Pabrik)', 'Cat Dasar Primer'], 'is_required' => false],
+            ['field_label' => 'Stok Fisik Kemasan Galon (Qty)', 'field_name' => 'stok_qty_galon', 'field_type' => 'number', 'placeholder' => 'Jumlah galon', 'is_required' => false],
+            ['field_label' => 'Stok Fisik Kemasan Pail (Qty)', 'field_name' => 'stok_qty_pail', 'field_type' => 'number', 'placeholder' => 'Jumlah pail', 'is_required' => false],
+            ['field_label' => 'Estimasi Total Volume Stok di Toko (Liter)', 'field_name' => 'total_volume_stok_liter', 'field_type' => 'number', 'placeholder' => 'Total volume liter', 'is_required' => false],
+            ['field_label' => 'Kategori Tinter / Mesin Tinting', 'field_name' => 'kategori_tinter', 'field_type' => 'dropdown', 'options' => ['Dramatone', 'Acotone', 'Tidak Ada Mesin / Non-Tinting'], 'is_required' => false],
+            ['field_label' => 'Tipe Tinter / Warna Pasta Pewarna', 'field_name' => 'tipe_tinter_warna', 'field_type' => 'dropdown', 'options' => $allTinterOptions, 'is_required' => false],
             ['field_label' => 'Kuantiti / Jumlah Kaleng Tinta Tinter', 'field_name' => 'qty_kaleng_tinta', 'field_type' => 'number', 'placeholder' => 'Jumlah kaleng tinter', 'is_required' => false],
-            ['field_label' => 'Status Ketersediaan Tinter di Toko', 'field_name' => 'status_ketersediaan_tinter', 'field_type' => 'radio', 'options' => ['Stok Aman (Siap Oplos)', 'Stok Menipis (Perlu Order Ulang)', 'Stok Habis (Mesin Tidak Bisa Oplos)', 'Tidak Ada Mesin'], 'is_required' => true],
             ['field_label' => 'Status Akses Pengecekan Gudang Toko', 'field_name' => 'status_akses_gudang', 'field_type' => 'radio', 'options' => ['Full Access (Bisa Cek Rak & Gudang Toko Bebas)', 'Half Access (Hanya Cek Rak Depan Toko)', 'No Access (Toko Menolak Cek Fisik / Data Estimasi)'], 'is_required' => true],
             ['field_label' => 'Foto Fisik Rak Display, Tumpukan Stok Gudang & Mesin Tinter', 'field_name' => 'foto_stok_gudang', 'field_type' => 'multi_photo', 'is_required' => true],
             ['field_label' => 'Keterangan / Kendala Stok & Tinter Toko', 'field_name' => 'keterangan_stok_toko', 'field_type' => 'textarea', 'placeholder' => 'Catatan status stok lambat laku (slow moving), kelebihan stok, atau request restock tinter...', 'is_required' => false],
+            ['field_label' => 'Rincian Stok Produk (JSON)', 'field_name' => 'stock_items_json', 'field_type' => 'textarea', 'placeholder' => 'Data terstruktur rincian stok produk terkonsolidasi', 'is_required' => false],
         ];
 
         foreach ($stockEndFields as $index => $field) {
@@ -411,6 +419,80 @@ class ReportTemplate extends Model
                     'order_index' => $index + 1,
                 ])
             );
+        }
+
+        // Hapus nilai status_ketersediaan_tinter dari report_submission_values jika masih tertinggal
+        \App\Models\ReportSubmissionValue::whereHas('submission', function($q) use ($stockEnd) {
+            $q->where('report_template_id', $stockEnd->id);
+        })->whereIn('field_name', ['status_ketersediaan_tinter', 'status_ketersediaan_tinter_di_toko'])->delete();
+
+        // Self-healing backfill data submission Stock End yang memiliki stock_items_json
+        try {
+            $stockSubmissions = \App\Models\ReportSubmission::where('report_template_id', $stockEnd->id)->with('values')->get();
+            foreach ($stockSubmissions as $sub) {
+                $stockJsonVal = $sub->values->firstWhere('field_name', 'stock_items_json');
+                if ($stockJsonVal) {
+                    $items = is_array($stockJsonVal->value_json) ? $stockJsonVal->value_json : json_decode($stockJsonVal->value_text ?? '[]', true);
+                    if (is_array($items) && count($items) > 0) {
+                        $prodNames = [];
+                        $gGalon = 0; $gPail = 0; $gLiter = 0.0; $gTinter = 0;
+                        foreach ($items as $it) {
+                            $pName = trim((string)($it['product_name'] ?? ($it['produk'] ?? '')));
+                            if ($pName && !in_array($pName, $prodNames)) $prodNames[] = $pName;
+                            $gGalon += (int)($it['qty_galon'] ?? ($it['kuantiti_galon'] ?? 0));
+                            $gPail += (int)($it['qty_pail'] ?? ($it['kuantiti_pail'] ?? 0));
+                            $gLiter += (float)($it['volume_liter'] ?? 0.0);
+                            $gTinter += (int)($it['qty_kaleng_tinta'] ?? 0);
+                        }
+                        $firstItem = $items[0];
+                        $prodSummary = implode(', ', $prodNames);
+
+                        // Update or create produk_stock_end
+                        $pField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'produk_stock_end')->first();
+                        if ($pField) {
+                            \App\Models\ReportSubmissionValue::updateOrCreate(
+                                ['report_submission_id' => $sub->id, 'field_name' => 'produk_stock_end'],
+                                ['report_form_field_id' => $pField->id, 'field_type' => 'product_select', 'value_text' => $prodSummary]
+                            );
+                        }
+                        // Update or create stok_qty_galon
+                        $gField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'stok_qty_galon')->first();
+                        if ($gField) {
+                            \App\Models\ReportSubmissionValue::updateOrCreate(
+                                ['report_submission_id' => $sub->id, 'field_name' => 'stok_qty_galon'],
+                                ['report_form_field_id' => $gField->id, 'field_type' => 'number', 'value_number' => $gGalon, 'value_text' => (string)$gGalon]
+                            );
+                        }
+                        // Update or create stok_qty_pail
+                        $paField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'stok_qty_pail')->first();
+                        if ($paField) {
+                            \App\Models\ReportSubmissionValue::updateOrCreate(
+                                ['report_submission_id' => $sub->id, 'field_name' => 'stok_qty_pail'],
+                                ['report_form_field_id' => $paField->id, 'field_type' => 'number', 'value_number' => $gPail, 'value_text' => (string)$gPail]
+                            );
+                        }
+                        // Update or create base_warna
+                        $bField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'base_warna')->first();
+                        if ($bField) {
+                            $bVal = count($items) > 1 ? 'Multi-Base (' . count($items) . ' Item)' : ($firstItem['warna'] ?? 'ALL');
+                            \App\Models\ReportSubmissionValue::updateOrCreate(
+                                ['report_submission_id' => $sub->id, 'field_name' => 'base_warna'],
+                                ['report_form_field_id' => $bField->id, 'field_type' => 'dropdown', 'value_text' => $bVal]
+                            );
+                        }
+                        // Update or create total_volume_stok_liter
+                        $vField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'total_volume_stok_liter')->first();
+                        if ($vField) {
+                            \App\Models\ReportSubmissionValue::updateOrCreate(
+                                ['report_submission_id' => $sub->id, 'field_name' => 'total_volume_stok_liter'],
+                                ['report_form_field_id' => $vField->id, 'field_type' => 'number', 'value_number' => $gLiter, 'value_text' => (string)$gLiter]
+                            );
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            \Log::error('Error backfilling stock end submissions: ' . $e->getMessage());
         }
 
         // 4. Laporan CBP (Consumer Buying Price) - Dinamis Kompetitor Tin/Galon/Pail, Promo Nominal/Persen, Foto Dihapus

@@ -456,26 +456,44 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               stockTotalSku = stockItemsList.length;
               for (final it in stockItemsList) {
                 if (it is! Map) continue;
-                stockTotalVolume += (it['volume_liter'] as num?)?.toDouble() ?? double.tryParse(it['volume_liter']?.toString() ?? '0') ?? 0.0;
-                stockTotalGalon += (it['kuantiti_galon'] as num?)?.toInt() ?? int.tryParse(it['kuantiti_galon']?.toString() ?? '0') ?? 0;
-                stockTotalPail += (it['kuantiti_pail'] as num?)?.toInt() ?? int.tryParse(it['kuantiti_pail']?.toString() ?? '0') ?? 0;
-                stockTotalTinter += (it['qty_kaleng_tinta'] as num?)?.toInt() ?? int.tryParse(it['qty_kaleng_tinta']?.toString() ?? '0') ?? 0;
+                final qG = (it['stok_qty_galon'] as num?)?.toInt() ?? (it['qty_galon'] as num?)?.toInt() ?? (it['kuantiti_galon'] as num?)?.toInt() ?? int.tryParse(it['stok_qty_galon']?.toString() ?? it['qty_galon']?.toString() ?? it['kuantiti_galon']?.toString() ?? '0') ?? 0;
+                final qP = (it['stok_qty_pail'] as num?)?.toInt() ?? (it['qty_pail'] as num?)?.toInt() ?? (it['kuantiti_pail'] as num?)?.toInt() ?? int.tryParse(it['stok_qty_pail']?.toString() ?? it['qty_pail']?.toString() ?? it['kuantiti_pail']?.toString() ?? '0') ?? 0;
+                final vL = (it['total_volume_liter'] as num?)?.toDouble() ?? (it['volume_liter'] as num?)?.toDouble() ?? double.tryParse(it['total_volume_liter']?.toString() ?? it['volume_liter']?.toString() ?? '0') ?? ((qG * 2.5) + (qP * 20.0));
+                final qT = (it['qty_kaleng_tinta'] as num?)?.toInt() ?? int.tryParse(it['qty_kaleng_tinta']?.toString() ?? '0') ?? 0;
+                stockTotalVolume += vL;
+                stockTotalGalon += qG;
+                stockTotalPail += qP;
+                stockTotalTinter += qT;
               }
             }
 
             final suppressStockFields = {
               'stock_items_json',
+              'produk_stock_end',
               'produk',
+              'nama_produk',
               'brand',
-              'volume_liter',
-              'kemasan_galon',
-              'kemasan_pail',
+              'kategori_cat',
+              'kategori_produk',
+              'base_warna',
+              'base_cat',
+              'stok_qty_galon',
+              'stok_qty_pail',
+              'qty_galon',
+              'qty_pail',
               'kuantiti_galon',
               'kuantiti_pail',
+              'volume_liter',
+              'total_volume_stok_liter',
+              'total_volume_stok',
+              'kemasan_galon',
+              'kemasan_pail',
+              'status_ketersediaan_tinter',
+              'status_ketersediaan_tinter_di_toko',
+              'status_tinter',
               'tipe_tinter_warna',
               'qty_kaleng_tinta',
               'conf',
-              'total_volume_stok_liter',
               'total_sku_stok',
             };
 
@@ -1601,13 +1619,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     required Color primaryColor,
     required bool isDarkMode,
   }) {
-    final pName = (item['product_name']?.toString() ?? item['product_code']?.toString() ?? 'Produk Dulux').trim();
-    final pBrand = (item['brand']?.toString() ?? '-').trim();
-    final pCat = (item['category']?.toString() ?? '-').trim();
-    final qGalon = (item['kuantiti_galon'] as num?)?.toInt() ?? int.tryParse(item['kuantiti_galon']?.toString() ?? '0') ?? 0;
-    final qPail = (item['kuantiti_pail'] as num?)?.toInt() ?? int.tryParse(item['kuantiti_pail']?.toString() ?? '0') ?? 0;
-    final volLiter = (item['volume_liter'] as num?)?.toDouble() ?? double.tryParse(item['volume_liter']?.toString() ?? '0') ?? 0.0;
-    final isTinter = item['is_tinter'] == true || (item['tipe_tinter_warna'] != null && item['tipe_tinter_warna'].toString().isNotEmpty);
+    final pName = (item['product_name']?.toString() ?? item['produk_stock_end']?.toString() ?? item['produk']?.toString() ?? item['product_code']?.toString() ?? 'Produk Dulux / Catylac').trim();
+    final pBrand = (item['brand']?.toString() ?? (pName.toLowerCase().contains('catylac') ? 'CATYLAC' : 'DULUX')).trim().toUpperCase();
+    final pCat = (item['category']?.toString() ?? item['kategori_produk']?.toString() ?? item['kategori_cat']?.toString() ?? '-').trim();
+    final pBase = (item['base_warna']?.toString() ?? item['base_cat']?.toString() ?? '-').trim();
+    final qGalon = (item['stok_qty_galon'] as num?)?.toInt() ?? (item['qty_galon'] as num?)?.toInt() ?? (item['kuantiti_galon'] as num?)?.toInt() ?? int.tryParse(item['stok_qty_galon']?.toString() ?? item['qty_galon']?.toString() ?? item['kuantiti_galon']?.toString() ?? '0') ?? 0;
+    final qPail = (item['stok_qty_pail'] as num?)?.toInt() ?? (item['qty_pail'] as num?)?.toInt() ?? (item['kuantiti_pail'] as num?)?.toInt() ?? int.tryParse(item['stok_qty_pail']?.toString() ?? item['qty_pail']?.toString() ?? item['kuantiti_pail']?.toString() ?? '0') ?? 0;
+    final volLiter = (item['total_volume_liter'] as num?)?.toDouble() ?? (item['volume_liter'] as num?)?.toDouble() ?? double.tryParse(item['total_volume_liter']?.toString() ?? item['volume_liter']?.toString() ?? '0') ?? ((qGalon * 2.5) + (qPail * 20.0));
+    final isTinter = item['is_tinter'] == true || (item['tipe_tinter_warna'] != null && item['tipe_tinter_warna'].toString().isNotEmpty && item['tipe_tinter_warna'].toString() != '-');
     final tipeTinter = (item['tipe_tinter_warna']?.toString() ?? '-').trim();
     final qTinter = (item['qty_kaleng_tinta'] as num?)?.toInt() ?? int.tryParse(item['qty_kaleng_tinta']?.toString() ?? '0') ?? 0;
 
@@ -1617,7 +1636,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF0F52BA).withOpacity(0.2)),
+        border: Border.all(color: (pBrand == 'CATYLAC' ? Colors.amber.shade700 : const Color(0xFF0F52BA)).withOpacity(0.25)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
@@ -1634,12 +1653,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F52BA).withOpacity(0.12),
+                  color: (pBrand == 'CATYLAC' ? Colors.amber.shade700 : const Color(0xFF0F52BA)).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   '#$index',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F52BA)),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: pBrand == 'CATYLAC' ? Colors.amber.shade800 : const Color(0xFF0F52BA)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1652,12 +1671,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0284C7).withOpacity(0.12),
+                  color: const Color(0xFF059669).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   '${volLiter.toStringAsFixed(1)} Liter',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
                 ),
               ),
             ],
@@ -1671,10 +1690,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: (pBrand == 'CATYLAC' ? Colors.amber.shade700 : const Color(0xFF0F52BA)).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text('Brand: $pBrand', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: subtitleColor)),
+                  child: Text(pBrand, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: pBrand == 'CATYLAC' ? Colors.amber.shade900 : const Color(0xFF0F52BA))),
                 ),
               if (pCat != '-')
                 Container(
@@ -1685,21 +1704,30 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ),
                   child: Text('Kategori: $pCat', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: subtitleColor)),
                 ),
+              if (pBase != '-')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text('Base: $pBase', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.purple)),
+                ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: const Color(0xFF10B981).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text('Galon: $qGalon Unit', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF15803D))),
+                child: Text('Galon (2.5L): $qGalon Unit', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF15803D))),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withOpacity(0.1),
+                  color: const Color(0xFFF59E0B).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text('Pail: $qPail Unit', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF15803D))),
+                child: Text('Pail (20L): $qPail Unit', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFB45309))),
               ),
               if (isTinter || qTinter > 0) ...[
                 Container(

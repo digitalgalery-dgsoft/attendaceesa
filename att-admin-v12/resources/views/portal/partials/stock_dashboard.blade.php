@@ -960,6 +960,42 @@
                                     $gudangAkses = trim((string)($valMap['status_akses_pengecekan_gudang_toko'] ?? ($valMap['status_akses_gudang'] ?? ($valMap['akses_gudang'] ?? ''))));
                                     $keterangan = trim((string)($valMap['keterangan_kendala_stok_tinter_toko'] ?? ($valMap['keterangan_stok_toko'] ?? ($valMap['keterangan'] ?? ''))));
 
+                                    $stockItems = [];
+                                    if (!empty($valMap['stock_items_json'])) {
+                                        $stockItems = is_array($valMap['stock_items_json']) ? $valMap['stock_items_json'] : json_decode($valMap['stock_items_json'], true);
+                                    }
+
+                                    $hasMultipleProducts = is_array($stockItems) && count($stockItems) > 0;
+                                    $tinterItems = [];
+                                    $baseList = [];
+
+                                    if ($hasMultipleProducts) {
+                                        $calcGalon = 0;
+                                        $calcPail = 0;
+                                        $calcLiter = 0.0;
+                                        $calcTinter = 0;
+
+                                        foreach ($stockItems as $it) {
+                                            $calcGalon += (int)($it['qty_galon'] ?? ($it['kuantiti_galon'] ?? 0));
+                                            $calcPail += (int)($it['qty_pail'] ?? ($it['kuantiti_pail'] ?? 0));
+                                            $calcLiter += (float)($it['volume_liter'] ?? 0.0);
+                                            $qTint = (int)($it['qty_kaleng_tinta'] ?? 0);
+                                            $calcTinter += $qTint;
+                                            if (!empty($it['tipe_tinter_warna'])) {
+                                                $tinterItems[] = $it['tipe_tinter_warna'] . ($qTint > 0 ? " ({$qTint} klg)" : '');
+                                            }
+                                            $w = trim((string)($it['warna'] ?? ''));
+                                            if (!empty($w) && !in_array($w, $baseList)) {
+                                                $baseList[] = $w;
+                                            }
+                                        }
+
+                                        if ($qtyGalon <= 0 && $calcGalon > 0) $qtyGalon = $calcGalon;
+                                        if ($qtyPail <= 0 && $calcPail > 0) $qtyPail = $calcPail;
+                                        if ($volLiter <= 0 && $calcLiter > 0) $volLiter = $calcLiter;
+                                        if (empty($tinterQty) && $calcTinter > 0) $tinterQty = (string)$calcTinter;
+                                    }
+
                                     $status = $sub->status ?? 'pending';
                                 @endphp
                                 <tr>
@@ -1004,26 +1040,62 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div>
-                                            <span class="brand-tag {{ strtolower($rawBrand) === 'dulux' ? 'brand-tag-dulux' : 'brand-tag-catylac' }}" style="font-size: 0.7rem; padding: 1px 5px;">
-                                                {{ $rawBrand }}
-                                            </span>
-                                        </div>
-                                        <div style="font-size: 0.82rem; font-weight: 600; color: #1e293b; margin-top: 2px;">
-                                            {{ $produk }}
-                                        </div>
+                                        @if($hasMultipleProducts)
+                                            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
+                                                <span style="font-size: 0.72rem; font-weight: 800; background: #e0f2fe; color: #0369a1; padding: 2px 7px; border-radius: 6px; border: 1px solid #bae6fd;">
+                                                    <i class="fa-solid fa-boxes-stacked"></i> {{ count($stockItems) }} Produk Dilaporkan
+                                                </span>
+                                            </div>
+                                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                                @foreach($stockItems as $sIdx => $sItm)
+                                                    @php
+                                                        $sB = $sItm['brand'] ?? 'Dulux';
+                                                        $sN = $sItm['product_name'] ?? ($sItm['produk'] ?? 'Produk Cat');
+                                                        $sL = (float)($sItm['volume_liter'] ?? 0);
+                                                    @endphp
+                                                    <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; line-height: 1.3;">
+                                                        <span class="brand-tag {{ strtolower($sB) === 'catylac' ? 'brand-tag-catylac' : 'brand-tag-dulux' }}" style="font-size: 0.68rem; padding: 1px 5px; flex-shrink: 0;">
+                                                            {{ $sB }}
+                                                        </span>
+                                                        <span style="font-weight: 700; color: #1e293b;">{{ $sN }}</span>
+                                                        <span style="font-size: 0.72rem; color: #0284c7; font-weight: 700; background: #f0f9ff; padding: 1px 5px; border-radius: 4px; margin-left: auto;">
+                                                            {{ number_format($sL, 1) }}L
+                                                        </span>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <div>
+                                                <span class="brand-tag {{ strtolower($rawBrand) === 'dulux' ? 'brand-tag-dulux' : 'brand-tag-catylac' }}" style="font-size: 0.7rem; padding: 1px 5px;">
+                                                    {{ $rawBrand }}
+                                                </span>
+                                            </div>
+                                            <div style="font-size: 0.82rem; font-weight: 600; color: #1e293b; margin-top: 2px;">
+                                                {{ $produk }}
+                                            </div>
+                                        @endif
                                     </td>
                                     <td style="font-size: 0.82rem; color: #334155;">
-                                        <span style="display: inline-block; padding: 2px 8px; background: #f1f5f9; border-radius: 6px; font-weight: 600; font-size: 0.78rem;">
-                                            {{ $baseWarna }}
-                                        </span>
+                                        @if($hasMultipleProducts && !empty($baseList))
+                                            <div style="display: flex; flex-direction: column; gap: 3px;">
+                                                @foreach($baseList as $bItem)
+                                                    <span style="display: inline-block; padding: 1px 7px; background: #f1f5f9; border-radius: 5px; font-weight: 600; font-size: 0.74rem; border: 1px solid #e2e8f0;">
+                                                        {{ $bItem }}
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <span style="display: inline-block; padding: 2px 8px; background: #f1f5f9; border-radius: 6px; font-weight: 600; font-size: 0.78rem;">
+                                                {{ $baseWarna }}
+                                            </span>
+                                        @endif
                                     </td>
-                                    <td style="text-align: right; font-size: 0.8rem;">
+                                    <td style="text-align: right; font-size: 0.82rem;">
                                         @if($qtyGalon > 0)
-                                            <div><strong>{{ number_format($qtyGalon) }}</strong> Galon</div>
+                                            <div style="color: #15803d; font-weight: 700;"><strong>{{ number_format($qtyGalon) }}</strong> Galon</div>
                                         @endif
                                         @if($qtyPail > 0)
-                                            <div><strong>{{ number_format($qtyPail) }}</strong> Pail</div>
+                                            <div style="color: #0369a1; font-weight: 700;"><strong>{{ number_format($qtyPail) }}</strong> Pail</div>
                                         @endif
                                         @if($qtyGalon <= 0 && $qtyPail <= 0)
                                             <span style="color: #94a3b8;">-</span>
@@ -1033,7 +1105,22 @@
                                         {{ number_format($volLiter, 2) }} L
                                     </td>
                                     <td style="font-size: 0.8rem; color: #334155;">
-                                        @if(!empty($tinterKat) || !empty($tinterWarna) || !empty($tinterQty))
+                                        @if($hasMultipleProducts && !empty($tinterItems))
+                                            <div style="font-weight: 700; color: #0F52BA; font-size: 0.78rem;">
+                                                <i class="fa-solid fa-palette"></i> Tinting Aktif
+                                            </div>
+                                            <div style="font-size: 0.74rem; color: #475569; margin-top: 2px;">
+                                                {{ implode(', ', array_slice($tinterItems, 0, 2)) }}
+                                                @if(count($tinterItems) > 2)
+                                                    <span style="color: #64748b;">+{{ count($tinterItems) - 2 }} lainnya</span>
+                                                @endif
+                                            </div>
+                                            @if(!empty($tinterQty) && (int)$tinterQty > 0)
+                                                <div style="font-size: 0.72rem; color: #64748b; font-weight: 600;">
+                                                    Total Tinta: <strong>{{ $tinterQty }}</strong> kaleng
+                                                </div>
+                                            @endif
+                                        @elseif(!empty($tinterKat) || !empty($tinterWarna) || !empty($tinterQty))
                                             <div><strong>{{ $tinterKat ?: 'Tinter' }}</strong>: {{ $tinterWarna ?: '-' }}</div>
                                             <div style="font-size: 0.74rem; color: #64748b;">
                                                 Qty: <strong>{{ $tinterQty ?: '0' }}</strong> kaleng
@@ -1042,7 +1129,7 @@
                                                 @endif
                                             </div>
                                         @else
-                                            <span style="color: #94a3b8;">-</span>
+                                            <span style="color: #94a3b8; font-size: 0.78rem;">Non-Tinting</span>
                                         @endif
                                     </td>
                                     <td style="font-size: 0.78rem; color: #475569;">

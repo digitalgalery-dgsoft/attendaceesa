@@ -1210,6 +1210,15 @@ class ReportingApiController extends Controller
                     $stockEndItems = $rawStockItems;
                 }
             }
+            if (empty($stockEndItems) && isset($normalizedValues['stock_items_json'])) {
+                $rawStockItems = $normalizedValues['stock_items_json'];
+                if (is_string($rawStockItems)) {
+                    $rawStockItems = json_decode($rawStockItems, true) ?? [];
+                }
+                if (is_array($rawStockItems)) {
+                    $stockEndItems = $rawStockItems;
+                }
+            }
 
             $isStockEndTemplate = ($template->code === 'RPT-DULUX-STOCK-END' || Str::contains($template->code, 'STOCK-END'));
             $isStockEndWithItems = $isStockEndTemplate && !empty($stockEndItems) && count($stockEndItems) > 0;
@@ -1283,35 +1292,37 @@ class ReportingApiController extends Controller
                     $vJson = null;
                     $photoPath = null;
 
-                    if ($fn === 'produk' || $fn === 'nama_produk') {
+                    if ($fn === 'produk' || $fn === 'nama_produk' || $fn === 'produk_stock_end' || str_contains($fn, 'produk')) {
                         $vText = $productSummary;
-                    } elseif ($fn === 'brand') {
+                    } elseif ($fn === 'brand' || $fn === 'brand_cat' || str_contains($fn, 'brand')) {
                         $vText = $brandSummary;
-                    } elseif ($fn === 'volume_liter' || $fn === 'total_volume_stok_liter') {
+                    } elseif ($fn === 'volume_liter' || $fn === 'total_volume_stok_liter' || $fn === 'estimasi_total_volume_stok_di_toko_liter' || str_contains($fn, 'volume')) {
                         $vNum = round($grandTotalLiter, 2);
                         $vText = (string)round($grandTotalLiter, 2);
-                    } elseif ($fn === 'kuantiti_galon') {
+                    } elseif ($fn === 'kuantiti_galon' || $fn === 'stok_qty_galon' || $fn === 'stok_fisik_kemasan_galon_qty' || $fn === 'qty_galon' || str_contains($fn, 'galon')) {
                         $vNum = (float)$grandQtyGalon;
                         $vText = (string)$grandQtyGalon;
-                    } elseif ($fn === 'kuantiti_pail') {
+                    } elseif ($fn === 'kuantiti_pail' || $fn === 'stok_qty_pail' || $fn === 'stok_fisik_kemasan_pail_qty' || $fn === 'qty_pail' || str_contains($fn, 'pail')) {
                         $vNum = (float)$grandQtyPail;
                         $vText = (string)$grandQtyPail;
-                    } elseif ($fn === 'qty_kaleng_tinta') {
+                    } elseif ($fn === 'qty_kaleng_tinta' || $fn === 'kuantiti_jumlah_kaleng_tinta_tinter' || $fn === 'kuantiti_kaleng_tinta' || str_contains($fn, 'kaleng_tinta')) {
                         $vNum = (float)$grandQtyTinter;
                         $vText = (string)$grandQtyTinter;
+                    } elseif ($fn === 'kategori_tinter' || $fn === 'kategori_tinter_mesin_tinting') {
+                        $vText = $firstItem['kategori_tinter'] ?? (!empty($firstItem['is_tinter']) ? 'Tinting' : 'Non-Tinting');
+                    } elseif ($fn === 'tipe_tinter_warna' || $fn === 'tipe_tinter_warna_pasta_pewarna') {
+                        $vText = $firstItem['tipe_tinter_warna'] ?? '-';
                     } elseif ($fn === 'tanggal_pencatatan_stok') {
                         $vText = $normalizedValues['tanggal_pencatatan_stok'] ?? now()->toDateString();
-                    } elseif ($fn === 'keterangan_akses') {
-                        $vText = $normalizedValues['keterangan_akses'] ?? ($normalizedValues['status_akses_gudang'] ?? 'Full Access');
-                    } elseif ($fn === 'status_akses_gudang') {
+                    } elseif ($fn === 'keterangan_akses' || $fn === 'status_akses_gudang' || $fn === 'status_akses_pengecekan_gudang_toko') {
                         $vText = $normalizedValues['status_akses_gudang'] ?? ($normalizedValues['keterangan_akses'] ?? 'Full Access (Bisa Cek Rak & Gudang Toko Bebas)');
-                    } elseif ($fn === 'warna') {
-                        $vText = $normalizedValues['warna'] ?? ($firstItem['warna'] ?? 'ALL');
+                    } elseif ($fn === 'warna' || $fn === 'base_warna' || $fn === 'base_tipe_warna' || str_contains($fn, 'base')) {
+                        $vText = count($stockEndItems) > 1 ? 'Multi-Base (' . count($stockEndItems) . ' Item)' : ($firstItem['warna'] ?? 'ALL');
                     } elseif ($fn === 'conf') {
                         $vNum = isset($firstItem['conf']) ? floatval($firstItem['conf']) : 1.27;
                         $vText = (string)($firstItem['conf'] ?? '1.27');
-                    } elseif ($fn === 'catatan' || $fn === 'keterangan_stok_toko') {
-                        $vText = $normalizedValues['catatan'] ?? ($normalizedValues['keterangan_stok_toko'] ?? '');
+                    } elseif ($fn === 'catatan' || $fn === 'keterangan_stok_toko' || $fn === 'keterangan_kendala_stok_tinter_toko') {
+                        $vText = $normalizedValues['catatan'] ?? ($normalizedValues['keterangan_stok_toko'] ?? ($normalizedValues['keterangan_kendala_stok_tinter_toko'] ?? ''));
                     } elseif ($fn === 'stock_items_json') {
                         $vJson = $stockEndItems;
                         $vText = json_encode($stockEndItems, JSON_UNESCAPED_UNICODE);

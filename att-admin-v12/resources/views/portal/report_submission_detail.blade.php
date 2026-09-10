@@ -1104,6 +1104,20 @@
             'tipe_laporan_oos' => 'OOS',
         ];
 
+        // Cek apakah submission ini memiliki list item Stock End multi-produk
+        $hasDynamicStockItems = false;
+        $stockItemsList = [];
+        $stockGlobalData = [
+            'total_sku_stock' => 0,
+            'total_volume_liter' => 0,
+            'total_qty_galon' => 0,
+            'total_qty_pail' => 0,
+            'kategori_tinter' => '-',
+            'tipe_tinter_warna' => '-',
+            'level_persentase_isi' => '-',
+            'catatan_stok' => '-',
+        ];
+
         foreach ($submission->values as $v) {
             $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
             if ($fn === 'offtake_items_json') {
@@ -1118,10 +1132,26 @@
                     $hasDynamicOosItems = true;
                     $oosItemsList = $rawOos;
                 }
+            } elseif ($fn === 'stock_items_json') {
+                $rawStock = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
+                if (is_array($rawStock) && !empty($rawStock)) {
+                    $hasDynamicStockItems = true;
+                    $stockItemsList = $rawStock;
+                }
             } elseif ($fn === 'tipe_laporan_oos') {
                 $oosGlobalData['tipe_laporan_oos'] = $v->value_text ?: 'OOS';
             } elseif ($fn === 'total_volume_liter') {
                 $offtakeGlobalData['total_volume_liter'] = (float)($v->value_number ?? $v->value_text ?? 0);
+            } elseif (in_array($fn, ['total_volume_stok_liter', 'total_volume_stok'])) {
+                $stockGlobalData['total_volume_liter'] = (float)($v->value_number ?? $v->value_text ?? 0);
+            } elseif (in_array($fn, ['kategori_tinter', 'kategori_tinter_warna'])) {
+                $stockGlobalData['kategori_tinter'] = $v->value_text ?: '-';
+            } elseif (in_array($fn, ['tipe_tinter_warna', 'warna_tinter', 'warna_tinter_mesin'])) {
+                $stockGlobalData['tipe_tinter_warna'] = $v->value_text ?: '-';
+            } elseif (in_array($fn, ['level_persentase_isi', 'level_isi_tinter', 'persentase_level_tinter'])) {
+                $stockGlobalData['level_persentase_isi'] = $v->value_text ?: '-';
+            } elseif (in_array($fn, ['catatan_stok', 'catatan_khusus_stok', 'catatan'])) {
+                $stockGlobalData['catatan_stok'] = $v->value_text ?: '-';
             } elseif ($fn === 'total_nilai_sales_rp') {
                 $offtakeGlobalData['total_nilai_sales_rp'] = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
             } elseif ($fn === 'total_volume_unit') {
@@ -1143,6 +1173,24 @@
             $oosGlobalData['total_sku_oos'] = count($oosItemsList);
             $oosGlobalData['max_lama_oos'] = max(array_map(fn($it) => max(1, (int)($it['lama_oos_hari'] ?? 1)), $oosItemsList) ?: [1]);
             $oosGlobalData['total_saran_qty'] = array_sum(array_column($oosItemsList, 'saran_qty_order') ?: [0]);
+        }
+
+        if ($hasDynamicStockItems && !empty($stockItemsList)) {
+            $stockGlobalData['total_sku_stock'] = count($stockItemsList);
+            $calcGalon = 0; $calcPail = 0; $calcLiter = 0;
+            foreach ($stockItemsList as $it) {
+                $qG = (float)($it['stok_qty_galon'] ?? ($it['qty_galon'] ?? ($it['kuantiti_galon'] ?? 0)));
+                $qP = (float)($it['stok_qty_pail'] ?? ($it['qty_pail'] ?? ($it['kuantiti_pail'] ?? 0)));
+                $vL = (float)($it['total_volume_liter'] ?? (($qG * 2.5) + ($qP * 20.0)));
+                $calcGalon += $qG;
+                $calcPail += $qP;
+                $calcLiter += $vL;
+            }
+            $stockGlobalData['total_qty_galon'] = $calcGalon;
+            $stockGlobalData['total_qty_pail'] = $calcPail;
+            if ($stockGlobalData['total_volume_liter'] <= 0 || $calcLiter > 0) {
+                $stockGlobalData['total_volume_liter'] = $calcLiter;
+            }
         }
 
         // Selalu prioritaskan kalkulasi akumulatif dari offtake_items_json jika tersedia
@@ -1254,6 +1302,31 @@
             'saran_kuantitas_order_qty_kaleng',
             'alasan_oos',
             'penyebab_alasan_out_of_stock_oos',
+        ];
+
+        $suppressStockFields = [
+            'stock_items_json',
+            'produk_stock_end',
+            'nama_produk',
+            'produk',
+            'sub_brand',
+            'subbrand',
+            'brand',
+            'kategori_produk',
+            'kategori_cat',
+            'stok_qty_galon',
+            'stok_qty_pail',
+            'qty_galon',
+            'qty_pail',
+            'kuantiti_galon',
+            'kuantiti_pail',
+            'base_warna',
+            'base_cat',
+            'total_volume_stok_liter',
+            'total_volume_stok',
+            'status_ketersediaan_tinter',
+            'status_ketersediaan_tinter_di_toko',
+            'status_tinter',
         ];
 
         // Cek apakah template ini merupakan Laporan Data Pelanggan & Konsumen Dulux
@@ -1369,7 +1442,7 @@
         ];
 
         // Separate text inputs and photo/media attachments to prevent tall empty grid cards
-        $textValues = $submission->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields, $hasDynamicOfftakeItems, $suppressOfftakeFields, $hasDynamicOosItems, $suppressOosFields, $isCustomerDbReport, $suppressCustomerFields) {
+        $textValues = $submission->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields, $hasDynamicOfftakeItems, $suppressOfftakeFields, $hasDynamicOosItems, $suppressOosFields, $hasDynamicStockItems, $suppressStockFields, $isCustomerDbReport, $suppressCustomerFields) {
             $isMedia = in_array($val->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])
                 || !empty($val->media_url)
                 || !empty($val->file_path);
@@ -1379,7 +1452,7 @@
             $fl = strtolower(trim((string)($val->formField?->field_label ?? '')));
             $flClean = str_replace([' ', '-', '/'], '_', $fl);
 
-            if ($fn === 'oos_items_json' || $fn === 'offtake_items_json') {
+            if ($fn === 'oos_items_json' || $fn === 'offtake_items_json' || $fn === 'stock_items_json' || $fn === 'status_ketersediaan_tinter' || $fn === 'status_ketersediaan_tinter_di_toko' || $flClean === 'status_ketersediaan_tinter_di_toko' || $flClean === 'status_ketersediaan_tinter') {
                 return false;
             }
 
@@ -1397,6 +1470,12 @@
 
             if ($hasDynamicOosItems) {
                 if (in_array($fn, $suppressOosFields) || in_array($flClean, $suppressOosFields)) {
+                    return false;
+                }
+            }
+
+            if ($hasDynamicStockItems) {
+                if (in_array($fn, $suppressStockFields) || in_array($flClean, $suppressStockFields)) {
                     return false;
                 }
             }
@@ -1821,6 +1900,52 @@
             </div>
         @endif
 
+        {{-- PANEL RINGKASAN GLOBAL STOCK END DULUX --}}
+        @if($hasDynamicStockItems)
+            <div class="offtake-summary-grid">
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(15, 82, 186, 0.12); color: #0F52BA;">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Total SKU Dilaporkan</span>
+                        <span class="offtake-stat-value" style="color: #0F52BA;">{{ count($stockItemsList) }} SKU</span>
+                        <span class="offtake-stat-sub">Item produk stock end terdata</span>
+                    </div>
+                </div>
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(16, 185, 129, 0.12); color: #10b981;">
+                        <i class="fa-solid fa-fill-drip"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Total Volume Stok</span>
+                        <span class="offtake-stat-value" style="color: #059669;">{{ number_format($stockGlobalData['total_volume_liter'], 2, ',', '.') }} L</span>
+                        <span class="offtake-stat-sub">Akumulasi volume seluruh produk</span>
+                    </div>
+                </div>
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(99, 102, 241, 0.12); color: #6366f1;">
+                        <i class="fa-solid fa-box-archive"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Total Kemasan Galon</span>
+                        <span class="offtake-stat-value" style="color: #4f46e5;">{{ number_format($stockGlobalData['total_qty_galon']) }} Galon</span>
+                        <span class="offtake-stat-sub">Ukuran 2.5 Liter</span>
+                    </div>
+                </div>
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(245, 158, 11, 0.12); color: #f59e0b;">
+                        <i class="fa-solid fa-cube"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Total Kemasan Pail</span>
+                        <span class="offtake-stat-value" style="color: #d97706;">{{ number_format($stockGlobalData['total_qty_pail']) }} Pail</span>
+                        <span class="offtake-stat-sub">Ukuran 20 Liter</span>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- PANEL RINGKASAN GLOBAL DATABASE PELANGGAN & KONSUMEN DULUX --}}
         @if($isCustomerDbReport)
             <div class="cust-summary-grid">
@@ -2116,6 +2241,89 @@
                     @if($textValues->isNotEmpty())
                         <div style="border-top: 1px solid var(--border-color); padding: 0.75rem 1.25rem 0.25rem 1.25rem;">
                             <span style="font-size: 0.78rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Parameter Tambahan</span>
+                        </div>
+                    @endif
+                @elseif($hasDynamicStockItems)
+                    <div class="panel-header" style="background: linear-gradient(135deg, rgba(15,82,186,0.06) 0%, rgba(16,185,129,0.04) 100%);">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-boxes-stacked" style="color: #0F52BA;"></i>
+                            <span>Rincian Produk Stock End (Multi-Produk)</span>
+                        </div>
+                        <span class="panel-count-badge" style="background: #dbeafe; color: #1e40af; font-weight: 800;">
+                            {{ count($stockItemsList) }} Produk Terdata
+                        </span>
+                    </div>
+
+                    <div style="padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.85rem;">
+                        @foreach($stockItemsList as $sIdx => $sItem)
+                            @php
+                                $sName = $sItem['product_name'] ?? ($sItem['produk_stock_end'] ?? ($sItem['produk'] ?? 'Produk Dulux / Catylac'));
+                                $sBrand = strtoupper(trim((string)($sItem['brand'] ?? (str_contains(strtolower($sName), 'catylac') ? 'CATYLAC' : 'DULUX'))));
+                                $sKategori = $sItem['kategori_produk'] ?? ($sItem['kategori_cat'] ?? ($sItem['kategori'] ?? '-'));
+                                $qGalon = (float)($sItem['stok_qty_galon'] ?? ($sItem['qty_galon'] ?? ($sItem['kuantiti_galon'] ?? 0)));
+                                $qPail = (float)($sItem['stok_qty_pail'] ?? ($sItem['qty_pail'] ?? ($sItem['kuantiti_pail'] ?? 0)));
+                                $vLiter = (float)($sItem['total_volume_liter'] ?? (($qGalon * 2.5) + ($qPail * 20.0)));
+                                $baseWarna = $sItem['base_warna'] ?? ($sItem['base_cat'] ?? '-');
+                            @endphp
+                            <div class="product-breakdown-card" style="border-left: 4px solid {{ $sBrand === 'CATYLAC' ? '#f59e0b' : '#0F52BA' }};">
+                                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.65rem;">
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span style="font-size: 0.75rem; font-weight: 800; background: {{ $sBrand === 'CATYLAC' ? '#d97706' : '#0F52BA' }}; color: #fff; padding: 2px 7px; border-radius: 6px;">#{{ $sIdx + 1 }}</span>
+                                        <strong style="font-size: 0.95rem; color: var(--text-heading); font-weight: 800;">{{ $sName }}</strong>
+                                        <span style="font-size: 0.72rem; font-weight: 800; color: {{ $sBrand === 'CATYLAC' ? '#b45309' : '#1d4ed8' }}; background: {{ $sBrand === 'CATYLAC' ? '#fef3c7' : '#dbeafe' }}; padding: 2px 8px; border-radius: 6px; border: 1px solid {{ $sBrand === 'CATYLAC' ? '#fde68a' : '#bfdbfe' }};">
+                                            {{ $sBrand }}
+                                        </span>
+                                        @if(!empty($sKategori) && $sKategori !== '-')
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #475569; background: #f1f5f9; padding: 2px 7px; border-radius: 5px; border: 1px solid #e2e8f0;">
+                                                {{ $sKategori }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <div>
+                                        <span style="font-size: 0.85rem; font-weight: 800; color: #047857; background: #d1fae5; padding: 3px 10px; border-radius: 6px; border: 1px solid #a7f3d0; display: inline-flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid fa-fill-drip"></i>
+                                            {{ number_format($vLiter, 2, ',', '.') }} Liter
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">
+                                            <i class="fa-solid fa-box-archive" style="color: #6366f1;"></i> Kemasan Galon (2.5L)
+                                        </div>
+                                        <div style="font-weight: 800; color: {{ $qGalon > 0 ? '#1e293b' : '#94a3b8' }}; font-size: 0.95rem;">
+                                            {{ number_format($qGalon) }} <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Galon ({{ number_format($qGalon * 2.5, 1) }} L)</span>
+                                        </div>
+                                    </div>
+
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">
+                                            <i class="fa-solid fa-cube" style="color: #f59e0b;"></i> Kemasan Pail (20L)
+                                        </div>
+                                        <div style="font-weight: 800; color: {{ $qPail > 0 ? '#1e293b' : '#94a3b8' }}; font-size: 0.95rem;">
+                                            {{ number_format($qPail) }} <span style="font-size: 0.75rem; font-weight: 600; color: #64748b;">Pail ({{ number_format($qPail * 20.0, 1) }} L)</span>
+                                        </div>
+                                    </div>
+
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">
+                                            <i class="fa-solid fa-palette" style="color: #ec4899;"></i> Base / Varian Warna
+                                        </div>
+                                        <div style="font-weight: 700; color: #1e293b; font-size: 0.88rem;">
+                                            <span style="display: inline-block; background: #ede9fe; color: #6d28d9; padding: 2px 8px; border-radius: 5px; font-weight: 700; border: 1px solid #ddd6fe;">
+                                                {{ $baseWarna }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    @if($textValues->isNotEmpty())
+                        <div style="border-top: 1px solid var(--border-color); padding: 0.75rem 1.25rem 0.25rem 1.25rem;">
+                            <span style="font-size: 0.78rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Informasi Mesin Tinting & Tinter Tambahan</span>
                         </div>
                     @endif
                 @elseif($isCustomerDbReport)

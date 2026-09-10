@@ -10647,15 +10647,25 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                           'product_id': p.id,
                           'product_name': p.name,
                           'produk': p.name,
+                          'produk_stock_end': p.name,
                           'brand': p.brand ?? 'Dulux',
                           'category': p.category ?? '',
+                          'kategori_produk': p.category ?? '',
+                          'kategori_cat': p.category ?? '',
                           'warna': _stockEndWarnaCtrl.text.trim().isEmpty
+                              ? 'ALL'
+                              : _stockEndWarnaCtrl.text.trim(),
+                          'base_warna': _stockEndWarnaCtrl.text.trim().isEmpty
                               ? 'ALL'
                               : _stockEndWarnaCtrl.text.trim(),
                           'kemasan_galon': kemasanGalon,
                           'qty_galon': qtyGalon,
+                          'stok_qty_galon': qtyGalon,
+                          'kuantiti_galon': qtyGalon,
                           'kemasan_pail': kemasanPail,
                           'qty_pail': qtyPail,
+                          'stok_qty_pail': qtyPail,
+                          'kuantiti_pail': qtyPail,
                           'conf': _stockEndConfCtrl.text.trim().isEmpty
                               ? '1.27'
                               : _stockEndConfCtrl.text.trim(),
@@ -10664,6 +10674,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                               isTinter ? _stockEndTipeTinterCtrl.text.trim() : '',
                           'qty_kaleng_tinta': isTinter ? qtyTinter : 0,
                           'volume_liter': curLiter,
+                          'total_volume_liter': curLiter,
                         };
 
                         if (existingIdx >= 0) {
@@ -11864,18 +11875,26 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       final Map<String, dynamic> cleanFormValues = {
         'tanggal_pencatatan_stok': DateFormat('yyyy-MM-dd').format(now),
         'total_volume_stok_liter': grandLiter,
+        'total_volume_stok': grandLiter,
         'volume_liter': grandLiter,
         'kuantiti_galon': grandQtyGalon,
+        'stok_qty_galon': grandQtyGalon,
+        'qty_galon': grandQtyGalon,
         'kuantiti_pail': grandQtyPail,
+        'stok_qty_pail': grandQtyPail,
+        'qty_pail': grandQtyPail,
         'qty_kaleng_tinta': grandQtyTinter,
         'total_sku_stok': _stockEndCart.length,
         'produk': first['product_name'] ?? first['produk'] ?? 'Dulux Product',
+        'produk_stock_end': first['product_name'] ?? first['produk'] ?? 'Dulux Product',
         'brand': first['brand'] ?? 'Dulux',
         'warna': first['warna'] ?? 'ALL',
+        'base_warna': first['warna'] ?? first['base_warna'] ?? 'ALL',
         'conf': first['conf'] ?? '1.27',
         'status_akses_gudang': _stockEndAksesGudangCtrl.text,
         'keterangan_akses': _stockEndAksesGudangCtrl.text,
         'catatan': _stockEndCatatanCtrl.text,
+        'catatan_khusus_stok': _stockEndCatatanCtrl.text,
         'keterangan_stok_toko': _stockEndCatatanCtrl.text,
         'stock_items_json': jsonEncode(_stockEndCart),
       };
