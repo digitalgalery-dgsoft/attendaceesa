@@ -55,8 +55,7 @@ Route::get('/debug-dulux-check', function () {
     return response()->json([
         'server_ip' => request()->server('SERVER_ADDR'),
         'http_host' => request()->server('HTTP_HOST'),
-        'document_root' => request()->server('DOCUMENT_ROOT'),
-        'git_head' => trim(@shell_exec('git rev-parse --short HEAD 2>&1') ?? ''),
+        'git_head' => function_exists('shell_exec') ? trim(@shell_exec('git rev-parse --short HEAD 2>&1') ?? '') : 'disabled',
         'view_file_mtime' => [
             'stock_dashboard' => file_exists(resource_path('views/portal/partials/stock_dashboard.blade.php')) ? date('Y-m-d H:i:s', filemtime(resource_path('views/portal/partials/stock_dashboard.blade.php'))) : 'not found',
             'submission_detail' => file_exists(resource_path('views/portal/report_submission_detail.blade.php')) ? date('Y-m-d H:i:s', filemtime(resource_path('views/portal/report_submission_detail.blade.php'))) : 'not found',
