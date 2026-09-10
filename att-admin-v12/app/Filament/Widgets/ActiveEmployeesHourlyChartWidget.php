@@ -247,6 +247,8 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
         $newEmployees = $newEmpQuery->get(['id', 'created_at']);
 
         // Query employees who resigned / deactivated in this window
+        // PENTING: Hanya ambil karyawan yang SEBELUMNYA AKTIF, lalu di-update menjadi resign/non-aktif dalam window ini.
+        // Abaikan arsip mantan karyawan lama yang baru di-insert langsung dengan status is_active=false.
         $resignedEmpQuery = Employee::query()
             ->where('is_active', false)
             ->where(function ($q) use ($windowStart, $windowEnd) {
@@ -268,12 +270,12 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
                 $resignedEmpQuery->whereIn('principal_id', auth()->user()->getAccessiblePrincipalIds());
             }
         }
-        $resignedEmployees = $resignedEmpQuery->get(['id', 'updated_at', 'resign_date']);
+        $resignedEmployees = $resignedEmpQuery->get(['id', 'created_at', 'updated_at', 'resign_date']);
 
         // Query Odoo sync logs in this window
         $syncLogs = OdooSyncLog::where('created_at', '>=', $windowStart->toDateTimeString())
             ->where('created_at', '<=', $windowEnd->toDateTimeString())
-            ->get(['id', 'created_at', 'new_count', 'resign_count', 'update_count', 'total_employee_count']);
+            ->get(['id', 'created_at', 'new_count', 'resign_count', 'update_count', 'total_employee_count', 'details']);
 
         $latestSyncLog = OdooSyncLog::latest('created_at')->first();
         $latestSyncTime = $latestSyncLog 
@@ -287,6 +289,7 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
             $slotStart = $slot['start'];
             $slotEnd   = $slot['end'];
 
+            // 1. Karyawan Baru
             $slotNewCount = 0;
             foreach ($newEmployees as $ne) {
                 $cTime = Carbon::parse($ne->created_at)->timezone('Asia/Jakarta');
@@ -295,22 +298,38 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
                 }
             }
 
+            // 2. Karyawan Resign / Non-Aktif (Mutasi Riil)
             $slotResignCount = 0;
             foreach ($resignedEmployees as $re) {
                 $uTime = Carbon::parse($re->updated_at)->timezone('Asia/Jakarta');
-                if ($uTime->between($slotStart, $slotEnd)) {
+                $cTime = Carbon::parse($re->created_at)->timezone('Asia/Jakarta');
+
+                // Hanya hitung jika karyawan tersebut adalah mutasi riil (bukan record baru yang di-insert langsung sebagai non-aktif)
+                if ($uTime->between($slotStart, $slotEnd) && $uTime->diffInMinutes($cTime) > 10) {
                     $slotResignCount++;
                 }
             }
 
-            // Cross-check dengan data odoo_sync_logs jika ada batch sync pada jam tersebut
+            // 3. Cross-check dengan OdooSyncLog pada slot jam ini
+            $logNewInSlot = 0;
+            $logResignInSlot = 0;
             foreach ($syncLogs as $sLog) {
                 $lTime = Carbon::parse($sLog->created_at)->timezone('Asia/Jakarta');
                 if ($lTime->between($slotStart, $slotEnd)) {
-                    $slotNewCount    = max($slotNewCount, (int)$sLog->new_count);
-                    $slotResignCount = max($slotResignCount, (int)$sLog->resign_count);
+                    $logNewInSlot = max($logNewInSlot, (int)$sLog->new_count);
+
+                    $details = is_array($sLog->details) ? $sLog->details : json_decode($sLog->details ?? '[]', true);
+                    if (!empty($details['resigned_employees']) && is_array($details['resigned_employees'])) {
+                        $logResignInSlot = max($logResignInSlot, count($details['resigned_employees']));
+                    } elseif ((int)$sLog->resign_count > 0 && (int)$sLog->resign_count < 50) {
+                        // Hanya gunakan jika nilainya realistis sebagai mutasi per jam (< 50)
+                        $logResignInSlot = max($logResignInSlot, (int)$sLog->resign_count);
+                    }
                 }
             }
+
+            $slotNewCount = max($slotNewCount, $logNewInSlot);
+            $slotResignCount = max($slotResignCount, $logResignInSlot);
 
             $newSeries[]    = $slotNewCount;
             $resignSeries[] = $slotResignCount;
@@ -473,6 +492,7 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
                     'display' => true,
                     'position' => 'left',
                     'beginAtZero' => false,
+                    'grace' => '5%',
                     'title' => [
                         'display' => true,
                         'text' => 'Total Employee Aktif',
@@ -499,6 +519,8 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
                     'display' => true,
                     'position' => 'right',
                     'beginAtZero' => true,
+                    'suggestedMax' => 10,
+                    'grace' => '10%',
                     'title' => [
                         'display' => true,
                         'text' => 'Perubahan Odoo (+ / -)',
