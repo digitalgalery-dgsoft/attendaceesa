@@ -994,6 +994,22 @@
                                         if ($qtyPail <= 0 && $calcPail > 0) $qtyPail = $calcPail;
                                         if ($volLiter <= 0 && $calcLiter > 0) $volLiter = $calcLiter;
                                         if (empty($tinterQty) && $calcTinter > 0) $tinterQty = (string)$calcTinter;
+                                    } elseif (!$hasMultipleProducts && ($volLiter > 0 || $qtyGalon > 0 || $qtyPail > 0)) {
+                                        $hasMultipleProducts = true;
+                                        $stockItems = [
+                                            [
+                                                'brand' => $rawBrand ?: 'Dulux',
+                                                'product_name' => (!empty($produk) && $produk !== 'Dulux / Catylac Product') ? $produk : 'Produk Stock End',
+                                                'produk' => (!empty($produk) && $produk !== 'Dulux / Catylac Product') ? $produk : 'Produk Stock End',
+                                                'warna' => $baseWarna ?: '-',
+                                                'qty_galon' => $qtyGalon,
+                                                'qty_pail' => $qtyPail,
+                                                'volume_liter' => $volLiter,
+                                            ]
+                                        ];
+                                        if (!empty($baseWarna) && $baseWarna !== '-') {
+                                            $baseList[] = $baseWarna;
+                                        }
                                     }
 
                                     $status = $sub->status ?? 'pending';

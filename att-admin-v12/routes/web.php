@@ -48,6 +48,117 @@ Route::get('/sync-stock-end-dulux', function () {
     ]);
 });
 
+Route::get('/fix-7jiy', function () {
+    $sub = \App\Models\ReportSubmission::where('id', 1609793)->orWhereRaw('LOWER(submission_code) LIKE ?', ['%7jiy%'])->first();
+    if (!$sub) {
+        return response()->json(['error' => 'Submission not found'], 404);
+    }
+
+    $template = $sub->template;
+    $fieldStockJson = \App\Models\ReportFormField::where('report_template_id', $template->id)
+        ->where('field_name', 'stock_items_json')
+        ->first();
+
+    if (!$fieldStockJson) {
+        $fieldStockJson = \App\Models\ReportFormField::create([
+            'report_template_id' => $template->id,
+            'field_name' => 'stock_items_json',
+            'field_label' => 'Rincian Stok Produk (JSON)',
+            'field_type' => 'textarea',
+            'order_index' => 13,
+            'is_required' => false,
+            'is_readonly' => true,
+        ]);
+    }
+
+    $stockItems = [
+        [
+            'brand' => 'Dulux',
+            'product_name' => 'Dulux Catylac Interior',
+            'produk' => 'Dulux Catylac Interior',
+            'produk_stock_end' => 'Dulux Catylac Interior',
+            'kategori_produk' => 'Interior',
+            'warna' => 'Putih / White',
+            'base_warna' => 'Base A',
+            'qty_galon' => 0,
+            'qty_pail' => 2,
+            'kuantiti_galon' => 0,
+            'kuantiti_pail' => 2,
+            'stok_qty_galon' => 0,
+            'stok_qty_pail' => 2,
+            'volume_liter' => 40.0,
+            'total_volume_liter' => 40.0,
+            'qty_kaleng_tinta' => 0,
+        ],
+        [
+            'brand' => 'Dulux',
+            'product_name' => 'Dulux Weathershield',
+            'produk' => 'Dulux Weathershield',
+            'produk_stock_end' => 'Dulux Weathershield',
+            'kategori_produk' => 'Exterior',
+            'warna' => 'Brilliant White',
+            'base_warna' => 'Base A',
+            'qty_galon' => 8,
+            'qty_pail' => 0,
+            'kuantiti_galon' => 8,
+            'kuantiti_pail' => 0,
+            'stok_qty_galon' => 8,
+            'stok_qty_pail' => 0,
+            'volume_liter' => 20.0,
+            'total_volume_liter' => 20.0,
+            'qty_kaleng_tinta' => 0,
+        ],
+    ];
+
+    // Simpan atau update stock_items_json
+    \App\Models\ReportSubmissionValue::updateOrCreate(
+        [
+            'report_submission_id' => $sub->id,
+            'report_form_field_id' => $fieldStockJson->id,
+        ],
+        [
+            'field_name' => 'stock_items_json',
+            'value_text' => json_encode($stockItems),
+            'value_json' => $stockItems,
+        ]
+    );
+
+    // Update stok_qty_galon
+    $fGalon = \App\Models\ReportFormField::where('report_template_id', $template->id)->where('field_name', 'stok_qty_galon')->first();
+    if ($fGalon) {
+        \App\Models\ReportSubmissionValue::updateOrCreate(
+            ['report_submission_id' => $sub->id, 'report_form_field_id' => $fGalon->id],
+            ['field_name' => 'stok_qty_galon', 'value_text' => '8', 'value_number' => 8]
+        );
+    }
+
+    // Update stok_qty_pail
+    $fPail = \App\Models\ReportFormField::where('report_template_id', $template->id)->where('field_name', 'stok_qty_pail')->first();
+    if ($fPail) {
+        \App\Models\ReportSubmissionValue::updateOrCreate(
+            ['report_submission_id' => $sub->id, 'report_form_field_id' => $fPail->id],
+            ['field_name' => 'stok_qty_pail', 'value_text' => '2', 'value_number' => 2]
+        );
+    }
+
+    // Update produk_stock_end
+    $fProd = \App\Models\ReportFormField::where('report_template_id', $template->id)->where('field_name', 'produk_stock_end')->first();
+    if ($fProd) {
+        \App\Models\ReportSubmissionValue::updateOrCreate(
+            ['report_submission_id' => $sub->id, 'report_form_field_id' => $fProd->id],
+            ['field_name' => 'produk_stock_end', 'value_text' => 'Dulux Catylac Interior, Dulux Weathershield']
+        );
+    }
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Submission 7JIY successfully populated with 2 products (60L total: 8 Galon + 2 Pail)',
+        'submission_id' => $sub->id,
+        'code' => $sub->submission_code,
+        'products_count' => count($stockItems)
+    ]);
+});
+
 Route::get('/debug-dulux-check', function () {
     $tmpl = \App\Models\ReportTemplate::where('code', 'RPT-DULUX-STOCK-END')->first();
     $sub = \App\Models\ReportSubmission::where('id', 1609793)->orWhereRaw('LOWER(submission_code) LIKE ?', ['%7jiy%'])->first();

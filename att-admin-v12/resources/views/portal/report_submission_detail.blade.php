@@ -1191,6 +1191,54 @@
             if ($stockGlobalData['total_volume_liter'] <= 0 || $calcLiter > 0) {
                 $stockGlobalData['total_volume_liter'] = $calcLiter;
             }
+        if (!$hasDynamicStockItems && ($template->code === 'RPT-DULUX-STOCK-END' || str_contains($template->code, 'STOCK-END'))) {
+            $singleProd = '-';
+            $singleBrand = 'Dulux';
+            $singleBase = '-';
+            $singleGalon = (float)($stockGlobalData['total_qty_galon'] ?? 0);
+            $singlePail = (float)($stockGlobalData['total_qty_pail'] ?? 0);
+            $singleVol = (float)($stockGlobalData['total_volume_liter'] ?? 0);
+
+            foreach ($submission->values as $v) {
+                $vFn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
+                if (in_array($vFn, ['produk_stock_end', 'produk', 'pilih_produk_dulux_catylac_yang_dicek'])) {
+                    if (!empty($v->value_text)) $singleProd = $v->value_text;
+                } elseif (in_array($vFn, ['brand', 'brand_cat'])) {
+                    if (!empty($v->value_text)) $singleBrand = $v->value_text;
+                } elseif (in_array($vFn, ['base_warna', 'warna', 'base_tipe_warna'])) {
+                    if (!empty($v->value_text)) $singleBase = $v->value_text;
+                } elseif (in_array($vFn, ['stok_qty_galon', 'kuantiti_galon'])) {
+                    $singleGalon = (float)($v->value_number ?? $v->value_text ?? $singleGalon);
+                } elseif (in_array($vFn, ['stok_qty_pail', 'kuantiti_pail'])) {
+                    $singlePail = (float)($v->value_number ?? $v->value_text ?? $singlePail);
+                } elseif (in_array($vFn, ['total_volume_stok_liter', 'total_volume_stok'])) {
+                    $singleVol = (float)($v->value_number ?? $v->value_text ?? $singleVol);
+                }
+            }
+
+            if ($singleVol > 0 || $singleGalon > 0 || $singlePail > 0) {
+                $hasDynamicStockItems = true;
+                if ($singleVol <= 0) {
+                    $singleVol = ($singleGalon * 2.5) + ($singlePail * 20.0);
+                }
+                $stockGlobalData['total_sku_stock'] = 1;
+                $stockGlobalData['total_volume_liter'] = $singleVol;
+                $stockGlobalData['total_qty_galon'] = $singleGalon;
+                $stockGlobalData['total_qty_pail'] = $singlePail;
+                $stockItemsList = [
+                    [
+                        'brand' => $singleBrand ?: 'Dulux',
+                        'product_name' => (!empty($singleProd) && $singleProd !== '-') ? $singleProd : 'Produk Stock End',
+                        'warna' => $singleBase,
+                        'qty_galon' => $singleGalon,
+                        'qty_pail' => $singlePail,
+                        'volume_liter' => $singleVol,
+                        'stok_qty_galon' => $singleGalon,
+                        'stok_qty_pail' => $singlePail,
+                        'total_volume_liter' => $singleVol,
+                    ]
+                ];
+            }
         }
 
         // Selalu prioritaskan kalkulasi akumulatif dari offtake_items_json jika tersedia
