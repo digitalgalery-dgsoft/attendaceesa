@@ -118,6 +118,7 @@ Route::get('/fix-7jiy', function () {
         ],
         [
             'field_name' => 'stock_items_json',
+            'field_type' => 'textarea',
             'value_text' => json_encode($stockItems),
             'value_json' => $stockItems,
         ]
@@ -128,7 +129,7 @@ Route::get('/fix-7jiy', function () {
     if ($fGalon) {
         \App\Models\ReportSubmissionValue::updateOrCreate(
             ['report_submission_id' => $sub->id, 'report_form_field_id' => $fGalon->id],
-            ['field_name' => 'stok_qty_galon', 'value_text' => '8', 'value_number' => 8]
+            ['field_name' => 'stok_qty_galon', 'field_type' => 'number', 'value_text' => '8', 'value_number' => 8]
         );
     }
 
@@ -137,7 +138,7 @@ Route::get('/fix-7jiy', function () {
     if ($fPail) {
         \App\Models\ReportSubmissionValue::updateOrCreate(
             ['report_submission_id' => $sub->id, 'report_form_field_id' => $fPail->id],
-            ['field_name' => 'stok_qty_pail', 'value_text' => '2', 'value_number' => 2]
+            ['field_name' => 'stok_qty_pail', 'field_type' => 'number', 'value_text' => '2', 'value_number' => 2]
         );
     }
 
@@ -146,7 +147,7 @@ Route::get('/fix-7jiy', function () {
     if ($fProd) {
         \App\Models\ReportSubmissionValue::updateOrCreate(
             ['report_submission_id' => $sub->id, 'report_form_field_id' => $fProd->id],
-            ['field_name' => 'produk_stock_end', 'value_text' => 'Dulux Catylac Interior, Dulux Weathershield']
+            ['field_name' => 'produk_stock_end', 'field_type' => 'text', 'value_text' => 'Dulux Catylac Interior, Dulux Weathershield']
         );
     }
 
