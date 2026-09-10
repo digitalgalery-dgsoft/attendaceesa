@@ -735,7 +735,7 @@ Route::get('/run-migration-stock-end', function () {
 
         // Cek template fields di database
         $template = \App\Models\ReportTemplate::where('code', 'RPT-DULUX-STOCK-END')->first();
-        $fields = $template ? $template->fields()->select('name', 'label', 'type', 'is_required', 'order_index')->orderBy('order_index')->get() : [];
+        $fields = $template ? $template->fields()->select('field_name', 'field_label', 'field_type', 'is_required', 'order_index')->orderBy('order_index')->get() : [];
 
         return response()->json([
             'status' => 'success',
