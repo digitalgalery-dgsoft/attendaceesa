@@ -24,8 +24,8 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
     use InteractsWithActions;
     use InteractsWithSchemas;
 
-    protected ?string $heading = 'Perubahan Employee Aktif Tiap Jam (Odoo Sync)';
-    protected ?string $description = 'Tren pergerakan jumlah karyawan aktif, penambahan karyawan baru, dan mutasi resign hasil sinkronisasi Odoo';
+    protected ?string $heading = 'Perubahan Employee Aktif Tiap 30 Menit (Odoo Sync)';
+    protected ?string $description = 'Tren pergerakan jumlah karyawan aktif, penambahan karyawan baru, dan mutasi resign hasil sinkronisasi Odoo tiap 30 menit';
     protected static ?int $sort = 3;
     protected int | string | array $columnSpan = 'full';
     protected ?string $maxHeight = '350px';
@@ -46,11 +46,12 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
                 Select::make('time_range')
                     ->label('Rentang Waktu')
                     ->options([
-                        '12h'   => '12 Jam Terakhir (Default)',
-                        '24h'   => '24 Jam Terakhir',
-                        'today' => 'Hari Ini (Sejak 00:00)',
-                        '7d'    => '7 Hari Terakhir',
-                        '30d'   => '30 Hari Terakhir',
+                        '6h'    => '6 Jam Terakhir (Tiap 30 Menit)',
+                        '12h'   => '12 Jam Terakhir (Tiap 30 Menit - Default)',
+                        '24h'   => '24 Jam Terakhir (Tiap 30 Menit)',
+                        'today' => 'Hari Ini (Tiap 30 Menit)',
+                        '7d'    => '7 Hari Terakhir (Harian)',
+                        '30d'   => '30 Hari Terakhir (Harian)',
                     ])
                     ->default('12h')
                     ->selectablePlaceholder(false)
@@ -125,24 +126,9 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
         $range = $this->filters['time_range'] ?? '12h';
         $slots = [];
 
-        if ($range === '24h') {
-            $totalHours = 24;
-            $interval = 'hour';
-        } elseif ($range === 'today') {
-            $totalHours = (int)$now->format('H') + 1;
-            $interval = 'hour';
-        } elseif ($range === '7d') {
-            $totalDays = 7;
-            $interval = 'day';
-        } elseif ($range === '30d') {
-            $totalDays = 30;
-            $interval = 'day';
-        } else {
-            $totalHours = 12;
-            $interval = 'hour';
-        }
-
-        if ($interval === 'day') {
+        // Untuk rentang 7 hari dan 30 hari: tampilkan agregasi harian
+        if ($range === '7d' || $range === '30d') {
+            $totalDays = $range === '7d' ? 7 : 30;
             for ($i = $totalDays - 1; $i >= 0; $i--) {
                 $date = $now->copy()->subDays($i);
                 $start = $date->copy()->startOfDay();
@@ -155,19 +141,37 @@ class ActiveEmployeesHourlyChartWidget extends ChartWidget implements HasActions
                     'full_label' => $date->translatedFormat('l, d F Y'),
                 ];
             }
-        } else {
-            for ($i = $totalHours - 1; $i >= 0; $i--) {
-                $time = $now->copy()->subHours($i);
-                $start = $time->copy()->startOfHour();
-                $end   = $time->copy()->endOfHour();
+            return $slots;
+        }
 
-                $slots[] = [
-                    'start'      => $start,
-                    'end'        => $end,
-                    'label'      => $start->format('H:00'),
-                    'full_label' => $start->translatedFormat('D, d M H:00') . ' - ' . $end->format('H:59'),
-                ];
-            }
+        // Interval 30 Menit (Sesuai Jadwal Sinkronisasi Odoo)
+        if ($range === '6h') {
+            $totalSlots = 12; // 6 jam * 2 slot
+        } elseif ($range === '24h') {
+            $totalSlots = 48; // 24 jam * 2 slot
+        } elseif ($range === 'today') {
+            // Sejak 00:00 hari ini sampai slot 30 menit saat ini
+            $totalHalfHours = ((int)$now->format('H') * 2) + ($now->minute >= 30 ? 2 : 1);
+            $totalSlots = max(1, $totalHalfHours);
+        } else {
+            // Default 12h: 12 jam * 2 = 24 slot per 30 menit
+            $totalSlots = 24;
+        }
+
+        // Anchor slot 30 menit terkini (:00 atau :30)
+        $currentMinuteSlot = $now->minute >= 30 ? 30 : 0;
+        $anchor = $now->copy()->minute($currentMinuteSlot)->second(0);
+
+        for ($i = $totalSlots - 1; $i >= 0; $i--) {
+            $slotStart = $anchor->copy()->subMinutes($i * 30);
+            $slotEnd   = $slotStart->copy()->addMinutes(29)->second(59);
+
+            $slots[] = [
+                'start'      => $slotStart,
+                'end'        => $slotEnd,
+                'label'      => $slotStart->format('H:i'),
+                'full_label' => $slotStart->translatedFormat('D, d M H:i') . ' - ' . $slotEnd->format('H:i'),
+            ];
         }
 
         return $slots;
