@@ -427,6 +427,58 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               return val.contains('no oos') || val.contains('stok lengkap');
             });
 
+            // Cek apakah ada data Stock End multi-produk dinamis
+            List<dynamic>? stockItemsList;
+            for (final v in _currentSubmission.values) {
+              final fn = v.fieldName.toLowerCase();
+              if (fn == 'stock_items_json' || fn.contains('stock_items')) {
+                if (v.valueJson is List && (v.valueJson as List).isNotEmpty) {
+                  stockItemsList = v.valueJson as List;
+                  break;
+                } else if (v.valueText != null && v.valueText!.trim().isNotEmpty) {
+                  try {
+                    final decoded = jsonDecode(v.valueText!);
+                    if (decoded is List && decoded.isNotEmpty) {
+                      stockItemsList = decoded;
+                      break;
+                    }
+                  } catch (_) {}
+                }
+              }
+            }
+            final hasDynamicStock = stockItemsList != null && stockItemsList.isNotEmpty;
+            int stockTotalSku = 0;
+            double stockTotalVolume = 0;
+            int stockTotalGalon = 0;
+            int stockTotalPail = 0;
+            int stockTotalTinter = 0;
+            if (hasDynamicStock) {
+              stockTotalSku = stockItemsList.length;
+              for (final it in stockItemsList) {
+                if (it is! Map) continue;
+                stockTotalVolume += (it['volume_liter'] as num?)?.toDouble() ?? double.tryParse(it['volume_liter']?.toString() ?? '0') ?? 0.0;
+                stockTotalGalon += (it['kuantiti_galon'] as num?)?.toInt() ?? int.tryParse(it['kuantiti_galon']?.toString() ?? '0') ?? 0;
+                stockTotalPail += (it['kuantiti_pail'] as num?)?.toInt() ?? int.tryParse(it['kuantiti_pail']?.toString() ?? '0') ?? 0;
+                stockTotalTinter += (it['qty_kaleng_tinta'] as num?)?.toInt() ?? int.tryParse(it['qty_kaleng_tinta']?.toString() ?? '0') ?? 0;
+              }
+            }
+
+            final suppressStockFields = {
+              'stock_items_json',
+              'produk',
+              'brand',
+              'volume_liter',
+              'kemasan_galon',
+              'kemasan_pail',
+              'kuantiti_galon',
+              'kuantiti_pail',
+              'tipe_tinter_warna',
+              'qty_kaleng_tinta',
+              'conf',
+              'total_volume_stok_liter',
+              'total_sku_stok',
+            };
+
             final suppressOosFields = {
               'oos_items_json',
               'tipe_laporan_oos',
@@ -603,6 +655,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   return false;
                 }
               }
+              if (hasDynamicStock) {
+                if (suppressStockFields.contains(fn) || suppressStockFields.contains(fl)) {
+                  return false;
+                }
+              }
               return true;
             }).toList();
 
@@ -759,15 +816,70 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   const SizedBox(height: 12),
                 ],
 
+                // ── 1.6. Panel Ringkasan KPI Global Stock End ──
+                if (hasDynamicStock) ...[
+                  _buildStockSummaryGrid(
+                    stockItems: stockItemsList!,
+                    totalSku: stockTotalSku,
+                    totalVolume: stockTotalVolume,
+                    totalGalon: stockTotalGalon,
+                    totalPail: stockTotalPail,
+                    totalTinter: stockTotalTinter,
+                    cardColor: cardColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    isDarkMode: isDarkMode,
+                  ),
+                  const SizedBox(height: 8),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'RINCIAN PRODUK & STOK AKHIR',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F52BA).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '$stockTotalSku Produk Dilaporkan',
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF0F52BA)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ...stockItemsList!.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final item = entry.value;
+                    if (item is! Map) return const SizedBox.shrink();
+                    return _buildStockProductCard(
+                      index: idx + 1,
+                      item: Map<String, dynamic>.from(item),
+                      cardColor: cardColor,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
+                      elevatedColor: elevatedColor,
+                      primaryColor: primaryColor,
+                      isDarkMode: isDarkMode,
+                    );
+                  }),
+                  const SizedBox(height: 12),
+                ],
+
                 // ── 3. Parameter Tambahan / Standar Form ──
                 if (displayValues.isNotEmpty) ...[
                   Text(
-                    (hasDynamicOfftake || hasDynamicOos || isNoOos) ? 'PARAMETER TAMBAHAN' : 'RINCIAN DATA LAPORAN',
+                    (hasDynamicOfftake || hasDynamicOos || isNoOos || hasDynamicStock) ? 'PARAMETER TAMBAHAN' : 'RINCIAN DATA LAPORAN',
                     style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
                   ),
                   const SizedBox(height: 8),
                   ...displayValues.map((val) => _buildValueCard(val, cardColor, textColor, subtitleColor, elevatedColor, primaryColor, isDarkMode)),
-                ] else if (!hasDynamicOfftake && !hasDynamicOos && !isNoOos) ...[
+                ] else if (!hasDynamicOfftake && !hasDynamicOos && !isNoOos && !hasDynamicStock) ...[
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -1378,6 +1490,228 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── HELPER WIDGETS DETAIL STOCK END ───
+  Widget _buildStockSummaryGrid({
+    required List<dynamic> stockItems,
+    required int totalSku,
+    required double totalVolume,
+    required int totalGalon,
+    required int totalPail,
+    required int totalTinter,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required bool isDarkMode,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.inventory_2_rounded,
+                  iconColor: const Color(0xFF0F52BA),
+                  iconBgColor: const Color(0xFF0F52BA).withOpacity(0.12),
+                  label: 'Total SKU',
+                  value: '$totalSku SKU',
+                  valueColor: const Color(0xFF0F52BA),
+                  subText: 'Produk dicek',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.opacity_rounded,
+                  iconColor: const Color(0xFF0284C7),
+                  iconBgColor: const Color(0xFF0284C7).withOpacity(0.12),
+                  label: 'Total Volume',
+                  value: '${totalVolume.toStringAsFixed(1)} L',
+                  valueColor: const Color(0xFF0284C7),
+                  subText: 'Akumulasi liter',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.takeout_dining_rounded,
+                  iconColor: const Color(0xFF10B981),
+                  iconBgColor: const Color(0xFF10B981).withOpacity(0.12),
+                  label: 'Galon & Pail',
+                  value: '$totalGalon G / $totalPail P',
+                  valueColor: const Color(0xFF15803D),
+                  subText: 'Total fisik kemasan',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+              if (totalTinter > 0) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildOfftakeStatCard(
+                    icon: Icons.format_paint_rounded,
+                    iconColor: const Color(0xFF8B5CF6),
+                    iconBgColor: const Color(0xFF8B5CF6).withOpacity(0.12),
+                    label: 'Tinter / Tinta',
+                    value: '$totalTinter Kaleng',
+                    valueColor: const Color(0xFF7C3AED),
+                    subText: 'Mesin tinting',
+                    cardColor: cardColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    isDarkMode: isDarkMode,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStockProductCard({
+    required int index,
+    required Map<String, dynamic> item,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color elevatedColor,
+    required Color primaryColor,
+    required bool isDarkMode,
+  }) {
+    final pName = (item['product_name']?.toString() ?? item['product_code']?.toString() ?? 'Produk Dulux').trim();
+    final pBrand = (item['brand']?.toString() ?? '-').trim();
+    final pCat = (item['category']?.toString() ?? '-').trim();
+    final qGalon = (item['kuantiti_galon'] as num?)?.toInt() ?? int.tryParse(item['kuantiti_galon']?.toString() ?? '0') ?? 0;
+    final qPail = (item['kuantiti_pail'] as num?)?.toInt() ?? int.tryParse(item['kuantiti_pail']?.toString() ?? '0') ?? 0;
+    final volLiter = (item['volume_liter'] as num?)?.toDouble() ?? double.tryParse(item['volume_liter']?.toString() ?? '0') ?? 0.0;
+    final isTinter = item['is_tinter'] == true || (item['tipe_tinter_warna'] != null && item['tipe_tinter_warna'].toString().isNotEmpty);
+    final tipeTinter = (item['tipe_tinter_warna']?.toString() ?? '-').trim();
+    final qTinter = (item['qty_kaleng_tinta'] as num?)?.toInt() ?? int.tryParse(item['qty_kaleng_tinta']?.toString() ?? '0') ?? 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF0F52BA).withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F52BA).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '#$index',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F52BA)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  pName,
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0284C7).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${volLiter.toStringAsFixed(1)} Liter',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              if (pBrand != '-')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text('Brand: $pBrand', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: subtitleColor)),
+                ),
+              if (pCat != '-')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text('Kategori: $pCat', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: subtitleColor)),
+                ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text('Galon: $qGalon Unit', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF15803D))),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text('Pail: $qPail Unit', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF15803D))),
+              ),
+              if (isTinter || qTinter > 0) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text('Tinter: $tipeTinter ($qTinter Kaleng)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF7C3AED))),
+                ),
+              ],
+            ],
           ),
         ],
       ),

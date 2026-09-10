@@ -1199,7 +1199,184 @@ class ReportingApiController extends Controller
                 ]);
             }
 
-            // STANDAR / SINGLE SUBMISSION (Untuk template selain Offtake/OOS multi-produk atau No Sale/No OOS)
+            // Cek apakah ini template Stock End dengan cart multi-produk
+            $stockEndItems = [];
+            if (isset($valuesInput['stock_items_json'])) {
+                $rawStockItems = $valuesInput['stock_items_json'];
+                if (is_string($rawStockItems)) {
+                    $rawStockItems = json_decode($rawStockItems, true) ?? [];
+                }
+                if (is_array($rawStockItems)) {
+                    $stockEndItems = $rawStockItems;
+                }
+            }
+
+            $isStockEndTemplate = ($template->code === 'RPT-DULUX-STOCK-END' || Str::contains($template->code, 'STOCK-END'));
+            $isStockEndWithItems = $isStockEndTemplate && !empty($stockEndItems) && count($stockEndItems) > 0;
+
+            // JIKA STOCK END DENGAN MULTI-PRODUK: BUAT 1 BARIS REPORT SUBMISSION DENGAN DETAIL RINCIAN STOK
+            if ($isStockEndWithItems) {
+                // Simpan seluruh file media/foto sekali untuk submission ini
+                $allSavedMedia = [];
+                foreach ($template->fields as $field) {
+                    if (in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature', 'image'])) {
+                        $savedPhotos = $this->saveUploadedPhotos($request, 0, (string)$field->id, $field->field_name);
+                        if (!empty($savedPhotos)) {
+                            $allSavedMedia[$field->id] = $savedPhotos;
+                            $allSavedMedia[$field->field_name] = $savedPhotos;
+                        }
+                    }
+                }
+
+                $sub = ReportSubmission::create([
+                    'report_template_id' => $template->id,
+                    'principal_id' => $principalId,
+                    'employee_id' => $employee->id,
+                    'work_location_id' => $workLocationId,
+                    'itinerary_item_id' => $itineraryItemId,
+                    'submission_code' => $submissionCode,
+                    'store_name' => $storeName,
+                    'address' => $address,
+                    'latitude' => $request->latitude,
+                    'longitude' => $request->longitude,
+                    'is_within_radius' => $isWithinRadius,
+                    'status' => 'pending',
+                    'submitted_at' => now(),
+                ]);
+
+                $allProductNames = [];
+                $allBrands = [];
+                $grandQtyGalon = 0;
+                $grandQtyPail = 0;
+                $grandQtyTinter = 0;
+                $grandTotalLiter = 0.0;
+
+                foreach ($stockEndItems as $item) {
+                    $pName = trim((string)($item['product_name'] ?? ($item['produk'] ?? '')));
+                    if (!empty($pName) && !in_array($pName, $allProductNames)) {
+                        $allProductNames[] = $pName;
+                    }
+                    $bName = trim((string)($item['brand'] ?? ''));
+                    if (!empty($bName) && !in_array($bName, $allBrands)) {
+                        $allBrands[] = $bName;
+                    }
+
+                    $qGalon = intval($item['qty_galon'] ?? ($item['kuantiti_galon'] ?? 0));
+                    $qPail = intval($item['qty_pail'] ?? ($item['kuantiti_pail'] ?? 0));
+                    $qTinter = intval($item['qty_kaleng_tinta'] ?? 0);
+                    $vLit = floatval($item['volume_liter'] ?? 0.0);
+
+                    $grandQtyGalon += $qGalon;
+                    $grandQtyPail += $qPail;
+                    $grandQtyTinter += $qTinter;
+                    $grandTotalLiter += $vLit;
+                }
+
+                $firstItem = $stockEndItems[0];
+                $productSummary = implode(', ', $allProductNames);
+                $brandSummary = count($allBrands) > 0 ? implode(', ', $allBrands) : ($firstItem['brand'] ?? 'Dulux');
+
+                foreach ($template->fields as $field) {
+                    $fn = strtolower(trim($field->field_name));
+                    $vText = null;
+                    $vNum = null;
+                    $vJson = null;
+                    $photoPath = null;
+
+                    if ($fn === 'produk' || $fn === 'nama_produk') {
+                        $vText = $productSummary;
+                    } elseif ($fn === 'brand') {
+                        $vText = $brandSummary;
+                    } elseif ($fn === 'volume_liter' || $fn === 'total_volume_stok_liter') {
+                        $vNum = round($grandTotalLiter, 2);
+                        $vText = (string)round($grandTotalLiter, 2);
+                    } elseif ($fn === 'kuantiti_galon') {
+                        $vNum = (float)$grandQtyGalon;
+                        $vText = (string)$grandQtyGalon;
+                    } elseif ($fn === 'kuantiti_pail') {
+                        $vNum = (float)$grandQtyPail;
+                        $vText = (string)$grandQtyPail;
+                    } elseif ($fn === 'qty_kaleng_tinta') {
+                        $vNum = (float)$grandQtyTinter;
+                        $vText = (string)$grandQtyTinter;
+                    } elseif ($fn === 'tanggal_pencatatan_stok') {
+                        $vText = $normalizedValues['tanggal_pencatatan_stok'] ?? now()->toDateString();
+                    } elseif ($fn === 'keterangan_akses') {
+                        $vText = $normalizedValues['keterangan_akses'] ?? ($normalizedValues['status_akses_gudang'] ?? 'Full Access');
+                    } elseif ($fn === 'status_akses_gudang') {
+                        $vText = $normalizedValues['status_akses_gudang'] ?? ($normalizedValues['keterangan_akses'] ?? 'Full Access (Bisa Cek Rak & Gudang Toko Bebas)');
+                    } elseif ($fn === 'warna') {
+                        $vText = $normalizedValues['warna'] ?? ($firstItem['warna'] ?? 'ALL');
+                    } elseif ($fn === 'conf') {
+                        $vNum = isset($firstItem['conf']) ? floatval($firstItem['conf']) : 1.27;
+                        $vText = (string)($firstItem['conf'] ?? '1.27');
+                    } elseif ($fn === 'catatan' || $fn === 'keterangan_stok_toko') {
+                        $vText = $normalizedValues['catatan'] ?? ($normalizedValues['keterangan_stok_toko'] ?? '');
+                    } elseif ($fn === 'stock_items_json') {
+                        $vJson = $stockEndItems;
+                        $vText = json_encode($stockEndItems, JSON_UNESCAPED_UNICODE);
+                        $vNum = count($stockEndItems);
+                    } elseif (in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature', 'image'])) {
+                        $saved = $allSavedMedia[$field->id] ?? $allSavedMedia[$field->field_name] ?? [];
+                        if (!empty($saved)) {
+                            $photoPath = $saved[0];
+                            $vJson = $saved;
+                            $vText = $saved[0];
+                        }
+                    } else {
+                        $fKey = (string)$field->id;
+                        $raw = $normalizedValues[$fKey] ?? $normalizedValues[$fn] ?? null;
+                        if ($raw !== null) {
+                            $vText = is_string($raw) ? $raw : json_encode($raw);
+                            if (is_numeric($raw)) $vNum = (float)$raw;
+                        }
+                    }
+
+                    ReportSubmissionValue::create([
+                        'report_submission_id' => $sub->id,
+                        'report_form_field_id' => $field->id,
+                        'field_name' => $field->field_name,
+                        'field_type' => $field->field_type,
+                        'value_text' => $vText,
+                        'value_number' => $vNum,
+                        'value_json' => $vJson,
+                        'media_url' => $photoPath,
+                    ]);
+                }
+
+                // Pastikan stock_items_json tersimpan
+                $hasStockJson = ReportSubmissionValue::where('report_submission_id', $sub->id)
+                    ->where('field_name', 'stock_items_json')
+                    ->exists();
+                if (!$hasStockJson) {
+                    ReportSubmissionValue::create([
+                        'report_submission_id' => $sub->id,
+                        'report_form_field_id' => null,
+                        'field_name' => 'stock_items_json',
+                        'field_type' => 'json',
+                        'value_text' => json_encode($stockEndItems, JSON_UNESCAPED_UNICODE),
+                        'value_number' => count($stockEndItems),
+                        'value_json' => $stockEndItems,
+                        'media_url' => null,
+                    ]);
+                }
+
+                DB::commit();
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Laporan Stock End (' . count($stockEndItems) . ' produk) berhasil dikirim.',
+                    'data' => [
+                        'id' => $sub->id,
+                        'submission_code' => $sub->submission_code,
+                        'template_title' => $template->title,
+                        'submitted_at' => $sub->submitted_at->toDateTimeString(),
+                        'status' => $sub->status,
+                    ],
+                ]);
+            }
+
+            // STANDAR / SINGLE SUBMISSION (Untuk template selain Offtake/OOS/Stock multi-produk)
             $submission = ReportSubmission::create([
                 'report_template_id' => $template->id,
                 'principal_id' => $principalId,

@@ -227,16 +227,25 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         title.contains('data pelanggan');
   }
 
+  bool _isStockEndTemplate() {
+    final code = widget.template.code.toUpperCase();
+    final title = widget.template.title.toLowerCase();
+    return code == 'RPT-DULUX-STOCK-END' ||
+        code.contains('STOCK-END') ||
+        title.contains('stock end') ||
+        title.contains('stock opname');
+  }
+
   bool _hasProductBinding() {
     if (_isDailyMaintenanceTemplate()) return false;
     if (_isOfftakeTemplate()) return false; // Offtake uses cart + confirmation review, NOT sequential per-product locks!
     if (_isOosTemplate()) return false; // OOS uses cart + confirmation review, NOT sequential per-product locks!
     if (_isCustomerDbTemplate()) return false; // Data Pelanggan is NOT bound to Master Produk!
+    if (_isStockEndTemplate()) return false; // Stock End uses cart + confirmation review, NOT sequential per-product locks!
     if (widget.template.hasProductBinding) return true;
     if (_getProducts().isNotEmpty) return true;
     final code = widget.template.code.toUpperCase();
-    if (code == 'RPT-DULUX-STOCK-END' ||
-        code == 'RPT-DULUX-CBP-PRICING') {
+    if (code == 'RPT-DULUX-CBP-PRICING') {
       return true;
     }
     return widget.template.fields.any((f) => _isProductField(f));
@@ -350,6 +359,30 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   List<Map<String, dynamic>> _previousOosItems = [];
   int _oosDiffDays = 1;
   String? _previousOosDate;
+
+  // Stock End Reporting State (Multi-Item Cart & Confirmation Review)
+  int _stockEndStep = 0; // 0: Input & Keranjang, 1: Review & Konfirmasi
+  final List<Map<String, dynamic>> _stockEndCart = [];
+  TemplateProductModel? _currentStockEndProduct;
+
+  final TextEditingController _stockEndWarnaCtrl = TextEditingController(text: 'ALL');
+  final TextEditingController _stockEndKemasanGalonCtrl = TextEditingController(text: '2.5');
+  final TextEditingController _stockEndQtyGalonCtrl = TextEditingController();
+  final TextEditingController _stockEndKemasanPailCtrl = TextEditingController(text: '20');
+  final TextEditingController _stockEndQtyPailCtrl = TextEditingController();
+  final TextEditingController _stockEndConfCtrl = TextEditingController(text: '1.27');
+
+  // Tinter specific controllers (visible only if product category is Tinta/Tinter)
+  final TextEditingController _stockEndTipeTinterCtrl = TextEditingController();
+  final TextEditingController _stockEndQtyTinterCtrl = TextEditingController();
+
+  // Step 1 Review controllers
+  final TextEditingController _stockEndAksesGudangCtrl = TextEditingController(text: 'Full Access (Bisa Cek Rak & Gudang Toko Bebas)');
+  final TextEditingController _stockEndCatatanCtrl = TextEditingController();
+
+  // Photo proof
+  File? _stockEndPhoto;
+  String? _stockEndPhotoWatermark;
 
   // GPS & Status
   double? _latitude;
@@ -1373,6 +1406,55 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     }
 
+    // Inisialisasi data laporan Stock End Dulux
+    final bool isStockEnd = _isStockEndTemplate();
+    if (isStockEnd) {
+      _stockEndCart.clear();
+      _stockEndStep = 0;
+      _currentStockEndProduct = null;
+      _stockEndWarnaCtrl.text = 'ALL';
+      _stockEndKemasanGalonCtrl.text = '2.5';
+      _stockEndQtyGalonCtrl.clear();
+      _stockEndKemasanPailCtrl.text = '20';
+      _stockEndQtyPailCtrl.clear();
+      _stockEndConfCtrl.text = '1.27';
+      _stockEndTipeTinterCtrl.clear();
+      _stockEndQtyTinterCtrl.clear();
+      _stockEndAksesGudangCtrl.text = 'Full Access (Bisa Cek Rak & Gudang Toko Bebas)';
+      _stockEndCatatanCtrl.clear();
+      _stockEndPhoto = null;
+      _stockEndPhotoWatermark = null;
+
+      if (widget.editSubmission != null) {
+        for (final val in widget.editSubmission!.values) {
+          final fn = val.fieldName.toLowerCase();
+          if (fn == 'stock_items_json') {
+            try {
+              final raw = val.valueJson ?? val.valueText;
+              final list = raw is List ? raw : (raw is String ? jsonDecode(raw) : null);
+              if (list is List) {
+                for (final itm in list) {
+                  if (itm is Map) {
+                    _stockEndCart.add(Map<String, dynamic>.from(itm));
+                  }
+                }
+              }
+            } catch (e) {
+              debugPrint('Error decoding stock_items_json: $e');
+            }
+          } else if (fn == 'status_akses_gudang' || fn == 'keterangan_akses') {
+            if (val.valueText != null && val.valueText!.isNotEmpty) {
+              _stockEndAksesGudangCtrl.text = val.valueText!;
+            }
+          } else if (fn == 'catatan' || fn == 'keterangan_stok_toko') {
+            if (val.valueText != null) {
+              _stockEndCatatanCtrl.text = val.valueText!;
+            }
+          }
+        }
+      }
+    }
+
     // Attach reactive calculation listeners
     for (final ctrl in _controllers.values) {
       ctrl.addListener(_recalculateFormulas);
@@ -1415,6 +1497,17 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     _offtakeCustMasukCtrl.dispose();
     _offtakeCustBeliCatCtrl.dispose();
     _offtakeCustBeliDuluxCtrl.dispose();
+
+    _stockEndWarnaCtrl.dispose();
+    _stockEndKemasanGalonCtrl.dispose();
+    _stockEndQtyGalonCtrl.dispose();
+    _stockEndKemasanPailCtrl.dispose();
+    _stockEndQtyPailCtrl.dispose();
+    _stockEndConfCtrl.dispose();
+    _stockEndTipeTinterCtrl.dispose();
+    _stockEndQtyTinterCtrl.dispose();
+    _stockEndAksesGudangCtrl.dispose();
+    _stockEndCatatanCtrl.dispose();
 
     for (final itm in _competitorItems) {
       itm.dispose();
@@ -2298,6 +2391,20 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
     if (_isOosTemplate()) {
       return _buildOosScaffold(
+        context: context,
+        canSubmitReport: canSubmitReport,
+        isDarkMode: isDarkMode,
+        themeColor: themeColor,
+        cardColor: cardColor,
+        textColor: textColor,
+        subtitleColor: subtitleColor,
+        elevatedColor: elevatedColor,
+        locale: locale,
+      );
+    }
+
+    if (_isStockEndTemplate()) {
+      return _buildStockEndScaffold(
         context: context,
         canSubmitReport: canSubmitReport,
         isDarkMode: isDarkMode,
@@ -9934,6 +10041,1917 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           type: ToastificationType.success,
           title: const Text('Laporan Stok Lengkap Terkirim'),
           description: const Text('Laporan No OOS (Stok Lengkap) berhasil dikirim.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+        Navigator.of(context).pop(true);
+      } else if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Gagal Mengirim Laporan'),
+          description: Text(result['message'] ?? 'Terjadi kesalahan sistem.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Terjadi Kesalahan'),
+          description: Text(e.toString()),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── STOCK END (STOCK OPNAME BULANAN & TINTER) SCAFFOLD & STEP FLOW ────────
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildStockEndScaffold({
+    required BuildContext context,
+    required bool canSubmitReport,
+    required bool isDarkMode,
+    required Color themeColor,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color elevatedColor,
+    required LocaleProvider locale,
+  }) {
+    final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.editSubmission != null
+                  ? 'Edit Laporan Stock End'
+                  : 'Laporan Stock End Dulux & Catylac',
+              style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (_selectedStoreName.isNotEmpty)
+              Text(
+                _selectedStoreName,
+                style: TextStyle(color: subtitleColor, fontSize: 11.5, fontWeight: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: _buildLocationStatusIndicator(canSubmitReport, isDarkMode),
+          ),
+        ],
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
+      ),
+      body: ListView(
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        children: [
+          // Step Switch Tabs
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() => _stockEndStep = 0),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _stockEndStep == 0 ? themeColor.withOpacity(0.12) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _stockEndStep == 0
+                              ? themeColor
+                              : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.inventory_2_outlined,
+                              size: 16, color: _stockEndStep == 0 ? themeColor : subtitleColor),
+                          const SizedBox(width: 6),
+                          Text(
+                            '1. Input Stok (${_stockEndCart.length})',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _stockEndStep == 0 ? themeColor : subtitleColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: InkWell(
+                    onTap: _stockEndCart.isEmpty
+                        ? () {
+                            toastification.show(
+                              context: context,
+                              type: ToastificationType.warning,
+                              title: const Text('Daftar Stok Masih Kosong'),
+                              description: const Text('Masukkan minimal 1 produk terlebih dahulu.'),
+                              autoCloseDuration: const Duration(seconds: 2),
+                            );
+                          }
+                        : () => setState(() => _stockEndStep = 1),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _stockEndStep == 1 ? themeColor.withOpacity(0.12) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _stockEndStep == 1
+                              ? themeColor
+                              : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.fact_check_rounded,
+                              size: 16, color: _stockEndStep == 1 ? themeColor : subtitleColor),
+                          const SizedBox(width: 6),
+                          Text(
+                            '2. Review & Submit',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _stockEndStep == 1 ? themeColor : subtitleColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          if (_stockEndStep == 0)
+            _buildStockEndStep0Body(
+                themeColor, cardColor, textColor, subtitleColor, elevatedColor, isDarkMode)
+          else
+            _buildStockEndStep1Body(
+                themeColor, cardColor, textColor, subtitleColor, elevatedColor, isDarkMode, canSubmitReport),
+
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStockEndStep0Body(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    bool isDarkMode,
+  ) {
+    final p = _currentStockEndProduct;
+
+    final catLower = (p?.category ?? '').toLowerCase();
+    final nameLower = (p?.name ?? '').toLowerCase();
+    final brandLower = (p?.brand ?? '').toLowerCase();
+    final bool isTinter = catLower.contains('tint') ||
+        catLower.contains('tinta') ||
+        nameLower.contains('tinter') ||
+        nameLower.contains('tinta') ||
+        brandLower.contains('tinter');
+
+    final double kemasanGalon =
+        double.tryParse(_stockEndKemasanGalonCtrl.text.replaceAll(',', '.')) ?? (p?.getPackagingSize('galon') ?? 2.5);
+    final double kemasanPail =
+        double.tryParse(_stockEndKemasanPailCtrl.text.replaceAll(',', '.')) ?? (p?.getPackagingSize('pail') ?? 20.0);
+    final int qtyGalon = int.tryParse(_stockEndQtyGalonCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final int qtyPail = int.tryParse(_stockEndQtyPailCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final int qtyTinter = int.tryParse(_stockEndQtyTinterCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+
+    final double curLiter = (qtyGalon * kemasanGalon) +
+        (qtyPail * kemasanPail) +
+        (isTinter ? (qtyTinter * (p?.getPackagingSize('tin') ?? 1.0)) : 0.0);
+
+    final double grandLiter = _stockEndCart.fold<double>(
+        0.0, (acc, itm) => acc + ((itm['volume_liter'] as num?)?.toDouble() ?? 0.0));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ─── CARD 1: INPUT / PILIH PRODUK ──────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: themeColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.format_paint_rounded, color: themeColor, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pilih Produk Cat / Tinter',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                        ),
+                        Text(
+                          'Pilih produk dari master data untuk input stok fisik di toko',
+                          style: TextStyle(fontSize: 11, color: subtitleColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Button Selector
+              InkWell(
+                onTap: () => _openStockEndProductPickerBottomSheet(themeColor, isDarkMode),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: elevatedColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: p != null
+                          ? themeColor
+                          : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                      width: p != null ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        p != null ? Icons.check_circle_rounded : Icons.search_rounded,
+                        color: p != null ? Colors.green : themeColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          p != null ? p.name : 'Tekan untuk memilih produk cat atau tinter...',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: p != null ? FontWeight.bold : FontWeight.normal,
+                            color: p != null ? textColor : subtitleColor,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Icon(Icons.arrow_drop_down_rounded, color: subtitleColor, size: 26),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Product Spec Detail & Auto-populated values
+              if (p != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: themeColor.withOpacity(0.25)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                if (p.brand != null)
+                                  _buildProductInfoChip('Brand: ${p.brand}', Colors.indigo, isDarkMode),
+                                if (p.category != null)
+                                  _buildProductInfoChip(
+                                      'Kategori: ${p.category}',
+                                      isTinter ? Colors.purple : Colors.teal,
+                                      isDarkMode),
+                                if (isTinter)
+                                  _buildProductInfoChip('Pewarna Tinter', Colors.pink, isDarkMode),
+                              ],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () =>
+                                _openStockEndProductPickerBottomSheet(themeColor, isDarkMode),
+                            style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(40, 26),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                            child: Text('Ganti',
+                                style: TextStyle(
+                                    fontSize: 11, fontWeight: FontWeight.bold, color: themeColor)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                // Nama / Kode Warna
+                Text(
+                  'Nama / Kode Warna',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+                ),
+                const SizedBox(height: 4),
+                TextFormField(
+                  controller: _stockEndWarnaCtrl,
+                  style: TextStyle(fontSize: 13, color: textColor),
+                  decoration: _inputDecoration('ALL / Putih / Brilliant White', elevatedColor, isDarkMode),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Kemasan Galon & Kuantiti
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Ukuran Galon (L)',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textColor)),
+                          const SizedBox(height: 4),
+                          TextFormField(
+                            controller: _stockEndKemasanGalonCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            style: TextStyle(fontSize: 13, color: textColor),
+                            decoration: _inputDecoration('2.5', elevatedColor, isDarkMode),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 6,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Kuantiti Galon (Qty)',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textColor)),
+                          const SizedBox(height: 4),
+                          TextFormField(
+                            controller: _stockEndQtyGalonCtrl,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(fontSize: 13, color: textColor),
+                            decoration: _inputDecoration('Jumlah kaleng', elevatedColor, isDarkMode),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // Kemasan Pail & Kuantiti
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Ukuran Pail (L)',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textColor)),
+                          const SizedBox(height: 4),
+                          TextFormField(
+                            controller: _stockEndKemasanPailCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            style: TextStyle(fontSize: 13, color: textColor),
+                            decoration: _inputDecoration('20', elevatedColor, isDarkMode),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 6,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Kuantiti Pail (Qty)',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textColor)),
+                          const SizedBox(height: 4),
+                          TextFormField(
+                            controller: _stockEndQtyPailCtrl,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(fontSize: 13, color: textColor),
+                            decoration: _inputDecoration('Jumlah pail', elevatedColor, isDarkMode),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // Faktor Konversi / Density (conf)
+                Text(
+                  'Faktor Konversi / Density (conf)',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+                ),
+                const SizedBox(height: 4),
+                TextFormField(
+                  controller: _stockEndConfCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: TextStyle(fontSize: 13, color: textColor),
+                  decoration: _inputDecoration('Contoh: 1.27', elevatedColor, isDarkMode),
+                ),
+
+                // ─── TINTER SECTION (KONDISIONAL HANYA JIKA KATEGORI TINTA / TINTER) ───
+                if (isTinter) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withOpacity(isDarkMode ? 0.15 : 0.05),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.purple.withOpacity(0.35)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.palette_rounded, size: 18, color: Colors.purple),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Parameter Khusus Tinta / Tinter',
+                              style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Produk terdeteksi sebagai pasta pewarna mesin tinting Dulux / Catylac',
+                          style: TextStyle(fontSize: 11, color: subtitleColor),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Tipe Tinter / Warna Pasta Pewarna
+                        Text(
+                          'Tipe Tinter / Warna Pasta Pewarna',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+                        ),
+                        const SizedBox(height: 4),
+                        TextFormField(
+                          controller: _stockEndTipeTinterCtrl,
+                          style: TextStyle(fontSize: 13, color: textColor),
+                          decoration: _inputDecoration(
+                              'Contoh: Dramatone - Oxide Red (OR)', elevatedColor, isDarkMode),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // Kuantiti Kaleng Tinta Tinter
+                        Text(
+                          'Kuantiti / Jumlah Kaleng Tinta Tinter',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+                        ),
+                        const SizedBox(height: 4),
+                        TextFormField(
+                          controller: _stockEndQtyTinterCtrl,
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(fontSize: 13, color: textColor),
+                          decoration: _inputDecoration(
+                              'Jumlah kaleng tinter', elevatedColor, isDarkMode),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 14),
+
+                // Real-time Volume Preview Box
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF149A6E).withOpacity(isDarkMode ? 0.15 : 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF149A6E).withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Estimasi Volume Produk Ini:',
+                              style: TextStyle(fontSize: 11.5, color: subtitleColor)),
+                          Text(
+                            'Galon: $qtyGalon • Pail: $qtyPail ${isTinter ? "• Tinter: $qtyTinter" : ""}',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: textColor),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '${curLiter.toStringAsFixed(2)} Liter',
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF149A6E)),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                // Button Add to Stock Cart
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      final hasQty = qtyGalon > 0 || qtyPail > 0 || (isTinter && qtyTinter > 0) || curLiter > 0;
+                      if (!hasQty) {
+                        toastification.show(
+                          context: context,
+                          type: ToastificationType.warning,
+                          title: const Text('Kuantiti Masih Kosong'),
+                          description: const Text(
+                              'Masukkan kuantiti stok galon, pail, atau kaleng tinter minimal 1 unit.'),
+                          autoCloseDuration: const Duration(seconds: 3),
+                        );
+                        return;
+                      }
+
+                      final existingIdx = _stockEndCart.indexWhere(
+                          (itm) => itm['product_id'] == p.id || itm['product_name'] == p.name);
+
+                      setState(() {
+                        final itemMap = {
+                          'product_id': p.id,
+                          'product_name': p.name,
+                          'produk': p.name,
+                          'brand': p.brand ?? 'Dulux',
+                          'category': p.category ?? '',
+                          'warna': _stockEndWarnaCtrl.text.trim().isEmpty
+                              ? 'ALL'
+                              : _stockEndWarnaCtrl.text.trim(),
+                          'kemasan_galon': kemasanGalon,
+                          'qty_galon': qtyGalon,
+                          'kemasan_pail': kemasanPail,
+                          'qty_pail': qtyPail,
+                          'conf': _stockEndConfCtrl.text.trim().isEmpty
+                              ? '1.27'
+                              : _stockEndConfCtrl.text.trim(),
+                          'is_tinter': isTinter,
+                          'tipe_tinter_warna':
+                              isTinter ? _stockEndTipeTinterCtrl.text.trim() : '',
+                          'qty_kaleng_tinta': isTinter ? qtyTinter : 0,
+                          'volume_liter': curLiter,
+                        };
+
+                        if (existingIdx >= 0) {
+                          _stockEndCart[existingIdx] = itemMap;
+                        } else {
+                          _stockEndCart.add(itemMap);
+                        }
+
+                        _currentStockEndProduct = null;
+                        _stockEndWarnaCtrl.text = 'ALL';
+                        _stockEndKemasanGalonCtrl.text = '2.5';
+                        _stockEndQtyGalonCtrl.clear();
+                        _stockEndKemasanPailCtrl.text = '20';
+                        _stockEndQtyPailCtrl.clear();
+                        _stockEndConfCtrl.text = '1.27';
+                        _stockEndTipeTinterCtrl.clear();
+                        _stockEndQtyTinterCtrl.clear();
+                      });
+
+                      toastification.show(
+                        context: context,
+                        type: ToastificationType.success,
+                        title: const Text('Produk Disimpan ke Daftar Stok ✓'),
+                        description: Text('${p.name} (${curLiter.toStringAsFixed(1)} L) ditambahkan.'),
+                        autoCloseDuration: const Duration(seconds: 2),
+                      );
+                    },
+                    icon: const Icon(Icons.add_task_rounded, size: 18, color: Colors.white),
+                    label: const Text(
+                      '+ Simpan Produk ke Daftar Stok',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: themeColor,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 2,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // ─── CARD 2: DAFTAR PRODUK DALAM KERANJANG STOK ────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.inventory_rounded, size: 20, color: themeColor),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Daftar Stok Tersimpan (${_stockEndCart.length})',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                    ],
+                  ),
+                  if (_stockEndCart.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() => _stockEndCart.clear());
+                      },
+                      icon: const Icon(Icons.delete_sweep_rounded, size: 16, color: Colors.red),
+                      label: const Text('Kosongkan', style: TextStyle(fontSize: 11, color: Colors.red)),
+                      style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero, minimumSize: const Size(40, 26)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              if (_stockEndCart.isEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+                  alignment: Alignment.center,
+                  child: Column(
+                    children: [
+                      Icon(Icons.inventory_2_outlined, size: 40, color: Colors.grey.shade400),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Belum Ada Produk yang Disimpan',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Pilih produk dari form di atas, masukkan kuantiti fisik toko, lalu tekan "+ Simpan Produk ke Daftar Stok".',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 11.5, color: subtitleColor),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _stockEndCart.length,
+                  separatorBuilder: (ctx, i) => const Divider(height: 16),
+                  itemBuilder: (ctx, idx) {
+                    final itm = _stockEndCart[idx];
+                    final pName = itm['product_name'] ?? itm['produk'] ?? 'Produk Cat';
+                    final brand = itm['brand'] ?? 'Dulux';
+                    final warna = itm['warna'] ?? 'ALL';
+                    final qGalon = itm['qty_galon'] ?? 0;
+                    final qPail = itm['qty_pail'] ?? 0;
+                    final isTin = itm['is_tinter'] == true;
+                    final qTin = itm['qty_kaleng_tinta'] ?? 0;
+                    final totLit = (itm['volume_liter'] as num?)?.toDouble() ?? 0.0;
+
+                    return Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isTin
+                                ? Colors.purple.withOpacity(0.12)
+                                : themeColor.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '#${idx + 1}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isTin ? Colors.purple : themeColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: brand.toString().toLowerCase() == 'catylac'
+                                          ? Colors.amber.withOpacity(0.2)
+                                          : Colors.blue.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      brand,
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: brand.toString().toLowerCase() == 'catylac'
+                                            ? Colors.amber.shade900
+                                            : Colors.blue.shade900,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      pName,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: textColor,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Galon: $qGalon • Pail: $qPail • Warna: $warna ${isTin ? "• Tinter: $qTin" : ""}',
+                                style: TextStyle(fontSize: 11, color: subtitleColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${totLit.toStringAsFixed(2)} L',
+                              style: const TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF149A6E)),
+                            ),
+                            InkWell(
+                              onTap: () {
+                                setState(() => _stockEndCart.removeAt(idx));
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const Divider(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Total SKU Dilaporkan',
+                            style: TextStyle(fontSize: 11, color: subtitleColor)),
+                        Text('${_stockEndCart.length} Produk',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.bold, color: textColor)),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('Total Volume Stok',
+                            style: TextStyle(fontSize: 11, color: subtitleColor)),
+                        Text(
+                          '${grandLiter.toStringAsFixed(2)} Liter',
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF149A6E)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Button Proceed to Review
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() => _stockEndStep = 1);
+                      if (_scrollController.hasClients) {
+                        _scrollController.animateTo(0,
+                            duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+                      }
+                    },
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 18, color: Colors.white),
+                    label: const Text(
+                      'Lanjut ke Review & Konfirmasi',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF149A6E),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 3,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStockEndStep1Body(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    bool isDarkMode,
+    bool canSubmitReport,
+  ) {
+    final grandLiter = _stockEndCart.fold<double>(
+        0.0, (acc, itm) => acc + ((itm['volume_liter'] as num?)?.toDouble() ?? 0.0));
+    final grandGalon = _stockEndCart.fold<int>(
+        0, (acc, itm) => acc + ((itm['qty_galon'] as num?)?.toInt() ?? 0));
+    final grandPail = _stockEndCart.fold<int>(
+        0, (acc, itm) => acc + ((itm['qty_pail'] as num?)?.toInt() ?? 0));
+    final grandTinter = _stockEndCart.fold<int>(
+        0, (acc, itm) => acc + ((itm['qty_kaleng_tinta'] as num?)?.toInt() ?? 0));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Top Back Button
+        Row(
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => setState(() => _stockEndStep = 0),
+              icon: const Icon(Icons.arrow_back_rounded, size: 16),
+              label: const Text('Kembali / Tambah Produk',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: themeColor,
+                side: BorderSide(color: themeColor.withOpacity(0.5)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // ─── CARD 1: HERO GRAND TOTAL BANNER ───────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isDarkMode
+                  ? [const Color(0xFF1E3A8A), const Color(0xFF0F766E)]
+                  : [const Color(0xFF0F52BA), const Color(0xFF149A6E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: themeColor.withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'RINGKASAN STOCK OPNAME',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white70,
+                        letterSpacing: 1.1),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${_stockEndCart.length} Produk',
+                      style: const TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '${grandLiter.toStringAsFixed(2)} Liter',
+                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '$grandGalon Galon',
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '$grandPail Pail',
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                  if (grandTinter > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$grandTinter Kaleng Tinta',
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // ─── CARD 2: RINCIAN PER PRODUK ────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.list_alt_rounded, size: 18, color: themeColor),
+                  const SizedBox(width: 8),
+                  Text('Rincian Stok per Produk',
+                      style: TextStyle(
+                          fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _stockEndCart.length,
+                separatorBuilder: (ctx, i) => const Divider(height: 12),
+                itemBuilder: (ctx, idx) {
+                  final itm = _stockEndCart[idx];
+                  final pName = itm['product_name'] ?? itm['produk'] ?? 'Produk';
+                  final brand = itm['brand'] ?? 'Dulux';
+                  final qGalon = itm['qty_galon'] ?? 0;
+                  final qPail = itm['qty_pail'] ?? 0;
+                  final totLit = (itm['volume_liter'] as num?)?.toDouble() ?? 0.0;
+                  final isTin = itm['is_tinter'] == true;
+                  final qTin = itm['qty_kaleng_tinta'] ?? 0;
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('$pName ($brand)',
+                                style: TextStyle(
+                                    fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor)),
+                            Text(
+                              'Galon: $qGalon • Pail: $qPail ${isTin ? "• Tinter: $qTin" : ""}',
+                              style: TextStyle(fontSize: 11, color: subtitleColor),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        '${totLit.toStringAsFixed(2)} L',
+                        style: const TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF149A6E)),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // ─── CARD 3: STATUS AKSES GUDANG & CATATAN ─────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: themeColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.warehouse_rounded, size: 18, color: themeColor),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Status Akses Gudang & Catatan',
+                            style: TextStyle(
+                                fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor)),
+                        Text('Informasi akses pengecekan stok di toko mitra',
+                            style: TextStyle(fontSize: 11, color: subtitleColor)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // Status Akses Pengecekan Gudang Toko
+              Text(
+                'Status Akses Pengecekan Gudang Toko',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+              ),
+              const SizedBox(height: 6),
+              ...[
+                'Full Access (Bisa Cek Rak & Gudang Toko Bebas)',
+                'Half Access (Hanya Cek Rak Depan Toko)',
+                'No Access (Toko Menolak Cek Fisik / Data Estimasi)',
+              ].map((opt) {
+                final isSelected = _stockEndAksesGudangCtrl.text == opt;
+                return InkWell(
+                  onTap: () => setState(() => _stockEndAksesGudangCtrl.text = opt),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? themeColor.withOpacity(0.08) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected
+                            ? themeColor
+                            : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                          size: 16,
+                          color: isSelected ? themeColor : subtitleColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            opt,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected ? textColor : subtitleColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+
+              const SizedBox(height: 10),
+
+              // Catatan Stok Opname
+              Text(
+                'Catatan Tambahan Stok Opname',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+              ),
+              const SizedBox(height: 4),
+              TextFormField(
+                controller: _stockEndCatatanCtrl,
+                maxLines: 2,
+                style: TextStyle(fontSize: 13, color: textColor),
+                decoration: _inputDecoration('Catatan kondisi rak display, gudang...', elevatedColor, isDarkMode),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // ─── CARD 4: FOTO BUKTI FISIK STOK TOKO ────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: themeColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.camera_alt_rounded, size: 18, color: themeColor),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Foto Bukti Fisik Stok Toko',
+                            style: TextStyle(
+                                fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor)),
+                        Text('Foto rak display, tumpukan gudang, atau mesin tinting',
+                            style: TextStyle(fontSize: 11, color: subtitleColor)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              if (_stockEndPhoto != null) ...[
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        _stockEndPhoto!,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: InkWell(
+                        onTap: () => setState(() {
+                          _stockEndPhoto = null;
+                          _stockEndPhotoWatermark = null;
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, color: Colors.white, size: 16),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _pickStockEndPhoto,
+                  icon: const Icon(Icons.replay_rounded, size: 16),
+                  label: const Text('Ambil Ulang Foto Bukti Fisik', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: themeColor,
+                    side: BorderSide(color: themeColor.withOpacity(0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ] else ...[
+                InkWell(
+                  onTap: _pickStockEndPhoto,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: elevatedColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+                        style: BorderStyle.solid,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.add_a_photo_rounded, size: 36, color: themeColor),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Ambil Foto Fisik Stok dengan Watermark',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Otomatis menyematkan GPS, Waktu & Lokasi Toko',
+                          style: TextStyle(fontSize: 11, color: subtitleColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // ─── TOMBOL SUBMIT AKHIR ───────────────────────────────────────────
+        if (!canSubmitReport)
+          ElevatedButton.icon(
+            onPressed: null,
+            icon: const Icon(Icons.lock_rounded, size: 18, color: Colors.grey),
+            label: const Text(
+              'Wajib Check-In / Visit-In Terlebih Dahulu',
+              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.grey),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              disabledBackgroundColor:
+                  isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              disabledForegroundColor: Colors.grey.shade500,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+          )
+        else
+          ElevatedButton.icon(
+            onPressed: _isSubmitting ? null : _submitStockEnd,
+            icon: _isSubmitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+            label: Text(
+              _isSubmitting ? 'Mengirim Laporan Stock End...' : 'Kirim Laporan Stock End Sekarang',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF149A6E),
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 3,
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _openStockEndProductPickerBottomSheet(Color themeColor, bool isDarkMode) {
+    final allProducts = _getProducts();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        String searchQuery = '';
+        String selectedFilter = 'Semua';
+
+        final categories = <String>['Semua'];
+        for (final p in allProducts) {
+          final cat = p.category?.trim() ?? '';
+          if (cat.isNotEmpty && !categories.contains(cat)) {
+            categories.add(cat);
+          }
+        }
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final filteredProducts = allProducts.where((p) {
+              final matchesFilter = selectedFilter == 'Semua' ||
+                  (p.category != null &&
+                      p.category!.trim().toLowerCase() == selectedFilter.toLowerCase());
+              if (!matchesFilter) return false;
+
+              if (searchQuery.isEmpty) return true;
+              final q = searchQuery.toLowerCase();
+              final matchesName = p.name.toLowerCase().contains(q);
+              final matchesSku = p.skuCode?.toLowerCase().contains(q) ?? false;
+              final matchesBrand = p.brand?.toLowerCase().contains(q) ?? false;
+              return matchesName || matchesSku || matchesBrand;
+            }).toList();
+
+            final sheetBg = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
+            final itemBg = isDarkMode ? const Color(0xFF2A2A2A) : const Color(0xFFF8FAFC);
+            final sheetText = isDarkMode ? Colors.white : const Color(0xFF1E293B);
+            final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: BoxDecoration(
+                color: sheetBg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: themeColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(Icons.format_paint_rounded, color: themeColor, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Pilih Produk Stock End Dulux',
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold, color: sheetText),
+                              ),
+                              Text(
+                                'Katalog ${allProducts.length} Produk Dulux, Catylac & Tinter',
+                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(sheetCtx).pop(),
+                          icon: const Icon(Icons.close_rounded),
+                          color: Colors.grey.shade500,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: TextField(
+                      autofocus: false,
+                      style: TextStyle(color: sheetText, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Cari nama produk, brand, tinter...',
+                        hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 12.5),
+                        prefixIcon: Icon(Icons.search_rounded, color: themeColor, size: 20),
+                        filled: true,
+                        fillColor: itemBg,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                              color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                              color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: themeColor, width: 1.5),
+                        ),
+                      ),
+                      onChanged: (v) => setSheetState(() => searchQuery = v),
+                    ),
+                  ),
+                  if (categories.length > 2) ...[
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      height: 36,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: categories.length,
+                        separatorBuilder: (ctx, i) => const SizedBox(width: 6),
+                        itemBuilder: (ctx, idx) {
+                          final cat = categories[idx];
+                          final isSelected = cat == selectedFilter;
+                          return ChoiceChip(
+                            label: Text(
+                              cat,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? Colors.white : subtitleColor,
+                              ),
+                            ),
+                            selected: isSelected,
+                            selectedColor: themeColor,
+                            backgroundColor: itemBg,
+                            onSelected: (val) {
+                              if (val) setSheetState(() => selectedFilter = cat);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: filteredProducts.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.search_off_rounded, size: 48, color: Colors.grey.shade400),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Produk tidak ditemukan',
+                                  style: TextStyle(
+                                      fontSize: 14, fontWeight: FontWeight.bold, color: sheetText),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            itemCount: filteredProducts.length,
+                            separatorBuilder: (ctx, i) => const SizedBox(height: 8),
+                            itemBuilder: (ctx, idx) {
+                              final p = filteredProducts[idx];
+                              final isCurrent = _currentStockEndProduct?.id == p.id;
+                              final inCart = _stockEndCart.any(
+                                  (itm) => itm['product_id'] == p.id || itm['product_name'] == p.name);
+
+                              final catLower = (p.category ?? '').toLowerCase();
+                              final nameLower = p.name.toLowerCase();
+                              final brandLower = (p.brand ?? '').toLowerCase();
+                              final bool isTinter = catLower.contains('tint') ||
+                                  catLower.contains('tinta') ||
+                                  nameLower.contains('tinter') ||
+                                  nameLower.contains('tinta') ||
+                                  brandLower.contains('tinter');
+
+                              return InkWell(
+                                onTap: () {
+                                  Navigator.of(sheetCtx).pop();
+                                  setState(() {
+                                    _currentStockEndProduct = p;
+                                    _stockEndKemasanGalonCtrl.text =
+                                        p.getPackagingSize('galon')?.toString() ?? '2.5';
+                                    _stockEndKemasanPailCtrl.text =
+                                        p.getPackagingSize('pail')?.toString() ?? '20';
+                                    _stockEndConfCtrl.text =
+                                        p.pricingMatrix?['conversion_to_liter']?.toString() ??
+                                            p.pricingMatrix?['conf']?.toString() ??
+                                            '1.27';
+                                    if (isTinter) {
+                                      _stockEndTipeTinterCtrl.text = p.name;
+                                      _stockEndQtyTinterCtrl.clear();
+                                    } else {
+                                      _stockEndTipeTinterCtrl.clear();
+                                      _stockEndQtyTinterCtrl.clear();
+                                    }
+                                    _stockEndQtyGalonCtrl.clear();
+                                    _stockEndQtyPailCtrl.clear();
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isCurrent
+                                        ? themeColor.withOpacity(0.08)
+                                        : (inCart
+                                            ? Colors.green.withOpacity(isDarkMode ? 0.12 : 0.06)
+                                            : itemBg),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isCurrent
+                                          ? themeColor
+                                          : (inCart
+                                              ? Colors.green.withOpacity(0.4)
+                                              : (isDarkMode
+                                                  ? Colors.grey.shade800
+                                                  : Colors.grey.shade200)),
+                                      width: isCurrent ? 1.5 : 1.0,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: isTinter
+                                              ? Colors.purple.withOpacity(0.12)
+                                              : (p.brand?.toLowerCase() == 'catylac'
+                                                  ? Colors.amber.withOpacity(0.12)
+                                                  : themeColor.withOpacity(0.12)),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Icon(
+                                          isTinter
+                                              ? Icons.palette_rounded
+                                              : Icons.format_paint_rounded,
+                                          size: 18,
+                                          color: isTinter
+                                              ? Colors.purple
+                                              : (p.brand?.toLowerCase() == 'catylac'
+                                                  ? Colors.amber.shade800
+                                                  : themeColor),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    p.name,
+                                                    style: TextStyle(
+                                                      fontSize: 13.5,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: sheetText,
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (inCart)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                        horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.green.withOpacity(0.15),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: const Text(
+                                                      'Di Keranjang',
+                                                      style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Colors.green),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Row(
+                                              children: [
+                                                if (p.brand != null)
+                                                  Text(
+                                                    p.brand!,
+                                                    style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: subtitleColor),
+                                                  ),
+                                                if (p.category != null) ...[
+                                                  Text(' • ',
+                                                      style: TextStyle(
+                                                          fontSize: 11, color: subtitleColor)),
+                                                  Text(
+                                                    p.category!,
+                                                    style: TextStyle(
+                                                        fontSize: 11, color: subtitleColor),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _pickStockEndPhoto() async {
+    final source = await _showPhotoSourceDialog(title: 'Foto Bukti Fisik Stok Toko');
+    if (source == null) return;
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final employeeName = auth.employee?.fullName ?? 'Promotor';
+    final employeeNik = auth.employee?.nik ?? '';
+    final currentStore = _selectedStoreName.isNotEmpty ? _selectedStoreName : 'Kunjungan Toko';
+
+    WatermarkCaptureResult? res;
+    if (source == ImageSource.camera) {
+      res = await WatermarkCameraService.captureWithWatermark(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+        latitude: _latitude,
+        longitude: _longitude,
+      );
+    } else {
+      res = await WatermarkCameraService.pickFromGallery(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+      );
+    }
+
+    if (res != null && mounted) {
+      setState(() {
+        _stockEndPhoto = res!.file;
+        _stockEndPhotoWatermark = res.watermarkText;
+      });
+
+      toastification.show(
+        context: context,
+        type: ToastificationType.success,
+        title: const Text('Foto Bukti Fisik Stok Disimpan'),
+        autoCloseDuration: const Duration(seconds: 2),
+      );
+    }
+  }
+
+  Future<void> _submitStockEnd() async {
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.token;
+
+    if (token == null) return;
+
+    final bool isVisiting = attProvider.isVisiting;
+    final bool isCheckedIn = attProvider.isCheckedIn;
+    final bool isEditMode = widget.editSubmission != null;
+    if (!isVisiting && !isCheckedIn && !isEditMode) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Belum Absensi Kehadiran / Visit'),
+        description: const Text(
+            'Anda wajib Check-In atau Visit-In terlebih dahulu untuk mengirim laporan.'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    if (_stockEndCart.isEmpty) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Daftar Stok Masih Kosong'),
+        description:
+            const Text('Silakan masukkan minimal 1 produk sebelum mengirim laporan.'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final double grandLiter = _stockEndCart.fold(
+          0.0, (sum, itm) => sum + ((itm['volume_liter'] as num?)?.toDouble() ?? 0.0));
+      final int grandQtyGalon = _stockEndCart.fold(
+          0, (sum, itm) => sum + ((itm['qty_galon'] as num?)?.toInt() ?? 0));
+      final int grandQtyPail = _stockEndCart.fold(
+          0, (sum, itm) => sum + ((itm['qty_pail'] as num?)?.toInt() ?? 0));
+      final int grandQtyTinter = _stockEndCart.fold(
+          0, (sum, itm) => sum + ((itm['qty_kaleng_tinta'] as num?)?.toInt() ?? 0));
+
+      final first = _stockEndCart.first;
+      final now = DateTime.now();
+
+      final Map<String, dynamic> cleanFormValues = {
+        'tanggal_pencatatan_stok': DateFormat('yyyy-MM-dd').format(now),
+        'total_volume_stok_liter': grandLiter,
+        'volume_liter': grandLiter,
+        'kuantiti_galon': grandQtyGalon,
+        'kuantiti_pail': grandQtyPail,
+        'qty_kaleng_tinta': grandQtyTinter,
+        'total_sku_stok': _stockEndCart.length,
+        'produk': first['product_name'] ?? first['produk'] ?? 'Dulux Product',
+        'brand': first['brand'] ?? 'Dulux',
+        'warna': first['warna'] ?? 'ALL',
+        'conf': first['conf'] ?? '1.27',
+        'status_akses_gudang': _stockEndAksesGudangCtrl.text,
+        'keterangan_akses': _stockEndAksesGudangCtrl.text,
+        'catatan': _stockEndCatatanCtrl.text,
+        'keterangan_stok_toko': _stockEndCatatanCtrl.text,
+        'stock_items_json': jsonEncode(_stockEndCart),
+      };
+
+      for (final f in widget.template.fields) {
+        final fn = f.fieldName.toLowerCase();
+        final fKey = f.id.toString();
+        if (cleanFormValues.containsKey(fn)) {
+          cleanFormValues[fKey] = cleanFormValues[fn];
+        }
+      }
+
+      final Map<String, File> photoFiles = {};
+      final Map<String, String> watermarkTexts = {};
+
+      if (_stockEndPhoto != null) {
+        photoFiles['foto_stok'] = _stockEndPhoto!;
+        photoFiles['foto_stok_gudang'] = _stockEndPhoto!;
+        if (_stockEndPhotoWatermark != null) {
+          watermarkTexts['foto_stok'] = _stockEndPhotoWatermark!;
+          watermarkTexts['foto_stok_gudang'] = _stockEndPhotoWatermark!;
+        }
+        for (final f in widget.template.fields) {
+          if (['image', 'photo', 'camera_photo', 'multi_photo'].contains(f.fieldType)) {
+            photoFiles[f.id.toString()] = _stockEndPhoto!;
+            photoFiles[f.fieldName] = _stockEndPhoto!;
+            if (_stockEndPhotoWatermark != null) {
+              watermarkTexts[f.id.toString()] = _stockEndPhotoWatermark!;
+              watermarkTexts[f.fieldName] = _stockEndPhotoWatermark!;
+            }
+          }
+        }
+      }
+
+      Map<String, dynamic> result;
+      if (widget.editSubmission != null) {
+        result = await repProvider.updateReport(
+          token: token,
+          submissionId: widget.editSubmission!.id,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          address: _selectedLocation?['address'] ?? _address,
+          values: cleanFormValues,
+          photoFiles: photoFiles,
+          existingPhotos: _existingPhotoUrls,
+        );
+      } else {
+        result = await repProvider.submitReport(
+          token: token,
+          templateId: widget.template.id,
+          templateTitle: widget.template.title,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          itineraryItemId: widget.itineraryItemId,
+          latitude: _latitude,
+          longitude: _longitude,
+          address: _selectedLocation?['address'] ?? _address,
+          isWithinRadius: _isWithinRadius,
+          values: cleanFormValues,
+          photoFiles: photoFiles,
+          watermarkTexts: watermarkTexts,
+        );
+      }
+
+      setState(() => _isSubmitting = false);
+
+      if (result['success'] == true && mounted) {
+        if (attProvider.isVisiting) {
+          attProvider.markVisitReportFilled();
+        }
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          title: const Text('Laporan Stock End Terkirim'),
+          description: Text(
+              'Laporan Stock End (${_stockEndCart.length} produk, ${grandLiter.toStringAsFixed(1)} L) berhasil dikirim.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
         Navigator.of(context).pop(true);

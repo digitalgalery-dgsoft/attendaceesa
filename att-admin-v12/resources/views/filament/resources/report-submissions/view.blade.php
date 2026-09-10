@@ -82,6 +82,17 @@
             'tipe_laporan_oos' => 'OOS',
         ];
 
+        // Cek apakah submission ini memiliki list item Stock End multi-produk
+        $hasDynamicStockItems = false;
+        $stockItemsList = [];
+        $stockGlobalData = [
+            'total_sku_stok' => 0,
+            'total_volume_stok_liter' => 0.0,
+            'total_qty_galon' => 0,
+            'total_qty_pail' => 0,
+            'total_qty_kaleng_tinta' => 0,
+        ];
+
         foreach ($record->values as $v) {
             $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
             if ($fn === 'offtake_items_json') {
@@ -95,6 +106,12 @@
                 if (is_array($rawOos) && !empty($rawOos)) {
                     $hasDynamicOosItems = true;
                     $oosItemsList = $rawOos;
+                }
+            } elseif ($fn === 'stock_items_json') {
+                $rawStock = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
+                if (is_array($rawStock) && !empty($rawStock)) {
+                    $hasDynamicStockItems = true;
+                    $stockItemsList = $rawStock;
                 }
             } elseif ($fn === 'tipe_laporan_oos') {
                 $oosGlobalData['tipe_laporan_oos'] = $v->value_text ?: 'OOS';
@@ -121,6 +138,16 @@
             $oosGlobalData['total_sku_oos'] = count($oosItemsList);
             $oosGlobalData['max_lama_oos'] = max(array_map(fn($it) => max(1, (int)($it['lama_oos_hari'] ?? 1)), $oosItemsList) ?: [1]);
             $oosGlobalData['total_saran_qty'] = array_sum(array_column($oosItemsList, 'saran_qty_order') ?: [0]);
+        }
+
+        if ($hasDynamicStockItems && !empty($stockItemsList)) {
+            $stockGlobalData['total_sku_stok'] = count($stockItemsList);
+            foreach ($stockItemsList as $sItm) {
+                $stockGlobalData['total_volume_stok_liter'] += (float)($sItm['volume_liter'] ?? 0);
+                $stockGlobalData['total_qty_galon'] += (int)($sItm['qty_galon'] ?? 0);
+                $stockGlobalData['total_qty_pail'] += (int)($sItm['qty_pail'] ?? 0);
+                $stockGlobalData['total_qty_kaleng_tinta'] += (int)($sItm['qty_kaleng_tinta'] ?? 0);
+            }
         }
 
         // Selalu prioritaskan kalkulasi akumulatif dari offtake_items_json jika tersedia
@@ -329,7 +356,7 @@
             $fl = strtolower(trim((string)($val->formField?->field_label ?? '')));
             $flClean = str_replace([' ', '-', '/'], '_', $fl);
 
-            if ($fn === 'oos_items_json' || $fn === 'offtake_items_json') {
+            if ($fn === 'oos_items_json' || $fn === 'offtake_items_json' || $fn === 'stock_items_json') {
                 return false;
             }
 
@@ -1773,6 +1800,52 @@
             </div>
         @endif
 
+        {{-- PANEL RINGKASAN GLOBAL STOCK END --}}
+        @if($hasDynamicStockItems)
+            <div class="offtake-summary-grid">
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(15, 82, 186, 0.12); color: #0F52BA;">
+                        <x-filament::icon icon="heroicon-o-building-storefront" style="width: 24px; height: 24px;" />
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Total SKU Dilaporkan</span>
+                        <span class="offtake-stat-value" style="color: #0F52BA;">{{ $stockGlobalData['total_sku_stok'] }} Produk</span>
+                        <span class="offtake-stat-sub">Sisa stok fisik di outlet</span>
+                    </div>
+                </div>
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(20, 154, 110, 0.12); color: #149A6E;">
+                        <x-filament::icon icon="heroicon-o-beaker" style="width: 24px; height: 24px;" />
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Total Volume Stok</span>
+                        <span class="offtake-stat-value" style="color: #149A6E;">{{ number_format($stockGlobalData['total_volume_stok_liter'], 2) }} L</span>
+                        <span class="offtake-stat-sub">Akumulasi volume seluruh produk</span>
+                    </div>
+                </div>
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(124, 58, 237, 0.12); color: #7c3aed;">
+                        <x-filament::icon icon="heroicon-o-archive-box" style="width: 24px; height: 24px;" />
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Total Kemasan Galon</span>
+                        <span class="offtake-stat-value" style="color: #7c3aed;">{{ $stockGlobalData['total_qty_galon'] }} Galon</span>
+                        <span class="offtake-stat-sub">Kuantiti kaleng galon</span>
+                    </div>
+                </div>
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(234, 88, 12, 0.12); color: #ea580c;">
+                        <x-filament::icon icon="heroicon-o-cube" style="width: 24px; height: 24px;" />
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Total Kemasan Pail</span>
+                        <span class="offtake-stat-value" style="color: #ea580c;">{{ $stockGlobalData['total_qty_pail'] }} Pail</span>
+                        <span class="offtake-stat-sub">{{ $stockGlobalData['total_qty_kaleng_tinta'] > 0 ? '+ ' . $stockGlobalData['total_qty_kaleng_tinta'] . ' Kaleng Tinta' : 'Kuantiti kaleng pail' }}</span>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- PANEL RINGKASAN GLOBAL OUT OF STOCK (OOS) --}}
         @if($hasDynamicOosItems)
             <div class="offtake-summary-grid">
@@ -1952,6 +2025,95 @@
                             <span style="font-size: 0.78rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Parameter Tambahan</span>
                         </div>
                     @endif
+                @elseif($hasDynamicStockItems)
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <x-filament::icon icon="heroicon-o-clipboard-document-list" style="width: 18px; height: 18px; color: #0F52BA;" />
+                            <span>Rincian Stok Produk (Stock End)</span>
+                        </div>
+                        <span class="panel-count-badge" style="background: #dbeafe; color: #1d4ed8; font-weight: 800;">
+                            {{ count($stockItemsList) }} Produk Dilaporkan
+                        </span>
+                    </div>
+
+                    <div style="padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.85rem;">
+                        @foreach($stockItemsList as $sIdx => $sItem)
+                            @php
+                                $sBrand = $sItem['brand'] ?? 'Dulux';
+                                $sName = $sItem['product_name'] ?? ($sItem['produk'] ?? 'Produk Cat');
+                                $sWarna = $sItem['warna'] ?? 'ALL';
+                                $sKGalon = (float)($sItem['kemasan_galon'] ?? 2.5);
+                                $sQGalon = (int)($sItem['qty_galon'] ?? 0);
+                                $sKPail = (float)($sItem['kemasan_pail'] ?? 20.0);
+                                $sQPail = (int)($sItem['qty_pail'] ?? 0);
+                                $sConf = $sItem['conf'] ?? '1.27';
+                                $sLit = (float)($sItem['volume_liter'] ?? 0);
+                                $sIsTinter = !empty($sItem['is_tinter']) || !empty($sItem['tipe_tinter_warna']);
+                                $sTipeTinter = $sItem['tipe_tinter_warna'] ?? '';
+                                $sQTinter = (int)($sItem['qty_kaleng_tinta'] ?? 0);
+                            @endphp
+                            <div class="product-breakdown-card" style="border-left: 4px solid #0F52BA;">
+                                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.65rem;" class="dark:border-gray-800">
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span style="font-size: 0.75rem; font-weight: 800; background: #0F52BA; color: #fff; padding: 2px 7px; border-radius: 6px;">#{{ $sIdx + 1 }}</span>
+                                        <span class="brand-tag {{ strtolower($sBrand) === 'catylac' ? 'brand-tag-catylac' : 'brand-tag-dulux' }}">
+                                            {{ $sBrand }}
+                                        </span>
+                                        <strong style="font-size: 0.95rem; font-weight: 800;" class="text-gray-950 dark:text-white">{{ $sName }}</strong>
+                                        <span style="font-size: 0.74rem; font-weight: 700; color: #475569; background: #f1f5f9; padding: 2px 7px; border-radius: 5px; border: 1px solid #e2e8f0;" class="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300">
+                                            Warna: {{ $sWarna }}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span style="font-size: 0.85rem; font-weight: 800; color: #149A6E; background: #dcfce7; padding: 3px 10px; border-radius: 6px; border: 1px solid #86efac; display: inline-flex; align-items: center; gap: 4px;">
+                                            <x-filament::icon icon="heroicon-o-beaker" style="width: 14px; height: 14px;" />
+                                            {{ number_format($sLit, 2) }} Liter
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;" class="dark:bg-gray-800/60 dark:border-gray-700">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">
+                                            Kemasan Galon ({{ $sKGalon }}L)
+                                        </div>
+                                        <div style="font-weight: 700; color: #1e293b; font-size: 0.85rem;" class="dark:text-white">
+                                            {{ $sQGalon }} Kaleng
+                                        </div>
+                                    </div>
+
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;" class="dark:bg-gray-800/60 dark:border-gray-700">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">
+                                            Kemasan Pail ({{ $sKPail }}L)
+                                        </div>
+                                        <div style="font-weight: 700; color: #1e293b; font-size: 0.85rem;" class="dark:text-white">
+                                            {{ $sQPail }} Pail
+                                        </div>
+                                    </div>
+
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;" class="dark:bg-gray-800/60 dark:border-gray-700">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">
+                                            Faktor Konversi (conf)
+                                        </div>
+                                        <div style="font-weight: 700; color: #1e293b; font-size: 0.85rem;" class="dark:text-white">
+                                            {{ $sConf }}
+                                        </div>
+                                    </div>
+
+                                    @if($sIsTinter)
+                                        <div style="background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 8px; padding: 8px 10px; grid-column: 1 / -1;" class="dark:bg-pink-950/30 dark:border-pink-900">
+                                            <div style="font-size: 0.72rem; font-weight: 800; color: #db2777; text-transform: uppercase; margin-bottom: 4px;">
+                                                Data Tinter Pewarna Tinting
+                                            </div>
+                                            <div style="font-weight: 700; color: #9d174d; font-size: 0.85rem;" class="dark:text-pink-300">
+                                                {{ !empty($sTipeTinter) ? $sTipeTinter : 'Varian Tinter' }} • {{ $sQTinter }} Kaleng Tinta
+                                            </div>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
                 @elseif($hasDynamicOosItems)
                     <div class="panel-header">
                         <div class="panel-title">
