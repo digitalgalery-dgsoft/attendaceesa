@@ -232,8 +232,25 @@ class ReportingApiController extends Controller
         $todayStr = $now->toDateString();
         $todaySubmissions = ReportSubmission::where('employee_id', $employee->id)
             ->whereDate('submitted_at', $todayStr)
-            ->with('values')
+            ->with(['values', 'template'])
             ->get();
+
+        // Cek apakah Laporan Offtake hari ini adalah "No Sale"
+        $isOfftakeNoSaleToday = false;
+        foreach ($todaySubmissions as $tSub) {
+            $tCode = $tSub->template->code ?? '';
+            if (str_contains($tCode, 'OFFTAKE') || $tCode === 'RPT-DULUX-OFFTAKE-01') {
+                foreach ($tSub->values as $tVal) {
+                    if ($tVal->field_name === 'tipe_laporan_offtake') {
+                        $txt = strtolower(trim((string)$tVal->value_text));
+                        if ($txt === 'no sale' || str_contains($txt, 'no sale')) {
+                            $isOfftakeNoSaleToday = true;
+                            break 2;
+                        }
+                    }
+                }
+            }
+        }
 
         $dailyTargetTotal = 0;
         $dailySubmittedTotal = 0;
@@ -302,6 +319,7 @@ class ReportingApiController extends Controller
             $effectiveWorkdayDates,
             $duluxOrder,
             $now,
+            $isOfftakeNoSaleToday,
             &$dailyTargetTotal,
             &$dailySubmittedTotal,
             &$weeklyTargetTotal,
@@ -488,6 +506,15 @@ class ReportingApiController extends Controller
                     // Jika toko tidak memiliki mesin (0 mesin terdaftar)
                     $isCompletedToday = $templateTodaySubs->isNotEmpty();
                 }
+            $isCustomerDb = ($t->code === 'RPT-DULUX-DATABASE-PELANGGAN' || str_contains($t->code, 'DATABASE-PELANGGAN'));
+            $isExempt = false;
+            $exemptReason = null;
+
+            if ($isCustomerDb && $isOfftakeNoSaleToday) {
+                // Aturan 1: Jika Laporan Offtake dihari berjalan No Sale, maka Laporan Data Pelanggan non Aktif / tidak perlu dilaporkan.
+                $isExempt = true;
+                $exemptReason = 'Laporan Offtake hari ini No Sale, Laporan Data Pelanggan tidak perlu dilaporkan.';
+                $isCompletedToday = true; // Dianggap selesai agar tidak menghambat rantai pelaporan berikutnya
             } elseif (isset($duluxOrder[$t->code])) {
                 // Untuk alur pelaporan berurutan Dulux (Offtake, OOS, Database Pelanggan, Stock End, CBP Pricing),
                 // setiap langkah dianggap selesai hari ini jika sudah disubmit minimal 1 kali hari ini.
@@ -503,10 +530,16 @@ class ReportingApiController extends Controller
             $stepNumber = $isDuluxSequential ? $duluxOrder[$t->code] : $stepCounter++;
 
             if ($isDuluxSequential) {
-                $isStepLocked = !$prevStepCompleted;
-                $lockedReason = $isStepLocked ? "Harap selesaikan {$prevStepTitle} terlebih dahulu." : null;
-                $prevStepCompleted = $isCompletedToday;
-                $prevStepTitle = $t->title;
+                if ($isExempt) {
+                    $isStepLocked = true;
+                    $lockedReason = 'Laporan Data Pelanggan tidak perlu dilaporkan karena Laporan Offtake hari ini No Sale (0 Penjualan).';
+                    $prevStepCompleted = true; // Tidak menghambat langkah berikutnya (Stock End)
+                } else {
+                    $isStepLocked = !$prevStepCompleted;
+                    $lockedReason = $isStepLocked ? "Harap selesaikan {$prevStepTitle} terlebih dahulu." : null;
+                    $prevStepCompleted = $isCompletedToday;
+                    $prevStepTitle = $t->title;
+                }
             } else {
                 $isStepLocked = false;
                 $lockedReason = null;
@@ -529,6 +562,8 @@ class ReportingApiController extends Controller
                 'step_number' => $stepNumber,
                 'is_step_locked' => $isStepLocked,
                 'locked_reason' => $lockedReason,
+                'is_exempt' => $isExempt,
+                'exempt_reason' => $exemptReason,
                 'is_completed_today' => $isCompletedToday,
                 'has_product_binding' => ($isDailyMaintenance || $isDuluxSequential) ? false : $hasProductBinding,
                 'submitted_products' => ($isDailyMaintenance || $isDuluxSequential) ? [] : $submittedProductNames,
@@ -2596,4 +2631,138 @@ class ReportingApiController extends Controller
             'previous_items' => $items,
         ];
     }
+
+    /**
+     * Pencarian profil pelanggan berdasarkan No. HP / WhatsApp
+     * Mencakup data PostgreSQL live submissions dan arsip SQLite customer_db.
+     */
+    public function customerLookup(Request $request)
+    {
+        $rawPhone = trim((string)($request->query('phone') ?? $request->query('no_hp') ?? ''));
+        if (empty($rawPhone)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Parameter phone / no_hp wajib diisi.',
+                'found' => false,
+            ], 422);
+        }
+
+        // Normalisasi nomor telepon: buang karakter non-digit
+        $cleanPhone = preg_replace('/[^0-9]/', '', $rawPhone);
+        if (str_starts_with($cleanPhone, '62')) {
+            $normalizedPhone = '0' . substr($cleanPhone, 2);
+        } elseif (str_starts_with($cleanPhone, '8')) {
+            $normalizedPhone = '0' . $cleanPhone;
+        } else {
+            $normalizedPhone = $cleanPhone;
+        }
+
+        // 1. Cari di PostgreSQL report_submissions (template RPT-DULUX-DATABASE-PELANGGAN)
+        $template = ReportTemplate::where('code', 'RPT-DULUX-DATABASE-PELANGGAN')
+            ->orWhere('code', 'LIKE', '%DATABASE-PELANGGAN%')
+            ->first();
+
+        if ($template) {
+            $subVal = ReportSubmissionValue::where('field_name', 'no_hp_pelanggan')
+                ->where(function ($q) use ($rawPhone, $cleanPhone, $normalizedPhone) {
+                    $q->where('value_text', 'LIKE', "%{$normalizedPhone}%")
+                      ->orWhere('value_text', 'LIKE', "%{$cleanPhone}%")
+                      ->orWhere('value_text', 'LIKE', "%{$rawPhone}%");
+                })
+                ->whereHas('submission', function ($q) use ($template) {
+                    $q->where('report_template_id', $template->id);
+                })
+                ->latest()
+                ->first();
+
+            if ($subVal) {
+                $sub = $subVal->submission;
+                $valMap = [];
+                foreach ($sub->values as $v) {
+                    $valMap[$v->field_name] = $v->value_text;
+                }
+
+                $nama = trim((string)($valMap['nama_pelanggan'] ?? ''));
+                if (!empty($nama)) {
+                    return response()->json([
+                        'status' => 'success',
+                        'found' => true,
+                        'source' => 'live_database',
+                        'data' => [
+                            'no_hp_pelanggan' => $normalizedPhone,
+                            'nama_pelanggan' => $nama,
+                            'alamat_pelanggan' => trim((string)($valMap['alamat_pelanggan'] ?? '')),
+                            'tipe_pelanggan' => trim((string)($valMap['tipe_pelanggan'] ?? 'Pemilik Rumah')),
+                            'painter_loyalty' => trim((string)($valMap['painter_loyalty'] ?? 'Tidak Bersedia')),
+                        ],
+                    ]);
+                }
+            }
+        }
+
+        // 2. Cari di SQLite customer_db.sqlite
+        try {
+            $sqlitePath = storage_path('app/dulux_data/customer_db.sqlite');
+            $gzPath     = storage_path('app/dulux_data/customer_db.sqlite.gz');
+
+            if (!file_exists($sqlitePath) && file_exists($gzPath)) {
+                $zp = gzopen($gzPath, 'rb');
+                $fp = fopen($sqlitePath, 'wb');
+                if ($zp && $fp) {
+                    while (!gzeof($zp)) {
+                        fwrite($fp, gzread($zp, 524288));
+                    }
+                    gzclose($zp);
+                    fclose($fp);
+                    @chmod($sqlitePath, 0666);
+                }
+            }
+
+            if (file_exists($sqlitePath)) {
+                $pdo = new \PDO("sqlite:" . $sqlitePath);
+                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+                $searchPattern = "%" . (strlen($normalizedPhone) >= 8 ? substr($normalizedPhone, -8) : $normalizedPhone) . "%";
+                $stmt = $pdo->prepare("
+                    SELECT nama_pelanggan, alamat, no_hp, tipe_pelanggan, painter_info
+                    FROM cust_raw
+                    WHERE no_hp LIKE ? OR no_hp LIKE ?
+                    ORDER BY id DESC
+                    LIMIT 1
+                ");
+                $stmt->execute([$searchPattern, "%{$normalizedPhone}%"]);
+                $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+                if ($row && !empty(trim((string)($row['nama_pelanggan'] ?? '')))) {
+                    $painterInfo = (string)($row['painter_info'] ?? '');
+                    $loyalty = (stripos($painterInfo, 'CHECKED') !== false || stripos($painterInfo, 'bersedia') !== false)
+                        ? 'Saya bersedia menerima informasi mengenai program Mitra Dulux'
+                        : 'Tidak Bersedia';
+
+                    return response()->json([
+                        'status' => 'success',
+                        'found' => true,
+                        'source' => 'archive_database',
+                        'data' => [
+                            'no_hp_pelanggan' => $normalizedPhone,
+                            'nama_pelanggan' => trim((string)$row['nama_pelanggan']),
+                            'alamat_pelanggan' => trim((string)($row['alamat'] ?? '')),
+                            'tipe_pelanggan' => trim((string)($row['tipe_pelanggan'] ?? 'Pemilik Rumah')),
+                            'painter_loyalty' => $loyalty,
+                        ],
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            \Log::warning("Customer lookup SQLite check error: " . $e->getMessage());
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'found' => false,
+            'message' => 'Data pelanggan belum pernah terdaftar sebelumnya.',
+            'data' => null,
+        ]);
+    }
 }
+

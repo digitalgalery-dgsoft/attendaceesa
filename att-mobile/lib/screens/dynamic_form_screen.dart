@@ -218,10 +218,20 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         title.contains('oos');
   }
 
+  bool _isCustomerDbTemplate() {
+    final code = widget.template.code.toUpperCase();
+    final title = widget.template.title.toLowerCase();
+    return code == 'RPT-DULUX-DATABASE-PELANGGAN' ||
+        code.contains('DATABASE-PELANGGAN') ||
+        title.contains('database pelanggan') ||
+        title.contains('data pelanggan');
+  }
+
   bool _hasProductBinding() {
     if (_isDailyMaintenanceTemplate()) return false;
     if (_isOfftakeTemplate()) return false; // Offtake uses cart + confirmation review, NOT sequential per-product locks!
     if (_isOosTemplate()) return false; // OOS uses cart + confirmation review, NOT sequential per-product locks!
+    if (_isCustomerDbTemplate()) return false; // Data Pelanggan is NOT bound to Master Produk!
     if (widget.template.hasProductBinding) return true;
     if (_getProducts().isNotEmpty) return true;
     final code = widget.template.code.toUpperCase();
@@ -347,6 +357,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   String? _address;
   bool _isFetchingLocation = false;
   bool _isSubmitting = false;
+
+  // Customer Database Lookup State
+  bool _isLookingUpCustomer = false;
 
   @override
   void initState() {
@@ -527,6 +540,141 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     } catch (e) {
       debugPrint('Error loading OOS history for store: $e');
+    }
+  }
+
+  Future<void> _performCustomerLookup(String phone) async {
+    final cleanPhone = phone.trim();
+    if (cleanPhone.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Masukkan minimal 4 digit nomor HP untuk pencarian.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLookingUpCustomer = true;
+    });
+
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+
+      if (auth.token == null) return;
+
+      final res = await repProvider.lookupCustomer(auth.token!, cleanPhone);
+
+      if (!mounted) return;
+
+      if (res != null && res['found'] == true && res['customer'] != null) {
+        final cust = Map<String, dynamic>.from(res['customer']);
+        final custNama = cust['nama_pelanggan']?.toString() ?? '';
+        final custAlamat = cust['alamat_pelanggan']?.toString() ?? '';
+        final custTipe = cust['tipe_pelanggan']?.toString() ?? '';
+        final custPainter = cust['painter_loyalty']?.toString() ?? '';
+
+        setState(() {
+          for (final f in widget.template.fields) {
+            final fKey = f.id.toString();
+            final fName = f.fieldName.toLowerCase();
+
+            if (fName == 'nama_pelanggan' && custNama.isNotEmpty) {
+              _formValues[fKey] = custNama;
+              _formValues[f.fieldName] = custNama;
+              if (_controllers.containsKey(fKey)) {
+                _controllers[fKey]!.text = custNama;
+              } else {
+                _controllers[fKey] = TextEditingController(text: custNama);
+              }
+            } else if (fName == 'alamat_pelanggan' && custAlamat.isNotEmpty) {
+              _formValues[fKey] = custAlamat;
+              _formValues[f.fieldName] = custAlamat;
+              if (_controllers.containsKey(fKey)) {
+                _controllers[fKey]!.text = custAlamat;
+              } else {
+                _controllers[fKey] = TextEditingController(text: custAlamat);
+              }
+            } else if (fName == 'tipe_pelanggan' && custTipe.isNotEmpty) {
+              String matchedOpt = custTipe;
+              if (f.options.isNotEmpty) {
+                final found = f.options.firstWhere(
+                  (o) => o.trim().toLowerCase() == custTipe.trim().toLowerCase(),
+                  orElse: () => custTipe,
+                );
+                matchedOpt = found;
+              }
+              _formValues[fKey] = matchedOpt;
+              _formValues[f.fieldName] = matchedOpt;
+              if (_controllers.containsKey(fKey)) {
+                _controllers[fKey]!.text = matchedOpt;
+              }
+            } else if ((fName == 'painter_loyalty' || fName.contains('loyalty')) && custPainter.isNotEmpty) {
+              String matchedPainter = custPainter;
+              if (f.options.isNotEmpty) {
+                final found = f.options.firstWhere(
+                  (o) => o.trim().toLowerCase() == custPainter.trim().toLowerCase(),
+                  orElse: () => custPainter,
+                );
+                matchedPainter = found;
+              }
+              _formValues[fKey] = matchedPainter;
+              _formValues[f.fieldName] = matchedPainter;
+              if (_controllers.containsKey(fKey)) {
+                _controllers[fKey]!.text = matchedPainter;
+              }
+            }
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF149A6E),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Data profil pelanggan ditemukan: $custNama. Data profil berhasil terisi otomatis.',
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.blueGrey.shade700,
+            content: Row(
+              children: const [
+                Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Nomor HP baru / belum terdaftar. Silakan lengkapi data profil pelanggan baru.',
+                    style: TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error lookup customer: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLookingUpCustomer = false;
+        });
+      }
     }
   }
 
@@ -3173,9 +3321,123 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         fieldNameLower.contains('conf') ||
         fieldNameLower.contains('density');
 
+    final bool isCustomerDbPhone = _isCustomerDbTemplate() &&
+        (fieldNameLower == 'no_hp_pelanggan' ||
+         fieldNameLower.contains('no_hp') ||
+         fieldNameLower.contains('hp_pelanggan'));
+
     Widget inputWidget;
 
-    if (_isProductField(field)) {
+    if (isCustomerDbPhone) {
+      final currentPhone = _controllers[fieldKey]?.text ?? _formValues[fieldKey]?.toString() ?? '';
+      inputWidget = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: _controllers[fieldKey],
+            readOnly: isFieldReadonly,
+            keyboardType: TextInputType.phone,
+            textInputAction: TextInputAction.search,
+            style: TextStyle(color: isFieldReadonly ? subtitleColor : textColor, fontSize: 13, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              hintText: field.placeholder ?? '08xxxxxxxxxx / Ketik & Cari No. HP...',
+              hintStyle: TextStyle(color: isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400, fontSize: 12.5),
+              filled: true,
+              fillColor: isFieldReadonly ? readonlyBgColor : elevatedColor,
+              prefixIcon: Icon(Icons.phone_iphone_rounded, color: isFieldReadonly ? subtitleColor : themeColor, size: 20),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_isLookingUpCustomer)
+                    Container(
+                      width: 18,
+                      height: 18,
+                      margin: const EdgeInsets.only(right: 12),
+                      child: const CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else ...[
+                    if (currentPhone.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        color: subtitleColor,
+                        tooltip: 'Hapus',
+                        onPressed: () {
+                          setState(() {
+                            _formValues.remove(fieldKey);
+                            _formValues[field.fieldName] = '';
+                            _controllers[fieldKey]?.clear();
+                          });
+                        },
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.search_rounded, size: 22),
+                      color: themeColor,
+                      tooltip: 'Cari Data Pelanggan',
+                      onPressed: () {
+                        final phone = _controllers[fieldKey]?.text ?? _formValues[fieldKey]?.toString() ?? '';
+                        _performCustomerLookup(phone);
+                      },
+                    ),
+                  ],
+                ],
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: themeColor, width: 1.5),
+              ),
+            ),
+            validator: (v) => (!isFieldReadonly && field.isRequired) && (v == null || v.trim().isEmpty) ? locale.tr('required_field') : null,
+            onFieldSubmitted: (v) {
+              _performCustomerLookup(v);
+            },
+            onChanged: isFieldReadonly
+                ? null
+                : (v) {
+                    _formValues[fieldKey] = v;
+                    _formValues[field.fieldName] = v;
+                  },
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _isLookingUpCustomer
+                  ? null
+                  : () {
+                      final phone = _controllers[fieldKey]?.text ?? _formValues[fieldKey]?.toString() ?? '';
+                      _performCustomerLookup(phone);
+                    },
+              icon: _isLookingUpCustomer
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.search_rounded, size: 16),
+              label: Text(
+                _isLookingUpCustomer ? 'Mencari...' : 'Cari Data Pelanggan Terdaftar',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: themeColor,
+                side: BorderSide(color: themeColor),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else if (_isProductField(field)) {
       inputWidget = _buildProductInput(
         field,
         fieldKey,
@@ -4288,6 +4550,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   }
 
   bool _isProductField(ReportFormFieldModel field) {
+    if (_isCustomerDbTemplate()) return false; // Data Pelanggan tidak mengikat ke Master Produk
     if (field.fieldType == 'product_select' || field.fieldType == 'barcode_scanner' || field.fieldType == 'product') {
       return true;
     }

@@ -476,4 +476,32 @@ class DynamicReportingProvider with ChangeNotifier {
     }
     return null;
   }
+
+  /**
+   * Cari profil pelanggan terdaftar berdasarkan No. HP / WhatsApp.
+   */
+  Future<Map<String, dynamic>?> lookupCustomer(String token, String phone) async {
+    try {
+      final clean = phone.replaceAll(RegExp(r'[^0-9]'), '');
+      if (clean.length < 8) return null;
+      final url = '${Constants.baseUrl}/reporting/customer-lookup?phone=$clean';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success' && data['found'] == true && data['data'] != null) {
+          return Map<String, dynamic>.from(data['data']);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error lookup customer: $e');
+    }
+    return null;
+  }
 }

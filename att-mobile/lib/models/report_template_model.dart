@@ -19,6 +19,8 @@ class ReportTemplateModel {
   final bool isStepLocked;
   final String? lockedReason;
   final bool isCompletedToday;
+  final bool isExempt;
+  final String? exemptReason;
   final bool hasProductBinding;
   final List<String> submittedProducts;
   final List<int> submittedProductIds;
@@ -66,6 +68,8 @@ class ReportTemplateModel {
     this.isStepLocked = false,
     this.lockedReason,
     this.isCompletedToday = false,
+    this.isExempt = false,
+    this.exemptReason,
     this.hasProductBinding = false,
     this.submittedProducts = const [],
     this.submittedProductIds = const [],
@@ -156,6 +160,8 @@ class ReportTemplateModel {
     }
     final sLocked = json['is_step_locked'] == true || json['is_step_locked'] == 1 || json['is_step_locked'] == 'true';
     final sDone = json['is_completed_today'] == true || json['is_completed_today'] == 1 || json['is_completed_today'] == 'true';
+    final isExempt = json['is_exempt'] == true || json['is_exempt'] == 1 || json['is_exempt'] == 'true';
+    final exemptReason = json['exempt_reason']?.toString();
     final hasBinding = json['has_product_binding'] == true || json['has_product_binding'] == 1 || json['has_product_binding'] == 'true' || productsList.isNotEmpty;
 
     final totProd = json['total_products_count'] is num ? (json['total_products_count'] as num).toInt() : productsList.length;
@@ -191,6 +197,8 @@ class ReportTemplateModel {
       isStepLocked: sLocked,
       lockedReason: json['locked_reason']?.toString(),
       isCompletedToday: sDone,
+      isExempt: isExempt,
+      exemptReason: exemptReason,
       hasProductBinding: hasBinding,
       submittedProducts: parsedSubProducts,
       submittedProductIds: parsedSubProdIds,
@@ -269,6 +277,8 @@ class ReportTemplateModel {
       isStepLocked: isStepLocked ?? this.isStepLocked,
       lockedReason: lockedReason ?? this.lockedReason,
       isCompletedToday: isCompletedToday ?? this.isCompletedToday,
+      isExempt: isExempt ?? this.isExempt,
+      exemptReason: exemptReason ?? this.exemptReason,
       hasProductBinding: hasProductBinding ?? this.hasProductBinding,
       submittedProducts: submittedProducts ?? this.submittedProducts,
       submittedProductIds: submittedProductIds ?? this.submittedProductIds,
@@ -314,6 +324,14 @@ class ReportTemplateModel {
     return sorted.map((t) {
       if (duluxOrderMap.containsKey(t.code)) {
         final step = duluxOrderMap[t.code]!;
+        if (t.isExempt) {
+          prevStepCompleted = true;
+          return t.copyWith(
+            stepNumber: step,
+            isStepLocked: true,
+            lockedReason: t.lockedReason ?? t.exemptReason ?? 'Laporan ini tidak perlu diisi.',
+          );
+        }
         final isLocked = !prevStepCompleted;
         final lockedReason = isLocked ? 'Harap selesaikan $prevStepTitle terlebih dahulu.' : null;
         prevStepCompleted = t.isCompletedToday;
@@ -351,6 +369,8 @@ class ReportTemplateModel {
       'is_step_locked': isStepLocked,
       'locked_reason': lockedReason,
       'is_completed_today': isCompletedToday,
+      'is_exempt': isExempt,
+      'exempt_reason': exemptReason,
       'has_product_binding': hasProductBinding,
       'submitted_products': submittedProducts,
       'submitted_product_ids': submittedProductIds,

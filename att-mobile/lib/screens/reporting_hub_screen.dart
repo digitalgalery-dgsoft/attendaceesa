@@ -745,6 +745,41 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
+            if (template.isExempt) {
+              showDialog(
+                context: context,
+                builder: (dialogCtx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  backgroundColor: cardColor,
+                  title: Row(
+                    children: [
+                      const Icon(Icons.info_outline_rounded, color: Colors.blueGrey, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Tidak Perlu Dilaporkan',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                    ],
+                  ),
+                  content: Text(
+                    template.exemptReason ?? 'Laporan ini tidak perlu diisi karena laporan Offtake hari ini No Sale.',
+                    style: TextStyle(fontSize: 13, color: subtitleColor),
+                  ),
+                  actions: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: defaultColor,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Mengerti', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              );
+              return;
+            }
+
             if (template.isStepLocked) {
               showDialog(
                 context: context,
@@ -810,14 +845,18 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: template.isCompletedToday
-                            ? const Color(0xFF149A6E).withOpacity(0.12)
-                            : (template.isStepLocked ? Colors.orange.withOpacity(0.12) : themeColor.withOpacity(0.12)),
+                        color: template.isExempt
+                            ? Colors.blueGrey.withOpacity(0.12)
+                            : (template.isCompletedToday
+                                ? const Color(0xFF149A6E).withOpacity(0.12)
+                                : (template.isStepLocked ? Colors.orange.withOpacity(0.12) : themeColor.withOpacity(0.12))),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: template.isCompletedToday
-                              ? const Color(0xFF149A6E).withOpacity(0.3)
-                              : (template.isStepLocked ? Colors.orange.withOpacity(0.3) : themeColor.withOpacity(0.3)),
+                          color: template.isExempt
+                              ? Colors.blueGrey.withOpacity(0.3)
+                              : (template.isCompletedToday
+                                  ? const Color(0xFF149A6E).withOpacity(0.3)
+                                  : (template.isStepLocked ? Colors.orange.withOpacity(0.3) : themeColor.withOpacity(0.3))),
                           width: 0.8,
                         ),
                       ),
@@ -825,13 +864,17 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            template.isCompletedToday
-                                ? Icons.check_circle_rounded
-                                : (template.isStepLocked ? Icons.lock_rounded : Icons.play_arrow_rounded),
+                            template.isExempt
+                                ? Icons.do_not_disturb_on_rounded
+                                : (template.isCompletedToday
+                                    ? Icons.check_circle_rounded
+                                    : (template.isStepLocked ? Icons.lock_rounded : Icons.play_arrow_rounded)),
                             size: 12,
-                            color: template.isCompletedToday
-                                ? const Color(0xFF149A6E)
-                                : (template.isStepLocked ? Colors.orange.shade700 : themeColor),
+                            color: template.isExempt
+                                ? Colors.blueGrey
+                                : (template.isCompletedToday
+                                    ? const Color(0xFF149A6E)
+                                    : (template.isStepLocked ? Colors.orange.shade700 : themeColor)),
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -839,15 +882,29 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.bold,
-                              color: template.isCompletedToday
-                                  ? const Color(0xFF149A6E)
-                                  : (template.isStepLocked ? Colors.orange.shade700 : themeColor),
+                              color: template.isExempt
+                                  ? Colors.blueGrey
+                                  : (template.isCompletedToday
+                                      ? const Color(0xFF149A6E)
+                                      : (template.isStepLocked ? Colors.orange.shade700 : themeColor)),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    if (template.isCompletedToday)
+                    if (template.isExempt)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.blueGrey.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'Tidak Perlu (No Sale)',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                        ),
+                      )
+                    else if (template.isCompletedToday)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
@@ -909,16 +966,40 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                         ],
                       ),
                     ),
-                    template.isStepLocked
-                        ? Icon(Icons.lock_rounded, color: Colors.orange.shade700, size: 18)
-                        : Icon(Icons.arrow_forward_ios_rounded, color: subtitleColor, size: 14),
+                    template.isExempt
+                        ? const Icon(Icons.do_not_disturb_on_rounded, color: Colors.blueGrey, size: 18)
+                        : (template.isStepLocked
+                            ? Icon(Icons.lock_rounded, color: Colors.orange.shade700, size: 18)
+                            : Icon(Icons.arrow_forward_ios_rounded, color: subtitleColor, size: 14)),
                   ],
                 ),
                 
                 const SizedBox(height: 12),
 
                 // Target Cut-Off & Progress Bar
-                Container(
+                if (template.isExempt)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: elevatedColor,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline_rounded, size: 14, color: Colors.blueGrey),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            template.exemptReason ?? 'Laporan ini tidak perlu diisi karena laporan Offtake hari ini No Sale.',
+                            style: TextStyle(fontSize: 11, color: subtitleColor, fontStyle: FontStyle.italic),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: elevatedColor,
