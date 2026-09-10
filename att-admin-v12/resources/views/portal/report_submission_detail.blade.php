@@ -753,8 +753,8 @@
             }
         }
 
-        // Kalkulasi fallback akumulatif jika belum ada di record
-        if ($hasDynamicOfftakeItems) {
+        // Selalu prioritaskan kalkulasi akumulatif dari offtake_items_json jika tersedia
+        if ($hasDynamicOfftakeItems && !empty($offtakeItemsList)) {
             $calcUnit = 0; $calcLiter = 0; $calcRp = 0;
             foreach ($offtakeItemsList as $it) {
                 $qT = (float)($it['qty_tin'] ?? 0);
@@ -764,9 +764,21 @@
                 $calcLiter += (float)($it['total_liter'] ?? (($it['volume_tin_l'] ?? 0) + ($it['volume_galon_l'] ?? 0) + ($it['volume_pail_l'] ?? 0)));
                 $calcRp += (float)($it['total_nilai_rp'] ?? 0);
             }
-            if ($offtakeGlobalData['total_volume_unit'] <= 0) $offtakeGlobalData['total_volume_unit'] = $calcUnit;
-            if ($offtakeGlobalData['total_volume_liter'] <= 0) $offtakeGlobalData['total_volume_liter'] = $calcLiter;
-            if ($offtakeGlobalData['total_nilai_sales_rp'] <= 0) $offtakeGlobalData['total_nilai_sales_rp'] = $calcRp;
+            if ($calcUnit > 0) $offtakeGlobalData['total_volume_unit'] = $calcUnit;
+            if ($calcLiter > 0) $offtakeGlobalData['total_volume_liter'] = $calcLiter;
+            if ($calcRp > 0) $offtakeGlobalData['total_nilai_sales_rp'] = $calcRp;
+
+            // Perhitungan pintar market share jika belum tercatat atau 0%
+            if (empty($offtakeGlobalData['estimasi_market_share_persen']) || $offtakeGlobalData['estimasi_market_share_persen'] === '0%' || $offtakeGlobalData['estimasi_market_share_persen'] === '0') {
+                $cCat = (float)($offtakeGlobalData['jml_customer_beli_cat'] ?? 0);
+                $cDulux = (float)($offtakeGlobalData['jml_customer_beli_dulux'] ?? 0);
+                if ($cCat > 0) {
+                    $ms = round(($cDulux / $cCat) * 100);
+                    $offtakeGlobalData['estimasi_market_share_persen'] = "{$ms}%";
+                } elseif ($cDulux > 0) {
+                    $offtakeGlobalData['estimasi_market_share_persen'] = "100%";
+                }
+            }
         }
 
         $suppressCompetitorFields = [

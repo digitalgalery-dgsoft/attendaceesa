@@ -500,6 +500,23 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
       - **Staging Server**: `appsend.my.id` (HTTP 200 OK)
     - APK Mobile resmi versi **`v1.0.131+131`** telah berhasil dibuild (`108.6 MB`), diunggah ke server `https://appsend.my.id/app-release.apk`, dan didistribusikan ke seluruh server node.
 
+### 📦 Konsolidasi 1 Baris Offtake & Kalkulasi Dinamis Grand Total (10 September 2026)
+- **Status**: 🟢 **Selesai & Rilis (100%)**
+- **Tanggal Rilis**: 10 September 2026
+- **Deskripsi Pembaruan**:
+  - **Penyatuan Submission Multi-Produk Menjadi 1 Baris Tunggal**:
+    - Backend `ReportingApiController.php` mencatat pengiriman multi-produk sebagai 1 baris dokumen tunggal (`RPT-YYYYMMDD-XXXX`) dengan seluruh rincian tersimpan di `offtake_items_json`.
+    - Metrik global (`total_volume_unit`, `total_volume_liter`, `total_nilai_sales_rp`) diagregasikan otomatis.
+  - **Banner Metrik Global & Kartu Rincian Kelompok Produk**:
+    - Di `report_submission_detail.blade.php` (Portal) & `view.blade.php` (Filament Admin), kalkulasi dinamis selalu mengakumulasikan seluruh produk dari `offtake_items_json` untuk menghasilkan Grand Total Penjualan (Rp), Grand Total Volume (Liter), Total Kuantiti Terjual (Unit), dan Market Share (%) yang tepat.
+    - Menampilkan kartu rincian per produk lengkap dengan Harga Acuan Benchmark, Kuantiti Terjual, Volume Liter, dan Subtotal Nominal Rp.
+  - **Penyelarasan Dashboard Tabel Portal (`offtake_dashboard.blade.php`)**:
+    - Kolom Total Volume pada tabel Live Submissions kini selalu mengakumulasikan volume liter seluruh produk dari `offtake_items_json`.
+  - **Filter Duplikat Baris di Live Submissions Query (`PrincipalPortalController.php`)**:
+    - Menambahkan filter defensif pada query `getLiveSubmissionsQuery()` untuk mengecualikan kode dokumen hasil split sekunder (`RPT-%-[2-9]`).
+  - **Database Migration Konsolidasi Data Legacy (`2026_09_10_084500_consolidate_split_offtake_submissions.php`)**:
+    - Menggabungkan data split submission legacy (`RPT-...-1`), mengupdate nilai total unit, volume liter, dan sales rp menjadi akumulasi penuh, merename kode dokumen ke base code tanpa suffix `-1`, serta menghapus baris duplikat `-2`, `-3` beserta nilai formulirnya dari database.
+
 ---
 
 ## 🎯 Rencana Pengembangan Selanjutnya (Next Milestones)
@@ -513,6 +530,6 @@ Sesuai arahan dan kebutuhan operasional lapangan Dulux:
 
 ---
 
-*Terakhir diperbarui: 9 September 2026*  
+*Terakhir diperbarui: 10 September 2026*  
 *Pengembang: Digital Galery / DGSoft - Tim Attendance ESA*
 

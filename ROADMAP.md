@@ -1441,3 +1441,15 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Foto bukti transaksi (Card Offtake & Nota Penjualan) tetap ditampilkan sebagai galeri dokumentasi global transaksi.
     - **Penyelarasan Dashboard Tabel Portal (`offtake_dashboard.blade.php`)**:
       - Setiap baris multi-produk menampilkan badge `X Produk Terjual`, rincian nama produk, total kuantiti unit kemasan, dan kalkulasi total volume liter yang akurat.
+
+11. **Penyempurnaan Kalkulasi Dinamis Grand Total & Konsolidasi Data Split Submission (10 September 2026)**:
+    - **Kalkulasi Dinamis Grand Total Akumulatif**:
+      - Memperbaiki kalkulasi metrik global di `report_submission_detail.blade.php` (Portal Principal) dan `view.blade.php` (Filament Admin) agar selalu mengakumulasikan seluruh produk dari `offtake_items_json` (bukan hanya saat nilai record awal <= 0), sehingga menampilkan Grand Total Penjualan (Rp), Grand Total Volume (Liter), dan Total Kuantiti Terjual (Unit) yang tepat dari seluruh item yang dibeli.
+      - Menambahkan kalkulasi pintar persentase Pangsa Pasar (Market Share) dari perbandingan pembeli Dulux terhadap total pembeli cat.
+    - **Penyelarasan Total Volume di Tabel Dashboard Portal (`offtake_dashboard.blade.php`)**:
+      - Kolom Total Volume pada tabel Live Submissions kini selalu mengakumulasikan volume liter seluruh produk dari `offtake_items_json`.
+    - **Filter Duplikat Baris di Live Submissions Query (`PrincipalPortalController.php`)**:
+      - Menambahkan filter defensif pada query `getLiveSubmissionsQuery()` untuk mengecualikan kode dokumen hasil split sekunder (`RPT-%-[2-9]`).
+    - **Database Migration Konsolidasi Data Legacy (`2026_09_10_084500_consolidate_split_offtake_submissions.php`)**:
+      - Menggabungkan data split submission legacy (`RPT-...-1`), mengupdate nilai total unit, volume liter, dan sales rp menjadi akumulasi penuh, merename kode dokumen ke base code tanpa suffix `-1`, serta menghapus baris duplikat `-2`, `-3` beserta nilai formulirnya dari database.
+

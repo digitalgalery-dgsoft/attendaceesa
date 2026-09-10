@@ -369,6 +369,18 @@ class PrincipalPortalController extends Controller
                 'values.formField'
             ]);
 
+        // Filter out legacy split duplicate records (e.g. RPT-...-2, RPT-...-3, dst)
+        $query->where(function ($subQ) {
+            $subQ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-2')
+                 ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-3')
+                 ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-4')
+                 ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-5')
+                 ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-6')
+                 ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-7')
+                 ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-8')
+                 ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-9');
+        });
+
         if ($selectedRegion) {
             $rsmVariants = $this->getRsmQueryVariants($selectedRegion);
             $query->where(function($q) use ($rsmVariants, $selectedRegion) {

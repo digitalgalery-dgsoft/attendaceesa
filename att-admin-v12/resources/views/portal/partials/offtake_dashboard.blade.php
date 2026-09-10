@@ -439,10 +439,13 @@
                                     $subMultiItems = !empty($valMap['offtake_items_json']) ? (is_array($valMap['offtake_items_json']) ? $valMap['offtake_items_json'] : json_decode((string)$valMap['offtake_items_json'], true)) : null;
 
                                     $volLiter = (float)($valMap['total_volume_liter'] ?? ($valMap['volume_liter'] ?? 0));
-                                    if ($volLiter <= 0 && !empty($subMultiItems) && is_array($subMultiItems)) {
-                                        $volLiter = array_sum(array_map(function($it) {
+                                    if (!empty($subMultiItems) && is_array($subMultiItems)) {
+                                        $calcDynVol = array_sum(array_map(function($it) {
                                             return (float)($it['total_liter'] ?? (($it['volume_tin_l'] ?? 0) + ($it['volume_galon_l'] ?? 0) + ($it['volume_pail_l'] ?? 0)));
                                         }, $subMultiItems));
+                                        if ($calcDynVol > 0) {
+                                            $volLiter = $calcDynVol;
+                                        }
                                     }
                                     if ($volLiter <= 0) {
                                         $volG = (float)($valMap['volume_galon_l'] ?? 0);
