@@ -56,9 +56,19 @@ class ReportTemplateForm
                             ->relationship('products', 'name', modifyQueryUsing: function ($query, callable $get) {
                                 $selectedPrincipals = $get('principals') ?? [];
                                 if (!empty($selectedPrincipals)) {
-                                    $query->whereIn('principal_id', $selectedPrincipals);
+                                    $query->whereIn('products.principal_id', $selectedPrincipals);
                                 }
-                                return $query->where('is_active', true)->orderBy('name');
+                                return $query->select([
+                                    'products.id',
+                                    'products.name',
+                                    'products.brand',
+                                    'products.price',
+                                    'products.principal_id',
+                                    'products.is_active',
+                                    'products.deleted_at'
+                                ])
+                                ->where('products.is_active', true)
+                                ->orderBy('products.name');
                             })
                             ->getOptionLabelFromRecordUsing(fn (\App\Models\Product $record) => "{$record->name} " . ($record->brand ? "[{$record->brand}]" : '') . " - " . $record->formatted_price)
                             ->label('Filter Parameter Produk Tertentu (Sesuai Prinsiple yang Dipilih)')
