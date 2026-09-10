@@ -1635,31 +1635,31 @@
             }
         }
 
-        $custNama = trim((string)($custValMap['nama_lengkap_pelanggan'] ?? ($custValMap['nama_pelanggan'] ?? ($custValMap['nama_konsumen'] ?? ($custValMap['nama'] ?? '-')))));
-        $custPhone = trim((string)($custValMap['nomor_hp_whatsapp_pelanggan'] ?? ($custValMap['no_hp_pelanggan'] ?? ($custValMap['nomor_hp'] ?? ($custValMap['no_hp'] ?? '-')))));
-        $custAlamat = trim((string)($custValMap['alamat_domisili_pelanggan'] ?? ($custValMap['alamat_pelanggan'] ?? ($custValMap['alamat_konsumen'] ?? ($custValMap['alamat'] ?? '-')))));
-        $custTipe = trim((string)($custValMap['tipe_kategori_pelanggan'] ?? ($custValMap['tipe_pelanggan'] ?? ($custValMap['tipe_konsumen'] ?? 'Pemilik Rumah'))));
+        $custNama = trim((string) ($custValMap['nama_lengkap_pelanggan'] ?? $custValMap['nama_pelanggan'] ?? $custValMap['nama_konsumen'] ?? $custValMap['nama'] ?? '-'));
+        $custPhone = trim((string) ($custValMap['nomor_hp_whatsapp_pelanggan'] ?? $custValMap['no_hp_pelanggan'] ?? $custValMap['nomor_hp'] ?? $custValMap['no_hp'] ?? '-'));
+        $custAlamat = trim((string) ($custValMap['alamat_domisili_pelanggan'] ?? $custValMap['alamat_pelanggan'] ?? $custValMap['alamat_konsumen'] ?? $custValMap['alamat'] ?? '-'));
+        $custTipe = trim((string) ($custValMap['tipe_kategori_pelanggan'] ?? $custValMap['tipe_pelanggan'] ?? $custValMap['tipe_konsumen'] ?? 'Pemilik Rumah'));
         
-        $custTujuan = trim((string)($custValMap['tujuan_datang_ke_toko'] ?? ($custValMap['tujuan_ke_toko'] ?? ($custValMap['tujuan'] ?? 'Membeli Cat'))));
-        $custBrandDicari = trim((string)($custValMap['brand_cat_yang_awalnya_dicari_ditanyakan'] ?? ($custValMap['brand_dicari'] ?? ($custValMap['brand_awalnya_dicari'] ?? '-'))));
-        $custBrandDibeli = trim((string)($custValMap['brand_cat_yang_akhirnya_dibeli'] ?? ($custValMap['brand_dibeli'] ?? ($custValMap['brand_akhirnya_dibeli'] ?? '-'))));
-        $custAlasan = trim((string)($custValMap['alasan_konsumen_memilih_brand_tersebut'] ?? ($custValMap['alasan_pilih_brand'] ?? ($custValMap['alasan_memilih'] ?? 'Rekomendasi DC'))));
+        $custTujuan = trim((string) ($custValMap['tujuan_datang_ke_toko'] ?? $custValMap['tujuan_ke_toko'] ?? $custValMap['tujuan'] ?? 'Membeli Cat'));
+        $custBrandDicari = trim((string) ($custValMap['brand_cat_yang_awalnya_dicari_ditanyakan'] ?? $custValMap['brand_dicari'] ?? $custValMap['brand_awalnya_dicari'] ?? '-'));
+        $custBrandDibeli = trim((string) ($custValMap['brand_cat_yang_akhirnya_dibeli'] ?? $custValMap['brand_dibeli'] ?? $custValMap['brand_akhirnya_dibeli'] ?? '-'));
+        $custAlasan = trim((string) ($custValMap['alasan_konsumen_memilih_brand_tersebut'] ?? $custValMap['alasan_pilih_brand'] ?? $custValMap['alasan_memilih'] ?? 'Rekomendasi DC'));
         
-        $custTipePengecatan = trim((string)($custValMap['tipe_pekerjaan_pengecatan'] ?? ($custValMap['tipe_pengecatan'] ?? '-')));
-        $custPreview = trim((string)($custValMap['apakah_memerlukan_preview_warna_visualizer'] ?? ($custValMap['memerlukan_preview'] ?? ($custValMap['preview_warna'] ?? 'Tidak'))));
+        $custTipePengecatan = trim((string) ($custValMap['tipe_pekerjaan_pengecatan'] ?? $custValMap['tipe_pengecatan'] ?? '-'));
+        $custPreview = trim((string) ($custValMap['apakah_memerlukan_preview_warna_visualizer'] ?? $custValMap['memerlukan_preview'] ?? $custValMap['preview_warna'] ?? 'Tidak'));
         
-        $rawValNum = $custValMap['estimasi_total_nilai_pembelian_rupiah'] ?? ($custValMap['total_estimasi_nilai_pembelian_rupiah'] ?? ($custValMap['value_pembelian_rp'] ?? ($custValMap['value_pembelian'] ?? 0)));
+        $rawValNum = $custValMap['estimasi_total_nilai_pembelian_rupiah'] ?? $custValMap['total_estimasi_nilai_pembelian_rupiah'] ?? $custValMap['value_pembelian_rp'] ?? $custValMap['value_pembelian'] ?? 0;
         $custNilaiBelanja = is_numeric($rawValNum) ? (float)$rawValNum : (float)preg_replace('/[^0-9.]/', '', (string)$rawValNum);
         
-        $custLoyalty = trim((string)($custValMap['program_mitra_dulux_painter_loyalty'] ?? ($custValMap['painter_loyalty'] ?? ($custValMap['program_mitra_dulux'] ?? 'Tidak Bersedia'))));
-        $custCatatan = trim((string)($custValMap['catatan_khusus_keterangan'] ?? ($custValMap['catatan_khusus_pelanggan'] ?? ($custValMap['keterangan'] ?? ($custValMap['catatan_pelanggan'] ?? '')))));
+        $custLoyalty = trim((string) ($custValMap['program_mitra_dulux_painter_loyalty'] ?? $custValMap['painter_loyalty'] ?? $custValMap['program_mitra_dulux'] ?? 'Tidak Bersedia'));
+        $custCatatan = trim((string) ($custValMap['catatan_khusus_keterangan'] ?? $custValMap['catatan_khusus_pelanggan'] ?? $custValMap['keterangan'] ?? $custValMap['catatan_pelanggan'] ?? ''));
 
         // Analisis Brand Switching & Loyalitas
         $isDuluxBought = (stripos($custBrandDibeli, 'dulux') !== false || stripos($custBrandDibeli, 'catylac') !== false || stripos($custBrandDibeli, 'aquashield') !== false);
         $isDuluxSought = (stripos($custBrandDicari, 'dulux') !== false || stripos($custBrandDicari, 'catylac') !== false || stripos($custBrandDicari, 'aquashield') !== false);
         $isBrandSwitch = ($isDuluxBought && !$isDuluxSought && !empty($custBrandDicari) && $custBrandDicari !== '-');
         $isLoyalDulux = ($isDuluxBought && $isDuluxSought);
-        $isCompetitorBought = (!$isDuluxBought && !empty($custBrandDibeli) && $custBrandDibeli !== '-' && stripos($custBrandDibeli, 'tidak jadi') === false);
+        $isCompetitorBought = (!$isDuluxBought && !empty($custBrandDibeli) && $custBrandDibeli !== '-');
 
         // Link WhatsApp
         $cleanWa = preg_replace('/[^0-9]/', '', $custPhone);
@@ -1745,13 +1745,13 @@
             }
         }
 
-        $dmTipeMesin = trim((string)($dmValMap['tipe_mesin_post'] ?? ($dmValMap['tipe_mesin'] ?? ($dmValMap['jenis_mesin'] ?? ($dmValMap['tipe_mesin_tinting'] ?? '-')))));
-        $dmNoMesin = trim((string)($dmValMap['no_mesin_post'] ?? ($dmValMap['nomor_mesin_post'] ?? ($dmValMap['no_mesin'] ?? ($dmValMap['nomor_seri_mesin'] ?? '-')))));
-        $dmNozzle = trim((string)($dmValMap['status_nozzle_cleaning'] ?? ($dmValMap['nozzle_cleaning'] ?? ($dmValMap['kebersihan_nozzle'] ?? ($dmValMap['status_kebersihan_nozzle'] ?? '-')))));
-        $dmSirkulasi = trim((string)($dmValMap['status_sirkulasi_tinter'] ?? ($dmValMap['sirkulasi_tinter'] ?? ($dmValMap['sirkulasi_pasta_tinter'] ?? '-')))));
-        $dmSoftware = trim((string)($dmValMap['status_software_komputer'] ?? ($dmValMap['software_komputer'] ?? ($dmValMap['kondisi_komputer'] ?? '-')))));
-        $dmMix2win = trim((string)($dmValMap['status_program_mix2win'] ?? ($dmValMap['program_mix2win'] ?? ($dmValMap['mix2win'] ?? ($dmValMap['aplikasi_mix2win'] ?? '-')))));
-        $dmKesimpulan = trim((string)($dmValMap['kesimpulan_maintenance'] ?? ($dmValMap['kesimpulan'] ?? ($dmValMap['catatan_maintenance'] ?? ($dmValMap['keterangan'] ?? '')))));
+        $dmTipeMesin = trim((string) ($dmValMap['tipe_mesin_post'] ?? $dmValMap['tipe_mesin'] ?? $dmValMap['jenis_mesin'] ?? $dmValMap['tipe_mesin_tinting'] ?? '-'));
+        $dmNoMesin = trim((string) ($dmValMap['no_mesin_post'] ?? $dmValMap['nomor_mesin_post'] ?? $dmValMap['no_mesin'] ?? $dmValMap['nomor_seri_mesin'] ?? '-'));
+        $dmNozzle = trim((string) ($dmValMap['status_nozzle_cleaning'] ?? $dmValMap['nozzle_cleaning'] ?? $dmValMap['kebersihan_nozzle'] ?? $dmValMap['status_kebersihan_nozzle'] ?? '-'));
+        $dmSirkulasi = trim((string) ($dmValMap['status_sirkulasi_tinter'] ?? $dmValMap['sirkulasi_tinter'] ?? $dmValMap['sirkulasi_pasta_tinter'] ?? '-'));
+        $dmSoftware = trim((string) ($dmValMap['status_software_komputer'] ?? $dmValMap['software_komputer'] ?? $dmValMap['kondisi_komputer'] ?? '-'));
+        $dmMix2win = trim((string) ($dmValMap['status_program_mix2win'] ?? $dmValMap['program_mix2win'] ?? $dmValMap['mix2win'] ?? $dmValMap['aplikasi_mix2win'] ?? '-'));
+        $dmKesimpulan = trim((string) ($dmValMap['kesimpulan_maintenance'] ?? $dmValMap['kesimpulan'] ?? $dmValMap['catatan_maintenance'] ?? $dmValMap['keterangan'] ?? ''));
 
         $getStatusTone = function($str) {
             $s = strtolower(trim((string)$str));
