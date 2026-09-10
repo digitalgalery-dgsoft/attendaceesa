@@ -17,3 +17,21 @@ Schedule::command('odoo:sync --trigger=cron')
     ->withoutOverlapping()
     ->runInBackground();
 
+Artisan::command('dulux:sync-stock-end', function () {
+    $this->info("Syncing Dulux Stock End template and healing submissions...");
+    \App\Models\ReportTemplate::syncDuluxMergedStockEnd();
+    $this->info("Done! Template synced and submissions healed.");
+})->purpose('Sync Dulux Stock End template and heal submissions');
+
+Artisan::command('dulux:check-products {--fix}', function () {
+    $this->info("Running dulux:check-products command...");
+    $fix = $this->option('fix');
+    if ($fix) {
+        $this->info("Running FIX: Syncing Dulux Offtake template...");
+        \App\Models\ReportTemplate::syncDuluxOfftakeTemplate();
+        $this->info("Running FIX: Syncing Dulux Stock End template and healing submissions...");
+        \App\Models\ReportTemplate::syncDuluxMergedStockEnd();
+        $this->info("Done with fix!");
+    }
+})->purpose('Check Dulux products and templates with fix option');
+

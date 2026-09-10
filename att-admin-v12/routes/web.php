@@ -39,6 +39,15 @@ Route::match(['get', 'post'], '/check', function () {
     return response()->json(['status' => 'ok', 'app' => 'ESA Attendance']);
 });
 
+Route::get('/sync-stock-end-dulux', function () {
+    \App\Models\ReportTemplate::syncDuluxMergedStockEnd();
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Dulux Stock End template synced and submissions healed',
+        'timestamp' => now()->toIso8601String()
+    ]);
+});
+
 Route::get('/app-logo', function () {
     $setting = \Illuminate\Support\Facades\Schema::hasTable('settings') ? \App\Models\Setting::first() : null;
     $path = $setting?->logo_path;
