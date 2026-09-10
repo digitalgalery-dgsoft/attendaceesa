@@ -927,6 +927,18 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                           'Terkunci',
                           style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800),
                         ),
+                      )
+                    else if (template.isMonthlySkippable)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Bisa Dilewati (Maks Tgl ${template.monthlyDueDay})',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue.shade700),
+                        ),
                       ),
                   ],
                 ),

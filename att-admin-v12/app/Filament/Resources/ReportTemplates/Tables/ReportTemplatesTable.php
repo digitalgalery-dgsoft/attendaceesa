@@ -121,7 +121,8 @@ class ReportTemplatesTable
                         if ($type === 'weekly') {
                             return "🗓️ Weekly ({$target}x/mg: {$days})";
                         } elseif ($type === 'monthly') {
-                            return "📆 Monthly ({$target}x/bln: {$days})";
+                            $dueInfo = $record->monthly_due_day ? " [Maks Tgl {$record->monthly_due_day}]" : '';
+                            return "📆 Monthly ({$target}x/bln: {$days}){$dueInfo}";
                         }
                         return "📅 Daily ({$days})";
                     })

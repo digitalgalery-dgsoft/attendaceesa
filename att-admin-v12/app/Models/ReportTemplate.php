@@ -25,6 +25,7 @@ class ReportTemplate extends Model
         'version' => 'integer',
         'report_days' => 'array',
         'dashboard_config' => 'array',
+        'monthly_due_day' => 'integer',
     ];
 
     /**
@@ -165,6 +166,23 @@ class ReportTemplate extends Model
 
         $dayName = $dayMap[$date->dayOfWeekIso] ?? '';
         return in_array($dayName, $reportDays);
+    }
+
+    /**
+     * Cek apakah laporan bulanan sudah jatuh tempo (wajib lapor) pada tanggal tertentu.
+     * Sebelum tanggal monthly_due_day, laporan dapat dilewati (tidak wajib lapor) dan tidak memblokir check-out.
+     */
+    public function isMonthlyDueForDate(\Carbon\Carbon $date): bool
+    {
+        if (strtolower($this->schedule_type ?? 'daily') !== 'monthly') {
+            return true;
+        }
+
+        if (empty($this->monthly_due_day)) {
+            return true;
+        }
+
+        return $date->day >= (int)$this->monthly_due_day;
     }
 
     /**

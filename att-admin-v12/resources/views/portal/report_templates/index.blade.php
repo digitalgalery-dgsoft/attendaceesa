@@ -574,6 +574,11 @@
                                         🗓️ Weekly ({{ $item->target_count ?? 1 }}x / mgg)
                                     @elseif($item->schedule_type === 'monthly')
                                         📆 Monthly ({{ $item->target_count ?? 1 }}x / bln)
+                                        @if(!empty($item->monthly_due_day))
+                                            <span style="font-size: 0.68rem; font-weight: 800; color: #0284c7; background: #e0f2fe; padding: 1px 6px; border-radius: 4px; margin-top: 2px; display: inline-block; width: fit-content;">
+                                                Maks Tgl {{ $item->monthly_due_day }}
+                                            </span>
+                                        @endif
                                     @else
                                         📅 Daily (Harian)
                                     @endif

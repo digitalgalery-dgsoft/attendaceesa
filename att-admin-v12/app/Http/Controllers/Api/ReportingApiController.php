@@ -512,11 +512,18 @@ class ReportingApiController extends Controller
             $isExempt = false;
             $exemptReason = null;
 
+            $isMonthly = ($scheduleType === 'monthly');
+            $monthlyDueDay = $t->monthly_due_day ? (int)$t->monthly_due_day : null;
+            $isMonthlySkippable = ($isMonthly && $monthlyDueDay && $now->day < $monthlyDueDay);
+            $isMonthlyCompletedPeriod = ($isMonthly && $cutoffSubmitted >= $cutoffTarget);
+
             if ($isCustomerDb && $isOfftakeNoSaleToday) {
                 // Aturan 1: Jika Laporan Offtake dihari berjalan No Sale, maka Laporan Data Pelanggan non Aktif / tidak perlu dilaporkan.
                 $isExempt = true;
                 $exemptReason = 'Laporan Offtake hari ini No Sale, Laporan Data Pelanggan tidak perlu dilaporkan.';
                 $isCompletedToday = true; // Dianggap selesai agar tidak menghambat rantai pelaporan berikutnya
+            } elseif ($isMonthlyCompletedPeriod) {
+                $isCompletedToday = true;
             } elseif (isset($duluxOrder[$t->code])) {
                 // Untuk alur pelaporan berurutan Dulux (Offtake, OOS, Database Pelanggan, Stock End, CBP Pricing),
                 // setiap langkah dianggap selesai hari ini jika sudah disubmit minimal 1 kali hari ini.
@@ -536,6 +543,12 @@ class ReportingApiController extends Controller
                     $isStepLocked = true;
                     $lockedReason = 'Laporan Data Pelanggan tidak perlu dilaporkan karena Laporan Offtake hari ini No Sale (0 Penjualan).';
                     $prevStepCompleted = true; // Tidak menghambat langkah berikutnya (Stock End)
+                } elseif ($isMonthlySkippable) {
+                    // Laporan bulanan sebelum tanggal batas wajib lapor: bisa dikerjakan opsional atau dilewati
+                    $isStepLocked = !$prevStepCompleted;
+                    $lockedReason = $isStepLocked ? "Harap selesaikan {$prevStepTitle} terlebih dahulu." : null;
+                    $prevStepCompleted = true; // Tidak menghambat langkah berikutnya (CBP) karena laporan bulanan ini dapat dilewati
+                    $prevStepTitle = $t->title;
                 } else {
                     $isStepLocked = !$prevStepCompleted;
                     $lockedReason = $isStepLocked ? "Harap selesaikan {$prevStepTitle} terlebih dahulu." : null;
@@ -555,12 +568,14 @@ class ReportingApiController extends Controller
                 'category' => $t->category ?? 'general',
                 'schedule_type' => $scheduleType,
                 'target_count' => $targetCount,
+                'monthly_due_day' => $monthlyDueDay,
+                'is_monthly_skippable' => $isMonthlySkippable,
                 'report_days' => $t->report_days ?? [],
                 'cutoff_target' => $cutoffTarget,
                 'cutoff_submitted' => $cutoffSubmitted,
                 'cutoff_progress_percent' => $cutoffProgressPercent,
                 'target_ratio_display' => "{$cutoffSubmitted}/{$cutoffTarget} ({$cutoffProgressPercent}%)",
-                'is_today_scheduled' => $isTodayScheduled,
+                'is_today_scheduled' => $isTodayScheduled && !$isMonthlySkippable,
                 'step_number' => $stepNumber,
                 'is_step_locked' => $isStepLocked,
                 'locked_reason' => $lockedReason,
@@ -2348,7 +2363,14 @@ class ReportingApiController extends Controller
             } elseif ($scheduleType === 'weekly') {
                 $isDueToday = $t->isScheduledForDate($now);
             } elseif ($scheduleType === 'monthly') {
-                $isDueToday = $t->isScheduledForDate($now);
+                // Untuk Laporan Monthly:
+                // Cek settingan Maksimal Tanggal Harus Lapor (monthly_due_day)
+                // Jika hari ini masih sebelum tanggal batas, laporan bisa dilewati (tidak wajib lapor) dan TIDAK memblokir check-out!
+                if ($t->monthly_due_day && $now->day < (int)$t->monthly_due_day) {
+                    $isDueToday = false;
+                } else {
+                    $isDueToday = true;
+                }
             } else {
                 $isDueToday = true;
             }
@@ -2363,6 +2385,27 @@ class ReportingApiController extends Controller
                 $tSubs = $tSubs->filter(function($s) use ($workLocationId) {
                     return empty($s->work_location_id) || $s->work_location_id == $workLocationId;
                 });
+            }
+
+            // Khusus Laporan Monthly yang sudah jatuh tempo:
+            // Cek apakah sudah disubmit di bulan berjalan (cut-off)
+            if ($scheduleType === 'monthly') {
+                $monthStart = $now->copy()->startOfMonth()->toDateString();
+                $monthEnd = $now->copy()->endOfMonth()->toDateString();
+                $monthlySubCount = ReportSubmission::where('report_template_id', $t->id)
+                    ->where('employee_id', $employee->id)
+                    ->whereBetween(DB::raw('DATE(submitted_at)'), [$monthStart, $monthEnd])
+                    ->count();
+
+                $targetMonthly = max(1, (int)($t->target_count ?? 1));
+                if ($monthlySubCount >= $targetMonthly) {
+                    // Sudah disubmit untuk bulan ini, tidak pending!
+                    continue;
+                } else {
+                    // Belum disubmit pada bulan ini padahal sudah tanggal jatuh tempo -> WAJIB lapor, blokir check-out!
+                    $pending[] = $t->title;
+                    continue;
+                }
             }
 
             // Khusus Laporan Daily Maintenance Dulux: Validasi seluruh mesin terdaftar telah dilaporkan

@@ -145,6 +145,15 @@ class ReportTemplateForm
                                     default => 'Jumlah target pengisian.',
                                 })
                                 ->required(),
+                            TextInput::make('monthly_due_day')
+                                ->label('🗓️ Maksimal Tanggal Harus Lapor (1 - 31)')
+                                ->numeric()
+                                ->minValue(1)
+                                ->maxValue(31)
+                                ->placeholder('Contoh: 25')
+                                ->visible(fn ($get) => $get('schedule_type') === 'monthly')
+                                ->helperText('Batas tanggal wajib lapor. Sebelum tanggal ini, laporan bisa dilewati dan tidak memblokir check-out. Mulai tanggal ini, laporan wajib disubmit agar karyawan dapat check-out.')
+                                ->nullable(),
                             Select::make('report_days')
                                 ->label(fn ($get) => match ($get('schedule_type')) {
                                     'daily' => '🗓️ Pilihan Hari Aktif (Opsional)',
@@ -164,7 +173,11 @@ class ReportTemplateForm
                                 ])
                                 ->multiple()
                                 ->searchable()
-                                ->columnSpan(fn ($get) => in_array($get('schedule_type'), ['weekly', 'monthly']) ? 1 : 2)
+                                ->columnSpan(fn ($get) => match ($get('schedule_type')) {
+                                    'monthly' => 1,
+                                    'weekly' => 1,
+                                    default => 2,
+                                })
                                 ->helperText('Tentukan hari aktif laporan. Jika dikosongkan, form bebas diisi pada hari apa saja.'),
                         ]),
                     ]),

@@ -624,13 +624,13 @@
             </div>
         </div>
 
-        <div class="grid-3">
+        <div class="grid-3" id="scheduleSettingsGrid">
             <div class="form-group">
                 <label class="form-label">Tipe Frekuensi Jadwal <span class="required-star">*</span></label>
                 <select name="schedule_type" id="scheduleTypeSelect" class="form-control-custom" required onchange="handleScheduleChange()">
                     <option value="daily" {{ old('schedule_type', $template->schedule_type ?? 'daily') === 'daily' ? 'selected' : '' }}>📅 Daily (Harian)</option>
-                    <option value="weekly" {{ old('schedule_type', $template->schedule_type) === 'weekly' ? 'selected' : '' }}>🗓️ Weekly (Mingguan)</option>
-                    <option value="monthly" {{ old('schedule_type', $template->schedule_type) === 'monthly' ? 'selected' : '' }}>📆 Monthly (Bulanan)</option>
+                    <option value="weekly" {{ old('schedule_type', $template->schedule_type ?? '') === 'weekly' ? 'selected' : '' }}>🗓️ Weekly (Mingguan)</option>
+                    <option value="monthly" {{ old('schedule_type', $template->schedule_type ?? '') === 'monthly' ? 'selected' : '' }}>📆 Monthly (Bulanan)</option>
                 </select>
                 <div class="form-hint" id="scheduleTypeHint">Laporan akan muncul dan dikerjakan setiap hari kerja aktif.</div>
             </div>
@@ -641,7 +641,13 @@
                 <div class="form-hint">Jumlah kuota target pengisian form yang harus dicapai karyawan.</div>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="monthlyDueDayGroup" style="{{ old('schedule_type', $template->schedule_type ?? 'daily') === 'monthly' ? '' : 'display: none;' }}">
+                <label class="form-label" id="monthlyDueDayLabel">🗓️ Maksimal Tanggal Harus Lapor (1 - 31)</label>
+                <input type="number" name="monthly_due_day" id="monthlyDueDayInput" value="{{ old('monthly_due_day', $template->monthly_due_day ?? '') }}" min="1" max="31" placeholder="Contoh: 25" class="form-control-custom">
+                <div class="form-hint">Batas tanggal wajib lapor. Sebelum tanggal ini, laporan bisa dilewati dan tidak memblokir check-out.</div>
+            </div>
+
+            <div class="form-group" id="reportDaysGroup">
                 <label class="form-label">Pilihan Hari Aktif Pelaporan</label>
                 @php
                     $selectedDays = old('report_days', $template->report_days ?? []);
@@ -1152,5 +1158,35 @@
         };
         return text.toString().replace(/[&<>"']/g, m => map[m]);
     }
+
+    function handleScheduleChange() {
+        const sTypeEl = document.getElementById('scheduleTypeSelect');
+        if (!sTypeEl) return;
+        const sType = sTypeEl.value;
+        const monthlyGroup = document.getElementById('monthlyDueDayGroup');
+        const hint = document.getElementById('scheduleTypeHint');
+        const targetLabel = document.getElementById('targetCountLabel');
+        const grid = document.getElementById('scheduleSettingsGrid');
+        
+        if (monthlyGroup) {
+            monthlyGroup.style.display = (sType === 'monthly') ? '' : 'none';
+        }
+        
+        if (grid) {
+            grid.style.gridTemplateColumns = (sType === 'monthly') ? 'repeat(auto-fit, minmax(220px, 1fr))' : '';
+        }
+        
+        if (sType === 'weekly') {
+            if (hint) hint.innerText = 'Laporan dikerjakan dengan kuota mingguan pada hari yang ditentukan.';
+            if (targetLabel) targetLabel.innerText = '🎯 Target Pengisian (Per Minggu)';
+        } else if (sType === 'monthly') {
+            if (hint) hint.innerText = 'Laporan dikerjakan dengan kuota bulanan. Sebelum tanggal batas, laporan dapat dilewati.';
+            if (targetLabel) targetLabel.innerText = '🎯 Target Pengisian (Per Bulan)';
+        } else {
+            if (hint) hint.innerText = 'Laporan akan muncul dan dikerjakan setiap hari kerja aktif.';
+            if (targetLabel) targetLabel.innerText = '🎯 Target Pengisian (Per Periode)';
+        }
+    }
+    document.addEventListener('DOMContentLoaded', handleScheduleChange);
 </script>
 @endpush

@@ -37,6 +37,8 @@ class ReportTemplateModel {
   final List<TemplateProductModel> products;
   final List<ReportFormFieldModel> fields;
   final Map<String, dynamic>? oosReference;
+  final int? monthlyDueDay;
+  final bool isMonthlySkippable;
 
   static const Map<String, int> duluxOrderMap = {
     'RPT-DULUX-DAILY-MAINTENANCE': 1,
@@ -86,6 +88,8 @@ class ReportTemplateModel {
     this.products = const [],
     required this.fields,
     this.oosReference,
+    this.monthlyDueDay,
+    this.isMonthlySkippable = false,
   });
 
   bool isScheduledForDay(int weekday) {
@@ -104,6 +108,9 @@ class ReportTemplateModel {
     if (type == 'weekly') {
       return '🗓️ Weekly (${targetCount}x/mg)';
     } else if (type == 'monthly') {
+      if (monthlyDueDay != null) {
+        return '📆 Monthly (Maks Tgl $monthlyDueDay)';
+      }
       return '📆 Monthly (${targetCount}x/bln)';
     }
     return '📅 Daily (Harian)';
@@ -215,6 +222,8 @@ class ReportTemplateModel {
       products: productsList,
       fields: fieldsList,
       oosReference: oosRef,
+      monthlyDueDay: json['monthly_due_day'] != null ? int.tryParse(json['monthly_due_day'].toString()) : null,
+      isMonthlySkippable: json['is_monthly_skippable'] == true || json['is_monthly_skippable'] == 1 || json['is_monthly_skippable'] == 'true',
     );
   }
 
@@ -239,6 +248,8 @@ class ReportTemplateModel {
     bool? isStepLocked,
     String? lockedReason,
     bool? isCompletedToday,
+    bool? isExempt,
+    String? exemptReason,
     bool? hasProductBinding,
     List<String>? submittedProducts,
     List<int>? submittedProductIds,
@@ -255,6 +266,8 @@ class ReportTemplateModel {
     List<TemplateProductModel>? products,
     List<ReportFormFieldModel>? fields,
     Map<String, dynamic>? oosReference,
+    int? monthlyDueDay,
+    bool? isMonthlySkippable,
   }) {
     return ReportTemplateModel(
       id: id ?? this.id,
@@ -295,6 +308,8 @@ class ReportTemplateModel {
       products: products ?? this.products,
       fields: fields ?? this.fields,
       oosReference: oosReference ?? this.oosReference,
+      monthlyDueDay: monthlyDueDay ?? this.monthlyDueDay,
+      isMonthlySkippable: isMonthlySkippable ?? this.isMonthlySkippable,
     );
   }
 
@@ -331,6 +346,17 @@ class ReportTemplateModel {
             isStepLocked: true,
             lockedReason: t.lockedReason ?? t.exemptReason ?? 'Laporan ini tidak perlu diisi.',
           );
+        } else if (t.isMonthlySkippable) {
+          final isLocked = !prevStepCompleted;
+          final lockedReason = isLocked ? 'Harap selesaikan $prevStepTitle terlebih dahulu.' : null;
+          prevStepCompleted = true; // Tidak menghambat langkah berikutnya
+          prevStepTitle = t.title;
+
+          return t.copyWith(
+            stepNumber: step,
+            isStepLocked: isLocked,
+            lockedReason: lockedReason,
+          );
         }
         final isLocked = !prevStepCompleted;
         final lockedReason = isLocked ? 'Harap selesaikan $prevStepTitle terlebih dahulu.' : null;
@@ -357,6 +383,8 @@ class ReportTemplateModel {
       'color': color,
       'schedule_type': scheduleType,
       'target_count': targetCount,
+      'monthly_due_day': monthlyDueDay,
+      'is_monthly_skippable': isMonthlySkippable,
       'cutoff_target': cutoffTarget,
       'cutoff_submitted': cutoffSubmitted,
       'cutoff_progress_percent': cutoffProgressPercent,
