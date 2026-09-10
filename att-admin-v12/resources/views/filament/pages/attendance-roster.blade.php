@@ -285,6 +285,7 @@
         $todayStr = \Carbon\Carbon::today('Asia/Jakarta')->toDateString();
 
         $totalActiveEmp = $summary['total_active_employees'] ?? $viewData['totalEmployees'];
+        $totalScheduledEmp = $summary['total_scheduled_employees'] ?? ($viewData['totalScheduledEmployees'] ?? 0);
         $totalOntime = $summary['total_ontime'] ?? 0;
         $totalLate = $summary['total_late'] ?? 0;
         $totalCuti = $summary['total_cuti'] ?? 0;
@@ -300,8 +301,13 @@
             <div class="kpi-card">
                 <div>
                     <div style="font-size: 11px; font-weight: 700; color: #4338ca; text-transform: uppercase; letter-spacing: 0.5px;">Total Employee Aktif</div>
-                    <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-top: 4px;" class="dark:text-white">{{ number_format($totalActiveEmp) }}</div>
-                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Berjadwal / Aktif Periode Ini</div>
+                    <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 4px;">
+                        <span style="font-size: 26px; font-weight: 800; color: #0f172a;" class="dark:text-white">{{ number_format($totalActiveEmp) }}</span>
+                        <span style="font-size: 12px; font-weight: 600; color: #4338ca; background: #e0e7ff; padding: 2px 7px; border-radius: 6px;" class="dark:bg-indigo-900/60 dark:text-indigo-200">
+                            {{ number_format($totalScheduledEmp) }} Terjadwal
+                        </span>
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Seluruh Karyawan Aktif</div>
                 </div>
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0e7ff; color: #4338ca; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                     <x-filament::icon icon="heroicon-o-users" style="width: 24px; height: 24px;" />
@@ -406,8 +412,10 @@
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <x-filament::icon icon="heroicon-o-table-cells" style="width: 20px; height: 20px; color: #4f46e5;" />
                     <span style="font-size: 16px; font-weight: 800; color: #0f172a;">Matriks Kehadiran Harian (Attendance Roster)</span>
-                    <span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 700; background: #e0e7ff; color: #3730a3;">
-                        {{ number_format($viewData['totalEmployees']) }} Karyawan
+                    <span style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 700; background: #e0e7ff; color: #3730a3;" class="dark:bg-indigo-900/60 dark:text-indigo-200">
+                        <span>{{ number_format($viewData['totalEmployees']) }} Karyawan Aktif</span>
+                        <span style="opacity: 0.5;">&bull;</span>
+                        <span style="font-weight: 600; font-size: 11px;">{{ number_format($totalScheduledEmp) }} Terjadwal</span>
                     </span>
                 </div>
 

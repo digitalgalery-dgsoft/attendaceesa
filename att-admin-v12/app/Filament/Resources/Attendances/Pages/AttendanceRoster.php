@@ -324,63 +324,21 @@ class AttendanceRoster extends Page implements HasForms
             ->toArray();
         $holidayMap = array_flip($holidays);
 
-        // 1. Karyawan yang memiliki record absensi, jadwal roster, atau izin/cuti yang disetujui di periode ini
-        $attEmpIds = DB::table('attendances')
-            ->whereBetween('attendance_date', [$startDateStr, $endDateStr])
-            ->pluck('employee_id');
-
+        // 1. Karyawan yang memiliki jadwal roster di periode ini (untuk indikator jumlah employee terjadwal)
         $schedEmpIds = DB::table('employee_schedules')
             ->whereBetween('schedule_date', [$startDateStr, $endDateStr])
-            ->pluck('employee_id');
+            ->pluck('employee_id')
+            ->unique()
+            ->filter()
+            ->toArray();
+        $schedEmpSet = array_flip($schedEmpIds);
 
-        $leaveEmpIds = DB::table('leave_requests')
-            ->whereIn('status', ['approved', 'pending'])
-            ->where(function ($q) use ($startDateStr, $endDateStr) {
-                $q->whereBetween('start_date', [$startDateStr, $endDateStr])
-                  ->orWhereBetween('end_date', [$startDateStr, $endDateStr])
-                  ->orWhere(function ($sq) use ($startDateStr, $endDateStr) {
-                      $sq->where('start_date', '<=', $startDateStr)
-                         ->where('end_date', '>=', $endDateStr);
-                  });
-            })
-            ->pluck('employee_id');
-
-        $activeEmpIds = $attEmpIds->merge($schedEmpIds)->merge($leaveEmpIds)->unique()->filter()->toArray();
-
-        if (empty($activeEmpIds)) {
-            return [
-                'employees' => collect(),
-                'totalEmployees' => 0,
-                'attendances' => collect(),
-                'schedules' => collect(),
-                'leaves' => collect(),
-                'holidayMap' => $holidayMap,
-                'daysInPeriod' => $daysInPeriod,
-                'startDate' => $startDate,
-                'endDate' => $endDate,
-                'summary' => [
-                    'total_present' => 0,
-                    'total_late' => 0,
-                    'total_absent' => 0,
-                    'total_leave' => 0,
-                ],
-                'pagination' => [
-                    'page' => 1,
-                    'per_page' => $this->perPage,
-                    'total_pages' => 1,
-                    'from' => 0,
-                    'to' => 0,
-                ]
-            ];
-        }
-
-        // Query employees with department working days
+        // Query seluruh employee aktif yang memenuhi filter akses
         $employeeQuery = DB::table('employees')
             ->leftJoin('positions', 'employees.position_id', '=', 'positions.id')
             ->leftJoin('branches', 'employees.branch_id', '=', 'branches.id')
             ->leftJoin('principals', 'employees.principal_id', '=', 'principals.id')
             ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
-            ->whereIn('employees.id', $activeEmpIds)
             ->where('employees.is_active', true)
             ->whereNull('employees.deleted_at');
 
@@ -658,8 +616,16 @@ class AttendanceRoster extends Page implements HasForms
             }
         }
 
+        $totalScheduledEmployees = 0;
+        foreach ($allEmployees as $emp) {
+            if (isset($schedEmpSet[$emp->id])) {
+                $totalScheduledEmployees++;
+            }
+        }
+
         $summary = [
             'total_active_employees' => $totalEmployeesCount,
+            'total_scheduled_employees' => $totalScheduledEmployees,
             'total_ontime' => $totalOntime,
             'total_late' => $totalLate,
             'total_cuti' => $totalCuti,
@@ -675,6 +641,7 @@ class AttendanceRoster extends Page implements HasForms
         return [
             'employees' => $pagedEmployees,
             'totalEmployees' => $totalEmployeesCount,
+            'totalScheduledEmployees' => $totalScheduledEmployees,
             'attendances' => $attendances,
             'schedules' => $schedules,
             'leaves' => $leaves,
