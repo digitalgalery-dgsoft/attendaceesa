@@ -359,13 +359,37 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
 
           // ─── Daftar Nilai / Field Jawaban ───
-          Text(
-            'RINCIAN DATA LAPORAN',
-            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
-          ),
-          const SizedBox(height: 8),
-
           () {
+            // Cek apakah ada data offtake multi-produk dinamis
+            List<dynamic>? offtakeItemsList;
+            for (final v in _currentSubmission.values) {
+              final fn = v.fieldName.toLowerCase();
+              if (fn == 'offtake_items_json' || fn.contains('offtake_items')) {
+                if (v.valueJson is List && (v.valueJson as List).isNotEmpty) {
+                  offtakeItemsList = v.valueJson as List;
+                  break;
+                } else if (v.valueText != null && v.valueText!.trim().isNotEmpty) {
+                  try {
+                    final decoded = jsonDecode(v.valueText!);
+                    if (decoded is List && decoded.isNotEmpty) {
+                      offtakeItemsList = decoded;
+                      break;
+                    }
+                  } catch (_) {}
+                }
+              } else if (v.valueText != null && v.valueText!.trim().startsWith('[{') && v.valueText!.contains('product_id')) {
+                try {
+                  final decoded = jsonDecode(v.valueText!);
+                  if (decoded is List && decoded.isNotEmpty) {
+                    offtakeItemsList = decoded;
+                    break;
+                  }
+                } catch (_) {}
+              }
+            }
+
+            final hasDynamicOfftake = offtakeItemsList != null && offtakeItemsList.isNotEmpty;
+
             // Cek apakah ada list kompetitor dinamis
             bool hasDynamicComp = false;
             for (final v in _currentSubmission.values) {
@@ -375,7 +399,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               }
             }
 
-            final suppressFields = {
+            final suppressCompFields = {
               'merk_kompetitor',
               'subbrand_kompetitor',
               'harga_kompetitor_tin_rp',
@@ -388,33 +412,211 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               'harga_jual_kompetitor_kemasan_tin_/_kaleng_1l/1kg_(rp)',
             };
 
+            final suppressOfftakeFields = {
+              'offtake_items_json',
+              'rincian_transaksi_produk_(json)',
+              'rincian_transaksi_produk',
+              'subbrand',
+              'produk_terjual',
+              'subbrand_produk',
+              'brand',
+              'brand_rm_base',
+              'sub_brand1',
+              'sub_brand2',
+              'pilih_produk_sub_brand',
+              'pilih_produk_/_sub_brand',
+              'sub_brand_spesifik_/_varian_(sub_brand_1)',
+              'detail_rm_/_base_(sub_brand_2)',
+              'kemasan_tin',
+              'kemasan_galon',
+              'kemasan_pail',
+              'qty_tin',
+              'qty_galon',
+              'qty_pail',
+              'kuantiti_tin_terjual_(unit)',
+              'kuantiti_galon_terjual_(unit)',
+              'kuantiti_pail_terjual_(unit)',
+              'volume_tin_l',
+              'volume_galon_l',
+              'volume_pail_l',
+              'volume_tin_(liter)',
+              'volume_galon_(liter)',
+              'volume_pail_(liter)',
+              'total_volume_unit',
+              'total_volume_liter',
+              'total_nilai_sales_rp',
+              'grand_total_nilai_penjualan_(rupiah)',
+              'grand_total_volume_penjualan_(liter)',
+              'grand_total_kuantiti_unit_(tin_+_galon_+_pail)',
+              'estimasi_market_share_persen',
+              'estimasi_market_share_(%)',
+              'tipe_transaksi_hari_ini',
+              'tipe_laporan_offtake',
+            };
+
+            // Hitung metrik akumulatif Offtake jika ada
+            double totalNilaiSalesRp = 0;
+            double totalVolumeLiter = 0;
+            int totalVolumeUnit = 0;
+            int jmlCustMasuk = 0;
+            int jmlCustBeliCat = 0;
+            int jmlCustBeliDulux = 0;
+            String? marketShare;
+
+            if (hasDynamicOfftake) {
+              for (final item in offtakeItemsList) {
+                if (item is! Map) continue;
+                final qT = (item['qty_tin'] as num?)?.toDouble() ?? 0;
+                final qG = (item['qty_galon'] as num?)?.toDouble() ?? 0;
+                final qP = (item['qty_pail'] as num?)?.toDouble() ?? 0;
+                final u = (item['total_unit'] as num?)?.toInt() ?? (qT + qG + qP).toInt();
+                final vT = (item['volume_tin_l'] as num?)?.toDouble() ?? 0;
+                final vG = (item['volume_galon_l'] as num?)?.toDouble() ?? 0;
+                final vP = (item['volume_pail_l'] as num?)?.toDouble() ?? 0;
+                final l = (item['total_liter'] as num?)?.toDouble() ?? (vT + vG + vP);
+                final rp = (item['total_nilai_rp'] as num?)?.toDouble() ?? 0;
+                
+                totalVolumeUnit += u;
+                totalVolumeLiter += l;
+                totalNilaiSalesRp += rp;
+              }
+            }
+
+            for (final v in _currentSubmission.values) {
+              final fn = v.fieldName.toLowerCase();
+              final fl = v.fieldLabel.toLowerCase().replaceAll(' ', '_');
+              if (fn == 'total_nilai_sales_rp' || fl.contains('grand_total_nilai')) {
+                if (totalNilaiSalesRp == 0 && v.valueNumber != null) {
+                  totalNilaiSalesRp = v.valueNumber!;
+                }
+              } else if (fn == 'total_volume_liter' || fl.contains('grand_total_volume')) {
+                if (totalVolumeLiter == 0 && v.valueNumber != null) {
+                  totalVolumeLiter = v.valueNumber!;
+                }
+              } else if (fn == 'total_volume_unit' || fl.contains('grand_total_kuantiti')) {
+                if (totalVolumeUnit == 0 && v.valueNumber != null) {
+                  totalVolumeUnit = v.valueNumber!.toInt();
+                }
+              } else if (fn == 'jml_customer_masuk' || fl.contains('jumlah_customer_masuk')) {
+                jmlCustMasuk = v.valueNumber?.toInt() ?? int.tryParse(v.valueText ?? '') ?? 0;
+              } else if (fn == 'jml_customer_beli_cat' || fl.contains('jumlah_cust_yang_beli_cat')) {
+                jmlCustBeliCat = v.valueNumber?.toInt() ?? int.tryParse(v.valueText ?? '') ?? 0;
+              } else if (fn == 'jml_customer_beli_dulux' || fl.contains('jumlah_cust_yang_beli_produk_dulux')) {
+                jmlCustBeliDulux = v.valueNumber?.toInt() ?? int.tryParse(v.valueText ?? '') ?? 0;
+              } else if (fn == 'estimasi_market_share_persen' || fl.contains('market_share')) {
+                marketShare = v.valueText;
+              }
+            }
+
+            if (marketShare == null || marketShare == '0%' || marketShare == '0') {
+              if (jmlCustBeliCat > 0) {
+                final ms = ((jmlCustBeliDulux / jmlCustBeliCat) * 100).round();
+                marketShare = '$ms%';
+              } else if (jmlCustBeliDulux > 0) {
+                marketShare = '100%';
+              } else {
+                marketShare = '0%';
+              }
+            }
+
             final displayValues = _currentSubmission.values.where((val) {
+              final fn = val.fieldName.toLowerCase();
+              final fl = val.fieldLabel.toLowerCase().replaceAll(' ', '_');
               if (hasDynamicComp) {
-                final fn = val.fieldName.toLowerCase();
-                final fl = val.fieldLabel.toLowerCase().replaceAll(' ', '_');
-                if (suppressFields.contains(fn) || suppressFields.contains(fl)) {
+                if (suppressCompFields.contains(fn) || suppressCompFields.contains(fl)) {
+                  return false;
+                }
+              }
+              if (hasDynamicOfftake) {
+                if (suppressOfftakeFields.contains(fn) || suppressOfftakeFields.contains(fl) || fn.contains('grand_total') || fl.contains('grand_total')) {
                   return false;
                 }
               }
               return true;
             }).toList();
 
-            if (displayValues.isEmpty) {
-              return Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Center(
-                  child: Text('Tidak ada rincian data tersimpan.', style: TextStyle(color: subtitleColor, fontSize: 12.5)),
-                ),
-              );
-            }
-
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: displayValues.map((val) => _buildValueCard(val, cardColor, textColor, subtitleColor, elevatedColor, primaryColor, isDarkMode)).toList(),
+              children: [
+                // ── 1. Panel Ringkasan KPI Global Offtake ──
+                if (hasDynamicOfftake) ...[
+                  _buildOfftakeSummaryGrid(
+                    totalNilaiSalesRp: totalNilaiSalesRp,
+                    totalVolumeLiter: totalVolumeLiter,
+                    totalVolumeUnit: totalVolumeUnit,
+                    offtakeCount: offtakeItemsList.length,
+                    jmlCustMasuk: jmlCustMasuk,
+                    jmlCustBeliCat: jmlCustBeliCat,
+                    jmlCustBeliDulux: jmlCustBeliDulux,
+                    marketShare: marketShare,
+                    cardColor: cardColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    isDarkMode: isDarkMode,
+                  ),
+                  const SizedBox(height: 8),
+
+                  // ── 2. Kartu Rincian Produk Terjual ──
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'RINCIAN PRODUK TERJUAL',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${offtakeItemsList.length} Produk Terjual',
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: primaryColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ...offtakeItemsList.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final item = entry.value;
+                    if (item is! Map) return const SizedBox.shrink();
+                    return _buildOfftakeProductCard(
+                      index: idx + 1,
+                      item: Map<String, dynamic>.from(item),
+                      cardColor: cardColor,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
+                      elevatedColor: elevatedColor,
+                      primaryColor: primaryColor,
+                      isDarkMode: isDarkMode,
+                    );
+                  }),
+                  const SizedBox(height: 12),
+                ],
+
+                // ── 3. Parameter Tambahan / Standar Form ──
+                if (displayValues.isNotEmpty) ...[
+                  Text(
+                    hasDynamicOfftake ? 'PARAMETER TAMBAHAN' : 'RINCIAN DATA LAPORAN',
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
+                  ),
+                  const SizedBox(height: 8),
+                  ...displayValues.map((val) => _buildValueCard(val, cardColor, textColor, subtitleColor, elevatedColor, primaryColor, isDarkMode)),
+                ] else if (!hasDynamicOfftake) ...[
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: cardColor,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Center(
+                      child: Text('Tidak ada rincian data tersimpan.', style: TextStyle(color: subtitleColor, fontSize: 12.5)),
+                    ),
+                  ),
+                ],
+              ],
             );
           }(),
 
@@ -438,6 +640,430 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
             const SizedBox(height: 30),
           ],
+        ],
+      ),
+    );
+  }
+
+  // ─── HELPER WIDGETS DETAIL OFFTAKE PERSIS DASHBOARD WEB ───
+  Widget _buildOfftakeSummaryGrid({
+    required double totalNilaiSalesRp,
+    required double totalVolumeLiter,
+    required int totalVolumeUnit,
+    required int offtakeCount,
+    required int jmlCustMasuk,
+    required int jmlCustBeliCat,
+    required int jmlCustBeliDulux,
+    required String marketShare,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required bool isDarkMode,
+  }) {
+    final currencyFmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.monetization_on_rounded,
+                  iconColor: const Color(0xFF10B981),
+                  iconBgColor: const Color(0xFF10B981).withOpacity(0.12),
+                  label: 'Grand Total Penjualan',
+                  value: currencyFmt.format(totalNilaiSalesRp),
+                  valueColor: const Color(0xFF15803D),
+                  subText: 'Akumulasi $offtakeCount produk terjual',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.opacity_rounded,
+                  iconColor: const Color(0xFF0F52BA),
+                  iconBgColor: const Color(0xFF0F52BA).withOpacity(0.12),
+                  label: 'Grand Total Volume',
+                  value: '${totalVolumeLiter.toStringAsFixed(2)} L',
+                  valueColor: const Color(0xFF0F52BA),
+                  subText: 'Total volume cat terjual',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.inventory_2_rounded,
+                  iconColor: const Color(0xFF6366F1),
+                  iconBgColor: const Color(0xFF6366F1).withOpacity(0.12),
+                  label: 'Total Kuantiti Terjual',
+                  value: '$totalVolumeUnit Unit',
+                  valueColor: const Color(0xFF4F46E5),
+                  subText: 'Akumulasi Tin + Galon + Pail',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.people_alt_rounded,
+                  iconColor: const Color(0xFFF59E0B),
+                  iconBgColor: const Color(0xFFF59E0B).withOpacity(0.12),
+                  label: 'Traffic & Market Share',
+                  value: marketShare,
+                  valueColor: const Color(0xFFB45309),
+                  subText: 'Masuk: $jmlCustMasuk | Beli Cat: $jmlCustBeliCat | Dulux: $jmlCustBeliDulux',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfftakeStatCard({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required String label,
+    required String value,
+    required Color valueColor,
+    required String subText,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required bool isDarkMode,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: iconBgColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 16, color: iconColor),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: subtitleColor),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: valueColor),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 3),
+          Text(
+            subText,
+            style: TextStyle(fontSize: 9, color: subtitleColor),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfftakeProductCard({
+    required int index,
+    required Map<String, dynamic> item,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color elevatedColor,
+    required Color primaryColor,
+    required bool isDarkMode,
+  }) {
+    final currencyFmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    final pBrand = (item['brand']?.toString() ?? 'Dulux').trim();
+    final pName = (item['sub_brand']?.toString() ?? item['product_name']?.toString() ?? 'Produk Cat').trim();
+    final pRmBase = (item['brand_rm_base']?.toString() ?? '-').trim();
+
+    num parseNum(dynamic val) {
+      if (val == null) return 0;
+      if (val is num) return val;
+      if (val is String) {
+        final clean = val.replaceAll(RegExp(r'[^0-9.]'), '');
+        return num.tryParse(clean) ?? 0;
+      }
+      return 0;
+    }
+
+    final hTin = parseNum(item['harga_tin']);
+    final hGalon = parseNum(item['harga_galon']);
+    final hPail = parseNum(item['harga_pail']);
+
+    final qTin = parseNum(item['qty_tin']).toInt();
+    final qGalon = parseNum(item['qty_galon']).toInt();
+    final qPail = parseNum(item['qty_pail']).toInt();
+    final totUnit = item['total_unit'] != null ? parseNum(item['total_unit']).toInt() : (qTin + qGalon + qPail);
+
+    final vTin = parseNum(item['volume_tin_l']).toDouble();
+    final vGalon = parseNum(item['volume_galon_l']).toDouble();
+    final vPail = parseNum(item['volume_pail_l']).toDouble();
+    final totLiter = item['total_liter'] != null ? parseNum(item['total_liter']).toDouble() : (vTin + vGalon + vPail);
+
+    final totRp = parseNum(item['total_nilai_rp']).toDouble();
+
+    final isCatylac = pBrand.toLowerCase().contains('catylac');
+    final brandColor = isCatylac ? const Color(0xFFEA580C) : const Color(0xFF0F52BA);
+    final brandBgColor = isCatylac ? const Color(0xFFFFF7ED) : const Color(0xFFEFF6FF);
+    final brandBorderColor = isCatylac ? const Color(0xFFFDBA74) : const Color(0xFFBFDBFE);
+
+    final kGalon = item['kemasan_galon']?.toString() ?? '2.5L';
+    final kPail = item['kemasan_pail']?.toString() ?? '20L';
+    final kTin = item['kemasan_tin']?.toString() ?? '1L';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header Card Produk ──
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: primaryColor,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  '#$index',
+                  style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: brandBgColor,
+                  borderRadius: BorderRadius.circular(5),
+                  border: Border.all(color: brandBorderColor, width: 0.8),
+                ),
+                child: Text(
+                  pBrand.toUpperCase(),
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: brandColor),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      pName,
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                    ),
+                    if (pRmBase.isNotEmpty && pRmBase != '-' && pRmBase.toLowerCase() != pBrand.toLowerCase()) ...[
+                      const SizedBox(height: 2),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: elevatedColor,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300, width: 0.6),
+                        ),
+                        child: Text(
+                          pRmBase,
+                          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: subtitleColor),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Text(
+                  currencyFmt.format(totRp),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 10),
+
+          // ── 3 Blok Spesifikasi Grid ──
+          // 1. Harga Standart Acuan
+          _buildSpecSection(
+            title: 'Harga Standart Acuan',
+            icon: Icons.local_offer_rounded,
+            iconColor: const Color(0xFF0F52BA),
+            isDarkMode: isDarkMode,
+            cardColor: elevatedColor,
+            children: [
+              _buildSpecRow('Galon ($kGalon):', hGalon > 0 ? currencyFmt.format(hGalon) : 'Rp 0', isBold: hGalon > 0, textColor: textColor, subtitleColor: subtitleColor),
+              _buildSpecRow('Pail ($kPail):', hPail > 0 ? currencyFmt.format(hPail) : 'Rp 0', isBold: hPail > 0, textColor: textColor, subtitleColor: subtitleColor),
+              _buildSpecRow('Tin ($kTin):', hTin > 0 ? currencyFmt.format(hTin) : 'Rp 0', isBold: hTin > 0, textColor: textColor, subtitleColor: subtitleColor),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // 2. Kuantiti Terjual & Total Unit
+          _buildSpecSection(
+            title: 'Kuantiti Terjual',
+            icon: Icons.shopping_cart_rounded,
+            iconColor: const Color(0xFF10B981),
+            isDarkMode: isDarkMode,
+            cardColor: elevatedColor,
+            children: [
+              _buildSpecRow('Galon:', '$qGalon Unit', isBold: qGalon > 0, valueColor: qGalon > 0 ? const Color(0xFF15803D) : null, textColor: textColor, subtitleColor: subtitleColor),
+              _buildSpecRow('Pail:', '$qPail Unit', isBold: qPail > 0, valueColor: qPail > 0 ? const Color(0xFF15803D) : null, textColor: textColor, subtitleColor: subtitleColor),
+              _buildSpecRow('Tin:', '$qTin Unit', isBold: qTin > 0, valueColor: qTin > 0 ? const Color(0xFF15803D) : null, textColor: textColor, subtitleColor: subtitleColor),
+              const Divider(height: 8, thickness: 0.7),
+              _buildSpecRow('Total Qty:', '$totUnit Unit', isBold: true, valueColor: primaryColor, textColor: textColor, subtitleColor: subtitleColor),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // 3. Total Volume Liter
+          _buildSpecSection(
+            title: 'Total Volume (Liter)',
+            icon: Icons.opacity_rounded,
+            iconColor: const Color(0xFF0284C7),
+            isDarkMode: isDarkMode,
+            cardColor: elevatedColor,
+            children: [
+              _buildSpecRow('Vol Galon:', '${vGalon.toStringAsFixed(2)} L', textColor: textColor, subtitleColor: subtitleColor),
+              _buildSpecRow('Vol Pail:', '${vPail.toStringAsFixed(2)} L', textColor: textColor, subtitleColor: subtitleColor),
+              _buildSpecRow('Vol Tin:', '${vTin.toStringAsFixed(2)} L', textColor: textColor, subtitleColor: subtitleColor),
+              const Divider(height: 8, thickness: 0.7),
+              _buildSpecRow('Total Volume:', '${totLiter.toStringAsFixed(2)} Liter', isBold: true, valueColor: const Color(0xFF0284C7), textColor: textColor, subtitleColor: subtitleColor),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpecSection({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required bool isDarkMode,
+    required Color cardColor,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300, width: 0.8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 13, color: iconColor),
+              const SizedBox(width: 5),
+              Text(
+                title.toUpperCase(),
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: iconColor, letterSpacing: 0.3),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpecRow(
+    String label,
+    String value, {
+    bool isBold = false,
+    Color? valueColor,
+    required Color textColor,
+    required Color subtitleColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 11, color: subtitleColor)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: valueColor ?? (isBold ? textColor : subtitleColor),
+            ),
+          ),
         ],
       ),
     );
