@@ -501,22 +501,46 @@ class AttendanceRoster extends Page implements HasForms
                 ->groupBy('employee_id');
         }
 
-        // 3. Calculate KPI summaries across entire filtered dataset (all filtered employees)
+        // 3. Calculate KPI summaries across entire filtered dataset (all filtered active employees)
         $allEmpIds = $allEmployees->pluck('id')->toArray();
-        $summary = [
-            'total_present' => 0,
-            'total_late' => 0,
-            'total_absent' => 0,
-            'total_leave' => 0,
-        ];
+        $totalEmployeesCount = count($allEmpIds);
+
+        // Determine evaluation date for KPI calculation
+        $evalDate = $todayStr;
+        if ($startDateStr <= $todayStr && $todayStr <= $endDateStr) {
+            $evalDate = $todayStr;
+        } elseif ($todayStr > $endDateStr) {
+            $evalDate = $endDateStr;
+        } else {
+            $evalDate = $startDateStr;
+        }
+
+        // If evalDate falls on holiday/Sunday, try fallback to last recent working day within period
+        if (isset($holidayMap[$evalDate]) || Carbon::parse($evalDate)->isSunday()) {
+            $checkDate = Carbon::parse($evalDate)->subDay();
+            while ($checkDate->toDateString() >= $startDateStr) {
+                $cStr = $checkDate->toDateString();
+                if (!isset($holidayMap[$cStr]) && !$checkDate->isSunday()) {
+                    $evalDate = $cStr;
+                    break;
+                }
+                $checkDate->subDay();
+            }
+        }
+
+        $totalOntime = 0;
+        $totalLate = 0;
+        $totalCuti = 0;
+        $totalPermitSick = 0;
+        $totalAlpha = 0;
 
         if (!empty($allEmpIds)) {
-            // Load attendances
-            $allAtts = DB::table('attendances')
+            // Load attendances on evaluation date
+            $attsOnDate = DB::table('attendances')
                 ->leftJoin('employee_schedules', 'attendances.employee_schedule_id', '=', 'employee_schedules.id')
                 ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
                 ->whereIn('attendances.employee_id', $allEmpIds)
-                ->whereBetween('attendances.attendance_date', [$startDateStr, $endDateStr])
+                ->where('attendances.attendance_date', $evalDate)
                 ->select([
                     'attendances.id',
                     'attendances.employee_id',
@@ -528,154 +552,125 @@ class AttendanceRoster extends Page implements HasForms
                     'shifts.grace_checkin_minutes',
                     'employee_schedules.planned_start_at',
                 ])
-                ->get();
+                ->get()
+                ->keyBy('employee_id');
 
-            // Load schedules with shift info
-            $allScheds = DB::table('employee_schedules')
+            // Load leave requests on evaluation date
+            $leavesOnDate = DB::table('leave_requests')
+                ->whereIn('employee_id', $allEmpIds)
+                ->whereIn('status', ['approved', 'pending'])
+                ->where('start_date', '<=', $evalDate)
+                ->where('end_date', '>=', $evalDate)
+                ->select(['employee_id', 'type', 'sub_type', 'status'])
+                ->get()
+                ->groupBy('employee_id');
+
+            // Load schedules on evaluation date
+            $schedsOnDate = DB::table('employee_schedules')
                 ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
                 ->whereIn('employee_schedules.employee_id', $allEmpIds)
-                ->whereBetween('schedule_date', [$startDateStr, $endDateStr])
+                ->where('employee_schedules.schedule_date', $evalDate)
                 ->select([
                     'employee_schedules.employee_id',
-                    'employee_schedules.schedule_date',
                     'employee_schedules.schedule_type',
                     'employee_schedules.planned_start_at',
-                    'shifts.name as shift_name',
-                    'shifts.code as shift_code',
                     'shifts.start_time as shift_start_time',
                     'shifts.grace_checkin_minutes',
                 ])
-                ->get();
+                ->get()
+                ->keyBy('employee_id');
 
-            // Load approved and pending leaves
-            $allLeaves = DB::table('leave_requests')
-                ->whereIn('employee_id', $allEmpIds)
-                ->whereIn('status', ['approved', 'pending'])
-                ->where(function ($q) use ($startDateStr, $endDateStr) {
-                    $q->whereBetween('start_date', [$startDateStr, $endDateStr])
-                      ->orWhereBetween('end_date', [$startDateStr, $endDateStr])
-                      ->orWhere(function ($sq) use ($startDateStr, $endDateStr) {
-                          $sq->where('start_date', '<=', $startDateStr)
-                             ->where('end_date', '>=', $endDateStr);
-                      });
-                })
-                ->select(['employee_id', 'start_date', 'end_date', 'type', 'status'])
-                ->get();
+            // Evaluate each employee strictly into one status so:
+            // Grand Total Employee Aktif = Ontime + Late + Cuti + Ijin/Sakit + Alpha
+            foreach ($allEmployees as $emp) {
+                $empId = $emp->id;
+                $att = $attsOnDate->get($empId);
+                $leaveList = $leavesOnDate->get($empId);
+                $sched = $schedsOnDate->get($empId);
 
-            // Count attendances (Present & Late & Explicit Leave/Absent)
-            $attMap = [];
-            foreach ($allAtts as $row) {
-                $attMap[$row->employee_id . '_' . $row->attendance_date] = true;
+                // 1. Check Attendance record on evaluation date
+                if ($att) {
+                    $attStatus = strtolower(trim($att->status ?? ''));
+                    if ($attStatus === 'absent') {
+                        $totalAlpha++;
+                        continue;
+                    }
+                    if (in_array($attStatus, ['cuti', 'leave', 'annual_leave'])) {
+                        $totalCuti++;
+                        continue;
+                    }
+                    if (in_array($attStatus, ['permit', 'sick', 'izin', 'ijin', 'sakit'])) {
+                        $totalPermitSick++;
+                        continue;
+                    }
 
-                if ($row->status === 'absent') {
-                    $summary['total_absent']++;
-                    continue;
-                }
-                if (in_array($row->status, ['leave', 'permit', 'sick'])) {
-                    $summary['total_leave']++;
-                    continue;
-                }
+                    // Check lateness
+                    $isLate = false;
+                    if ($attStatus === 'late' || (int)($att->late_minutes ?? 0) > 0) {
+                        $isLate = true;
+                    } elseif (!empty($att->checkin_at)) {
+                        $checkin = Carbon::parse($att->checkin_at)->timezone('Asia/Jakarta');
+                        $shiftStartTime = $att->shift_start_time ?? ($sched->shift_start_time ?? null);
+                        $grace = (int)($att->grace_checkin_minutes ?? ($sched->grace_checkin_minutes ?? 0));
+                        $plannedStartAt = $att->planned_start_at ?? ($sched->planned_start_at ?? null);
 
-                // Check lateness
-                $isLate = false;
-                if ($row->status === 'late' || (int)$row->late_minutes > 0) {
-                    $isLate = true;
-                } elseif (!empty($row->checkin_at)) {
-                    $checkin = Carbon::parse($row->checkin_at)->timezone('Asia/Jakarta');
-                    if (!empty($row->shift_start_time)) {
-                        $shiftStart = Carbon::parse($row->attendance_date . ' ' . $row->shift_start_time);
-                        $grace = (int)($row->grace_checkin_minutes ?? 0);
-                        if ($checkin->greaterThan($shiftStart->copy()->addMinutes($grace))) {
-                            $isLate = true;
+                        if (!empty($shiftStartTime)) {
+                            $shiftStart = Carbon::parse($evalDate . ' ' . $shiftStartTime, 'Asia/Jakarta');
+                            if ($checkin->greaterThan($shiftStart->copy()->addMinutes($grace))) {
+                                $isLate = true;
+                            }
+                        } elseif (!empty($plannedStartAt)) {
+                            $plannedStart = Carbon::parse($plannedStartAt, 'Asia/Jakarta');
+                            if ($checkin->greaterThan($plannedStart)) {
+                                $isLate = true;
+                            }
+                        } else {
+                            $defaultStart = Carbon::parse($evalDate . ' 08:30:00', 'Asia/Jakarta');
+                            if ($checkin->greaterThan($defaultStart)) {
+                                $isLate = true;
+                            }
                         }
-                    } elseif (!empty($row->planned_start_at)) {
-                        $plannedStart = Carbon::parse($row->planned_start_at);
-                        if ($checkin->greaterThan($plannedStart)) {
-                            $isLate = true;
-                        }
+                    }
+
+                    if ($isLate) {
+                        $totalLate++;
                     } else {
-                        $defaultStart = Carbon::parse($row->attendance_date . ' 08:30:00');
-                        if ($checkin->greaterThan($defaultStart)) {
-                            $isLate = true;
-                        }
+                        $totalOntime++;
                     }
+                    continue;
                 }
 
-                if ($isLate) {
-                    $summary['total_late']++;
-                } else {
-                    $summary['total_present']++;
-                }
-            }
+                // 2. Check Leave Requests on evaluation date
+                if ($leaveList && $leaveList->isNotEmpty()) {
+                    $leaveItem = $leaveList->firstWhere('status', 'approved') ?? $leaveList->first();
+                    $lType = strtolower(trim(($leaveItem->type ?? '') . ' ' . ($leaveItem->sub_type ?? '')));
 
-            // Count approved leaves by date
-            $leaveMap = [];
-            foreach ($allLeaves as $l) {
-                $lStart = Carbon::parse($l->start_date);
-                $lEnd = Carbon::parse($l->end_date);
-                
-                $cur = $lStart->copy();
-                while ($cur->lessThanOrEqualTo($lEnd)) {
-                    $curStr = $cur->toDateString();
-                    if ($curStr >= $startDateStr && $curStr <= $endDateStr) {
-                        $key = $l->employee_id . '_' . $curStr;
-                        if (!isset($leaveMap[$key])) {
-                            $leaveMap[$key] = $l->status;
-                            if ($l->status === 'approved') {
-                                $summary['total_leave']++;
-                            }
-                        }
+                    if (str_contains($lType, 'cuti') || str_contains($lType, 'annual') || str_contains($lType, 'extra_off') || str_contains($lType, 'leave')) {
+                        $totalCuti++;
+                    } else {
+                        $totalPermitSick++;
                     }
-                    $cur->addDay();
+                    continue;
                 }
-            }
 
-            // Map employees dept_working_days
-            $empWorkingDaysMap = $allEmployees->pluck('dept_working_days', 'id')->toArray();
-            $now = Carbon::now('Asia/Jakarta');
-
-            // Count scheduled workdays that have passed (<= today) without checkin and without approved leave (Alpha)
-            // ONLY if the day is an actual working day for the employee and NOT a holiday!
-            foreach ($allScheds as $sched) {
-                if (in_array($sched->schedule_type, ['workday', 'remote', 'field'])) {
-                    if ($sched->schedule_date <= $todayStr) {
-                        // Check if national holiday
-                        if (isset($holidayMap[$sched->schedule_date])) {
-                            continue;
-                        }
-
-                        // Check if employee working day
-                        $schedDate = Carbon::parse($sched->schedule_date);
-                        $deptWd = $empWorkingDaysMap[$sched->employee_id] ?? null;
-                        if (!self::isWorkingDay($schedDate, $deptWd)) {
-                            continue;
-                        }
-
-                        $key = $sched->employee_id . '_' . $sched->schedule_date;
-                        if (!isset($attMap[$key]) && !isset($leaveMap[$key])) {
-                            if ($sched->schedule_date < $todayStr) {
-                                // Past day without attendance -> Alpha
-                                $summary['total_absent']++;
-                            } elseif ($sched->schedule_date === $todayStr) {
-                                // Today: only count as absent if current time is >= shift start time
-                                $shiftStart = null;
-                                if (!empty($sched->shift_start_time)) {
-                                    $shiftStart = Carbon::parse($sched->schedule_date . ' ' . $sched->shift_start_time, 'Asia/Jakarta');
-                                } elseif (!empty($sched->planned_start_at)) {
-                                    $shiftStart = Carbon::parse($sched->planned_start_at, 'Asia/Jakarta');
-                                } else {
-                                    $shiftStart = Carbon::parse($sched->schedule_date . ' 08:30:00', 'Asia/Jakarta');
-                                }
-
-                                if ($now->greaterThanOrEqualTo($shiftStart)) {
-                                    $summary['total_absent']++;
-                                }
-                            }
-                        }
-                    }
-                }
+                // 3. No Attendance and No Leave -> Alpha
+                $totalAlpha++;
             }
         }
+
+        $summary = [
+            'total_active_employees' => $totalEmployeesCount,
+            'total_ontime' => $totalOntime,
+            'total_late' => $totalLate,
+            'total_cuti' => $totalCuti,
+            'total_permit_sick' => $totalPermitSick,
+            'total_alpha' => $totalAlpha,
+            'evaluation_date' => $evalDate,
+            // Aliases for compatibility
+            'total_present' => $totalOntime,
+            'total_leave' => $totalCuti,
+            'total_absent' => $totalAlpha,
+        ];
 
         return [
             'employees' => $pagedEmployees,

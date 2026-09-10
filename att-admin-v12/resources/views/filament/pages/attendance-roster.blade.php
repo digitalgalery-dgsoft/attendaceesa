@@ -22,13 +22,16 @@
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(1, minmax(0, 1fr));
-            gap: 16px;
+            gap: 14px;
         }
         @media (min-width: 640px) {
             .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (min-width: 1024px) {
-            .kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+            .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (min-width: 1440px) {
+            .kpi-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
         }
 
         .kpi-card {
@@ -280,56 +283,109 @@
         $summary = $viewData['summary'];
         $pagination = $viewData['pagination'];
         $todayStr = \Carbon\Carbon::today('Asia/Jakarta')->toDateString();
-        $totalPermitsAndAbsent = $summary['total_leave'] + $summary['total_absent'];
+
+        $totalActiveEmp = $summary['total_active_employees'] ?? $viewData['totalEmployees'];
+        $totalOntime = $summary['total_ontime'] ?? 0;
+        $totalLate = $summary['total_late'] ?? 0;
+        $totalCuti = $summary['total_cuti'] ?? 0;
+        $totalPermitSick = $summary['total_permit_sick'] ?? 0;
+        $totalAlpha = $summary['total_alpha'] ?? 0;
+        $evalDate = $summary['evaluation_date'] ?? $todayStr;
     @endphp
 
     <div class="roster-page-wrapper">
-        {{-- KPI TOP SUMMARY CARDS --}}
+        {{-- KPI TOP SUMMARY CARDS (6 CARDS) --}}
         <div class="kpi-grid">
+            {{-- 1. Total Employee Aktif --}}
             <div class="kpi-card">
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Karyawan</div>
-                    <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-top: 4px;">{{ number_format($viewData['totalEmployees']) }}</div>
-                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Berjadwal / Aktif Periode Ini</div>
+                    <div style="font-size: 11px; font-weight: 700; color: #4338ca; text-transform: uppercase; letter-spacing: 0.5px;">Total Employee Aktif</div>
+                    <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-top: 4px;" class="dark:text-white">{{ number_format($totalActiveEmp) }}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Berjadwal / Aktif Periode Ini</div>
                 </div>
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0e7ff; color: #4338ca; display: flex; align-items: center; justify-content: center;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0e7ff; color: #4338ca; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                     <x-filament::icon icon="heroicon-o-users" style="width: 24px; height: 24px;" />
                 </div>
             </div>
 
+            {{-- 2. Total Hadir (On-Time) --}}
             <div class="kpi-card">
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase;">Total Hadir (On-Time)</div>
-                    <div style="font-size: 26px; font-weight: 800; color: #059669; margin-top: 4px;">{{ number_format($summary['total_present']) }}</div>
-                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Check-in tepat waktu</div>
+                    <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase; letter-spacing: 0.5px;">Total Hadir (On-Time)</div>
+                    <div style="font-size: 26px; font-weight: 800; color: #059669; margin-top: 4px;">{{ number_format($totalOntime) }}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Check-in tepat waktu</div>
                 </div>
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #d1fae5; color: #059669; display: flex; align-items: center; justify-content: center;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: #d1fae5; color: #059669; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                     <x-filament::icon icon="heroicon-o-check-circle" style="width: 24px; height: 24px;" />
                 </div>
             </div>
 
+            {{-- 3. Total Telat --}}
             <div class="kpi-card">
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #d97706; text-transform: uppercase;">Total Terlambat (Late)</div>
-                    <div style="font-size: 26px; font-weight: 800; color: #d97706; margin-top: 4px;">{{ number_format($summary['total_late']) }}</div>
-                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Check-in melebihi jadwal</div>
+                    <div style="font-size: 11px; font-weight: 700; color: #d97706; text-transform: uppercase; letter-spacing: 0.5px;">Total Telat</div>
+                    <div style="font-size: 26px; font-weight: 800; color: #d97706; margin-top: 4px;">{{ number_format($totalLate) }}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Check-in melebihi jadwal</div>
                 </div>
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                     <x-filament::icon icon="heroicon-o-clock" style="width: 24px; height: 24px;" />
                 </div>
             </div>
 
+            {{-- 4. Total Cuti --}}
             <div class="kpi-card">
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #7c3aed; text-transform: uppercase;">Izin / Cuti / Alpha</div>
-                    <div style="font-size: 26px; font-weight: 800; color: #7c3aed; margin-top: 4px;">{{ number_format($totalPermitsAndAbsent) }}</div>
-                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
-                        Izin/Cuti: <strong>{{ number_format($summary['total_leave']) }}</strong> &bull; Alpha: <strong>{{ number_format($summary['total_absent']) }}</strong>
-                    </div>
+                    <div style="font-size: 11px; font-weight: 700; color: #0284c7; text-transform: uppercase; letter-spacing: 0.5px;">Total Cuti</div>
+                    <div style="font-size: 26px; font-weight: 800; color: #0284c7; margin-top: 4px;">{{ number_format($totalCuti) }}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Cuti disetujui</div>
                 </div>
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #ede9fe; color: #7c3aed; display: flex; align-items: center; justify-content: center;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <x-filament::icon icon="heroicon-o-calendar" style="width: 24px; height: 24px;" />
+                </div>
+            </div>
+
+            {{-- 5. Total Ijin / Sakit --}}
+            <div class="kpi-card">
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.5px;">Total Ijin / Sakit</div>
+                    <div style="font-size: 26px; font-weight: 800; color: #7c3aed; margin-top: 4px;">{{ number_format($totalPermitSick) }}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Izin resmi & surat sakit</div>
+                </div>
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: #ede9fe; color: #7c3aed; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                     <x-filament::icon icon="heroicon-o-document-text" style="width: 24px; height: 24px;" />
                 </div>
+            </div>
+
+            {{-- 6. Total Alpha --}}
+            <div class="kpi-card">
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; color: #e11d48; text-transform: uppercase; letter-spacing: 0.5px;">Total Alpha</div>
+                    <div style="font-size: 26px; font-weight: 800; color: #e11d48; margin-top: 4px;">{{ number_format($totalAlpha) }}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Tidak hadir / belum absen</div>
+                </div>
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: #ffe4e6; color: #e11d48; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <x-filament::icon icon="heroicon-o-x-circle" style="width: 24px; height: 24px;" />
+                </div>
+            </div>
+        </div>
+
+        {{-- GRAND TOTAL FORMULA BANNER --}}
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; font-size: 12px; color: #334155; gap: 10px;" class="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <x-filament::icon icon="heroicon-o-calculator" style="width: 18px; height: 18px; color: #4f46e5;" />
+                <span>
+                    <strong>Grand Total:</strong>
+                    Employee Aktif (<strong>{{ number_format($totalActiveEmp) }}</strong>) =
+                    Hadir On-Time (<strong>{{ number_format($totalOntime) }}</strong>) +
+                    Telat (<strong>{{ number_format($totalLate) }}</strong>) +
+                    Cuti (<strong>{{ number_format($totalCuti) }}</strong>) +
+                    Ijin/Sakit (<strong>{{ number_format($totalPermitSick) }}</strong>) +
+                    Alpha (<strong>{{ number_format($totalAlpha) }}</strong>)
+                </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; color: #059669; font-weight: 600;">
+                <x-filament::icon icon="heroicon-o-check-badge" style="width: 18px; height: 18px;" />
+                <span>Status Sinkron &bull; Evaluasi Presensi: {{ \Carbon\Carbon::parse($evalDate)->translatedFormat('l, d F Y') }}</span>
             </div>
         </div>
 
