@@ -672,14 +672,21 @@
                                     $empName = $sub->employee?->full_name ?? ($sub->employee?->name ?? 'Petugas');
                                     $empNik = $sub->employee?->nik ?? ($sub->employee?->employee_no ?? '-');
 
+                                    $rawOosItems = !empty($valMap['oos_items_json']) ? (is_array($valMap['oos_items_json']) ? $valMap['oos_items_json'] : json_decode((string)$valMap['oos_items_json'], true)) : null;
+                                    $hasMultiOos = is_array($rawOosItems) && count($rawOosItems) > 0;
+                                    $multiProductNames = $hasMultiOos ? array_map(fn($it) => $it['product_name'] ?? ($it['nama_produk'] ?? ($it['produk_oos'] ?? 'Dulux SKU')), $rawOosItems) : [];
+                                    $multiMaxLama = $hasMultiOos ? max(array_map(fn($it) => (int)($it['lama_oos_hari'] ?? 0), $rawOosItems) ?: [0]) : 0;
+                                    $multiTotalSaran = $hasMultiOos ? array_sum(array_map(fn($it) => (int)($it['saran_qty_order'] ?? 0), $rawOosItems)) : 0;
+
                                     $produk = trim((string)($valMap['pilih_produk_dulux_yang_mengalami_out_of_stock_oos'] ?? ($valMap['nama_produk_yang_kosong_oos'] ?? ($valMap['nama_produk_yang_kosong'] ?? ($valMap['produk_oos'] ?? ($valMap['produk'] ?? 'Dulux Product'))))));
                                     $baseColor = trim((string)($valMap['base_kategori_warna_yang_kosong'] ?? ($valMap['base_tipe_warna'] ?? ($valMap['base_color'] ?? ($valMap['base_warna'] ?? ($valMap['base'] ?? '-'))))));
                                     $kemasanSize = trim((string)($valMap['kemasan_size_yang_kosong'] ?? ($valMap['ukuran_kemasan_size'] ?? ($valMap['kemasan_size'] ?? ($valMap['kemasan'] ?? '-')))));
-                                    $lamaOos = (int)($valMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? ($valMap['lama_kondisi_oos_jumlah_hari'] ?? ($valMap['lama_oos_hari'] ?? 0)));
-                                    $saranQty = (int)($valMap['saran_kuantiti_order_ke_toko_qty_kemasan'] ?? ($valMap['saran_kuantitas_order_qty_kaleng'] ?? ($valMap['saran_qty_order'] ?? 0)));
+                                    $lamaOos = $hasMultiOos ? $multiMaxLama : (int)($valMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? ($valMap['lama_kondisi_oos_jumlah_hari'] ?? ($valMap['lama_oos_hari'] ?? 0)));
+                                    $saranQty = $hasMultiOos ? $multiTotalSaran : (int)($valMap['saran_kuantiti_order_ke_toko_qty_kemasan'] ?? ($valMap['saran_kuantitas_order_qty_kaleng'] ?? ($valMap['saran_qty_order'] ?? 0)));
                                     $alasanOos = trim((string)($valMap['penyebab_alasan_out_of_stock_oos'] ?? ($valMap['alasan_oos'] ?? ($valMap['penyebab_alasan_oos'] ?? ($valMap['alasan'] ?? 'Lain-lain')))));
 
-                                    $isNoOos = str_contains(strtolower($alasanOos), 'no oos') || str_contains(strtolower($alasanOos), 'stok lengkap') || str_contains(strtolower($produk), 'no oos');
+                                    $tipeOos = strtolower(trim((string)($valMap['tipe_laporan_oos'] ?? '')));
+                                    $isNoOos = $tipeOos === 'no_oos' || str_contains(strtolower($alasanOos), 'no oos') || str_contains(strtolower($alasanOos), 'stok lengkap') || str_contains(strtolower($produk), 'no oos');
                                     $status = $sub->status ?? 'pending';
                                 @endphp
                                 <tr style="{{ $isNoOos ? 'background: #f0fdf4;' : '' }}">
@@ -724,27 +731,87 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div style="font-weight: 600; color: {{ $isNoOos ? '#15803d' : '#1e3a8a' }};">
-                                            {{ $produk }}
-                                        </div>
+                                        @if($isNoOos)
+                                            <span style="background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; font-size: 0.76rem; padding: 3px 8px; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-circle-check"></i> No OOS / Stok Lengkap
+                                            </span>
+                                        @elseif($hasMultiOos)
+                                            <div>
+                                                <span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.72rem; padding: 2px 7px; border-radius: 6px; font-weight: 800; display: inline-block; margin-bottom: 3px;">
+                                                    {{ count($rawOosItems) }} SKU OOS
+                                                </span>
+                                                <div style="font-weight: 700; color: #1e3a8a; font-size: 0.82rem; line-height: 1.3;">
+                                                    {{ implode(', ', array_slice($multiProductNames, 0, 2)) }}{{ count($multiProductNames) > 2 ? ' +' . (count($multiProductNames) - 2) . ' lainnya' : '' }}
+                                                </div>
+                                                @if(count($rawOosItems) > 1)
+                                                    <details style="margin-top: 4px; font-size: 0.74rem;">
+                                                        <summary style="cursor: pointer; color: #2563eb; font-weight: 700; outline: none;">
+                                                            Rincian {{ count($rawOosItems) }} SKU
+                                                        </summary>
+                                                        <div style="margin-top: 4px; padding: 6px 8px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.06); max-width: 260px;">
+                                                            @foreach($rawOosItems as $oi)
+                                                                <div style="padding: 2px 0; border-bottom: 1px dashed #f1f5f9; display: flex; justify-content: space-between; gap: 6px;">
+                                                                    <span style="color: #1e293b; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ $oi['product_name'] ?? ($oi['nama_produk'] ?? 'Produk') }}">
+                                                                        {{ $oi['product_name'] ?? ($oi['nama_produk'] ?? 'Produk') }}
+                                                                    </span>
+                                                                    <span style="color: #dc2626; font-weight: 700; white-space: nowrap;">
+                                                                        {{ $oi['lama_oos_hari'] ?? 1 }} hr
+                                                                    </span>
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    </details>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <div style="font-weight: 600; color: #1e3a8a;">
+                                                {{ $produk }}
+                                            </div>
+                                        @endif
                                     </td>
                                     <td style="font-size: 0.82rem; color: #334155;">
-                                        <span style="display: inline-block; padding: 2px 8px; background: #f1f5f9; border-radius: 6px; font-weight: 600; font-size: 0.78rem;">
-                                            {{ $baseColor }}
-                                        </span>
+                                        @if($isNoOos)
+                                            <span style="color: #94a3b8;">-</span>
+                                        @elseif($hasMultiOos && count($rawOosItems) > 1)
+                                            <span style="font-size: 0.74rem; color: #64748b; font-style: italic;">Multi Base</span>
+                                        @else
+                                            <span style="display: inline-block; padding: 2px 8px; background: #f1f5f9; border-radius: 6px; font-weight: 600; font-size: 0.78rem;">
+                                                {{ $baseColor }}
+                                            </span>
+                                        @endif
                                     </td>
                                     <td style="font-size: 0.82rem; color: #334155;">
-                                        {{ $kemasanSize }}
-                                    </td>
-                                    <td style="text-align: center; font-weight: 700; color: {{ $lamaOos > 0 ? '#dc2626' : '#94a3b8' }};">
-                                        {{ $lamaOos > 0 ? ($lamaOos . ' Hari') : '-' }}
+                                        @if($isNoOos)
+                                            <span style="color: #94a3b8;">-</span>
+                                        @elseif($hasMultiOos && count($rawOosItems) > 1)
+                                            <span style="font-size: 0.74rem; color: #64748b; font-style: italic;">Multi Size</span>
+                                        @else
+                                            {{ $kemasanSize }}
+                                        @endif
                                     </td>
                                     <td style="text-align: center; font-weight: 700;">
-                                        {{ $saranQty > 0 ? $saranQty : '-' }}
+                                        @if($isNoOos)
+                                            <span style="color: #16a34a; font-weight: 700; font-size: 0.8rem;">0 Hari</span>
+                                        @elseif($lamaOos > 0)
+                                            <span style="color: #dc2626; font-size: 0.82rem; background: #fef2f2; padding: 2px 7px; border-radius: 6px; border: 1px solid #fecaca; display: inline-block;">
+                                                {{ $hasMultiOos ? 'Maks ' : '' }}{{ $lamaOos }} Hari
+                                            </span>
+                                        @else
+                                            <span style="color: #94a3b8;">-</span>
+                                        @endif
+                                    </td>
+                                    <td style="text-align: center; font-weight: 700;">
+                                        @if($isNoOos)
+                                            <span style="color: #94a3b8;">-</span>
+                                        @elseif($saranQty > 0)
+                                            <span style="color: #0b3d88; font-size: 0.82rem;">{{ $saranQty }}</span>
+                                        @else
+                                            <span style="color: #94a3b8;">-</span>
+                                        @endif
                                     </td>
                                     <td>
                                         <div style="font-size: 0.82rem; color: {{ $isNoOos ? '#15803d' : '#b91c1c' }}; font-weight: 600;">
-                                            {{ $alasanOos }}
+                                            {{ $isNoOos ? 'Stok Lengkap / Tidak Ada OOS' : ($hasMultiOos && count($rawOosItems) > 1 ? ($alasanOos ?: 'Kendala PO/Distributor') : $alasanOos) }}
                                         </div>
                                     </td>
                                     <td style="text-align: center;">

@@ -450,4 +450,30 @@ class DynamicReportingProvider with ChangeNotifier {
       'message': pending.isEmpty ? 'Semua laporan wajib selesai.' : 'Masih ada laporan yang belum selesai.',
     };
   }
+
+  /**
+   * Fetch OOS reference/history for a specific store.
+   */
+  Future<Map<String, dynamic>?> fetchOosHistory(String token, int storeId) async {
+    try {
+      final url = '${Constants.baseUrl}/reporting/oos-history?store_id=$storeId';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success' && data['data'] != null) {
+          return Map<String, dynamic>.from(data['data']);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching OOS history: $e');
+    }
+    return null;
+  }
 }

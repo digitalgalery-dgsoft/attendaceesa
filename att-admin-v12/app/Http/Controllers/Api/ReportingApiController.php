@@ -599,6 +599,7 @@ class ReportingApiController extends Controller
                         'order_index' => $f->order_index ?? 0,
                     ];
                 }),
+                'oos_reference' => ($t->code === 'RPT-DULUX-OOS-SSO' || Str::contains($t->code, 'OOS')) ? $this->getStoreOosReference($targetStoreId, $t->id) : null,
             ];
         });
 
@@ -962,7 +963,177 @@ class ReportingApiController extends Controller
                 ]);
             }
 
-            // STANDAR / SINGLE SUBMISSION (Untuk template selain Offtake atau Offtake No Sale)
+            // Cek apakah ini template OOS dengan cart multi-produk
+            $oosItems = [];
+            if (isset($valuesInput['oos_items_json'])) {
+                $rawOosItems = $valuesInput['oos_items_json'];
+                if (is_string($rawOosItems)) {
+                    $rawOosItems = json_decode($rawOosItems, true) ?? [];
+                }
+                if (is_array($rawOosItems)) {
+                    $oosItems = $rawOosItems;
+                }
+            }
+
+            $isOosTemplate = ($template->code === 'RPT-DULUX-OOS-SSO' || Str::contains($template->code, 'OOS'));
+            $isOosWithItems = $isOosTemplate && !empty($oosItems) && count($oosItems) > 0;
+
+            // JIKA OOS DENGAN MULTI-PRODUK: BUAT 1 BARIS REPORT SUBMISSION DENGAN RINCIAN DETAIL OOS
+            if ($isOosWithItems) {
+                // Simpan seluruh file media/foto sekali untuk submission ini
+                $allSavedMedia = [];
+                foreach ($template->fields as $field) {
+                    if (in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])) {
+                        $savedPhotos = $this->saveUploadedPhotos($request, 0, (string)$field->id, $field->field_name);
+                        if (!empty($savedPhotos)) {
+                            $allSavedMedia[$field->id] = $savedPhotos;
+                            $allSavedMedia[$field->field_name] = $savedPhotos;
+                        }
+                    }
+                }
+
+                $sub = ReportSubmission::create([
+                    'report_template_id' => $template->id,
+                    'principal_id' => $principalId,
+                    'employee_id' => $employee->id,
+                    'work_location_id' => $workLocationId,
+                    'itinerary_item_id' => $itineraryItemId,
+                    'submission_code' => $submissionCode,
+                    'store_name' => $storeName,
+                    'address' => $address,
+                    'latitude' => $request->latitude,
+                    'longitude' => $request->longitude,
+                    'is_within_radius' => $isWithinRadius,
+                    'status' => 'pending',
+                    'submitted_at' => now(),
+                ]);
+
+                $allProductNames = [];
+                $allKemasan = [];
+                $allBaseColors = [];
+                $allReasons = [];
+                $maxLamaOos = 0;
+                $totalSaranOrder = 0;
+
+                foreach ($oosItems as $item) {
+                    $pName = trim((string)($item['product_name'] ?? ($item['produk_oos'] ?? '')));
+                    if (!empty($pName) && !in_array($pName, $allProductNames)) {
+                        $allProductNames[] = $pName;
+                    }
+                    $kem = trim((string)($item['kemasan_size_oos'] ?? ''));
+                    if (!empty($kem) && !in_array($kem, $allKemasan)) {
+                        $allKemasan[] = $kem;
+                    }
+                    $base = trim((string)($item['base_warna_oos'] ?? ''));
+                    if (!empty($base) && !in_array($base, $allBaseColors)) {
+                        $allBaseColors[] = $base;
+                    }
+                    $alasan = trim((string)($item['alasan_oos'] ?? ''));
+                    if (!empty($alasan) && !in_array($alasan, $allReasons)) {
+                        $allReasons[] = $alasan;
+                    }
+                    $lama = intval($item['lama_oos_hari'] ?? ($item['calculated_lama_oos'] ?? 1));
+                    if ($lama > $maxLamaOos) {
+                        $maxLamaOos = $lama;
+                    }
+                    $saran = intval($item['saran_qty_order'] ?? 0);
+                    $totalSaranOrder += $saran;
+                }
+
+                $firstItem = $oosItems[0];
+                $productSummary = implode(', ', $allProductNames);
+                $kemasanSummary = count($allKemasan) === 1 ? $allKemasan[0] : implode(', ', $allKemasan);
+                $baseSummary = count($allBaseColors) === 1 ? $allBaseColors[0] : implode(', ', $allBaseColors);
+                $reasonSummary = count($allReasons) === 1 ? $allReasons[0] : implode('; ', $allReasons);
+
+                foreach ($template->fields as $field) {
+                    $fn = strtolower(trim($field->field_name));
+                    $vText = null;
+                    $vNum = null;
+                    $vJson = null;
+                    $photoPath = null;
+
+                    if ($fn === 'produk_oos' || $fn === 'nama_produk_yang_kosong_oos' || $fn === 'pilih_produk_dulux_yang_mengalami_out_of_stock_oos') {
+                        $vText = $productSummary;
+                    } elseif ($fn === 'kemasan_size_oos' || $fn === 'ukuran_kemasan_size') {
+                        $vText = $kemasanSummary;
+                    } elseif ($fn === 'base_warna_oos' || $fn === 'base_tipe_warna') {
+                        $vText = $baseSummary;
+                    } elseif ($fn === 'warna_ready_mix_oos') {
+                        $vText = $firstItem['warna_ready_mix_oos'] ?? 'Bukan Ready Mix (Base Oplos)';
+                    } elseif ($fn === 'lama_oos_hari' || $fn === 'lama_kondisi_barang_kosong_jumlah_hari') {
+                        $vNum = $maxLamaOos;
+                        $vText = (string)$maxLamaOos;
+                    } elseif ($fn === 'saran_qty_order' || $fn === 'saran_kuantiti_order_ke_toko_qty_kemasan') {
+                        $vNum = $totalSaranOrder;
+                        $vText = (string)$totalSaranOrder;
+                    } elseif ($fn === 'alasan_oos' || $fn === 'penyebab_alasan_out_of_stock_oos') {
+                        $vText = $reasonSummary;
+                    } elseif ($fn === 'tipe_laporan_oos') {
+                        $vText = 'OOS';
+                    } elseif ($fn === 'channel_toko') {
+                        $vText = $normalizedValues['channel_toko'] ?? ($firstItem['channel_toko'] ?? 'Specialist Traditional Store (SSO)');
+                    } elseif ($fn === 'oos_items_json') {
+                        $vJson = $oosItems;
+                        $vText = json_encode($oosItems, JSON_UNESCAPED_UNICODE);
+                        $vNum = count($oosItems);
+                    } elseif (in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])) {
+                        $saved = $allSavedMedia[$field->id] ?? $allSavedMedia[$field->field_name] ?? [];
+                        if (!empty($saved)) {
+                            $photoPath = $saved[0];
+                            $vJson = $saved;
+                            $vText = implode(', ', $saved);
+                        }
+                    } else {
+                        $raw = $normalizedValues[$fn] ?? null;
+                        $vText = is_string($raw) ? $raw : ($raw !== null ? json_encode($raw) : null);
+                        if (is_numeric($raw)) $vNum = (float)$raw;
+                    }
+
+                    ReportSubmissionValue::create([
+                        'report_submission_id' => $sub->id,
+                        'report_form_field_id' => $field->id,
+                        'field_name' => $field->field_name,
+                        'field_type' => $field->field_type,
+                        'value_text' => $vText,
+                        'value_number' => $vNum,
+                        'value_json' => $vJson,
+                        'media_url' => $photoPath,
+                    ]);
+                }
+
+                $hasOosJson = ReportSubmissionValue::where('report_submission_id', $sub->id)
+                    ->where('field_name', 'oos_items_json')
+                    ->exists();
+                if (!$hasOosJson) {
+                    ReportSubmissionValue::create([
+                        'report_submission_id' => $sub->id,
+                        'report_form_field_id' => null,
+                        'field_name' => 'oos_items_json',
+                        'field_type' => 'json',
+                        'value_text' => json_encode($oosItems, JSON_UNESCAPED_UNICODE),
+                        'value_number' => count($oosItems),
+                        'value_json' => $oosItems,
+                        'media_url' => null,
+                    ]);
+                }
+
+                DB::commit();
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Laporan Out of Stock (' . count($oosItems) . ' produk) berhasil dikirim.',
+                    'data' => [
+                        'id' => $sub->id,
+                        'submission_code' => $sub->submission_code,
+                        'template_title' => $template->title,
+                        'submitted_at' => $sub->submitted_at->toDateTimeString(),
+                        'status' => $sub->status,
+                    ],
+                ]);
+            }
+
+            // STANDAR / SINGLE SUBMISSION (Untuk template selain Offtake/OOS multi-produk atau No Sale/No OOS)
             $submission = ReportSubmission::create([
                 'report_template_id' => $template->id,
                 'principal_id' => $principalId,
@@ -2236,5 +2407,168 @@ class ReportingApiController extends Controller
         }
 
         return $pending;
+    }
+
+    /**
+     * API endpoint untuk mengambil riwayat OOS toko sebelumnya beserta kalkulasi lama hari.
+     */
+    public function oosHistory(Request $request): JsonResponse
+    {
+        $employee = $this->getAuthenticatedEmployee($request);
+        if (!$employee) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+        }
+
+        $storeId = $request->query('store_id') ?? $request->query('work_location_id');
+        $templateId = $request->query('template_id');
+
+        $ref = $this->getStoreOosReference($storeId ? (int)$storeId : null, $templateId ? (int)$templateId : null);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $ref,
+        ]);
+    }
+
+    /**
+     * Dapatkan riwayat OOS sebelumnya untuk toko tertentu dan hitung pertambahan hari otomatis.
+     */
+    protected function getStoreOosReference(?int $storeId, ?int $templateId = null): array
+    {
+        if (!$storeId) {
+            return [
+                'has_previous' => false,
+                'last_submission_date' => null,
+                'diff_days' => 1,
+                'previous_items' => [],
+            ];
+        }
+
+        $today = now()->toDateString();
+
+        // Cari submission OOS terakhir di toko ini SEBELUM hari ini
+        $lastSub = ReportSubmission::where('work_location_id', $storeId)
+            ->whereHas('template', function ($q) use ($templateId) {
+                if ($templateId) {
+                    $q->where('id', $templateId);
+                } else {
+                    $q->where('code', 'RPT-DULUX-OOS-SSO')->orWhere('code', 'LIKE', '%OOS%');
+                }
+            })
+            ->whereDate('submitted_at', '<', $today)
+            ->with(['values.formField', 'template'])
+            ->orderBy('submitted_at', 'desc')
+            ->first();
+
+        if (!$lastSub) {
+            return [
+                'has_previous' => false,
+                'last_submission_date' => null,
+                'diff_days' => 1,
+                'previous_items' => [],
+            ];
+        }
+
+        $subDate = \Illuminate\Support\Carbon::parse($lastSub->submitted_at)->startOfDay();
+        $todayDate = now()->startOfDay();
+        $diffDays = max(1, (int)$subDate->diffInDays($todayDate));
+
+        // Kumpulkan values
+        $valMap = [];
+        foreach ($lastSub->values as $v) {
+            $fName = strtolower(trim($v->field_name ?? ($v->formField?->field_name ?? '')));
+            if ($fName) {
+                $valMap[$fName] = $v->value_json ?? ($v->value_number ?? $v->value_text);
+            }
+        }
+
+        $tipeOos = strtolower(trim((string)($valMap['tipe_laporan_oos'] ?? '')));
+        $statusOos = strtolower(trim((string)($valMap['status_ketersediaan'] ?? ($valMap['alasan_oos'] ?? ''))));
+
+        // Jika laporan terakhir adalah No OOS / Stok Lengkap, maka stok toko sudah pulih!
+        // Riwayat OOS di-reset dari awal (kosong).
+        if ($tipeOos === 'no_oos' || str_contains($statusOos, 'no oos') || str_contains($statusOos, 'stok lengkap')) {
+            return [
+                'has_previous' => true,
+                'is_last_no_oos' => true,
+                'last_submission_date' => $lastSub->submitted_at->toDateString(),
+                'diff_days' => $diffDays,
+                'previous_items' => [],
+            ];
+        }
+
+        $items = [];
+
+        // 1. Cek dari oos_items_json jika ada
+        if (!empty($valMap['oos_items_json'])) {
+            $rawItems = is_array($valMap['oos_items_json']) ? $valMap['oos_items_json'] : json_decode((string)$valMap['oos_items_json'], true);
+            if (is_array($rawItems)) {
+                foreach ($rawItems as $itm) {
+                    $prevLama = (int)($itm['lama_oos_hari'] ?? 1);
+                    $calcLama = $prevLama + $diffDays;
+                    $items[] = [
+                        'product_id' => $itm['product_id'] ?? null,
+                        'product_name' => $itm['product_name'] ?? ($itm['produk_oos'] ?? ''),
+                        'kemasan_size_oos' => $itm['kemasan_size_oos'] ?? '',
+                        'base_warna_oos' => $itm['base_warna_oos'] ?? '',
+                        'warna_ready_mix_oos' => $itm['warna_ready_mix_oos'] ?? '',
+                        'previous_lama_oos' => $prevLama,
+                        'calculated_lama_oos' => $calcLama,
+                        'alasan_oos' => $itm['alasan_oos'] ?? '',
+                        'saran_qty_order' => (int)($itm['saran_qty_order'] ?? 0),
+                    ];
+                }
+            }
+        }
+
+        // 2. Jika tidak ada oos_items_json (format single submission lama):
+        if (empty($items)) {
+            // Ambil semua submission OOS pada tanggal laporan terakhir tersebut
+            $sameDaySubs = ReportSubmission::where('work_location_id', $storeId)
+                ->whereHas('template', function ($q) use ($templateId) {
+                    if ($templateId) {
+                        $q->where('id', $templateId);
+                    } else {
+                        $q->where('code', 'RPT-DULUX-OOS-SSO')->orWhere('code', 'LIKE', '%OOS%');
+                    }
+                })
+                ->whereDate('submitted_at', $lastSub->submitted_at->toDateString())
+                ->with(['values.formField'])
+                ->get();
+
+            foreach ($sameDaySubs as $sSub) {
+                $sValMap = [];
+                foreach ($sSub->values as $v) {
+                    $fn = strtolower(trim($v->field_name ?? ($v->formField?->field_name ?? '')));
+                    if ($fn) {
+                        $sValMap[$fn] = $v->value_json ?? ($v->value_number ?? $v->value_text);
+                    }
+                }
+                $pName = trim((string)($sValMap['produk_oos'] ?? ($sValMap['nama_produk_yang_kosong_oos'] ?? '')));
+                if (!empty($pName) && !str_contains(strtolower($pName), 'no oos')) {
+                    $prevLama = (int)($sValMap['lama_oos_hari'] ?? ($sValMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? 1));
+                    $calcLama = $prevLama + $diffDays;
+                    $items[] = [
+                        'product_id' => null,
+                        'product_name' => $pName,
+                        'kemasan_size_oos' => $sValMap['kemasan_size_oos'] ?? '',
+                        'base_warna_oos' => $sValMap['base_warna_oos'] ?? '',
+                        'warna_ready_mix_oos' => $sValMap['warna_ready_mix_oos'] ?? '',
+                        'previous_lama_oos' => $prevLama,
+                        'calculated_lama_oos' => $calcLama,
+                        'alasan_oos' => $sValMap['alasan_oos'] ?? '',
+                        'saran_qty_order' => (int)($sValMap['saran_qty_order'] ?? 0),
+                    ];
+                }
+            }
+        }
+
+        return [
+            'has_previous' => count($items) > 0,
+            'is_last_no_oos' => false,
+            'last_submission_date' => $lastSub->submitted_at->toDateString(),
+            'diff_days' => $diffDays,
+            'previous_items' => $items,
+        ];
     }
 }

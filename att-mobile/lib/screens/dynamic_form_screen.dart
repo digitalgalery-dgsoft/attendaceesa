@@ -208,14 +208,24 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         title.contains('offtake');
   }
 
+  bool _isOosTemplate() {
+    final code = widget.template.code.toUpperCase();
+    final title = widget.template.title.toLowerCase();
+    return code == 'RPT-DULUX-OOS-SSO' ||
+        code == 'RPT-DULUX-OOS-LSO' ||
+        code.contains('OOS') ||
+        title.contains('out of stock') ||
+        title.contains('oos');
+  }
+
   bool _hasProductBinding() {
     if (_isDailyMaintenanceTemplate()) return false;
     if (_isOfftakeTemplate()) return false; // Offtake uses cart + confirmation review, NOT sequential per-product locks!
+    if (_isOosTemplate()) return false; // OOS uses cart + confirmation review, NOT sequential per-product locks!
     if (widget.template.hasProductBinding) return true;
     if (_getProducts().isNotEmpty) return true;
     final code = widget.template.code.toUpperCase();
     if (code == 'RPT-DULUX-STOCK-END' ||
-        code == 'RPT-DULUX-OOS-SSO' ||
         code == 'RPT-DULUX-CBP-PRICING') {
       return true;
     }
@@ -310,6 +320,26 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   String? _offtakeCardPhotoWatermark;
   final List<File> _offtakeNotaPhotos = [];
   final List<String> _offtakeNotaPhotoWatermarks = [];
+
+  // Out of Stock (OOS) Reporting State
+  String _oosType = 'oos'; // 'oos' | 'no_oos'
+  int _oosStep = 0; // 0: Input & Keranjang, 1: Review & Konfirmasi
+  final List<Map<String, dynamic>> _oosCart = [];
+  TemplateProductModel? _currentOosProduct;
+
+  final TextEditingController _oosChannelTokoCtrl = TextEditingController(text: 'SSO (Traditional Trade / Retail)');
+  final TextEditingController _oosKemasanSizeCtrl = TextEditingController();
+  final TextEditingController _oosBaseWarnaCtrl = TextEditingController();
+  final TextEditingController _oosReadyMixColorCtrl = TextEditingController();
+  final TextEditingController _oosLamaHariCtrl = TextEditingController(text: '1');
+  final TextEditingController _oosSaranQtyCtrl = TextEditingController(text: '1');
+  final TextEditingController _oosAlasanCtrl = TextEditingController();
+  final TextEditingController _oosAlasanLainnyaCtrl = TextEditingController();
+
+  // Previous OOS History / Reference for consecutive calculation
+  List<Map<String, dynamic>> _previousOosItems = [];
+  int _oosDiffDays = 1;
+  String? _previousOosDate;
 
   // GPS & Status
   double? _latitude;
@@ -468,7 +498,36 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       _initStoreMachineForDailyMaintenance();
     });
 
+    if (_isOosTemplate() && _selectedWorkLocationId != null) {
+      _fetchOosHistoryForStore(_selectedWorkLocationId!);
+    }
+
     _recalculateRadius();
+  }
+
+  Future<void> _fetchOosHistoryForStore(int storeId) async {
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+      if (auth.token == null) return;
+      final res = await repProvider.fetchOosHistory(auth.token!, storeId);
+      if (res != null && mounted) {
+        setState(() {
+          _oosDiffDays = int.tryParse(res['diff_days']?.toString() ?? '1') ?? 1;
+          _previousOosDate = res['previous_date']?.toString();
+          if (res['previous_oos_items'] is List) {
+            _previousOosItems = (res['previous_oos_items'] as List)
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
+          } else {
+            _previousOosItems = [];
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading OOS history for store: $e');
+    }
   }
 
   void _recalculateRadius() {
@@ -1051,6 +1110,65 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             _offtakeCustBeliCatCtrl.text = val.valueNumber?.toInt().toString() ?? (val.valueText ?? '');
           } else if (fn == 'jml_customer_beli_dulux') {
             _offtakeCustBeliDuluxCtrl.text = val.valueNumber?.toInt().toString() ?? (val.valueText ?? '');
+          }
+        }
+      }
+    }
+
+    // Inisialisasi data laporan Out of Stock (OOS) Dulux
+    final bool isOos = _isOosTemplate();
+    if (isOos) {
+      _oosCart.clear();
+      _oosType = 'oos';
+      _oosStep = 0;
+      _currentOosProduct = null;
+      _oosKemasanSizeCtrl.clear();
+      _oosBaseWarnaCtrl.clear();
+      _oosReadyMixColorCtrl.clear();
+      _oosLamaHariCtrl.text = '1';
+      _oosSaranQtyCtrl.text = '1';
+      _oosAlasanCtrl.clear();
+      _oosAlasanLainnyaCtrl.clear();
+
+      // Load initial OOS reference from template if passed
+      if (widget.template.oosReference != null) {
+        final ref = widget.template.oosReference!;
+        _oosDiffDays = int.tryParse(ref['diff_days']?.toString() ?? '1') ?? 1;
+        _previousOosDate = ref['previous_date']?.toString();
+        if (ref['previous_oos_items'] is List) {
+          _previousOosItems = (ref['previous_oos_items'] as List)
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+      }
+
+      // If store is already known, load store's fresh OOS history
+      if (_selectedWorkLocationId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _fetchOosHistoryForStore(_selectedWorkLocationId!);
+        });
+      }
+
+      if (widget.editSubmission != null) {
+        for (final val in widget.editSubmission!.values) {
+          final fn = val.fieldName.toLowerCase();
+          if (fn == 'tipe_laporan_oos') {
+            _oosType = val.valueText == 'no_oos' ? 'no_oos' : 'oos';
+          } else if (fn == 'oos_items_json') {
+            try {
+              final raw = val.valueJson ?? val.valueText;
+              final list = raw is List ? raw : (raw is String ? jsonDecode(raw) : null);
+              if (list is List) {
+                for (final itm in list) {
+                  if (itm is Map) {
+                    _oosCart.add(Map<String, dynamic>.from(itm));
+                  }
+                }
+              }
+            } catch (e) {
+              debugPrint('Error decoding oos_items_json: $e');
+            }
           }
         }
       }
@@ -1967,6 +2085,20 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
     if (_isOfftakeTemplate()) {
       return _buildOfftakeScaffold(
+        context: context,
+        canSubmitReport: canSubmitReport,
+        isDarkMode: isDarkMode,
+        themeColor: themeColor,
+        cardColor: cardColor,
+        textColor: textColor,
+        subtitleColor: subtitleColor,
+        elevatedColor: elevatedColor,
+        locale: locale,
+      );
+    }
+
+    if (_isOosTemplate()) {
+      return _buildOosScaffold(
         context: context,
         canSubmitReport: canSubmitReport,
         isDarkMode: isDarkMode,
@@ -7516,6 +7648,1968 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           type: ToastificationType.success,
           title: const Text('Laporan No Sale Terkirim'),
           description: const Text('Laporan tanpa transaksi penjualan berhasil dikirim.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+        Navigator.of(context).pop(true);
+      } else if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Gagal Mengirim Laporan'),
+          description: Text(result['message'] ?? 'Terjadi kesalahan sistem.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Terjadi Kesalahan'),
+          description: Text(e.toString()),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // ─── OUT OF STOCK (OOS) DULUX SYSTEM IMPLEMENTATION ──────────────────────────
+  // ════════════════════════════════════════════════════════════════════════════
+
+  static const List<String> _kOosReasons = [
+    '1. Sudah buka PO namun belum ada pengiriman ke toko',
+    '2. Sudah buka PO namun kendala stock di distributor',
+    '3. Kendala pembayaran (kiriman barang diblokir)',
+    '4. Barang sedang dalam proses pengiriman ke toko',
+    '5. Adanya pembelian dalam jumlah besar (borongan) sehingga menyebabkan OOS',
+    '6. Other / Lainnya',
+  ];
+
+  static const List<String> _kOosKemasanOptions = [
+    'Tin (1 L)',
+    'Galon (2.5 L)',
+    'Pail (20 L)',
+    'Pail (20 Kg)',
+    'Galon (5 Kg)',
+    'Lainnya',
+  ];
+
+  static const List<String> _kOosBaseOptions = [
+    'Ready Mix',
+    'Base A',
+    'Base B',
+    'Base C',
+    'Base D',
+    'Base Medium',
+    'Primer / Cat Dasar',
+    'Lainnya',
+  ];
+
+  List<TemplateProductModel> _getOosProducts() {
+    final prods = _getProducts();
+    if (prods.isNotEmpty) return prods;
+    final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+    for (final t in repProvider.templates) {
+      if (t.products.isNotEmpty) return t.products;
+    }
+    return [];
+  }
+
+  void _onOosProductSelected(TemplateProductModel prod) {
+    setState(() {
+      _currentOosProduct = prod;
+
+      // 1. Kemasan Size auto detection
+      final pName = prod.name.toUpperCase();
+      final pPack = (prod.pricingMatrix?['packaging']?.toString() ?? prod.uom).toUpperCase();
+      if (pName.contains('20 L') || pName.contains('20L') || pName.contains('PAIL') || pPack.contains('PAIL') || pPack.contains('20')) {
+        _oosKemasanSizeCtrl.text = 'Pail (20 L)';
+      } else if (pName.contains('2.5 L') || pName.contains('2.5L') || pName.contains('GALON') || pPack.contains('GALON') || pPack.contains('2.5')) {
+        _oosKemasanSizeCtrl.text = 'Galon (2.5 L)';
+      } else if (pName.contains('1 L') || pName.contains('1L') || pName.contains('TIN') || pPack.contains('TIN') || pPack.contains('1')) {
+        _oosKemasanSizeCtrl.text = 'Tin (1 L)';
+      } else if (pName.contains('20 KG') || pName.contains('20KG')) {
+        _oosKemasanSizeCtrl.text = 'Pail (20 Kg)';
+      } else if (pName.contains('5 KG') || pName.contains('5KG')) {
+        _oosKemasanSizeCtrl.text = 'Galon (5 Kg)';
+      } else {
+        _oosKemasanSizeCtrl.text = 'Galon (2.5 L)';
+      }
+
+      // 2. Base Color / RM auto detection
+      final rmBase = (prod.pricingMatrix?['brand_rm_base']?.toString() ?? '').toUpperCase();
+      if (rmBase.contains('RM') || rmBase.contains('READY MIX')) {
+        _oosBaseWarnaCtrl.text = 'Ready Mix';
+        _oosReadyMixColorCtrl.text = prod.name;
+      } else if (rmBase.contains('BASE A')) {
+        _oosBaseWarnaCtrl.text = 'Base A';
+        _oosReadyMixColorCtrl.text = 'Bukan Ready Mix (Base Oplos)';
+      } else if (rmBase.contains('BASE B')) {
+        _oosBaseWarnaCtrl.text = 'Base B';
+        _oosReadyMixColorCtrl.text = 'Bukan Ready Mix (Base Oplos)';
+      } else if (rmBase.contains('BASE C')) {
+        _oosBaseWarnaCtrl.text = 'Base C';
+        _oosReadyMixColorCtrl.text = 'Bukan Ready Mix (Base Oplos)';
+      } else if (rmBase.contains('BASE D')) {
+        _oosBaseWarnaCtrl.text = 'Base D';
+        _oosReadyMixColorCtrl.text = 'Bukan Ready Mix (Base Oplos)';
+      } else if (rmBase.contains('BASE M')) {
+        _oosBaseWarnaCtrl.text = 'Base Medium';
+        _oosReadyMixColorCtrl.text = 'Bukan Ready Mix (Base Oplos)';
+      } else if (rmBase.contains('PRIMER') || (prod.category ?? '').toLowerCase().contains('primer') || pName.contains('PRIMER')) {
+        _oosBaseWarnaCtrl.text = 'Primer / Cat Dasar';
+        _oosReadyMixColorCtrl.text = 'Primer / Cat Dasar';
+      } else {
+        _oosBaseWarnaCtrl.text = 'Base A';
+        _oosReadyMixColorCtrl.text = 'Bukan Ready Mix (Base Oplos)';
+      }
+
+      // 3. Auto calculate consecutive OOS days from previous history
+      final prevMatch = _previousOosItems.firstWhere(
+        (item) =>
+            (item['product_id'] != null && item['product_id'] == prod.id) ||
+            (item['product_name'] != null && item['product_name'].toString().toLowerCase() == prod.name.toLowerCase()) ||
+            (item['product_code'] != null && item['product_code'].toString().toLowerCase() == (prod.skuCode ?? '').toLowerCase()),
+        orElse: () => {},
+      );
+
+      int calculatedDays = 1;
+      if (prevMatch.isNotEmpty) {
+        final prevLama = int.tryParse(prevMatch['lama_oos_hari']?.toString() ?? '1') ?? 1;
+        calculatedDays = prevLama + _oosDiffDays;
+        if (prevMatch['alasan_oos'] != null && _oosAlasanCtrl.text.isEmpty) {
+          _oosAlasanCtrl.text = prevMatch['alasan_oos'].toString();
+        }
+      }
+      _oosLamaHariCtrl.text = calculatedDays.toString();
+
+      // 4. Saran Order Qty
+      if (_oosKemasanSizeCtrl.text.contains('Pail')) {
+        _oosSaranQtyCtrl.text = '2';
+      } else if (_oosKemasanSizeCtrl.text.contains('Galon')) {
+        _oosSaranQtyCtrl.text = '4';
+      } else {
+        _oosSaranQtyCtrl.text = '6';
+      }
+
+      // 5. Default Reason
+      if (_oosAlasanCtrl.text.isEmpty) {
+        _oosAlasanCtrl.text = _kOosReasons.first;
+      }
+    });
+  }
+
+  void _addCurrentOosToCart() {
+    if (_currentOosProduct == null) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Pilih Produk Terlebih Dahulu'),
+        description: const Text('Silakan pilih produk Dulux / Catylac yang mengalami OOS.'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    final p = _currentOosProduct!;
+    final alreadyInCart = _oosCart.any((item) =>
+        item['product_name']?.toString().toLowerCase() == p.name.toLowerCase() ||
+        (item['product_id'] != null && item['product_id'] == p.id));
+
+    if (alreadyInCart) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Produk Sudah Ada di Daftar'),
+        description: Text('Produk "${p.name}" sudah dimasukkan ke daftar OOS.'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    final int lamaHari = int.tryParse(_oosLamaHariCtrl.text) ?? 1;
+    final int saranQty = int.tryParse(_oosSaranQtyCtrl.text) ?? 1;
+    final String alasan = _oosAlasanCtrl.text.isNotEmpty
+        ? (_oosAlasanCtrl.text == '6. Other / Lainnya' && _oosAlasanLainnyaCtrl.text.isNotEmpty ? _oosAlasanLainnyaCtrl.text : _oosAlasanCtrl.text)
+        : _kOosReasons.first;
+
+    setState(() {
+      _oosCart.add({
+        'product_id': p.id,
+        'product_code': p.skuCode ?? p.name,
+        'product_name': p.name,
+        'brand': p.brand ?? 'Dulux',
+        'kemasan_size': _oosKemasanSizeCtrl.text.isNotEmpty ? _oosKemasanSizeCtrl.text : 'Galon (2.5 L)',
+        'base_color': _oosBaseWarnaCtrl.text.isNotEmpty ? _oosBaseWarnaCtrl.text : 'Base A',
+        'warna_ready_mix_oos': _oosReadyMixColorCtrl.text.isNotEmpty ? _oosReadyMixColorCtrl.text : 'Bukan Ready Mix (Base Oplos)',
+        'lama_oos_hari': lamaHari,
+        'saran_qty_order': saranQty,
+        'alasan_oos': alasan,
+        'channel_toko': _oosChannelTokoCtrl.text,
+      });
+
+      _currentOosProduct = null;
+      _oosKemasanSizeCtrl.clear();
+      _oosBaseWarnaCtrl.clear();
+      _oosReadyMixColorCtrl.clear();
+      _oosLamaHariCtrl.text = '1';
+      _oosSaranQtyCtrl.text = '1';
+      _oosAlasanCtrl.clear();
+      _oosAlasanLainnyaCtrl.clear();
+    });
+
+    toastification.show(
+      context: context,
+      type: ToastificationType.success,
+      title: const Text('Item OOS Ditambahkan'),
+      description: Text('${p.name} berhasil dimasukkan ke daftar OOS hari ini.'),
+      autoCloseDuration: const Duration(seconds: 2),
+    );
+  }
+
+  void _addPreviousOosToCart(Map<String, dynamic> prev) {
+    final prodName = prev['product_name']?.toString() ?? 'Dulux Product';
+    final alreadyInCart = _oosCart.any((item) => item['product_name']?.toString().toLowerCase() == prodName.toLowerCase());
+
+    if (alreadyInCart) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Produk Sudah Ada di Daftar'),
+        description: Text('Produk "$prodName" sudah dimasukkan ke daftar OOS.'),
+        autoCloseDuration: const Duration(seconds: 2),
+      );
+      return;
+    }
+
+    final prevLama = int.tryParse(prev['lama_oos_hari']?.toString() ?? '1') ?? 1;
+    final int consecutiveDays = prevLama + _oosDiffDays;
+
+    setState(() {
+      _oosCart.add({
+        'product_id': prev['product_id'],
+        'product_code': prev['product_code'] ?? prodName,
+        'product_name': prodName,
+        'brand': prev['brand'] ?? 'Dulux',
+        'kemasan_size': prev['kemasan_size'] ?? 'Galon (2.5 L)',
+        'base_color': prev['base_color'] ?? 'Base A',
+        'warna_ready_mix_oos': prev['warna_ready_mix_oos'] ?? 'Bukan Ready Mix (Base Oplos)',
+        'lama_oos_hari': consecutiveDays,
+        'saran_qty_order': int.tryParse(prev['saran_qty_order']?.toString() ?? '2') ?? 2,
+        'alasan_oos': prev['alasan_oos'] ?? _kOosReasons.first,
+        'channel_toko': _oosChannelTokoCtrl.text,
+      });
+    });
+
+    toastification.show(
+      context: context,
+      type: ToastificationType.success,
+      title: const Text('OOS Lanjutan Ditambahkan'),
+      description: Text('$prodName ditambahkan dengan durasi berlanjut ($consecutiveDays hari).'),
+      autoCloseDuration: const Duration(seconds: 2),
+    );
+  }
+
+  void _openOosProductPickerBottomSheet(Color themeColor, bool isDarkMode) {
+    final allProducts = _getOosProducts();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        String searchQuery = '';
+        String selectedFilter = 'Semua';
+
+        final categories = <String>['Semua'];
+        for (final p in allProducts) {
+          final cat = p.category?.trim() ?? '';
+          if (cat.isNotEmpty && !categories.contains(cat)) {
+            categories.add(cat);
+          }
+        }
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final filteredProducts = allProducts.where((p) {
+              final matchesFilter = selectedFilter == 'Semua' || (p.category != null && p.category!.trim().toLowerCase() == selectedFilter.toLowerCase());
+              if (!matchesFilter) return false;
+
+              if (searchQuery.isEmpty) return true;
+              final q = searchQuery.toLowerCase();
+              final matchesName = p.name.toLowerCase().contains(q);
+              final matchesSku = p.skuCode?.toLowerCase().contains(q) ?? false;
+              final matchesBrand = p.brand?.toLowerCase().contains(q) ?? false;
+              return matchesName || matchesSku || matchesBrand;
+            }).toList();
+
+            final sheetBg = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
+            final itemBg = isDarkMode ? const Color(0xFF2A2A2A) : const Color(0xFFF8FAFC);
+            final sheetText = isDarkMode ? Colors.white : const Color(0xFF1E293B);
+            final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: BoxDecoration(
+                color: sheetBg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD97706).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.remove_shopping_cart_rounded, color: Color(0xFFD97706), size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Pilih Produk Out of Stock (OOS)',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: sheetText),
+                              ),
+                              Text(
+                                'Katalog ${allProducts.length} Produk Dulux & Catylac',
+                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(sheetCtx).pop(),
+                          icon: const Icon(Icons.close_rounded),
+                          color: Colors.grey.shade500,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Search Box
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                    child: TextField(
+                      onChanged: (val) => setSheetState(() => searchQuery = val),
+                      style: TextStyle(fontSize: 13, color: sheetText),
+                      decoration: InputDecoration(
+                        hintText: 'Cari nama produk, SKU, atau brand...',
+                        hintStyle: TextStyle(fontSize: 13, color: subtitleColor),
+                        prefixIcon: Icon(Icons.search_rounded, size: 20, color: themeColor),
+                        filled: true,
+                        fillColor: itemBg,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      ),
+                    ),
+                  ),
+
+                  // Category Filter Pills
+                  if (categories.length > 1)
+                    SizedBox(
+                      height: 38,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: categories.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (ctx, idx) {
+                          final cat = categories[idx];
+                          final isSel = selectedFilter == cat;
+                          return ChoiceChip(
+                            label: Text(cat, style: TextStyle(fontSize: 12, fontWeight: isSel ? FontWeight.bold : FontWeight.normal, color: isSel ? Colors.white : subtitleColor)),
+                            selected: isSel,
+                            onSelected: (val) => setSheetState(() => selectedFilter = cat),
+                            selectedColor: themeColor,
+                            backgroundColor: itemBg,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: isSel ? themeColor : Colors.grey.shade300)),
+                          );
+                        },
+                      ),
+                    ),
+
+                  const Divider(height: 16),
+
+                  // Product List
+                  Expanded(
+                    child: filteredProducts.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.search_off_rounded, size: 48, color: Colors.grey.shade400),
+                                const SizedBox(height: 8),
+                                Text('Produk tidak ditemukan', style: TextStyle(color: subtitleColor, fontSize: 13)),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                            itemCount: filteredProducts.length,
+                            itemBuilder: (ctx, idx) {
+                              final prod = filteredProducts[idx];
+                              final isCurrent = _currentOosProduct?.id == prod.id;
+                              final inCart = _oosCart.any((c) => c['product_name'] == prod.name || (c['product_id'] != null && c['product_id'] == prod.id));
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                decoration: BoxDecoration(
+                                  color: isCurrent ? themeColor.withOpacity(0.08) : (inCart ? Colors.amber.withOpacity(0.06) : itemBg),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isCurrent ? themeColor : (inCart ? Colors.amber.shade300 : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200)),
+                                    width: isCurrent ? 1.5 : 1.0,
+                                  ),
+                                ),
+                                child: ListTile(
+                                  onTap: () {
+                                    Navigator.of(sheetCtx).pop();
+                                    _onOosProductSelected(prod);
+                                  },
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                  leading: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: inCart ? Colors.amber.withOpacity(0.15) : (isCurrent ? themeColor.withOpacity(0.15) : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200)),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Icon(
+                                      inCart ? Icons.check_circle_rounded : Icons.format_paint_rounded,
+                                      color: inCart ? Colors.amber.shade700 : (isCurrent ? themeColor : subtitleColor),
+                                      size: 20,
+                                    ),
+                                  ),
+                                  title: Text(
+                                    prod.name,
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: isCurrent ? themeColor : sheetText,
+                                    ),
+                                  ),
+                                  subtitle: Row(
+                                    children: [
+                                      if (prod.brand != null) ...[
+                                        Text(prod.brand!, style: TextStyle(fontSize: 11, color: subtitleColor)),
+                                        const SizedBox(width: 6),
+                                        Text('•', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                                        const SizedBox(width: 6),
+                                      ],
+                                      if (prod.pricingMatrix?['brand_rm_base'] != null)
+                                        Text('${prod.pricingMatrix!['brand_rm_base']}', style: const TextStyle(fontSize: 11, color: Color(0xFF0F52BA), fontWeight: FontWeight.w600)),
+                                      if (inCart) ...[
+                                        const Spacer(),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(6)),
+                                          child: Text('Ada di Daftar', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber.shade900)),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: isCurrent ? themeColor : Colors.grey.shade400),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildOosScaffold({
+    required BuildContext context,
+    required bool canSubmitReport,
+    required bool isDarkMode,
+    required Color themeColor,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color elevatedColor,
+    required LocaleProvider locale,
+  }) {
+    final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.editSubmission != null ? 'Edit Laporan OOS' : 'Laporan Out of Stock (OOS)',
+              style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (_selectedStoreName.isNotEmpty)
+              Text(
+                _selectedStoreName,
+                style: TextStyle(color: subtitleColor, fontSize: 11.5, fontWeight: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: _buildLocationStatusIndicator(canSubmitReport, isDarkMode),
+          ),
+        ],
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
+      ),
+      body: ListView(
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        children: [
+          // ─── Mode Switch: OOS vs NO OOS (STOK LENGKAP) ───────────────────────────
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // Option: OOS (Ada Barang Kosong)
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() => _oosType = 'oos'),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _oosType == 'oos' ? const Color(0xFFE53935) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: _oosType == 'oos'
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFFE53935).withOpacity(0.35),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.remove_shopping_cart_rounded,
+                            size: 18,
+                            color: _oosType == 'oos' ? Colors.white : subtitleColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'OOS (Ada Barang Kosong)',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: _oosType == 'oos' ? Colors.white : subtitleColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Option: NO OOS (Stok Lengkap)
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() => _oosType = 'no_oos'),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _oosType == 'no_oos' ? const Color(0xFF149A6E) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: _oosType == 'no_oos'
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFF149A6E).withOpacity(0.35),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.check_circle_rounded,
+                            size: 18,
+                            color: _oosType == 'no_oos' ? Colors.white : subtitleColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'No OOS (Stok Lengkap)',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: _oosType == 'no_oos' ? Colors.white : subtitleColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ─── Render Body According to Mode ───────────────────────────────
+          if (_oosType == 'no_oos') ...[
+            _buildOosNoOosBody(themeColor, cardColor, textColor, subtitleColor, isDarkMode, canSubmitReport),
+          ] else ...[
+            // Step Switch Tabs for OOS
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _oosStep = 0),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _oosStep == 0 ? themeColor.withOpacity(0.12) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _oosStep == 0 ? themeColor : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.edit_note_rounded, size: 16, color: _oosStep == 0 ? themeColor : subtitleColor),
+                            const SizedBox(width: 6),
+                            Text(
+                              '1. Input OOS (${_oosCart.length})',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _oosStep == 0 ? themeColor : subtitleColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
+                      onTap: _oosCart.isEmpty
+                          ? () {
+                              toastification.show(
+                                context: context,
+                                type: ToastificationType.warning,
+                                title: const Text('Daftar OOS Masih Kosong'),
+                                description: const Text('Masukkan minimal 1 produk yang kosong terlebih dahulu.'),
+                                autoCloseDuration: const Duration(seconds: 2),
+                              );
+                            }
+                          : () => setState(() => _oosStep = 1),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _oosStep == 1 ? themeColor.withOpacity(0.12) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _oosStep == 1 ? themeColor : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.fact_check_rounded, size: 16, color: _oosStep == 1 ? themeColor : subtitleColor),
+                            const SizedBox(width: 6),
+                            Text(
+                              '2. Review & Submit',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _oosStep == 1 ? themeColor : subtitleColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            if (_oosStep == 0)
+              _buildOosStep0Body(themeColor, cardColor, textColor, subtitleColor, elevatedColor, isDarkMode)
+            else
+              _buildOosStep1Body(themeColor, cardColor, textColor, subtitleColor, elevatedColor, isDarkMode, canSubmitReport),
+          ],
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOosNoOosBody(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    bool isDarkMode,
+    bool canSubmitReport,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF149A6E).withOpacity(0.35)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF149A6E).withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle_outline_rounded,
+                  size: 48,
+                  color: Color(0xFF149A6E),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Stok Lengkap (No OOS)',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Toko memiliki ketersediaan stok lengkap untuk seluruh SKU Dulux & Catylac. Tidak ada produk yang mengalami Out of Stock.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: subtitleColor,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF149A6E).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF149A6E).withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF149A6E)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Mengirim laporan No OOS akan mereset hitungan hari OOS produk toko ini karena seluruh barang telah tersedia.',
+                        style: TextStyle(fontSize: 11.5, color: isDarkMode ? Colors.green.shade200 : const Color(0xFF166534)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 24),
+
+        if (!canSubmitReport)
+          ElevatedButton.icon(
+            onPressed: null,
+            icon: const Icon(Icons.lock_clock_rounded, size: 18),
+            label: const Text(
+              'Wajib Check-In / Visit-In Toko',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              disabledBackgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              disabledForegroundColor: Colors.grey.shade500,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+          )
+        else
+          ElevatedButton.icon(
+            onPressed: _isSubmitting ? null : _submitOosNoOos,
+            icon: _isSubmitting
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+            label: Text(
+              _isSubmitting ? 'Mengirim Laporan Stok Lengkap...' : 'Kirim Laporan Stok Lengkap (No OOS)',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF149A6E),
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 3,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildOosStep0Body(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    bool isDarkMode,
+  ) {
+    final p = _currentOosProduct;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ─── CARD 1: INPUT / PILIH PRODUK OOS ──────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD97706).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.remove_shopping_cart_rounded, color: Color(0xFFD97706), size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pilih Produk Kosong (OOS)',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                        ),
+                        Text(
+                          'Data kemasan, base, dan lama OOS akan terisi otomatis',
+                          style: TextStyle(fontSize: 11, color: subtitleColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Button Selector
+              InkWell(
+                onTap: () => _openOosProductPickerBottomSheet(themeColor, isDarkMode),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: elevatedColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: p != null ? themeColor : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                      width: p != null ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        p != null ? Icons.check_circle_rounded : Icons.search_rounded,
+                        color: p != null ? Colors.green : themeColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          p != null ? p.name : 'Tekan untuk memilih produk yang OOS...',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: p != null ? FontWeight.bold : FontWeight.normal,
+                            color: p != null ? textColor : subtitleColor,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Icon(Icons.arrow_drop_down_rounded, color: subtitleColor, size: 26),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Product Spec Detail
+              if (p != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: themeColor.withOpacity(0.25)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if (p.brand != null)
+                            _buildProductInfoChip('Brand: ${p.brand}', Colors.indigo, isDarkMode),
+                          if (p.pricingMatrix?['brand_rm_base'] != null)
+                            _buildProductInfoChip('RM/Base: ${p.pricingMatrix!['brand_rm_base']}', Colors.teal, isDarkMode),
+                          if (p.category != null)
+                            _buildProductInfoChip(p.category!, Colors.deepPurple, isDarkMode),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 14),
+
+              // Field Auto-filled: Kemasan Size & Base Kategori
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Kemasan Size', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
+                        const SizedBox(height: 4),
+                        DropdownButtonFormField<String>(
+                          value: _kOosKemasanOptions.contains(_oosKemasanSizeCtrl.text) ? _oosKemasanSizeCtrl.text : _kOosKemasanOptions[1],
+                          items: _kOosKemasanOptions.map((opt) => DropdownMenuItem(value: opt, child: Text(opt, style: const TextStyle(fontSize: 12)))).toList(),
+                          onChanged: (val) {
+                            if (val != null) setState(() => _oosKemasanSizeCtrl.text = val);
+                          },
+                          decoration: InputDecoration(
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            filled: true,
+                            fillColor: elevatedColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Base / Kategori', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
+                        const SizedBox(height: 4),
+                        DropdownButtonFormField<String>(
+                          value: _kOosBaseOptions.contains(_oosBaseWarnaCtrl.text) ? _oosBaseWarnaCtrl.text : _kOosBaseOptions[1],
+                          items: _kOosBaseOptions.map((opt) => DropdownMenuItem(value: opt, child: Text(opt, style: const TextStyle(fontSize: 12)))).toList(),
+                          onChanged: (val) {
+                            if (val != null) setState(() => _oosBaseWarnaCtrl.text = val);
+                          },
+                          decoration: InputDecoration(
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            filled: true,
+                            fillColor: elevatedColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Field Auto-calculated: Lama Kondisi OOS (Hari) & Saran Qty Order
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text('Lama OOS (Hari)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(color: Colors.blue.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
+                              child: const Text('Otomatis', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.blue)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        TextField(
+                          controller: _oosLamaHariCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            filled: true,
+                            fillColor: elevatedColor,
+                            suffixText: 'Hari',
+                            suffixStyle: TextStyle(fontSize: 11, color: subtitleColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Saran Order (Qty)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
+                        const SizedBox(height: 4),
+                        TextField(
+                          controller: _oosSaranQtyCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            filled: true,
+                            fillColor: elevatedColor,
+                            suffixText: 'Kemasan',
+                            suffixStyle: TextStyle(fontSize: 11, color: subtitleColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Field: Alasan Out of Stock (OOS)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Alasan Out of Stock (OOS)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    value: _kOosReasons.contains(_oosAlasanCtrl.text) ? _oosAlasanCtrl.text : _kOosReasons.first,
+                    items: _kOosReasons.map((r) => DropdownMenuItem(
+                      value: r,
+                      child: Text(r, style: const TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis),
+                    )).toList(),
+                    onChanged: (val) {
+                      if (val != null) setState(() => _oosAlasanCtrl.text = val);
+                    },
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: elevatedColor,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Button: Tambah ke Keranjang / Daftar OOS
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _addCurrentOosToCart,
+                  icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
+                  label: const Text('Tambahkan ke Daftar OOS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD97706),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ─── CARD 2: RUJUKAN OOS HARI SEBELUMNYA (JIKA ADA) ─────────────────
+        if (_previousOosItems.isNotEmpty) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.history_rounded, color: Colors.blue, size: 18),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Rujukan OOS Periode Sebelumnya',
+                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor),
+                          ),
+                          Text(
+                            'Laporan terakhir: ${_previousOosDate ?? 'Hari Sebelumnya'} (+${_oosDiffDays} hari bertambah)',
+                            style: TextStyle(fontSize: 11, color: subtitleColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${_previousOosItems.length} SKU',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Tekan "+ Lanjutkan OOS" untuk memasukkan produk yang masih kosong dengan hitungan hari otomatis bertambah.',
+                  style: TextStyle(fontSize: 11, color: subtitleColor),
+                ),
+                const SizedBox(height: 10),
+
+                ..._previousOosItems.map((prev) {
+                  final pName = prev['product_name']?.toString() ?? 'Dulux Product';
+                  final prevLama = int.tryParse(prev['lama_oos_hari']?.toString() ?? '1') ?? 1;
+                  final consecutive = prevLama + _oosDiffDays;
+                  final inCart = _oosCart.any((c) => c['product_name']?.toString().toLowerCase() == pName.toLowerCase());
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: inCart ? Colors.green.withOpacity(0.06) : (isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFF8FAFC)),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: inCart ? Colors.green.withOpacity(0.3) : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                pName,
+                                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: textColor),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 3),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(color: Colors.orange.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
+                                    child: Text(
+                                      '${prev['kemasan_size'] ?? 'Galon'}',
+                                      style: const TextStyle(fontSize: 10, color: Colors.deepOrange, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Lama: $consecutive hari ($prevLama + $_oosDiffDays hr)',
+                                    style: TextStyle(fontSize: 10.5, color: subtitleColor),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (inCart)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                            decoration: BoxDecoration(color: Colors.green.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle_rounded, size: 13, color: Colors.green),
+                                SizedBox(width: 4),
+                                Text('Masuk', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
+                              ],
+                            ),
+                          )
+                        else
+                          ElevatedButton(
+                            onPressed: () => _addPreviousOosToCart(prev),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              minimumSize: const Size(0, 32),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              elevation: 0,
+                            ),
+                            child: const Text('+ Lanjutkan OOS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
+
+        // ─── CARD 3: DAFTAR BARANG OOS SAAT INI (CART) ──────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.inventory_2_outlined, color: themeColor, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Daftar Produk OOS Hari Ini',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _oosCart.isNotEmpty ? const Color(0xFFE53935).withOpacity(0.12) : Colors.grey.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${_oosCart.length} SKU OOS',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: _oosCart.isNotEmpty ? const Color(0xFFE53935) : subtitleColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              if (_oosCart.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: elevatedColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.checklist_rounded, size: 36, color: subtitleColor),
+                        const SizedBox(height: 6),
+                        Text('Belum ada produk OOS ditambahkan.', style: TextStyle(fontSize: 12, color: subtitleColor)),
+                        const SizedBox(height: 2),
+                        Text('Pilih produk di atas atau dari rujukan hari sebelumnya.', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ..._oosCart.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final item = entry.value;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: elevatedColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE53935).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '#${idx + 1}',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFE53935)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item['product_name'] ?? 'Dulux Product',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                              ),
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: [
+                                  _buildProductInfoChip('Kemasan: ${item['kemasan_size']}', Colors.indigo, isDarkMode),
+                                  _buildProductInfoChip('Base: ${item['base_color']}', Colors.teal, isDarkMode),
+                                  _buildProductInfoChip('Lama: ${item['lama_oos_hari']} Hari', Colors.red, isDarkMode),
+                                  _buildProductInfoChip('Saran: ${item['saran_qty_order']} Qty', Colors.green, isDarkMode),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Alasan: ${item['alasan_oos']}',
+                                style: TextStyle(fontSize: 11, color: subtitleColor, fontStyle: FontStyle.italic),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            setState(() {
+                              _oosCart.removeAt(idx);
+                            });
+                          },
+                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+
+              const SizedBox(height: 16),
+
+              // Button to step 1
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _oosCart.isEmpty
+                      ? null
+                      : () => setState(() => _oosStep = 1),
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                  label: Text(
+                    'Lanjut ke Review & Konfirmasi (${_oosCart.length} SKU)',
+                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: themeColor,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+                    disabledForegroundColor: Colors.grey.shade500,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOosStep1Body(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    bool isDarkMode,
+    bool canSubmitReport,
+  ) {
+    final int totalSku = _oosCart.length;
+    final int maxLama = _oosCart.fold<int>(0, (max, itm) {
+      final l = (itm['lama_oos_hari'] as num?)?.toInt() ?? 0;
+      return l > max ? l : max;
+    });
+    final int totalSaran = _oosCart.fold<int>(0, (sum, itm) {
+      return sum + ((itm['saran_qty_order'] as num?)?.toInt() ?? 0);
+    });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ─── KPI SUMMARY CARD ───────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE53935).withOpacity(0.3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.fact_check_rounded, color: Color(0xFFE53935), size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Ringkasan Laporan Out of Stock (OOS)',
+                    style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: textColor),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE53935).withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        children: [
+                          Text('$totalSku SKU', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFE53935))),
+                          const SizedBox(height: 2),
+                          Text('Barang OOS', style: TextStyle(fontSize: 10.5, color: subtitleColor)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        children: [
+                          Text('$maxLama Hari', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
+                          const SizedBox(height: 2),
+                          Text('Durasi Terlama', style: TextStyle(fontSize: 10.5, color: subtitleColor)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        children: [
+                          Text('$totalSaran Qty', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+                          const SizedBox(height: 2),
+                          Text('Saran Order', style: TextStyle(fontSize: 10.5, color: subtitleColor)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // ─── REVIEW DETAIL CARD ─────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Rincian Produk yang Dilaporkan OOS', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor)),
+              const SizedBox(height: 10),
+              ..._oosCart.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final item = entry.value;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: elevatedColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(color: const Color(0xFFE53935).withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+                        child: Text('${idx + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFE53935))),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(item['product_name'] ?? '', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Kemasan: ${item['kemasan_size']} • Base: ${item['base_color']} • Durasi: ${item['lama_oos_hari']} Hari • Saran: ${item['saran_qty_order']} Qty',
+                              style: TextStyle(fontSize: 11, color: subtitleColor),
+                            ),
+                            Text('Alasan: ${item['alasan_oos']}', style: TextStyle(fontSize: 10.5, color: subtitleColor, fontStyle: FontStyle.italic)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+
+        // ─── SUBMISSION ACTIONS ─────────────────────────────────────────────
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => setState(() => _oosStep = 0),
+                icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                label: const Text('Edit / Tambah', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: canSubmitReport
+                  ? ElevatedButton.icon(
+                      onPressed: _isSubmitting ? null : _submitOosSale,
+                      icon: _isSubmitting
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.send_rounded, size: 18, color: Colors.white),
+                      label: Text(
+                        _isSubmitting ? 'Mengirim Laporan...' : 'Kirim Laporan OOS Sekarang',
+                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE53935),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 3,
+                      ),
+                    )
+                  : ElevatedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.lock_clock_rounded, size: 18),
+                      label: const Text('Wajib Check-In Toko', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+                        disabledBackgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+                        disabledForegroundColor: Colors.grey.shade500,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 0,
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submitOosSale() async {
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.token;
+
+    if (token == null) return;
+
+    final bool isVisiting = attProvider.isVisiting;
+    final bool isCheckedIn = attProvider.isCheckedIn;
+    final bool isEditMode = widget.editSubmission != null;
+    if (!isVisiting && !isCheckedIn && !isEditMode) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Belum Absensi Kehadiran / Visit'),
+        description: const Text('Anda wajib Check-In atau Visit-In terlebih dahulu untuk mengirim laporan.'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    if (_oosCart.isEmpty) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Daftar OOS Masih Kosong'),
+        description: const Text('Silakan masukkan minimal 1 produk kosong sebelum mengirim laporan.'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final int maxLamaOos = _oosCart.fold<int>(0, (max, itm) {
+        final l = (itm['lama_oos_hari'] as num?)?.toInt() ?? 0;
+        return l > max ? l : max;
+      });
+      final int totalSaranOrder = _oosCart.fold<int>(0, (sum, itm) {
+        return sum + ((itm['saran_qty_order'] as num?)?.toInt() ?? 0);
+      });
+
+      final firstItem = _oosCart.first;
+      final now = DateTime.now();
+      final weekNum = (now.difference(DateTime(now.year, 1, 1)).inDays ~/ 7) + 1;
+
+      final Map<String, dynamic> cleanFormValues = {
+        'tipe_laporan_oos': 'oos',
+        'tanggal_oos': DateFormat('yyyy-MM-dd').format(now),
+        'week': weekNum,
+        'channel': _oosChannelTokoCtrl.text,
+        'channel_toko': _oosChannelTokoCtrl.text,
+        'account': 'Non Modern Trade / SSO',
+        'produk': firstItem['product_name'] ?? 'Dulux Product',
+        'produk_oos': firstItem['product_name'] ?? 'Dulux Product',
+        'nama_produk_yang_kosong_oos': firstItem['product_name'] ?? 'Dulux Product',
+        'pilih_produk_dulux_yang_mengalami_out_of_stock_oos': firstItem['product_name'] ?? 'Dulux Product',
+        'kemasan_size': firstItem['kemasan_size'] ?? 'Galon (2.5 L)',
+        'kemasan_size_oos': firstItem['kemasan_size'] ?? 'Galon (2.5 L)',
+        'ukuran_kemasan_size': firstItem['kemasan_size'] ?? 'Galon (2.5 L)',
+        'base_color': firstItem['base_color'] ?? 'Base A',
+        'base_warna_oos': firstItem['base_color'] ?? 'Base A',
+        'base_tipe_warna': firstItem['base_color'] ?? 'Base A',
+        'warna_ready_mix_oos': firstItem['warna_ready_mix_oos'] ?? 'Bukan Ready Mix (Base Oplos)',
+        'lama_oos_hari': maxLamaOos,
+        'lama_kondisi_barang_kosong_jumlah_hari': maxLamaOos,
+        'saran_qty_order': totalSaranOrder,
+        'saran_kuantiti_order_ke_toko_qty_kemasan': totalSaranOrder,
+        'alasan_oos': firstItem['alasan_oos'] ?? _kOosReasons.first,
+        'penyebab_alasan_out_of_stock_oos': firstItem['alasan_oos'] ?? _kOosReasons.first,
+        'oos_items_json': jsonEncode(_oosCart),
+      };
+
+      for (final f in widget.template.fields) {
+        final fn = f.fieldName.toLowerCase();
+        final fKey = f.id.toString();
+        if (cleanFormValues.containsKey(fn)) {
+          cleanFormValues[fKey] = cleanFormValues[fn];
+        }
+      }
+
+      Map<String, dynamic> result;
+      if (widget.editSubmission != null) {
+        result = await repProvider.updateReport(
+          token: token,
+          submissionId: widget.editSubmission!.id,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          address: _selectedLocation?['address'] ?? _address,
+          values: cleanFormValues,
+          photoFiles: {},
+          existingPhotos: {},
+        );
+      } else {
+        result = await repProvider.submitReport(
+          token: token,
+          templateId: widget.template.id,
+          templateTitle: widget.template.title,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          itineraryItemId: widget.itineraryItemId,
+          latitude: _latitude,
+          longitude: _longitude,
+          address: _selectedLocation?['address'] ?? _address,
+          isWithinRadius: _isWithinRadius,
+          values: cleanFormValues,
+          photoFiles: {},
+          watermarkTexts: {},
+        );
+      }
+
+      setState(() => _isSubmitting = false);
+
+      if (result['success'] == true && mounted) {
+        if (attProvider.isVisiting) {
+          attProvider.markVisitReportFilled();
+        }
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          title: const Text('Laporan OOS Terkirim'),
+          description: Text('Total ${_oosCart.length} SKU kosong berhasil dilaporkan.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+        Navigator.of(context).pop(true);
+      } else if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Gagal Mengirim Laporan'),
+          description: Text(result['message'] ?? 'Terjadi kesalahan sistem.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Terjadi Kesalahan'),
+          description: Text(e.toString()),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    }
+  }
+
+  Future<void> _submitOosNoOos() async {
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final token = auth.token;
+
+    if (token == null) return;
+
+    final bool isVisiting = attProvider.isVisiting;
+    final bool isCheckedIn = attProvider.isCheckedIn;
+    final bool isEditMode = widget.editSubmission != null;
+    if (!isVisiting && !isCheckedIn && !isEditMode) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Belum Absensi Kehadiran / Visit'),
+        description: const Text('Anda wajib Check-In atau Visit-In terlebih dahulu untuk mengirim laporan.'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final now = DateTime.now();
+      final weekNum = (now.difference(DateTime(now.year, 1, 1)).inDays ~/ 7) + 1;
+
+      final Map<String, dynamic> cleanFormValues = {
+        'tipe_laporan_oos': 'no_oos',
+        'tanggal_oos': DateFormat('yyyy-MM-dd').format(now),
+        'week': weekNum,
+        'channel': _oosChannelTokoCtrl.text,
+        'channel_toko': _oosChannelTokoCtrl.text,
+        'account': 'Non Modern Trade / SSO',
+        'produk': 'No OOS (Stok Lengkap)',
+        'produk_oos': 'No OOS (Stok Lengkap)',
+        'nama_produk_yang_kosong_oos': 'No OOS (Stok Lengkap)',
+        'pilih_produk_dulux_yang_mengalami_out_of_stock_oos': 'No OOS',
+        'kemasan_size': '-',
+        'kemasan_size_oos': '-',
+        'ukuran_kemasan_size': '-',
+        'base_color': '-',
+        'base_warna_oos': '-',
+        'base_tipe_warna': '-',
+        'warna_ready_mix_oos': '-',
+        'lama_oos_hari': 0,
+        'lama_kondisi_barang_kosong_jumlah_hari': 0,
+        'saran_qty_order': 0,
+        'saran_kuantiti_order_ke_toko_qty_kemasan': 0,
+        'alasan_oos': '7. No OOS / Stok Lengkap',
+        'penyebab_alasan_out_of_stock_oos': '7. No OOS / Stok Lengkap',
+        'oos_items_json': '[]',
+      };
+
+      for (final f in widget.template.fields) {
+        final fn = f.fieldName.toLowerCase();
+        final fKey = f.id.toString();
+        if (cleanFormValues.containsKey(fn)) {
+          cleanFormValues[fKey] = cleanFormValues[fn];
+        }
+      }
+
+      Map<String, dynamic> result;
+      if (widget.editSubmission != null) {
+        result = await repProvider.updateReport(
+          token: token,
+          submissionId: widget.editSubmission!.id,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          address: _selectedLocation?['address'] ?? _address,
+          values: cleanFormValues,
+          photoFiles: {},
+          existingPhotos: {},
+        );
+      } else {
+        result = await repProvider.submitReport(
+          token: token,
+          templateId: widget.template.id,
+          templateTitle: widget.template.title,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          itineraryItemId: widget.itineraryItemId,
+          latitude: _latitude,
+          longitude: _longitude,
+          address: _selectedLocation?['address'] ?? _address,
+          isWithinRadius: _isWithinRadius,
+          values: cleanFormValues,
+          photoFiles: {},
+          watermarkTexts: {},
+        );
+      }
+
+      setState(() => _isSubmitting = false);
+
+      if (result['success'] == true && mounted) {
+        if (attProvider.isVisiting) {
+          attProvider.markVisitReportFilled();
+        }
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          title: const Text('Laporan Stok Lengkap Terkirim'),
+          description: const Text('Laporan No OOS (Stok Lengkap) berhasil dikirim.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
         Navigator.of(context).pop(true);

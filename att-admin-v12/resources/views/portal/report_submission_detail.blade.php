@@ -726,6 +726,16 @@
             'tipe_laporan_offtake' => 'Sale',
         ];
 
+        // Cek apakah submission ini memiliki list item OOS multi-produk
+        $hasDynamicOosItems = false;
+        $oosItemsList = [];
+        $oosGlobalData = [
+            'total_sku_oos' => 0,
+            'max_lama_oos' => 0,
+            'total_saran_qty' => 0,
+            'tipe_laporan_oos' => 'OOS',
+        ];
+
         foreach ($submission->values as $v) {
             $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
             if ($fn === 'offtake_items_json') {
@@ -734,6 +744,14 @@
                     $hasDynamicOfftakeItems = true;
                     $offtakeItemsList = $raw;
                 }
+            } elseif ($fn === 'oos_items_json') {
+                $rawOos = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
+                if (is_array($rawOos) && !empty($rawOos)) {
+                    $hasDynamicOosItems = true;
+                    $oosItemsList = $rawOos;
+                }
+            } elseif ($fn === 'tipe_laporan_oos') {
+                $oosGlobalData['tipe_laporan_oos'] = $v->value_text ?: 'OOS';
             } elseif ($fn === 'total_volume_liter') {
                 $offtakeGlobalData['total_volume_liter'] = (float)($v->value_number ?? $v->value_text ?? 0);
             } elseif ($fn === 'total_nilai_sales_rp') {
@@ -751,6 +769,12 @@
             } elseif ($fn === 'tipe_laporan_offtake') {
                 $offtakeGlobalData['tipe_laporan_offtake'] = $v->value_text ?: 'Sale';
             }
+        }
+
+        if ($hasDynamicOosItems && !empty($oosItemsList)) {
+            $oosGlobalData['total_sku_oos'] = count($oosItemsList);
+            $oosGlobalData['max_lama_oos'] = max(array_column($oosItemsList, 'lama_oos_hari') ?: [0]);
+            $oosGlobalData['total_saran_qty'] = array_sum(array_column($oosItemsList, 'saran_qty_order') ?: [0]);
         }
 
         // Selalu prioritaskan kalkulasi akumulatif dari offtake_items_json jika tersedia
@@ -841,27 +865,58 @@
             'tipe_laporan_offtake',
         ];
 
+        $suppressOosFields = [
+            'oos_items_json',
+            'tipe_laporan_oos',
+            'produk_oos',
+            'nama_produk_yang_kosong_oos',
+            'pilih_produk_dulux_yang_mengalami_out_of_stock_oos',
+            'kemasan_size_oos',
+            'ukuran_kemasan_size',
+            'kemasan_size_yang_kosong',
+            'base_warna_oos',
+            'base_tipe_warna',
+            'base_kategori_warna_yang_kosong',
+            'warna_ready_mix_oos',
+            'lama_oos_hari',
+            'lama_kondisi_barang_kosong_jumlah_hari',
+            'lama_kondisi_oos_jumlah_hari',
+            'saran_qty_order',
+            'saran_kuantiti_order_ke_toko_qty_kemasan',
+            'saran_kuantitas_order_qty_kaleng',
+            'alasan_oos',
+            'penyebab_alasan_out_of_stock_oos',
+        ];
+
         // Separate text inputs and photo/media attachments to prevent tall empty grid cards
-        $textValues = $submission->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields, $hasDynamicOfftakeItems, $suppressOfftakeFields) {
+        $textValues = $submission->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields, $hasDynamicOfftakeItems, $suppressOfftakeFields, $hasDynamicOosItems, $suppressOosFields) {
             $isMedia = in_array($val->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])
                 || !empty($val->media_url)
                 || !empty($val->file_path);
             if ($isMedia) return false;
 
+            $fn = strtolower(trim((string)($val->field_name ?: ($val->formField ? $val->formField->field_name : ''))));
+            $fl = strtolower(trim((string)($val->formField?->field_label ?? '')));
+            $flClean = str_replace([' ', '-', '/'], '_', $fl);
+
+            if ($fn === 'oos_items_json' || $fn === 'offtake_items_json') {
+                return false;
+            }
+
             if ($hasDynamicCompetitors) {
-                $fn = strtolower((string)($val->field_name ?: ($val->formField ? $val->formField->field_name : '')));
-                $fl = strtolower((string)($val->formField?->field_label ?? ''));
-                $flClean = str_replace(' ', '_', $fl);
                 if (in_array($fn, $suppressCompetitorFields) || in_array($flClean, $suppressCompetitorFields)) {
                     return false;
                 }
             }
 
             if ($hasDynamicOfftakeItems) {
-                $fn = strtolower(trim((string)($val->field_name ?: ($val->formField ? $val->formField->field_name : ''))));
-                $fl = strtolower(trim((string)($val->formField?->field_label ?? '')));
-                $flClean = str_replace([' ', '-', '/'], '_', $fl);
                 if (in_array($fn, $suppressOfftakeFields) || in_array($flClean, $suppressOfftakeFields) || str_contains($fn, 'grand_total') || str_contains($flClean, 'grand_total')) {
+                    return false;
+                }
+            }
+
+            if ($hasDynamicOosItems) {
+                if (in_array($fn, $suppressOosFields) || in_array($flClean, $suppressOosFields)) {
                     return false;
                 }
             }
@@ -1186,6 +1241,57 @@
                     </div>
                 </div>
             </div>
+        {{-- BANNER KHUSUS JIKA TOKO BEBAS OOS (STOK LENGKAP) --}}
+        @if(strtolower($oosGlobalData['tipe_laporan_oos'] ?? '') === 'no_oos')
+            <div style="background: #f0fdf4; border: 2px solid #86efac; border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+                <div style="width: 56px; height: 56px; border-radius: 14px; background: #dcfce7; color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 1.85rem; flex-shrink: 0; border: 1px solid #bbf7d0;">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <div>
+                    <h3 style="margin: 0 0 0.25rem 0; font-size: 1.15rem; font-weight: 800; color: #166534;">
+                        No OOS — Stok Dulux Lengkap & Prima
+                    </h3>
+                    <p style="margin: 0; font-size: 0.88rem; color: #15803d; line-height: 1.45;">
+                        Promotor / SPG melaporkan bahwa outlet ini memiliki ketersediaan stok seluruh lini produk Dulux secara lengkap. Tidak ada produk yang mengalami Out of Stock (OOS) pada kunjungan ini.
+                    </p>
+                </div>
+            </div>
+        @endif
+
+        {{-- PANEL RINGKASAN GLOBAL OUT OF STOCK (OOS) --}}
+        @if($hasDynamicOosItems)
+            <div class="offtake-summary-grid">
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(220, 38, 38, 0.12); color: #dc2626;">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Total SKU Out of Stock</span>
+                        <span class="offtake-stat-value" style="color: #dc2626;">{{ count($oosItemsList) }} SKU</span>
+                        <span class="offtake-stat-sub">Produk kosong terdata di outlet</span>
+                    </div>
+                </div>
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(234, 88, 12, 0.12); color: #ea580c;">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Durasi OOS Terlama</span>
+                        <span class="offtake-stat-value" style="color: #ea580c;">{{ $oosGlobalData['max_lama_oos'] }} Hari</span>
+                        <span class="offtake-stat-sub">Maksimal durasi kekosongan stok</span>
+                    </div>
+                </div>
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(15, 82, 186, 0.12); color: #0F52BA;">
+                        <i class="fa-solid fa-cart-arrow-down"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Total Saran Reorder</span>
+                        <span class="offtake-stat-value" style="color: #0F52BA;">{{ $oosGlobalData['total_saran_qty'] }} Unit</span>
+                        <span class="offtake-stat-sub">Rekomendasi kuantiti order toko</span>
+                    </div>
+                </div>
+            </div>
         @endif
 
         {{-- SECTION 2: SPLIT CONTENT (DATA FORM TABLE + PHOTO GALLERY) --}}
@@ -1317,6 +1423,87 @@
                                                 <span style="font-weight: 700; color: #1e293b;">Total Volume:</span>
                                                 <strong style="color: #0284c7; font-weight: 800;">{{ number_format($totLiter, 2) }} Liter</strong>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    @if($textValues->isNotEmpty())
+                        <div style="border-top: 1px solid var(--border-color); padding: 0.75rem 1.25rem 0.25rem 1.25rem;">
+                            <span style="font-size: 0.78rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Parameter Tambahan</span>
+                        </div>
+                    @endif
+                @elseif($hasDynamicOosItems)
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-boxes-packing" style="color: #dc2626;"></i>
+                            <span>Rincian Produk Out of Stock (OOS)</span>
+                        </div>
+                        <span class="panel-count-badge" style="background: #fee2e2; color: #b91c1c; font-weight: 800;">
+                            {{ count($oosItemsList) }} Produk OOS
+                        </span>
+                    </div>
+
+                    <div style="padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.85rem;">
+                        @foreach($oosItemsList as $pIdx => $pItem)
+                            @php
+                                $pName = $pItem['product_name'] ?? ($pItem['produk_oos'] ?? 'Produk Dulux');
+                                $kemasan = $pItem['kemasan_size_oos'] ?? '-';
+                                $base = $pItem['base_warna_oos'] ?? '-';
+                                $readyMix = $pItem['warna_ready_mix_oos'] ?? '-';
+                                $lama = (int)($pItem['lama_oos_hari'] ?? ($pItem['calculated_lama_oos'] ?? 1));
+                                $saran = (int)($pItem['saran_qty_order'] ?? 0);
+                                $alasan = $pItem['alasan_oos'] ?? 'PO belum kirim / kendala stok';
+                            @endphp
+                            <div class="product-breakdown-card" style="border-left: 4px solid {{ $lama > 3 ? '#dc2626' : '#ea580c' }};">
+                                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.65rem;">
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span style="font-size: 0.75rem; font-weight: 800; background: #dc2626; color: #fff; padding: 2px 7px; border-radius: 6px;">#{{ $pIdx + 1 }}</span>
+                                        <strong style="font-size: 0.95rem; color: var(--text-heading); font-weight: 800;">{{ $pName }}</strong>
+                                        <span style="font-size: 0.74rem; font-weight: 700; color: #475569; background: #f1f5f9; padding: 2px 7px; border-radius: 5px; border: 1px solid #e2e8f0;">
+                                            {{ $kemasan }}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span style="font-size: 0.82rem; font-weight: 800; color: {{ $lama > 3 ? '#dc2626' : '#ea580c' }}; background: {{ $lama > 3 ? '#fee2e2' : '#ffedd5' }}; padding: 3px 9px; border-radius: 6px; border: 1px solid {{ $lama > 3 ? '#fecaca' : '#fed7aa' }}; display: inline-flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid fa-clock"></i>
+                                            Lama OOS: {{ $lama }} Hari
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">
+                                            Base / Varian Warna
+                                        </div>
+                                        <div style="font-weight: 700; color: #1e293b; font-size: 0.85rem;">
+                                            {{ $base }}
+                                        </div>
+                                        @if(!empty($readyMix) && $readyMix !== '-' && !str_contains($readyMix, 'Bukan'))
+                                            <div style="font-size: 0.76rem; color: #64748b; margin-top: 2px;">
+                                                Warna Ready Mix: <strong style="color: #0b3d88;">{{ $readyMix }}</strong>
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">
+                                            Saran Kuantiti Order
+                                        </div>
+                                        <div style="font-weight: 700; color: #0b3d88; font-size: 0.85rem;">
+                                            {{ $saran > 0 ? ($saran . ' Unit / Kaleng') : '-' }}
+                                        </div>
+                                    </div>
+
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; grid-column: 1 / -1;">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">
+                                            Penyebab / Alasan Out of Stock (OOS)
+                                        </div>
+                                        <div style="font-weight: 600; color: #b91c1c; font-size: 0.82rem;">
+                                            {{ $alasan }}
                                         </div>
                                     </div>
                                 </div>

@@ -701,6 +701,22 @@
                             @php
                                 $status = $sub->status ?? 'pending';
                                 $storeName = $sub->workLocation?->name ?? $sub->itineraryItem?->destination ?? $sub->store_name ?? 'Kunjungan Toko';
+
+                                $subTipeOos = null;
+                                $subOosItems = null;
+                                $subOfftakeItems = null;
+                                if ($sub->relationLoaded('values') || $sub->values) {
+                                    foreach ($sub->values as $v) {
+                                        $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
+                                        if ($fn === 'tipe_laporan_oos') {
+                                            $subTipeOos = strtolower(trim((string)($v->value_text ?? $v->value_json)));
+                                        } elseif ($fn === 'oos_items_json' && !empty($v->value_json)) {
+                                            $subOosItems = is_array($v->value_json) ? $v->value_json : json_decode((string)$v->value_json, true);
+                                        } elseif ($fn === 'offtake_items_json' && !empty($v->value_json)) {
+                                            $subOfftakeItems = is_array($v->value_json) ? $v->value_json : json_decode((string)$v->value_json, true);
+                                        }
+                                    }
+                                }
                             @endphp
                             <tr>
                                 <td>
@@ -715,6 +731,28 @@
                                     <div style="font-size: 0.75rem; color: var(--text-muted);">
                                         {{ ucfirst($sub->template?->category ?? 'General') }}
                                     </div>
+                                    @if($subTipeOos === 'no_oos')
+                                        <div style="margin-top: 3px;">
+                                            <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 7px; border-radius: 6px; border: 1px solid #bbf7d0;">
+                                                <i class="fa-solid fa-circle-check"></i> Stok Lengkap (No OOS)
+                                            </span>
+                                        </div>
+                                    @elseif(!empty($subOosItems) && is_array($subOosItems) && count($subOosItems) > 0)
+                                        @php
+                                            $maxLama = max(array_map(fn($it) => (int)($it['lama_oos_hari'] ?? 0), $subOosItems) ?: [0]);
+                                        @endphp
+                                        <div style="margin-top: 3px;">
+                                            <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 2px 7px; border-radius: 6px; border: 1px solid #fecaca;">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> {{ count($subOosItems) }} SKU Kosong @if($maxLama > 0)(Maks {{ $maxLama }} hr)@endif
+                                            </span>
+                                        </div>
+                                    @elseif(!empty($subOfftakeItems) && is_array($subOfftakeItems) && count($subOfftakeItems) > 0)
+                                        <div style="margin-top: 3px;">
+                                            <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; color: #1d4ed8; background: #eff6ff; padding: 2px 7px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                                                <i class="fa-solid fa-basket-shopping"></i> {{ count($subOfftakeItems) }} SKU Terjual
+                                            </span>
+                                        </div>
+                                    @endif
                                 </td>
                                 <td>
                                     <div style="font-weight: 700; color: var(--text-heading);">

@@ -9002,92 +9002,192 @@ class PrincipalPortalController extends Controller
                             }
                         }
 
-                        $produk = trim((string)($valMap['pilih_produk_dulux_yang_mengalami_out_of_stock_oos'] ?? ($valMap['nama_produk_yang_kosong_oos'] ?? ($valMap['nama_produk_yang_kosong'] ?? ($valMap['produk_oos'] ?? ($valMap['produk'] ?? ''))))));
-                        if (empty($produk)) {
-                            $produk = 'Dulux Product';
+                        $rawOosJson = $valMap['oos_items_json'] ?? null;
+                        $oosItems = [];
+                        if (!empty($rawOosJson)) {
+                            if (is_string($rawOosJson)) {
+                                $oosItems = json_decode($rawOosJson, true) ?: [];
+                            } elseif (is_array($rawOosJson)) {
+                                $oosItems = $rawOosJson;
+                            }
                         }
 
-                        $baseColor = trim((string)($valMap['base_kategori_warna_yang_kosong'] ?? ($valMap['base_tipe_warna'] ?? ($valMap['base_color'] ?? ($valMap['base_warna'] ?? ($valMap['base'] ?? '-'))))));
-                        if (empty($baseColor)) $baseColor = '-';
-
-                        $kemasanSize = trim((string)($valMap['kemasan_size_yang_kosong'] ?? ($valMap['ukuran_kemasan_size'] ?? ($valMap['kemasan_size'] ?? ($valMap['kemasan'] ?? '-')))));
-                        if (empty($kemasanSize)) $kemasanSize = '-';
-
-                        $lamaOosHari = (int)($valMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? ($valMap['lama_kondisi_oos_jumlah_hari'] ?? ($valMap['lama_oos_hari'] ?? ($valMap['lama_oos'] ?? 0))));
-                        $saranQtyOrder = (int)($valMap['saran_kuantiti_order_ke_toko_qty_kemasan'] ?? ($valMap['saran_kuantitas_order_qty_kaleng'] ?? ($valMap['saran_qty_order'] ?? 0)));
-
-                        $alasanOos = trim((string)($valMap['penyebab_alasan_out_of_stock_oos'] ?? ($valMap['alasan_oos'] ?? ($valMap['penyebab_alasan_oos'] ?? ($valMap['alasan'] ?? 'Lain-lain')))));
-                        if (empty($alasanOos)) $alasanOos = 'Lain-lain';
-
+                        $tipeLaporanOos = strtolower(trim((string)($valMap['tipe_laporan_oos'] ?? '')));
                         $account = trim((string)($valMap['key_account_khusus_modern_trade'] ?? ($valMap['account'] ?? '-')));
                         if (empty($account)) $account = '-';
-
                         $tglOos = trim((string)($valMap['tanggal_monitoring_oos'] ?? ($valMap['tanggal_oos'] ?? $subDate->format('Y-m-d'))));
 
-                        $isOos = (stripos($produk, 'No OOS') !== false || stripos($alasanOos, 'No OOS') !== false || stripos($alasanOos, 'Stok Lengkap') !== false) ? 0 : 1;
-
-                        // Live store tracking
                         $liveStoresSet[$storeName] = true;
-                        if ($isOos === 1) {
+
+                        if ($tipeLaporanOos === 'no_oos' || (empty($oosItems) && stripos((string)($valMap['pilih_produk_dulux_yang_mengalami_out_of_stock_oos'] ?? ''), 'No OOS') !== false)) {
+                            // "No OOS" submission
+                            $liveRawRows[] = [
+                                'id' => 'live_' . $sub->id,
+                                'channel' => $channel,
+                                'submission_code' => $sub->submission_code,
+                                'submission_date' => $transDate,
+                                'tanggal_oos' => $tglOos,
+                                'week' => $weekStr,
+                                'region' => $region,
+                                'area' => $area,
+                                'rsm_area' => $rsmArea,
+                                'account' => $account,
+                                'sap' => $sap,
+                                'derp' => '-',
+                                'store_name' => $storeName,
+                                'produk' => 'No OOS (Stok Lengkap)',
+                                'base_color' => '-',
+                                'kemasan_size' => '-',
+                                'lama_oos_hari' => 0,
+                                'saran_qty_order' => 0,
+                                'alasan_oos' => 'Stok Lengkap',
+                                'is_oos' => 0,
+                                'is_live' => true,
+                                'submission_id' => $sub->id,
+                                'status' => $sub->status ?? 'pending',
+                            ];
+                        } elseif (!empty($oosItems)) {
+                            // Multi-item consolidated OOS submission
                             $liveOosStoresSet[$storeName] = true;
-                            $liveOosIncidents++;
                             $liveWeeksSet[$weekStr] = true;
 
-                            // Group for reasons
-                            if (!isset($liveReasonsMap[$alasanOos])) {
-                                $liveReasonsMap[$alasanOos] = ['stores' => [], 'count' => 0];
-                            }
-                            $liveReasonsMap[$alasanOos]['stores'][$storeName] = true;
-                            $liveReasonsMap[$alasanOos]['count']++;
+                            foreach ($oosItems as $itemIdx => $item) {
+                                $itemProd = trim((string)($item['product_name'] ?? ($item['nama_produk'] ?? ($item['product_code'] ?? 'Dulux Product'))));
+                                $itemBase = trim((string)($item['base_color'] ?? ($item['base_tipe_warna'] ?? '-')));
+                                if (empty($itemBase)) $itemBase = '-';
+                                $itemSize = trim((string)($item['kemasan_size'] ?? ($item['ukuran_kemasan'] ?? '-')));
+                                if (empty($itemSize)) $itemSize = '-';
+                                $itemLama = (int)($item['lama_oos_hari'] ?? ($item['lama_hari'] ?? 0));
+                                $itemSaran = (int)($item['saran_qty_order'] ?? ($item['saran_order'] ?? 0));
+                                $itemAlasan = trim((string)($item['alasan_oos'] ?? ($item['alasan'] ?? 'Lain-lain')));
+                                if (empty($itemAlasan)) $itemAlasan = 'Lain-lain';
 
-                            // Group for weekly pivot
-                            $pivKey = strtoupper(trim($storeName)) . '---' . strtoupper(trim($produk)) . '---' . strtoupper(trim($baseColor)) . '---' . strtoupper(trim($kemasanSize)) . '---' . strtoupper(trim($alasanOos));
-                            if (!isset($liveWeeklyMap[$pivKey])) {
-                                $liveWeeklyMap[$pivKey] = [
-                                    'sap' => $sap,
-                                    'store_name' => $storeName,
+                                $liveOosIncidents++;
+
+                                if (!isset($liveReasonsMap[$itemAlasan])) {
+                                    $liveReasonsMap[$itemAlasan] = ['stores' => [], 'count' => 0];
+                                }
+                                $liveReasonsMap[$itemAlasan]['stores'][$storeName] = true;
+                                $liveReasonsMap[$itemAlasan]['count']++;
+
+                                $pivKey = strtoupper(trim($storeName)) . '---' . strtoupper(trim($itemProd)) . '---' . strtoupper(trim($itemBase)) . '---' . strtoupper(trim($itemSize)) . '---' . strtoupper(trim($itemAlasan));
+                                if (!isset($liveWeeklyMap[$pivKey])) {
+                                    $liveWeeklyMap[$pivKey] = [
+                                        'sap' => $sap,
+                                        'store_name' => $storeName,
+                                        'region' => $region,
+                                        'area' => $area,
+                                        'channel' => $channel,
+                                        'produk' => $itemProd,
+                                        'base_color' => $itemBase,
+                                        'kemasan_size' => $itemSize,
+                                        'alasan_oos' => $itemAlasan,
+                                        'grand_total' => 0,
+                                        'weeks' => [],
+                                        'is_live' => true,
+                                    ];
+                                }
+                                $liveWeeklyMap[$pivKey]['grand_total']++;
+                                $liveWeeklyMap[$pivKey]['weeks'][$weekStr] = ($liveWeeklyMap[$pivKey]['weeks'][$weekStr] ?? 0) + 1;
+
+                                $liveRawRows[] = [
+                                    'id' => 'live_' . $sub->id . '_' . $itemIdx,
+                                    'channel' => $channel,
+                                    'submission_code' => $sub->submission_code,
+                                    'submission_date' => $transDate,
+                                    'tanggal_oos' => $tglOos,
+                                    'week' => $weekStr,
                                     'region' => $region,
                                     'area' => $area,
-                                    'channel' => $channel,
-                                    'produk' => $produk,
-                                    'base_color' => $baseColor,
-                                    'kemasan_size' => $kemasanSize,
-                                    'alasan_oos' => $alasanOos,
-                                    'grand_total' => 0,
-                                    'weeks' => [],
+                                    'rsm_area' => $rsmArea,
+                                    'account' => $account,
+                                    'sap' => $sap,
+                                    'derp' => '-',
+                                    'store_name' => $storeName,
+                                    'produk' => $itemProd,
+                                    'base_color' => $itemBase,
+                                    'kemasan_size' => $itemSize,
+                                    'lama_oos_hari' => $itemLama,
+                                    'saran_qty_order' => $itemSaran,
+                                    'alasan_oos' => $itemAlasan,
+                                    'is_oos' => 1,
                                     'is_live' => true,
+                                    'submission_id' => $sub->id,
+                                    'status' => $sub->status ?? 'pending',
                                 ];
                             }
-                            $liveWeeklyMap[$pivKey]['grand_total']++;
-                            $liveWeeklyMap[$pivKey]['weeks'][$weekStr] = ($liveWeeklyMap[$pivKey]['weeks'][$weekStr] ?? 0) + 1;
-                        }
+                        } else {
+                            // Single item fallback (legacy)
+                            $produk = trim((string)($valMap['pilih_produk_dulux_yang_mengalami_out_of_stock_oos'] ?? ($valMap['nama_produk_yang_kosong_oos'] ?? ($valMap['nama_produk_yang_kosong'] ?? ($valMap['produk_oos'] ?? ($valMap['produk'] ?? 'Dulux Product'))))));
+                            $baseColor = trim((string)($valMap['base_kategori_warna_yang_kosong'] ?? ($valMap['base_tipe_warna'] ?? ($valMap['base_color'] ?? ($valMap['base_warna'] ?? ($valMap['base'] ?? '-'))))));
+                            if (empty($baseColor)) $baseColor = '-';
+                            $kemasanSize = trim((string)($valMap['kemasan_size_yang_kosong'] ?? ($valMap['ukuran_kemasan_size'] ?? ($valMap['kemasan_size'] ?? ($valMap['kemasan'] ?? '-')))));
+                            if (empty($kemasanSize)) $kemasanSize = '-';
+                            $lamaOosHari = (int)($valMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? ($valMap['lama_kondisi_oos_jumlah_hari'] ?? ($valMap['lama_oos_hari'] ?? ($valMap['lama_oos'] ?? 0))));
+                            $saranQtyOrder = (int)($valMap['saran_kuantiti_order_ke_toko_qty_kemasan'] ?? ($valMap['saran_kuantitas_order_qty_kaleng'] ?? ($valMap['saran_qty_order'] ?? 0)));
+                            $alasanOos = trim((string)($valMap['penyebab_alasan_out_of_stock_oos'] ?? ($valMap['alasan_oos'] ?? ($valMap['penyebab_alasan_oos'] ?? ($valMap['alasan'] ?? 'Lain-lain')))));
+                            if (empty($alasanOos)) $alasanOos = 'Lain-lain';
 
-                        // Raw row
-                        $liveRawRows[] = [
-                            'id' => 'live_' . $sub->id,
-                            'channel' => $channel,
-                            'submission_code' => $sub->submission_code,
-                            'submission_date' => $transDate,
-                            'tanggal_oos' => $tglOos,
-                            'week' => $weekStr,
-                            'region' => $region,
-                            'area' => $area,
-                            'rsm_area' => $rsmArea,
-                            'account' => $account,
-                            'sap' => $sap,
-                            'derp' => '-',
-                            'store_name' => $storeName,
-                            'produk' => $produk,
-                            'base_color' => $baseColor,
-                            'kemasan_size' => $kemasanSize,
-                            'lama_oos_hari' => $lamaOosHari,
-                            'saran_qty_order' => $saranQtyOrder,
-                            'alasan_oos' => $alasanOos,
-                            'is_oos' => $isOos,
-                            'is_live' => true,
-                            'submission_id' => $sub->id,
-                            'status' => $sub->status ?? 'pending',
-                        ];
+                            $isOos = (stripos($produk, 'No OOS') !== false || stripos($alasanOos, 'No OOS') !== false || stripos($alasanOos, 'Stok Lengkap') !== false) ? 0 : 1;
+
+                            if ($isOos === 1) {
+                                $liveOosStoresSet[$storeName] = true;
+                                $liveOosIncidents++;
+                                $liveWeeksSet[$weekStr] = true;
+
+                                if (!isset($liveReasonsMap[$alasanOos])) {
+                                    $liveReasonsMap[$alasanOos] = ['stores' => [], 'count' => 0];
+                                }
+                                $liveReasonsMap[$alasanOos]['stores'][$storeName] = true;
+                                $liveReasonsMap[$alasanOos]['count']++;
+
+                                $pivKey = strtoupper(trim($storeName)) . '---' . strtoupper(trim($produk)) . '---' . strtoupper(trim($baseColor)) . '---' . strtoupper(trim($kemasanSize)) . '---' . strtoupper(trim($alasanOos));
+                                if (!isset($liveWeeklyMap[$pivKey])) {
+                                    $liveWeeklyMap[$pivKey] = [
+                                        'sap' => $sap,
+                                        'store_name' => $storeName,
+                                        'region' => $region,
+                                        'area' => $area,
+                                        'channel' => $channel,
+                                        'produk' => $produk,
+                                        'base_color' => $baseColor,
+                                        'kemasan_size' => $kemasanSize,
+                                        'alasan_oos' => $alasanOos,
+                                        'grand_total' => 0,
+                                        'weeks' => [],
+                                        'is_live' => true,
+                                    ];
+                                }
+                                $liveWeeklyMap[$pivKey]['grand_total']++;
+                                $liveWeeklyMap[$pivKey]['weeks'][$weekStr] = ($liveWeeklyMap[$pivKey]['weeks'][$weekStr] ?? 0) + 1;
+                            }
+
+                            $liveRawRows[] = [
+                                'id' => 'live_' . $sub->id,
+                                'channel' => $channel,
+                                'submission_code' => $sub->submission_code,
+                                'submission_date' => $transDate,
+                                'tanggal_oos' => $tglOos,
+                                'week' => $weekStr,
+                                'region' => $region,
+                                'area' => $area,
+                                'rsm_area' => $rsmArea,
+                                'account' => $account,
+                                'sap' => $sap,
+                                'derp' => '-',
+                                'store_name' => $storeName,
+                                'produk' => $produk,
+                                'base_color' => $baseColor,
+                                'kemasan_size' => $kemasanSize,
+                                'lama_oos_hari' => $lamaOosHari,
+                                'saran_qty_order' => $saranQtyOrder,
+                                'alasan_oos' => $alasanOos,
+                                'is_oos' => $isOos,
+                                'is_live' => true,
+                                'submission_id' => $sub->id,
+                                'status' => $sub->status ?? 'pending',
+                            ];
+                        }
                     }
                 } catch (\Throwable $e) {
                     \Log::warning("Live OOS submissions query failed: " . $e->getMessage());

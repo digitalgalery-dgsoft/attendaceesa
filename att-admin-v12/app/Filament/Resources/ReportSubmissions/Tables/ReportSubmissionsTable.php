@@ -40,7 +40,42 @@ class ReportSubmissionsTable
                     ->label('Form Pelaporan')
                     ->searchable()
                     ->sortable()
-                    ->wrap(),
+                    ->wrap()
+                    ->description(function ($record) {
+                        $tipeOos = null;
+                        $oosItems = null;
+                        $offtakeItems = null;
+
+                        if ($record->relationLoaded('values') || $record->values()->exists()) {
+                            foreach ($record->values as $v) {
+                                $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
+                                if ($fn === 'tipe_laporan_oos') {
+                                    $tipeOos = strtolower(trim((string)($v->value_text ?? $v->value_json)));
+                                } elseif ($fn === 'oos_items_json' && !empty($v->value_json)) {
+                                    $oosItems = is_array($v->value_json) ? $v->value_json : json_decode((string)$v->value_json, true);
+                                } elseif ($fn === 'offtake_items_json' && !empty($v->value_json)) {
+                                    $offtakeItems = is_array($v->value_json) ? $v->value_json : json_decode((string)$v->value_json, true);
+                                }
+                            }
+                        }
+
+                        if ($tipeOos === 'no_oos') {
+                            return '✅ Stok Lengkap (No OOS)';
+                        }
+
+                        if (is_array($oosItems) && count($oosItems) > 0) {
+                            $maxLama = max(array_map(fn($it) => (int)($it['lama_oos_hari'] ?? 0), $oosItems) ?: [0]);
+                            $names = array_map(fn($it) => $it['product_name'] ?? ($it['nama_produk'] ?? 'SKU'), $oosItems);
+                            $preview = !empty($names) ? ' - ' . implode(', ', array_slice($names, 0, 2)) : '';
+                            return '⚠️ ' . count($oosItems) . ' SKU Kosong' . ($maxLama > 0 ? " ({$maxLama} Hari)" : '') . $preview;
+                        }
+
+                        if (is_array($offtakeItems) && count($offtakeItems) > 0) {
+                            return '📦 ' . count($offtakeItems) . ' SKU Terjual';
+                        }
+
+                        return null;
+                    }),
 
                 TextColumn::make('employee.full_name')
                     ->label('Promotor / SPG')

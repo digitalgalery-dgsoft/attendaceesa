@@ -34,6 +34,7 @@ class ReportTemplateModel {
   final List<String> assignedEmployees;
   final List<TemplateProductModel> products;
   final List<ReportFormFieldModel> fields;
+  final Map<String, dynamic>? oosReference;
 
   static const Map<String, int> duluxOrderMap = {
     'RPT-DULUX-DAILY-MAINTENANCE': 1,
@@ -80,6 +81,7 @@ class ReportTemplateModel {
     this.assignedEmployees = const [],
     this.products = const [],
     required this.fields,
+    this.oosReference,
   });
 
   bool isScheduledForDay(int weekday) {
@@ -166,6 +168,7 @@ class ReportTemplateModel {
     final remMachines = json['remaining_machines_count'] is num ? (json['remaining_machines_count'] as num).toInt() : (int.tryParse(json['remaining_machines_count']?.toString() ?? '0') ?? (totMachines - parsedSubMachines.length).clamp(0, 9999));
     var rawStoreMachines = json['store_machines'] as List? ?? [];
     List<Map<String, dynamic>> parsedStoreMachines = rawStoreMachines.whereType<Map<String, dynamic>>().toList();
+    final oosRef = json['oos_reference'] is Map ? Map<String, dynamic>.from(json['oos_reference'] as Map) : null;
 
     return ReportTemplateModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
@@ -203,6 +206,7 @@ class ReportTemplateModel {
       assignedEmployees: parsedEmployees,
       products: productsList,
       fields: fieldsList,
+      oosReference: oosRef,
     );
   }
 
@@ -242,6 +246,7 @@ class ReportTemplateModel {
     List<String>? assignedEmployees,
     List<TemplateProductModel>? products,
     List<ReportFormFieldModel>? fields,
+    Map<String, dynamic>? oosReference,
   }) {
     return ReportTemplateModel(
       id: id ?? this.id,
@@ -279,6 +284,7 @@ class ReportTemplateModel {
       assignedEmployees: assignedEmployees ?? this.assignedEmployees,
       products: products ?? this.products,
       fields: fields ?? this.fields,
+      oosReference: oosReference ?? this.oosReference,
     );
   }
 
