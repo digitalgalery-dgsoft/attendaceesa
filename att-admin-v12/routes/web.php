@@ -717,10 +717,17 @@ Route::get('/fix-principals', function () {
 
 Route::get('/run-migration-stock-end', function () {
     try {
-        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        $path = database_path('migrations/2026_09_10_150000_update_dulux_stock_end_template_for_cart_and_tinter.php');
+        $exists = file_exists($path);
+        \Illuminate\Support\Facades\Artisan::call('migrate', [
+            '--path' => 'database/migrations/2026_09_10_150000_update_dulux_stock_end_template_for_cart_and_tinter.php',
+            '--force' => true,
+        ]);
         $output = \Illuminate\Support\Facades\Artisan::output();
         return response()->json([
             'status' => 'success',
+            'file_exists' => $exists,
+            'path' => $path,
             'output' => $output,
         ]);
     } catch (\Throwable $e) {
