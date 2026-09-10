@@ -422,72 +422,74 @@ class ReportTemplate extends Model
         }
 
         // Hapus nilai status_ketersediaan_tinter dari report_submission_values jika masih tertinggal
-        \App\Models\ReportSubmissionValue::whereHas('submission', function($q) use ($stockEnd) {
-            $q->where('report_template_id', $stockEnd->id);
-        })->whereIn('field_name', ['status_ketersediaan_tinter', 'status_ketersediaan_tinter_di_toko'])->delete();
+        \App\Models\ReportSubmissionValue::whereIn('field_name', ['status_ketersediaan_tinter', 'status_ketersediaan_tinter_di_toko'])->delete();
 
         // Self-healing backfill data submission Stock End yang memiliki stock_items_json
         try {
-            $stockSubmissions = \App\Models\ReportSubmission::where('report_template_id', $stockEnd->id)->with('values')->get();
-            foreach ($stockSubmissions as $sub) {
-                $stockJsonVal = $sub->values->firstWhere('field_name', 'stock_items_json');
-                if ($stockJsonVal) {
-                    $items = is_array($stockJsonVal->value_json) ? $stockJsonVal->value_json : json_decode($stockJsonVal->value_text ?? '[]', true);
-                    if (is_array($items) && count($items) > 0) {
-                        $prodNames = [];
-                        $gGalon = 0; $gPail = 0; $gLiter = 0.0; $gTinter = 0;
-                        foreach ($items as $it) {
-                            $pName = trim((string)($it['product_name'] ?? ($it['produk'] ?? '')));
-                            if ($pName && !in_array($pName, $prodNames)) $prodNames[] = $pName;
-                            $gGalon += (int)($it['qty_galon'] ?? ($it['kuantiti_galon'] ?? 0));
-                            $gPail += (int)($it['qty_pail'] ?? ($it['kuantiti_pail'] ?? 0));
-                            $gLiter += (float)($it['volume_liter'] ?? 0.0);
-                            $gTinter += (int)($it['qty_kaleng_tinta'] ?? 0);
-                        }
-                        $firstItem = $items[0];
-                        $prodSummary = implode(', ', $prodNames);
+            $pField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'produk_stock_end')->first();
+            $gField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'stok_qty_galon')->first();
+            $paField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'stok_qty_pail')->first();
+            $bField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'base_warna')->first();
+            $vField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'total_volume_stok_liter')->first();
 
-                        // Update or create produk_stock_end
-                        $pField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'produk_stock_end')->first();
-                        if ($pField) {
-                            \App\Models\ReportSubmissionValue::updateOrCreate(
-                                ['report_submission_id' => $sub->id, 'field_name' => 'produk_stock_end'],
-                                ['report_form_field_id' => $pField->id, 'field_type' => 'product_select', 'value_text' => $prodSummary]
-                            );
-                        }
-                        // Update or create stok_qty_galon
-                        $gField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'stok_qty_galon')->first();
-                        if ($gField) {
-                            \App\Models\ReportSubmissionValue::updateOrCreate(
-                                ['report_submission_id' => $sub->id, 'field_name' => 'stok_qty_galon'],
-                                ['report_form_field_id' => $gField->id, 'field_type' => 'number', 'value_number' => $gGalon, 'value_text' => (string)$gGalon]
-                            );
-                        }
-                        // Update or create stok_qty_pail
-                        $paField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'stok_qty_pail')->first();
-                        if ($paField) {
-                            \App\Models\ReportSubmissionValue::updateOrCreate(
-                                ['report_submission_id' => $sub->id, 'field_name' => 'stok_qty_pail'],
-                                ['report_form_field_id' => $paField->id, 'field_type' => 'number', 'value_number' => $gPail, 'value_text' => (string)$gPail]
-                            );
-                        }
-                        // Update or create base_warna
-                        $bField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'base_warna')->first();
-                        if ($bField) {
-                            $bVal = count($items) > 1 ? 'Multi-Base (' . count($items) . ' Item)' : ($firstItem['warna'] ?? 'ALL');
-                            \App\Models\ReportSubmissionValue::updateOrCreate(
-                                ['report_submission_id' => $sub->id, 'field_name' => 'base_warna'],
-                                ['report_form_field_id' => $bField->id, 'field_type' => 'dropdown', 'value_text' => $bVal]
-                            );
-                        }
-                        // Update or create total_volume_stok_liter
-                        $vField = ReportFormField::where('report_template_id', $stockEnd->id)->where('field_name', 'total_volume_stok_liter')->first();
-                        if ($vField) {
-                            \App\Models\ReportSubmissionValue::updateOrCreate(
-                                ['report_submission_id' => $sub->id, 'field_name' => 'total_volume_stok_liter'],
-                                ['report_form_field_id' => $vField->id, 'field_type' => 'number', 'value_number' => $gLiter, 'value_text' => (string)$gLiter]
-                            );
-                        }
+            $jsonValues = \App\Models\ReportSubmissionValue::where('field_name', 'stock_items_json')
+                ->where(function ($q) {
+                    $q->whereNotNull('value_json')
+                      ->orWhereNotNull('value_text');
+                })
+                ->whereHas('submission', function ($q) use ($stockEnd) {
+                    $q->where('report_template_id', $stockEnd->id);
+                })
+                ->limit(200)
+                ->get();
+
+            foreach ($jsonValues as $stockJsonVal) {
+                $items = is_array($stockJsonVal->value_json) ? $stockJsonVal->value_json : json_decode($stockJsonVal->value_text ?? '[]', true);
+                if (is_array($items) && count($items) > 0) {
+                    $prodNames = [];
+                    $gGalon = 0; $gPail = 0; $gLiter = 0.0; $gTinter = 0;
+                    foreach ($items as $it) {
+                        $pName = trim((string)($it['product_name'] ?? ($it['produk'] ?? '')));
+                        if ($pName && !in_array($pName, $prodNames)) $prodNames[] = $pName;
+                        $gGalon += (int)($it['qty_galon'] ?? ($it['kuantiti_galon'] ?? 0));
+                        $gPail += (int)($it['qty_pail'] ?? ($it['kuantiti_pail'] ?? 0));
+                        $gLiter += (float)($it['volume_liter'] ?? 0.0);
+                        $gTinter += (int)($it['qty_kaleng_tinta'] ?? 0);
+                    }
+                    $firstItem = $items[0];
+                    $prodSummary = implode(', ', $prodNames);
+                    $subId = $stockJsonVal->report_submission_id;
+
+                    if ($pField) {
+                        \App\Models\ReportSubmissionValue::updateOrCreate(
+                            ['report_submission_id' => $subId, 'field_name' => 'produk_stock_end'],
+                            ['report_form_field_id' => $pField->id, 'field_type' => 'product_select', 'value_text' => $prodSummary]
+                        );
+                    }
+                    if ($gField) {
+                        \App\Models\ReportSubmissionValue::updateOrCreate(
+                            ['report_submission_id' => $subId, 'field_name' => 'stok_qty_galon'],
+                            ['report_form_field_id' => $gField->id, 'field_type' => 'number', 'value_number' => $gGalon, 'value_text' => (string)$gGalon]
+                        );
+                    }
+                    if ($paField) {
+                        \App\Models\ReportSubmissionValue::updateOrCreate(
+                            ['report_submission_id' => $subId, 'field_name' => 'stok_qty_pail'],
+                            ['report_form_field_id' => $paField->id, 'field_type' => 'number', 'value_number' => $gPail, 'value_text' => (string)$gPail]
+                        );
+                    }
+                    if ($bField) {
+                        $bVal = count($items) > 1 ? 'Multi-Base (' . count($items) . ' Item)' : ($firstItem['warna'] ?? 'ALL');
+                        \App\Models\ReportSubmissionValue::updateOrCreate(
+                            ['report_submission_id' => $subId, 'field_name' => 'base_warna'],
+                            ['report_form_field_id' => $bField->id, 'field_type' => 'dropdown', 'value_text' => $bVal]
+                        );
+                    }
+                    if ($vField) {
+                        \App\Models\ReportSubmissionValue::updateOrCreate(
+                            ['report_submission_id' => $subId, 'field_name' => 'total_volume_stok_liter'],
+                            ['report_form_field_id' => $vField->id, 'field_type' => 'number', 'value_number' => $gLiter, 'value_text' => (string)$gLiter]
+                        );
                     }
                 }
             }
