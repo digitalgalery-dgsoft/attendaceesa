@@ -299,77 +299,77 @@
         <div class="kpi-grid">
             {{-- 1. Total Employee Aktif --}}
             <div class="kpi-card">
-                <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #4338ca; text-transform: uppercase; letter-spacing: 0.5px;">Total Employee Aktif</div>
-                    <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 4px;">
-                        <span style="font-size: 26px; font-weight: 800; color: #0f172a;" class="dark:text-white">{{ number_format($totalActiveEmp) }}</span>
-                        <span style="font-size: 12px; font-weight: 600; color: #4338ca; background: #e0e7ff; padding: 2px 7px; border-radius: 6px;" class="dark:bg-indigo-900/60 dark:text-indigo-200">
+                <div style="min-width: 0; flex: 1;">
+                    <div style="font-size: 11px; font-weight: 700; color: #4338ca; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Total Employee Aktif</div>
+                    <div style="font-size: 26px; font-weight: 800; color: #0f172a; margin-top: 4px; line-height: 1.1;" class="dark:text-white">{{ number_format($totalActiveEmp) }}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 5px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                        <span style="font-size: 11px; font-weight: 700; color: #4338ca; background: #e0e7ff; padding: 1px 6px; border-radius: 4px; white-space: nowrap;" class="dark:bg-indigo-900/60 dark:text-indigo-200">
                             {{ number_format($totalScheduledEmp) }} Terjadwal
                         </span>
+                        <span style="white-space: nowrap;">Seluruh Aktif</span>
                     </div>
-                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Seluruh Karyawan Aktif</div>
                 </div>
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0e7ff; color: #4338ca; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0e7ff; color: #4338ca; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 6px;">
                     <x-filament::icon icon="heroicon-o-users" style="width: 24px; height: 24px;" />
                 </div>
             </div>
 
             {{-- 2. Total Hadir (On-Time) --}}
             <div class="kpi-card">
-                <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase; letter-spacing: 0.5px;">Total Hadir (On-Time)</div>
-                    <div style="font-size: 26px; font-weight: 800; color: #059669; margin-top: 4px;">{{ number_format($totalOntime) }}</div>
-                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Check-in tepat waktu</div>
+                <div style="min-width: 0; flex: 1;">
+                    <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Total Hadir (On-Time)</div>
+                    <div style="font-size: 26px; font-weight: 800; color: #059669; margin-top: 4px; line-height: 1.1;">{{ number_format($totalOntime) }}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Check-in tepat waktu</div>
                 </div>
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #d1fae5; color: #059669; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: #d1fae5; color: #059669; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 6px;">
                     <x-filament::icon icon="heroicon-o-check-circle" style="width: 24px; height: 24px;" />
                 </div>
             </div>
 
             {{-- 3. Total Telat --}}
             <div class="kpi-card">
-                <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #d97706; text-transform: uppercase; letter-spacing: 0.5px;">Total Telat</div>
-                    <div style="font-size: 26px; font-weight: 800; color: #d97706; margin-top: 4px;">{{ number_format($totalLate) }}</div>
-                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Check-in melebihi jadwal</div>
+                <div style="min-width: 0; flex: 1;">
+                    <div style="font-size: 11px; font-weight: 700; color: #d97706; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Total Telat</div>
+                    <div style="font-size: 26px; font-weight: 800; color: #d97706; margin-top: 4px; line-height: 1.1;">{{ number_format($totalLate) }}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Check-in melebihi jadwal</div>
                 </div>
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 6px;">
                     <x-filament::icon icon="heroicon-o-clock" style="width: 24px; height: 24px;" />
                 </div>
             </div>
 
             {{-- 4. Total Cuti --}}
             <div class="kpi-card">
-                <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #0284c7; text-transform: uppercase; letter-spacing: 0.5px;">Total Cuti</div>
-                    <div style="font-size: 26px; font-weight: 800; color: #0284c7; margin-top: 4px;">{{ number_format($totalCuti) }}</div>
-                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Cuti disetujui</div>
+                <div style="min-width: 0; flex: 1;">
+                    <div style="font-size: 11px; font-weight: 700; color: #0284c7; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Total Cuti</div>
+                    <div style="font-size: 26px; font-weight: 800; color: #0284c7; margin-top: 4px; line-height: 1.1;">{{ number_format($totalCuti) }}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Cuti disetujui</div>
                 </div>
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 6px;">
                     <x-filament::icon icon="heroicon-o-calendar" style="width: 24px; height: 24px;" />
                 </div>
             </div>
 
             {{-- 5. Total Ijin / Sakit --}}
             <div class="kpi-card">
-                <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.5px;">Total Ijin / Sakit</div>
-                    <div style="font-size: 26px; font-weight: 800; color: #7c3aed; margin-top: 4px;">{{ number_format($totalPermitSick) }}</div>
-                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Izin resmi & surat sakit</div>
+                <div style="min-width: 0; flex: 1;">
+                    <div style="font-size: 11px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Total Ijin / Sakit</div>
+                    <div style="font-size: 26px; font-weight: 800; color: #7c3aed; margin-top: 4px; line-height: 1.1;">{{ number_format($totalPermitSick) }}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Izin resmi & surat sakit</div>
                 </div>
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #ede9fe; color: #7c3aed; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: #ede9fe; color: #7c3aed; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 6px;">
                     <x-filament::icon icon="heroicon-o-document-text" style="width: 24px; height: 24px;" />
                 </div>
             </div>
 
             {{-- 6. Total Alpha --}}
             <div class="kpi-card">
-                <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #e11d48; text-transform: uppercase; letter-spacing: 0.5px;">Total Alpha</div>
-                    <div style="font-size: 26px; font-weight: 800; color: #e11d48; margin-top: 4px;">{{ number_format($totalAlpha) }}</div>
-                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Tidak hadir / belum absen</div>
+                <div style="min-width: 0; flex: 1;">
+                    <div style="font-size: 11px; font-weight: 700; color: #e11d48; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Total Alpha</div>
+                    <div style="font-size: 26px; font-weight: 800; color: #e11d48; margin-top: 4px; line-height: 1.1;">{{ number_format($totalAlpha) }}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Tidak hadir / belum absen</div>
                 </div>
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #ffe4e6; color: #e11d48; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: #ffe4e6; color: #e11d48; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 6px;">
                     <x-filament::icon icon="heroicon-o-x-circle" style="width: 24px; height: 24px;" />
                 </div>
             </div>
