@@ -719,19 +719,39 @@ Route::get('/run-migration-stock-end', function () {
     try {
         $path = database_path('migrations/2026_09_10_150000_update_dulux_stock_end_template_for_cart_and_tinter.php');
         $exists = file_exists($path);
-        \Illuminate\Support\Facades\Artisan::call('migrate', [
-            '--path' => 'database/migrations/2026_09_10_150000_update_dulux_stock_end_template_for_cart_and_tinter.php',
-            '--force' => true,
-        ]);
-        $output = \Illuminate\Support\Facades\Artisan::output();
+        
+        $migrationRow = \Illuminate\Support\Facades\DB::table('migrations')
+            ->where('migration', 'like', '%update_dulux_stock_end%')
+            ->first();
+
+        $executedDirectly = false;
+        if (file_exists($path)) {
+            $migrationInstance = require $path;
+            if (is_object($migrationInstance) && method_exists($migrationInstance, 'up')) {
+                $migrationInstance->up();
+                $executedDirectly = true;
+            }
+        }
+
+        // Cek template fields di database
+        $template = \App\Models\ReportTemplate::where('code', 'RPT-DULUX-STOCK-END')->first();
+        $fields = $template ? $template->fields()->select('name', 'label', 'type', 'is_required', 'order_index')->orderBy('order_index')->get() : [];
+
         return response()->json([
             'status' => 'success',
             'file_exists' => $exists,
-            'path' => $path,
-            'output' => $output,
+            'migration_in_db' => $migrationRow,
+            'executed_directly' => $executedDirectly,
+            'template_id' => $template?->id,
+            'template_title' => $template?->title,
+            'fields' => $fields,
         ]);
     } catch (\Throwable $e) {
-        return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ], 500);
     }
 });
 
