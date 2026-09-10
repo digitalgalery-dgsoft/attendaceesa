@@ -1419,5 +1419,25 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
      - **Staging Server**: `appsend.my.id` (HTTP 200 OK)
    - APK Mobile resmi versi **`v1.0.131+131`** telah berhasil dibuild (`108.6 MB`), diunggah ke server `https://appsend.my.id/app-release.apk`, dan didistribusikan ke seluruh server node.
 
-
-
+10. **Konsolidasi Laporan Offtake 1 Baris & Rincian Kelompok Produk (Selesai 10 September 2026)**:
+    - **Penyatuan Submission Multi-Produk Menjadi 1 Baris Tunggal**:
+      - Backend `ReportingApiController.php` (`submit()`) disempurnakan sehingga setiap kali petugas mengirimkan laporan offtake dengan banyak produk, sistem mencatatnya sebagai **1 baris dokumen tunggal** (`RPT-YYYYMMDD-XXXX`) dan tidak lagi memecahnya menjadi banyak baris berakhiran `-1`, `-2`.
+      - Seluruh item produk tersimpan secara terstruktur di `offtake_items_json`.
+      - Nilai global submission diagregasikan secara otomatis ke kolom-kolom `total_volume_unit`, `total_volume_liter`, `total_nilai_sales_rp`, `jml_customer_masuk`, `jml_customer_beli_cat`, `jml_customer_beli_dulux`, dan `estimasi_market_share_persen`.
+    - **Banner Metrik Global Akumulatif Transaksi**:
+      - Pada halaman detail laporan (`report_submission_detail.blade.php` di Portal Principal & `view.blade.php` di Web Admin Filament), ditambahkan banner 4 kartu ringkasan global:
+        1. **Grand Total Penjualan (Rp)**: Akumulasi nilai nominal penjualan seluruh produk.
+        2. **Grand Total Volume (Liter)**: Akumulasi volume cat terjual dalam liter.
+        3. **Total Kuantiti Terjual (Unit)**: Akumulasi kaleng (Tin + Galon + Pail).
+        4. **Traffic & Pangsa Pasar (%)**: Jumlah customer masuk, pembeli cat, pembeli Dulux, dan estimasi market share.
+    - **Kartu Rincian Kelompok Produk (Grouped Product Breakdown)**:
+      - Rincian produk ditampilkan per kelompok produk yang rapi dan terstruktur:
+        - **Header**: Tag Brand (Dulux / Catylac), Nama Sub Brand/Produk, Tag RM / Base, dan Subtotal Nilai Penjualan (Rp).
+        - **Harga Standart Acuan**: Menampilkan harga benchmark acuan kemasan Galon, Pail, dan Tin dari Matrix Produk.
+        - **Kuantiti Terjual**: Jumlah Galon, Pail, dan Tin yang terjual beserta Total Unit untuk produk tersebut.
+        - **Total Volume (Liter)**: Volume liter untuk masing-masing kemasan serta Total Liter untuk produk tersebut.
+    - **Pembersihan Parameter Mentah & Galeri Bukti Global**:
+      - Menyaring dan menyembunyikan 40+ field mentah redundan (`qty_tin`, `qty_galon`, `total_volume_unit`, `grand_total_...`, dll.) dari tabel parameter generik saat submission memiliki `offtake_items_json`.
+      - Foto bukti transaksi (Card Offtake & Nota Penjualan) tetap ditampilkan sebagai galeri dokumentasi global transaksi.
+    - **Penyelarasan Dashboard Tabel Portal (`offtake_dashboard.blade.php`)**:
+      - Setiap baris multi-produk menampilkan badge `X Produk Terjual`, rincian nama produk, total kuantiti unit kemasan, dan kalkulasi total volume liter yang akurat.

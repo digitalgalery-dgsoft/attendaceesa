@@ -765,9 +765,9 @@ class ReportingApiController extends Controller
             $isOfftakeTemplate = ($template->code === 'RPT-DULUX-OFFTAKE-01' || Str::contains($template->code, 'OFFTAKE'));
             $isSaleOfftakeWithItems = $isOfftakeTemplate && !empty($offtakeItems) && count($offtakeItems) > 0;
 
-            // JIKA OFFTAKE SALE DENGAN MULTI-PRODUK: BUAT REPORT SUBMISSION TERPISAH PER PRODUK (1 BARIS PER PRODUK)
+            // JIKA OFFTAKE SALE DENGAN MULTI-PRODUK / KERANJANG: BUAT 1 BARIS REPORT SUBMISSION DENGAN DETAIL RINCIAN PER PRODUK
             if ($isSaleOfftakeWithItems) {
-                // Simpan seluruh file media/foto sekali untuk seluruh item
+                // Simpan seluruh file media/foto sekali untuk submission ini
                 $allSavedMedia = [];
                 foreach ($template->fields as $field) {
                     if (in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])) {
@@ -779,142 +779,181 @@ class ReportingApiController extends Controller
                     }
                 }
 
-                $createdSubmissions = [];
-                $totalProducts = count($offtakeItems);
+                // 1 Record ReportSubmission Tunggal
+                $sub = ReportSubmission::create([
+                    'report_template_id' => $template->id,
+                    'principal_id' => $principalId,
+                    'employee_id' => $employee->id,
+                    'work_location_id' => $workLocationId,
+                    'itinerary_item_id' => $itineraryItemId,
+                    'submission_code' => $submissionCode,
+                    'store_name' => $storeName,
+                    'address' => $address,
+                    'latitude' => $request->latitude,
+                    'longitude' => $request->longitude,
+                    'is_within_radius' => $isWithinRadius,
+                    'status' => 'pending',
+                    'submitted_at' => now(),
+                ]);
 
-                foreach ($offtakeItems as $idx => $item) {
-                    $itemSubCode = $totalProducts > 1 ? "{$submissionCode}-" . ($idx + 1) : $submissionCode;
-                    $sub = ReportSubmission::create([
-                        'report_template_id' => $template->id,
-                        'principal_id' => $principalId,
-                        'employee_id' => $employee->id,
-                        'work_location_id' => $workLocationId,
-                        'itinerary_item_id' => $itineraryItemId,
-                        'submission_code' => $itemSubCode,
-                        'store_name' => $storeName,
-                        'address' => $address,
-                        'latitude' => $request->latitude,
-                        'longitude' => $request->longitude,
-                        'is_within_radius' => $isWithinRadius,
-                        'status' => 'pending',
-                        'submitted_at' => now(),
-                    ]);
+                // Hitung data akumulatif global dari seluruh item produk
+                $grandQtyTin = 0;
+                $grandQtyGalon = 0;
+                $grandQtyPail = 0;
+                $grandUnit = 0;
+                $grandVolTin = 0.0;
+                $grandVolGalon = 0.0;
+                $grandVolPail = 0.0;
+                $grandLiter = 0.0;
+                $grandRp = 0.0;
+                $allProductNames = [];
+                $allBrands = [];
 
-                    // Map nilai spesifik per produk
-                    $pBrand = $item['brand'] ?? 'Dulux';
-                    $pBrandRmBase = $item['brand_rm_base'] ?? $pBrand;
-                    $pSubBrand = $item['sub_brand'] ?? $item['product_name'] ?? '-';
-                    $pSubBrand1 = $item['sub_brand1'] ?? $pSubBrand;
-                    $pSubBrand2 = $item['sub_brand2'] ?? '-';
-                    $pKemasanTin = $item['kemasan_tin'] ?? null;
-                    $pKemasanGalon = $item['kemasan_galon'] ?? null;
-                    $pKemasanPail = $item['kemasan_pail'] ?? null;
-                    $pQtyTin = intval($item['qty_tin'] ?? 0);
-                    $pQtyGalon = intval($item['qty_galon'] ?? 0);
-                    $pQtyPail = intval($item['qty_pail'] ?? 0);
-                    $pVolTin = floatval($item['volume_tin_l'] ?? 0);
-                    $pVolGalon = floatval($item['volume_galon_l'] ?? 0);
-                    $pVolPail = floatval($item['volume_pail_l'] ?? 0);
-                    $pUnit = intval($item['total_unit'] ?? ($pQtyTin + $pQtyGalon + $pQtyPail));
-                    $pLiter = floatval($item['total_liter'] ?? ($pVolTin + $pVolGalon + $pVolPail));
-                    $pRp = floatval($item['total_nilai_rp'] ?? 0);
+                foreach ($offtakeItems as $item) {
+                    $qTin = intval($item['qty_tin'] ?? 0);
+                    $qGalon = intval($item['qty_galon'] ?? 0);
+                    $qPail = intval($item['qty_pail'] ?? 0);
+                    $u = intval($item['total_unit'] ?? ($qTin + $qGalon + $qPail));
+                    $vTin = floatval($item['volume_tin_l'] ?? 0);
+                    $vGalon = floatval($item['volume_galon_l'] ?? 0);
+                    $vPail = floatval($item['volume_pail_l'] ?? 0);
+                    $l = floatval($item['total_liter'] ?? ($vTin + $vGalon + $vPail));
+                    $rp = floatval($item['total_nilai_rp'] ?? 0);
 
-                    foreach ($template->fields as $field) {
-                        $fn = strtolower(trim($field->field_name));
-                        $vText = null;
-                        $vNum = null;
-                        $vJson = null;
-                        $photoPath = null;
+                    $grandQtyTin += $qTin;
+                    $grandQtyGalon += $qGalon;
+                    $grandQtyPail += $qPail;
+                    $grandUnit += $u;
+                    $grandVolTin += $vTin;
+                    $grandVolGalon += $vGalon;
+                    $grandVolPail += $vPail;
+                    $grandLiter += $l;
+                    $grandRp += $rp;
 
-                        if ($fn === 'sub_brand' || $fn === 'produk_terjual' || $fn === 'subbrand_produk') {
-                            $vText = $pSubBrand;
-                        } elseif ($fn === 'brand') {
-                            $vText = $pBrand;
-                        } elseif ($fn === 'brand_rm_base') {
-                            $vText = $pBrandRmBase;
-                        } elseif ($fn === 'sub_brand1') {
-                            $vText = $pSubBrand1;
-                        } elseif ($fn === 'sub_brand2') {
-                            $vText = $pSubBrand2;
-                        } elseif ($fn === 'kemasan_tin') {
-                            $vText = $pKemasanTin;
-                        } elseif ($fn === 'qty_tin') {
-                            $vNum = $pQtyTin; $vText = (string)$pQtyTin;
-                        } elseif ($fn === 'volume_tin_l') {
-                            $vNum = $pVolTin; $vText = (string)$pVolTin;
-                        } elseif ($fn === 'kemasan_galon') {
-                            $vText = $pKemasanGalon;
-                        } elseif ($fn === 'qty_galon') {
-                            $vNum = $pQtyGalon; $vText = (string)$pQtyGalon;
-                        } elseif ($fn === 'volume_galon_l') {
-                            $vNum = $pVolGalon; $vText = (string)$pVolGalon;
-                        } elseif ($fn === 'kemasan_pail') {
-                            $vText = $pKemasanPail;
-                        } elseif ($fn === 'qty_pail') {
-                            $vNum = $pQtyPail; $vText = (string)$pQtyPail;
-                        } elseif ($fn === 'volume_pail_l') {
-                            $vNum = $pVolPail; $vText = (string)$pVolPail;
-                        } elseif ($fn === 'total_volume_unit') {
-                            $vNum = $pUnit; $vText = (string)$pUnit;
-                        } elseif ($fn === 'total_volume_liter') {
-                            $vNum = $pLiter; $vText = (string)$pLiter;
-                        } elseif ($fn === 'total_nilai_sales_rp') {
-                            $vNum = $pRp; $vText = 'Rp ' . number_format($pRp, 0, ',', '.');
-                        } elseif ($fn === 'tipe_laporan_offtake') {
-                            $vText = 'Sale';
-                        } elseif ($fn === 'jml_customer_masuk') {
-                            $vNum = floatval($normalizedValues['jml_customer_masuk'] ?? 0);
-                            $vText = (string)$vNum;
-                        } elseif ($fn === 'jml_customer_beli_cat') {
-                            $vNum = floatval($normalizedValues['jml_customer_beli_cat'] ?? 0);
-                            $vText = (string)$vNum;
-                        } elseif ($fn === 'jml_customer_beli_dulux') {
-                            $vNum = floatval($normalizedValues['jml_customer_beli_dulux'] ?? 0);
-                            $vText = (string)$vNum;
-                        } elseif ($fn === 'estimasi_market_share_persen') {
-                            $vText = $normalizedValues['estimasi_market_share_persen'] ?? null;
-                        } elseif (in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])) {
-                            $saved = $allSavedMedia[$field->id] ?? $allSavedMedia[$field->field_name] ?? [];
-                            if (!empty($saved)) {
-                                $photoPath = $saved[0];
-                                $vJson = $saved;
-                                $vText = implode(', ', $saved);
-                            }
-                        } else {
-                            $raw = $normalizedValues[$fn] ?? null;
-                            $vText = is_string($raw) ? $raw : ($raw !== null ? json_encode($raw) : null);
-                            if (is_numeric($raw)) $vNum = (float)$raw;
+                    $pName = $item['sub_brand'] ?? $item['product_name'] ?? null;
+                    if ($pName && !in_array($pName, $allProductNames)) {
+                        $allProductNames[] = $pName;
+                    }
+                    $b = $item['brand'] ?? 'Dulux';
+                    if ($b && !in_array($b, $allBrands)) {
+                        $allBrands[] = $b;
+                    }
+                }
+
+                $firstItem = $offtakeItems[0];
+                $brandSummary = count($allBrands) === 1 ? $allBrands[0] : implode(', ', $allBrands);
+                $subBrandSummary = implode(', ', $allProductNames);
+
+                foreach ($template->fields as $field) {
+                    $fn = strtolower(trim($field->field_name));
+                    $vText = null;
+                    $vNum = null;
+                    $vJson = null;
+                    $photoPath = null;
+
+                    if ($fn === 'sub_brand' || $fn === 'produk_terjual' || $fn === 'subbrand_produk') {
+                        $vText = $subBrandSummary;
+                    } elseif ($fn === 'brand') {
+                        $vText = $brandSummary;
+                    } elseif ($fn === 'brand_rm_base') {
+                        $vText = count($allBrands) === 1 ? ($firstItem['brand_rm_base'] ?? $brandSummary) : $brandSummary;
+                    } elseif ($fn === 'sub_brand1') {
+                        $vText = $subBrandSummary;
+                    } elseif ($fn === 'sub_brand2') {
+                        $vText = count($offtakeItems) === 1 ? ($firstItem['sub_brand2'] ?? '-') : '-';
+                    } elseif ($fn === 'kemasan_tin') {
+                        $vText = $firstItem['kemasan_tin'] ?? null;
+                    } elseif ($fn === 'qty_tin') {
+                        $vNum = $grandQtyTin; $vText = (string)$grandQtyTin;
+                    } elseif ($fn === 'volume_tin_l') {
+                        $vNum = $grandVolTin; $vText = (string)$grandVolTin;
+                    } elseif ($fn === 'kemasan_galon') {
+                        $vText = $firstItem['kemasan_galon'] ?? null;
+                    } elseif ($fn === 'qty_galon') {
+                        $vNum = $grandQtyGalon; $vText = (string)$grandQtyGalon;
+                    } elseif ($fn === 'volume_galon_l') {
+                        $vNum = $grandVolGalon; $vText = (string)$grandVolGalon;
+                    } elseif ($fn === 'kemasan_pail') {
+                        $vText = $firstItem['kemasan_pail'] ?? null;
+                    } elseif ($fn === 'qty_pail') {
+                        $vNum = $grandQtyPail; $vText = (string)$grandQtyPail;
+                    } elseif ($fn === 'volume_pail_l') {
+                        $vNum = $grandVolPail; $vText = (string)$grandVolPail;
+                    } elseif ($fn === 'total_volume_unit') {
+                        $vNum = $grandUnit; $vText = (string)$grandUnit;
+                    } elseif ($fn === 'total_volume_liter') {
+                        $vNum = $grandLiter; $vText = (string)$grandLiter;
+                    } elseif ($fn === 'total_nilai_sales_rp') {
+                        $vNum = $grandRp; $vText = 'Rp ' . number_format($grandRp, 0, ',', '.');
+                    } elseif ($fn === 'tipe_laporan_offtake') {
+                        $vText = 'Sale';
+                    } elseif ($fn === 'offtake_items_json') {
+                        $vJson = $offtakeItems;
+                        $vText = json_encode($offtakeItems, JSON_UNESCAPED_UNICODE);
+                    } elseif ($fn === 'jml_customer_masuk') {
+                        $vNum = floatval($normalizedValues['jml_customer_masuk'] ?? 0);
+                        $vText = (string)$vNum;
+                    } elseif ($fn === 'jml_customer_beli_cat') {
+                        $vNum = floatval($normalizedValues['jml_customer_beli_cat'] ?? 0);
+                        $vText = (string)$vNum;
+                    } elseif ($fn === 'jml_customer_beli_dulux') {
+                        $vNum = floatval($normalizedValues['jml_customer_beli_dulux'] ?? 0);
+                        $vText = (string)$vNum;
+                    } elseif ($fn === 'estimasi_market_share_persen') {
+                        $vText = $normalizedValues['estimasi_market_share_persen'] ?? null;
+                    } elseif (in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])) {
+                        $saved = $allSavedMedia[$field->id] ?? $allSavedMedia[$field->field_name] ?? [];
+                        if (!empty($saved)) {
+                            $photoPath = $saved[0];
+                            $vJson = $saved;
+                            $vText = implode(', ', $saved);
                         }
-
-                        ReportSubmissionValue::create([
-                            'report_submission_id' => $sub->id,
-                            'report_form_field_id' => $field->id,
-                            'field_name' => $field->field_name,
-                            'field_type' => $field->field_type,
-                            'value_text' => $vText,
-                            'value_number' => $vNum,
-                            'value_json' => $vJson,
-                            'media_url' => $photoPath,
-                        ]);
+                    } else {
+                        $raw = $normalizedValues[$fn] ?? null;
+                        $vText = is_string($raw) ? $raw : ($raw !== null ? json_encode($raw) : null);
+                        if (is_numeric($raw)) $vNum = (float)$raw;
                     }
 
-                    $createdSubmissions[] = $sub;
+                    ReportSubmissionValue::create([
+                        'report_submission_id' => $sub->id,
+                        'report_form_field_id' => $field->id,
+                        'field_name' => $field->field_name,
+                        'field_type' => $field->field_type,
+                        'value_text' => $vText,
+                        'value_number' => $vNum,
+                        'value_json' => $vJson,
+                        'media_url' => $photoPath,
+                    ]);
+                }
+
+                // Pastikan offtake_items_json selalu tersimpan jika belum ada field terdaftar di template
+                $hasItemsJson = ReportSubmissionValue::where('report_submission_id', $sub->id)
+                    ->where('field_name', 'offtake_items_json')
+                    ->exists();
+                if (!$hasItemsJson) {
+                    ReportSubmissionValue::create([
+                        'report_submission_id' => $sub->id,
+                        'report_form_field_id' => null,
+                        'field_name' => 'offtake_items_json',
+                        'field_type' => 'json',
+                        'value_text' => json_encode($offtakeItems, JSON_UNESCAPED_UNICODE),
+                        'value_number' => null,
+                        'value_json' => $offtakeItems,
+                        'media_url' => null,
+                    ]);
                 }
 
                 DB::commit();
 
-                $firstSub = $createdSubmissions[0];
                 return response()->json([
                     'status' => 'success',
-                    'message' => 'Laporan ' . count($createdSubmissions) . ' produk berhasil dikirim (' . count($createdSubmissions) . ' dokumen tersimpan).',
+                    'message' => 'Laporan offtake (' . count($offtakeItems) . ' produk) berhasil dikirim.',
                     'data' => [
-                        'id' => $firstSub->id,
-                        'submission_code' => $firstSub->submission_code,
+                        'id' => $sub->id,
+                        'submission_code' => $sub->submission_code,
                         'template_title' => $template->title,
-                        'submitted_at' => $firstSub->submitted_at->toDateTimeString(),
-                        'status' => $firstSub->status,
-                        'submission_ids' => collect($createdSubmissions)->pluck('id')->toArray(),
-                        'submission_codes' => collect($createdSubmissions)->pluck('submission_code')->toArray(),
+                        'submitted_at' => $sub->submitted_at->toDateTimeString(),
+                        'status' => $sub->status,
                     ],
                 ]);
             }

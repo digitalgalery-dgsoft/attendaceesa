@@ -436,18 +436,27 @@
                                     $kemasanPail = trim((string)($valMap['kemasan_pail'] ?? ''));
                                     $qtyPail = (float)($valMap['qty_pail'] ?? ($valMap['kuantiti_pail_terjual_unit'] ?? ($valMap['kuantiti_pail_terjual'] ?? 0)));
 
+                                    $subMultiItems = !empty($valMap['offtake_items_json']) ? (is_array($valMap['offtake_items_json']) ? $valMap['offtake_items_json'] : json_decode((string)$valMap['offtake_items_json'], true)) : null;
+
                                     $volLiter = (float)($valMap['total_volume_liter'] ?? ($valMap['volume_liter'] ?? 0));
+                                    if ($volLiter <= 0 && !empty($subMultiItems) && is_array($subMultiItems)) {
+                                        $volLiter = array_sum(array_map(function($it) {
+                                            return (float)($it['total_liter'] ?? (($it['volume_tin_l'] ?? 0) + ($it['volume_galon_l'] ?? 0) + ($it['volume_pail_l'] ?? 0)));
+                                        }, $subMultiItems));
+                                    }
                                     if ($volLiter <= 0) {
                                         $volG = (float)($valMap['volume_galon_l'] ?? 0);
                                         $volP = (float)($valMap['volume_pail_l'] ?? 0);
-                                        if ($volG > 0 || $volP > 0) {
-                                            $volLiter = $volG + $volP;
+                                        $volT = (float)($valMap['volume_tin_l'] ?? 0);
+                                        if ($volG > 0 || $volP > 0 || $volT > 0) {
+                                            $volLiter = $volG + $volP + $volT;
                                         } else {
                                             $gSize = 0;
                                             if (preg_match('/([0-9]+(?:\.[0-9]+)?)/', $kemasanGalon, $gm)) $gSize = (float)$gm[1];
                                             $pSize = 0;
                                             if (preg_match('/([0-9]+(?:\.[0-9]+)?)/', $kemasanPail, $pm)) $pSize = (float)$pm[1];
-                                            $volLiter = ($gSize * $qtyGalon) + ($pSize * $qtyPail);
+                                            $qtyTinSingle = (float)($valMap['qty_tin'] ?? 0);
+                                            $volLiter = ($gSize * $qtyGalon) + ($pSize * $qtyPail) + (1.0 * $qtyTinSingle);
                                         }
                                     }
 
@@ -497,7 +506,6 @@
                                     <td>
                                         @php
                                             $isNoSaleSub = strtolower(trim((string)($valMap['tipe_laporan_offtake'] ?? ''))) === 'no sale';
-                                            $subMultiItems = !empty($valMap['offtake_items_json']) ? (is_array($valMap['offtake_items_json']) ? $valMap['offtake_items_json'] : json_decode((string)$valMap['offtake_items_json'], true)) : null;
                                         @endphp
                                         @if($isNoSaleSub)
                                             <span class="brand-tag" style="background: #fee2e2; color: #dc2626; font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; font-weight: 700; display: inline-block;">

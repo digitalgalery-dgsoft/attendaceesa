@@ -595,6 +595,74 @@
         from { transform: scale(0.95); opacity: 0; }
         to { transform: scale(1); opacity: 1; }
     }
+
+    /* OFFTAKE SUMMARY & PRODUCT BREAKDOWN STYLING */
+    .offtake-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .offtake-stat-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 1.15rem 1.25rem;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .offtake-stat-icon {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        flex-shrink: 0;
+    }
+    .offtake-stat-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+    .offtake-stat-label {
+        font-size: 0.74rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .offtake-stat-value {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: var(--text-heading);
+        line-height: 1.2;
+    }
+    .offtake-stat-sub {
+        font-size: 0.74rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .product-breakdown-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1rem 1.15rem;
+        margin-bottom: 0.85rem;
+        transition: all 0.15s ease;
+    }
+    .product-breakdown-card:hover {
+        border-color: #cbd5e1;
+        box-shadow: var(--shadow-sm);
+    }
 </style>
 @endpush
 
@@ -644,6 +712,63 @@
             }
         }
 
+        // Cek apakah submission ini memiliki list item offtake multi-produk
+        $hasDynamicOfftakeItems = false;
+        $offtakeItemsList = [];
+        $offtakeGlobalData = [
+            'total_volume_liter' => 0,
+            'total_nilai_sales_rp' => 0,
+            'total_volume_unit' => 0,
+            'jml_customer_masuk' => null,
+            'jml_customer_beli_cat' => null,
+            'jml_customer_beli_dulux' => null,
+            'estimasi_market_share_persen' => null,
+            'tipe_laporan_offtake' => 'Sale',
+        ];
+
+        foreach ($submission->values as $v) {
+            $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
+            if ($fn === 'offtake_items_json') {
+                $raw = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
+                if (is_array($raw) && !empty($raw)) {
+                    $hasDynamicOfftakeItems = true;
+                    $offtakeItemsList = $raw;
+                }
+            } elseif ($fn === 'total_volume_liter') {
+                $offtakeGlobalData['total_volume_liter'] = (float)($v->value_number ?? $v->value_text ?? 0);
+            } elseif ($fn === 'total_nilai_sales_rp') {
+                $offtakeGlobalData['total_nilai_sales_rp'] = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
+            } elseif ($fn === 'total_volume_unit') {
+                $offtakeGlobalData['total_volume_unit'] = (int)($v->value_number ?? $v->value_text ?? 0);
+            } elseif ($fn === 'jml_customer_masuk') {
+                $offtakeGlobalData['jml_customer_masuk'] = (int)($v->value_number ?? $v->value_text ?? 0);
+            } elseif ($fn === 'jml_customer_beli_cat') {
+                $offtakeGlobalData['jml_customer_beli_cat'] = (int)($v->value_number ?? $v->value_text ?? 0);
+            } elseif ($fn === 'jml_customer_beli_dulux') {
+                $offtakeGlobalData['jml_customer_beli_dulux'] = (int)($v->value_number ?? $v->value_text ?? 0);
+            } elseif ($fn === 'estimasi_market_share_persen') {
+                $offtakeGlobalData['estimasi_market_share_persen'] = $v->value_text;
+            } elseif ($fn === 'tipe_laporan_offtake') {
+                $offtakeGlobalData['tipe_laporan_offtake'] = $v->value_text ?: 'Sale';
+            }
+        }
+
+        // Kalkulasi fallback akumulatif jika belum ada di record
+        if ($hasDynamicOfftakeItems) {
+            $calcUnit = 0; $calcLiter = 0; $calcRp = 0;
+            foreach ($offtakeItemsList as $it) {
+                $qT = (float)($it['qty_tin'] ?? 0);
+                $qG = (float)($it['qty_galon'] ?? 0);
+                $qP = (float)($it['qty_pail'] ?? 0);
+                $calcUnit += (int)($it['total_unit'] ?? ($qT + $qG + $qP));
+                $calcLiter += (float)($it['total_liter'] ?? (($it['volume_tin_l'] ?? 0) + ($it['volume_galon_l'] ?? 0) + ($it['volume_pail_l'] ?? 0)));
+                $calcRp += (float)($it['total_nilai_rp'] ?? 0);
+            }
+            if ($offtakeGlobalData['total_volume_unit'] <= 0) $offtakeGlobalData['total_volume_unit'] = $calcUnit;
+            if ($offtakeGlobalData['total_volume_liter'] <= 0) $offtakeGlobalData['total_volume_liter'] = $calcLiter;
+            if ($offtakeGlobalData['total_nilai_sales_rp'] <= 0) $offtakeGlobalData['total_nilai_sales_rp'] = $calcRp;
+        }
+
         $suppressCompetitorFields = [
             'merk_kompetitor',
             'subbrand_kompetitor',
@@ -657,8 +782,55 @@
             'harga_jual_kompetitor_kemasan_tin_/_kaleng_1l/1kg_(rp)',
         ];
 
+        $suppressOfftakeFields = [
+            'offtake_items_json',
+            'sub_brand',
+            'subbrand',
+            'produk_terjual',
+            'subbrand_produk',
+            'brand',
+            'brand_rm_base',
+            'sub_brand1',
+            'sub_brand2',
+            'pilih_produk_sub_brand',
+            'pilih_produk_/_sub_brand',
+            'sub_brand_spesifik_/_varian_(sub_brand_1)',
+            'detail_rm_/_base_(sub_brand_2)',
+            'kemasan_tin',
+            'kemasan_galon',
+            'kemasan_pail',
+            'qty_tin',
+            'qty_galon',
+            'qty_pail',
+            'kuantiti_tin_terjual_(unit)',
+            'kuantiti_galon_terjual_(unit)',
+            'kuantiti_pail_terjual_(unit)',
+            'volume_tin_l',
+            'volume_galon_l',
+            'volume_pail_l',
+            'volume_tin_(liter)',
+            'volume_galon_(liter)',
+            'volume_pail_(liter)',
+            'total_volume_unit',
+            'total_volume_liter',
+            'total_nilai_sales_rp',
+            'grand_total_nilai_penjualan_(rupiah)',
+            'grand_total_volume_penjualan_(liter)',
+            'grand_total_kuantiti_unit_(tin_+_galon_+_pail)',
+            'jml_customer_masuk',
+            'jml_customer_beli_cat',
+            'jml_customer_beli_dulux',
+            'jumlah_customer_masuk',
+            'jumlah_cust_yang_beli_cat',
+            'jumlah_cust_yang_beli_produk_dulux',
+            'estimasi_market_share_persen',
+            'estimasi_market_share_(%)',
+            'tipe_transaksi_hari_ini',
+            'tipe_laporan_offtake',
+        ];
+
         // Separate text inputs and photo/media attachments to prevent tall empty grid cards
-        $textValues = $submission->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields) {
+        $textValues = $submission->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields, $hasDynamicOfftakeItems, $suppressOfftakeFields) {
             $isMedia = in_array($val->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])
                 || !empty($val->media_url)
                 || !empty($val->file_path);
@@ -669,6 +841,15 @@
                 $fl = strtolower((string)($val->formField?->field_label ?? ''));
                 $flClean = str_replace(' ', '_', $fl);
                 if (in_array($fn, $suppressCompetitorFields) || in_array($flClean, $suppressCompetitorFields)) {
+                    return false;
+                }
+            }
+
+            if ($hasDynamicOfftakeItems) {
+                $fn = strtolower(trim((string)($val->field_name ?: ($val->formField ? $val->formField->field_name : ''))));
+                $fl = strtolower(trim((string)($val->formField?->field_label ?? '')));
+                $flClean = str_replace([' ', '-', '/'], '_', $fl);
+                if (in_array($fn, $suppressOfftakeFields) || in_array($flClean, $suppressOfftakeFields) || str_contains($fn, 'grand_total') || str_contains($flClean, 'grand_total')) {
                     return false;
                 }
             }
@@ -947,17 +1128,204 @@
             </div>
         </div>
 
+        {{-- PANEL RINGKASAN GLOBAL TRANSAKSI OFFTAKE (AKUMULATIF GLOBAL) --}}
+        @if($hasDynamicOfftakeItems)
+            <div class="offtake-summary-grid">
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(16, 185, 129, 0.12); color: #10b981;">
+                        <i class="fa-solid fa-coins"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Grand Total Penjualan</span>
+                        <span class="offtake-stat-value" style="color: #15803d;">Rp {{ number_format($offtakeGlobalData['total_nilai_sales_rp'], 0, ',', '.') }}</span>
+                        <span class="offtake-stat-sub">Akumulasi {{ count($offtakeItemsList) }} produk terjual</span>
+                    </div>
+                </div>
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(15, 82, 186, 0.12); color: #0F52BA;">
+                        <i class="fa-solid fa-fill-drip"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Grand Total Volume</span>
+                        <span class="offtake-stat-value" style="color: #0F52BA;">{{ number_format($offtakeGlobalData['total_volume_liter'], 2, ',', '.') }} L</span>
+                        <span class="offtake-stat-sub">Total volume cat terjual</span>
+                    </div>
+                </div>
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(99, 102, 241, 0.12); color: #6366f1;">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Total Kuantiti Terjual</span>
+                        <span class="offtake-stat-value" style="color: #4f46e5;">{{ number_format($offtakeGlobalData['total_volume_unit']) }} Unit</span>
+                        <span class="offtake-stat-sub">Akumulasi Tin + Galon + Pail</span>
+                    </div>
+                </div>
+                <div class="offtake-stat-card">
+                    <div class="offtake-stat-icon" style="background: rgba(245, 158, 11, 0.12); color: #f59e0b;">
+                        <i class="fa-solid fa-users-line"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Traffic & Pangsa Pasar</span>
+                        <span class="offtake-stat-value" style="color: #b45309;">{{ $offtakeGlobalData['estimasi_market_share_persen'] ?? '0%' }}</span>
+                        <span class="offtake-stat-sub" title="Cust Masuk: {{ $offtakeGlobalData['jml_customer_masuk'] ?? 0 }} | Beli Cat: {{ $offtakeGlobalData['jml_customer_beli_cat'] ?? 0 }} | Beli Dulux: {{ $offtakeGlobalData['jml_customer_beli_dulux'] ?? 0 }}">
+                            Masuk: {{ $offtakeGlobalData['jml_customer_masuk'] ?? 0 }} | Beli Cat: {{ $offtakeGlobalData['jml_customer_beli_cat'] ?? 0 }} | Beli Dulux: {{ $offtakeGlobalData['jml_customer_beli_dulux'] ?? 0 }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- SECTION 2: SPLIT CONTENT (DATA FORM TABLE + PHOTO GALLERY) --}}
         <div class="content-split-grid @if($mediaValues->isEmpty()) no-media @endif">
-            {{-- PANEL 1: DAFTAR PARAMETER ISIAN TEKS / DATA --}}
+            {{-- PANEL 1: RINCIAN PRODUK TERJUAL (ATAU PARAMETER FORMULIR STANDAR) --}}
             <div class="panel-container">
-                <div class="panel-header">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-list-check" style="color: #0F52BA;"></i>
-                        <span>Isian & Data Formulir</span>
+                @if($hasDynamicOfftakeItems)
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-basket-shopping" style="color: #0F52BA;"></i>
+                            <span>Rincian Produk Terjual</span>
+                        </div>
+                        <span class="panel-count-badge" style="background: #dbeafe; color: #1d4ed8; font-weight: 800;">
+                            {{ count($offtakeItemsList) }} Produk Terjual
+                        </span>
                     </div>
-                    <span class="panel-count-badge">{{ $textValues->count() }} Parameter</span>
-                </div>
+
+                    <div style="padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.85rem;">
+                        @foreach($offtakeItemsList as $pIdx => $pItem)
+                            @php
+                                $pBrand = $pItem['brand'] ?? 'Dulux';
+                                $pName = $pItem['sub_brand'] ?? ($pItem['product_name'] ?? 'Produk Cat');
+                                $pSub1 = $pItem['sub_brand1'] ?? $pName;
+                                $pSub2 = $pItem['sub_brand2'] ?? '-';
+                                $pRmBase = $pItem['brand_rm_base'] ?? '-';
+                                $hTin = (float)($pItem['harga_tin'] ?? 0);
+                                $hGalon = (float)($pItem['harga_galon'] ?? 0);
+                                $hPail = (float)($pItem['harga_pail'] ?? 0);
+                                $qTin = (int)($pItem['qty_tin'] ?? 0);
+                                $qGalon = (int)($pItem['qty_galon'] ?? 0);
+                                $qPail = (int)($pItem['qty_pail'] ?? 0);
+                                $vTin = (float)($pItem['volume_tin_l'] ?? 0);
+                                $vGalon = (float)($pItem['volume_galon_l'] ?? 0);
+                                $vPail = (float)($pItem['volume_pail_l'] ?? 0);
+                                $totUnit = (int)($pItem['total_unit'] ?? ($qTin + $qGalon + $qPail));
+                                $totLiter = (float)($pItem['total_liter'] ?? ($vTin + $vGalon + $vPail));
+                                $totRp = (float)($pItem['total_nilai_rp'] ?? 0);
+                            @endphp
+                            <div class="product-breakdown-card">
+                                {{-- CARD HEADER --}}
+                                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.65rem;">
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span style="font-size: 0.75rem; font-weight: 800; background: #0F52BA; color: #fff; padding: 2px 7px; border-radius: 6px;">#{{ $pIdx + 1 }}</span>
+                                        <span class="brand-tag {{ strtolower($pBrand) === 'catylac' ? 'brand-tag-catylac' : 'brand-tag-dulux' }}" style="font-size: 0.78rem; font-weight: 800; padding: 2px 8px; border-radius: 6px;">
+                                            {{ $pBrand }}
+                                        </span>
+                                        <strong style="font-size: 0.95rem; color: var(--text-heading); font-weight: 800;">{{ $pName }}</strong>
+                                        @if(!empty($pRmBase) && $pRmBase !== '-' && $pRmBase !== $pBrand)
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #475569; background: #f1f5f9; padding: 2px 7px; border-radius: 5px; border: 1px solid #e2e8f0;">
+                                                {{ $pRmBase }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <div>
+                                        <span style="font-size: 0.9rem; font-weight: 800; color: #15803d; background: #dcfce7; padding: 4px 10px; border-radius: 8px; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid fa-rupiah-sign" style="font-size: 0.78rem;"></i>
+                                            Rp {{ number_format($totRp, 0, ',', '.') }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {{-- CARD SPECS GRID --}}
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.75rem;">
+                                    {{-- 1. HARGA STANDART / ACUAN --}}
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid fa-tag" style="color: #0F52BA;"></i> Harga Standart Acuan
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 3px; font-size: 0.78rem;">
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span style="color: #64748b;">Galon ({{ $pItem['kemasan_galon'] ?? '2.5L' }}):</span>
+                                                <strong style="color: {{ $hGalon > 0 ? '#1e293b' : '#94a3b8' }};">Rp {{ number_format($hGalon, 0, ',', '.') }}</strong>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span style="color: #64748b;">Pail ({{ $pItem['kemasan_pail'] ?? '20L' }}):</span>
+                                                <strong style="color: {{ $hPail > 0 ? '#1e293b' : '#94a3b8' }};">Rp {{ number_format($hPail, 0, ',', '.') }}</strong>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span style="color: #64748b;">Tin ({{ $pItem['kemasan_tin'] ?? '1L' }}):</span>
+                                                <strong style="color: {{ $hTin > 0 ? '#1e293b' : '#94a3b8' }};">Rp {{ number_format($hTin, 0, ',', '.') }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- 2. KUANTITI TERJUAL --}}
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid fa-cart-shopping" style="color: #10b981;"></i> Kuantiti Terjual
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 3px; font-size: 0.78rem;">
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span style="color: #64748b;">Galon:</span>
+                                                <strong style="color: {{ $qGalon > 0 ? '#15803d' : '#94a3b8' }};">{{ $qGalon }} Unit</strong>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span style="color: #64748b;">Pail:</span>
+                                                <strong style="color: {{ $qPail > 0 ? '#15803d' : '#94a3b8' }};">{{ $qPail }} Unit</strong>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span style="color: #64748b;">Tin:</span>
+                                                <strong style="color: {{ $qTin > 0 ? '#15803d' : '#94a3b8' }};">{{ $qTin }} Unit</strong>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 2px; margin-top: 1px;">
+                                                <span style="font-weight: 700; color: #1e293b;">Total Qty:</span>
+                                                <strong style="color: #0F52BA; font-weight: 800;">{{ $totUnit }} Unit</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- 3. TOTAL DALAM LITER (VOLUME) --}}
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid fa-fill-drip" style="color: #0284c7;"></i> Total Volume (Liter)
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 3px; font-size: 0.78rem;">
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span style="color: #64748b;">Vol Galon:</span>
+                                                <span style="font-weight: 600;">{{ number_format($vGalon, 2) }} L</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span style="color: #64748b;">Vol Pail:</span>
+                                                <span style="font-weight: 600;">{{ number_format($vPail, 2) }} L</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span style="color: #64748b;">Vol Tin:</span>
+                                                <span style="font-weight: 600;">{{ number_format($vTin, 2) }} L</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 2px; margin-top: 1px;">
+                                                <span style="font-weight: 700; color: #1e293b;">Total Volume:</span>
+                                                <strong style="color: #0284c7; font-weight: 800;">{{ number_format($totLiter, 2) }} Liter</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    @if($textValues->isNotEmpty())
+                        <div style="border-top: 1px solid var(--border-color); padding: 0.75rem 1.25rem 0.25rem 1.25rem;">
+                            <span style="font-size: 0.78rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Parameter Tambahan</span>
+                        </div>
+                    @endif
+                @else
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-list-check" style="color: #0F52BA;"></i>
+                            <span>Isian & Data Formulir</span>
+                        </div>
+                        <span class="panel-count-badge">{{ $textValues->count() }} Parameter</span>
+                    </div>
+                @endif
 
                 @if($textValues->isNotEmpty())
                     <table class="param-table">
@@ -1024,39 +1392,6 @@
                                                                     </strong>
                                                                 </div>
                                                             @endif
-                                                        </div>
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                        @elseif(!empty($parsedOfftakeList) && is_array($parsedOfftakeList))
-                                            <div style="display: flex; flex-direction: column; gap: 8px; margin: 4px 0; width: 100%;">
-                                                @foreach($parsedOfftakeList as $oIdx => $oItem)
-                                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; text-align: left;">
-                                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
-                                                            <div style="display: flex; align-items: center; gap: 6px;">
-                                                                <span style="font-size: 0.72rem; font-weight: 800; background: #0F52BA; color: #fff; padding: 2px 6px; border-radius: 4px;">#{{ $oIdx + 1 }}</span>
-                                                                <span style="font-size: 0.85rem; font-weight: 800; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">
-                                                                    {{ $oItem['brand'] ?? 'Dulux' }}
-                                                                </span>
-                                                                <strong style="font-size: 0.88rem; color: #0f172a;">{{ $oItem['sub_brand'] ?? ($oItem['name'] ?? 'Produk') }}</strong>
-                                                            </div>
-                                                            <div style="text-align: right;">
-                                                                <span style="font-size: 0.82rem; font-weight: 800; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 6px;">
-                                                                    Rp {{ number_format((float)($oItem['subtotal_rp'] ?? ($oItem['nilai_penjualan_rp'] ?? 0)), 0, ',', '.') }}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.8rem; margin-top: 4px;">
-                                                            @if((float)($oItem['qty_tin'] ?? 0) > 0)
-                                                                <span style="background: #fff; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 5px;"><strong>{{ $oItem['qty_tin'] }}</strong> Tin ({{ $oItem['kemasan_tin'] ?? 'Tin' }})</span>
-                                                            @endif
-                                                            @if((float)($oItem['qty_galon'] ?? 0) > 0)
-                                                                <span style="background: #fff; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 5px;"><strong>{{ $oItem['qty_galon'] }}</strong> Galon ({{ $oItem['kemasan_galon'] ?? 'Galon' }})</span>
-                                                            @endif
-                                                            @if((float)($oItem['qty_pail'] ?? 0) > 0)
-                                                                <span style="background: #fff; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 5px;"><strong>{{ $oItem['qty_pail'] }}</strong> Pail ({{ $oItem['kemasan_pail'] ?? 'Pail' }})</span>
-                                                            @endif
-                                                            <span style="background: #eff6ff; color: #1d4ed8; font-weight: 700; padding: 2px 6px; border-radius: 5px;">Volume: {{ number_format((float)($oItem['subtotal_liter'] ?? 0), 2) }} L</span>
                                                         </div>
                                                     </div>
                                                 @endforeach
