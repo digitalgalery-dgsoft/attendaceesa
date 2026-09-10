@@ -522,6 +522,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             final displayValues = _currentSubmission.values.where((val) {
               final fn = val.fieldName.toLowerCase();
               final fl = val.fieldLabel.toLowerCase().replaceAll(' ', '_');
+              final rawVal = val.valueText?.trim() ?? '';
+
+              // Supresi field JSON teknis / mentah agar tidak tampil di UI mobile
+              if (fn.contains('json') || fl.contains('json')) {
+                return false;
+              }
+              if ((rawVal.startsWith('[') && rawVal.endsWith(']')) || (rawVal.startsWith('{') && rawVal.endsWith('}'))) {
+                return false;
+              }
+
               if (hasDynamicComp) {
                 if (suppressCompFields.contains(fn) || suppressCompFields.contains(fl)) {
                   return false;
@@ -1271,6 +1281,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     if (compItems != null && compItems.isNotEmpty) {
       return _buildCompetitorListCard(compItems, cardColor, textColor, subtitleColor, elevatedColor, primaryColor, isDarkMode);
     }
+
+    final rawText = val.valueText?.trim() ?? '';
+    if (val.fieldName.toLowerCase().contains('json') || 
+        val.fieldLabel.toLowerCase().contains('json') ||
+        (rawText.startsWith('[') && rawText.endsWith(']')) ||
+        (rawText.startsWith('{') && rawText.endsWith('}'))) {
+      return const SizedBox.shrink();
+    }
+
     final isMedia = ['photo', 'camera_photo', 'multi_photo', 'signature'].contains(val.fieldType) || val.mediaFullUrl != null || val.mediaFullUrls.isNotEmpty;
     final hasMedia = val.mediaFullUrls.isNotEmpty || (val.mediaFullUrl != null && val.mediaFullUrl!.isNotEmpty);
 
