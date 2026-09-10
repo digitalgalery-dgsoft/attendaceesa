@@ -14,6 +14,7 @@ class Setting extends Model
         static::saved(function () {
             Cache::forget('public_app_system_setting_array_v2');
             Cache::forget('global_landing_stats_active_v3');
+            Cache::forget('global_landing_stats_active_v4');
         });
     }
 }

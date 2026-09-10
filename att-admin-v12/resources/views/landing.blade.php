@@ -1873,8 +1873,8 @@
         </div>
         @endif
 
-        <!-- ─── STATISTIK LIVE OPERASIONAL (HANYA UNTUK SERVER ENTITAS) ── -->
-        @if(isset($isEntityServer) && $isEntityServer && !empty($stats))
+        <!-- ─── STATISTIK LIVE OPERASIONAL ── -->
+        @if(!empty($stats))
         <section id="statistik" class="stats-grid">
             <div class="stat-card blue">
                 <div class="stat-icon-wrap">

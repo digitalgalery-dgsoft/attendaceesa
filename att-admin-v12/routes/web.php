@@ -3,8 +3,10 @@
 use Illuminate\Support\Facades\Route;
 use App\Models\Setting;
 use App\Models\Area;
+use App\Models\Branch;
 use App\Models\Principal;
 use App\Models\Employee;
+use App\Models\WorkLocation;
 
 Route::get('/.well-known/acme-challenge/{token}', function ($token) {
     $possiblePaths = [
@@ -506,13 +508,21 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
     ];
     $currentEntity = $entityCode && isset($entityMeta[$entityCode]) ? $entityMeta[$entityCode] : null;
 
-    $stats = $isEntityServer ? \Illuminate\Support\Facades\Cache::remember('global_landing_stats_active_v3', 60, function () {
+    $stats = \Illuminate\Support\Facades\Cache::remember('global_landing_stats_active_v4', 60, function () {
         try {
+            $branchActive = Branch::where('is_active', true)->count();
+            $branchTotal  = Branch::count();
+            $areaTotal    = Area::count();
+
+            $areaCount = $branchActive > 0 
+                ? $branchActive 
+                : ($branchTotal > 0 ? $branchTotal : $areaTotal);
+
             return [
-                'areas'      => Area::count(),
+                'areas'      => $areaCount,
                 'principals' => Principal::where('is_active', true)->count(),
                 'employees'  => Employee::where('is_active', true)->whereNull('deleted_at')->count(),
-                'locations'  => \App\Models\WorkLocation::where('is_active', true)->count(),
+                'locations'  => WorkLocation::where('is_active', true)->count(),
             ];
         } catch (\Throwable $e) {
             return [
@@ -522,7 +532,7 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
                 'locations'  => 0,
             ];
         }
-    }) : null;
+    });
 
     $serverNodes = [
         [

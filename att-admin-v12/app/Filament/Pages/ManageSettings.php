@@ -240,6 +240,7 @@ class ManageSettings extends Page implements HasForms
 
         \Illuminate\Support\Facades\Cache::forget('public_app_system_setting_array_v2');
         \Illuminate\Support\Facades\Cache::forget('global_landing_stats_active_v3');
+        \Illuminate\Support\Facades\Cache::forget('global_landing_stats_active_v4');
 
         if (!empty($setting->mobile_app_version) && ($oldVersion !== $setting->mobile_app_version || !empty($setting->is_force_update))) {
             $tokens = \App\Models\Employee::whereNotNull('fcm_token')->where('is_active', true)->pluck('fcm_token')->toArray();

@@ -126,6 +126,7 @@ class SettingSyncService
         // Bersihkan cache pengaturan publik dan landing
         Cache::forget('public_app_system_setting_array_v2');
         Cache::forget('global_landing_stats_active_v3');
+        Cache::forget('global_landing_stats_active_v4');
 
         // Kirim Push Notification FCM ke seluruh karyawan aktif entitas ini
         if (!empty($setting->mobile_app_version) && ($oldVersion !== $setting->mobile_app_version || !empty($setting->is_force_update))) {
