@@ -1499,4 +1499,38 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **CSS Global Safeguard**:
       - Menambahkan aturan proteksi SVG di `portal/layout.blade.php` (`width: 1.25rem; height: 1.25rem`) untuk mengunci ukuran elemen SVG pagination default agar tidak meluber memenuhi layar.
 
+15. **Penyelarasan Grafik Sync Odoo per 30 Menit di Dashboard Web Admin Filament (10 September 2026)**:
+    - **Penyelarasan Interval Waktu**:
+      - Memperbarui widget grafik sinkronisasi karyawan (`ActiveEmployeesHourlyChartWidget.php`) di dashboard web admin dari interval 1 jam menjadi per 30 menit (`*/30 * * * *`).
+      - Interval sumbu X grafik kini menampilkan label setiap setengah jam (misal: `08:00`, `08:30`, `09:00`, dst.) secara presisi mencerminkan jadwal cron sync Odoo riil.
+
+16. **Perombakan 6 Metrik KPI Presensi Seimbang & Optimasi Tata Letak Halaman Attendance Roster (10-11 September 2026)**:
+    - **6 Metrik KPI Presensi Seimbang**:
+      - Merombak kartu KPI pada halaman Attendance Roster (`/admin/attendances`) menjadi 6 metrik utama:
+        1. **Total Employee Aktif**: Memuat seluruh karyawan aktif (`is_active = true`), bukan hanya karyawan yang memiliki jadwal.
+        2. **Total Hadir (On-Time)**: Check-in tepat waktu sesuai toleransi shift.
+        3. **Total Telat**: Check-in melebihi jam mulai shift ditambah toleransi.
+        4. **Total Cuti**: Cuti yang telah disetujui pada periode evaluasi.
+        5. **Total Ijin / Sakit**: Izin resmi dan surat sakit yang terverifikasi.
+        6. **Total Alpha**: Karyawan tanpa presensi / belum absen.
+      - **Formula Seimbang (Grand Total)**: Menjamin rumus matematis akurat $\text{Employee Aktif} = \text{Hadir (On-Time)} + \text{Telat} + \text{Cuti} + \text{Ijin/Sakit} + \text{Alpha}$ dengan banner status sinkronisasi presensi.
+    - **Penyempurnaan Evaluasi Status Presensi (Telat vs Alpha)**:
+      - Menambahkan proteksi *pre-shift midnight fallback* pada `AttendanceRoster.php`: jika sistem diakses pada dini hari (pukul 00:00 - 08:00) sebelum jam kerja dimulai dan belum ada check-in hari ini, sistem otomatis mengevaluasi hari kerja efektif terakhir di periode filter agar status keterlambatan tidak terhapus menjadi Alpha prematur.
+      - Mengevaluasi status kehadiran per karyawan di seluruh rentang tanggal filter yang dipilih.
+    - **Pemisahan Baris & Pencegahan Teks Menumpuk (Text Overlap Safeguard)**:
+      - Memindahkan badge **`[X Terjadwal]`** dari samping angka ke baris tersendiri **tepat di bawah** angka total employee aktif.
+      - Menyeragamkan 3 baris di seluruh 6 kartu, padding kartu disesuaikan (`14px 16px`), icon disesuaikan (`42x42px`), serta menerapkan `min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis;` agar angka ribuan (seperti `4,264`) tidak tumpang tindih dengan badge atau ikon.
+
+17. **Perbaikan Statistik "Total Area 0" di Web Utama / Landing Page (11 September 2026)**:
+    - **Resolusi Masalah Area 0**:
+      - Pada `routes/web.php`, query statistik sebelumnya memanggil model `App\Models\Area::count()` yang menghasilkan nilai 0 karena tabel `areas` belum digunakan, sementara data wilayah operasional dan kantor cabang ESA dikelola di tabel `branches` (`BranchResource` berlabel *"Areas"*).
+      - Memperbarui query menjadi `Branch::where('is_active', true)->count()` dengan fallback ke `Branch::count()` dan `Area::count()`.
+      - Mengaktifkan statistik secara global (`global_landing_stats_active_v4`) dan menampilkannya secara konsisten di `landing.blade.php` baik untuk subdomain entitas (`amk.esa-solutions.id`) maupun domain utama.
+      - Menambahkan pembersihan cache `global_landing_stats_active_v4` pada `Setting.php`, `SettingSyncService.php`, dan `ManageSettings.php`.
+    - **Hasil Verifikasi Live di Production Cluster**:
+      - Staging (`appsend.my.id`): Menampilkan **40 Area & Cabang Operasional** (`HTTP 200 OK`).
+      - Production ([amk.esa-solutions.id](https://amk.esa-solutions.id)): Menampilkan **61 Area & Cabang Operasional** (`HTTP 200 OK`) bersama dengan 11.143 Karyawan Aktif, 34 Prinsiple, dan 3.641 Lokasi Kerja & Toko.
+      - Seluruh 3/3 server node production (AMK, AKP, ATK) aktif dan tersinkronisasi 100%.
+
+
 
