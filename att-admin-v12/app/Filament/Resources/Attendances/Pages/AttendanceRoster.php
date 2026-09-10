@@ -463,6 +463,8 @@ class AttendanceRoster extends Page implements HasForms
         $allEmpIds = $allEmployees->pluck('id')->toArray();
         $totalEmployeesCount = count($allEmpIds);
 
+        $now = Carbon::now('Asia/Jakarta');
+
         // Determine evaluation date for KPI calculation
         $evalDate = $todayStr;
         if ($startDateStr <= $todayStr && $todayStr <= $endDateStr) {
@@ -471,6 +473,28 @@ class AttendanceRoster extends Page implements HasForms
             $evalDate = $endDateStr;
         } else {
             $evalDate = $startDateStr;
+        }
+
+        // If evalDate is today but current time is before working hours (e.g. before 08:00 AM)
+        // and there are no check-ins yet today, fallback evalDate to previous working day in period
+        if ($evalDate === $todayStr) {
+            $hasCheckinToday = DB::table('attendances')
+                ->where('attendance_date', $todayStr)
+                ->whereIn('employee_id', $allEmpIds)
+                ->whereNotNull('checkin_at')
+                ->exists();
+
+            if (!$hasCheckinToday && $now->hour < 8) {
+                $prevDate = Carbon::parse($todayStr)->subDay();
+                while ($prevDate->toDateString() >= $startDateStr) {
+                    $pStr = $prevDate->toDateString();
+                    if (!isset($holidayMap[$pStr]) && !$prevDate->isSunday()) {
+                        $evalDate = $pStr;
+                        break;
+                    }
+                    $prevDate->subDay();
+                }
+            }
         }
 
         // If evalDate falls on holiday/Sunday, try fallback to last recent working day within period
@@ -493,12 +517,12 @@ class AttendanceRoster extends Page implements HasForms
         $totalAlpha = 0;
 
         if (!empty($allEmpIds)) {
-            // Load attendances on evaluation date
-            $attsOnDate = DB::table('attendances')
+            // Load attendances in the filtered period
+            $allAtts = DB::table('attendances')
                 ->leftJoin('employee_schedules', 'attendances.employee_schedule_id', '=', 'employee_schedules.id')
                 ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
                 ->whereIn('attendances.employee_id', $allEmpIds)
-                ->where('attendances.attendance_date', $evalDate)
+                ->whereBetween('attendances.attendance_date', [$startDateStr, $endDateStr])
                 ->select([
                     'attendances.id',
                     'attendances.employee_id',
@@ -511,42 +535,67 @@ class AttendanceRoster extends Page implements HasForms
                     'employee_schedules.planned_start_at',
                 ])
                 ->get()
-                ->keyBy('employee_id');
+                ->groupBy('employee_id');
 
-            // Load leave requests on evaluation date
-            $leavesOnDate = DB::table('leave_requests')
+            // Load leave requests in the filtered period
+            $allLeaves = DB::table('leave_requests')
                 ->whereIn('employee_id', $allEmpIds)
                 ->whereIn('status', ['approved', 'pending'])
-                ->where('start_date', '<=', $evalDate)
-                ->where('end_date', '>=', $evalDate)
-                ->select(['employee_id', 'type', 'sub_type', 'status'])
+                ->where(function ($q) use ($startDateStr, $endDateStr) {
+                    $q->whereBetween('start_date', [$startDateStr, $endDateStr])
+                      ->orWhereBetween('end_date', [$startDateStr, $endDateStr])
+                      ->orWhere(function ($sq) use ($startDateStr, $endDateStr) {
+                          $sq->where('start_date', '<=', $startDateStr)
+                             ->where('end_date', '>=', $endDateStr);
+                      });
+                })
+                ->select(['employee_id', 'start_date', 'end_date', 'type', 'sub_type', 'status'])
                 ->get()
                 ->groupBy('employee_id');
 
-            // Load schedules on evaluation date
-            $schedsOnDate = DB::table('employee_schedules')
+            // Load schedules in the filtered period
+            $allScheds = DB::table('employee_schedules')
                 ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
                 ->whereIn('employee_schedules.employee_id', $allEmpIds)
-                ->where('employee_schedules.schedule_date', $evalDate)
+                ->whereBetween('employee_schedules.schedule_date', [$startDateStr, $endDateStr])
                 ->select([
                     'employee_schedules.employee_id',
+                    'employee_schedules.schedule_date',
                     'employee_schedules.schedule_type',
                     'employee_schedules.planned_start_at',
                     'shifts.start_time as shift_start_time',
                     'shifts.grace_checkin_minutes',
                 ])
                 ->get()
-                ->keyBy('employee_id');
+                ->groupBy('employee_id');
 
             // Evaluate each employee strictly into one status so:
             // Grand Total Employee Aktif = Ontime + Late + Cuti + Ijin/Sakit + Alpha
             foreach ($allEmployees as $emp) {
                 $empId = $emp->id;
-                $att = $attsOnDate->get($empId);
-                $leaveList = $leavesOnDate->get($empId);
-                $sched = $schedsOnDate->get($empId);
+                $empAttList = $allAtts->get($empId) ?? collect();
+                $empLeaveList = $allLeaves->get($empId) ?? collect();
+                $empSchedList = $allScheds->get($empId) ?? collect();
 
-                // 1. Check Attendance record on evaluation date
+                // Find attendance record: prioritize evalDate, otherwise latest record in period
+                $att = $empAttList->firstWhere('attendance_date', $evalDate);
+                if (!$att && $empAttList->isNotEmpty()) {
+                    $att = $empAttList->sortByDesc('attendance_date')->first();
+                }
+
+                // Find leave request: prioritize evalDate, otherwise latest in period
+                $leaveItem = $empLeaveList->first(function ($l) use ($evalDate) {
+                    return $evalDate >= $l->start_date && $evalDate <= $l->end_date;
+                });
+                if (!$leaveItem && $empLeaveList->isNotEmpty()) {
+                    $leaveItem = $empLeaveList->sortByDesc('start_date')->first();
+                }
+
+                // Find schedule
+                $sched = $empSchedList->firstWhere('schedule_date', $evalDate)
+                    ?? $empSchedList->sortByDesc('schedule_date')->first();
+
+                // 1. Check Attendance record
                 if ($att) {
                     $attStatus = strtolower(trim($att->status ?? ''));
                     if ($attStatus === 'absent') {
@@ -571,9 +620,10 @@ class AttendanceRoster extends Page implements HasForms
                         $shiftStartTime = $att->shift_start_time ?? ($sched->shift_start_time ?? null);
                         $grace = (int)($att->grace_checkin_minutes ?? ($sched->grace_checkin_minutes ?? 0));
                         $plannedStartAt = $att->planned_start_at ?? ($sched->planned_start_at ?? null);
+                        $attDate = $att->attendance_date ?? $evalDate;
 
                         if (!empty($shiftStartTime)) {
-                            $shiftStart = Carbon::parse($evalDate . ' ' . $shiftStartTime, 'Asia/Jakarta');
+                            $shiftStart = Carbon::parse($attDate . ' ' . $shiftStartTime, 'Asia/Jakarta');
                             if ($checkin->greaterThan($shiftStart->copy()->addMinutes($grace))) {
                                 $isLate = true;
                             }
@@ -583,7 +633,7 @@ class AttendanceRoster extends Page implements HasForms
                                 $isLate = true;
                             }
                         } else {
-                            $defaultStart = Carbon::parse($evalDate . ' 08:30:00', 'Asia/Jakarta');
+                            $defaultStart = Carbon::parse($attDate . ' 08:30:00', 'Asia/Jakarta');
                             if ($checkin->greaterThan($defaultStart)) {
                                 $isLate = true;
                             }
@@ -598,9 +648,8 @@ class AttendanceRoster extends Page implements HasForms
                     continue;
                 }
 
-                // 2. Check Leave Requests on evaluation date
-                if ($leaveList && $leaveList->isNotEmpty()) {
-                    $leaveItem = $leaveList->firstWhere('status', 'approved') ?? $leaveList->first();
+                // 2. Check Leave Requests
+                if ($leaveItem) {
                     $lType = strtolower(trim(($leaveItem->type ?? '') . ' ' . ($leaveItem->sub_type ?? '')));
 
                     if (str_contains($lType, 'cuti') || str_contains($lType, 'annual') || str_contains($lType, 'extra_off') || str_contains($lType, 'leave')) {
