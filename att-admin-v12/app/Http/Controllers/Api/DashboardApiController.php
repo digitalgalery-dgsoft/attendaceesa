@@ -8,9 +8,11 @@ use App\Models\WorkTarget;
 use App\Models\Attendance;
 use App\Models\LeaveRequest;
 use App\Models\Employee;
+use App\Models\Principal;
 use App\Models\ReportSubmission;
 use App\Models\ReportTemplate;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class DashboardApiController extends Controller
 {
@@ -298,7 +300,7 @@ class DashboardApiController extends Controller
         // Subordinates (direct reports)
         $teamMembers = Employee::where('supervisor_id', $employee->id)
             ->where('is_active', true)
-            ->with(['position', 'principal', 'branch', 'company', 'department'])
+            ->with(['position', 'principal', 'branch', 'company', 'department.principal'])
             ->get();
 
         $totalTeam = $teamMembers->count();
@@ -370,10 +372,40 @@ class DashboardApiController extends Controller
             ->get()
             ->groupBy('employee_id');
 
-        // Template laporan aktif dengan penugasan
+        // Template laporan aktif dengan penugasan dan relasi principal
         $allTemplates = ReportTemplate::where('is_active', true)
-            ->with(['employees', 'positions', 'assignments'])
+            ->with(['employees', 'positions', 'assignments', 'principals'])
             ->get();
+
+        // Cache data principals untuk lookup cepat per brand
+        $allPrincipals = Principal::all();
+        $duluxPrincipalIds = $allPrincipals->filter(fn($p) => 
+            str_contains(strtolower($p->name), 'dulux') || 
+            str_contains(strtolower($p->name), 'ici') || 
+            str_contains(strtolower($p->name), 'akzonobel') || 
+            $p->subdomain === 'dulux' ||
+            str_contains(strtolower($p->code ?? ''), 'dulux')
+        )->pluck('id')->toArray();
+
+        $fonterraPrincipalIds = $allPrincipals->filter(fn($p) => 
+            str_contains(strtolower($p->name), 'fonterra') || 
+            $p->subdomain === 'fonterra' ||
+            str_contains(strtolower($p->code ?? ''), 'fonterra')
+        )->pluck('id')->toArray();
+
+        $mamasukaPrincipalIds = $allPrincipals->filter(fn($p) => 
+            str_contains(strtolower($p->name), 'mamasuka') || 
+            str_contains(strtolower($p->name), 'daesang') || 
+            str_contains(strtolower($p->name), 'miwon') || 
+            $p->subdomain === 'mamasuka' ||
+            str_contains(strtolower($p->code ?? ''), 'mamasuka')
+        )->pluck('id')->toArray();
+
+        $wingsPrincipalIds = $allPrincipals->filter(fn($p) => 
+            str_contains(strtolower($p->name), 'wings') || 
+            $p->subdomain === 'wings' ||
+            str_contains(strtolower($p->code ?? ''), 'wings')
+        )->pluck('id')->toArray();
 
         // Hari libur untuk perhitungan hari kerja efektif
         $holidays = \App\Models\Holiday::whereBetween('holiday_date', [
@@ -483,7 +515,112 @@ class DashboardApiController extends Controller
             $offtakeRate = $targetOfftakeLiter > 0 ? (int)round(($actualOfftakeLiter / $targetOfftakeLiter) * 100) : 0;
 
             // 3. SELURUH LAPORAN (REPORT COMPLIANCE)
-            $empTemplates = $allTemplates->filter(function ($t) use ($emp) {
+            // Identifikasi Principal Anggota Tim
+            $empPrincipalId = $emp->principal_id ?? ($emp->department?->principal_id ?? null);
+            $empPrincipal = $emp->principal ?? ($emp->department?->principal ?? null);
+            $empSubdomain = strtolower($empPrincipal?->subdomain ?? '');
+            $empPrincipalName = strtolower($empPrincipal?->name ?? '');
+            $empNo = strtoupper($emp->employee_no ?? '');
+
+            // Deteksi Brand Anggota Tim
+            $isEmpDulux = str_contains($empSubdomain, 'dulux') 
+                || str_contains($empPrincipalName, 'dulux') 
+                || str_contains($empPrincipalName, 'ici') 
+                || str_contains($empPrincipalName, 'akzonobel') 
+                || str_starts_with($empNo, 'DULUX');
+
+            $isEmpFonterra = str_contains($empSubdomain, 'fonterra') 
+                || str_contains($empPrincipalName, 'fonterra') 
+                || str_starts_with($empNo, 'FONT');
+
+            $isEmpMamasuka = str_contains($empSubdomain, 'mamasuka') 
+                || str_contains($empPrincipalName, 'mamasuka') 
+                || str_contains($empPrincipalName, 'daesang') 
+                || str_contains($empPrincipalName, 'miwon') 
+                || str_starts_with($empNo, 'MMSK');
+
+            $isEmpWings = str_contains($empSubdomain, 'wings') 
+                || str_contains($empPrincipalName, 'wings') 
+                || str_starts_with($empNo, 'WINGS');
+
+            // ID Principal yang cocok untuk anggota tim ini
+            $empMatchingPrincipalIds = [];
+            if ($empPrincipalId) {
+                $empMatchingPrincipalIds[] = (int)$empPrincipalId;
+            }
+            if ($isEmpDulux) {
+                $empMatchingPrincipalIds = array_merge($empMatchingPrincipalIds, $duluxPrincipalIds);
+            } elseif ($isEmpFonterra) {
+                $empMatchingPrincipalIds = array_merge($empMatchingPrincipalIds, $fonterraPrincipalIds);
+            } elseif ($isEmpMamasuka) {
+                $empMatchingPrincipalIds = array_merge($empMatchingPrincipalIds, $mamasukaPrincipalIds);
+            } elseif ($isEmpWings) {
+                $empMatchingPrincipalIds = array_merge($empMatchingPrincipalIds, $wingsPrincipalIds);
+            } elseif (!empty($empSubdomain)) {
+                $siblingIds = $allPrincipals->where('subdomain', $empSubdomain)->pluck('id')->toArray();
+                $empMatchingPrincipalIds = array_merge($empMatchingPrincipalIds, $siblingIds);
+            }
+            $empMatchingPrincipalIds = array_values(array_unique(array_filter($empMatchingPrincipalIds)));
+
+            $empTemplates = $allTemplates->filter(function ($t) use (
+                $emp, 
+                $empMatchingPrincipalIds, 
+                $isEmpDulux, 
+                $isEmpFonterra, 
+                $isEmpMamasuka, 
+                $isEmpWings
+            ) {
+                $tCode = strtoupper($t->code ?? '');
+                $tTitle = strtoupper($t->title ?? '');
+
+                $isTplDulux = str_starts_with($tCode, 'RPT-DULUX-') 
+                    || str_contains($tTitle, 'DULUX') 
+                    || str_contains($tTitle, 'ICI') 
+                    || str_contains($tTitle, 'AKZONOBEL');
+
+                $isTplFonterra = str_starts_with($tCode, 'RPT-FONTERRA-') 
+                    || str_contains($tTitle, 'FONTERRA');
+
+                $isTplMamasuka = str_starts_with($tCode, 'RPT-MAMASUKA-') 
+                    || str_starts_with($tCode, 'RPT-DAESANG-') 
+                    || str_contains($tTitle, 'MAMASUKA') 
+                    || str_contains($tTitle, 'DAESANG') 
+                    || str_contains($tTitle, 'MIWON');
+
+                $isTplWings = str_starts_with($tCode, 'RPT-WINGS-') 
+                    || str_starts_with($tCode, 'RPT-LION-') 
+                    || str_contains($tTitle, 'WINGS') 
+                    || str_contains($tTitle, 'GLICO WINGS');
+
+                // 1. Validasi Brand: Template brand tertentu hanya boleh untuk anggota brand tersebut
+                if ($isTplDulux && !$isEmpDulux) return false;
+                if ($isTplFonterra && !$isEmpFonterra) return false;
+                if ($isTplMamasuka && !$isEmpMamasuka) return false;
+                if ($isTplWings && !$isEmpWings) return false;
+
+                // Jika anggota tim memiliki brand tertentu, tolak template dari brand lain
+                if ($isEmpDulux && ($isTplFonterra || $isTplMamasuka || $isTplWings)) return false;
+                if ($isEmpFonterra && ($isTplDulux || $isTplMamasuka || $isTplWings)) return false;
+                if ($isEmpMamasuka && ($isTplDulux || $isTplFonterra || $isTplWings)) return false;
+                if ($isEmpWings && ($isTplDulux || $isTplFonterra || $isTplMamasuka)) return false;
+
+                // 2. Validasi Relasi Principal Database (pivot report_template_principal & kolom principal_id)
+                $tPrincipalIds = $t->principals->pluck('id')->toArray();
+                if (!empty($t->principal_id)) {
+                    $tPrincipalIds[] = (int)$t->principal_id;
+                }
+                $tPrincipalIds = array_values(array_unique(array_filter($tPrincipalIds)));
+
+                if (!empty($tPrincipalIds)) {
+                    if (empty($empMatchingPrincipalIds)) {
+                        return false;
+                    }
+                    if (empty(array_intersect($tPrincipalIds, $empMatchingPrincipalIds))) {
+                        return false;
+                    }
+                }
+
+                // 3. Validasi Penugasan Karyawan / Posisi / Assignment (jika dispesifikasikan)
                 $hasEmp = $t->employees->isNotEmpty();
                 $hasPos = $t->positions->isNotEmpty();
                 if ($hasEmp || $hasPos) {
@@ -499,8 +636,22 @@ class DashboardApiController extends Controller
                     });
                     if (!$mAss && !$hasEmp && !$hasPos) return false;
                 }
+
                 return true;
             })->values();
+
+            // Khusus Dulux, urutkan sesuai alur kerja standar
+            if ($isEmpDulux) {
+                $duluxOrder = [
+                    'RPT-DULUX-OFFTAKE-01' => 1,
+                    'RPT-DULUX-DAILY-01' => 2,
+                    'RPT-DULUX-CUST-DATA-01' => 3,
+                    'RPT-DULUX-STOCK-END-01' => 4,
+                ];
+                $empTemplates = $empTemplates->sortBy(function ($t) use ($duluxOrder) {
+                    return $duluxOrder[$t->code] ?? 999;
+                })->values();
+            }
 
             $empEffectiveWorkdays = [];
             $cur = $startDate->copy();
@@ -520,6 +671,7 @@ class DashboardApiController extends Controller
             }
 
             $targetReportsTotal = 0;
+            $actualReportsTotal = 0;
             $reportsBreakdown = [];
             $subsByTemplate = $empSubs->groupBy('report_template_id');
 
@@ -529,6 +681,7 @@ class DashboardApiController extends Controller
                 $tRate = $tTarget > 0 ? (int)min(100, round(($tActual / $tTarget) * 100)) : 0;
 
                 $targetReportsTotal += $tTarget;
+                $actualReportsTotal += $tActual;
                 $reportsBreakdown[] = [
                     'template_id' => $t->id,
                     'title' => $t->title,
@@ -540,7 +693,6 @@ class DashboardApiController extends Controller
                 ];
             }
 
-            $actualReportsTotal = $empSubs->count();
             $reportsRate = $targetReportsTotal > 0 ? (int)round(($actualReportsTotal / $targetReportsTotal) * 100) : 0;
 
             // Akumulasi Tim
