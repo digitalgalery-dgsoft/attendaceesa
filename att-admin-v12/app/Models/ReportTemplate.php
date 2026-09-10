@@ -28,6 +28,16 @@ class ReportTemplate extends Model
         'monthly_due_day' => 'integer',
     ];
 
+    public function formFields(): HasMany
+    {
+        return $this->hasMany(ReportFormField::class, 'report_template_id');
+    }
+
+    public function fields(): HasMany
+    {
+        return $this->formFields();
+    }
+
     /**
      * Hitung total target pengisian laporan dalam rentang periode cut-off tertentu.
      * Mengambil perhitungan murni dari hari kerja efektif (workday), hari libur dan jadwal off tidak dihitung.

@@ -75,8 +75,8 @@ Route::get('/debug-dulux-check', function () {
         'total_submissions' => $subCount,
         'stock_end_template' => $tmpl ? [
             'id' => $tmpl->id,
-            'fields_count' => $tmpl->fields()->count(),
-            'fields' => $tmpl->fields()->pluck('field_name')
+            'fields_count' => \App\Models\ReportFormField::where('report_template_id', $tmpl->id)->count(),
+            'fields' => \App\Models\ReportFormField::where('report_template_id', $tmpl->id)->pluck('field_name')
         ] : null
     ]);
 });
