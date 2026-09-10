@@ -31,7 +31,6 @@ return new class extends Migration
                     'options' => ['OOS', 'No OOS (Stok Lengkap)'],
                     'is_required' => false,
                     'order_index' => 0,
-                    'default_value' => 'OOS',
                 ]
             );
 
