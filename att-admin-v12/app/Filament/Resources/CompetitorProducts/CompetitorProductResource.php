@@ -11,14 +11,13 @@ use App\Models\CompetitorProduct;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
 class CompetitorProductResource extends Resource
 {
     protected static ?string $model = CompetitorProduct::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSquare3Stack3D;
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-squares-2x2';
     protected static string|\UnitEnum|null $navigationGroup = 'Master Data';
     protected static ?int $navigationSort = 6;
     protected static ?string $navigationLabel = 'Produk Kompetitor';
