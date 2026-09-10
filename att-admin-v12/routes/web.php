@@ -48,6 +48,39 @@ Route::get('/sync-stock-end-dulux', function () {
     ]);
 });
 
+Route::get('/debug-dulux-check', function () {
+    $sub = \App\Models\ReportSubmission::where('submission_code', 'LIKE', '%7JTY%')->first();
+    $subCount = \App\Models\ReportSubmission::count();
+    $tmpl = \App\Models\ReportTemplate::where('code', 'RPT-DULUX-STOCK-END')->first();
+    return response()->json([
+        'server_ip' => request()->server('SERVER_ADDR'),
+        'http_host' => request()->server('HTTP_HOST'),
+        'document_root' => request()->server('DOCUMENT_ROOT'),
+        'git_head' => trim(@shell_exec('git rev-parse --short HEAD 2>&1') ?? ''),
+        'view_file_mtime' => [
+            'stock_dashboard' => file_exists(resource_path('views/portal/partials/stock_dashboard.blade.php')) ? date('Y-m-d H:i:s', filemtime(resource_path('views/portal/partials/stock_dashboard.blade.php'))) : 'not found',
+            'submission_detail' => file_exists(resource_path('views/portal/report_submission_detail.blade.php')) ? date('Y-m-d H:i:s', filemtime(resource_path('views/portal/report_submission_detail.blade.php'))) : 'not found',
+        ],
+        'submission_7jty' => $sub ? [
+            'id' => $sub->id,
+            'code' => $sub->submission_code,
+            'template_id' => $sub->report_template_id,
+            'values' => $sub->values->map(fn($v) => [
+                'name' => $v->field_name,
+                'text' => $v->value_text,
+                'json' => $v->value_json,
+                'num' => $v->value_number
+            ])
+        ] : null,
+        'total_submissions' => $subCount,
+        'stock_end_template' => $tmpl ? [
+            'id' => $tmpl->id,
+            'fields_count' => $tmpl->fields()->count(),
+            'fields' => $tmpl->fields()->pluck('field_name')
+        ] : null
+    ]);
+});
+
 Route::get('/app-logo', function () {
     $setting = \Illuminate\Support\Facades\Schema::hasTable('settings') ? \App\Models\Setting::first() : null;
     $path = $setting?->logo_path;
