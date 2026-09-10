@@ -9057,7 +9057,7 @@ class PrincipalPortalController extends Controller
                                 if (empty($itemBase)) $itemBase = '-';
                                 $itemSize = trim((string)($item['kemasan_size'] ?? ($item['ukuran_kemasan'] ?? '-')));
                                 if (empty($itemSize)) $itemSize = '-';
-                                $itemLama = (int)($item['lama_oos_hari'] ?? ($item['lama_hari'] ?? 0));
+                                $itemLama = max(1, (int)($item['lama_oos_hari'] ?? ($item['lama_hari'] ?? 1)));
                                 $itemSaran = (int)($item['saran_qty_order'] ?? ($item['saran_order'] ?? 0));
                                 $itemAlasan = trim((string)($item['alasan_oos'] ?? ($item['alasan'] ?? 'Lain-lain')));
                                 if (empty($itemAlasan)) $itemAlasan = 'Lain-lain';
@@ -9123,7 +9123,7 @@ class PrincipalPortalController extends Controller
                             if (empty($baseColor)) $baseColor = '-';
                             $kemasanSize = trim((string)($valMap['kemasan_size_yang_kosong'] ?? ($valMap['ukuran_kemasan_size'] ?? ($valMap['kemasan_size'] ?? ($valMap['kemasan'] ?? '-')))));
                             if (empty($kemasanSize)) $kemasanSize = '-';
-                            $lamaOosHari = (int)($valMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? ($valMap['lama_kondisi_oos_jumlah_hari'] ?? ($valMap['lama_oos_hari'] ?? ($valMap['lama_oos'] ?? 0))));
+                            $lamaOosHari = max(1, (int)($valMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? ($valMap['lama_kondisi_oos_jumlah_hari'] ?? ($valMap['lama_oos_hari'] ?? ($valMap['lama_oos'] ?? 1)))));
                             $saranQtyOrder = (int)($valMap['saran_kuantiti_order_ke_toko_qty_kemasan'] ?? ($valMap['saran_kuantitas_order_qty_kaleng'] ?? ($valMap['saran_qty_order'] ?? 0)));
                             $alasanOos = trim((string)($valMap['penyebab_alasan_out_of_stock_oos'] ?? ($valMap['alasan_oos'] ?? ($valMap['penyebab_alasan_oos'] ?? ($valMap['alasan'] ?? 'Lain-lain')))));
                             if (empty($alasanOos)) $alasanOos = 'Lain-lain';

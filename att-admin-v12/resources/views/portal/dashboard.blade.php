@@ -739,11 +739,11 @@
                                         </div>
                                     @elseif(!empty($subOosItems) && is_array($subOosItems) && count($subOosItems) > 0)
                                         @php
-                                            $maxLama = max(array_map(fn($it) => (int)($it['lama_oos_hari'] ?? 0), $subOosItems) ?: [0]);
+                                            $maxLama = max(array_map(fn($it) => max(1, (int)($it['lama_oos_hari'] ?? 1)), $subOosItems) ?: [1]);
                                         @endphp
                                         <div style="margin-top: 3px;">
                                             <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 2px 7px; border-radius: 6px; border: 1px solid #fecaca;">
-                                                <i class="fa-solid fa-triangle-exclamation"></i> {{ count($subOosItems) }} SKU Kosong @if($maxLama > 0)(Maks {{ $maxLama }} hr)@endif
+                                                <i class="fa-solid fa-triangle-exclamation"></i> {{ count($subOosItems) }} SKU Kosong (Maks {{ $maxLama }} hr)
                                             </span>
                                         </div>
                                     @elseif(!empty($subOfftakeItems) && is_array($subOfftakeItems) && count($subOfftakeItems) > 0)

@@ -505,8 +505,8 @@
                                     <td style="font-weight: 600; color: {{ $isNoOos ? '#15803d' : '#1e3a8a' }};">{{ $r['produk'] }}</td>
                                     <td style="color: var(--text-muted); font-size: 0.82rem;">{{ $r['base_color'] ?: '-' }}</td>
                                     <td style="text-align: center; font-size: 0.82rem;">{{ $r['kemasan_size'] ?: '-' }}</td>
-                                    <td style="text-align: center; font-weight: 700; color: {{ $isNoOos ? '#16a34a' : ($r['lama_oos_hari'] > 0 ? '#dc2626' : '#2563eb') }};">
-                                        {{ $isNoOos ? '-' : ($r['lama_oos_hari'] > 0 ? ($r['lama_oos_hari'] . ' Hari') : '0 Hari') }}
+                                    <td style="text-align: center; font-weight: 700; color: {{ $isNoOos ? '#16a34a' : ($r['lama_oos_hari'] > 1 ? '#dc2626' : '#2563eb') }};">
+                                        {{ $isNoOos ? '-' : (max(1, (int)$r['lama_oos_hari']) . ' Hari') }}
                                     </td>
                                     <td style="text-align: center; font-weight: 700;">{{ $r['saran_qty_order'] > 0 ? $r['saran_qty_order'] : '-' }}</td>
                                     <td>
@@ -718,7 +718,7 @@
                                     $rawOosItems = !empty($rawOosVal) ? (is_array($rawOosVal) ? $rawOosVal : json_decode((string)$rawOosVal, true)) : null;
                                     $hasMultiOos = is_array($rawOosItems) && count($rawOosItems) > 0;
                                     $multiProductNames = $hasMultiOos ? array_map(fn($it) => $it['product_name'] ?? ($it['nama_produk'] ?? ($it['produk_oos'] ?? 'Dulux SKU')), $rawOosItems) : [];
-                                    $multiMaxLama = $hasMultiOos ? max(array_map(fn($it) => (int)($it['lama_oos_hari'] ?? 0), $rawOosItems) ?: [0]) : 0;
+                                    $multiMaxLama = $hasMultiOos ? max(array_map(fn($it) => max(1, (int)($it['lama_oos_hari'] ?? 1)), $rawOosItems) ?: [1]) : 0;
                                     $multiTotalSaran = $hasMultiOos ? array_sum(array_map(fn($it) => (int)($it['saran_qty_order'] ?? 0), $rawOosItems)) : 0;
 
                                     $itemBases = $hasMultiOos ? array_filter(array_map(fn($it) => trim((string)($it['base_color'] ?? ($it['base_warna_oos'] ?? ($it['base'] ?? '')))), $rawOosItems)) : [];
@@ -729,7 +729,7 @@
                                     $produk = trim((string)($valMap['pilih_produk_dulux_yang_mengalami_out_of_stock_oos'] ?? ($valMap['nama_produk_yang_kosong_oos'] ?? ($valMap['nama_produk_yang_kosong'] ?? ($valMap['produk_oos'] ?? ($valMap['produk'] ?? 'Dulux Product'))))));
                                     $baseColor = trim((string)($valMap['base_kategori_warna_yang_kosong'] ?? ($valMap['base_tipe_warna'] ?? ($valMap['base_color'] ?? ($valMap['base_warna'] ?? ($valMap['base'] ?? '-'))))));
                                     $kemasanSize = trim((string)($valMap['kemasan_size_yang_kosong'] ?? ($valMap['ukuran_kemasan_size'] ?? ($valMap['kemasan_size'] ?? ($valMap['kemasan'] ?? '-')))));
-                                    $lamaOos = $hasMultiOos ? $multiMaxLama : (int)($valMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? ($valMap['lama_kondisi_oos_jumlah_hari'] ?? ($valMap['lama_oos_hari'] ?? 0)));
+                                    $lamaOos = $hasMultiOos ? $multiMaxLama : max(1, (int)($valMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? ($valMap['lama_kondisi_oos_jumlah_hari'] ?? ($valMap['lama_oos_hari'] ?? 1))));
                                     $saranQty = $hasMultiOos ? $multiTotalSaran : (int)($valMap['saran_kuantiti_order_ke_toko_qty_kemasan'] ?? ($valMap['saran_kuantitas_order_qty_kaleng'] ?? ($valMap['saran_qty_order'] ?? 0)));
                                     $alasanOos = trim((string)($valMap['penyebab_alasan_out_of_stock_oos'] ?? ($valMap['alasan_oos'] ?? ($valMap['penyebab_alasan_oos'] ?? ($valMap['alasan'] ?? 'Lain-lain')))));
 
@@ -819,8 +819,9 @@
                                                                     <span style="color: #1e293b; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ $oi['product_name'] ?? ($oi['nama_produk'] ?? 'Produk') }}">
                                                                         {{ $oi['product_name'] ?? ($oi['nama_produk'] ?? 'Produk') }}
                                                                     </span>
-                                                                    <span style="color: {{ ($oi['lama_oos_hari'] ?? 0) > 0 ? '#dc2626' : '#2563eb' }}; font-weight: 700; white-space: nowrap;">
-                                                                        {{ $oi['lama_oos_hari'] ?? 0 }} hr
+                                                                    @php $oiLama = max(1, (int)($oi['lama_oos_hari'] ?? 1)); @endphp
+                                                                    <span style="color: {{ $oiLama > 1 ? '#dc2626' : '#2563eb' }}; font-weight: 700; white-space: nowrap;">
+                                                                        {{ $oiLama }} hr
                                                                     </span>
                                                                 </div>
                                                             @endforeach
@@ -881,13 +882,13 @@
                                     <td style="text-align: center; font-weight: 700;">
                                         @if($isNoOos)
                                             <span style="color: #16a34a; font-weight: 700; font-size: 0.8rem;">-</span>
-                                        @elseif($lamaOos > 0)
+                                        @elseif($lamaOos > 1)
                                             <span style="color: #dc2626; font-size: 0.82rem; background: #fef2f2; padding: 2px 7px; border-radius: 6px; border: 1px solid #fecaca; display: inline-block;">
                                                 {{ $hasMultiOos ? 'Maks ' : '' }}{{ $lamaOos }} Hari
                                             </span>
                                         @else
                                             <span style="color: #2563eb; font-size: 0.82rem; background: #eff6ff; padding: 2px 7px; border-radius: 6px; border: 1px solid #bfdbfe; display: inline-block;">
-                                                0 Hari
+                                                {{ $hasMultiOos ? 'Maks ' : '' }}{{ max(1, $lamaOos) }} Hari
                                             </span>
                                         @endif
                                     </td>

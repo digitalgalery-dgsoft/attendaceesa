@@ -1012,7 +1012,7 @@ class ReportingApiController extends Controller
                 $allKemasan = [];
                 $allBaseColors = [];
                 $allReasons = [];
-                $maxLamaOos = 0;
+                $maxLamaOos = count($oosItems) > 0 ? 1 : 0;
                 $totalSaranOrder = 0;
 
                 foreach ($oosItems as &$item) {
@@ -1042,7 +1042,8 @@ class ReportingApiController extends Controller
                     if (!empty($alasan) && !in_array($alasan, $allReasons)) {
                         $allReasons[] = $alasan;
                     }
-                    $lama = intval($item['lama_oos_hari'] ?? ($item['calculated_lama_oos'] ?? 0));
+                    $lama = max(1, intval($item['lama_oos_hari'] ?? ($item['calculated_lama_oos'] ?? 1)));
+                    $item['lama_oos_hari'] = $lama;
                     if ($lama > $maxLamaOos) {
                         $maxLamaOos = $lama;
                     }
@@ -1075,8 +1076,8 @@ class ReportingApiController extends Controller
                     } elseif ($fn === 'warna_ready_mix_oos') {
                         $vText = $firstItem['warna_ready_mix_oos'] ?? 'Bukan Ready Mix (Base Oplos)';
                     } elseif ($fn === 'lama_oos_hari' || $fn === 'lama_kondisi_barang_kosong_jumlah_hari') {
-                        $vNum = $maxLamaOos;
-                        $vText = (string)$maxLamaOos;
+                        $vNum = (float)max(1, $maxLamaOos);
+                        $vText = (string)max(1, $maxLamaOos);
                     } elseif ($fn === 'saran_qty_order' || $fn === 'saran_kuantiti_order_ke_toko_qty_kemasan') {
                         $vNum = $totalSaranOrder;
                         $vText = (string)$totalSaranOrder;

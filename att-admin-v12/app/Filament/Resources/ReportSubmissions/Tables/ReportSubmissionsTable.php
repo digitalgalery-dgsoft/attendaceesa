@@ -64,10 +64,10 @@ class ReportSubmissionsTable
                         }
 
                         if (is_array($oosItems) && count($oosItems) > 0) {
-                            $maxLama = max(array_map(fn($it) => (int)($it['lama_oos_hari'] ?? 0), $oosItems) ?: [0]);
+                            $maxLama = max(array_map(fn($it) => max(1, (int)($it['lama_oos_hari'] ?? 1)), $oosItems) ?: [1]);
                             $names = array_map(fn($it) => $it['product_name'] ?? ($it['nama_produk'] ?? 'SKU'), $oosItems);
                             $preview = !empty($names) ? ' - ' . implode(', ', array_slice($names, 0, 2)) : '';
-                            return '⚠️ ' . count($oosItems) . ' SKU Kosong' . ($maxLama > 0 ? " ({$maxLama} Hari)" : '') . $preview;
+                            return '⚠️ ' . count($oosItems) . ' SKU Kosong' . " ({$maxLama} Hari)" . $preview;
                         }
 
                         if (is_array($offtakeItems) && count($offtakeItems) > 0) {
