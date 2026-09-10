@@ -360,15 +360,31 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
           // ─── Daftar Nilai / Field Jawaban ───
           () {
-            // Cek apakah ada data offtake multi-produk dinamis
+            final tmplCode = (_currentSubmission.templateCode ?? _currentSubmission.template?.code ?? '').toUpperCase();
+            final tmplTitle = (_currentSubmission.templateTitle).toUpperCase();
+            final hasOosField = _currentSubmission.values.any((v) => v.fieldName.toLowerCase().contains('oos'));
+            final isOosReport = tmplCode.contains('OOS') || tmplTitle.contains('OUT OF STOCK') || tmplTitle.contains('OOS') || hasOosField;
+            final isOfftakeReport = !isOosReport && (tmplCode.contains('OFFTAKE') || tmplTitle.contains('OFFTAKE') || tmplTitle.contains('PENJUALAN'));
+
+            // Cek apakah ada data offtake multi-produk dinamis (hanya jika BUKAN laporan OOS)
             List<dynamic>? offtakeItemsList;
-            for (final v in _currentSubmission.values) {
-              final fn = v.fieldName.toLowerCase();
-              if (fn == 'offtake_items_json' || fn.contains('offtake_items')) {
-                if (v.valueJson is List && (v.valueJson as List).isNotEmpty) {
-                  offtakeItemsList = v.valueJson as List;
-                  break;
-                } else if (v.valueText != null && v.valueText!.trim().isNotEmpty) {
+            if (!isOosReport) {
+              for (final v in _currentSubmission.values) {
+                final fn = v.fieldName.toLowerCase();
+                if (fn == 'offtake_items_json' || fn.contains('offtake_items')) {
+                  if (v.valueJson is List && (v.valueJson as List).isNotEmpty) {
+                    offtakeItemsList = v.valueJson as List;
+                    break;
+                  } else if (v.valueText != null && v.valueText!.trim().isNotEmpty) {
+                    try {
+                      final decoded = jsonDecode(v.valueText!);
+                      if (decoded is List && decoded.isNotEmpty) {
+                        offtakeItemsList = decoded;
+                        break;
+                      }
+                    } catch (_) {}
+                  }
+                } else if (v.valueText != null && v.valueText!.trim().startsWith('[{') && (fn.contains('offtake') || fn.contains('rincian_transaksi'))) {
                   try {
                     final decoded = jsonDecode(v.valueText!);
                     if (decoded is List && decoded.isNotEmpty) {
@@ -377,18 +393,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     }
                   } catch (_) {}
                 }
-              } else if (v.valueText != null && v.valueText!.trim().startsWith('[{') && v.valueText!.contains('product_id')) {
-                try {
-                  final decoded = jsonDecode(v.valueText!);
-                  if (decoded is List && decoded.isNotEmpty) {
-                    offtakeItemsList = decoded;
-                    break;
-                  }
-                } catch (_) {}
               }
             }
 
-            final hasDynamicOfftake = offtakeItemsList != null && offtakeItemsList.isNotEmpty;
+            final hasDynamicOfftake = !isOosReport && offtakeItemsList != null && offtakeItemsList.isNotEmpty;
 
             // Cek apakah ada data OOS multi-produk dinamis
             List<dynamic>? oosItemsList;

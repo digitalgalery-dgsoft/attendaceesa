@@ -621,7 +621,7 @@
 
             @if(isset($submissions) && $submissions->isNotEmpty())
                 <div class="oos-table-viewport" style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
-                    <table class="oos-table" style="min-width: 1750px; width: 100%;">
+                    <table class="oos-table" style="min-width: 1850px; width: 100%;">
                         <thead>
                             <tr>
                                 <th style="width: 50px; text-align: center;">No</th>
@@ -629,10 +629,12 @@
                                 <th style="min-width: 130px;">Waktu Submit</th>
                                 <th style="min-width: 170px;">Promotor / SPG</th>
                                 <th style="min-width: 180px;">Nama Toko / Outlet</th>
-                                <th style="min-width: 130px;">Area & RSM</th>
-                                <th style="min-width: 160px;">Produk OOS</th>
-                                <th style="min-width: 120px;">Base / Kategori</th>
-                                <th style="min-width: 120px;">Kemasan</th>
+                                <th style="min-width: 110px;">Area</th>
+                                <th style="min-width: 130px;">RSM Dulux</th>
+                                <th style="min-width: 110px; text-align: center;">Jumlah Produk</th>
+                                <th style="min-width: 170px;">Produk OOS</th>
+                                <th style="min-width: 130px;">Base / Kategori</th>
+                                <th style="min-width: 130px;">Kemasan</th>
                                 <th style="min-width: 90px; text-align: center;">Lama OOS</th>
                                 <th style="min-width: 100px; text-align: center;">Saran Order</th>
                                 <th style="min-width: 180px;">Alasan Out of Stock (OOS)</th>
@@ -642,11 +644,33 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php
+                                $duluxAreaToRsmMap = [
+                                    'ACEH' => 'North Sumatera', 'MEDAN' => 'North Sumatera', 'BATAM' => 'Central Sumatera',
+                                    'PADANG' => 'Central Sumatera', 'PEKANBARU' => 'Central Sumatera', 'LAMPUNG' => 'South Sumatera',
+                                    'PALEMBANG' => 'South Sumatera', 'JAMBI' => 'South Sumatera', 'BENGKULU' => 'South Sumatera',
+                                    'BALIKPAPAN' => 'Kalimantan', 'SAMARINDA' => 'Kalimantan', 'BONTANG' => 'Kalimantan',
+                                    'BANJARMASIN' => 'Kalimantan', 'PONTIANAK' => 'Kalimantan', 'KENDARI' => 'Sulawesi',
+                                    'MAKASSAR' => 'Sulawesi', 'MANADO' => 'Sulawesi', 'PALU' => 'Sulawesi',
+                                    'MALUKU' => 'Sulawesi', 'PAPUA' => 'Sulawesi', 'CIBUBUR' => 'Greater Jakarta',
+                                    'GARUT' => 'West Java', 'BANDUNG' => 'West Java', 'CIREBON' => 'West Java',
+                                    'TASIKMALAYA' => 'West Java', 'BOGOR' => 'Greater Jakarta', 'BEKASI' => 'Greater Jakarta',
+                                    'DEPOK' => 'Greater Jakarta', 'TANGERANG' => 'Greater Jakarta', 'JAKARTA BARAT' => 'Greater Jakarta',
+                                    'JAKARTA PUSAT' => 'Greater Jakarta', 'JAKARTA UTARA' => 'Greater Jakarta', 'JAKARTA TIMUR' => 'Greater Jakarta',
+                                    'JAKARTA SELATAN' => 'Greater Jakarta', 'JAKARTA' => 'Greater Jakarta', 'MADIUN' => 'East Java',
+                                    'SURABAYA' => 'East Java', 'MALANG' => 'East Java', 'KEDIRI' => 'East Java',
+                                    'BANYUWANGI' => 'East Java', 'JEMBER' => 'Bali Nusra', 'BALI' => 'Bali Nusra',
+                                    'LOMBOK' => 'Bali Nusra', 'KUPANG' => 'Bali Nusra', 'SEMARANG' => 'North Central Java',
+                                    'TEGAL' => 'North Central Java', 'PEKALONGAN' => 'North Central Java', 'KUDUS' => 'North Central Java',
+                                    'SOLO' => 'South Central Java', 'YOGYAKARTA' => 'South Central Java', 'PURWOKERTO' => 'South Central Java',
+                                    'MAGELANG' => 'South Central Java', 'CENTRAL JAVA' => 'Central Java',
+                                ];
+                            @endphp
                             @foreach($submissions as $idx => $sub)
                                 @php
                                     $valMap = [];
                                     foreach ($sub->values as $v) {
-                                        $val = $v->value_number ?? $v->value_text ?? $v->value_date ?? $v->value_json;
+                                        $val = $v->value_json ?? $v->value_text ?? $v->value_number ?? $v->value_date;
                                         if ($v->field_name) {
                                             $valMap[$v->field_name] = $val;
                                             $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', $v->field_name), '_'));
@@ -668,15 +692,39 @@
                                     $store = $sub->workLocation?->name ?? 'Toko Tidak Terdaftar';
                                     $sap = $sub->workLocation?->code ?? ($sub->workLocation?->store_code ?? '-');
                                     $area = $sub->workLocation?->branch?->name ?? ($sub->workLocation?->area?->name ?? ($sub->workLocation?->area ?? '-'));
-                                    $region = $sub->workLocation?->region ?? '-';
+                                    $cleanArea = strtoupper(trim((string)$area));
+                                    $rsmDulux = $duluxAreaToRsmMap[$cleanArea] ?? null;
+                                    if (!$rsmDulux) {
+                                        foreach ($duluxAreaToRsmMap as $city => $r) {
+                                            if ($city !== '' && str_contains($cleanArea, $city)) {
+                                                $rsmDulux = $r;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (!$rsmDulux && !empty($sub->workLocation?->region) && $sub->workLocation?->region !== '-') {
+                                        $rsmDulux = $sub->workLocation?->region;
+                                    }
+                                    $rsmDulux = $rsmDulux ?: '-';
+
                                     $empName = $sub->employee?->full_name ?? ($sub->employee?->name ?? 'Petugas');
                                     $empNik = $sub->employee?->nik ?? ($sub->employee?->employee_no ?? '-');
 
-                                    $rawOosItems = !empty($valMap['oos_items_json']) ? (is_array($valMap['oos_items_json']) ? $valMap['oos_items_json'] : json_decode((string)$valMap['oos_items_json'], true)) : null;
+                                    $rawOosVal = $valMap['oos_items_json'] ?? null;
+                                    if (empty($rawOosVal) || is_numeric($rawOosVal)) {
+                                        $vObj = $sub->values->firstWhere('field_name', 'oos_items_json');
+                                        $rawOosVal = $vObj?->value_json ?? $vObj?->value_text;
+                                    }
+                                    $rawOosItems = !empty($rawOosVal) ? (is_array($rawOosVal) ? $rawOosVal : json_decode((string)$rawOosVal, true)) : null;
                                     $hasMultiOos = is_array($rawOosItems) && count($rawOosItems) > 0;
                                     $multiProductNames = $hasMultiOos ? array_map(fn($it) => $it['product_name'] ?? ($it['nama_produk'] ?? ($it['produk_oos'] ?? 'Dulux SKU')), $rawOosItems) : [];
                                     $multiMaxLama = $hasMultiOos ? max(array_map(fn($it) => (int)($it['lama_oos_hari'] ?? 0), $rawOosItems) ?: [0]) : 0;
                                     $multiTotalSaran = $hasMultiOos ? array_sum(array_map(fn($it) => (int)($it['saran_qty_order'] ?? 0), $rawOosItems)) : 0;
+
+                                    $itemBases = $hasMultiOos ? array_filter(array_map(fn($it) => trim((string)($it['base_color'] ?? ($it['base_warna_oos'] ?? ($it['base'] ?? '')))), $rawOosItems)) : [];
+                                    $itemKemasans = $hasMultiOos ? array_filter(array_map(fn($it) => trim((string)($it['kemasan_size'] ?? ($it['kemasan_size_oos'] ?? ($it['kemasan'] ?? '')))), $rawOosItems)) : [];
+                                    $uniqueBases = array_values(array_unique($itemBases));
+                                    $uniqueKemasans = array_values(array_unique($itemKemasans));
 
                                     $produk = trim((string)($valMap['pilih_produk_dulux_yang_mengalami_out_of_stock_oos'] ?? ($valMap['nama_produk_yang_kosong_oos'] ?? ($valMap['nama_produk_yang_kosong'] ?? ($valMap['produk_oos'] ?? ($valMap['produk'] ?? 'Dulux Product'))))));
                                     $baseColor = trim((string)($valMap['base_kategori_warna_yang_kosong'] ?? ($valMap['base_tipe_warna'] ?? ($valMap['base_color'] ?? ($valMap['base_warna'] ?? ($valMap['base'] ?? '-'))))));
@@ -723,12 +771,29 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div style="font-weight: 600; color: #1e293b; font-size: 0.82rem;">
-                                            {{ $area }}
+                                        <div style="font-weight: 700; color: #1e293b; font-size: 0.82rem;">
+                                            {{ $area ?: '-' }}
                                         </div>
-                                        <div style="font-size: 0.74rem; color: #64748b;">
-                                            <span class="region-badge {{ strtolower($region) }}" style="font-size: 0.7rem; padding: 1px 5px;">{{ $region }}</span>
-                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="region-badge {{ strtolower(str_replace(' ', '-', $rsmDulux)) }}" style="font-size: 0.74rem; padding: 2px 7px; font-weight: 700; display: inline-block;">
+                                            {{ $rsmDulux }}
+                                        </span>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        @if($isNoOos)
+                                            <span style="background: #f1f5f9; color: #64748b; font-size: 0.75rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; display: inline-block;">
+                                                0 (Stok Lengkap)
+                                            </span>
+                                        @elseif($hasMultiOos)
+                                            <span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.75rem; padding: 2px 7px; border-radius: 6px; font-weight: 800; display: inline-block;">
+                                                {{ count($rawOosItems) }} Produk
+                                            </span>
+                                        @else
+                                            <span style="background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; font-size: 0.75rem; padding: 2px 7px; border-radius: 6px; font-weight: 700; display: inline-block;">
+                                                1 Produk
+                                            </span>
+                                        @endif
                                     </td>
                                     <td>
                                         @if($isNoOos)
@@ -772,21 +837,45 @@
                                     <td style="font-size: 0.82rem; color: #334155;">
                                         @if($isNoOos)
                                             <span style="color: #94a3b8;">-</span>
-                                        @elseif($hasMultiOos && count($rawOosItems) > 1)
-                                            <span style="font-size: 0.74rem; color: #64748b; font-style: italic;">Multi Base</span>
+                                        @elseif(!empty($uniqueBases))
+                                            @if(count($uniqueBases) === 1)
+                                                <span style="display: inline-block; padding: 2px 8px; background: #f1f5f9; border-radius: 6px; font-weight: 600; font-size: 0.78rem;">
+                                                    {{ $uniqueBases[0] }}
+                                                </span>
+                                            @else
+                                                <div style="display: flex; flex-wrap: wrap; gap: 3px;">
+                                                    @foreach($uniqueBases as $b)
+                                                        <span style="display: inline-block; padding: 1px 6px; background: #f1f5f9; border-radius: 4px; font-weight: 600; font-size: 0.74rem;">
+                                                            {{ $b }}
+                                                        </span>
+                                                    @endforeach
+                                                </div>
+                                            @endif
                                         @else
                                             <span style="display: inline-block; padding: 2px 8px; background: #f1f5f9; border-radius: 6px; font-weight: 600; font-size: 0.78rem;">
-                                                {{ $baseColor }}
+                                                {{ $baseColor ?: '-' }}
                                             </span>
                                         @endif
                                     </td>
                                     <td style="font-size: 0.82rem; color: #334155;">
                                         @if($isNoOos)
                                             <span style="color: #94a3b8;">-</span>
-                                        @elseif($hasMultiOos && count($rawOosItems) > 1)
-                                            <span style="font-size: 0.74rem; color: #64748b; font-style: italic;">Multi Size</span>
+                                        @elseif(!empty($uniqueKemasans))
+                                            @if(count($uniqueKemasans) === 1)
+                                                <span style="display: inline-block; padding: 2px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 600; font-size: 0.78rem;">
+                                                    {{ $uniqueKemasans[0] }}
+                                                </span>
+                                            @else
+                                                <div style="display: flex; flex-wrap: wrap; gap: 3px;">
+                                                    @foreach($uniqueKemasans as $k)
+                                                        <span style="display: inline-block; padding: 1px 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-weight: 600; font-size: 0.74rem;">
+                                                            {{ $k }}
+                                                        </span>
+                                                    @endforeach
+                                                </div>
+                                            @endif
                                         @else
-                                            {{ $kemasanSize }}
+                                            {{ $kemasanSize ?: '-' }}
                                         @endif
                                     </td>
                                     <td style="text-align: center; font-weight: 700;">

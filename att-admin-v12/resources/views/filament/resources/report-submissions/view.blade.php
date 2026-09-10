@@ -1230,6 +1230,7 @@
                     </div>
                 </div>
             </div>
+        @endif
         {{-- BANNER KHUSUS JIKA TOKO BEBAS OOS (STOK LENGKAP) --}}
         @if(strtolower($oosGlobalData['tipe_laporan_oos'] ?? '') === 'no_oos')
             <div style="background: #f0fdf4; border: 2px solid #86efac; border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);" class="dark:bg-emerald-950/40 dark:border-emerald-800">

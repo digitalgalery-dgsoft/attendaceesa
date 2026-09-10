@@ -1112,10 +1112,50 @@
                     </span>
                 </div>
 
+                @php
+                    $duluxAreaToRsmMap = [
+                        'ACEH' => 'North Sumatera', 'MEDAN' => 'North Sumatera', 'BATAM' => 'Central Sumatera',
+                        'PADANG' => 'Central Sumatera', 'PEKANBARU' => 'Central Sumatera', 'LAMPUNG' => 'South Sumatera',
+                        'PALEMBANG' => 'South Sumatera', 'JAMBI' => 'South Sumatera', 'BENGKULU' => 'South Sumatera',
+                        'BALIKPAPAN' => 'Kalimantan', 'SAMARINDA' => 'Kalimantan', 'BONTANG' => 'Kalimantan',
+                        'BANJARMASIN' => 'Kalimantan', 'PONTIANAK' => 'Kalimantan', 'KENDARI' => 'Sulawesi',
+                        'MAKASSAR' => 'Sulawesi', 'MANADO' => 'Sulawesi', 'PALU' => 'Sulawesi',
+                        'MALUKU' => 'Sulawesi', 'PAPUA' => 'Sulawesi', 'CIBUBUR' => 'Greater Jakarta',
+                        'GARUT' => 'West Java', 'BANDUNG' => 'West Java', 'CIREBON' => 'West Java',
+                        'TASIKMALAYA' => 'West Java', 'BOGOR' => 'Greater Jakarta', 'BEKASI' => 'Greater Jakarta',
+                        'DEPOK' => 'Greater Jakarta', 'TANGERANG' => 'Greater Jakarta', 'JAKARTA BARAT' => 'Greater Jakarta',
+                        'JAKARTA PUSAT' => 'Greater Jakarta', 'JAKARTA UTARA' => 'Greater Jakarta', 'JAKARTA TIMUR' => 'Greater Jakarta',
+                        'JAKARTA SELATAN' => 'Greater Jakarta', 'JAKARTA' => 'Greater Jakarta', 'MADIUN' => 'East Java',
+                        'SURABAYA' => 'East Java', 'MALANG' => 'East Java', 'KEDIRI' => 'East Java',
+                        'BANYUWANGI' => 'East Java', 'JEMBER' => 'Bali Nusra', 'BALI' => 'Bali Nusra',
+                        'LOMBOK' => 'Bali Nusra', 'KUPANG' => 'Bali Nusra', 'SEMARANG' => 'North Central Java',
+                        'TEGAL' => 'North Central Java', 'PEKALONGAN' => 'North Central Java', 'KUDUS' => 'North Central Java',
+                        'SOLO' => 'South Central Java', 'YOGYAKARTA' => 'South Central Java', 'PURWOKERTO' => 'South Central Java',
+                        'MAGELANG' => 'South Central Java', 'CENTRAL JAVA' => 'Central Java',
+                    ];
+                    $storeArea = $submission->workLocation?->branch?->name ?? ($submission->workLocation?->area?->name ?? ($submission->workLocation?->area ?? ($employee?->branch?->name ?? '-')));
+                    $cleanArea = strtoupper(trim((string)$storeArea));
+                    $rsmDulux = $duluxAreaToRsmMap[$cleanArea] ?? null;
+                    if (!$rsmDulux) {
+                        foreach ($duluxAreaToRsmMap as $city => $r) {
+                            if ($city !== '' && str_contains($cleanArea, $city)) { $rsmDulux = $r; break; }
+                        }
+                    }
+                    if (!$rsmDulux && !empty($submission->workLocation?->region) && $submission->workLocation?->region !== '-') {
+                        $rsmDulux = $submission->workLocation?->region;
+                    }
+                    $rsmDulux = $rsmDulux ?: '-';
+                @endphp
                 <div class="info-row">
-                    <span class="info-label">Area / Cabang</span>
+                    <span class="info-label">Area / Kota</span>
                     <span class="info-value">
-                        {{ $employee?->branch?->name ?? '-' }}
+                        {{ $storeArea }}
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">RSM Dulux</span>
+                    <span class="info-value">
+                        <span style="background: rgba(15, 82, 186, 0.1); color: #0F52BA; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem;">{{ $rsmDulux }}</span>
                     </span>
                 </div>
 
@@ -1241,6 +1281,7 @@
                     </div>
                 </div>
             </div>
+        @endif
         {{-- BANNER KHUSUS JIKA TOKO BEBAS OOS (STOK LENGKAP) --}}
         @if(strtolower($oosGlobalData['tipe_laporan_oos'] ?? '') === 'no_oos')
             <div style="background: #f0fdf4; border: 2px solid #86efac; border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">

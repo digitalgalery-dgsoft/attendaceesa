@@ -1015,20 +1015,30 @@ class ReportingApiController extends Controller
                 $maxLamaOos = 0;
                 $totalSaranOrder = 0;
 
-                foreach ($oosItems as $item) {
+                foreach ($oosItems as &$item) {
                     $pName = trim((string)($item['product_name'] ?? ($item['produk_oos'] ?? '')));
                     if (!empty($pName) && !in_array($pName, $allProductNames)) {
                         $allProductNames[] = $pName;
                     }
-                    $kem = trim((string)($item['kemasan_size_oos'] ?? ''));
-                    if (!empty($kem) && !in_array($kem, $allKemasan)) {
-                        $allKemasan[] = $kem;
+                    $kem = trim((string)($item['kemasan_size'] ?? ($item['kemasan_size_oos'] ?? ($item['ukuran_kemasan_size'] ?? ''))));
+                    if (!empty($kem)) {
+                        $item['kemasan_size'] = $kem;
+                        $item['kemasan_size_oos'] = $kem;
+                        $item['ukuran_kemasan_size'] = $kem;
+                        if (!in_array($kem, $allKemasan)) {
+                            $allKemasan[] = $kem;
+                        }
                     }
-                    $base = trim((string)($item['base_warna_oos'] ?? ''));
-                    if (!empty($base) && !in_array($base, $allBaseColors)) {
-                        $allBaseColors[] = $base;
+                    $base = trim((string)($item['base_color'] ?? ($item['base_warna_oos'] ?? ($item['base_tipe_warna'] ?? ''))));
+                    if (!empty($base)) {
+                        $item['base_color'] = $base;
+                        $item['base_warna_oos'] = $base;
+                        $item['base_tipe_warna'] = $base;
+                        if (!in_array($base, $allBaseColors)) {
+                            $allBaseColors[] = $base;
+                        }
                     }
-                    $alasan = trim((string)($item['alasan_oos'] ?? ''));
+                    $alasan = trim((string)($item['alasan_oos'] ?? ($item['penyebab_alasan_out_of_stock_oos'] ?? '')));
                     if (!empty($alasan) && !in_array($alasan, $allReasons)) {
                         $allReasons[] = $alasan;
                     }
@@ -1036,9 +1046,12 @@ class ReportingApiController extends Controller
                     if ($lama > $maxLamaOos) {
                         $maxLamaOos = $lama;
                     }
-                    $saran = intval($item['saran_qty_order'] ?? 0);
+                    $saran = intval($item['saran_qty_order'] ?? ($item['saran_kuantiti_order_ke_toko_qty_kemasan'] ?? 0));
+                    $item['saran_qty_order'] = $saran;
+                    $item['saran_kuantiti_order_ke_toko_qty_kemasan'] = $saran;
                     $totalSaranOrder += $saran;
                 }
+                unset($item);
 
                 $firstItem = $oosItems[0];
                 $productSummary = implode(', ', $allProductNames);
@@ -2478,7 +2491,7 @@ class ReportingApiController extends Controller
         foreach ($lastSub->values as $v) {
             $fName = strtolower(trim($v->field_name ?? ($v->formField?->field_name ?? '')));
             if ($fName) {
-                $valMap[$fName] = $v->value_json ?? ($v->value_number ?? $v->value_text);
+                $valMap[$fName] = $v->value_json ?? ($v->value_text ?? $v->value_number);
             }
         }
 
@@ -2500,8 +2513,13 @@ class ReportingApiController extends Controller
         $items = [];
 
         // 1. Cek dari oos_items_json jika ada
-        if (!empty($valMap['oos_items_json'])) {
-            $rawItems = is_array($valMap['oos_items_json']) ? $valMap['oos_items_json'] : json_decode((string)$valMap['oos_items_json'], true);
+        $rawOosVal = $valMap['oos_items_json'] ?? null;
+        if (empty($rawOosVal) || is_numeric($rawOosVal)) {
+            $vObj = $lastSub->values->firstWhere('field_name', 'oos_items_json');
+            $rawOosVal = $vObj?->value_json ?? $vObj?->value_text;
+        }
+        if (!empty($rawOosVal)) {
+            $rawItems = is_array($rawOosVal) ? $rawOosVal : json_decode((string)$rawOosVal, true);
             if (is_array($rawItems)) {
                 foreach ($rawItems as $itm) {
                     $prevLama = (int)($itm['lama_oos_hari'] ?? 0);
