@@ -506,6 +506,8 @@ class ReportingApiController extends Controller
                     // Jika toko tidak memiliki mesin (0 mesin terdaftar)
                     $isCompletedToday = $templateTodaySubs->isNotEmpty();
                 }
+            }
+
             $isCustomerDb = ($t->code === 'RPT-DULUX-DATABASE-PELANGGAN' || str_contains($t->code, 'DATABASE-PELANGGAN'));
             $isExempt = false;
             $exemptReason = null;
