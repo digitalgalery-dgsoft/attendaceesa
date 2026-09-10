@@ -2646,6 +2646,8 @@ class ReportingApiController extends Controller
                 'status' => 'error',
                 'message' => 'Parameter phone / no_hp wajib diisi.',
                 'found' => false,
+                'customer' => null,
+                'data' => null,
             ], 422);
         }
 
@@ -2658,45 +2660,111 @@ class ReportingApiController extends Controller
         } else {
             $normalizedPhone = $cleanPhone;
         }
+        $digitsWithoutZero = ltrim($normalizedPhone, '0');
 
-        // 1. Cari di PostgreSQL report_submissions (template RPT-DULUX-DATABASE-PELANGGAN)
-        $template = ReportTemplate::where('code', 'RPT-DULUX-DATABASE-PELANGGAN')
-            ->orWhere('code', 'LIKE', '%DATABASE-PELANGGAN%')
-            ->first();
+        // Varian pencarian nomor telepon
+        $searchVariants = array_filter(array_unique([
+            $rawPhone,
+            $cleanPhone,
+            $normalizedPhone,
+            $digitsWithoutZero,
+            strlen($cleanPhone) >= 8 ? substr($cleanPhone, -8) : null,
+            strlen($cleanPhone) >= 9 ? substr($cleanPhone, -9) : null,
+            strlen($cleanPhone) >= 10 ? substr($cleanPhone, -10) : null,
+        ]));
 
-        if ($template) {
-            $subVal = ReportSubmissionValue::where('field_name', 'no_hp_pelanggan')
-                ->where(function ($q) use ($rawPhone, $cleanPhone, $normalizedPhone) {
-                    $q->where('value_text', 'LIKE', "%{$normalizedPhone}%")
-                      ->orWhere('value_text', 'LIKE', "%{$cleanPhone}%")
-                      ->orWhere('value_text', 'LIKE', "%{$rawPhone}%");
-                })
-                ->whereHas('submission', function ($q) use ($template) {
-                    $q->where('report_template_id', $template->id);
-                })
-                ->latest()
-                ->first();
+        // Target field name untuk nomor HP konsumen
+        $targetFieldNames = [
+            'no_hp_pelanggan',
+            'nomor_hp_whatsapp_pelanggan',
+            'nomor_hp_pelanggan',
+            'no_hp',
+            'nomor_hp',
+            'no_telepon',
+            'telepon_pelanggan',
+            'whatsapp',
+        ];
 
-            if ($subVal) {
-                $sub = $subVal->submission;
+        // 1. Cari di PostgreSQL report_submissions (template yang berkaitan dengan database pelanggan)
+        $templateIds = ReportTemplate::where(function ($q) {
+            $q->where('code', 'LIKE', '%DATABASE-PELANGGAN%')
+              ->orWhere('code', 'LIKE', '%DATA-PELANGGAN%')
+              ->orWhere('code', 'LIKE', '%PELANGGAN%')
+              ->orWhere('title', 'LIKE', '%Pelanggan%');
+        })->pluck('id')->toArray();
+
+        $subValQuery = ReportSubmissionValue::where(function ($q) use ($targetFieldNames) {
+            $q->whereIn('field_name', $targetFieldNames)
+              ->orWhere('field_name', 'LIKE', '%no_hp%')
+              ->orWhere('field_name', 'LIKE', '%nomor_hp%');
+        });
+
+        if (!empty($templateIds)) {
+            $subValQuery->whereHas('submission', function ($q) use ($templateIds) {
+                $q->whereIn('report_template_id', $templateIds);
+            });
+        }
+
+        $subValQuery->where(function ($q) use ($searchVariants) {
+            foreach ($searchVariants as $variant) {
+                $q->orWhere('value_text', 'LIKE', "%{$variant}%");
+            }
+        });
+
+        $candidates = $subValQuery->latest('id')->take(10)->get();
+
+        foreach ($candidates as $cand) {
+            $valClean = preg_replace('/[^0-9]/', '', (string)$cand->value_text);
+            $isMatch = false;
+            if ($valClean === $cleanPhone || $valClean === $normalizedPhone || $valClean === $digitsWithoutZero) {
+                $isMatch = true;
+            } elseif (strlen($valClean) >= 8 && strlen($cleanPhone) >= 8 && substr($valClean, -8) === substr($cleanPhone, -8)) {
+                $isMatch = true;
+            } elseif (stripos((string)$cand->value_text, $cleanPhone) !== false || stripos((string)$cand->value_text, $normalizedPhone) !== false) {
+                $isMatch = true;
+            }
+
+            if ($isMatch && $cand->submission) {
+                $sub = $cand->submission;
                 $valMap = [];
                 foreach ($sub->values as $v) {
-                    $valMap[$v->field_name] = $v->value_text;
+                    $fn = strtolower(trim((string)$v->field_name));
+                    $valMap[$fn] = $v->value_text;
+                    $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', (string)$v->field_name), '_'));
+                    $valMap[$slug] = $v->value_text;
+                    if ($v->formField) {
+                        $fNameSlug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', (string)$v->formField->field_name), '_'));
+                        $valMap[$fNameSlug] = $v->value_text;
+                        $labelSlug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '_', (string)$v->formField->field_label), '_'));
+                        $valMap[$labelSlug] = $v->value_text;
+                    }
                 }
 
-                $nama = trim((string)($valMap['nama_pelanggan'] ?? ''));
+                $nama = trim((string)($valMap['nama_lengkap_pelanggan'] ?? ($valMap['nama_pelanggan'] ?? ($valMap['nama_konsumen'] ?? ($valMap['nama'] ?? '')))));
                 if (!empty($nama)) {
+                    $alamat = trim((string)($valMap['alamat_domisili_pelanggan'] ?? ($valMap['alamat_pelanggan'] ?? ($valMap['alamat_konsumen'] ?? ($valMap['alamat'] ?? '')))));
+                    $tipe = trim((string)($valMap['tipe_kategori_pelanggan'] ?? ($valMap['tipe_pelanggan'] ?? ($valMap['tipe_konsumen'] ?? 'Pemilik Rumah'))));
+                    $loyalty = trim((string)($valMap['painter_loyalty'] ?? ($valMap['program_mitra_dulux_painter_loyalty'] ?? ($valMap['program_mitra_dulux'] ?? 'Tidak Bersedia'))));
+
+                    $customerPayload = [
+                        'no_hp_pelanggan' => $normalizedPhone,
+                        'nama_pelanggan' => $nama,
+                        'alamat_pelanggan' => $alamat,
+                        'tipe_pelanggan' => $tipe,
+                        'painter_loyalty' => $loyalty,
+                        // Aliases for comprehensive compatibility
+                        'nama_lengkap_pelanggan' => $nama,
+                        'alamat_domisili_pelanggan' => $alamat,
+                        'tipe_kategori_pelanggan' => $tipe,
+                        'nomor_hp_whatsapp_pelanggan' => $normalizedPhone,
+                    ];
+
                     return response()->json([
                         'status' => 'success',
                         'found' => true,
                         'source' => 'live_database',
-                        'data' => [
-                            'no_hp_pelanggan' => $normalizedPhone,
-                            'nama_pelanggan' => $nama,
-                            'alamat_pelanggan' => trim((string)($valMap['alamat_pelanggan'] ?? '')),
-                            'tipe_pelanggan' => trim((string)($valMap['tipe_pelanggan'] ?? 'Pemilik Rumah')),
-                            'painter_loyalty' => trim((string)($valMap['painter_loyalty'] ?? 'Tidak Bersedia')),
-                        ],
+                        'customer' => $customerPayload,
+                        'data' => $customerPayload,
                     ]);
                 }
             }
@@ -2728,11 +2796,11 @@ class ReportingApiController extends Controller
                 $stmt = $pdo->prepare("
                     SELECT nama_pelanggan, alamat, no_hp, tipe_pelanggan, painter_info
                     FROM cust_raw
-                    WHERE no_hp LIKE ? OR no_hp LIKE ?
+                    WHERE no_hp LIKE ? OR no_hp LIKE ? OR no_hp LIKE ?
                     ORDER BY id DESC
                     LIMIT 1
                 ");
-                $stmt->execute([$searchPattern, "%{$normalizedPhone}%"]);
+                $stmt->execute([$searchPattern, "%{$normalizedPhone}%", "%{$digitsWithoutZero}%"]);
                 $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 
                 if ($row && !empty(trim((string)($row['nama_pelanggan'] ?? '')))) {
@@ -2741,17 +2809,24 @@ class ReportingApiController extends Controller
                         ? 'Saya bersedia menerima informasi mengenai program Mitra Dulux'
                         : 'Tidak Bersedia';
 
+                    $customerPayload = [
+                        'no_hp_pelanggan' => $normalizedPhone,
+                        'nama_pelanggan' => trim((string)$row['nama_pelanggan']),
+                        'alamat_pelanggan' => trim((string)($row['alamat'] ?? '')),
+                        'tipe_pelanggan' => trim((string)($row['tipe_pelanggan'] ?? 'Pemilik Rumah')),
+                        'painter_loyalty' => $loyalty,
+                        'nama_lengkap_pelanggan' => trim((string)$row['nama_pelanggan']),
+                        'alamat_domisili_pelanggan' => trim((string)($row['alamat'] ?? '')),
+                        'tipe_kategori_pelanggan' => trim((string)($row['tipe_pelanggan'] ?? 'Pemilik Rumah')),
+                        'nomor_hp_whatsapp_pelanggan' => $normalizedPhone,
+                    ];
+
                     return response()->json([
                         'status' => 'success',
                         'found' => true,
                         'source' => 'archive_database',
-                        'data' => [
-                            'no_hp_pelanggan' => $normalizedPhone,
-                            'nama_pelanggan' => trim((string)$row['nama_pelanggan']),
-                            'alamat_pelanggan' => trim((string)($row['alamat'] ?? '')),
-                            'tipe_pelanggan' => trim((string)($row['tipe_pelanggan'] ?? 'Pemilik Rumah')),
-                            'painter_loyalty' => $loyalty,
-                        ],
+                        'customer' => $customerPayload,
+                        'data' => $customerPayload,
                     ]);
                 }
             }
@@ -2763,6 +2838,7 @@ class ReportingApiController extends Controller
             'status' => 'success',
             'found' => false,
             'message' => 'Data pelanggan belum pernah terdaftar sebelumnya.',
+            'customer' => null,
             'data' => null,
         ]);
     }

@@ -569,84 +569,135 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
       if (!mounted) return;
 
-      if (res != null && res['found'] == true && res['customer'] != null) {
-        final cust = Map<String, dynamic>.from(res['customer']);
-        final custNama = cust['nama_pelanggan']?.toString() ?? '';
-        final custAlamat = cust['alamat_pelanggan']?.toString() ?? '';
-        final custTipe = cust['tipe_pelanggan']?.toString() ?? '';
-        final custPainter = cust['painter_loyalty']?.toString() ?? '';
+      if (res != null) {
+        final bool isFound = res['found'] == true ||
+            (res['customer'] != null && (res['customer'] as Map).isNotEmpty) ||
+            (res['data'] != null && (res['data'] as Map).isNotEmpty) ||
+            res.containsKey('nama_pelanggan') ||
+            res.containsKey('nama_lengkap_pelanggan');
 
-        setState(() {
-          for (final f in widget.template.fields) {
-            final fKey = f.id.toString();
-            final fName = f.fieldName.toLowerCase();
+        if (isFound) {
+          final dynamic rawCust = res['customer'] ?? res['data'] ?? res;
+          final Map<String, dynamic> cust = rawCust is Map ? Map<String, dynamic>.from(rawCust) : {};
 
-            if (fName == 'nama_pelanggan' && custNama.isNotEmpty) {
-              _formValues[fKey] = custNama;
-              _formValues[f.fieldName] = custNama;
-              if (_controllers.containsKey(fKey)) {
-                _controllers[fKey]!.text = custNama;
-              } else {
-                _controllers[fKey] = TextEditingController(text: custNama);
+          final custNama = cust['nama_pelanggan']?.toString() ??
+              cust['nama_lengkap_pelanggan']?.toString() ??
+              cust['nama']?.toString() ??
+              '';
+          final custAlamat = cust['alamat_pelanggan']?.toString() ??
+              cust['alamat_domisili_pelanggan']?.toString() ??
+              cust['alamat']?.toString() ??
+              '';
+          final custTipe = cust['tipe_pelanggan']?.toString() ??
+              cust['tipe_kategori_pelanggan']?.toString() ??
+              '';
+          final custPainter = cust['painter_loyalty']?.toString() ??
+              cust['program_mitra_dulux']?.toString() ??
+              '';
+
+          setState(() {
+            for (final f in widget.template.fields) {
+              final fKey = f.id.toString();
+              final fName = f.fieldName.toLowerCase();
+              final fLabel = f.fieldLabel.toLowerCase();
+
+              // 1. Nama Lengkap Pelanggan
+              if ((fName == 'nama_pelanggan' || fName == 'nama_lengkap_pelanggan' || fName.contains('nama') || fLabel.contains('nama')) && custNama.isNotEmpty) {
+                _formValues[fKey] = custNama;
+                _formValues[f.fieldName] = custNama;
+                if (_controllers.containsKey(fKey)) {
+                  _controllers[fKey]!.text = custNama;
+                } else {
+                  _controllers[fKey] = TextEditingController(text: custNama);
+                }
               }
-            } else if (fName == 'alamat_pelanggan' && custAlamat.isNotEmpty) {
-              _formValues[fKey] = custAlamat;
-              _formValues[f.fieldName] = custAlamat;
-              if (_controllers.containsKey(fKey)) {
-                _controllers[fKey]!.text = custAlamat;
-              } else {
-                _controllers[fKey] = TextEditingController(text: custAlamat);
+              // 2. Alamat / Domisili Pelanggan
+              else if ((fName == 'alamat_pelanggan' || fName == 'alamat_domisili_pelanggan' || fName.contains('alamat') || fName.contains('domisili') || fLabel.contains('alamat')) && custAlamat.isNotEmpty) {
+                _formValues[fKey] = custAlamat;
+                _formValues[f.fieldName] = custAlamat;
+                if (_controllers.containsKey(fKey)) {
+                  _controllers[fKey]!.text = custAlamat;
+                } else {
+                  _controllers[fKey] = TextEditingController(text: custAlamat);
+                }
               }
-            } else if (fName == 'tipe_pelanggan' && custTipe.isNotEmpty) {
-              String matchedOpt = custTipe;
-              if (f.options.isNotEmpty) {
-                final found = f.options.firstWhere(
-                  (o) => o.trim().toLowerCase() == custTipe.trim().toLowerCase(),
-                  orElse: () => custTipe,
-                );
-                matchedOpt = found;
+              // 3. Tipe / Kategori Pelanggan
+              else if ((fName == 'tipe_pelanggan' || fName == 'tipe_kategori_pelanggan' || fName.contains('tipe') || fName.contains('kategori') || fLabel.contains('tipe') || fLabel.contains('kategori')) && custTipe.isNotEmpty) {
+                String matchedOpt = custTipe;
+                if (f.options.isNotEmpty) {
+                  final found = f.options.firstWhere(
+                    (o) => o.trim().toLowerCase() == custTipe.trim().toLowerCase() ||
+                           o.trim().toLowerCase().contains(custTipe.trim().toLowerCase()) ||
+                           custTipe.trim().toLowerCase().contains(o.trim().toLowerCase()),
+                    orElse: () => custTipe,
+                  );
+                  matchedOpt = found;
+                }
+                _formValues[fKey] = matchedOpt;
+                _formValues[f.fieldName] = matchedOpt;
+                if (_controllers.containsKey(fKey)) {
+                  _controllers[fKey]!.text = matchedOpt;
+                }
               }
-              _formValues[fKey] = matchedOpt;
-              _formValues[f.fieldName] = matchedOpt;
-              if (_controllers.containsKey(fKey)) {
-                _controllers[fKey]!.text = matchedOpt;
-              }
-            } else if ((fName == 'painter_loyalty' || fName.contains('loyalty')) && custPainter.isNotEmpty) {
-              String matchedPainter = custPainter;
-              if (f.options.isNotEmpty) {
-                final found = f.options.firstWhere(
-                  (o) => o.trim().toLowerCase() == custPainter.trim().toLowerCase(),
-                  orElse: () => custPainter,
-                );
-                matchedPainter = found;
-              }
-              _formValues[fKey] = matchedPainter;
-              _formValues[f.fieldName] = matchedPainter;
-              if (_controllers.containsKey(fKey)) {
-                _controllers[fKey]!.text = matchedPainter;
+              // 4. Program Mitra Dulux (Painter Loyalty)
+              else if ((fName == 'painter_loyalty' || fName.contains('loyalty') || fName.contains('painter') || fLabel.contains('mitra') || fLabel.contains('loyalty')) && custPainter.isNotEmpty) {
+                String matchedPainter = custPainter;
+                if (f.options.isNotEmpty) {
+                  final found = f.options.firstWhere(
+                    (o) => o.trim().toLowerCase() == custPainter.trim().toLowerCase() ||
+                           o.trim().toLowerCase().contains(custPainter.trim().toLowerCase()) ||
+                           custPainter.trim().toLowerCase().contains(o.trim().toLowerCase()),
+                    orElse: () => custPainter,
+                  );
+                  matchedPainter = found;
+                }
+                _formValues[fKey] = matchedPainter;
+                _formValues[f.fieldName] = matchedPainter;
+                if (_controllers.containsKey(fKey)) {
+                  _controllers[fKey]!.text = matchedPainter;
+                }
               }
             }
-          }
-        });
+          });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF149A6E),
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Data profil pelanggan ditemukan: $custNama. Data profil berhasil terisi otomatis.',
-                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF149A6E),
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Data profil pelanggan ditemukan: $custNama. Data profil berhasil terisi otomatis.',
+                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+              duration: const Duration(seconds: 3),
             ),
-            duration: const Duration(seconds: 3),
-          ),
-        );
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.blueGrey.shade700,
+              content: Row(
+                children: const [
+                  Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Nomor HP baru / belum terdaftar. Silakan lengkapi data profil pelanggan baru.',
+                      style: TextStyle(color: Colors.white, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
