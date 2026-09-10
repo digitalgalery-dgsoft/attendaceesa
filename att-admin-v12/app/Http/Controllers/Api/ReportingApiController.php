@@ -3073,5 +3073,118 @@ class ReportingApiController extends Controller
             'data' => null,
         ]);
     }
+
+    /**
+     * Get Master Data Competitor Products for CBP Reporting
+     */
+    public function competitorProducts(Request $request): JsonResponse
+    {
+        $duluxBrands = [
+            'JOTUN',
+            'NIPPON PAINT',
+            'AVIAN / NO DROP / LENKOTE',
+            'MOWILEX',
+            'PROPAN',
+            'KANSAI / DANAPAINT',
+            'PACIFIC PAINT',
+            'MERK LAINNYA',
+        ];
+
+        $subbrandsByBrand = [];
+        $allProducts = [];
+
+        try {
+            if (class_exists(\App\Models\CompetitorProduct::class) && \Illuminate\Support\Facades\Schema::hasTable('competitor_products')) {
+                $query = \App\Models\CompetitorProduct::where('is_active', true)
+                    ->orderBy('order_index')
+                    ->orderBy('brand')
+                    ->orderBy('subbrand');
+
+                if ($request->has('brand') && !empty($request->brand)) {
+                    $query->where('brand', $request->brand);
+                }
+
+                $records = $query->get();
+
+                if ($records->isNotEmpty()) {
+                    $dbBrands = $records->pluck('brand')->unique()->values()->toArray();
+                    foreach ($duluxBrands as $db) {
+                        if (!in_array($db, $dbBrands)) {
+                            $dbBrands[] = $db;
+                        }
+                    }
+                    $duluxBrands = $dbBrands;
+
+                    foreach ($records as $item) {
+                        $b = $item->brand;
+                        if (!isset($subbrandsByBrand[$b])) {
+                            $subbrandsByBrand[$b] = [];
+                        }
+                        $payload = [
+                            'id' => $item->id,
+                            'brand' => $item->brand,
+                            'subbrand' => $item->subbrand,
+                            'name' => $item->subbrand,
+                            'category' => $item->category,
+                            'packaging_sizes' => $item->packaging_sizes ?? ['Tin', 'Galon', 'Pail'],
+                            'benchmark_price_tin' => (float)($item->benchmark_price_tin ?? 0),
+                            'benchmark_price_galon' => (float)($item->benchmark_price_galon ?? 0),
+                            'benchmark_price_pail' => (float)($item->benchmark_price_pail ?? 0),
+                        ];
+                        $subbrandsByBrand[$b][] = $payload;
+                        $allProducts[] = $payload;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            \Log::warning("Error fetching competitor products from DB: " . $e->getMessage());
+        }
+
+        // Pastikan setiap brand standar memiliki minimal opsi 'LAINNYA / INPUT MANUAL'
+        foreach ($duluxBrands as $b) {
+            if (!isset($subbrandsByBrand[$b]) || empty($subbrandsByBrand[$b])) {
+                $subbrandsByBrand[$b] = [
+                    [
+                        'id' => 0,
+                        'brand' => $b,
+                        'subbrand' => 'LAINNYA / INPUT MANUAL',
+                        'name' => 'LAINNYA / INPUT MANUAL',
+                        'category' => 'Umum',
+                        'packaging_sizes' => ['Tin', 'Galon', 'Pail'],
+                        'benchmark_price_tin' => 0,
+                        'benchmark_price_galon' => 0,
+                        'benchmark_price_pail' => 0,
+                    ]
+                ];
+            } else {
+                // Tambahkan opsi lainnya di akhir jika belum ada
+                $hasManual = collect($subbrandsByBrand[$b])->contains(function ($item) {
+                    return str_contains(strtoupper($item['subbrand']), 'LAINNYA');
+                });
+                if (!$hasManual) {
+                    $subbrandsByBrand[$b][] = [
+                        'id' => 0,
+                        'brand' => $b,
+                        'subbrand' => 'LAINNYA / INPUT MANUAL',
+                        'name' => 'LAINNYA / INPUT MANUAL',
+                        'category' => 'Umum',
+                        'packaging_sizes' => ['Tin', 'Galon', 'Pail'],
+                        'benchmark_price_tin' => 0,
+                        'benchmark_price_galon' => 0,
+                        'benchmark_price_pail' => 0,
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'brands' => $duluxBrands,
+            'subbrands_by_brand' => $subbrandsByBrand,
+            'products' => $allProducts,
+            'total' => count($allProducts),
+        ]);
+    }
 }
+
 

@@ -676,6 +676,13 @@ Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function ()
     Route::get('/products/template-import', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'downloadTemplateImport'])->name('products.template');
     Route::post('/products/import', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'importProducts'])->name('products.import');
 
+    // Master Data Competitor Products (Produk Kompetitor)
+    Route::get('/competitor-products', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'competitorProductsList'])->name('competitor_products');
+    Route::post('/competitor-products', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'storeCompetitorProduct'])->name('competitor_products.store');
+    Route::put('/competitor-products/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'updateCompetitorProduct'])->name('competitor_products.update');
+    Route::delete('/competitor-products/{id}', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'destroyCompetitorProduct'])->name('competitor_products.destroy');
+
+
     // Attendance & Time Management Portal Routes
     Route::get('/attendances', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'attendances'])->name('attendances');
     Route::get('/attendances/export', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'exportAttendances'])->name('attendances.export');

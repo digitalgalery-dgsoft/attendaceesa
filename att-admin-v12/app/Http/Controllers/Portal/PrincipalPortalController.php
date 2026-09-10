@@ -4460,6 +4460,168 @@ class PrincipalPortalController extends Controller
     }
 
     /**
+     * Master Data Competitor Products for Principal Portal
+     */
+    public function competitorProductsList(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
+
+        $search = $request->query('q');
+        $category = $request->query('category');
+        $brand = $request->query('brand');
+
+        $query = \App\Models\CompetitorProduct::where('is_active', true);
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('brand', 'LIKE', "%{$search}%")
+                  ->orWhere('subbrand', 'LIKE', "%{$search}%")
+                  ->orWhere('category', 'LIKE', "%{$search}%");
+            });
+        }
+
+        if ($category) {
+            $query->where('category', $category);
+        }
+
+        if ($brand) {
+            $query->where('brand', $brand);
+        }
+
+        $competitorProducts = $query->orderBy('brand')->orderBy('subbrand')->paginate(20);
+
+        $categories = \App\Models\CompetitorProduct::where('is_active', true)
+            ->whereNotNull('category')
+            ->distinct()
+            ->pluck('category')
+            ->toArray();
+
+        $brands = \App\Models\CompetitorProduct::where('is_active', true)
+            ->whereNotNull('brand')
+            ->distinct()
+            ->pluck('brand')
+            ->toArray();
+
+        $totalCompetitors = \App\Models\CompetitorProduct::where('is_active', true)->count();
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+        $setting = Setting::first();
+
+        return view('portal.competitor_products', compact(
+            'tenantPrincipal',
+            'tenantPrincipalsAll',
+            'brandColor',
+            'activeTemplates',
+            'competitorProducts',
+            'categories',
+            'brands',
+            'totalCompetitors',
+            'search',
+            'category',
+            'brand',
+            'setting'
+        ));
+    }
+
+    /**
+     * Store a new competitor product
+     */
+    public function storeCompetitorProduct(Request $request)
+    {
+        [$tenantPrincipal] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $validated = $request->validate([
+            'brand' => 'required|string|max:100',
+            'subbrand' => 'required|string|max:150',
+            'category' => 'nullable|string|max:100',
+            'benchmark_price_tin' => 'nullable|numeric|min:0',
+            'benchmark_price_galon' => 'nullable|numeric|min:0',
+            'benchmark_price_pail' => 'nullable|numeric|min:0',
+        ]);
+
+        \App\Models\CompetitorProduct::updateOrCreate(
+            [
+                'brand' => trim($validated['brand']),
+                'subbrand' => trim($validated['subbrand']),
+            ],
+            [
+                'principal_id' => $tenantPrincipal->id,
+                'category' => !empty($validated['category']) ? trim($validated['category']) : null,
+                'packaging_sizes' => ['Tin (1L)', 'Galon (2.5L)', 'Pail (20L)'],
+                'benchmark_price_tin' => $validated['benchmark_price_tin'] ?? 0,
+                'benchmark_price_galon' => $validated['benchmark_price_galon'] ?? 0,
+                'benchmark_price_pail' => $validated['benchmark_price_pail'] ?? 0,
+                'is_active' => true,
+            ]
+        );
+
+        return redirect()->route('portal.competitor_products', ['p' => $tenantPrincipal->id])->with('success', 'Produk kompetitor berhasil ditambahkan!');
+    }
+
+    /**
+     * Update an existing competitor product
+     */
+    public function updateCompetitorProduct(Request $request, int $id)
+    {
+        [$tenantPrincipal] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $product = \App\Models\CompetitorProduct::findOrFail($id);
+
+        $validated = $request->validate([
+            'brand' => 'required|string|max:100',
+            'subbrand' => 'required|string|max:150',
+            'category' => 'nullable|string|max:100',
+            'benchmark_price_tin' => 'nullable|numeric|min:0',
+            'benchmark_price_galon' => 'nullable|numeric|min:0',
+            'benchmark_price_pail' => 'nullable|numeric|min:0',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $product->update([
+            'brand' => trim($validated['brand']),
+            'subbrand' => trim($validated['subbrand']),
+            'category' => !empty($validated['category']) ? trim($validated['category']) : null,
+            'benchmark_price_tin' => $validated['benchmark_price_tin'] ?? 0,
+            'benchmark_price_galon' => $validated['benchmark_price_galon'] ?? 0,
+            'benchmark_price_pail' => $validated['benchmark_price_pail'] ?? 0,
+            'is_active' => $request->has('is_active') ? (bool)$request->is_active : true,
+        ]);
+
+        return redirect()->route('portal.competitor_products', ['p' => $tenantPrincipal->id])->with('success', 'Produk kompetitor berhasil diperbarui!');
+    }
+
+    /**
+     * Delete a competitor product
+     */
+    public function destroyCompetitorProduct(Request $request, int $id)
+    {
+        [$tenantPrincipal] = $this->resolveTenant($request);
+
+        if (!$tenantPrincipal) {
+            return redirect('/');
+        }
+
+        $product = \App\Models\CompetitorProduct::findOrFail($id);
+        $product->delete();
+
+        return redirect()->route('portal.competitor_products', ['p' => $tenantPrincipal->id])->with('success', 'Produk kompetitor berhasil dihapus!');
+    }
+
+
+    /**
      * Download Excel / CSV Import Template
      */
     public function downloadTemplateImport(Request $request)

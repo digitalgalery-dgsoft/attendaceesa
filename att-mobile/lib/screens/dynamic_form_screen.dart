@@ -19,6 +19,8 @@ import 'package:att_mobile/widgets/barcode_scanner_dialog.dart';
 // Model untuk input dinamis produk kompetitor pada form CBP
 class CompetitorInputItem {
   String merk;
+  String? selectedSubbrand;
+  bool isCustomSubbrand;
   final TextEditingController subbrandCtrl;
   final TextEditingController tinCtrl;
   final TextEditingController galonCtrl;
@@ -30,7 +32,9 @@ class CompetitorInputItem {
     String tin = '',
     String galon = '',
     String pail = '',
-  })  : subbrandCtrl = TextEditingController(text: subbrand),
+    this.isCustomSubbrand = false,
+  })  : selectedSubbrand = subbrand.isNotEmpty ? subbrand : null,
+        subbrandCtrl = TextEditingController(text: subbrand),
         tinCtrl = TextEditingController(text: tin),
         galonCtrl = TextEditingController(text: galon),
         pailCtrl = TextEditingController(text: pail);
@@ -412,6 +416,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
       if (auth.token != null) {
         await repProvider.fetchStores(auth.token!, forceRefresh: true);
+        if (widget.template.code.toUpperCase() == 'RPT-DULUX-CBP-PRICING' || widget.template.code.toUpperCase().contains('CBP')) {
+          await repProvider.fetchCompetitorProducts(auth.token!);
+        }
       }
 
       // Pastikan status absensi terbaru ter-load
@@ -3131,18 +3138,25 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     }
 
-    final List<String> merkOptions = (merkField != null && merkField.options.isNotEmpty)
-        ? merkField.options
-        : const [
-            'JOTUN',
-            'NIPPON PAINT',
-            'AVIAN / NO DROP / LENKOTE',
-            'MOWILEX',
-            'PROPAN',
-            'KANSAI / DANAPAINT',
-            'PACIFIC PAINT',
-            'MERK LAINNYA',
-          ];
+    final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+    final compSubbrandsMap = repProvider.competitorSubbrandsByBrand;
+    final List<String> loadedBrands = repProvider.competitorBrands;
+
+    final List<String> merkOptions = loadedBrands.isNotEmpty
+        ? loadedBrands
+        : (merkField != null && merkField.options.isNotEmpty)
+            ? merkField.options
+            : const [
+                'JOTUN',
+                'NIPPON PAINT',
+                'AVIAN / NO DROP / LENKOTE',
+                'MOWILEX',
+                'PROPAN',
+                'KANSAI / DANAPAINT',
+                'PACIFIC PAINT',
+                'MERK LAINNYA',
+              ];
+
 
     final inputBg = isDarkMode ? const Color(0xFF1E1E2D) : const Color(0xFFF8FAFC);
     final borderColor = isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300;
@@ -3297,25 +3311,154 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       );
                     }).toList(),
                     onChanged: (val) {
-                      if (val != null) {
+                      if (val != null && val != item.merk) {
                         setState(() {
                           item.merk = val;
+                          item.selectedSubbrand = null;
+                          item.subbrandCtrl.clear();
+                          item.isCustomSubbrand = false;
+                          item.tinCtrl.clear();
+                          item.galonCtrl.clear();
+                          item.pailCtrl.clear();
                         });
                       }
                     },
                   ),
                   const SizedBox(height: 12),
 
-                  // 2. Subbrand Kompetitor
-                  Text(
-                    'Nama Subbrand Kompetitor',
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textColor),
+                  // 2. Subbrand Kompetitor (Cascading Dropdown dari Master Data Produk Kompetitor)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Nama Subbrand Kompetitor',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textColor),
+                      ),
+                      Text(
+                        'Pilihan dari Master Produk',
+                        style: TextStyle(fontSize: 10.5, color: themeColor, fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 6),
-                  TextFormField(
-                    controller: item.subbrandCtrl,
-                    style: TextStyle(color: textColor, fontSize: 13),
-                    decoration: _inputDecoration('Contoh: Majestic, Weatherbond, No Drop...', elevatedColor, isDarkMode),
+                  Builder(
+                    builder: (context) {
+                      List<Map<String, dynamic>> brandProducts = compSubbrandsMap[item.merk] ?? [];
+                      if (brandProducts.isEmpty) {
+                        final matchKey = compSubbrandsMap.keys.firstWhere(
+                          (k) => k.toUpperCase().trim() == item.merk.toUpperCase().trim() ||
+                                 k.toUpperCase().contains(item.merk.toUpperCase().trim()) ||
+                                 item.merk.toUpperCase().contains(k.toUpperCase().trim()),
+                          orElse: () => '',
+                        );
+                        if (matchKey.isNotEmpty) {
+                          brandProducts = compSubbrandsMap[matchKey] ?? [];
+                        }
+                      }
+
+                      final List<String> subbrandOptions = brandProducts
+                          .map((p) => (p['subbrand'] ?? p['name'] ?? '').toString().trim())
+                          .where((s) => s.isNotEmpty)
+                          .toSet()
+                          .toList();
+
+                      if (!subbrandOptions.contains('LAINNYA / INPUT MANUAL')) {
+                        subbrandOptions.add('LAINNYA / INPUT MANUAL');
+                      }
+
+                      String? currentSubbrandValue = item.selectedSubbrand;
+                      if (currentSubbrandValue == null || !subbrandOptions.contains(currentSubbrandValue)) {
+                        if (item.subbrandCtrl.text.isNotEmpty && subbrandOptions.contains(item.subbrandCtrl.text)) {
+                          currentSubbrandValue = item.subbrandCtrl.text;
+                        } else if (item.isCustomSubbrand || (item.subbrandCtrl.text.isNotEmpty && !subbrandOptions.contains(item.subbrandCtrl.text))) {
+                          currentSubbrandValue = 'LAINNYA / INPUT MANUAL';
+                        } else {
+                          currentSubbrandValue = null;
+                        }
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          DropdownButtonFormField<String>(
+                            value: currentSubbrandValue,
+                            decoration: _inputDecoration('Pilih Subbrand ${item.merk}', elevatedColor, isDarkMode),
+                            dropdownColor: cardColor,
+                            isExpanded: true,
+                            style: TextStyle(color: textColor, fontSize: 13),
+                            items: subbrandOptions.map((sb) {
+                              final isOther = sb == 'LAINNYA / INPUT MANUAL';
+                              return DropdownMenuItem<String>(
+                                value: sb,
+                                child: Row(
+                                  children: [
+                                    if (isOther)
+                                      Padding(
+                                        padding: const EdgeInsets.only(right: 6),
+                                        child: Icon(Icons.edit_note_rounded, size: 16, color: themeColor),
+                                      ),
+                                    Expanded(
+                                      child: Text(
+                                        sb,
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          color: isOther ? themeColor : textColor,
+                                          fontWeight: isOther ? FontWeight.w700 : FontWeight.normal,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() {
+                                  item.selectedSubbrand = val;
+                                  if (val == 'LAINNYA / INPUT MANUAL') {
+                                    item.isCustomSubbrand = true;
+                                    item.subbrandCtrl.clear();
+                                  } else {
+                                    item.isCustomSubbrand = false;
+                                    item.subbrandCtrl.text = val;
+
+                                    // Auto-fill harga acuan jika kosong
+                                    final matchedProd = brandProducts.firstWhere(
+                                      (p) => (p['subbrand'] ?? p['name']) == val,
+                                      orElse: () => {},
+                                    );
+                                    if (matchedProd.isNotEmpty) {
+                                      final pTin = matchedProd['benchmark_price_tin'];
+                                      final pGalon = matchedProd['benchmark_price_galon'];
+                                      final pPail = matchedProd['benchmark_price_pail'];
+
+                                      if (pTin != null && pTin > 0 && item.tinCtrl.text.isEmpty) {
+                                        item.tinCtrl.text = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(pTin);
+                                      }
+                                      if (pGalon != null && pGalon > 0 && item.galonCtrl.text.isEmpty) {
+                                        item.galonCtrl.text = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(pGalon);
+                                      }
+                                      if (pPail != null && pPail > 0 && item.pailCtrl.text.isEmpty) {
+                                        item.pailCtrl.text = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(pPail);
+                                      }
+                                    }
+                                  }
+                                });
+                              }
+                            },
+                          ),
+                          if (item.isCustomSubbrand) ...[
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: item.subbrandCtrl,
+                              style: TextStyle(color: textColor, fontSize: 13),
+                              decoration: _inputDecoration('Ketik nama subbrand kompetitor lainnya...', elevatedColor, isDarkMode),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
 
@@ -5215,13 +5358,42 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     }
 
+    // 4. Auto-Fill Harga CBP Dulux jika ada field harga_cbp_dulux_rp
+    String? autoPriceResult;
+    for (final field in widget.template.fields) {
+
+      final fName = field.fieldName.toLowerCase();
+      final fLabel = field.fieldLabel.toLowerCase();
+
+      final isCbpPriceField = fName.contains('cbp_dulux') ||
+          fName.contains('harga_cbp') ||
+          fName == 'harga_cbp_dulux_rp' ||
+          fLabel.contains('cbp') ||
+          fLabel.contains('harga jual toko ke konsumen dulux');
+
+      if (field.id.toString() != targetFieldKey && isCbpPriceField) {
+        final cbpKey = field.id.toString();
+        if (product.price > 0 && (_controllers[cbpKey]?.text.isEmpty ?? true)) {
+          final formattedPrice = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(product.price);
+          setState(() {
+            _formValues[cbpKey] = formattedPrice;
+            _controllers[cbpKey]?.text = formattedPrice;
+          });
+          autoPriceResult = formattedPrice;
+          break;
+        }
+      }
+    }
+
     _recalculateFormulas();
 
-    if (autoCategoryResult != null || autoMinStockResult != null) {
+    if (autoCategoryResult != null || autoMinStockResult != null || autoPriceResult != null) {
       final details = <String>[];
       if (autoCategoryResult != null) details.add('Kategori: $autoCategoryResult');
       if (autoKemasanResult != null) details.add('Kemasan: $autoKemasanResult');
+      if (autoPriceResult != null) details.add('CBP: $autoPriceResult');
       if (autoMinStockResult != null && autoMinStockResult > 0) details.add('Min Stock: $autoMinStockResult ${product.uom}');
+
 
       toastification.show(
         context: context,

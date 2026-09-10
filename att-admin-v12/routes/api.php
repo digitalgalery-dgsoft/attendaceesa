@@ -181,6 +181,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reporting/check-compliance', [\App\Http\Controllers\Api\ReportingApiController::class, 'checkCompliance']);
     Route::get('/reporting/oos-history', [\App\Http\Controllers\Api\ReportingApiController::class, 'oosHistory']);
     Route::get('/reporting/customer-lookup', [\App\Http\Controllers\Api\ReportingApiController::class, 'customerLookup']);
+    Route::get('/reporting/competitor-products', [\App\Http\Controllers\Api\ReportingApiController::class, 'competitorProducts']);
 
     // Cross-Entity Hierarchy & Approval routes
     Route::get('/v1/cross-entity/subordinates', [\App\Http\Controllers\Api\ServerGatewayController::class, 'crossEntitySubordinates']);

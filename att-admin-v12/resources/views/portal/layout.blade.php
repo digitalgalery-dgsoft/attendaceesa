@@ -769,6 +769,11 @@
                 <i class="fa-solid fa-boxes-stacked nav-icon"></i>
                 <span class="nav-text">Katalog Produk (SKU)</span>
             </a>
+            <a href="{{ route('portal.competitor_products', ['p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ request()->routeIs('portal.competitor_products*') ? 'active' : '' }}" data-title="Produk Kompetitor">
+                <i class="fa-solid fa-store-slash nav-icon" style="color: #f43f5e;"></i>
+                <span class="nav-text">Produk Kompetitor</span>
+            </a>
+
 
             <!-- 2. Master Data (Role Permission Based) -->
             @if($hasMasterData)
