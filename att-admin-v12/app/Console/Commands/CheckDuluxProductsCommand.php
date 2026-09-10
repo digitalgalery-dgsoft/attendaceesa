@@ -89,17 +89,14 @@ class CheckDuluxProductsCommand extends Command
                 $this->line(" - After Fix [{$t->code}]: {$t->products()->count()} products linked");
             }
 
-            $sub = \App\Models\ReportSubmission::where('submission_code', 'LIKE', '%7JTY%')->first();
-            if ($sub) {
-                $this->info("DEBUG 7JTY: ID={$sub->id}, code={$sub->submission_code}, template_id={$sub->report_template_id}, submitted_at={$sub->submitted_at}");
+            $subs = \App\Models\ReportSubmission::where('submission_code', 'LIKE', 'RPT-20260910%')->get();
+            $this->info("Found " . $subs->count() . " submissions for 2026-09-10:");
+            foreach ($subs as $sub) {
+                $this->line("  SUB ID={$sub->id} | Code={$sub->submission_code} | TmplID={$sub->report_template_id} | Date={$sub->submitted_at}");
                 foreach ($sub->values as $val) {
-                    $this->line("  [{$val->field_name}] text: {$val->value_text} | num: {$val->value_number}");
-                }
-            } else {
-                $this->warn("DEBUG: Sub 7JTY not found!");
-                $latest = \App\Models\ReportSubmission::where('report_template_id', 50)->orderBy('id', 'desc')->take(3)->get();
-                foreach ($latest as $l) {
-                    $this->line("  Latest sub: ID={$l->id}, code={$l->submission_code}, date={$l->submitted_at}");
+                    if (str_contains($val->field_name, 'json') || $val->value_json || is_numeric($val->value_number) || !empty($val->value_text)) {
+                        $this->line("     [{$val->field_name}] => text: " . substr((string)$val->value_text, 0, 80) . " | num: {$val->value_number}");
+                    }
                 }
             }
         }
