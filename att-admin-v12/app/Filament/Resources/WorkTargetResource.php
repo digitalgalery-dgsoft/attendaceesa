@@ -40,6 +40,12 @@ class WorkTargetResource extends Resource
                 ->label('Target Hari Kerja')
                 ->numeric()
                 ->required(),
+            TextInput::make('target_offtake_liter')
+                ->label('Target Offtake (Liter)')
+                ->numeric()
+                ->suffix('Liter')
+                ->placeholder('0.00')
+                ->default(0),
         ]);
     }
 
@@ -57,6 +63,11 @@ class WorkTargetResource extends Resource
                     ->sortable(),
                 TextColumn::make('target_hk')
                     ->label('Target HK')
+                    ->sortable(),
+                TextColumn::make('target_offtake_liter')
+                    ->label('Target Offtake (L)')
+                    ->numeric(decimalPlaces: 2)
+                    ->suffix(' L')
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->dateTime()

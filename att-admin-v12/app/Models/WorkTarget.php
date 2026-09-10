@@ -9,7 +9,17 @@ class WorkTarget extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['employee_id', 'target_hk', 'month_year'];
+    protected $fillable = [
+        'employee_id',
+        'target_hk',
+        'target_offtake_liter',
+        'month_year',
+    ];
+
+    protected $casts = [
+        'target_hk' => 'integer',
+        'target_offtake_liter' => 'float',
+    ];
 
     public function employee()
     {

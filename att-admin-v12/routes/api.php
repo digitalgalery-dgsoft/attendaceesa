@@ -96,6 +96,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard/stats', [DashboardApiController::class, 'stats']);
     Route::get('/dashboard/team-stats', [DashboardApiController::class, 'teamStats']);
     Route::get('/dashboard/team-unchecked', [DashboardApiController::class, 'teamUnchecked']);
+    Route::get('/dashboard/team-performance', [DashboardApiController::class, 'teamPerformance']);
 
     // Attendance routes
     Route::get('/work-locations', [AttendanceController::class, 'workLocations']);

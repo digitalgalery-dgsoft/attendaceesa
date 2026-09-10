@@ -157,4 +157,44 @@ class DashboardProvider with ChangeNotifier {
     _isLoadingUnchecked = false;
     notifyListeners();
   }
+
+  // Team Performance Details (Mandays, Offtake Liters, All Reports per person)
+  Map<String, dynamic>? _teamPerformanceData;
+  bool _isLoadingTeamPerformance = false;
+
+  Map<String, dynamic>? get teamPerformanceData => _teamPerformanceData;
+  bool get isLoadingTeamPerformance => _isLoadingTeamPerformance;
+
+  Future<void> fetchTeamPerformance() async {
+    _isLoadingTeamPerformance = true;
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      if (token == null) {
+        _isLoadingTeamPerformance = false;
+        notifyListeners();
+        return;
+      }
+
+      final response = await http.get(
+        Uri.parse('${Constants.baseUrl}/dashboard/team-performance'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        _teamPerformanceData = json.decode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Error fetching team performance: $e');
+    }
+
+    _isLoadingTeamPerformance = false;
+    notifyListeners();
+  }
 }

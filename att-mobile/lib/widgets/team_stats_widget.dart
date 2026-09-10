@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/auth_provider.dart';
 import '../screens/team_unchecked_screen.dart';
+import '../screens/team_performance_screen.dart';
 
 class TeamStatsWidget extends StatelessWidget {
   const TeamStatsWidget({super.key});
@@ -24,8 +25,32 @@ class TeamStatsWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Team Overview', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: textColor)),
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const TeamPerformanceScreen()),
+                  );
+                },
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Detail Performa',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: primaryColor),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(Icons.arrow_forward_ios_rounded, size: 10, color: primaryColor),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -47,6 +72,12 @@ class TeamStatsWidget extends StatelessWidget {
                 subtitleColor,
                 borderColor,
                 isDarkMode,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const TeamPerformanceScreen()),
+                  );
+                },
               ),
               _buildGridCard(
                 'Hadir Hari Ini',
@@ -90,68 +121,82 @@ class TeamStatsWidget extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: cardColor,
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TeamPerformanceScreen()),
+                );
+              },
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: borderColor),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: borderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.flag_rounded, size: 20, color: primaryColor),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.flag_rounded, size: 20, color: primaryColor),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Total Team Target (Bulan Ini)',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: subtitleColor),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${dashboardProvider.teamTargetMandays} Mandays',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'Running Rate',
+                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: primaryColor),
+                          ),
+                          Text(
+                            '${dashboardProvider.teamRunningRate}%',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 12, color: primaryColor.withOpacity(0.7)),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Total Team Target (Bulan Ini)',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: subtitleColor),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${dashboardProvider.teamTargetMandays} Mandays',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Running Rate',
-                        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: primaryColor),
-                      ),
-                      Text(
-                        '${dashboardProvider.teamRunningRate}%',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryColor),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ],
