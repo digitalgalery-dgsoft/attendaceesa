@@ -89,17 +89,7 @@ class CheckDuluxProductsCommand extends Command
                 $this->line(" - After Fix [{$t->code}]: {$t->products()->count()} products linked");
             }
 
-            $subs = \App\Models\ReportSubmission::where('submission_code', 'LIKE', 'RPT-20260910%')->get();
-            $this->info("Found " . $subs->count() . " submissions for 2026-09-10:");
-            foreach ($subs as $sub) {
-                $this->line("  SUB ID={$sub->id} | Code={$sub->submission_code} | TmplID={$sub->report_template_id} | Date={$sub->submitted_at}");
-                foreach ($sub->values as $val) {
-                    if (str_contains($val->field_name, 'json') || $val->value_json || is_numeric($val->value_number) || !empty($val->value_text)) {
-                        $this->line("     [{$val->field_name}] => text: " . substr((string)$val->value_text, 0, 80) . " | num: {$val->value_number}");
-                    }
-                }
-            }
-        }
+
 
         return 0;
     }
