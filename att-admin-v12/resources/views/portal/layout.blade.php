@@ -660,6 +660,18 @@
             cursor: default;
         }
 
+        /* Safeguard against unstyled pagination SVGs (Tailwind default pagination fallback) */
+        nav[role="navigation"] svg,
+        .portal-pagination-wrapper svg,
+        svg.w-5, svg.h-5 {
+            width: 1.25rem !important;
+            height: 1.25rem !important;
+            max-width: 1.25rem !important;
+            max-height: 1.25rem !important;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             aside.portal-sidebar {

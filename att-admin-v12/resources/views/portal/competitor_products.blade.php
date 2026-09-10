@@ -381,11 +381,9 @@
             </table>
         </div>
 
-        @if($competitorProducts->hasPages())
-            <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
-                {{ $competitorProducts->withQueryString()->links() }}
-            </div>
-        @endif
+        <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+            {{ $competitorProducts->appends(request()->query())->links('portal.pagination') }}
+        </div>
     </div>
 
 </div>

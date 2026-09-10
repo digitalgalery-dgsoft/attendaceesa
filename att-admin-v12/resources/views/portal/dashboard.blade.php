@@ -818,7 +818,7 @@
             </div>
 
             <div style="margin-top: 1.25rem;">
-                {{ $recentSubmissions->links() }}
+                {{ $recentSubmissions->appends(request()->query())->links('portal.pagination') }}
             </div>
         @else
             <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">

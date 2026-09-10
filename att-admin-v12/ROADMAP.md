@@ -1492,4 +1492,11 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Portal Produk Kompetitor aktif di `https://dulux.esa-solutions.id/portal/competitor-products?p=18`.
       - Flutter release APK versi **`v1.0.142+142`** (`110.3 MB`, MD5: `f10c95addf9b9cb40f6529397458ecf5`) berhasil dikompilasi dan live di `https://dulux.esa-solutions.id/app-release.apk`.
 
+14. **Perbaikan Pagination & Normalisasi Ukuran Icon SVG di Portal Produk Kompetitor (10 September 2026)**:
+    - **Resolusi Icon Panah Raksasa (Giant Chevron SVG)**:
+      - Memperbaiki pemanggilan pagination di `competitor_products.blade.php` agar menggunakan view template resmi portal `links('portal.pagination')` alih-alih default Laravel Tailwind view.
+      - Menyelaraskan hal yang sama pada `schedules.blade.php` dan `dashboard.blade.php`.
+    - **CSS Global Safeguard**:
+      - Menambahkan aturan proteksi SVG di `portal/layout.blade.php` (`width: 1.25rem; height: 1.25rem`) untuk mengunci ukuran elemen SVG pagination default agar tidak meluber memenuhi layar.
+
 

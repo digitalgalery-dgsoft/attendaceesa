@@ -293,11 +293,9 @@
             </tbody>
         </table>
 
-        @if($schedules->hasPages())
-            <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
-                {{ $schedules->appends(request()->query())->links() }}
-            </div>
-        @endif
+        <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+            {{ $schedules->appends(request()->query())->links('portal.pagination') }}
+        </div>
     </div>
 </div>
 
