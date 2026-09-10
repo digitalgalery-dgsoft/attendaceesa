@@ -1453,3 +1453,43 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Database Migration Konsolidasi Data Legacy (`2026_09_10_084500_consolidate_split_offtake_submissions.php`)**:
       - Menggabungkan data split submission legacy (`RPT-...-1`), mengupdate nilai total unit, volume liter, dan sales rp menjadi akumulasi penuh, merename kode dokumen ke base code tanpa suffix `-1`, serta menghapus baris duplikat `-2`, `-3` beserta nilai formulirnya dari database.
 
+12. **Pembaruan Komprehensif Laporan Stock End & Tinter Dulux (`RPT-DULUX-STOCK-END`) (10 September 2026)**:
+    - **Penghapusan Field Status Ketersediaan Tinter**:
+      - Database migration menghapus field usang `status_ketersediaan_tinter` dan `status_ketersediaan_tinter_di_toko` dari template database.
+      - Menambahkan field resmi pelengkap: `stock_items_json` (tipe JSON/Text), `tipe_tinter_warna`, `qty_kaleng_tinta`, `status_akses_gudang`, dan `foto_stok`.
+    - **Auto-Fill Data Produk dari Master SKU Dulux**:
+      - Memilih produk Dulux/Catylac otomatis mengisi Nama Brand, Kategori, Ukuran Kemasan Galon & Pail, serta kalkulasi estimasi volume (Liter) secara realtime saat kuantiti diketik.
+    - **Tampilan Kondisional Field Tinter**:
+      - Logika deteksi cerdas kategori dan nama produk otomatis menampilkan field **Tipe Tinter / Warna Pasta Pewarna** dan **Kuantiti Kaleng Tinta** hanya jika produk bertipe Tinta/Tinter. Untuk produk cat reguler, kedua field tersebut disembunyikan.
+    - **Sistem Keranjang Bebas (Buka Kunci Sekuensial 69 Produk)**:
+      - Membuka kunci alur wajib 69 produk (`_isStockEndTemplate()`). Petugas dapat memilih hanya produk yang dicek di toko ke keranjang multi-item dengan syarat minimal 1 produk dilaporkan.
+    - **Alur 2 Langkah (Step Form) + Halaman Review + Geotag Watermark Camera**:
+      - Langkah 1: Input produk, kuantiti galon/pail/tinter, keranjang produk.
+      - Langkah 2: Review itemized, radio pilihan status akses gudang, catatan kendala stok, dan foto bukti fisik stok gudang dengan kamera ber-watermark otomatis (Nama, NIK, Store, Waktu, Koordinat GPS).
+    - **Penyelarasan Tampilan Detail Submission di Seluruh Platform**:
+      - **Mobile App (`report_detail_screen.dart`)**: Ringkasan Grid KPI (Total SKU, Total Volume Liter, Total Galon/Pail, Total Kaleng Tinter) dan kartu produk itemized.
+      - **Web Admin Filament (`view.blade.php`)**: Grid 4 kartu KPI di bagian atas dan tabel breakdown produk stok akhir.
+      - **Web Portal Principal (`stock_dashboard.blade.php` & `report_submission_detail.blade.php`)**: Kolom produk multi-item ber-badge, kartu KPI ringkasan, dan kartu produk itemized dengan penyembunyian field mentah redundan.
+
+13. **Master Produk Kompetitor Tersendiri & Cascading Dropdown Laporan CBP (`RPT-DULUX-CBP-PRICING`) (10 September 2026)**:
+    - **Tabel Database & Model Master Produk Kompetitor**:
+      - Membuat tabel `competitor_products` via migration `2026_09_10_180000_create_competitor_products_table.php` (`brand`, `subbrand`, `category`, `packaging_sizes`, `benchmark_price_tin`, `benchmark_price_galon`, `benchmark_price_pail`, `is_active`, `order_index`, `principal_id`).
+      - Membuat Model Eloquent `CompetitorProduct` dengan scope filter aktif dan relasi principal.
+      - Membuat Seeder `CompetitorProductSeeder` memuat katalog lengkap subbrand top kompetitor cat di Indonesia (Jotun, Nippon Paint, Avian Brands / No Drop / Lenkote, Mowilex, Propan, Kansai / Danapaint, Pacific Paint).
+    - **Manajemen Master di Filament Admin & Web Portal Principal**:
+      - **Filament Admin Resource (`CompetitorProductResource.php`)**: Menu baru *Produk Kompetitor* di grup *Master Data* lengkap dengan filter merk, kategori segmen, status aktif, serta modal tambah & edit.
+      - **Web Portal Principal (`/portal/competitor-products`)**: Halaman mandiri Principal Dulux untuk memonitor ringkasan statistik produk pembanding pasar, menambah subbrand baru, dan memperbarui estimasi harga acuan benchmark pasar (Tin, Galon, Pail).
+    - **Cascading Dropdowns (Brand -> Subbrand Kompetitor) di Form Mobile**:
+      - **Dropdown Merk**: Pilihan brand kompetitor (`JOTUN`, `NIPPON PAINT`, `AVIAN / NO DROP / LENKOTE`, `MOWILEX`, `PROPAN`, `KANSAI / DANAPAINT`, `PACIFIC PAINT`, `MERK LAINNYA`).
+      - **Dropdown Subbrand Dinamis**: Pilihan subbrand otomatis menyaring dan hanya menampilkan varian milik merk yang dipilih (misal: memilih Jotun hanya menampilkan *Majestic True Beauty*, *Jotashield*, dll.).
+      - **Input Bebas Fallback**: Opsi `LAINNYA / INPUT MANUAL` memunculkan textfield bebas jika promotor menemukan produk baru yang belum tercatat di database.
+      - **Auto-Fill Benchmark Price**: Harga acuan pasar Tin, Galon, dan Pail otomatis terisi saat subbrand dipilih.
+    - **Laporan CBP Tetap Mengunci ke Seluruh Produk Dulux**:
+      - Sequential Locking Flow tetap aktif mengunci ke seluruh 69 produk Dulux dengan progress tracker dan indikator nomor urut (`Produk X dari 69`).
+      - Auto-fill data produk Dulux (kategori, ukuran kemasan, harga acuan CBP Dulux) otomatis terisi saat produk aktif dibuka.
+    - **Multi-Server Production Deployment & Rilis APK Mobile**:
+      - Migrasi dan seeder dieksekusi di Server 1 (AMK), Server 2 (AKP), dan Server 3 (ATK), seluruhnya terverifikasi HTTP 200 OK.
+      - Portal Produk Kompetitor aktif di `https://dulux.esa-solutions.id/portal/competitor-products?p=18`.
+      - Flutter release APK versi **`v1.0.142+142`** (`110.3 MB`, MD5: `f10c95addf9b9cb40f6529397458ecf5`) berhasil dikompilasi dan live di `https://dulux.esa-solutions.id/app-release.apk`.
+
+
