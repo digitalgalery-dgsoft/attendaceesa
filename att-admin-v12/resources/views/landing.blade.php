@@ -1450,6 +1450,294 @@
                 text-align: center;
             }
         }
+
+        /* ─── IN-PAGE APK DOWNLOAD PROGRESS MODAL ─────────────────────── */
+        .apk-dl-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: rgba(15, 23, 42, 0.84);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.25rem;
+        }
+        .apk-dl-card {
+            background: linear-gradient(165deg, #1E293B 0%, #0F172A 100%);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 50px rgba(16, 185, 129, 0.18);
+            border-radius: 28px;
+            width: 100%;
+            max-width: 490px;
+            padding: 2.25rem 2rem;
+            position: relative;
+            color: #FFFFFF;
+            text-align: center;
+            overflow: hidden;
+        }
+        .apk-dl-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at center, rgba(16, 185, 129, 0.12) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .apk-dl-content {
+            position: relative;
+            z-index: 1;
+        }
+        .apk-dl-close-btn {
+            position: absolute;
+            top: 1.25rem;
+            right: 1.25rem;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94A3B8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            z-index: 2;
+        }
+        .apk-dl-close-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+            color: #FFFFFF;
+            transform: scale(1.05);
+        }
+        .apk-dl-icon-wrap {
+            width: 76px;
+            height: 76px;
+            margin: 0 auto 1.25rem;
+            border-radius: 22px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2));
+            border: 1.5px solid rgba(16, 185, 129, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.4rem;
+            color: #10B981;
+            position: relative;
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.25);
+        }
+        .apk-dl-icon-pulse {
+            animation: apkPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes apkPulse {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.6)); }
+            50% { transform: scale(1.08); filter: drop-shadow(0 0 16px rgba(6, 182, 212, 0.9)); }
+        }
+        .apk-dl-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.45rem;
+            font-weight: 800;
+            margin-bottom: 0.35rem;
+            letter-spacing: -0.02em;
+            color: #F8FAFC;
+        }
+        .apk-dl-subtitle {
+            font-size: 0.85rem;
+            color: #94A3B8;
+            margin-bottom: 1.5rem;
+        }
+        .apk-dl-percent-hero {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3.25rem;
+            font-weight: 900;
+            line-height: 1;
+            background: linear-gradient(135deg, #10B981 0%, #38BDF8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.85rem;
+            letter-spacing: -0.03em;
+        }
+        .apk-dl-bar-track {
+            width: 100%;
+            height: 14px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 1.25rem;
+        }
+        .apk-dl-bar-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #10B981, #06B6D4, #3B82F6);
+            box-shadow: 0 0 16px rgba(16, 185, 129, 0.7);
+            transition: width 0.18s ease-out;
+            position: relative;
+        }
+        .apk-dl-bar-shimmer {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                90deg,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0.45) 50%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            animation: apkShimmer 1.8s infinite;
+        }
+        @keyframes apkShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+        .apk-dl-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 0.85rem 0.65rem;
+            margin-bottom: 1.25rem;
+        }
+        .apk-dl-stat-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .apk-dl-stat-label {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748B;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        .apk-dl-stat-val {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #E2E8F0;
+        }
+        .apk-dl-hint {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: #94A3B8;
+            margin-bottom: 1.25rem;
+        }
+        .apk-dl-btn-cancel {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #94A3B8;
+            padding: 0.65rem 1.4rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .apk-dl-btn-cancel:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #F87171;
+        }
+        .apk-dl-success-badge {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1.25rem;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10B981, #059669);
+            border: 2px solid #34D399;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.75rem;
+            color: #FFFFFF;
+            box-shadow: 0 0 35px rgba(16, 185, 129, 0.5);
+            animation: apkSuccessPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes apkSuccessPop {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .btn-apk-install-now {
+            width: 100%;
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            border: none;
+            color: #FFFFFF;
+            padding: 0.95rem 1.25rem;
+            border-radius: 14px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+            transition: all 0.25s ease;
+            animation: apkBtnGlow 2s infinite alternate;
+            margin-bottom: 1.25rem;
+        }
+        @keyframes apkBtnGlow {
+            0% { transform: translateY(0); box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4); }
+            100% { transform: translateY(-2px); box-shadow: 0 12px 35px rgba(16, 185, 129, 0.65); }
+        }
+        .btn-apk-install-now:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(16, 185, 129, 0.65);
+        }
+        .apk-dl-guide-box {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 16px;
+            padding: 1rem;
+            text-align: left;
+            margin-bottom: 1.25rem;
+        }
+        .apk-dl-guide-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            font-size: 0.8rem;
+            color: #CBD5E1;
+            margin-bottom: 0.65rem;
+        }
+        .apk-dl-guide-step:last-child {
+            margin-bottom: 0;
+        }
+        .apk-dl-guide-num {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34D399;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.72rem;
+            font-weight: 800;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .apk-dl-fallback-link {
+            font-size: 0.78rem;
+            color: #64748B;
+            text-decoration: underline;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .apk-dl-fallback-link:hover {
+            color: #94A3B8;
+        }
     </style>
 </head>
 <body x-data="landingApp()">
@@ -1556,13 +1844,13 @@
         <!-- Action Buttons in Hero (Hanya di Web Utama) -->
         <div class="hero-cta-group">
             <!-- 1. Tombol Download Android (HANYA DI DOMAIN UTAMA) -->
-            <a href="{{ $apkDownloadUrl }}" class="btn-download-android" target="_blank" rel="noopener noreferrer">
+            <a href="{{ $apkDownloadUrl }}" class="btn-download-android" @click.prevent="startApkDownload('{{ $apkDownloadUrl }}')">
                 <i class="fa-brands fa-android"></i>
                 <div class="btn-cta-text">
                     <span class="btn-cta-sub">Unduh untuk</span>
                     <span class="btn-cta-main">Android (APK)</span>
                 </div>
-                <span style="font-size: 0.72rem; background: rgba(255,255,255,0.18); padding: 0.15rem 0.45rem; border-radius: 6px; margin-left: 0.2rem;">v1.0.114</span>
+                <span style="font-size: 0.72rem; background: rgba(255,255,255,0.18); padding: 0.15rem 0.45rem; border-radius: 6px; margin-left: 0.2rem;">v1.0.140</span>
             </a>
 
             <!-- 2. Tombol Download iOS (HANYA DI DOMAIN UTAMA) -->
@@ -1759,13 +2047,137 @@
                 <span>Untuk saat ini, silakan gunakan smartphone Android atau portal web untuk aktivitas presensi biometrik dan pelaporan kerja.</span>
             </div>
             <div class="ios-modal-actions">
-                <a href="{{ $apkDownloadUrl }}" class="btn-modal-android" target="_blank">
+                <a href="{{ $apkDownloadUrl }}" class="btn-modal-android" @click.prevent="showIosModal = false; startApkDownload('{{ $apkDownloadUrl }}')">
                     <i class="fa-brands fa-android" style="color: #10B981;"></i>
-                    <span>Unduh APK Android Versi Terbaru (v1.0.114)</span>
+                    <span>Unduh APK Android Versi Terbaru (v1.0.140)</span>
                 </a>
                 <button type="button" class="btn-modal-close" @click="showIosModal = false">
                     Tutup Notifikasi
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── MODAL PROGRES DOWNLOAD APK ANDROID INTERAKTIF ─────────────── -->
+    <div class="apk-dl-backdrop" x-show="showApkModal" x-transition.opacity x-cloak @click.self="cancelApkDownload()">
+        <div class="apk-dl-card" x-show="showApkModal" x-transition.scale.95>
+            <button type="button" class="apk-dl-close-btn" @click="cancelApkDownload()" title="Tutup">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="apk-dl-content">
+                <!-- 1. STATE: SEDANG MENGUNDUH (DOWNLOADING) -->
+                <template x-if="apkDownloadState === 'downloading'">
+                    <div>
+                        <div class="apk-dl-icon-wrap apk-dl-icon-pulse">
+                            <i class="fa-brands fa-android"></i>
+                        </div>
+                        <h3 class="apk-dl-title">Mengunduh APK ESA Attendance</h3>
+                        <p class="apk-dl-subtitle">Paket Instalasi Resmi Android • Versi v1.0.140</p>
+
+                        <!-- Persentase Besar -->
+                        <div class="apk-dl-percent-hero" x-text="apkProgress + '%'"></div>
+
+                        <!-- Progress Bar -->
+                        <div class="apk-dl-bar-track">
+                            <div class="apk-dl-bar-fill" :style="`width: ${apkProgress}%`">
+                                <div class="apk-dl-bar-shimmer"></div>
+                            </div>
+                        </div>
+
+                        <!-- Grid Statistik Real-time -->
+                        <div class="apk-dl-stats-grid">
+                            <div class="apk-dl-stat-col">
+                                <span class="apk-dl-stat-label">Terunduh</span>
+                                <span class="apk-dl-stat-val" x-text="apkDownloadedMB + ' / ' + apkTotalMB"></span>
+                            </div>
+                            <div class="apk-dl-stat-col" style="border-left: 1px solid rgba(255,255,255,0.08); border-right: 1px solid rgba(255,255,255,0.08);">
+                                <span class="apk-dl-stat-label">Kecepatan</span>
+                                <span class="apk-dl-stat-val" x-text="apkSpeedStr"></span>
+                            </div>
+                            <div class="apk-dl-stat-col">
+                                <span class="apk-dl-stat-label">Sisa Waktu</span>
+                                <span class="apk-dl-stat-val" x-text="apkEtaStr"></span>
+                            </div>
+                        </div>
+
+                        <!-- Hint Status -->
+                        <div class="apk-dl-hint">
+                            <i class="fa-solid fa-circle-notch fa-spin" style="color: #38BDF8;"></i>
+                            <span>Mengalirkan file langsung ke memori perangkat...</span>
+                        </div>
+
+                        <!-- Tombol Batal & Fallback -->
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
+                            <button type="button" class="apk-dl-btn-cancel" @click="cancelApkDownload()">
+                                <i class="fa-solid fa-ban" style="margin-right: 6px;"></i> Batalkan
+                            </button>
+                            <a :href="apkRawUrl" target="_blank" class="apk-dl-fallback-link">
+                                Proses lambat? Unduh manual via browser bawaan
+                            </a>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- 2. STATE: UNDUHAN SELESAI (COMPLETED) -->
+                <template x-if="apkDownloadState === 'completed'">
+                    <div>
+                        <div class="apk-dl-success-badge">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+                        <h3 class="apk-dl-title" style="color: #34D399;">Unduhan Selesai 100%!</h3>
+                        <p class="apk-dl-subtitle">File installer telah siap dan otomatis dibuka oleh sistem perangkat.</p>
+
+                        <!-- Tombol Utama Eksekusi Pasang -->
+                        <button type="button" class="btn-apk-install-now" @click="openDownloadedApk()">
+                            <i class="fa-solid fa-download"></i>
+                            <span>Buka & Pasang APK Sekarang</span>
+                        </button>
+
+                        <!-- Panduan Praktis Android -->
+                        <div class="apk-dl-guide-box">
+                            <div style="font-size: 0.8rem; font-weight: 700; color: #94A3B8; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-lightbulb" style="color: #FBBF24;"></i>
+                                <span>Langkah Pemasangan di Smartphone:</span>
+                            </div>
+                            <div class="apk-dl-guide-step">
+                                <div class="apk-dl-guide-num">1</div>
+                                <div>Ketuk tombol di atas atau pilih notifikasi <strong>"Buka / Open"</strong> pada bilah atas Android Anda.</div>
+                            </div>
+                            <div class="apk-dl-guide-step">
+                                <div class="apk-dl-guide-num">2</div>
+                                <div>Jika muncul dialog <em>"Instal aplikasi tidak dikenal"</em>, buka <strong>Pengaturan</strong> lalu aktifkan <strong>"Izinkan dari sumber ini"</strong>.</div>
+                            </div>
+                        </div>
+
+                        <button type="button" class="apk-dl-btn-cancel" @click="cancelApkDownload()">
+                            Tutup Jendela
+                        </button>
+                    </div>
+                </template>
+
+                <!-- 3. STATE: ERROR / GAGAL -->
+                <template x-if="apkDownloadState === 'error'">
+                    <div>
+                        <div class="apk-dl-icon-wrap" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #EF4444; box-shadow: 0 0 30px rgba(239, 68, 68, 0.25);">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <h3 class="apk-dl-title" style="color: #F87171;">Gagal Mengunduh</h3>
+                        <p class="apk-dl-subtitle" x-text="apkErrorMessage"></p>
+
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem;">
+                            <button type="button" class="btn-apk-install-now" style="background: linear-gradient(135deg, #0284C7, #0369A1);" @click="startApkDownload(apkRawUrl)">
+                                <i class="fa-solid fa-rotate-right"></i> Coba Unduh Lagi
+                            </button>
+                            <a :href="apkRawUrl" target="_blank" class="apk-dl-btn-cancel" style="text-decoration: none; text-align: center;">
+                                <i class="fa-solid fa-arrow-up-right-from-square" style="margin-right: 6px;"></i> Unduh Langsung via Browser
+                            </a>
+                            <button type="button" class="apk-dl-fallback-link" style="background: none; border: none;" @click="cancelApkDownload()">
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                </template>
             </div>
         </div>
     </div>
@@ -2016,11 +2428,11 @@
                 <!-- 2 Jenis Tombol Download: Android & iOS -->
                 <div class="app-download-action-row">
                     <!-- Tombol 1: Android -->
-                    <a href="{{ $apkDownloadUrl }}" class="btn-banner-android" target="_blank" rel="noopener noreferrer">
+                    <a href="{{ $apkDownloadUrl }}" class="btn-banner-android" @click.prevent="startApkDownload('{{ $apkDownloadUrl }}')">
                         <i class="fa-brands fa-android"></i>
                         <div style="text-align: left; line-height: 1.2;">
                             <span style="font-size: 0.72rem; color: #64748B; display: block; font-weight: 600;">Download Langsung</span>
-                            <span>Android APK (106 MB)</span>
+                            <span>Android APK (109.9 MB)</span>
                         </div>
                     </a>
 
@@ -2108,7 +2520,7 @@
                 <h4 class="footer-col-title">{{ (!isset($isEntityServer) || !$isEntityServer) ? 'Aplikasi Mobile' : 'Navigasi Portal' }}</h4>
                 <ul class="footer-list">
                     @if(!isset($isEntityServer) || !$isEntityServer)
-                        <li><a href="{{ $apkDownloadUrl }}" target="_blank"><i class="fa-brands fa-android" style="color: #10B981;"></i> Download Android APK</a></li>
+                        <li><a href="{{ $apkDownloadUrl }}" @click.prevent="startApkDownload('{{ $apkDownloadUrl }}')"><i class="fa-brands fa-android" style="color: #10B981;"></i> Download Android APK (v1.0.140)</a></li>
                         <li><a href="javascript:void(0)" @click="showIosNotice()"><i class="fa-brands fa-apple"></i> Apple iOS (Under Dev)</a></li>
                     @else
                         <li><a href="https://{{ $baseDomain ?? 'esa-solutions.id' }}/#download" target="_blank"><i class="fa-solid fa-mobile-screen-button" style="color: #10B981;"></i> Unduh APK di Portal Pusat</a></li>
@@ -2137,6 +2549,19 @@
                 copiedMessage: '',
                 copyTimeout: null,
                 showIosModal: false,
+
+                // In-Page APK Download States
+                showApkModal: false,
+                apkDownloadState: 'idle', // 'downloading', 'completed', 'error'
+                apkProgress: 0,
+                apkDownloadedMB: '0 MB',
+                apkTotalMB: '109.9 MB',
+                apkSpeedStr: '0 KB/s',
+                apkEtaStr: 'Menghitung...',
+                apkRawUrl: '{{ $apkDownloadUrl }}',
+                apkBlobUrl: null,
+                apkAbortController: null,
+                apkErrorMessage: '',
 
                 showIosNotice() {
                     this.showIosModal = true;
@@ -2249,6 +2674,136 @@
                     this.copyTimeout = setTimeout(() => {
                         this.showCopiedToast = false;
                     }, 2500);
+                },
+
+                startApkDownload(url) {
+                    const targetUrl = url || this.apkRawUrl || '/app-release.apk';
+                    this.apkRawUrl = targetUrl;
+                    this.showApkModal = true;
+                    this.apkDownloadState = 'downloading';
+                    this.apkProgress = 0;
+                    this.apkDownloadedMB = '0 MB';
+                    this.apkTotalMB = '109.9 MB';
+                    this.apkSpeedStr = 'Menghubungkan...';
+                    this.apkEtaStr = 'Menghitung...';
+                    this.apkErrorMessage = '';
+
+                    if (this.apkBlobUrl) {
+                        try { window.URL.revokeObjectURL(this.apkBlobUrl); } catch(e){}
+                        this.apkBlobUrl = null;
+                    }
+
+                    if (this.apkAbortController) {
+                        try { this.apkAbortController.abort(); } catch(e){}
+                    }
+                    this.apkAbortController = new AbortController();
+
+                    const startTime = Date.now();
+                    let lastSampleTime = startTime;
+                    let lastSampleBytes = 0;
+
+                    fetch(targetUrl, {
+                        signal: this.apkAbortController.signal,
+                        cache: 'no-cache'
+                    }).then(async response => {
+                        if (!response.ok) {
+                            throw new Error(`Gagal mengunduh file (HTTP ${response.status})`);
+                        }
+
+                        const contentLength = response.headers.get('content-length');
+                        const totalBytes = contentLength ? parseInt(contentLength, 10) : 115211354;
+                        this.apkTotalMB = (totalBytes / (1024 * 1024)).toFixed(1) + ' MB';
+
+                        const reader = response.body.getReader();
+                        let receivedBytes = 0;
+                        const chunks = [];
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+
+                            chunks.push(value);
+                            receivedBytes += value.length;
+
+                            const now = Date.now();
+                            const percent = Math.min(99, Math.round((receivedBytes / totalBytes) * 100));
+                            this.apkProgress = percent;
+                            this.apkDownloadedMB = (receivedBytes / (1024 * 1024)).toFixed(1) + ' MB';
+
+                            if (now - lastSampleTime >= 250) {
+                                const timeDelta = (now - lastSampleTime) / 1000;
+                                const bytesDelta = receivedBytes - lastSampleBytes;
+                                const speedBps = bytesDelta / timeDelta;
+                                const speedMBps = speedBps / (1024 * 1024);
+
+                                this.apkSpeedStr = speedMBps >= 1 
+                                    ? speedMBps.toFixed(1) + ' MB/s' 
+                                    : Math.round(speedBps / 1024) + ' KB/s';
+
+                                const remainingBytes = Math.max(0, totalBytes - receivedBytes);
+                                const remainingSeconds = speedBps > 0 ? Math.ceil(remainingBytes / speedBps) : 0;
+                                if (remainingSeconds > 60) {
+                                    const mins = Math.floor(remainingSeconds / 60);
+                                    const secs = remainingSeconds % 60;
+                                    this.apkEtaStr = `${mins}m ${secs}s`;
+                                } else if (remainingSeconds > 0) {
+                                    this.apkEtaStr = `${remainingSeconds} dtk`;
+                                } else {
+                                    this.apkEtaStr = 'Selesai';
+                                }
+
+                                lastSampleTime = now;
+                                lastSampleBytes = receivedBytes;
+                            }
+                        }
+
+                        // Selesai 100%
+                        this.apkProgress = 100;
+                        this.apkDownloadedMB = this.apkTotalMB;
+                        this.apkSpeedStr = 'Selesai';
+                        this.apkEtaStr = '0 dtk';
+
+                        const blob = new Blob(chunks, { type: 'application/vnd.android.package-archive' });
+                        this.apkBlobUrl = window.URL.createObjectURL(blob);
+                        this.apkDownloadState = 'completed';
+
+                        // Otomatis picu eksekusi penyimpanan & pembukaan file
+                        this.triggerBlobDownload();
+
+                    }).catch(err => {
+                        if (err.name === 'AbortError') {
+                            this.showApkModal = false;
+                            this.apkDownloadState = 'idle';
+                            return;
+                        }
+                        console.error('APK Download Error:', err);
+                        this.apkDownloadState = 'error';
+                        this.apkErrorMessage = err.message || 'Koneksi terputus saat mengunduh APK.';
+                    });
+                },
+
+                triggerBlobDownload() {
+                    if (!this.apkBlobUrl) return;
+                    const a = document.createElement('a');
+                    a.href = this.apkBlobUrl;
+                    a.download = 'esa-attendance.apk';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        if (document.body.contains(a)) document.body.removeChild(a);
+                    }, 500);
+                },
+
+                openDownloadedApk() {
+                    this.triggerBlobDownload();
+                },
+
+                cancelApkDownload() {
+                    if (this.apkAbortController) {
+                        try { this.apkAbortController.abort(); } catch(e){}
+                    }
+                    this.showApkModal = false;
+                    this.apkDownloadState = 'idle';
                 }
             }));
         });
