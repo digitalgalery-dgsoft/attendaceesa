@@ -25,7 +25,7 @@
 </IfModule>
 
 <IfModule mod_headers.c>
-    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg)$">
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|apk)$">
         Header set Access-Control-Allow-Origin "*"
     </FilesMatch>
 </IfModule>

@@ -1743,7 +1743,8 @@
 <body x-data="landingApp()">
 
     @php
-        $apkDownloadUrl = $setting->mobile_app_url ?: '/app-release.apk';
+        // Gunakan relative path sama origin (/app-release.apk) agar tidak terbentur CORS browser saat fetch stream
+        $apkDownloadUrl = '/app-release.apk';
     @endphp
 
     <!-- ─── TOP CONTEXT STRIP (JIKA SEDANG MENGAKSES SUBDOMAIN ENTITAS) ── -->
@@ -2558,7 +2559,7 @@
                 apkTotalMB: '109.9 MB',
                 apkSpeedStr: '0 KB/s',
                 apkEtaStr: 'Menghitung...',
-                apkRawUrl: '{{ $apkDownloadUrl }}',
+                apkRawUrl: '/app-release.apk',
                 apkBlobUrl: null,
                 apkAbortController: null,
                 apkErrorMessage: '',
@@ -2677,7 +2678,18 @@
                 },
 
                 startApkDownload(url) {
-                    const targetUrl = url || this.apkRawUrl || '/app-release.apk';
+                    let targetUrl = url || '/app-release.apk';
+                    // Pastikan selalu menggunakan same-origin /app-release.apk agar tidak diblokir CORS antar-subdomain
+                    if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
+                        try {
+                            const parsed = new URL(targetUrl);
+                            if (parsed.origin !== window.location.origin) {
+                                targetUrl = '/app-release.apk';
+                            }
+                        } catch(e) {
+                            targetUrl = '/app-release.apk';
+                        }
+                    }
                     this.apkRawUrl = targetUrl;
                     this.showApkModal = true;
                     this.apkDownloadState = 'downloading';
