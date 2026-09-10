@@ -505,8 +505,8 @@
                                     <td style="font-weight: 600; color: {{ $isNoOos ? '#15803d' : '#1e3a8a' }};">{{ $r['produk'] }}</td>
                                     <td style="color: var(--text-muted); font-size: 0.82rem;">{{ $r['base_color'] ?: '-' }}</td>
                                     <td style="text-align: center; font-size: 0.82rem;">{{ $r['kemasan_size'] ?: '-' }}</td>
-                                    <td style="text-align: center; font-weight: 700; color: {{ $r['lama_oos_hari'] > 0 ? '#dc2626' : '#94a3b8' }};">
-                                        {{ $r['lama_oos_hari'] > 0 ? $r['lama_oos_hari'] : '-' }}
+                                    <td style="text-align: center; font-weight: 700; color: {{ $isNoOos ? '#16a34a' : ($r['lama_oos_hari'] > 0 ? '#dc2626' : '#2563eb') }};">
+                                        {{ $isNoOos ? '-' : ($r['lama_oos_hari'] > 0 ? ($r['lama_oos_hari'] . ' Hari') : '0 Hari') }}
                                     </td>
                                     <td style="text-align: center; font-weight: 700;">{{ $r['saran_qty_order'] > 0 ? $r['saran_qty_order'] : '-' }}</td>
                                     <td>
@@ -754,8 +754,8 @@
                                                                     <span style="color: #1e293b; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ $oi['product_name'] ?? ($oi['nama_produk'] ?? 'Produk') }}">
                                                                         {{ $oi['product_name'] ?? ($oi['nama_produk'] ?? 'Produk') }}
                                                                     </span>
-                                                                    <span style="color: #dc2626; font-weight: 700; white-space: nowrap;">
-                                                                        {{ $oi['lama_oos_hari'] ?? 1 }} hr
+                                                                    <span style="color: {{ ($oi['lama_oos_hari'] ?? 0) > 0 ? '#dc2626' : '#2563eb' }}; font-weight: 700; white-space: nowrap;">
+                                                                        {{ $oi['lama_oos_hari'] ?? 0 }} hr
                                                                     </span>
                                                                 </div>
                                                             @endforeach
@@ -791,13 +791,15 @@
                                     </td>
                                     <td style="text-align: center; font-weight: 700;">
                                         @if($isNoOos)
-                                            <span style="color: #16a34a; font-weight: 700; font-size: 0.8rem;">0 Hari</span>
+                                            <span style="color: #16a34a; font-weight: 700; font-size: 0.8rem;">-</span>
                                         @elseif($lamaOos > 0)
                                             <span style="color: #dc2626; font-size: 0.82rem; background: #fef2f2; padding: 2px 7px; border-radius: 6px; border: 1px solid #fecaca; display: inline-block;">
                                                 {{ $hasMultiOos ? 'Maks ' : '' }}{{ $lamaOos }} Hari
                                             </span>
                                         @else
-                                            <span style="color: #94a3b8;">-</span>
+                                            <span style="color: #2563eb; font-size: 0.82rem; background: #eff6ff; padding: 2px 7px; border-radius: 6px; border: 1px solid #bfdbfe; display: inline-block;">
+                                                0 Hari
+                                            </span>
                                         @endif
                                     </td>
                                     <td style="text-align: center; font-weight: 700;">

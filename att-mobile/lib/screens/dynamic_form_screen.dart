@@ -331,8 +331,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   final TextEditingController _oosKemasanSizeCtrl = TextEditingController();
   final TextEditingController _oosBaseWarnaCtrl = TextEditingController();
   final TextEditingController _oosReadyMixColorCtrl = TextEditingController();
-  final TextEditingController _oosLamaHariCtrl = TextEditingController(text: '1');
-  final TextEditingController _oosSaranQtyCtrl = TextEditingController(text: '1');
+  final TextEditingController _oosLamaHariCtrl = TextEditingController(text: '0');
+  final TextEditingController _oosSaranQtyCtrl = TextEditingController(text: '0');
   final TextEditingController _oosAlasanCtrl = TextEditingController();
   final TextEditingController _oosAlasanLainnyaCtrl = TextEditingController();
 
@@ -1125,8 +1125,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       _oosKemasanSizeCtrl.clear();
       _oosBaseWarnaCtrl.clear();
       _oosReadyMixColorCtrl.clear();
-      _oosLamaHariCtrl.text = '1';
-      _oosSaranQtyCtrl.text = '1';
+      _oosLamaHariCtrl.text = '0';
+      _oosSaranQtyCtrl.text = '0';
       _oosAlasanCtrl.clear();
       _oosAlasanLainnyaCtrl.clear();
 
@@ -7693,7 +7693,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     'Pail (20 L)',
     'Pail (20 Kg)',
     'Galon (5 Kg)',
-    'Lainnya',
   ];
 
   static const List<String> _kOosBaseOptions = [
@@ -7704,7 +7703,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     'Base D',
     'Base Medium',
     'Primer / Cat Dasar',
-    'Lainnya',
   ];
 
   List<TemplateProductModel> _getOosProducts() {
@@ -7766,7 +7764,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         _oosReadyMixColorCtrl.text = 'Bukan Ready Mix (Base Oplos)';
       }
 
-      // 3. Auto calculate consecutive OOS days from previous history
+      // 3. Auto calculate consecutive OOS days from previous history (0 if new / no history)
       final prevMatch = _previousOosItems.firstWhere(
         (item) =>
             (item['product_id'] != null && item['product_id'] == prod.id) ||
@@ -7775,9 +7773,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         orElse: () => {},
       );
 
-      int calculatedDays = 1;
+      int calculatedDays = 0;
       if (prevMatch.isNotEmpty) {
-        final prevLama = int.tryParse(prevMatch['lama_oos_hari']?.toString() ?? '1') ?? 1;
+        final prevLama = int.tryParse(prevMatch['lama_oos_hari']?.toString() ?? '0') ?? 0;
         calculatedDays = prevLama + _oosDiffDays;
         if (prevMatch['alasan_oos'] != null && _oosAlasanCtrl.text.isEmpty) {
           _oosAlasanCtrl.text = prevMatch['alasan_oos'].toString();
@@ -7785,16 +7783,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
       _oosLamaHariCtrl.text = calculatedDays.toString();
 
-      // 4. Saran Order Qty
-      if (_oosKemasanSizeCtrl.text.contains('Pail')) {
-        _oosSaranQtyCtrl.text = '2';
-      } else if (_oosKemasanSizeCtrl.text.contains('Galon')) {
-        _oosSaranQtyCtrl.text = '4';
-      } else {
-        _oosSaranQtyCtrl.text = '6';
-      }
-
-      // 5. Default Reason
+      // 4. Default Reason
       if (_oosAlasanCtrl.text.isEmpty) {
         _oosAlasanCtrl.text = _kOosReasons.first;
       }
@@ -7829,8 +7818,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       return;
     }
 
-    final int lamaHari = int.tryParse(_oosLamaHariCtrl.text) ?? 1;
-    final int saranQty = int.tryParse(_oosSaranQtyCtrl.text) ?? 1;
+    final int lamaHari = int.tryParse(_oosLamaHariCtrl.text) ?? 0;
     final String alasan = _oosAlasanCtrl.text.isNotEmpty
         ? (_oosAlasanCtrl.text == '6. Other / Lainnya' && _oosAlasanLainnyaCtrl.text.isNotEmpty ? _oosAlasanLainnyaCtrl.text : _oosAlasanCtrl.text)
         : _kOosReasons.first;
@@ -7845,7 +7833,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         'base_color': _oosBaseWarnaCtrl.text.isNotEmpty ? _oosBaseWarnaCtrl.text : 'Base A',
         'warna_ready_mix_oos': _oosReadyMixColorCtrl.text.isNotEmpty ? _oosReadyMixColorCtrl.text : 'Bukan Ready Mix (Base Oplos)',
         'lama_oos_hari': lamaHari,
-        'saran_qty_order': saranQty,
+        'saran_qty_order': 0,
         'alasan_oos': alasan,
         'channel_toko': _oosChannelTokoCtrl.text,
       });
@@ -7854,8 +7842,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       _oosKemasanSizeCtrl.clear();
       _oosBaseWarnaCtrl.clear();
       _oosReadyMixColorCtrl.clear();
-      _oosLamaHariCtrl.text = '1';
-      _oosSaranQtyCtrl.text = '1';
+      _oosLamaHariCtrl.text = '0';
+      _oosSaranQtyCtrl.text = '0';
       _oosAlasanCtrl.clear();
       _oosAlasanLainnyaCtrl.clear();
     });
@@ -7884,7 +7872,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       return;
     }
 
-    final prevLama = int.tryParse(prev['lama_oos_hari']?.toString() ?? '1') ?? 1;
+    final prevLama = int.tryParse(prev['lama_oos_hari']?.toString() ?? '0') ?? 0;
     final int consecutiveDays = prevLama + _oosDiffDays;
 
     setState(() {
@@ -7893,11 +7881,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         'product_code': prev['product_code'] ?? prodName,
         'product_name': prodName,
         'brand': prev['brand'] ?? 'Dulux',
-        'kemasan_size': prev['kemasan_size'] ?? 'Galon (2.5 L)',
-        'base_color': prev['base_color'] ?? 'Base A',
+        'kemasan_size': prev['kemasan_size'] ?? prev['kemasan_size_oos'] ?? 'Galon (2.5 L)',
+        'base_color': prev['base_color'] ?? prev['base_warna_oos'] ?? 'Base A',
         'warna_ready_mix_oos': prev['warna_ready_mix_oos'] ?? 'Bukan Ready Mix (Base Oplos)',
         'lama_oos_hari': consecutiveDays,
-        'saran_qty_order': int.tryParse(prev['saran_qty_order']?.toString() ?? '2') ?? 2,
+        'saran_qty_order': 0,
         'alasan_oos': prev['alasan_oos'] ?? _kOosReasons.first,
         'channel_toko': _oosChannelTokoCtrl.text,
       });
@@ -8708,62 +8696,34 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
               const SizedBox(height: 12),
 
-              // Field Auto-calculated: Lama Kondisi OOS (Hari) & Saran Qty Order
-              Row(
+              // Field Auto-calculated: Lama Kondisi OOS (Hari)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text('Lama OOS (Hari)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
-                            const SizedBox(width: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(color: Colors.blue.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
-                              child: const Text('Otomatis', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.blue)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        TextField(
-                          controller: _oosLamaHariCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            filled: true,
-                            fillColor: elevatedColor,
-                            suffixText: 'Hari',
-                            suffixStyle: TextStyle(fontSize: 11, color: subtitleColor),
-                          ),
-                        ),
-                      ],
-                    ),
+                  Row(
+                    children: [
+                      Text('Lama Kondisi OOS (Hari)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(color: Colors.blue.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
+                        child: const Text('Otomatis (0 jika baru)', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.blue)),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Saran Order (Qty)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
-                        const SizedBox(height: 4),
-                        TextField(
-                          controller: _oosSaranQtyCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            filled: true,
-                            fillColor: elevatedColor,
-                            suffixText: 'Kemasan',
-                            suffixStyle: TextStyle(fontSize: 11, color: subtitleColor),
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _oosLamaHariCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: elevatedColor,
+                      suffixText: 'Hari',
+                      suffixStyle: TextStyle(fontSize: 11, color: subtitleColor),
+                      hintText: '0 (Hari Pertama)',
                     ),
                   ),
                 ],
@@ -8888,7 +8848,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
                 ..._previousOosItems.map((prev) {
                   final pName = prev['product_name']?.toString() ?? 'Dulux Product';
-                  final prevLama = int.tryParse(prev['lama_oos_hari']?.toString() ?? '1') ?? 1;
+                  final prevLama = int.tryParse(prev['lama_oos_hari']?.toString() ?? '0') ?? 0;
                   final consecutive = prevLama + _oosDiffDays;
                   final inCart = _oosCart.any((c) => c['product_name']?.toString().toLowerCase() == pName.toLowerCase());
 
@@ -9081,7 +9041,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                                   _buildProductInfoChip('Kemasan: ${item['kemasan_size']}', Colors.indigo, isDarkMode),
                                   _buildProductInfoChip('Base: ${item['base_color']}', Colors.teal, isDarkMode),
                                   _buildProductInfoChip('Lama: ${item['lama_oos_hari']} Hari', Colors.red, isDarkMode),
-                                  _buildProductInfoChip('Saran: ${item['saran_qty_order']} Qty', Colors.green, isDarkMode),
                                 ],
                               ),
                               const SizedBox(height: 4),
@@ -9224,23 +9183,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Column(
-                        children: [
-                          Text('$totalSaran Qty', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
-                          const SizedBox(height: 2),
-                          Text('Saran Order', style: TextStyle(fontSize: 10.5, color: subtitleColor)),
-                        ],
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ],
@@ -9287,7 +9229,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                             Text(item['product_name'] ?? '', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
                             const SizedBox(height: 2),
                             Text(
-                              'Kemasan: ${item['kemasan_size']} • Base: ${item['base_color']} • Durasi: ${item['lama_oos_hari']} Hari • Saran: ${item['saran_qty_order']} Qty',
+                              'Kemasan: ${item['kemasan_size']} • Base: ${item['base_color']} • Durasi: ${item['lama_oos_hari']} Hari',
                               style: TextStyle(fontSize: 11, color: subtitleColor),
                             ),
                             Text('Alasan: ${item['alasan_oos']}', style: TextStyle(fontSize: 10.5, color: subtitleColor, fontStyle: FontStyle.italic)),
@@ -9424,8 +9366,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         'warna_ready_mix_oos': firstItem['warna_ready_mix_oos'] ?? 'Bukan Ready Mix (Base Oplos)',
         'lama_oos_hari': maxLamaOos,
         'lama_kondisi_barang_kosong_jumlah_hari': maxLamaOos,
-        'saran_qty_order': totalSaranOrder,
-        'saran_kuantiti_order_ke_toko_qty_kemasan': totalSaranOrder,
+        'saran_qty_order': 0,
+        'saran_kuantiti_order_ke_toko_qty_kemasan': 0,
         'alasan_oos': firstItem['alasan_oos'] ?? _kOosReasons.first,
         'penyebab_alasan_out_of_stock_oos': firstItem['alasan_oos'] ?? _kOosReasons.first,
         'oos_items_json': jsonEncode(_oosCart),

@@ -1444,11 +1444,11 @@
                                 $kemasan = $pItem['kemasan_size_oos'] ?? '-';
                                 $base = $pItem['base_warna_oos'] ?? '-';
                                 $readyMix = $pItem['warna_ready_mix_oos'] ?? '-';
-                                $lama = (int)($pItem['lama_oos_hari'] ?? ($pItem['calculated_lama_oos'] ?? 1));
+                                $lama = (int)($pItem['lama_oos_hari'] ?? ($pItem['calculated_lama_oos'] ?? 0));
                                 $saran = (int)($pItem['saran_qty_order'] ?? 0);
                                 $alasan = $pItem['alasan_oos'] ?? 'PO belum kirim / kendala stok';
                             @endphp
-                            <div class="product-breakdown-card" style="border-left: 4px solid {{ $lama > 3 ? '#dc2626' : '#ea580c' }};">
+                            <div class="product-breakdown-card" style="border-left: 4px solid {{ $lama > 3 ? '#dc2626' : ($lama > 0 ? '#ea580c' : '#2563eb') }};">
                                 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.65rem;" class="dark:border-gray-800">
                                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                         <span style="font-size: 0.75rem; font-weight: 800; background: #dc2626; color: #fff; padding: 2px 7px; border-radius: 6px;">#{{ $pIdx + 1 }}</span>
@@ -1458,9 +1458,9 @@
                                         </span>
                                     </div>
                                     <div>
-                                        <span style="font-size: 0.82rem; font-weight: 800; color: {{ $lama > 3 ? '#dc2626' : '#ea580c' }}; background: {{ $lama > 3 ? '#fee2e2' : '#ffedd5' }}; padding: 3px 9px; border-radius: 6px; border: 1px solid {{ $lama > 3 ? '#fecaca' : '#fed7aa' }}; display: inline-flex; align-items: center; gap: 4px;">
+                                        <span style="font-size: 0.82rem; font-weight: 800; color: {{ $lama > 3 ? '#dc2626' : ($lama > 0 ? '#ea580c' : '#2563eb') }}; background: {{ $lama > 3 ? '#fee2e2' : ($lama > 0 ? '#ffedd5' : '#eff6ff') }}; padding: 3px 9px; border-radius: 6px; border: 1px solid {{ $lama > 3 ? '#fecaca' : ($lama > 0 ? '#fed7aa' : '#bfdbfe') }}; display: inline-flex; align-items: center; gap: 4px;">
                                             <x-filament::icon icon="heroicon-o-clock" style="width: 14px; height: 14px;" />
-                                            Lama OOS: {{ $lama }} Hari
+                                            Lama OOS: {{ $lama }} Hari{{ $lama === 0 ? ' (Baru)' : '' }}
                                         </span>
                                     </div>
                                 </div>

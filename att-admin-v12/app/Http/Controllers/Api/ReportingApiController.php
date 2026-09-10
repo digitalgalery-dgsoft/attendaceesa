@@ -1032,7 +1032,7 @@ class ReportingApiController extends Controller
                     if (!empty($alasan) && !in_array($alasan, $allReasons)) {
                         $allReasons[] = $alasan;
                     }
-                    $lama = intval($item['lama_oos_hari'] ?? ($item['calculated_lama_oos'] ?? 1));
+                    $lama = intval($item['lama_oos_hari'] ?? ($item['calculated_lama_oos'] ?? 0));
                     if ($lama > $maxLamaOos) {
                         $maxLamaOos = $lama;
                     }
@@ -2504,14 +2504,17 @@ class ReportingApiController extends Controller
             $rawItems = is_array($valMap['oos_items_json']) ? $valMap['oos_items_json'] : json_decode((string)$valMap['oos_items_json'], true);
             if (is_array($rawItems)) {
                 foreach ($rawItems as $itm) {
-                    $prevLama = (int)($itm['lama_oos_hari'] ?? 1);
+                    $prevLama = (int)($itm['lama_oos_hari'] ?? 0);
                     $calcLama = $prevLama + $diffDays;
                     $items[] = [
                         'product_id' => $itm['product_id'] ?? null,
                         'product_name' => $itm['product_name'] ?? ($itm['produk_oos'] ?? ''),
-                        'kemasan_size_oos' => $itm['kemasan_size_oos'] ?? '',
-                        'base_warna_oos' => $itm['base_warna_oos'] ?? '',
+                        'kemasan_size' => $itm['kemasan_size'] ?? ($itm['kemasan_size_oos'] ?? ''),
+                        'kemasan_size_oos' => $itm['kemasan_size_oos'] ?? ($itm['kemasan_size'] ?? ''),
+                        'base_color' => $itm['base_color'] ?? ($itm['base_warna_oos'] ?? ''),
+                        'base_warna_oos' => $itm['base_warna_oos'] ?? ($itm['base_color'] ?? ''),
                         'warna_ready_mix_oos' => $itm['warna_ready_mix_oos'] ?? '',
+                        'lama_oos_hari' => $prevLama,
                         'previous_lama_oos' => $prevLama,
                         'calculated_lama_oos' => $calcLama,
                         'alasan_oos' => $itm['alasan_oos'] ?? '',
@@ -2546,14 +2549,17 @@ class ReportingApiController extends Controller
                 }
                 $pName = trim((string)($sValMap['produk_oos'] ?? ($sValMap['nama_produk_yang_kosong_oos'] ?? '')));
                 if (!empty($pName) && !str_contains(strtolower($pName), 'no oos')) {
-                    $prevLama = (int)($sValMap['lama_oos_hari'] ?? ($sValMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? 1));
+                    $prevLama = (int)($sValMap['lama_oos_hari'] ?? ($sValMap['lama_kondisi_barang_kosong_jumlah_hari'] ?? 0));
                     $calcLama = $prevLama + $diffDays;
                     $items[] = [
                         'product_id' => null,
                         'product_name' => $pName,
+                        'kemasan_size' => $sValMap['kemasan_size_oos'] ?? '',
                         'kemasan_size_oos' => $sValMap['kemasan_size_oos'] ?? '',
+                        'base_color' => $sValMap['base_warna_oos'] ?? '',
                         'base_warna_oos' => $sValMap['base_warna_oos'] ?? '',
                         'warna_ready_mix_oos' => $sValMap['warna_ready_mix_oos'] ?? '',
+                        'lama_oos_hari' => $prevLama,
                         'previous_lama_oos' => $prevLama,
                         'calculated_lama_oos' => $calcLama,
                         'alasan_oos' => $sValMap['alasan_oos'] ?? '',

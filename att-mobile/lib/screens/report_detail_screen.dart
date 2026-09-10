@@ -1217,22 +1217,24 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               isDarkMode: isDarkMode,
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _buildOfftakeStatCard(
-              icon: Icons.shopping_basket_outlined,
-              iconColor: const Color(0xFF10B981),
-              iconBgColor: const Color(0xFF10B981).withOpacity(0.12),
-              label: 'Total Saran Order',
-              value: '$totalSaran Qty',
-              valueColor: const Color(0xFF15803D),
-              subText: 'Kemasan rekomendasi',
-              cardColor: cardColor,
-              textColor: textColor,
-              subtitleColor: subtitleColor,
-              isDarkMode: isDarkMode,
+          if (totalSaran > 0) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildOfftakeStatCard(
+                icon: Icons.shopping_basket_outlined,
+                iconColor: const Color(0xFF10B981),
+                iconBgColor: const Color(0xFF10B981).withOpacity(0.12),
+                label: 'Total Saran Order',
+                value: '$totalSaran Qty',
+                valueColor: const Color(0xFF15803D),
+                subText: 'Kemasan rekomendasi',
+                cardColor: cardColor,
+                textColor: textColor,
+                subtitleColor: subtitleColor,
+                isDarkMode: isDarkMode,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1252,8 +1254,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     final pKemasan = (item['kemasan_size']?.toString() ?? '-').trim();
     final pBase = (item['base_color']?.toString() ?? '-').trim();
     final pRm = (item['warna_ready_mix_oos']?.toString() ?? '-').trim();
-    final pLama = item['lama_oos_hari']?.toString() ?? '1';
-    final pSaran = item['saran_qty_order']?.toString() ?? '1';
+    final pLama = item['lama_oos_hari']?.toString() ?? '0';
+    final pSaran = int.tryParse(item['saran_qty_order']?.toString() ?? '0') ?? 0;
     final pAlasan = (item['alasan_oos']?.toString() ?? '-').trim();
 
     return Container(
@@ -1337,14 +1339,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ),
                   child: Text('Warna: $pRm', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.purple)),
                 ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
+              if (pSaran > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text('Saran Order: $pSaran Qty', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green)),
                 ),
-                child: Text('Saran Order: $pSaran Qty', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green)),
-              ),
             ],
           ),
           const SizedBox(height: 8),
