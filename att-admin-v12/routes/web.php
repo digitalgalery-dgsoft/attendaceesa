@@ -715,6 +715,19 @@ Route::get('/fix-principals', function () {
     }
 });
 
+Route::get('/run-migration-stock-end', function () {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        $output = \Illuminate\Support\Facades\Artisan::output();
+        return response()->json([
+            'status' => 'success',
+            'output' => $output,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+    }
+});
+
 Route::get('/debug-sidebar', function () {
     try {
         $user = \App\Models\User::first();
