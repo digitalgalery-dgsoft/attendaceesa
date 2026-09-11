@@ -848,10 +848,6 @@ class ReportingApiController extends Controller
 
         try {
             $employee->loadMissing('position');
-            $isWithinRadius = $request->boolean('is_within_radius', false);
-            $dist = null;
-            $allowedRadius = 100.0;
-
             if ($request->filled('latitude') && $request->filled('longitude') && $workLocationId) {
                 $targetLoc = \App\Models\WorkLocation::find($workLocationId);
                 if ($targetLoc && $targetLoc->latitude && $targetLoc->longitude) {
@@ -861,18 +857,18 @@ class ReportingApiController extends Controller
                     );
                     $allowedRadius = $targetLoc->getEffectiveRadiusForEmployee($employee);
                     $isWithinRadius = ($dist <= $allowedRadius) || $request->boolean('is_within_radius', false);
-                }
-            }
 
-            // 2. Validasi Radius: Karyawan WAJIB berada di dalam radius toko
-            if (!$isWithinRadius) {
-                $distText = ($dist !== null) ? round($dist) . ' meter' : 'terdeteksi di luar radius';
-                $radiusText = round($allowedRadius) . ' meter';
-                return response()->json([
-                    'status' => 'error',
-                    'success' => false,
-                    'message' => "Posisi Anda berada di luar radius toko ({$distText} dari toko, batas maksimal {$radiusText}). Laporan hanya dapat dikirim jika berada di dalam radius toko.",
-                ], 422);
+                    // 2. Validasi Radius: Karyawan WAJIB berada di dalam radius toko
+                    if (!$isWithinRadius) {
+                        $distText = round($dist) . ' meter';
+                        $radiusText = round($allowedRadius) . ' meter';
+                        return response()->json([
+                            'status' => 'error',
+                            'success' => false,
+                            'message' => "Posisi Anda berada di luar radius toko ({$distText} dari toko, batas maksimal {$radiusText}). Laporan hanya dapat dikirim jika berada di dalam radius toko.",
+                        ], 422);
+                    }
+                }
             }
 
             DB::beginTransaction();
