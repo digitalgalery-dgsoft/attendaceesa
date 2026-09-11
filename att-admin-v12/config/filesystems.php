@@ -42,11 +42,15 @@ return [
             'driver' => 'local',
             'root' => storage_path('app/public'),
             'url' => (function() {
-                if (function_exists('request') && request() && request()->getHost()) {
-                    $h = request()->getHost();
-                    if ($h && !in_array($h, ['localhost', '127.0.0.1'])) {
-                        return request()->getSchemeAndHttpHost() . '/storage';
+                try {
+                    if (function_exists('app') && app()->bound('request')) {
+                        $req = request();
+                        if ($req && $req->getHost() && !in_array($req->getHost(), ['localhost', '127.0.0.1'])) {
+                            return $req->getSchemeAndHttpHost() . '/storage';
+                        }
                     }
+                } catch (\Throwable $e) {
+                    // Ignore during CLI / config caching
                 }
                 $appUrl = env('APP_URL', 'http://localhost');
                 if (str_contains($appUrl, 'esa-solution.id')) {
