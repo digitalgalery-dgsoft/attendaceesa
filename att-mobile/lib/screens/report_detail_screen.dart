@@ -7,6 +7,7 @@ import 'package:att_mobile/models/report_template_model.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/screens/dynamic_form_screen.dart';
+import 'package:att_mobile/utils/constants.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ReportDetailScreen extends StatefulWidget {
@@ -481,6 +482,54 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               }
             }
 
+            // Cek apakah ada data Wings MBR Sales multi-produk dinamis
+            List<dynamic>? mbrSalesItemsList;
+            for (final v in _currentSubmission.values) {
+              final fn = v.fieldName.toLowerCase();
+              if (fn == 'mbr_sales_items_json' || fn.contains('mbr_sales_items')) {
+                if (v.valueJson is List && (v.valueJson as List).isNotEmpty) {
+                  mbrSalesItemsList = v.valueJson as List;
+                  break;
+                } else if (v.valueText != null && v.valueText!.trim().isNotEmpty) {
+                  try {
+                    final decoded = jsonDecode(v.valueText!);
+                    if (decoded is List && decoded.isNotEmpty) {
+                      mbrSalesItemsList = decoded;
+                      break;
+                    }
+                  } catch (_) {}
+                }
+              }
+            }
+            final hasDynamicMbrSales = mbrSalesItemsList != null && mbrSalesItemsList.isNotEmpty;
+            int mbrTotalQty = 0;
+            double mbrTotalValue = 0;
+            double mbrTotalBooth = 0;
+            double mbrTotalKasir = 0;
+            if (hasDynamicMbrSales) {
+              for (final it in mbrSalesItemsList) {
+                if (it is! Map) continue;
+                final q = (it['qty'] as num?)?.toInt() ?? int.tryParse(it['qty']?.toString() ?? '0') ?? 0;
+                final v = (it['value_rp'] as num?)?.toDouble() ?? double.tryParse(it['value_rp']?.toString() ?? '0') ?? 0.0;
+                final pType = (it['payment_type'] ?? '').toString().toLowerCase();
+                mbrTotalQty += q;
+                mbrTotalValue += v;
+                if (pType.contains('kasir')) {
+                  mbrTotalKasir += v;
+                } else {
+                  mbrTotalBooth += v;
+                }
+              }
+            }
+
+            final suppressMbrSalesFields = {
+              'mbr_sales_items_json',
+              'total_qty_penjualan',
+              'total_value_penjualan_rp',
+              'total_bayar_di_booth_rp',
+              'total_bayar_di_kasir_rp',
+            };
+
             final suppressStockFields = {
               'stock_items_json',
               'produk_stock_end',
@@ -853,6 +902,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   return false;
                 }
               }
+              if (hasDynamicMbrSales) {
+                if (suppressMbrSalesFields.contains(fn) || suppressMbrSalesFields.contains(fl)) {
+                  return false;
+                }
+              }
               if (isCustomerDbReport) {
                 if (suppressCustomerFields.contains(fn) || suppressCustomerFields.contains(fl)) {
                   return false;
@@ -1074,6 +1128,60 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   const SizedBox(height: 12),
                 ],
 
+                // ── 1.65. Panel Ringkasan KPI Global Wings MBR Sales ──
+                if (hasDynamicMbrSales) ...[
+                  _buildMbrSalesSummaryGrid(
+                    totalSku: mbrSalesItemsList!.length,
+                    totalQty: mbrTotalQty,
+                    totalValue: mbrTotalValue,
+                    totalBooth: mbrTotalBooth,
+                    totalKasir: mbrTotalKasir,
+                    cardColor: cardColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    isDarkMode: isDarkMode,
+                  ),
+                  const SizedBox(height: 8),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'RINCIAN PRODUK PENJUALAN MBR',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0284C7).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${mbrSalesItemsList!.length} SKU Terjual',
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ...mbrSalesItemsList!.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final item = entry.value;
+                    if (item is! Map) return const SizedBox.shrink();
+                    return _buildMbrSalesProductCard(
+                      index: idx + 1,
+                      item: Map<String, dynamic>.from(item),
+                      cardColor: cardColor,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
+                      elevatedColor: elevatedColor,
+                      primaryColor: primaryColor,
+                      isDarkMode: isDarkMode,
+                    );
+                  }),
+                  const SizedBox(height: 12),
+                ],
+
                 // ── 1.7. Panel Custom Laporan Data Pelanggan Dulux ──
                 if (isCustomerDbReport) ...[
                   _buildCustomerDbSummaryGrid(
@@ -1206,12 +1314,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 // ── 3. Parameter Tambahan / Standar Form ──
                 if (displayValues.isNotEmpty) ...[
                   Text(
-                    (hasDynamicOfftake || hasDynamicOos || isNoOos || hasDynamicStock || isCustomerDbReport || isDailyMaintenanceReport) ? 'PARAMETER TAMBAHAN' : 'RINCIAN DATA LAPORAN',
+                    (hasDynamicOfftake || hasDynamicOos || isNoOos || hasDynamicStock || hasDynamicMbrSales || isCustomerDbReport || isDailyMaintenanceReport) ? 'PARAMETER TAMBAHAN' : 'RINCIAN DATA LAPORAN',
                     style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
                   ),
                   const SizedBox(height: 8),
                   ...displayValues.map((val) => _buildValueCard(val, cardColor, textColor, subtitleColor, elevatedColor, primaryColor, isDarkMode)),
-                ] else if (!hasDynamicOfftake && !hasDynamicOos && !isNoOos && !hasDynamicStock && !isCustomerDbReport && !isDailyMaintenanceReport) ...[
+                ] else if (!hasDynamicOfftake && !hasDynamicOos && !isNoOos && !hasDynamicStock && !hasDynamicMbrSales && !isCustomerDbReport && !isDailyMaintenanceReport) ...[
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -2058,6 +2166,326 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         ],
       ),
     );
+  }
+
+  // ─── HELPER WIDGETS DETAIL LAPORAN PENJUALAN WINGS MBR ───
+  Widget _buildMbrSalesSummaryGrid({
+    required int totalSku,
+    required int totalQty,
+    required double totalValue,
+    required double totalBooth,
+    required double totalKasir,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required bool isDarkMode,
+  }) {
+    final currencyFmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF0284C7).withOpacity(0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0284C7).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.analytics_rounded, size: 16, color: Color(0xFF0284C7)),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'RINGKASAN PENJUALAN EVENT MBR',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? const Color(0xFF38BDF8) : const Color(0xFF0369A1),
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.inventory_2_rounded,
+                  iconColor: const Color(0xFF0284C7),
+                  iconBgColor: const Color(0xFF0284C7).withOpacity(0.12),
+                  label: 'Total Qty Penjualan',
+                  value: '$totalQty Dus / Pcs',
+                  valueColor: const Color(0xFF0284C7),
+                  subText: '$totalSku SKU Produk',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.monetization_on_rounded,
+                  iconColor: const Color(0xFFD97706),
+                  iconBgColor: const Color(0xFFD97706).withOpacity(0.12),
+                  label: 'Total Nilai Penjualan',
+                  value: currencyFmt.format(totalValue),
+                  valueColor: const Color(0xFFD97706),
+                  subText: 'Akumulasi Qty x Harga Toko',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.storefront_rounded,
+                  iconColor: const Color(0xFF10B981),
+                  iconBgColor: const Color(0xFF10B981).withOpacity(0.12),
+                  label: 'Bayar di Booth',
+                  value: currencyFmt.format(totalBooth),
+                  valueColor: const Color(0xFF10B981),
+                  subText: 'Transaksi di Booth',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.point_of_sale_rounded,
+                  iconColor: const Color(0xFF6366F1),
+                  iconBgColor: const Color(0xFF6366F1).withOpacity(0.12),
+                  label: 'Bayar di Kasir',
+                  value: currencyFmt.format(totalKasir),
+                  valueColor: const Color(0xFF6366F1),
+                  subText: 'Transaksi di Kasir Toko',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMbrSalesProductCard({
+    required int index,
+    required Map<String, dynamic> item,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color elevatedColor,
+    required Color primaryColor,
+    required bool isDarkMode,
+  }) {
+    final currencyFmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final pName = (item['product_name']?.toString() ?? item['name']?.toString() ?? item['product_code']?.toString() ?? 'Produk Mie Sedaap').trim();
+    final pSku = (item['sku_code']?.toString() ?? '-').trim();
+    final distPrice = (item['distributor_price'] as num?)?.toDouble() ?? double.tryParse(item['distributor_price']?.toString() ?? '0') ?? 0.0;
+    final storePrice = (item['store_price'] as num?)?.toDouble() ?? double.tryParse(item['store_price']?.toString() ?? '0') ?? 0.0;
+    final qty = (item['qty'] as num?)?.toInt() ?? int.tryParse(item['qty']?.toString() ?? '0') ?? 0;
+    final valRp = (item['value_rp'] as num?)?.toDouble() ?? (qty * storePrice);
+    final payType = (item['payment_type']?.toString() ?? 'Bayar di Booth').trim();
+    final isBooth = !payType.toLowerCase().contains('kasir');
+
+    final String? rawStruk = item['struk_photo_url']?.toString() ?? item['photo_struk_url']?.toString();
+    final String? strukUrl = (rawStruk != null && rawStruk.trim().isNotEmpty) ? _resolveMediaUrl(rawStruk) : null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF0284C7).withOpacity(0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0284C7).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '#$index',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      pName,
+                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor),
+                    ),
+                    if (pSku != '-' && pSku.isNotEmpty)
+                      Text(
+                        'SKU: $pSku',
+                        style: TextStyle(fontSize: 11, color: subtitleColor),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: (isBooth ? const Color(0xFF10B981) : const Color(0xFF6366F1)).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  payType,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: isBooth ? const Color(0xFF10B981) : const Color(0xFF6366F1),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Price and Qty breakdown
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: elevatedColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Harga Distributor (Master):', style: TextStyle(fontSize: 11.5, color: subtitleColor)),
+                    Text(currencyFmt.format(distPrice), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Harga Toko x Qty:', style: TextStyle(fontSize: 11.5, color: subtitleColor)),
+                    Text('${currencyFmt.format(storePrice)} x $qty dus', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: textColor)),
+                  ],
+                ),
+                const Divider(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Subtotal Nilai Penjualan:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text(currencyFmt.format(valRp), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          if (strukUrl != null && strukUrl.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            InkWell(
+              onTap: () => _showImageDialog(context, strukUrl, 'Foto Struk: $pName'),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Image.network(
+                        strukUrl,
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 44,
+                          height: 44,
+                          color: Colors.grey.shade300,
+                          child: const Icon(Icons.receipt_rounded, size: 20, color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Foto Struk Penjualan',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                          ),
+                          Text(
+                            'Sentuh untuk memperbesar foto struk',
+                            style: TextStyle(fontSize: 10.5, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.zoom_in_rounded, size: 18, color: Color(0xFF10B981)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _resolveMediaUrl(String? path) {
+    if (path == null || path.trim().isEmpty) return '';
+    final str = path.trim();
+    if (str.startsWith('http://') || str.startsWith('https://')) return str;
+    return '${Constants.baseUrl.replaceAll('/api', '')}/storage/${str.replaceFirst('storage/', '').replaceFirst(RegExp(r'^/+'), '')}';
   }
 
   // ─── HELPER WIDGETS DETAIL LAPORAN DATA PELANGGAN ───

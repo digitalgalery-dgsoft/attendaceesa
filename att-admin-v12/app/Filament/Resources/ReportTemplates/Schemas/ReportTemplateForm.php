@@ -77,7 +77,15 @@ class ReportTemplateForm
                             ->multiple()
                             ->searchable()
                             ->columnSpanFull(),
-                        Grid::make(4)->schema([
+                        Grid::make(5)->schema([
+                            Select::make('report_group')
+                                ->label('Kelompok Menu Laporan')
+                                ->options([
+                                    'regular' => 'Laporan Regular',
+                                    'event_mbr' => 'Laporan Event MBR',
+                                ])
+                                ->default('regular')
+                                ->required(),
                             Select::make('category')
                                 ->label('Kategori Pelaporan')
                                 ->options([

@@ -28,7 +28,29 @@ class ReportTemplate extends Model
         'monthly_due_day' => 'integer',
         'monthly_start_day' => 'integer',
         'monthly_end_day' => 'integer',
+        'report_group' => 'string',
     ];
+
+    public function scopeRegular($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('report_group', 'regular')
+              ->orWhereNull('report_group');
+        });
+    }
+
+    public function scopeEventMbr($query)
+    {
+        return $query->where('report_group', 'event_mbr');
+    }
+
+    public function getReportGroupLabelAttribute(): string
+    {
+        return match ($this->report_group) {
+            'event_mbr' => 'Laporan Event MBR',
+            default => 'Laporan Regular',
+        };
+    }
 
     /**
      * Hitung total target pengisian laporan dalam rentang periode cut-off tertentu.

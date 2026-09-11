@@ -1340,6 +1340,10 @@
             'catatan_stok' => '-',
         ];
 
+        // Cek apakah submission ini memiliki list item Penjualan Event MBR multi-produk
+        $hasDynamicMbrSalesItems = false;
+        $mbrSalesItemsList = [];
+
         foreach ($submission->values as $v) {
             $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
             if ($fn === 'offtake_items_json') {
@@ -1347,6 +1351,12 @@
                 if (is_array($raw) && !empty($raw)) {
                     $hasDynamicOfftakeItems = true;
                     $offtakeItemsList = $raw;
+                }
+            } elseif ($fn === 'mbr_sales_items_json') {
+                $rawMbr = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
+                if (is_array($rawMbr) && !empty($rawMbr)) {
+                    $hasDynamicMbrSalesItems = true;
+                    $mbrSalesItemsList = $rawMbr;
                 }
             } elseif ($fn === 'oos_items_json') {
                 $rawOos = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
@@ -1831,7 +1841,7 @@
             $fl = strtolower(trim((string)($val->formField?->field_label ?? '')));
             $flClean = str_replace([' ', '-', '/'], '_', $fl);
 
-            if ($fn === 'oos_items_json' || $fn === 'offtake_items_json' || $fn === 'stock_items_json' || $fn === 'status_ketersediaan_tinter' || $fn === 'status_ketersediaan_tinter_di_toko' || $flClean === 'status_ketersediaan_tinter_di_toko' || $flClean === 'status_ketersediaan_tinter') {
+            if ($fn === 'mbr_sales_items_json' || $fn === 'oos_items_json' || $fn === 'offtake_items_json' || $fn === 'stock_items_json' || $fn === 'status_ketersediaan_tinter' || $fn === 'status_ketersediaan_tinter_di_toko' || $flClean === 'status_ketersediaan_tinter_di_toko' || $flClean === 'status_ketersediaan_tinter') {
                 return false;
             }
 
@@ -2602,6 +2612,85 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    @if($textValues->isNotEmpty())
+                        <div style="border-top: 1px solid var(--border-color); padding: 0.75rem 1.25rem 0.25rem 1.25rem;">
+                            <span style="font-size: 0.78rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Parameter Tambahan</span>
+                        </div>
+                    @endif
+                @elseif($hasDynamicMbrSalesItems)
+                    <div class="panel-header" style="border-bottom: 2px solid #fee2e2;">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-cart-shopping" style="color: #dc2626;"></i>
+                            <span>Rincian Produk Penjualan Event MBR</span>
+                        </div>
+                        <span class="panel-count-badge" style="background: #fee2e2; color: #b91c1c; font-weight: 800;">
+                            {{ count($mbrSalesItemsList) }} Produk Terjual
+                        </span>
+                    </div>
+
+                    <div style="padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.85rem;">
+                        @foreach($mbrSalesItemsList as $pIdx => $pItem)
+                            @php
+                                $pName = $pItem['name'] ?? ($pItem['product_name'] ?? ($pItem['deskripsi'] ?? 'Produk Wings'));
+                                $pSku = $pItem['sku_code'] ?? ($pItem['sku'] ?? '-');
+                                $pDist = (float)($pItem['distributor_price'] ?? ($pItem['harga_distributor'] ?? ($pItem['harga_jual_distributor'] ?? 0)));
+                                $pStore = (float)($pItem['store_price'] ?? ($pItem['harga_toko'] ?? 0));
+                                $pQty = (int)($pItem['qty'] ?? 0);
+                                $pValue = (float)($pItem['value_rp'] ?? ($pStore * $pQty));
+                                $pPayType = $pItem['payment_type'] ?? ($pItem['jenis_pembayaran'] ?? '-');
+                                $pStrukPhoto = $pItem['struk_photo_path'] ?? ($pItem['foto_struk'] ?? null);
+                            @endphp
+                            <div class="product-breakdown-card" style="border-left: 4px solid #dc2626; background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; border-left-width: 4px; padding: 0.85rem 1rem;">
+                                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.65rem;">
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span style="font-size: 0.75rem; font-weight: 800; background: #dc2626; color: #fff; padding: 2px 7px; border-radius: 6px;">#{{ $pIdx + 1 }}</span>
+                                        <strong style="font-size: 0.95rem; color: var(--text-heading); font-weight: 800;">{{ $pName }}</strong>
+                                        @if(!empty($pSku) && $pSku !== '-')
+                                            <span style="font-size: 0.74rem; font-weight: 700; color: #475569; background: #f1f5f9; padding: 2px 7px; border-radius: 5px; border: 1px solid #e2e8f0;">
+                                                {{ $pSku }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <div>
+                                        <span style="font-size: 0.85rem; font-weight: 800; color: #15803d; background: #dcfce7; padding: 3px 10px; border-radius: 6px; border: 1px solid #bbf7d0;">
+                                            Subtotal: Rp {{ number_format($pValue, 0, ',', '.') }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.6rem; font-size: 0.82rem; background: #f8fafc; padding: 0.65rem; border-radius: 8px; border: 1px solid #f1f5f9;">
+                                    <div>
+                                        <span style="color: #64748b; font-size: 0.75rem; display: block;">Harga Distributor</span>
+                                        <strong style="color: #0284c7;">{{ $pDist > 0 ? 'Rp ' . number_format($pDist, 0, ',', '.') : '-' }}</strong>
+                                    </div>
+                                    <div>
+                                        <span style="color: #64748b; font-size: 0.75rem; display: block;">Harga Toko</span>
+                                        <strong style="color: #1e293b;">Rp {{ number_format($pStore, 0, ',', '.') }}</strong>
+                                    </div>
+                                    <div>
+                                        <span style="color: #64748b; font-size: 0.75rem; display: block;">Kuantiti Terjual</span>
+                                        <strong style="color: #d97706;">{{ number_format($pQty) }} Pcs</strong>
+                                    </div>
+                                    <div>
+                                        <span style="color: #64748b; font-size: 0.75rem; display: block;">Jenis Pembayaran</span>
+                                        <span class="badge {{ str_contains(strtolower($pPayType), 'booth') ? 'bg-primary-subtle text-primary' : 'bg-warning-subtle text-dark' }} border" style="font-size: 0.75rem;">
+                                            {{ $pPayType }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                @if(!empty($pStrukPhoto))
+                                    <div style="margin-top: 0.65rem; display: flex; align-items: center; gap: 8px; background: #fff5f5; padding: 6px 10px; border-radius: 6px; border: 1px solid #fed7d7;">
+                                        <span style="font-size: 0.75rem; font-weight: 700; color: #dc2626;"><i class="fa-solid fa-receipt me-1"></i> Foto Struk Produk:</span>
+                                        <a href="{{ Storage::url($pStrukPhoto) }}" target="_blank" style="font-size: 0.78rem; color: #dc2626; font-weight: 800; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Lihat Bukti Struk Transaksi
+                                        </a>
+                                    </div>
+                                @endif
                             </div>
                         @endforeach
                     </div>

@@ -933,45 +933,81 @@
             </a>
 
             @if(isset($activeTemplates) && $activeTemplates->isNotEmpty())
-                @foreach($activeTemplates as $tpl)
-                    @php
-                        $iconClass = 'fa-solid fa-file-lines';
-                        $tStr = strtolower(($tpl->title ?? '') . ' ' . ($tpl->code ?? '') . ' ' . ($tpl->category ?? ''));
-                        if (str_contains($tStr, 'offtake') || str_contains($tStr, 'jual') || str_contains($tStr, 'sell')) {
+                @php
+                    $regularTemplates = $activeTemplates->filter(function($t) {
+                        return ($t->report_group ?? 'regular') !== 'event_mbr';
+                    });
+                    $mbrTemplates = $activeTemplates->filter(function($t) {
+                        return ($t->report_group ?? '') === 'event_mbr';
+                    });
+                @endphp
+
+                <!-- 5A. Laporan Regular -->
+                @if($regularTemplates->isNotEmpty())
+                    <div class="menu-category-label d-flex align-items-center justify-content-between" style="margin-top: 10px;">
+                        <span><i class="fa-solid fa-clipboard-list me-1 opacity-75"></i> Laporan Regular</span>
+                        <span class="badge rounded-pill bg-light text-secondary border px-2 py-0" style="font-size: 0.65rem;">{{ $regularTemplates->count() }}</span>
+                    </div>
+                    @foreach($regularTemplates as $tpl)
+                        @php
+                            $iconClass = 'fa-solid fa-file-lines';
+                            $tStr = strtolower(($tpl->title ?? '') . ' ' . ($tpl->code ?? '') . ' ' . ($tpl->category ?? ''));
+                            if (str_contains($tStr, 'offtake') || str_contains($tStr, 'jual') || str_contains($tStr, 'sell')) {
+                                $iconClass = 'fa-solid fa-cart-shopping';
+                            } elseif (str_contains($tStr, 'stock-end') || str_contains($tStr, 'stok end') || str_contains($tStr, 'stock end')) {
+                                $iconClass = 'fa-solid fa-boxes-stacked';
+                            } elseif (str_contains($tStr, 'oos') || str_contains($tStr, 'out of stock') || str_contains($tStr, 'barang kosong')) {
+                                $iconClass = 'fa-solid fa-triangle-exclamation';
+                            } elseif (str_contains($tStr, 'cbp') || str_contains($tStr, 'pricing') || str_contains($tStr, 'harga') || str_contains($tStr, 'price')) {
+                                $iconClass = 'fa-solid fa-tags';
+                            } elseif (str_contains($tStr, 'maintenance') || str_contains($tStr, 'maintance') || str_contains($tStr, 'perawatan')) {
+                                $iconClass = 'fa-solid fa-screwdriver-wrench';
+                            } elseif (str_contains($tStr, 'pelanggan') || str_contains($tStr, 'konsumen') || str_contains($tStr, 'database-pelanggan')) {
+                                $iconClass = 'fa-solid fa-address-book';
+                            } elseif (str_contains($tStr, 'market') || str_contains($tStr, 'kompetitor')) {
+                                $iconClass = 'fa-solid fa-chart-pie';
+                            } elseif (str_contains($tStr, 'display') || str_contains($tStr, 'sewa') || str_contains($tStr, 'sos')) {
+                                $iconClass = 'fa-solid fa-store';
+                            } elseif (str_contains($tStr, 'promo')) {
+                                $iconClass = 'fa-solid fa-tag';
+                            } elseif (str_contains($tStr, 'expired') || str_contains($tStr, 'fefo')) {
+                                $iconClass = 'fa-solid fa-clock-rotate-left';
+                            } elseif (str_contains($tStr, 'posm') || str_contains($tStr, 'stiker')) {
+                                $iconClass = 'fa-solid fa-bullhorn';
+                            } elseif (str_contains($tStr, 'trafik')) {
+                                $iconClass = 'fa-solid fa-users-viewfinder';
+                            } elseif (str_contains($tStr, 'mitra')) {
+                                $iconClass = 'fa-solid fa-handshake';
+                            }
+                            $isCurrent = request()->routeIs('portal.report.detail') && request()->route('code') === $tpl->code;
+                        @endphp
+                        <a href="{{ route('portal.report.detail', ['code' => $tpl->code, 'p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ $isCurrent ? 'active' : '' }}" data-title="{{ $tpl->title }}">
+                            <i class="{{ $iconClass }} nav-icon"></i>
+                            <span class="nav-text">{{ $tpl->title }}</span>
+                            <span class="nav-badge-count">{{ $tpl->fields->count() }}f</span>
+                        </a>
+                    @endforeach
+                @endif
+
+                <!-- 5B. Laporan Event MBR -->
+                @if($mbrTemplates->isNotEmpty())
+                    <div class="menu-category-label d-flex align-items-center justify-content-between" style="margin-top: 14px; color: #dc2626;">
+                        <span><i class="fa-solid fa-fire me-1 text-danger"></i> Laporan Event MBR</span>
+                        <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2 py-0" style="font-size: 0.65rem;">{{ $mbrTemplates->count() }}</span>
+                    </div>
+                    @foreach($mbrTemplates as $tpl)
+                        @php
                             $iconClass = 'fa-solid fa-cart-shopping';
-                        } elseif (str_contains($tStr, 'stock-end') || str_contains($tStr, 'stok end') || str_contains($tStr, 'stock end')) {
-                            $iconClass = 'fa-solid fa-boxes-stacked';
-                        } elseif (str_contains($tStr, 'oos') || str_contains($tStr, 'out of stock') || str_contains($tStr, 'barang kosong')) {
-                            $iconClass = 'fa-solid fa-triangle-exclamation';
-                        } elseif (str_contains($tStr, 'cbp') || str_contains($tStr, 'pricing') || str_contains($tStr, 'harga') || str_contains($tStr, 'price')) {
-                            $iconClass = 'fa-solid fa-tags';
-                        } elseif (str_contains($tStr, 'maintenance') || str_contains($tStr, 'maintance') || str_contains($tStr, 'perawatan')) {
-                            $iconClass = 'fa-solid fa-screwdriver-wrench';
-                        } elseif (str_contains($tStr, 'pelanggan') || str_contains($tStr, 'konsumen') || str_contains($tStr, 'database-pelanggan')) {
-                            $iconClass = 'fa-solid fa-address-book';
-                        } elseif (str_contains($tStr, 'market') || str_contains($tStr, 'kompetitor')) {
-                            $iconClass = 'fa-solid fa-chart-pie';
-                        } elseif (str_contains($tStr, 'display') || str_contains($tStr, 'sewa') || str_contains($tStr, 'sos')) {
-                            $iconClass = 'fa-solid fa-store';
-                        } elseif (str_contains($tStr, 'promo')) {
-                            $iconClass = 'fa-solid fa-tag';
-                        } elseif (str_contains($tStr, 'expired') || str_contains($tStr, 'fefo')) {
-                            $iconClass = 'fa-solid fa-clock-rotate-left';
-                        } elseif (str_contains($tStr, 'posm') || str_contains($tStr, 'stiker')) {
-                            $iconClass = 'fa-solid fa-bullhorn';
-                        } elseif (str_contains($tStr, 'trafik')) {
-                            $iconClass = 'fa-solid fa-users-viewfinder';
-                        } elseif (str_contains($tStr, 'mitra')) {
-                            $iconClass = 'fa-solid fa-handshake';
-                        }
-                        $isCurrent = request()->routeIs('portal.report.detail') && request()->route('code') === $tpl->code;
-                    @endphp
-                    <a href="{{ route('portal.report.detail', ['code' => $tpl->code, 'p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ $isCurrent ? 'active' : '' }}" data-title="{{ $tpl->title }}">
-                        <i class="{{ $iconClass }} nav-icon"></i>
-                        <span class="nav-text">{{ $tpl->title }}</span>
-                        <span class="nav-badge-count">{{ $tpl->fields->count() }}f</span>
-                    </a>
-                @endforeach
+                            $tStr = strtolower(($tpl->title ?? '') . ' ' . ($tpl->code ?? '') . ' ' . ($tpl->category ?? ''));
+                            $isCurrent = request()->routeIs('portal.report.detail') && request()->route('code') === $tpl->code;
+                        @endphp
+                        <a href="{{ route('portal.report.detail', ['code' => $tpl->code, 'p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ $isCurrent ? 'active' : '' }}" data-title="{{ $tpl->title }}">
+                            <i class="{{ $iconClass }} nav-icon text-danger"></i>
+                            <span class="nav-text font-medium">{{ $tpl->title }}</span>
+                            <span class="nav-badge-count" style="background: rgba(229,57,53,0.12); color: #e53935;">{{ $tpl->fields->count() }}f</span>
+                        </a>
+                    @endforeach
+                @endif
             @endif
 
             <!-- 6. Reports & Analytics (Role Permission Based) -->

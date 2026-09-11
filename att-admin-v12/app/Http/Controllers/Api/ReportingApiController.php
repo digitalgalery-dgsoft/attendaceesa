@@ -1420,7 +1420,185 @@ class ReportingApiController extends Controller
                 ]);
             }
 
-            // STANDAR / SINGLE SUBMISSION (Untuk template selain Offtake/OOS/Stock multi-produk)
+            // Cek apakah ini template Wings MBR Sales dengan cart multi-produk
+            $mbrSalesItems = [];
+            if (isset($valuesInput['mbr_sales_items_json'])) {
+                $rawMbrItems = $valuesInput['mbr_sales_items_json'];
+                if (is_string($rawMbrItems)) {
+                    $rawMbrItems = json_decode($rawMbrItems, true) ?? [];
+                }
+                if (is_array($rawMbrItems)) {
+                    $mbrSalesItems = $rawMbrItems;
+                }
+            }
+            if (empty($mbrSalesItems) && isset($normalizedValues['mbr_sales_items_json'])) {
+                $rawMbrItems = $normalizedValues['mbr_sales_items_json'];
+                if (is_string($rawMbrItems)) {
+                    $rawMbrItems = json_decode($rawMbrItems, true) ?? [];
+                }
+                if (is_array($rawMbrItems)) {
+                    $mbrSalesItems = $rawMbrItems;
+                }
+            }
+
+            $isWingsMbrSalesTemplate = ($template->code === 'RPT-WINGS-MBR-SALES-01' || Str::contains($template->code, 'MBR-SALES') || (stripos($template->title, 'mbr') !== false && stripos($template->title, 'penjualan') !== false));
+            $isMbrSalesWithItems = $isWingsMbrSalesTemplate && !empty($mbrSalesItems);
+
+            // JIKA WINGS MBR SALES DENGAN MULTI-PRODUK CART: BUAT 1 BARIS REPORT SUBMISSION
+            if ($isMbrSalesWithItems) {
+                // Simpan seluruh file media/foto (termasuk foto_sell_out_toko)
+                $allSavedMedia = [];
+                foreach ($template->fields as $field) {
+                    if (in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature', 'image'])) {
+                        $savedPhotos = $this->saveUploadedPhotos($request, 0, (string)$field->id, $field->field_name);
+                        if (!empty($savedPhotos)) {
+                            $allSavedMedia[$field->id] = $savedPhotos;
+                            $allSavedMedia[$field->field_name] = $savedPhotos;
+                        }
+                    }
+                }
+
+                // Simpan foto struk per item produk jika di-upload
+                foreach ($mbrSalesItems as $idx => &$mItem) {
+                    $strukKey = "struk_photo_{$idx}";
+                    $altStrukKey = "photo_struk_{$idx}";
+                    $uploadedStruk = null;
+                    if ($request->hasFile($strukKey)) {
+                        $uploadedStruk = $request->file($strukKey);
+                    } elseif ($request->hasFile($altStrukKey)) {
+                        $uploadedStruk = $request->file($altStrukKey);
+                    }
+                    if ($uploadedStruk && $uploadedStruk->isValid()) {
+                        $filename = "struk_mbr_{$idx}_" . time() . '_' . uniqid() . '.' . $uploadedStruk->getClientOriginalExtension();
+                        $path = $uploadedStruk->storeAs("reports/" . now()->format('Y-m'), $filename, 'public');
+                        if ($path) {
+                            $mItem['struk_photo_url'] = $path;
+                        }
+                    }
+                }
+                unset($mItem);
+
+                // Buat ReportSubmission tunggal
+                $sub = ReportSubmission::create([
+                    'report_template_id' => $template->id,
+                    'principal_id' => $principalId,
+                    'employee_id' => $employee->id,
+                    'work_location_id' => $workLocationId,
+                    'itinerary_item_id' => $itineraryItemId,
+                    'submission_code' => $submissionCode,
+                    'store_name' => $storeName,
+                    'address' => $address,
+                    'latitude' => $request->latitude,
+                    'longitude' => $request->longitude,
+                    'is_within_radius' => $isWithinRadius,
+                    'status' => 'pending',
+                    'submitted_at' => now(),
+                ]);
+
+                // Hitung total akumulatif
+                $totalQty = 0;
+                $totalValueRp = 0;
+                $totalBoothRp = 0;
+                $totalKasirRp = 0;
+
+                foreach ($mbrSalesItems as $item) {
+                    $q = intval($item['qty'] ?? 0);
+                    $val = floatval($item['value_rp'] ?? ($q * floatval($item['store_price'] ?? 0)));
+                    $payType = strtolower($item['payment_type'] ?? 'booth');
+
+                    $totalQty += $q;
+                    $totalValueRp += $val;
+                    if (str_contains($payType, 'kasir')) {
+                        $totalKasirRp += $val;
+                    } else {
+                        $totalBoothRp += $val;
+                    }
+                }
+
+                foreach ($template->fields as $field) {
+                    $fn = strtolower(trim($field->field_name));
+                    $vText = null;
+                    $vNum = null;
+                    $vJson = null;
+                    $photoPath = null;
+
+                    if ($fn === 'mbr_sales_items_json') {
+                        $vJson = $mbrSalesItems;
+                        $vText = json_encode($mbrSalesItems, JSON_UNESCAPED_UNICODE);
+                        $vNum = count($mbrSalesItems);
+                    } elseif ($fn === 'total_qty_penjualan') {
+                        $vNum = $totalQty;
+                        $vText = (string) $totalQty;
+                    } elseif ($fn === 'total_value_penjualan_rp') {
+                        $vNum = $totalValueRp;
+                        $vText = 'Rp ' . number_format($totalValueRp, 0, ',', '.');
+                    } elseif ($fn === 'total_bayar_di_booth_rp') {
+                        $vNum = $totalBoothRp;
+                        $vText = 'Rp ' . number_format($totalBoothRp, 0, ',', '.');
+                    } elseif ($fn === 'total_bayar_di_kasir_rp') {
+                        $vNum = $totalKasirRp;
+                        $vText = 'Rp ' . number_format($totalKasirRp, 0, ',', '.');
+                    } elseif (in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature', 'image'])) {
+                        $saved = $allSavedMedia[$field->id] ?? $allSavedMedia[$field->field_name] ?? [];
+                        if (!empty($saved)) {
+                            $photoPath = $saved[0];
+                            $vJson = $saved;
+                            $vText = $saved[0];
+                        }
+                    } else {
+                        $fKey = (string)$field->id;
+                        $raw = $normalizedValues[$fKey] ?? $normalizedValues[$fn] ?? null;
+                        if ($raw !== null) {
+                            $vText = is_string($raw) ? $raw : json_encode($raw);
+                            if (is_numeric($raw)) $vNum = (float)$raw;
+                        }
+                    }
+
+                    ReportSubmissionValue::create([
+                        'report_submission_id' => $sub->id,
+                        'report_form_field_id' => $field->id,
+                        'field_name' => $field->field_name,
+                        'field_type' => $field->field_type,
+                        'value_text' => $vText,
+                        'value_number' => $vNum,
+                        'value_json' => $vJson,
+                        'media_url' => $photoPath,
+                    ]);
+                }
+
+                // Pastikan mbr_sales_items_json tersimpan
+                $hasMbrJson = ReportSubmissionValue::where('report_submission_id', $sub->id)
+                    ->where('field_name', 'mbr_sales_items_json')
+                    ->exists();
+                if (!$hasMbrJson) {
+                    ReportSubmissionValue::create([
+                        'report_submission_id' => $sub->id,
+                        'report_form_field_id' => null,
+                        'field_name' => 'mbr_sales_items_json',
+                        'field_type' => 'json',
+                        'value_text' => json_encode($mbrSalesItems, JSON_UNESCAPED_UNICODE),
+                        'value_number' => count($mbrSalesItems),
+                        'value_json' => $mbrSalesItems,
+                        'media_url' => null,
+                    ]);
+                }
+
+                DB::commit();
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Laporan Penjualan Event MBR (' . count($mbrSalesItems) . ' produk) berhasil dikirim.',
+                    'data' => [
+                        'id' => $sub->id,
+                        'submission_code' => $sub->submission_code,
+                        'template_title' => $template->title,
+                        'submitted_at' => $sub->submitted_at->toDateTimeString(),
+                        'status' => $sub->status,
+                    ],
+                ]);
+            }
+
+            // STANDAR / SINGLE SUBMISSION (Untuk template selain Offtake/OOS/Stock/MBR multi-produk)
             $submission = ReportSubmission::create([
                 'report_template_id' => $template->id,
                 'principal_id' => $principalId,

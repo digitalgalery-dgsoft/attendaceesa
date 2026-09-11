@@ -72,6 +72,18 @@ class ReportTemplatesTable
                               ->orWhere('code', 'like', "%{$search}%");
                         });
                     }),
+                TextColumn::make('report_group')
+                    ->label('Kelompok')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'event_mbr' => 'warning',
+                        default => 'info',
+                    })
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'event_mbr' => 'Event MBR',
+                        default => 'Regular',
+                    })
+                    ->sortable(),
                 TextColumn::make('category')
                     ->label('Kategori')
                     ->badge()
