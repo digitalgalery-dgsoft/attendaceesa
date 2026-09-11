@@ -41,7 +41,19 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+            'url' => (function() {
+                if (function_exists('request') && request() && request()->getHost()) {
+                    $h = request()->getHost();
+                    if ($h && !in_array($h, ['localhost', '127.0.0.1'])) {
+                        return request()->getSchemeAndHttpHost() . '/storage';
+                    }
+                }
+                $appUrl = env('APP_URL', 'http://localhost');
+                if (str_contains($appUrl, 'esa-solution.id')) {
+                    $appUrl = str_replace('esa-solution.id', 'esa-solutions.id', $appUrl);
+                }
+                return rtrim($appUrl, '/') . '/storage';
+            })(),
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

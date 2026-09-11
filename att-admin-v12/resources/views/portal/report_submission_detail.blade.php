@@ -2795,8 +2795,14 @@
 
                                 @if(!empty($pStrukPhoto))
                                     @php
-                                        $strukPhotoUrl = Str::startsWith($pStrukPhoto, ['http://', 'https://']) ? $pStrukPhoto : Storage::url($pStrukPhoto);
-                                        $strukModalTitle = 'Bukti Struk Transaksi: ' . ($p['product_name'] ?? 'Produk MBR');
+                                        $cleanStruk = trim($pStrukPhoto);
+                                        if (Str::startsWith($cleanStruk, ['http://', 'https://'])) {
+                                            $strukPhotoUrl = str_replace('esa-solution.id', 'esa-solutions.id', $cleanStruk);
+                                        } else {
+                                            $cleanPath = ltrim(str_replace(['/storage/', 'storage/'], '', $cleanStruk), '/');
+                                            $strukPhotoUrl = asset('storage/' . $cleanPath);
+                                        }
+                                        $strukModalTitle = 'Bukti Struk Transaksi: ' . $pName;
                                     @endphp
                                     <div style="margin-top: 0.65rem; display: flex; align-items: center; justify-content: space-between; background: #fff5f5; padding: 6px 12px; border-radius: 8px; border: 1px solid #fed7d7;">
                                         <div style="display: flex; align-items: center; gap: 10px;">

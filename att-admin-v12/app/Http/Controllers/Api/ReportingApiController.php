@@ -1570,10 +1570,11 @@ class ReportingApiController extends Controller
                         $filename = "struk_mbr_{$idx}_" . time() . '_' . uniqid() . '.' . $uploadedStruk->getClientOriginalExtension();
                         $path = $uploadedStruk->storeAs("reports/" . now()->format('Y-m'), $filename, 'public');
                         if ($path) {
-                            $mItem['struk_photo_url'] = $path;
-                            $mItem['photo_struk_url'] = $path;
+                            $fullUrl = asset('storage/' . $path);
+                            $mItem['struk_photo_url'] = $fullUrl;
+                            $mItem['photo_struk_url'] = $fullUrl;
                             $mItem['struk_photo_path'] = $path;
-                            $mItem['foto_struk'] = $path;
+                            $mItem['foto_struk'] = $fullUrl;
                         }
                     }
                 }
@@ -2082,24 +2083,7 @@ class ReportingApiController extends Controller
             $isApproved = in_array(strtolower($s->status ?? ''), ['approved', 'verified']);
             $canEdit = !$isApproved;
 
-            $valuesFormatted = $s->values->map(function ($v) {
-                $mediaFullUrls = $this->formatMediaFullUrls($v);
-                $mediaFullUrl = $mediaFullUrls[0] ?? null;
-
-                return [
-                    'id' => $v->id,
-                    'report_form_field_id' => $v->report_form_field_id,
-                    'field_name' => $v->field_name,
-                    'field_label' => $v->formField?->field_label ?? Str::title(str_replace('_', ' ', $v->field_name)),
-                    'field_type' => $v->field_type,
-                    'value_text' => $v->value_text,
-                    'value_number' => $v->value_number !== null ? (float) $v->value_number : null,
-                    'value_json' => $v->value_json,
-                    'media_url' => $v->media_url,
-                    'media_full_url' => $mediaFullUrl,
-                    'media_full_urls' => $mediaFullUrls,
-                ];
-            });
+            $valuesFormatted = $this->formatSubmissionValues($s->values);
 
             return [
                 'id' => $s->id,
@@ -2192,24 +2176,7 @@ class ReportingApiController extends Controller
         $isApproved = in_array(strtolower($submission->status ?? ''), ['approved', 'verified']);
         $canEdit = !$isApproved;
 
-        $valuesFormatted = $submission->values->map(function ($v) {
-            $mediaFullUrls = $this->formatMediaFullUrls($v);
-            $mediaFullUrl = $mediaFullUrls[0] ?? null;
-
-            return [
-                'id' => $v->id,
-                'report_form_field_id' => $v->report_form_field_id,
-                'field_name' => $v->field_name,
-                'field_label' => $v->formField?->field_label ?? Str::title(str_replace('_', ' ', $v->field_name)),
-                'field_type' => $v->field_type,
-                'value_text' => $v->value_text,
-                'value_number' => $v->value_number !== null ? (float) $v->value_number : null,
-                'value_json' => $v->value_json,
-                'media_url' => $v->media_url,
-                'media_full_url' => $mediaFullUrl,
-                'media_full_urls' => $mediaFullUrls,
-            ];
-        });
+        $valuesFormatted = $this->formatSubmissionValues($submission->values);
 
         return response()->json([
             'status' => 'success',
@@ -2582,6 +2549,57 @@ class ReportingApiController extends Controller
     }
 
     /**
+     * Format submission values ensuring photos and nested JSON media (e.g. MBR struk)
+     * are properly converted to absolute accessible URLs.
+     */
+    private function formatSubmissionValues($values)
+    {
+        return $values->map(function ($v) {
+            $mediaFullUrls = $this->formatMediaFullUrls($v);
+            $mediaFullUrl = $mediaFullUrls[0] ?? null;
+
+            $valJson = $v->value_json;
+            if (is_string($valJson)) {
+                $valJson = json_decode($valJson, true);
+            }
+
+            // Normalisasi URL foto struk pada item penjualan MBR agar selalu berformat absolute URL
+            if ($v->field_name === 'mbr_sales_items_json' && is_array($valJson)) {
+                foreach ($valJson as &$mItem) {
+                    if (is_array($mItem)) {
+                        foreach (['struk_photo_url', 'photo_struk_url', 'struk_photo_path', 'foto_struk', 'struk_photo'] as $k) {
+                            if (!empty($mItem[$k]) && is_string($mItem[$k])) {
+                                $rawP = trim($mItem[$k]);
+                                if (str_starts_with($rawP, 'http://') || str_starts_with($rawP, 'https://')) {
+                                    $mItem[$k] = str_replace('esa-solution.id', 'esa-solutions.id', $rawP);
+                                } else {
+                                    $cleanP = ltrim(str_replace(['/storage/', 'storage/'], '', $rawP), '/');
+                                    $mItem[$k] = asset('storage/' . $cleanP);
+                                }
+                            }
+                        }
+                    }
+                }
+                unset($mItem);
+            }
+
+            return [
+                'id' => $v->id,
+                'report_form_field_id' => $v->report_form_field_id,
+                'field_name' => $v->field_name,
+                'field_label' => $v->formField?->field_label ?? Str::title(str_replace('_', ' ', $v->field_name)),
+                'field_type' => $v->field_type,
+                'value_text' => $v->value_text,
+                'value_number' => $v->value_number !== null ? (float) $v->value_number : null,
+                'value_json' => $valJson,
+                'media_url' => $v->media_url,
+                'media_full_url' => $mediaFullUrl,
+                'media_full_urls' => $mediaFullUrls,
+            ];
+        });
+    }
+
+    /**
      * Helper to format media full URLs cleanly and prevent duplicate/broken paths.
      */
     private function formatMediaFullUrls($v): array
@@ -2606,6 +2624,7 @@ class ReportingApiController extends Controller
                 continue;
             }
             if (str_starts_with($clean, 'http://') || str_starts_with($clean, 'https://')) {
+                $clean = str_replace('esa-solution.id', 'esa-solutions.id', $clean);
                 $urls[] = str_replace('/storage/storage/', '/storage/', $clean);
             } else {
                 if (str_starts_with($clean, 'storage/')) {
