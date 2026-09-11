@@ -158,8 +158,10 @@ class SmartGatewayRelayService
             }
 
             $hasFiles = $request->hasFile('*') || !empty($request->allFiles());
-            if ($hasFiles) {
-                // WAJIB: Hapus Content-Type agar Guzzle men-generate boundary multipart-nya sendiri secara valid
+            // WAJIB: Hapus Content-Type jika BUKAN JSON (misal multipart/form-data atau urlencoded)
+            // agar Guzzle men-generate boundary multipart sendiri jika ada file attachment,
+            // atau menggunakan application/x-www-form-urlencoded murni jika tanpa file.
+            if (!$request->isJson()) {
                 foreach (array_keys($headers) as $k) {
                     if (strtolower($k) === 'content-type') {
                         unset($headers[$k]);

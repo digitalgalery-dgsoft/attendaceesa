@@ -1655,3 +1655,17 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Multi-Server Deployment**:
       - Seluruh perubahan backend terdistribusi dan aktif pada Server 1 (AMK), Server 2 (AKP), dan Server 3 (ATK) via webhook production.
 
+27. **Resolusi Error Check-Out Gateway Relay ("The latitude field is required Line: 423") (11 September 2026)**:
+    - **Identifikasi Masalah**:
+      - Saat pengguna melakukan Check-Out atau Visit-Out tanpa lampiran foto, aplikasi mobile Flutter sebelumnya mengirim `http.MultipartRequest` tanpa berkas lampiran (empty files multipart).
+      - Pada `SmartGatewayRelayService::relayRequest`, pengecekan `$hasFiles` bernilai `false`, sehingga header `Content-Type: multipart/form-data; boundary=...` tidak dihapus dari array `$headers`.
+      - Akibatnya, Guzzle mem-forward data `$request->all()` sebagai URL-encoded form parameters namun tetap mempertahankan header `Content-Type: multipart/form-data; boundary=...` yang tidak cocok dengan body.
+      - Server target (AMK/AKP/ATK) tidak dapat mem-parsing payload yang tidak sesuai boundary, sehingga `$_POST` kosong dan validasi `$request->validate()` gagal dengan pesan: *"The latitude field is required. (and 2 more errors)"*.
+      - `AttendanceController@store` sebelumnya menangkap `ValidationException` sebagai generic `\Exception` dan merespons HTTP 500 dengan pesan *"Failed to record attendance: ... Line: 423"*.
+    - **Penyelesaian Backend (`SmartGatewayRelayService.php` & `AttendanceController.php`)**:
+      - Menghapus header `Content-Type` pada seluruh relayed request non-JSON (`!$request->isJson()`), sehingga Guzzle secara otomatis men-generate header yang valid: `multipart/form-data` dengan boundary baru saat ada file lampiran, atau `application/x-www-form-urlencoded` murni saat tanpa file lampiran.
+      - Menambahkan penanganan khusus `\Illuminate\Validation\ValidationException` pada catch block `AttendanceController@store` agar merespons HTTP 422 dengan pesan validasi yang ramah tanpa nomor baris internal framework.
+    - **Penyempurnaan Aplikasi Mobile (`attendance_provider.dart` & `offline_sync_service.dart`)**:
+      - Mengoptimalkan `submitAttendance` dan antrean offline agar menggunakan standard `http.post` jika tidak ada foto selfie yang dikirimkan (seperti pada Check-Out dan Visit-Out), serta hanya menggunakan `http.MultipartRequest` jika benar-benar ada file foto yang diunggah.
+
+

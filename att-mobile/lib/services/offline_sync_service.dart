@@ -155,21 +155,37 @@ class OfflineSyncService {
           } else {
             // Sinkronisasi Presensi (Check-in, Check-out, Visit In/Out)
             final uri = Uri.parse('${Constants.baseUrl}/attendance');
-            var request = http.MultipartRequest('POST', uri);
-            request.headers['Authorization'] = 'Bearer $token';
-            request.headers['Accept'] = 'application/json';
-
-            fields.forEach((k, v) {
-              request.fields[k] = v.toString();
-            });
-            request.fields['timestamp'] = timestamp;
+            http.Response res;
 
             if (photoPath != null && File(photoPath).existsSync()) {
-              request.files.add(await http.MultipartFile.fromPath('photo', photoPath));
-            }
+              var request = http.MultipartRequest('POST', uri);
+              request.headers['Authorization'] = 'Bearer $token';
+              request.headers['Accept'] = 'application/json';
 
-            final streamedRes = await request.send().timeout(const Duration(seconds: 25));
-            final res = await http.Response.fromStream(streamedRes);
+              fields.forEach((k, v) {
+                request.fields[k] = v.toString();
+              });
+              request.fields['timestamp'] = timestamp;
+              request.files.add(await http.MultipartFile.fromPath('photo', photoPath));
+
+              final streamedRes = await request.send().timeout(const Duration(seconds: 25));
+              res = await http.Response.fromStream(streamedRes);
+            } else {
+              final Map<String, String> postFields = {};
+              fields.forEach((k, v) {
+                postFields[k] = v.toString();
+              });
+              postFields['timestamp'] = timestamp;
+
+              res = await http.post(
+                uri,
+                headers: {
+                  'Authorization': 'Bearer $token',
+                  'Accept': 'application/json',
+                },
+                body: postFields,
+              ).timeout(const Duration(seconds: 25));
+            }
 
             if (res.statusCode == 200 || res.statusCode == 201) {
               isSuccess = true;

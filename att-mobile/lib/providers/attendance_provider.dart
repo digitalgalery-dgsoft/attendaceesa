@@ -407,22 +407,24 @@ class AttendanceProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
 
-      var request = http.MultipartRequest('POST', Uri.parse('${Constants.baseUrl}/attendance'));
-      request.headers['Authorization'] = 'Bearer $token';
-      request.headers['Accept'] = 'application/json';
-
-      request.fields['type'] = type;
-      request.fields['latitude'] = latitude.toString();
-      request.fields['longitude'] = longitude.toString();
-
-      if (visitType != null) request.fields['visit_type'] = visitType;
-      if (note != null) request.fields['note'] = note;
-      if (visitLocationId != null) request.fields['visit_location_id'] = visitLocationId.toString();
-      if (scheduledType != null) request.fields['scheduled_type'] = scheduledType;
-      if (scheduledWorkLocationId != null) request.fields['scheduled_work_location_id'] = scheduledWorkLocationId.toString();
-      if (scheduledMeetingId != null) request.fields['scheduled_meeting_id'] = scheduledMeetingId.toString();
+      http.Response response;
 
       if (imagePath != null) {
+        var request = http.MultipartRequest('POST', Uri.parse('${Constants.baseUrl}/attendance'));
+        request.headers['Authorization'] = 'Bearer $token';
+        request.headers['Accept'] = 'application/json';
+
+        request.fields['type'] = type;
+        request.fields['latitude'] = latitude.toString();
+        request.fields['longitude'] = longitude.toString();
+
+        if (visitType != null) request.fields['visit_type'] = visitType;
+        if (note != null) request.fields['note'] = note;
+        if (visitLocationId != null) request.fields['visit_location_id'] = visitLocationId.toString();
+        if (scheduledType != null) request.fields['scheduled_type'] = scheduledType;
+        if (scheduledWorkLocationId != null) request.fields['scheduled_work_location_id'] = scheduledWorkLocationId.toString();
+        if (scheduledMeetingId != null) request.fields['scheduled_meeting_id'] = scheduledMeetingId.toString();
+
         if (isWeb) {
           final imgResponse = await http.get(Uri.parse(imagePath));
           final bytes = imgResponse.bodyBytes;
@@ -430,10 +432,32 @@ class AttendanceProvider with ChangeNotifier {
         } else {
           request.files.add(await http.MultipartFile.fromPath('photo', imagePath));
         }
+
+        final streamedRes = await request.send().timeout(const Duration(seconds: 15));
+        response = await http.Response.fromStream(streamedRes);
+      } else {
+        final Map<String, String> body = {
+          'type': type,
+          'latitude': latitude.toString(),
+          'longitude': longitude.toString(),
+        };
+        if (visitType != null) body['visit_type'] = visitType;
+        if (note != null) body['note'] = note;
+        if (visitLocationId != null) body['visit_location_id'] = visitLocationId.toString();
+        if (scheduledType != null) body['scheduled_type'] = scheduledType;
+        if (scheduledWorkLocationId != null) body['scheduled_work_location_id'] = scheduledWorkLocationId.toString();
+        if (scheduledMeetingId != null) body['scheduled_meeting_id'] = scheduledMeetingId.toString();
+
+        response = await http.post(
+          Uri.parse('${Constants.baseUrl}/attendance'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+          body: body,
+        ).timeout(const Duration(seconds: 15));
       }
 
-      final streamedRes = await request.send().timeout(const Duration(seconds: 15));
-      final response = await http.Response.fromStream(streamedRes);
       final decodedData = json.decode(response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {

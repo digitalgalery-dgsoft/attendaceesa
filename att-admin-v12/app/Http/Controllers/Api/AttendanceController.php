@@ -692,9 +692,15 @@ class AttendanceController extends Controller
                 return response()->json(['message' => 'Visit Out successful', 'attendance' => $attendance]);
             }
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $e->validator->errors()->first(),
+                'errors'  => $e->validator->errors(),
+            ], 422);
         } catch (\Exception $e) {
             Log::error('Attendance Error: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to record attendance: ' . $e->getMessage() . ' Line: ' . $e->getLine(), 'error' => $e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to record attendance: ' . $e->getMessage(), 'error' => $e->getMessage()], 500);
         }
     }
 
