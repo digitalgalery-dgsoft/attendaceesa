@@ -466,9 +466,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final String time = _parseLocalTime(log['logged_at']);
     final String? rawPhotoUrl = log['photo_url'];
     final String? photoPath = log['photo_path'];
-    final String? photoUrl = (photoPath != null && photoPath.isNotEmpty) 
-        ? Constants.getImageUrl(photoPath) 
-        : rawPhotoUrl;
+    final String? photoUrl = (rawPhotoUrl != null && rawPhotoUrl.trim().isNotEmpty && rawPhotoUrl.startsWith('http')) 
+        ? rawPhotoUrl.trim() 
+        : ((photoPath != null && photoPath.trim().isNotEmpty) ? Constants.getImageUrl(photoPath) : null);
     final String? note = log['note'];
     String locationName = log['location']?['name'] as String? ?? '';
     final companyName = log['location']?['company']?['name'] as String?;

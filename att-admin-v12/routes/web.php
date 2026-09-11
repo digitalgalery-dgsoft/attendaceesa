@@ -41,6 +41,59 @@ Route::match(['get', 'post'], '/check', function () {
     return response()->json(['status' => 'ok', 'app' => 'ESA Attendance']);
 });
 
+Route::get('/storage/{folder}/{filename}', function ($folder, $filename) {
+    if (!in_array($folder, ['attendances', 'reports', 'profiles', 'permits', 'baps', 'exports', 'logos'])) {
+        abort(404);
+    }
+
+    $localDir = storage_path("app/public/{$folder}");
+    $localPath = "{$localDir}/{$filename}";
+
+    if (file_exists($localPath)) {
+        return response()->file($localPath);
+    }
+
+    // Jika tidak ditemukan di server ini (misal request masuk via gateway appsend.my.id),
+    // otomatis ambil dari peer cluster server production
+    $peerHosts = [
+        'https://atk.esa-solutions.id',
+        'https://amk.esa-solutions.id',
+        'https://akp.esa-solutions.id',
+    ];
+
+    $currentHost = rtrim(request()->getSchemeAndHttpHost(), '/');
+
+    foreach ($peerHosts as $host) {
+        if ($host === $currentHost) {
+            continue;
+        }
+
+        try {
+            $remoteUrl = "{$host}/storage/{$folder}/{$filename}";
+            $response = \Illuminate\Support\Facades\Http::timeout(5)->withoutVerifying()->get($remoteUrl);
+
+            if ($response->successful() && strlen($response->body()) > 100) {
+                // Simpan cache lokal agar request berikutnya langsung dilayani Nginx
+                if (!is_dir($localDir)) {
+                    @mkdir($localDir, 0775, true);
+                }
+                @file_put_contents($localPath, $response->body());
+                @chmod($localPath, 0664);
+
+                $mime = $response->header('Content-Type') ?: 'image/webp';
+                return response($response->body(), 200, [
+                    'Content-Type' => $mime,
+                    'Cache-Control' => 'public, max-age=604800',
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // Coba host berikutnya
+        }
+    }
+
+    abort(404);
+})->where('filename', '[A-Za-z0-9_\-\.]+');
+
 Route::get('/sync-stock-end-dulux', function () {
     \App\Models\ReportTemplate::syncDuluxMergedStockEnd();
     return response()->json([

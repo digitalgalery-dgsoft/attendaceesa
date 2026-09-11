@@ -1668,4 +1668,18 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Penyempurnaan Aplikasi Mobile (`attendance_provider.dart` & `offline_sync_service.dart`)**:
       - Mengoptimalkan `submitAttendance` dan antrean offline agar menggunakan standard `http.post` jika tidak ada foto selfie yang dikirimkan (seperti pada Check-Out dan Visit-Out), serta hanya menggunakan `http.MultipartRequest` jika benar-benar ada file foto yang diunggah.
 
+28. **Resolusi Thumbnail Foto Selfie Check-In Pecah/Broken di Riwayat Kehadiran (11 September 2026)**:
+    - **Identifikasi Masalah**:
+      - Pada halaman Riwayat Kehadiran (`history_screen.dart`), thumbnail foto selfie check-in menampilkan ikon patah / broken image (`Icons.broken_image`).
+      - Hal ini terjadi karena kode Flutter sebelumnya mengecek `photoPath` terlebih dahulu (`photoPath != null ? Constants.getImageUrl(photoPath) : rawPhotoUrl`), sehingga URL foto selalu dipaksa mengarah ke server gateway (`https://appsend.my.id/storage/...`).
+      - Padahal untuk karyawan cluster (misal PT ATK / PT AMK), foto selfie diunggah dan tersimpan secara fisik di server entitas masing-masing (`https://atk.esa-solutions.id/storage/...` / `https://amk.esa-solutions.id/storage/...`).
+      - Akibatnya request gambar ke `appsend.my.id` menghasilkan HTTP 403/404 dan gambar gagal dirender.
+    - **Penyelesaian Backend (Smart Cross-Server Media Proxy di `routes/web.php`)**:
+      - Menambahkan route fallback cerdas `/storage/{folder}/{filename}` pada backend web.
+      - Jika file foto presensi/laporan diminta pada server gateway (`appsend.my.id`) tetapi belum ada di disk lokal, server secara otomatis mengambil (*fetch & stream*) berkas dari peer cluster server production (`atk.esa-solutions.id`, `amk.esa-solutions.id`, `akp.esa-solutions.id`), menyimpannya di cache lokal untuk Nginx, dan menyajikan gambar secara instan (`HTTP 200 image/webp`).
+      - Solusi ini langsung mengobati seluruh aplikasi mobile yang sudah terpasang di HP pengguna secara instan tanpa wajib install ulang APK.
+    - **Penyempurnaan Mobile (`history_screen.dart`)**:
+      - Memprioritaskan penggunaan `rawPhotoUrl` yang dikembalikan dari API jika berupa URL HTTP yang valid dan absolut, sebelum jatuh ke fallback lokal `Constants.getImageUrl(photoPath)`.
+
+
 
