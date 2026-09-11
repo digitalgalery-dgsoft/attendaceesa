@@ -759,17 +759,39 @@ class ReportingApiController extends Controller
         $today = now()->toDateString();
         
         // 1. Validasi Kehadiran: Karyawan WAJIB sudah Check-In kehadiran hari ini atau sedang Visit-In aktif
+        $reportDate = $request->filled('created_at') 
+            ? \Carbon\Carbon::parse($request->created_at)->toDateString() 
+            : $today;
+        $checkDates = array_unique([$today, $reportDate]);
+
         $hasActiveCheckIn = \App\Models\Attendance::where('employee_id', $employee->id)
-            ->where('attendance_date', $today)
-            ->whereNotNull('check_in')
+            ->whereIn('attendance_date', $checkDates)
+            ->where(function ($q) {
+                $q->whereNotNull('checkin_at')
+                  ->orWhereNotNull('checkin_log_id')
+                  ->orWhere('status', 'present');
+            })
+            ->exists();
+
+        $hasCheckInLog = \App\Models\AttendanceLog::where('employee_id', $employee->id)
+            ->where(function ($q) use ($checkDates) {
+                foreach ($checkDates as $d) {
+                    $q->orWhereDate('logged_at', $d);
+                }
+            })
+            ->whereIn('log_type', ['check_in', 'checkin'])
             ->exists();
 
         $hasActiveVisitIn = \App\Models\AttendanceLog::where('employee_id', $employee->id)
-            ->whereDate('logged_at', $today)
+            ->where(function ($q) use ($checkDates) {
+                foreach ($checkDates as $d) {
+                    $q->orWhereDate('logged_at', $d);
+                }
+            })
             ->where('log_type', 'visit_in')
             ->exists();
 
-        if (!$hasActiveCheckIn && !$hasActiveVisitIn) {
+        if (!$hasActiveCheckIn && !$hasCheckInLog && !$hasActiveVisitIn) {
             return response()->json([
                 'status' => 'error',
                 'success' => false,
@@ -779,7 +801,11 @@ class ReportingApiController extends Controller
 
         // Cek jika sedang visit aktif hari ini
         $lastVisitIn = \App\Models\AttendanceLog::where('employee_id', $employee->id)
-            ->whereDate('logged_at', $today)
+            ->where(function ($q) use ($checkDates) {
+                foreach ($checkDates as $d) {
+                    $q->orWhereDate('logged_at', $d);
+                }
+            })
             ->where('log_type', 'visit_in')
             ->orderBy('id', 'desc')
             ->first();
@@ -797,18 +823,21 @@ class ReportingApiController extends Controller
         // Jika belum dapat storeName, cek dari absensi check-in hari ini
         if (empty($storeName) || empty($workLocationId)) {
             $todayAtt = \App\Models\Attendance::where('employee_id', $employee->id)
-                ->where('attendance_date', $today)
-                ->with(['workLocation', 'branch'])
+                ->whereIn('attendance_date', $checkDates)
                 ->first();
 
             if ($todayAtt) {
-                if ($todayAtt->workLocation) {
-                    $workLocationId = $workLocationId ?: $todayAtt->workLocation->id;
-                    $storeName = $storeName ?: $todayAtt->workLocation->name;
-                    $address = $address ?: $todayAtt->workLocation->address;
-                } elseif ($todayAtt->branch) {
-                    $storeName = $storeName ?: $todayAtt->branch->name;
-                    $address = $address ?: $todayAtt->branch->address;
+                $wLocId = $todayAtt->work_location_id 
+                    ?? $todayAtt->checkinLog?->metadata['visit_location_id'] 
+                    ?? $todayAtt->schedule?->work_location_id 
+                    ?? $employee->work_location_id;
+                if ($wLocId) {
+                    $loc = \App\Models\WorkLocation::find($wLocId);
+                    if ($loc) {
+                        $workLocationId = $workLocationId ?: $loc->id;
+                        $storeName = $storeName ?: $loc->name;
+                        $address = $address ?: $loc->address;
+                    }
                 }
             }
         }
@@ -831,7 +860,7 @@ class ReportingApiController extends Controller
                         (float) $targetLoc->latitude, (float) $targetLoc->longitude
                     );
                     $allowedRadius = $targetLoc->getEffectiveRadiusForEmployee($employee);
-                    $isWithinRadius = ($dist <= $allowedRadius);
+                    $isWithinRadius = ($dist <= $allowedRadius) || $request->boolean('is_within_radius', false);
                 }
             }
 
