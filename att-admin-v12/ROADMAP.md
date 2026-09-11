@@ -1570,3 +1570,17 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Menjadikan relasi `principal_id` wajib (`required()`) pada form admin serta menggunakan datalist merk/kategori yang fleksibel.
     - **Mobile API Reporting (`ReportingApiController.php`)**:
       - Endpoint `competitorProducts()` kini mengenali `principal_id` dari parameter request maupun user/karyawan yang login, serta hanya mengembalikan produk kompetitor milik principal yang bersangkutan.
+
+20. **Kompilasi Rilis APK Flutter v1.0.145 & Distribusi Multi-Server Cluster (11 September 2026)**:
+    - **Penyelarasan Input Produk Kompetitor di Aplikasi Mobile (`dynamic_form_screen.dart`)**:
+      - Default merk pada formulir CBP kini secara cerdas membaca `competitorBrands` hasil query API tenant aktif (`repProvider.competitorBrands.first`) alih-alih mengunci ke `'JOTUN'`.
+      - Penambahan baris produk kompetitor baru secara otomatis menggunakan merk teratas dari principal aktif karyawan yang login.
+    - **Hasil Kompilasi & Build Release APK**:
+      - Berhasil melakukan kompilasi rilis APK versi **`v1.0.145+145`** (`109.9 MB`, MD5: `7b5b5f60658e3a76481f927abb3d113e`).
+      - Pengunggahan chunked upload sukses ke server staging `https://appsend.my.id/app-release.apk`.
+      - Sinkronisasi otomatis ke seluruh simpul server production:
+        - Server 1 (AMK): `https://amk.esa-solutions.id/app-release.apk`
+        - Server 2 (AKP): `https://akp.esa-solutions.id/app-release.apk`
+        - Server 3 (ATK): `https://atk.esa-solutions.id/app-release.apk`
+        - Tenant Dulux: `https://dulux.esa-solutions.id/app-release.apk`
+      - Arsip lokal tersimpan di `APK/app-release-1.0.145.apk` dan `app-release.apk`.

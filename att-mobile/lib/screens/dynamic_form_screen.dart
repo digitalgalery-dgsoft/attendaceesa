@@ -1302,7 +1302,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
 
       if (!loadedExisting && _competitorItems.isEmpty) {
-        _competitorItems.add(CompetitorInputItem(merk: 'JOTUN'));
+        final repProv = Provider.of<DynamicReportingProvider>(context, listen: false);
+        final defaultMerk = repProv.competitorBrands.isNotEmpty ? repProv.competitorBrands.first : 'JOTUN';
+        _competitorItems.add(CompetitorInputItem(merk: defaultMerk));
       }
     }
 
@@ -2293,7 +2295,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               itm.dispose();
             }
             _competitorItems.clear();
-            _competitorItems.add(CompetitorInputItem(merk: 'JOTUN'));
+            final repProv = Provider.of<DynamicReportingProvider>(context, listen: false);
+            final defaultMerk = repProv.competitorBrands.isNotEmpty ? repProv.competitorBrands.first : 'JOTUN';
+            _competitorItems.add(CompetitorInputItem(merk: defaultMerk));
           }
           _photoFiles.clear();
           _multiPhotoFiles.clear();
@@ -3611,7 +3615,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             child: OutlinedButton.icon(
               onPressed: () {
                 setState(() {
-                  _competitorItems.add(CompetitorInputItem(merk: 'JOTUN'));
+                  final defaultMerk = loadedBrands.isNotEmpty ? loadedBrands.first : 'JOTUN';
+                  _competitorItems.add(CompetitorInputItem(merk: defaultMerk));
                 });
               },
               icon: Icon(Icons.add_circle_outline_rounded, size: 18, color: themeColor),
