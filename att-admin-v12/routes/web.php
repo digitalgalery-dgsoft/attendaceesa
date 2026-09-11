@@ -103,28 +103,6 @@ Route::get('/sync-stock-end-dulux', function () {
     ]);
 });
 
-Route::get('/debug-attendance-photo', function () {
-    $logs = \App\Models\AttendanceLog::latest('id')->take(5)->get()->map(function($l) {
-        $diskPath = storage_path('app/public/' . $l->photo_path);
-        return [
-            'id' => $l->id,
-            'employee_id' => $l->employee_id,
-            'log_type' => $l->log_type,
-            'logged_at' => $l->logged_at,
-            'photo_path' => $l->photo_path,
-            'photo_url' => $l->photo_path ? url('storage/' . $l->photo_path) : null,
-            'file_exists_on_this_server' => $l->photo_path ? file_exists($diskPath) : false,
-            'file_size' => ($l->photo_path && file_exists($diskPath)) ? filesize($diskPath) : 0,
-            'app_url' => config('app.url'),
-            'host' => request()->getHost(),
-        ];
-    });
-    return response()->json([
-        'server' => request()->getHost(),
-        'logs' => $logs
-    ]);
-});
-
 Route::get('/fix-7jiy', function () {
     $sub = \App\Models\ReportSubmission::where('id', 1609793)->orWhereRaw('LOWER(submission_code) LIKE ?', ['%7jiy%'])->first();
     if (!$sub) {
