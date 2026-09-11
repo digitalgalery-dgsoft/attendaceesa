@@ -1602,3 +1602,56 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Versi aplikasi dinaikkan menjadi **`v1.0.146+146`**.
       - Berhasil dikompilasi ke `app-release.apk` (`110.0 MB`, `115,301,913 bytes`).
       - Berkas installer diarsipkan secara lokal di `APK/app-release-1.0.146.apk` dan root project (tidak diunggah ke server sesuai instruksi).
+
+22. **Kompresi Foto Pelaporan WebP (`.webp`) & Penurunan Drastis Ukuran Payload (11 September 2026)**:
+    - **Kompresi WebP Global (`watermark_camera_service.dart`)**:
+      - Seluruh pengambilan foto pelaporan (Live Camera maupun Galeri HP, single maupun multi-photo) kini otomatis dikonversi dan dikompresi ke format modern `.webp` (`CompressFormat.webp`, resolusi proporsional 1280x1280 px, kualitas 75%).
+      - Ukuran foto turun drastis dari **~15–25 MB (PNG uncompressed)** menjadi hanya **~100–180 KB per foto** (penghematan storage hingga **99%**).
+      - Watermark teks, koordinat GPS, tanggal-jam, dan struk pembelian tetap tajam dan terbaca jelas.
+      - Total payload pengiriman laporan berkurang drastis dari ~50–60 MB menjadi **< 500 KB**, mencegah timeout jaringan seluler dan mempercepat submit menjadi hanya **1–2 detik**.
+
+23. **Animasi Loading Maskot ESA Interaktif & Indikator Status Online/Offline Real-Time (11 September 2026)**:
+    - **Animasi Loading Maskot ESA (`dynamic_form_screen.dart`)**:
+      - Dialog submit formulir laporan di aplikasi mobile kini menampilkan animasi maskot ESA berlari (`CustomLoadingIndicator.show` & `hide`), memberikan umpan balik visual yang interaktif dan jelas bagi pengguna.
+    - **Indikator Status Koneksi Real-Time (`network_status_service.dart` & `connection_status_badge.dart`)**:
+      - Layanan pemantauan koneksi riil via DNS ping Google & backend dengan `ValueNotifier<bool> isOnline`.
+      - Badge status: Pill hijau lembut dengan titik berdenyut (`● Online`) saat terhubung, dan pill merah lembut (`● Offline`) saat jaringan terputus.
+      - Terpasang di bar profil **Dashboard Depan**, AppBar **Reporting Hub**, dan formulir **Dynamic Form**.
+
+24. **Peningkatan Robustness Sinkronisasi Laporan Offline & Idempotency Anti-Duplikasi (11 September 2026)**:
+    - **Kompresi On-The-Fly Foto Offline Lama (`offline_reporting_sync_service.dart`)**:
+      - Secara otomatis mengompresi foto antrian offline yang berukuran > 350 KB menjadi `.webp` sebelum diunggah ke server.
+    - **Perbaikan Query Kehadiran Sinkronisasi Backend (`ReportingApiController.php`)**:
+      - Mengganti filter `whereNotNull('check_in')` yang memicu error SQL fatal (kolom `check_in` tidak ada di tabel `attendances`) menjadi pengecekan fleksibel: `checkin_at`, `checkin_log_id`, atau status `present` pada `attendances` dan `attendance_logs`.
+      - Mendukung sinkronisasi tanggal lampau (`created_at`) sehingga antrian laporan hari sebelumnya tetap diterima server.
+    - **Idempotency Guard & Mobile Lock Anti-Duplikasi**:
+      - Backend memblokir submit berulang dengan selang waktu < 15 detik untuk karyawan, template, dan toko yang sama.
+      - Mobile UI mengunci tombol submit seketika (`_isSubmitting = true`) saat pertama kali ditekan untuk mencegah *double-tap*.
+      - Antrian offline memfilter duplikasi payload sebelum disimpan ke lokal storage.
+
+25. **Card Statistik Eksekutif Penjualan MBR & Modal Preview Bukti Struk Transaksi (11 September 2026)**:
+    - **Card Statistik Eksekutif di Atas Rincian Produk (`report_submission_detail.blade.php`)**:
+      - 4 parameter tambahan penjualan event MBR:
+        1. **Total Nilai Penjualan** (Aksen hijau, icon koin): Akumulasi seluruh transaksi event MBR.
+        2. **Total Kuantiti Terjual** (Aksen amber, icon box): Total kuantiti unit/pcs produk terjual.
+        3. **Bayar di Booth (SPG)** (Aksen biru, icon store): Transaksi pembayaran langsung ke SPG di booth.
+        4. **Bayar di Kasir Toko** (Aksen ungu, icon mesin kasir): Transaksi struk via kasir outlet.
+      - Diletakkan di bagian atas tepat di atas tabel *Rincian Produk Penjualan Event MBR* sebagai kartu ringkasan KPI eksekutif modern (*offtake-summary-grid*).
+      - Menghapus baris redundan dari daftar teks bawah ("PARAMETER TAMBAHAN").
+    - **Perbaikan Error Undefined Variable**:
+      - Menyertakan variabel `$hasDynamicMbrSalesItems` pada klausul `use (...)` closure filter view `$textValues`.
+    - **Modal Lightbox Bukti Struk Transaksi**:
+      - Foto bukti struk produk kini dilengkapi thumbnail preview yang dapat diklik dan membuka modal lightbox foto di tengah layar (bukan tab baru).
+
+26. **Resolusi Aksesibilitas URL Foto Struk di Aplikasi Mobile & Multi-Tenant (11 September 2026)**:
+    - **Perbaikan URL Disk Storage Publik (`config/filesystems.php`)**:
+      - Menjadikan URL disk publik dinamis menggunakan host request aktif (`request()->getSchemeAndHttpHost() . '/storage'`) serta secara otomatis mengoreksi typo domain `.env` (`esa-solution.id` -> `esa-solutions.id`).
+    - **Normalisasi URL Media di API Backend (`ReportingApiController.php`)**:
+      - Menambahkan helper `formatSubmissionValues` pada endpoint `show()` dan `history()` untuk mengubah foto struk di dalam `mbr_sales_items_json` menjadi URL absolut aktif (`asset('storage/...')`).
+      - Menyimpan URL absolut pada saat submit laporan baru.
+    - **Ketahanan Resolusi Media di Aplikasi Mobile (`report_detail_screen.dart`)**:
+      - Memperbarui helper `_resolveMediaUrl` dengan pembersihan path storage, koreksi typo domain otomatis, dan fallback cerdas ke domain tenant Wings (`https://wings.esa-solutions.id`) jika terdeteksi data laporan Wings.
+      - Menormalkan `imageUrl` pada modal dialog pembesar foto struk.
+    - **Multi-Server Deployment**:
+      - Seluruh perubahan backend terdistribusi dan aktif pada Server 1 (AMK), Server 2 (AKP), dan Server 3 (ATK) via webhook production.
+

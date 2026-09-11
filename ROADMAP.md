@@ -1530,6 +1530,7 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Hasil Verifikasi Live di Production Cluster**:
       - Staging (`appsend.my.id`): Menampilkan **40 Area & Cabang Operasional** (`HTTP 200 OK`).
       - Production ([amk.esa-solutions.id](https://amk.esa-solutions.id)): Menampilkan **61 Area & Cabang Operasional** (`HTTP 200 OK`) bersama dengan 11.143 Karyawan Aktif, 34 Prinsiple, dan 3.641 Lokasi Kerja & Toko.
+      - Seluruh 3/3 server node production (AMK, AKP, ATK) aktif dan tersinkronisasi 100%.
 
 18. **Pengaturan Rentang Waktu Laporan Bulanan (Monthly Date Range) & Validasi Submit Ketat (11 September 2026)**:
     - **Perubahan Konfigurasi dari Single Due Day menjadi Rentang Waktu (Start Day s/d End Day)**:
@@ -1549,3 +1550,108 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - **Reporting Hub (`reporting_hub_screen.dart`)**: Peringatan dialog interaktif jika kartu diklik di luar rentang tanggal (*"Laporan hanya dapat diisi pada rentang tanggal X - Y"*), serta badge status *"Bisa Dilewati (Aktif Tgl X - Y)"*.
       - **Dynamic Form (`dynamic_form_screen.dart`)**: Banner peringatan rentang tanggal, tombol submit utama dan tombol submit Stock End dikunci (*"Terkunci (Hanya Aktif Tgl X - Y)"*), serta validasi penjaga di awal `_submitForm()` dan `_submitStockEnd()`.
       - **Provider (`dynamic_reporting_provider.dart`)**: Menangani respons HTTP 422 secara eksplisit sehingga error validasi rentang tanggal tidak dialihkan ke antrean offline (offline queue).
+
+19. **Penyempurnaan Multi-Tenant Master Produk Kompetitor (Scoping Strict per Principal) (11 September 2026)**:
+    - **Penyebab Masalah (Root Cause)**:
+      - Master Produk Kompetitor sebelumnya tidak difilter berdasarkan `principal_id` pada method `competitorProductsList()`, `storeCompetitorProduct()`, `updateCompetitorProduct()`, dan `destroyCompetitorProduct()` di `PrincipalPortalController.php`.
+      - Akibatnya, 48 produk kompetitor cat yang disemai untuk Dulux (seperti Jotun, Nippon Paint, Avian, dsb.) ikut tampil pada portal principal lain (seperti PT WINGS SURYA).
+      - Tombol katalog produk di header portal kompetitor sebelumnya di-hardcode bertuliskan "Katalog Dulux" untuk semua tenant.
+    - **Perbaikan Backend & Portal Controller (`PrincipalPortalController.php`)**:
+      - **Strict Principal Scoping**: Seluruh query list (`$query`), daftar kategori (`$categories`), daftar merk (`$brands`), dan hitungan total (`$totalCompetitors`) kini secara ketat difilter menggunakan `whereIn('principal_id', $scopedPrincipalIds)`.
+      - **Scoped Mutations**: Operasi `storeCompetitorProduct()` menyertakan `principal_id` tenant dalam kunci pencocokan `updateOrCreate()`, serta `updateCompetitorProduct()` dan `destroyCompetitorProduct()` memvalidasi kepemilikan record menggunakan `whereIn('principal_id', $scopedPrincipalIds)->findOrFail($id)`.
+    - **Antarmuka Web Portal Principal (`competitor_products.blade.php`)**:
+      - **Dinamisasi Tombol & Metadata Header**: Tombol katalog kini secara otomatis menyesuaikan nama principal yang aktif (`Katalog PT WINGS SURYA`, `Katalog Dulux`, dsb.) mengarah ke katalog SKU produk masing-masing. Subheader diperjelas menjadi *Database Master Acuan Formulir & Pembanding Kompetitor • [Nama Principal]*.
+      - **Datalist Fleksibel untuk Semua Industri**: Input merk dan kategori di modal Tambah & Edit kini menggunakan `<input list="...">` yang fleksibel dengan datalist dinamis. Principal non-cat (seperti Wings, FMCG, Mamasuka) dapat dengan bebas mengetikkan merk kompetitor mereka sendiri (misal: Unilever, P&G, Kao, Indofood, dsb.) atau kategori FMCG tanpa terikat opsi cat.
+      - **Header Kolom & Empty State Adaptif**: Kolom acuan harga otomatis menyesuaikan (*Acuan Tin/Galon/Pail* untuk Dulux, dan *Acuan Kecil/Sedang/Besar* untuk principal lain). Empty state menampilkan pesan informatif bahwa data kompetitor untuk principal tersebut belum terdaftar dengan tombol CTA tambah langsung.
+    - **Database Migration (`2026_09_11_100000_assign_existing_competitor_products_to_dulux.php`)**:
+      - Memastikan seluruh produk kompetitor eksisting yang memiliki `principal_id IS NULL` secara otomatis dialokasikan ke ID principal Dulux / ICI Paints, sehingga data acuan Dulux tetap utuh dan portal principal lain tetap bersih.
+    - **Web Admin Filament (`CompetitorProductsTable.php` & `CompetitorProductForm.php`)**:
+      - Menambahkan kolom `Principal` (`TextColumn::make('principal.name')`) dan filter relasi `principal_id` pada tabel Filament admin.
+      - Menjadikan relasi `principal_id` wajib (`required()`) pada form admin serta menggunakan datalist merk/kategori yang fleksibel.
+    - **Mobile API Reporting (`ReportingApiController.php`)**:
+      - Endpoint `competitorProducts()` kini mengenali `principal_id` dari parameter request maupun user/karyawan yang login, serta hanya mengembalikan produk kompetitor milik principal yang bersangkutan.
+
+20. **Kompilasi Rilis APK Flutter v1.0.145 & Distribusi Multi-Server Cluster (11 September 2026)**:
+    - **Penyelarasan Input Produk Kompetitor di Aplikasi Mobile (`dynamic_form_screen.dart`)**:
+      - Default merk pada formulir CBP kini secara cerdas membaca `competitorBrands` hasil query API tenant aktif (`repProvider.competitorBrands.first`) alih-alih mengunci ke `'JOTUN'`.
+      - Penambahan baris produk kompetitor baru secara otomatis menggunakan merk teratas dari principal aktif karyawan yang login.
+    - **Hasil Kompilasi & Build Release APK**:
+      - Berhasil melakukan kompilasi rilis APK versi **`v1.0.145+145`** (`109.9 MB`, MD5: `7b5b5f60658e3a76481f927abb3d113e`).
+      - Pengunggahan chunked upload sukses ke server staging `https://appsend.my.id/app-release.apk`.
+      - Sinkronisasi otomatis ke seluruh simpul server production:
+        - Server 1 (AMK): `https://amk.esa-solutions.id/app-release.apk`
+        - Server 2 (AKP): `https://akp.esa-solutions.id/app-release.apk`
+        - Server 3 (ATK): `https://atk.esa-solutions.id/app-release.apk`
+        - Tenant Dulux: `https://dulux.esa-solutions.id/app-release.apk`
+      - Arsip lokal tersimpan di `APK/app-release-1.0.145.apk` dan `app-release.apk`.
+
+21. **Pembaruan UI Branding Splashscreen, Server Configuration Field, & Default Light Mode (11 September 2026)**:
+    - **Pembaruan Splash Screen (`splash_screen.dart`)**:
+      - Maskot utama diganti menggunakan `maskot_esa.png` (`assets/images/maskot_esa.png`).
+      - Logo hexagon 3D (`esa_3d_logo.png`) di atas tulisan "ESA" dihilangkan sesuai permintaan, sehingga tata letak branding lebih bersih dan fokus.
+    - **Field Input URL Server Configuration Permanen (`server_config_screen.dart`)**:
+      - Prefix `https://` dan suffix `.esa-solutions.id` kini dibuat permanen menggunakan container badge modern.
+      - Pengguna hanya perlu mengetikkan subdomain server (contoh: `api`, `amk`, `akp`, `atk`, `dulux`).
+      - Dilengkapi tombol chip *Pilihan Cepat* (`api`, `amk`, `akp`, `atk`, `dulux`) untuk pengisian instan satu kali klik.
+      - Banner preview live menampilkan URL lengkap yang akan dituju (`https://[subdomain].esa-solutions.id/api`).
+      - Fitur lanjutan *Gunakan Domain Kustom Lainnya* tetap tersedia untuk kebutuhan pengujian developer/staging (`appsend.my.id`).
+    - **Default Light Mode (`theme_provider.dart` & `profile_screen.dart`)**:
+      - Nilai awal tema aplikasi diatur ke **Light Mode** secara default (`ThemeMode.light`), sehingga pengguna baru atau sistem yang belum menyimpan preferensi otomatis berada di mode terang.
+      - Toggle tema di menu profil diselaraskan untuk mengaktifkan/menonaktifkan Dark Mode secara presisi.
+    - **Kompilasi Rilis APK v1.0.146**:
+      - Versi aplikasi dinaikkan menjadi **`v1.0.146+146`**.
+      - Berhasil dikompilasi ke `app-release.apk` (`110.0 MB`, `115,301,913 bytes`).
+      - Berkas installer diarsipkan secara lokal di `APK/app-release-1.0.146.apk` dan root project (tidak diunggah ke server sesuai instruksi).
+
+22. **Kompresi Foto Pelaporan WebP (`.webp`) & Penurunan Drastis Ukuran Payload (11 September 2026)**:
+    - **Kompresi WebP Global (`watermark_camera_service.dart`)**:
+      - Seluruh pengambilan foto pelaporan (Live Camera maupun Galeri HP, single maupun multi-photo) kini otomatis dikonversi dan dikompresi ke format modern `.webp` (`CompressFormat.webp`, resolusi proporsional 1280x1280 px, kualitas 75%).
+      - Ukuran foto turun drastis dari **~15–25 MB (PNG uncompressed)** menjadi hanya **~100–180 KB per foto** (penghematan storage hingga **99%**).
+      - Watermark teks, koordinat GPS, tanggal-jam, dan struk pembelian tetap tajam dan terbaca jelas.
+      - Total payload pengiriman laporan berkurang drastis dari ~50–60 MB menjadi **< 500 KB**, mencegah timeout jaringan seluler dan mempercepat submit menjadi hanya **1–2 detik**.
+
+23. **Animasi Loading Maskot ESA Interaktif & Indikator Status Online/Offline Real-Time (11 September 2026)**:
+    - **Animasi Loading Maskot ESA (`dynamic_form_screen.dart`)**:
+      - Dialog submit formulir laporan di aplikasi mobile kini menampilkan animasi maskot ESA berlari (`CustomLoadingIndicator.show` & `hide`), memberikan umpan balik visual yang interaktif dan jelas bagi pengguna.
+    - **Indikator Status Koneksi Real-Time (`network_status_service.dart` & `connection_status_badge.dart`)**:
+      - Layanan pemantauan koneksi riil via DNS ping Google & backend dengan `ValueNotifier<bool> isOnline`.
+      - Badge status: Pill hijau lembut dengan titik berdenyut (`● Online`) saat terhubung, dan pill merah lembut (`● Offline`) saat jaringan terputus.
+      - Terpasang di bar profil **Dashboard Depan**, AppBar **Reporting Hub**, dan formulir **Dynamic Form**.
+
+24. **Peningkatan Robustness Sinkronisasi Laporan Offline & Idempotency Anti-Duplikasi (11 September 2026)**:
+    - **Kompresi On-The-Fly Foto Offline Lama (`offline_reporting_sync_service.dart`)**:
+      - Secara otomatis mengompresi foto antrian offline yang berukuran > 350 KB menjadi `.webp` sebelum diunggah ke server.
+    - **Perbaikan Query Kehadiran Sinkronisasi Backend (`ReportingApiController.php`)**:
+      - Mengganti filter `whereNotNull('check_in')` yang memicu error SQL fatal (kolom `check_in` tidak ada di tabel `attendances`) menjadi pengecekan fleksibel: `checkin_at`, `checkin_log_id`, atau status `present` pada `attendances` dan `attendance_logs`.
+      - Mendukung sinkronisasi tanggal lampau (`created_at`) sehingga antrian laporan hari sebelumnya tetap diterima server.
+    - **Idempotency Guard & Mobile Lock Anti-Duplikasi**:
+      - Backend memblokir submit berulang dengan selang waktu < 15 detik untuk karyawan, template, dan toko yang sama.
+      - Mobile UI mengunci tombol submit seketika (`_isSubmitting = true`) saat pertama kali ditekan untuk mencegah *double-tap*.
+      - Antrian offline memfilter duplikasi payload sebelum disimpan ke lokal storage.
+
+25. **Card Statistik Eksekutif Penjualan MBR & Modal Preview Bukti Struk Transaksi (11 September 2026)**:
+    - **Card Statistik Eksekutif di Atas Rincian Produk (`report_submission_detail.blade.php`)**:
+      - 4 parameter tambahan penjualan event MBR:
+        1. **Total Nilai Penjualan** (Aksen hijau, icon koin): Akumulasi seluruh transaksi event MBR.
+        2. **Total Kuantiti Terjual** (Aksen amber, icon box): Total kuantiti unit/pcs produk terjual.
+        3. **Bayar di Booth (SPG)** (Aksen biru, icon store): Transaksi pembayaran langsung ke SPG di booth.
+        4. **Bayar di Kasir Toko** (Aksen ungu, icon mesin kasir): Transaksi struk via kasir outlet.
+      - Diletakkan di bagian atas tepat di atas tabel *Rincian Produk Penjualan Event MBR* sebagai kartu ringkasan KPI eksekutif modern (*offtake-summary-grid*).
+      - Menghapus baris redundan dari daftar teks bawah ("PARAMETER TAMBAHAN").
+    - **Perbaikan Error Undefined Variable**:
+      - Menyertakan variabel `$hasDynamicMbrSalesItems` pada klausul `use (...)` closure filter view `$textValues`.
+    - **Modal Lightbox Bukti Struk Transaksi**:
+      - Foto bukti struk produk kini dilengkapi thumbnail preview yang dapat diklik dan membuka modal lightbox foto di tengah layar (bukan tab baru).
+
+26. **Resolusi Aksesibilitas URL Foto Struk di Aplikasi Mobile & Multi-Tenant (11 September 2026)**:
+    - **Perbaikan URL Disk Storage Publik (`config/filesystems.php`)**:
+      - Menjadikan URL disk publik dinamis menggunakan host request aktif (`request()->getSchemeAndHttpHost() . '/storage'`) serta secara otomatis mengoreksi typo domain `.env` (`esa-solution.id` -> `esa-solutions.id`).
+    - **Normalisasi URL Media di API Backend (`ReportingApiController.php`)**:
+      - Menambahkan helper `formatSubmissionValues` pada endpoint `show()` dan `history()` untuk mengubah foto struk di dalam `mbr_sales_items_json` menjadi URL absolut aktif (`asset('storage/...')`).
+      - Menyimpan URL absolut pada saat submit laporan baru.
+    - **Ketahanan Resolusi Media di Aplikasi Mobile (`report_detail_screen.dart`)**:
+      - Memperbarui helper `_resolveMediaUrl` dengan pembersihan path storage, koreksi typo domain otomatis, dan fallback cerdas ke domain tenant Wings (`https://wings.esa-solutions.id`) jika terdeteksi data laporan Wings.
+      - Menormalkan `imageUrl` pada modal dialog pembesar foto struk.
+    - **Multi-Server Deployment**:
+      - Seluruh perubahan backend terdistribusi dan aktif pada Server 1 (AMK), Server 2 (AKP), dan Server 3 (ATK) via webhook production.
+
