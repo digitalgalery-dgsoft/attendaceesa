@@ -2055,7 +2055,7 @@ class PrincipalPortalController extends Controller
         });
 
         // Dropdown Data for Region, Area, and Store (Sourced directly from Actual Report Submissions)
-        $subLocDataRaw = Cache::remember("rep_filter_locs_v4_{$template->id}", 600, function() use ($template) {
+        $subLocDataRaw = Cache::remember("rep_filter_locs_v5_{$template->id}", 600, function() use ($template) {
             return DB::table('report_submissions')
                 ->where('report_submissions.report_template_id', $template->id)
                 ->join('work_locations', 'report_submissions.work_location_id', '=', 'work_locations.id')
@@ -2069,9 +2069,25 @@ class PrincipalPortalController extends Controller
                 )
                 ->distinct()
                 ->get()
+                ->map(fn($row) => (array) $row)
                 ->toArray();
         });
-        $subLocData = collect($subLocDataRaw);
+
+        // Safely parse objects even if cache contains serialized stdClass / incomplete class
+        $subLocData = collect($subLocDataRaw)->map(function($l) {
+            if (is_object($l) && get_class($l) === '__PHP_Incomplete_Class') {
+                return null;
+            }
+            $arr = (array) $l;
+            if (empty($arr['id'])) return null;
+            return (object)[
+                'id' => $arr['id'],
+                'name' => $arr['name'] ?? '',
+                'region' => $arr['region'] ?? null,
+                'branch_id' => $arr['branch_id'] ?? null,
+                'branch_name' => $arr['branch_name'] ?? null,
+            ];
+        })->filter()->values();
 
         if ($subLocData->isNotEmpty()) {
             $regions = $subLocData->pluck('region')->filter()->unique()->sort()->values()->toArray();

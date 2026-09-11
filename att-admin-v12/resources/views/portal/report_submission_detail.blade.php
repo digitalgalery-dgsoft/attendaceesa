@@ -2684,11 +2684,23 @@
                                 </div>
 
                                 @if(!empty($pStrukPhoto))
-                                    <div style="margin-top: 0.65rem; display: flex; align-items: center; gap: 8px; background: #fff5f5; padding: 6px 10px; border-radius: 6px; border: 1px solid #fed7d7;">
-                                        <span style="font-size: 0.75rem; font-weight: 700; color: #dc2626;"><i class="fa-solid fa-receipt me-1"></i> Foto Struk Produk:</span>
-                                        <a href="{{ Storage::url($pStrukPhoto) }}" target="_blank" style="font-size: 0.78rem; color: #dc2626; font-weight: 800; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">
-                                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Lihat Bukti Struk Transaksi
-                                        </a>
+                                    @php
+                                        $strukPhotoUrl = Str::startsWith($pStrukPhoto, ['http://', 'https://']) ? $pStrukPhoto : Storage::url($pStrukPhoto);
+                                        $strukModalTitle = 'Bukti Struk Transaksi: ' . ($p['product_name'] ?? 'Produk MBR');
+                                    @endphp
+                                    <div style="margin-top: 0.65rem; display: flex; align-items: center; justify-content: space-between; background: #fff5f5; padding: 6px 12px; border-radius: 8px; border: 1px solid #fed7d7;">
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <img src="{{ $strukPhotoUrl }}" alt="Struk" onclick="openPhotoModal('{{ $strukPhotoUrl }}', '{{ addslashes($strukModalTitle) }}')" style="width: 36px; height: 36px; object-fit: cover; border-radius: 6px; border: 1px solid #fca5a5; cursor: pointer;" title="Klik untuk memperbesar">
+                                            <div>
+                                                <span style="font-size: 0.75rem; font-weight: 700; color: #dc2626; display: block;"><i class="fa-solid fa-receipt me-1"></i> Foto Struk Produk:</span>
+                                                <button type="button" onclick="openPhotoModal('{{ $strukPhotoUrl }}', '{{ addslashes($strukModalTitle) }}')" style="background: none; border: none; padding: 0; font-size: 0.76rem; color: #b91c1c; font-weight: 800; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                                                    <i class="fa-solid fa-expand"></i> Lihat Bukti Struk Transaksi
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <button type="button" onclick="openPhotoModal('{{ $strukPhotoUrl }}', '{{ addslashes($strukModalTitle) }}')" style="background: #dc2626; color: #ffffff; border: none; border-radius: 6px; padding: 4px 10px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid fa-magnifying-glass-plus"></i> Preview
+                                        </button>
                                     </div>
                                 @endif
                             </div>

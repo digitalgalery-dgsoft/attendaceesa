@@ -871,6 +871,27 @@ class ReportingApiController extends Controller
                 }
             }
 
+            // Idempotency: Prevent duplicate submissions within 15 seconds from the same employee & store
+            $recentDuplicate = ReportSubmission::where('employee_id', $employee->id)
+                ->where('report_template_id', $template->id)
+                ->where('submitted_at', '>=', now()->subSeconds(15))
+                ->latest('id')
+                ->first();
+
+            if ($recentDuplicate) {
+                if ($recentDuplicate->work_location_id == $workLocationId || $recentDuplicate->store_name == $storeName) {
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => 'Laporan sudah berhasil diterima sebelumnya.',
+                        'data' => [
+                            'id' => $recentDuplicate->id,
+                            'submission_code' => $recentDuplicate->submission_code,
+                            'status' => $recentDuplicate->status,
+                        ],
+                    ]);
+                }
+            }
+
             DB::beginTransaction();
 
             // Decode payload values jika dikirimkan sebagai JSON string atau array
