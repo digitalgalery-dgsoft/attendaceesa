@@ -246,7 +246,7 @@ class DynamicReportingProvider with ChangeNotifier {
         }
       }
 
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 40));
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -415,19 +415,27 @@ class DynamicReportingProvider with ChangeNotifier {
   }
 
   /**
-   * Sync pending offline reports now.
+   * Sync pending offline reports now (returns success count).
    */
   Future<int> syncPending(String token) async {
+    final result = await syncPendingDetailed(token);
+    return result['success'] as int? ?? 0;
+  }
+
+  /**
+   * Sync pending offline reports with detailed statistics.
+   */
+  Future<Map<String, dynamic>> syncPendingDetailed(String token) async {
     _isLoading = true;
     notifyListeners();
 
-    final syncedCount = await OfflineReportingSyncService.syncAllPending(token: token);
+    final result = await OfflineReportingSyncService.syncAllPendingDetailed(token: token);
     await refreshPendingCount();
     await fetchHistory(token);
 
     _isLoading = false;
     notifyListeners();
-    return syncedCount;
+    return result;
   }
 
   /**

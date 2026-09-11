@@ -10,6 +10,8 @@ import 'package:att_mobile/providers/locale_provider.dart';
 import 'package:att_mobile/screens/dynamic_form_screen.dart';
 import 'package:att_mobile/screens/report_detail_screen.dart';
 import '../widgets/custom_loading_indicator.dart';
+import 'package:att_mobile/widgets/connection_status_badge.dart';
+import 'package:att_mobile/services/network_status_service.dart';
 
 class ReportingHubScreen extends StatefulWidget {
   final String? storeName;
@@ -160,6 +162,12 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
         elevation: 0,
         iconTheme: IconThemeData(color: textColor),
         actions: [
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.only(right: 6),
+              child: ConnectionStatusBadge(),
+            ),
+          ),
           IconButton(
             icon: Icon(Icons.refresh_rounded, color: textColor),
             tooltip: 'Segarkan Formulir',
@@ -340,44 +348,127 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
           if (provider.pendingOfflineCount > 0)
             Container(
               margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: const Color(0xFFFEF3C7),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFFFDE68A)),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.cloud_queue_rounded, color: Color(0xFFD97706), size: 22),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      locale.tr('offline_queue_banner', params: {'count': '${provider.pendingOfflineCount}'}),
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF92400E)),
-                    ),
+                  Row(
+                    children: [
+                      const Icon(Icons.cloud_queue_rounded, color: Color(0xFFD97706), size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          locale.tr('offline_queue_banner', params: {'count': '${provider.pendingOfflineCount}'}),
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF92400E)),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (auth.token == null) return;
+
+                          // 1. Cek koneksi internet riil
+                          final isOnline = await NetworkStatusService.checkConnection();
+                          if (!isOnline && mounted) {
+                            toastification.show(
+                              context: context,
+                              type: ToastificationType.error,
+                              title: const Text('Device Sedang Offline'),
+                              description: const Text('Pastikan koneksi internet aktif untuk melakukan sinkronisasi data.'),
+                              autoCloseDuration: const Duration(seconds: 4),
+                            );
+                            return;
+                          }
+
+                          // 2. Tampilkan dialog loading mascot
+                          CustomLoadingIndicator.show(context, message: 'Menyinkronkan laporan offline ke server...');
+
+                          try {
+                            final result = await provider.syncPendingDetailed(auth.token!);
+                            if (mounted) {
+                              CustomLoadingIndicator.hide(context);
+                              final int successCount = result['success'] as int? ?? 0;
+                              final int failedCount = result['failed'] as int? ?? 0;
+                              final String? lastError = result['last_error'] as String?;
+
+                              if (successCount > 0 && failedCount == 0) {
+                                toastification.show(
+                                  context: context,
+                                  type: ToastificationType.success,
+                                  title: Text('$successCount Laporan Berhasil Disinkronkan'),
+                                  description: const Text('Semua laporan offline telah sukses dikirim ke server.'),
+                                  autoCloseDuration: const Duration(seconds: 4),
+                                );
+                              } else if (successCount > 0 && failedCount > 0) {
+                                toastification.show(
+                                  context: context,
+                                  type: ToastificationType.warning,
+                                  title: Text('$successCount Terkirim, $failedCount Tertunda'),
+                                  description: Text(lastError ?? 'Sebagian laporan masih tertunda.'),
+                                  autoCloseDuration: const Duration(seconds: 4),
+                                );
+                              } else {
+                                toastification.show(
+                                  context: context,
+                                  type: ToastificationType.error,
+                                  title: const Text('Gagal Menyinkronkan Laporan'),
+                                  description: Text(lastError ?? 'Periksa kestabilan koneksi internet Anda.'),
+                                  autoCloseDuration: const Duration(seconds: 4),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              CustomLoadingIndicator.hide(context);
+                              toastification.show(
+                                context: context,
+                                type: ToastificationType.error,
+                                title: const Text('Gagal Sinkronisasi'),
+                                description: Text(e.toString()),
+                                autoCloseDuration: const Duration(seconds: 4),
+                              );
+                            }
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFD97706),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          minimumSize: Size.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          locale.tr('btn_sync_now'),
+                          style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      if (auth.token != null) {
-                        final count = await provider.syncPending(auth.token!);
-                        if (mounted && count > 0) {
-                          toastification.show(
-                            context: context,
-                            type: ToastificationType.success,
-                            title: Text('$count Laporan Offline Berhasil Disinkronkan'),
-                            autoCloseDuration: const Duration(seconds: 3),
-                          );
-                        }
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFD97706),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      minimumSize: Size.zero,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      elevation: 0,
-                    ),
-                    child: Text(locale.tr('btn_sync_now'), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Text(
+                        'Koneksi: ',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+                      ),
+                      const ConnectionStatusBadge(
+                        fontSize: 9.5,
+                        padding: EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Laporan akan dikirim otomatis atau manual via tombol Sync.',
+                          style: TextStyle(fontSize: 10.5, color: Colors.brown.shade700),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

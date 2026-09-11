@@ -15,6 +15,8 @@ import 'package:att_mobile/providers/locale_provider.dart';
 import 'package:att_mobile/services/watermark_camera_service.dart';
 import 'package:att_mobile/widgets/signature_pad_dialog.dart';
 import 'package:att_mobile/widgets/barcode_scanner_dialog.dart';
+import 'package:att_mobile/widgets/custom_loading_indicator.dart';
+import 'package:att_mobile/widgets/connection_status_badge.dart';
 
 // Model untuk input dinamis produk kompetitor pada form CBP
 class CompetitorInputItem {
@@ -2125,12 +2127,14 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
 
     setState(() => _isSubmitting = true);
+    CustomLoadingIndicator.show(context, message: 'Mengirim formulir laporan...');
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
     final token = auth.token;
 
     if (token == null) {
+      CustomLoadingIndicator.hide(context);
       setState(() => _isSubmitting = false);
       return;
     }
@@ -2338,7 +2342,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       );
     }
 
-    setState(() => _isSubmitting = false);
+    if (mounted) {
+      CustomLoadingIndicator.hide(context);
+      setState(() => _isSubmitting = false);
+    }
 
     if (result['success'] == true && mounted) {
       if (attProvider.isVisiting) {
@@ -3189,103 +3196,132 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           : 'Posisi GPS Anda berada di dalam area radius Store.';
     }
 
-    return Tooltip(
-      message: statusDialogTitle,
-      child: GestureDetector(
-        onTap: () {
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Row(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const ConnectionStatusBadge(
+          fontSize: 9.5,
+          padding: EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+        ),
+        const SizedBox(width: 6),
+        Tooltip(
+          message: statusDialogTitle,
+          child: GestureDetector(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  title: Row(
+                    children: [
+                      Icon(statusIcon, color: statusColor, size: 24),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          statusDialogTitle,
+                          style: TextStyle(color: statusColor, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(statusDetail, style: const TextStyle(fontSize: 13, height: 1.4)),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isDarkMode ? Colors.grey.shade900 : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Jarak dari Store:', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                Text(
+                                  _calculatedDistance != null ? '${_calculatedDistance!.round()} meter' : 'Tidak terdeteksi',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: _isWithinRadius ? const Color(0xFF149A6E) : const Color(0xFFE53935),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Batas Radius Store:', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                Text('${_allowedRadiusMeter.round()} meter', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_latitude != null && _longitude != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.gps_fixed_rounded, size: 12, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              'GPS: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Tutup', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: statusColor.withOpacity(0.4), width: 1.2),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(statusIcon, color: statusColor, size: 24),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      statusDialogTitle,
-                      style: TextStyle(color: statusColor, fontSize: 16, fontWeight: FontWeight.bold),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(statusIcon, color: statusColor, size: 15),
+                  const SizedBox(width: 4),
+                  Text(
+                    statusLabel,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(statusDetail, style: const TextStyle(fontSize: 13, height: 1.4)),
-                  const SizedBox(height: 12),
-                  if (_selectedStoreName.isNotEmpty) ...[
-                    Row(
-                      children: [
-                        const Icon(Icons.storefront_rounded, size: 16, color: Colors.grey),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            _selectedStoreName,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                  ],
-                  if (_latitude != null && _longitude != null) ...[
-                    Row(
-                      children: [
-                        const Icon(Icons.my_location_rounded, size: 16, color: Colors.grey),
-                        const SizedBox(width: 6),
-                        Text(
-                          'GPS: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Tutup', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ],
             ),
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-            color: statusColor.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: statusColor.withOpacity(0.4), width: 1.2),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Icon(statusIcon, color: statusColor, size: 15),
-              const SizedBox(width: 4),
-              Text(
-                statusLabel,
-                style: TextStyle(
-                  color: statusColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
           ),
         ),
-      ),
+      ],
     );
   }
 
@@ -8138,6 +8174,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
 
     setState(() => _isSubmitting = true);
+    CustomLoadingIndicator.show(context, message: 'Mengirim laporan offtake...');
 
     try {
       final double grandLiter = _offtakeCart.fold(0.0, (sum, itm) => sum + ((itm['total_liter'] as num?)?.toDouble() ?? 0.0));
@@ -8273,7 +8310,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         );
       }
 
-      setState(() => _isSubmitting = false);
+      if (mounted) {
+        CustomLoadingIndicator.hide(context);
+        setState(() => _isSubmitting = false);
+      }
 
       if (result['success'] == true && mounted) {
         if (attProvider.isVisiting) {
@@ -8297,8 +8337,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         );
       }
     } catch (e) {
-      setState(() => _isSubmitting = false);
       if (mounted) {
+        CustomLoadingIndicator.hide(context);
+        setState(() => _isSubmitting = false);
         toastification.show(
           context: context,
           type: ToastificationType.error,
@@ -14326,6 +14367,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
 
     setState(() => _isSubmitting = true);
+    CustomLoadingIndicator.show(context, message: 'Mengirim laporan penjualan MBR...');
 
     try {
       final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -14334,6 +14376,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       final token = auth.token;
 
       if (token == null) {
+        CustomLoadingIndicator.hide(context);
         setState(() => _isSubmitting = false);
         return;
       }
@@ -14443,7 +14486,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         );
       }
 
-      setState(() => _isSubmitting = false);
+      if (mounted) {
+        CustomLoadingIndicator.hide(context);
+        setState(() => _isSubmitting = false);
+      }
 
       if (result['success'] == true && mounted) {
         if (attProvider.isVisiting) {
@@ -14468,8 +14514,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         );
       }
     } catch (e) {
-      setState(() => _isSubmitting = false);
       if (mounted) {
+        CustomLoadingIndicator.hide(context);
+        setState(() => _isSubmitting = false);
         toastification.show(
           context: context,
           type: ToastificationType.error,
@@ -14477,6 +14524,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           description: Text(e.toString()),
           autoCloseDuration: const Duration(seconds: 4),
         );
+      }
+    } finally {
+      if (mounted) {
+        CustomLoadingIndicator.hide(context);
+        setState(() => _isSubmitting = false);
       }
     }
   }

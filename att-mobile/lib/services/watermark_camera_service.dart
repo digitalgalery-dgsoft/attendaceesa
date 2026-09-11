@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:att_mobile/utils/image_utils.dart';
 
 class WatermarkCaptureResult {
   final File file;
@@ -83,8 +85,14 @@ class WatermarkCameraService {
         gpsStr: gpsText,
       );
 
+      File finalFile = watermarkedFile ?? File(photo.path);
+      if (!finalFile.path.toLowerCase().endsWith('.webp')) {
+        final converted = await ImageUtils.compressAndGetWebP(finalFile);
+        if (converted != null) finalFile = converted;
+      }
+
       return WatermarkCaptureResult(
-        file: watermarkedFile ?? File(photo.path),
+        file: finalFile,
         watermarkText: watermarkSummary,
         latitude: lat,
         longitude: lng,
@@ -129,8 +137,14 @@ class WatermarkCameraService {
         gpsStr: 'Upload dari Galeri HP',
       );
 
+      File finalFile = watermarkedFile ?? File(photo.path);
+      if (!finalFile.path.toLowerCase().endsWith('.webp')) {
+        final converted = await ImageUtils.compressAndGetWebP(finalFile);
+        if (converted != null) finalFile = converted;
+      }
+
       return WatermarkCaptureResult(
-        file: watermarkedFile ?? File(photo.path),
+        file: finalFile,
         watermarkText: watermarkSummary,
         timestamp: now,
       );
@@ -173,8 +187,13 @@ class WatermarkCameraService {
           timestampStr: dateFormatted,
           gpsStr: 'Upload dari Galeri HP',
         );
+        File finalFile = watermarkedFile ?? File(photo.path);
+        if (!finalFile.path.toLowerCase().endsWith('.webp')) {
+          final converted = await ImageUtils.compressAndGetWebP(finalFile);
+          if (converted != null) finalFile = converted;
+        }
         results.add(WatermarkCaptureResult(
-          file: watermarkedFile ?? File(photo.path),
+          file: finalFile,
           watermarkText: watermarkSummary,
           timestamp: now,
         ));
@@ -284,17 +303,35 @@ class WatermarkCameraService {
       canvas.drawParagraph(p2, Offset(padding, textStartY + p1.height + spacing));
       canvas.drawParagraph(p3, Offset(padding, textStartY + p1.height + p2.height + (spacing * 2)));
 
-      // 5. Ekspor ke file gambar baru
+      // 5. Ekspor ke file gambar baru terkompresi WebP (.webp)
       final picture = recorder.endRecording();
       final watermarkedImage = await picture.toImage(width.toInt(), height.toInt());
       final byteData = await watermarkedImage.toByteData(format: ui.ImageByteFormat.png);
 
       if (byteData == null) return null;
 
+      final Uint8List pngBytes = byteData.buffer.asUint8List();
       final tempDir = await getTemporaryDirectory();
-      final outFile = File('${tempDir.path}/wm_${DateTime.now().millisecondsSinceEpoch}.jpg');
-      await outFile.writeAsBytes(byteData.buffer.asUint8List());
+      final outFile = File('${tempDir.path}/wm_${DateTime.now().millisecondsSinceEpoch}.webp');
 
+      try {
+        final compressedBytes = await FlutterImageCompress.compressWithList(
+          pngBytes,
+          quality: 75,
+          minWidth: 1280,
+          minHeight: 1280,
+          format: CompressFormat.webp,
+        );
+        if (compressedBytes.isNotEmpty) {
+          await outFile.writeAsBytes(compressedBytes);
+          debugPrint('Watermarked image compressed to WebP: ${compressedBytes.length ~/ 1024} KB');
+          return outFile;
+        }
+      } catch (e) {
+        debugPrint('Error compressing canvas to WebP: $e');
+      }
+
+      await outFile.writeAsBytes(pngBytes);
       return outFile;
     } catch (e) {
       debugPrint('Error burning watermark: $e');

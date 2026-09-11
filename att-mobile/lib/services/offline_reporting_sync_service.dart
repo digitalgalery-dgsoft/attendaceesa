@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:att_mobile/utils/constants.dart';
+import 'package:att_mobile/utils/image_utils.dart';
 
 class OfflineReportingSyncService {
   static const String _storageKey = 'pending_offline_reports';
@@ -69,36 +70,77 @@ class OfflineReportingSyncService {
   }
 
   /**
-   * Sync all pending offline reports to server.
+   * Sync all pending offline reports to server (returns success count).
    */
   static Future<int> syncAllPending({required String token}) async {
+    final result = await syncAllPendingDetailed(token: token);
+    return result['success'] as int? ?? 0;
+  }
+
+  /**
+   * Sync all pending offline reports with detailed outcome statistics.
+   */
+  static Future<Map<String, dynamic>> syncAllPendingDetailed({required String token}) async {
     final prefs = await SharedPreferences.getInstance();
     List<String> queue = prefs.getStringList(_storageKey) ?? [];
-    if (queue.isEmpty) return 0;
+    if (queue.isEmpty) {
+      return {'success': 0, 'failed': 0, 'total': 0, 'last_error': null};
+    }
 
     int successCount = 0;
+    int failedCount = 0;
     List<String> remainingQueue = [];
+    String? lastError;
 
     for (String itemStr in queue) {
       try {
         final item = jsonDecode(itemStr) as Map<String, dynamic>;
-        bool success = await _uploadSingleReport(item, token);
-        if (success) {
+        final uploadResult = await _uploadSingleReport(item, token);
+        if (uploadResult['success'] == true) {
           successCount++;
         } else {
+          failedCount++;
           remainingQueue.add(itemStr);
+          lastError = uploadResult['message']?.toString();
         }
       } catch (e) {
         debugPrint('Error syncing single report: $e');
+        failedCount++;
         remainingQueue.add(itemStr);
+        lastError = e.toString();
       }
     }
 
     await prefs.setStringList(_storageKey, remainingQueue);
-    return successCount;
+    return {
+      'success': successCount,
+      'failed': failedCount,
+      'total': queue.length,
+      'last_error': lastError,
+    };
   }
 
-  static Future<bool> _uploadSingleReport(Map<String, dynamic> item, String token) async {
+  /**
+   * Ensure any file being uploaded is compressed to WebP if > 350 KB or not .webp.
+   */
+  static Future<File> _ensureCompressedWebP(File file) async {
+    try {
+      final isWebP = file.path.toLowerCase().endsWith('.webp');
+      final length = await file.length();
+      if (!isWebP || length > 350 * 1024) {
+        final compressed = await ImageUtils.compressAndGetWebP(file);
+        if (compressed != null && await compressed.exists()) {
+          debugPrint('Offline photo compressed to WebP: ${file.path} -> ${compressed.path}');
+          return compressed;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error compressing offline photo: $e');
+    }
+    return file;
+  }
+
+  static Future<Map<String, dynamic>> _uploadSingleReport(Map<String, dynamic> item, String token) async {
     final uri = Uri.parse('${Constants.baseUrl}/reporting/submit');
     final request = http.MultipartRequest('POST', uri);
 
@@ -127,25 +169,69 @@ class OfflineReportingSyncService {
       request.fields['wm_$key'] = val.toString();
     });
 
-    // Photos
+    // Photos (supports single file or JSON list of files, automatically compressed to WebP)
     final photosMap = item['photo_paths'] as Map<String, dynamic>? ?? {};
     for (final entry in photosMap.entries) {
       final fieldKey = entry.key;
-      final filePath = entry.value.toString();
-      final file = File(filePath);
-      if (await file.exists()) {
-        request.files.add(await http.MultipartFile.fromPath('photo_$fieldKey', file.path));
+      List<String> paths = [];
+      final rawVal = entry.value;
+
+      if (rawVal is List) {
+        paths = rawVal.map((e) => e.toString()).toList();
+      } else {
+        final str = rawVal.toString().trim();
+        if (str.startsWith('[') && str.endsWith(']')) {
+          try {
+            final decoded = jsonDecode(str);
+            if (decoded is List) {
+              paths = decoded.map((e) => e.toString()).toList();
+            }
+          } catch (_) {
+            paths = [str];
+          }
+        } else {
+          paths = [str];
+        }
+      }
+
+      if (paths.length > 1) {
+        for (int i = 0; i < paths.length; i++) {
+          final f = File(paths[i]);
+          if (await f.exists()) {
+            final uploadFile = await _ensureCompressedWebP(f);
+            request.files.add(await http.MultipartFile.fromPath('photo_${fieldKey}_$i', uploadFile.path));
+          }
+        }
+      } else if (paths.isNotEmpty) {
+        final f = File(paths.first);
+        if (await f.exists()) {
+          final uploadFile = await _ensureCompressedWebP(f);
+          request.files.add(await http.MultipartFile.fromPath('photo_$fieldKey', uploadFile.path));
+          if (!fieldKey.startsWith('photo_')) {
+            request.files.add(await http.MultipartFile.fromPath(fieldKey, uploadFile.path));
+          }
+        }
       }
     }
 
-    final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
-    final response = await http.Response.fromStream(streamedResponse);
+    try {
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 90));
+      final response = await http.Response.fromStream(streamedResponse);
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return true;
-    } else {
-      debugPrint('Upload failed: ${response.statusCode} - ${response.body}');
-      return false;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'success': true, 'message': 'OK'};
+      } else {
+        String errorMsg = 'Server mengembalikan status ${response.statusCode}';
+        try {
+          final resData = jsonDecode(response.body);
+          errorMsg = resData['message'] ?? resData['error'] ?? errorMsg;
+        } catch (_) {}
+        debugPrint('Upload failed: ${response.statusCode} - ${response.body}');
+        return {'success': false, 'message': errorMsg};
+      }
+    } catch (e) {
+      debugPrint('Upload exception during offline sync: $e');
+      return {'success': false, 'message': 'Koneksi gagal atau timeout: $e'};
     }
   }
 }
