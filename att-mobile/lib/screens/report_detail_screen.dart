@@ -78,6 +78,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   void _showImageDialog(BuildContext context, String imageUrl, String title) {
+    final cleanUrl = _resolveMediaUrl(imageUrl);
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -98,7 +99,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   InteractiveViewer(
                     maxScale: 4.0,
                     child: Image.network(
-                      imageUrl,
+                      cleanUrl,
                       fit: BoxFit.contain,
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
@@ -2487,9 +2488,29 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   String _resolveMediaUrl(String? path) {
     if (path == null || path.trim().isEmpty) return '';
-    final str = path.trim();
+    var str = path.trim();
+
+    // Perbaiki typo domain esa-solution.id -> esa-solutions.id jika ada
+    if (str.contains('esa-solution.id')) {
+      str = str.replaceAll('esa-solution.id', 'esa-solutions.id');
+    }
+
     if (str.startsWith('http://') || str.startsWith('https://')) return str;
-    return '${Constants.baseUrl.replaceAll('/api', '')}/storage/${str.replaceFirst('storage/', '').replaceFirst(RegExp(r'^/+'), '')}';
+
+    // Normalisasi path jika ada prefix storage/ atau leading slashes
+    str = str.replaceFirst(RegExp(r'^/+'), '');
+    if (str.startsWith('storage/')) {
+      str = str.substring(8);
+    }
+    str = str.replaceFirst(RegExp(r'^/+'), '');
+
+    // Gunakan server yang valid untuk wings jika terdeteksi template/data Wings
+    String base = Constants.baseUrl.replaceAll(RegExp(r'/api/?$'), '');
+    if (base.contains('appsend.my.id') && (_currentSubmission.templateCode?.contains('WINGS') == true || _currentSubmission.templateTitle.contains('Wings'))) {
+      base = 'https://wings.esa-solutions.id';
+    }
+
+    return '$base/storage/$str';
   }
 
   // ─── HELPER WIDGETS DETAIL LAPORAN DATA PELANGGAN ───
