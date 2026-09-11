@@ -156,6 +156,7 @@ class OfflineReportingSyncService {
     if (item['latitude'] != null) request.fields['latitude'] = item['latitude'].toString();
     if (item['longitude'] != null) request.fields['longitude'] = item['longitude'].toString();
     if (item['address'] != null) request.fields['address'] = item['address'].toString();
+    if (item['created_at'] != null) request.fields['created_at'] = item['created_at'].toString();
     request.fields['is_within_radius'] = (item['is_within_radius'] == true) ? '1' : '0';
 
     // Values JSON
