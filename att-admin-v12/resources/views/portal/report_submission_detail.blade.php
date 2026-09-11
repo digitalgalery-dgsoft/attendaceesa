@@ -1867,7 +1867,7 @@
         ];
 
         // Separate text inputs and photo/media attachments to prevent tall empty grid cards
-        $textValues = $submission->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields, $hasDynamicOfftakeItems, $suppressOfftakeFields, $hasDynamicOosItems, $suppressOosFields, $hasDynamicStockItems, $suppressStockFields, $isCustomerDbReport, $suppressCustomerFields, $isDailyMaintenanceReport, $suppressDailyMaintenanceFields) {
+        $textValues = $submission->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields, $hasDynamicOfftakeItems, $suppressOfftakeFields, $hasDynamicOosItems, $suppressOosFields, $hasDynamicStockItems, $suppressStockFields, $isCustomerDbReport, $suppressCustomerFields, $isDailyMaintenanceReport, $suppressDailyMaintenanceFields, $hasDynamicMbrSalesItems) {
             $isMedia = in_array($val->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])
                 || !empty($val->media_url)
                 || !empty($val->file_path);

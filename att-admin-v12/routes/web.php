@@ -50,6 +50,26 @@ Route::get('/sync-stock-end-dulux', function () {
     ]);
 });
 
+Route::get('/debug-mbr-struk', function () {
+    $sub = \App\Models\ReportSubmission::where('submission_code', 'like', '%JPSM%')
+        ->orWhere('submission_code', 'like', '%3PSM%')
+        ->orWhere('submission_code', 'like', '%ZY2G%')
+        ->latest('id')
+        ->first();
+    if (!$sub) {
+        return response()->json(['error' => 'No submission found']);
+    }
+    $val = $sub->values->firstWhere('field_name', 'mbr_sales_items_json');
+    return response()->json([
+        'id' => $sub->id,
+        'code' => $sub->submission_code,
+        'val_json' => $val?->value_json,
+        'val_text' => $val?->value_text,
+        'app_url' => config('app.url'),
+        'disk_url' => \Illuminate\Support\Facades\Storage::disk('public')->url('test.webp'),
+    ]);
+});
+
 Route::get('/fix-7jiy', function () {
     $sub = \App\Models\ReportSubmission::where('id', 1609793)->orWhereRaw('LOWER(submission_code) LIKE ?', ['%7jiy%'])->first();
     if (!$sub) {
