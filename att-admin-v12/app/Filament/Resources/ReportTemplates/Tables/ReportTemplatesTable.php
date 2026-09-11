@@ -121,7 +121,13 @@ class ReportTemplatesTable
                         if ($type === 'weekly') {
                             return "🗓️ Weekly ({$target}x/mg: {$days})";
                         } elseif ($type === 'monthly') {
-                            $dueInfo = $record->monthly_due_day ? " [Maks Tgl {$record->monthly_due_day}]" : '';
+                            if ($record->monthly_start_day && $record->monthly_end_day) {
+                                $dueInfo = " [Tgl {$record->monthly_start_day} - {$record->monthly_end_day}]";
+                            } elseif ($record->monthly_due_day) {
+                                $dueInfo = " [Maks Tgl {$record->monthly_due_day}]";
+                            } else {
+                                $dueInfo = '';
+                            }
                             return "📆 Monthly ({$target}x/bln: {$days}){$dueInfo}";
                         }
                         return "📅 Daily ({$days})";

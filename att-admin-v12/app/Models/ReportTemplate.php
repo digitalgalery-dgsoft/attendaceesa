@@ -26,6 +26,8 @@ class ReportTemplate extends Model
         'report_days' => 'array',
         'dashboard_config' => 'array',
         'monthly_due_day' => 'integer',
+        'monthly_start_day' => 'integer',
+        'monthly_end_day' => 'integer',
     ];
 
     /**
@@ -169,8 +171,9 @@ class ReportTemplate extends Model
     }
 
     /**
-     * Cek apakah laporan bulanan sudah jatuh tempo (wajib lapor) pada tanggal tertentu.
-     * Sebelum tanggal monthly_due_day, laporan dapat dilewati (tidak wajib lapor) dan tidak memblokir check-out.
+     * Cek apakah laporan bulanan aktif pada tanggal tertentu berdasarkan rentang tanggal.
+     * Karyawan hanya bisa mengisi dan mensubmit laporan di rentang tanggal ini (misal tanggal 24 s/d 30).
+     * Di luar rentang ini, laporan dapat dilewati (tidak wajib lapor) dan tidak memblokir check-out.
      */
     public function isMonthlyDueForDate(\Carbon\Carbon $date): bool
     {
@@ -178,11 +181,25 @@ class ReportTemplate extends Model
             return true;
         }
 
-        if (empty($this->monthly_due_day)) {
+        $start = $this->monthly_start_day ? (int)$this->monthly_start_day : ($this->monthly_due_day ? 1 : null);
+        $end = $this->monthly_end_day ? (int)$this->monthly_end_day : ($this->monthly_due_day ? (int)$this->monthly_due_day : null);
+
+        if ($start === null && $end === null) {
             return true;
         }
 
-        return $date->day >= (int)$this->monthly_due_day;
+        $startVal = $start ?? 1;
+        $endVal = $end ?? 31;
+
+        return $date->day >= $startVal && $date->day <= $endVal;
+    }
+
+    /**
+     * Cek apakah hari ini berada dalam rentang tanggal aktif pelaporan bulanan.
+     */
+    public function isWithinMonthlyRange(\Carbon\Carbon $date): bool
+    {
+        return $this->isMonthlyDueForDate($date);
     }
 
     /**

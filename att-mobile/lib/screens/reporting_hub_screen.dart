@@ -780,6 +780,43 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
               return;
             }
 
+            if (template.scheduleType.toLowerCase() == 'monthly' && !template.isWithinMonthlyRange) {
+              final start = template.monthlyStartDay ?? 1;
+              final end = template.monthlyEndDay ?? (template.monthlyDueDay ?? 31);
+              showDialog(
+                context: context,
+                builder: (dialogCtx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  backgroundColor: cardColor,
+                  title: Row(
+                    children: [
+                      const Icon(Icons.calendar_month_rounded, color: Colors.blue, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Di Luar Jadwal Laporan',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                    ],
+                  ),
+                  content: Text(
+                    'Laporan bulanan "${template.title}" hanya dapat diisi dan dikirim pada rentang tanggal $start sampai $end setiap bulannya.\n\nHari ini (tanggal ${DateTime.now().day}) berada di luar rentang jadwal pelaporan.',
+                    style: TextStyle(fontSize: 13, color: subtitleColor),
+                  ),
+                  actions: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: defaultColor,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Mengerti', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              );
+              return;
+            }
+
             if (template.isStepLocked) {
               showDialog(
                 context: context,
@@ -928,6 +965,20 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                           style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade800),
                         ),
                       )
+                    else if (template.scheduleType.toLowerCase() == 'monthly' && !template.isWithinMonthlyRange)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          (template.monthlyStartDay != null && template.monthlyEndDay != null)
+                              ? 'Bisa Dilewati (Aktif Tgl ${template.monthlyStartDay} - ${template.monthlyEndDay})'
+                              : 'Bisa Dilewati (Maks Tgl ${template.monthlyDueDay})',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue.shade700),
+                        ),
+                      )
                     else if (template.isMonthlySkippable)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -936,7 +987,9 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          'Bisa Dilewati (Maks Tgl ${template.monthlyDueDay})',
+                          (template.monthlyStartDay != null && template.monthlyEndDay != null)
+                              ? 'Bisa Dilewati (Aktif Tgl ${template.monthlyStartDay} - ${template.monthlyEndDay})'
+                              : 'Bisa Dilewati (Maks Tgl ${template.monthlyDueDay})',
                           style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue.shade700),
                         ),
                       ),

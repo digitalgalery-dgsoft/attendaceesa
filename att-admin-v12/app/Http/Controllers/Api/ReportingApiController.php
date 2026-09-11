@@ -513,8 +513,20 @@ class ReportingApiController extends Controller
             $exemptReason = null;
 
             $isMonthly = ($scheduleType === 'monthly');
-            $monthlyDueDay = $t->monthly_due_day ? (int)$t->monthly_due_day : null;
-            $isMonthlySkippable = ($isMonthly && $monthlyDueDay && $now->day < $monthlyDueDay);
+            $monthlyStartDay = $t->monthly_start_day ? (int)$t->monthly_start_day : null;
+            $monthlyEndDay = $t->monthly_end_day ? (int)$t->monthly_end_day : ($t->monthly_due_day ? (int)$t->monthly_due_day : null);
+            $monthlyDueDay = $monthlyEndDay;
+
+            $isWithinMonthlyRange = true;
+            if ($isMonthly && ($monthlyStartDay !== null || $monthlyEndDay !== null)) {
+                $startVal = $monthlyStartDay ?? 1;
+                $endVal = $monthlyEndDay ?? 31;
+                $isWithinMonthlyRange = ($now->day >= $startVal && $now->day <= $endVal);
+            }
+
+            // Jika laporan bulanan dan hari ini di luar rentang tanggal pelaporan:
+            // Maka laporan skippable (dapat dilewati / tidak memblokir alur langkah berikutnya)
+            $isMonthlySkippable = ($isMonthly && !$isWithinMonthlyRange);
             $isMonthlyCompletedPeriod = ($isMonthly && $cutoffSubmitted >= $cutoffTarget);
 
             if ($isCustomerDb && $isOfftakeNoSaleToday) {
@@ -544,7 +556,7 @@ class ReportingApiController extends Controller
                     $lockedReason = 'Laporan Data Pelanggan tidak perlu dilaporkan karena Laporan Offtake hari ini No Sale (0 Penjualan).';
                     $prevStepCompleted = true; // Tidak menghambat langkah berikutnya (Stock End)
                 } elseif ($isMonthlySkippable) {
-                    // Laporan bulanan sebelum tanggal batas wajib lapor: bisa dikerjakan opsional atau dilewati
+                    // Laporan bulanan di luar rentang tanggal: bisa dilewati dan tidak menghambat langkah berikutnya (CBP)
                     $isStepLocked = !$prevStepCompleted;
                     $lockedReason = $isStepLocked ? "Harap selesaikan {$prevStepTitle} terlebih dahulu." : null;
                     $prevStepCompleted = true; // Tidak menghambat langkah berikutnya (CBP) karena laporan bulanan ini dapat dilewati
@@ -569,13 +581,17 @@ class ReportingApiController extends Controller
                 'schedule_type' => $scheduleType,
                 'target_count' => $targetCount,
                 'monthly_due_day' => $monthlyDueDay,
+                'monthly_start_day' => $monthlyStartDay,
+                'monthly_end_day' => $monthlyEndDay,
+                'is_within_monthly_range' => $isWithinMonthlyRange,
+                'monthly_range_text' => ($monthlyStartDay && $monthlyEndDay) ? "Tgl {$monthlyStartDay} - {$monthlyEndDay}" : null,
                 'is_monthly_skippable' => $isMonthlySkippable,
                 'report_days' => $t->report_days ?? [],
                 'cutoff_target' => $cutoffTarget,
                 'cutoff_submitted' => $cutoffSubmitted,
                 'cutoff_progress_percent' => $cutoffProgressPercent,
                 'target_ratio_display' => "{$cutoffSubmitted}/{$cutoffTarget} ({$cutoffProgressPercent}%)",
-                'is_today_scheduled' => $isTodayScheduled && !$isMonthlySkippable,
+                'is_today_scheduled' => $isTodayScheduled && $isWithinMonthlyRange,
                 'step_number' => $stepNumber,
                 'is_step_locked' => $isStepLocked,
                 'locked_reason' => $lockedReason,
@@ -712,6 +728,23 @@ class ReportingApiController extends Controller
 
         $template = ReportTemplate::with('fields')->findOrFail($request->report_template_id);
         $principalId = $employee->principal_id ?? $template->principal_id;
+
+        // Validasi pembatasan rentang tanggal pengisian laporan bulanan (Monthly)
+        if (strtolower($template->schedule_type ?? 'daily') === 'monthly') {
+            $start = $template->monthly_start_day ? (int)$template->monthly_start_day : null;
+            $end = $template->monthly_end_day ? (int)$template->monthly_end_day : ($template->monthly_due_day ? (int)$template->monthly_due_day : null);
+            if ($start !== null || $end !== null) {
+                $startVal = $start ?? 1;
+                $endVal = $end ?? 31;
+                $currentDay = now()->day;
+                if ($currentDay < $startVal || $currentDay > $endVal) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Laporan bulanan '{$template->title}' hanya dapat disubmit pada rentang tanggal {$startVal} sampai {$endVal} setiap bulannya (Hari ini: tanggal {$currentDay}).",
+                    ], 422);
+                }
+            }
+        }
 
         // Generate nomor kode laporan unik (misal: RPT-20260824-0012)
         $dateStr = now()->format('Ymd');
@@ -2552,10 +2585,18 @@ class ReportingApiController extends Controller
                 $isDueToday = $t->isScheduledForDate($now);
             } elseif ($scheduleType === 'monthly') {
                 // Untuk Laporan Monthly:
-                // Cek settingan Maksimal Tanggal Harus Lapor (monthly_due_day)
-                // Jika hari ini masih sebelum tanggal batas, laporan bisa dilewati (tidak wajib lapor) dan TIDAK memblokir check-out!
-                if ($t->monthly_due_day && $now->day < (int)$t->monthly_due_day) {
-                    $isDueToday = false;
+                // Cek settingan Rentang Tanggal Harus Lapor (monthly_start_day s/d monthly_end_day)
+                // Jika hari ini berada di luar rentang tanggal, laporan dilewati (tidak wajib lapor) dan TIDAK memblokir check-out!
+                $start = $t->monthly_start_day ? (int)$t->monthly_start_day : null;
+                $end = $t->monthly_end_day ? (int)$t->monthly_end_day : ($t->monthly_due_day ? (int)$t->monthly_due_day : null);
+                if ($start !== null || $end !== null) {
+                    $startVal = $start ?? 1;
+                    $endVal = $end ?? 31;
+                    if ($now->day < $startVal || $now->day > $endVal) {
+                        $isDueToday = false;
+                    } else {
+                        $isDueToday = true;
+                    }
                 } else {
                     $isDueToday = true;
                 }

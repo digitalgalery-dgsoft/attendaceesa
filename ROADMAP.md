@@ -1499,4 +1499,53 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **CSS Global Safeguard**:
       - Menambahkan aturan proteksi SVG di `portal/layout.blade.php` (`width: 1.25rem; height: 1.25rem`) untuk mengunci ukuran elemen SVG pagination default agar tidak meluber memenuhi layar.
 
+15. **Penyelarasan Grafik Sync Odoo per 30 Menit di Dashboard Web Admin Filament (10 September 2026)**:
+    - **Penyelarasan Interval Waktu**:
+      - Memperbarui widget grafik sinkronisasi karyawan (`ActiveEmployeesHourlyChartWidget.php`) di dashboard web admin dari interval 1 jam menjadi per 30 menit (`*/30 * * * *`).
+      - Interval sumbu X grafik kini menampilkan label setiap setengah jam (misal: `08:00`, `08:30`, `09:00`, dst.) secara presisi mencerminkan jadwal cron sync Odoo riil.
 
+16. **Perombakan 6 Metrik KPI Presensi Seimbang & Optimasi Tata Letak Halaman Attendance Roster (10-11 September 2026)**:
+    - **6 Metrik KPI Presensi Seimbang**:
+      - Merombak kartu KPI pada halaman Attendance Roster (`/admin/attendances`) menjadi 6 metrik utama:
+        1. **Total Employee Aktif**: Memuat seluruh karyawan aktif (`is_active = true`), bukan hanya karyawan yang memiliki jadwal.
+        2. **Total Hadir (On-Time)**: Check-in tepat waktu sesuai toleransi shift.
+        3. **Total Telat**: Check-in melebihi jam mulai shift ditambah toleransi.
+        4. **Total Cuti**: Cuti yang telah disetujui pada periode evaluasi.
+        5. **Total Ijin / Sakit**: Izin resmi dan surat sakit yang terverifikasi.
+        6. **Total Alpha**: Karyawan tanpa presensi / belum absen.
+      - **Formula Seimbang (Grand Total)**: Menjamin rumus matematis akurat $\text{Employee Aktif} = \text{Hadir (On-Time)} + \text{Telat} + \text{Cuti} + \text{Ijin/Sakit} + \text{Alpha}$ dengan banner status sinkronisasi presensi.
+    - **Penyempurnaan Evaluasi Status Presensi (Telat vs Alpha)**:
+      - Menambahkan proteksi *pre-shift midnight fallback* pada `AttendanceRoster.php`: jika sistem diakses pada dini hari (pukul 00:00 - 08:00) sebelum jam kerja dimulai dan belum ada check-in hari ini, sistem otomatis mengevaluasi hari kerja efektif terakhir di periode filter agar status keterlambatan tidak terhapus menjadi Alpha prematur.
+      - Mengevaluasi status kehadiran per karyawan di seluruh rentang tanggal filter yang dipilih.
+    - **Pemisahan Baris & Pencegahan Teks Menumpuk (Text Overlap Safeguard)**:
+      - Memindahkan badge **`[X Terjadwal]`** dari samping angka ke baris tersendiri **tepat di bawah** angka total employee aktif.
+      - Menyeragamkan 3 baris di seluruh 6 kartu, padding kartu disesuaikan (`14px 16px`), icon disesuaikan (`42x42px`), serta menerapkan `min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis;` agar angka ribuan (seperti `4,264`) tidak tumpang tindih dengan badge atau ikon.
+
+17. **Perbaikan Statistik "Total Area 0" di Web Utama / Landing Page (11 September 2026)**:
+    - **Resolusi Masalah Area 0**:
+      - Pada `routes/web.php`, query statistik sebelumnya memanggil model `App\Models\Area::count()` yang menghasilkan nilai 0 karena tabel `areas` belum digunakan, sementara data wilayah operasional dan kantor cabang ESA dikelola di tabel `branches` (`BranchResource` berlabel *"Areas"*).
+      - Memperbarui query menjadi `Branch::where('is_active', true)->count()` dengan fallback ke `Branch::count()` dan `Area::count()`.
+      - Mengaktifkan statistik secara global (`global_landing_stats_active_v4`) dan menampilkannya secara konsisten di `landing.blade.php` baik untuk subdomain entitas (`amk.esa-solutions.id`) maupun domain utama.
+      - Menambahkan pembersihan cache `global_landing_stats_active_v4` pada `Setting.php`, `SettingSyncService.php`, dan `ManageSettings.php`.
+    - **Hasil Verifikasi Live di Production Cluster**:
+      - Staging (`appsend.my.id`): Menampilkan **40 Area & Cabang Operasional** (`HTTP 200 OK`).
+      - Production ([amk.esa-solutions.id](https://amk.esa-solutions.id)): Menampilkan **61 Area & Cabang Operasional** (`HTTP 200 OK`) bersama dengan 11.143 Karyawan Aktif, 34 Prinsiple, dan 3.641 Lokasi Kerja & Toko.
+
+18. **Pengaturan Rentang Waktu Laporan Bulanan (Monthly Date Range) & Validasi Submit Ketat (11 September 2026)**:
+    - **Perubahan Konfigurasi dari Single Due Day menjadi Rentang Waktu (Start Day s/d End Day)**:
+      - Mengubah konfigurasi jadwal laporan tipe `Monthly` dari sebelumnya hanya satu tanggal batas (`monthly_due_day`, misal: 25) menjadi rentang waktu tanggal aktif (`monthly_start_day` s/d `monthly_end_day`, misal: tanggal 24 s/d 30).
+      - Database migration `2026_09_11_090000_add_monthly_date_range_to_report_templates_table.php` menambahkan kolom `monthly_start_day` & `monthly_end_day` (unsignedTinyInteger, nullable) dan mengonversi template bulanan yang ada. Khusus laporan stock opname Dulux (`RPT-DULUX-STOCK-END`) diset default rentang tanggal 24 s/d 30.
+    - **Antarmuka Web Admin Filament & Web Portal Principal**:
+      - **Filament Admin Form (`ReportTemplateForm.php`)**: Mengganti single input `monthly_due_day` dengan 2 input angka berdampingan: `🗓️ Dari Tgl (1 - 31)` dan `🗓️ S/d Tgl (1 - 31)` dalam grid kondisional mode `monthly`.
+      - **Filament Admin Table (`ReportTemplatesTable.php`)**: Kolom jadwal menampilkan badge rentang tanggal `[Tgl X - Y]` untuk template bulanan.
+      - **Portal Principal Form & Index (`form.blade.php` & `index.blade.php`)**: Input rentang tanggal berdampingan dengan validasi client-side, badge jadwal `Tgl X - Y`, dan pembaruan controller `PrincipalPortalController.php` pada method `storeReportTemplate` dan `updateReportTemplate`.
+      - **Cross-Server Sync Service (`TemplateSyncService.php`)**: Menyertakan `monthly_start_day` dan `monthly_end_day` dalam payload export dan import template antar server node.
+    - **Backend API Reporting (`ReportingApiController.php`)**:
+      - `templates()`: Mengembalikan properti `monthly_start_day`, `monthly_end_day`, `is_within_monthly_range`, `monthly_range_text`, dan `is_monthly_skippable` (true jika di luar rentang tanggal).
+      - `submit()`: Proteksi validasi ketat. Jika form berjadwal `monthly` dan disubmit di luar rentang tanggal, server menolak dan merespons HTTP 422: *"Laporan bulanan '[Title]' hanya dapat disubmit pada rentang tanggal [X] sampai [Y] setiap bulannya"*.
+      - `checkPendingReportsStatic()`: Laporan bulanan yang berada di luar rentang tanggal tidak masuk ke daftar pending dan tidak memblokir check-out presensi karyawan (skippable).
+    - **Aplikasi Mobile Flutter (`att-mobile`)**:
+      - **Model (`report_template_model.dart`)**: Properti baru `monthlyStartDay`, `monthlyEndDay`, `isWithinMonthlyRange`, `monthlyRangeText`, dan `scheduleBadgeLabel` (misal: "Bulanan (Tgl 24-30)").
+      - **Reporting Hub (`reporting_hub_screen.dart`)**: Peringatan dialog interaktif jika kartu diklik di luar rentang tanggal (*"Laporan hanya dapat diisi pada rentang tanggal X - Y"*), serta badge status *"Bisa Dilewati (Aktif Tgl X - Y)"*.
+      - **Dynamic Form (`dynamic_form_screen.dart`)**: Banner peringatan rentang tanggal, tombol submit utama dan tombol submit Stock End dikunci (*"Terkunci (Hanya Aktif Tgl X - Y)"*), serta validasi penjaga di awal `_submitForm()` dan `_submitStockEnd()`.
+      - **Provider (`dynamic_reporting_provider.dart`)**: Menangani respons HTTP 422 secara eksplisit sehingga error validasi rentang tanggal tidak dialihkan ke antrean offline (offline queue).

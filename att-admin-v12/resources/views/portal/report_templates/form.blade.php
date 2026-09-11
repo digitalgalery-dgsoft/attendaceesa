@@ -642,9 +642,19 @@
             </div>
 
             <div class="form-group" id="monthlyDueDayGroup" style="{{ old('schedule_type', $template->schedule_type ?? 'daily') === 'monthly' ? '' : 'display: none;' }}">
-                <label class="form-label" id="monthlyDueDayLabel">🗓️ Maksimal Tanggal Harus Lapor (1 - 31)</label>
-                <input type="number" name="monthly_due_day" id="monthlyDueDayInput" value="{{ old('monthly_due_day', $template->monthly_due_day ?? '') }}" min="1" max="31" placeholder="Contoh: 25" class="form-control-custom">
-                <div class="form-hint">Batas tanggal wajib lapor. Sebelum tanggal ini, laporan bisa dilewati dan tidak memblokir check-out.</div>
+                <label class="form-label" id="monthlyDueDayLabel">🗓️ Rentang Tanggal Pengisian (1 - 31)</label>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <div style="flex: 1;">
+                        <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Dari Tanggal:</span>
+                        <input type="number" name="monthly_start_day" id="monthlyStartDayInput" value="{{ old('monthly_start_day', $template->monthly_start_day ?? '') }}" min="1" max="31" placeholder="Contoh: 24" class="form-control-custom">
+                    </div>
+                    <div style="padding-top: 1.1rem; font-weight: 700; color: var(--text-muted); font-size: 0.85rem;">s/d</div>
+                    <div style="flex: 1;">
+                        <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Sampai Tanggal:</span>
+                        <input type="number" name="monthly_end_day" id="monthlyEndDayInput" value="{{ old('monthly_end_day', $template->monthly_end_day ?? ($template->monthly_due_day ?? '')) }}" min="1" max="31" placeholder="Contoh: 30" class="form-control-custom">
+                    </div>
+                </div>
+                <div class="form-hint">Rentang tanggal wajib lapor bulanan. Karyawan hanya bisa mengisi & submit laporan di rentang tanggal ini (misal tgl 24 - 30).</div>
             </div>
 
             <div class="form-group" id="reportDaysGroup">
@@ -877,7 +887,12 @@
         const typeSelect = document.getElementById('scheduleTypeSelect');
         const countLabel = document.getElementById('targetCountLabel');
         const typeHint = document.getElementById('scheduleTypeHint');
+        const dueGroup = document.getElementById('monthlyDueDayGroup');
         const val = typeSelect.value;
+
+        if (dueGroup) {
+            dueGroup.style.display = (val === 'monthly') ? '' : 'none';
+        }
 
         if (val === 'weekly') {
             countLabel.innerHTML = '🎯 Target Pengisian (Per Minggu)';

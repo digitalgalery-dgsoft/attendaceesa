@@ -50,6 +50,11 @@ class TemplateSyncService
                 'is_active' => (bool) $template->is_active,
                 'version' => (int) ($template->version ?? 1),
                 'report_days' => $template->report_days ?? [],
+                'schedule_type' => $template->schedule_type ?? 'daily',
+                'target_count' => (int) ($template->target_count ?? 1),
+                'monthly_due_day' => $template->monthly_due_day ? (int)$template->monthly_due_day : null,
+                'monthly_start_day' => $template->monthly_start_day ? (int)$template->monthly_start_day : null,
+                'monthly_end_day' => $template->monthly_end_day ? (int)$template->monthly_end_day : null,
                 'dashboard_config' => $template->dashboard_config ?? null,
             ],
             'principals' => [
@@ -89,6 +94,11 @@ class TemplateSyncService
                     'is_active' => (bool) ($tplData['is_active'] ?? true),
                     'version' => (int) ($tplData['version'] ?? 1),
                     'report_days' => $tplData['report_days'] ?? [],
+                    'schedule_type' => $tplData['schedule_type'] ?? 'daily',
+                    'target_count' => (int) ($tplData['target_count'] ?? 1),
+                    'monthly_due_day' => $tplData['monthly_due_day'] ?? null,
+                    'monthly_start_day' => $tplData['monthly_start_day'] ?? null,
+                    'monthly_end_day' => $tplData['monthly_end_day'] ?? null,
                     'dashboard_config' => $tplData['dashboard_config'] ?? null,
                 ]
             );

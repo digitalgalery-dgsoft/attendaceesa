@@ -1532,5 +1532,21 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Production ([amk.esa-solutions.id](https://amk.esa-solutions.id)): Menampilkan **61 Area & Cabang Operasional** (`HTTP 200 OK`) bersama dengan 11.143 Karyawan Aktif, 34 Prinsiple, dan 3.641 Lokasi Kerja & Toko.
       - Seluruh 3/3 server node production (AMK, AKP, ATK) aktif dan tersinkronisasi 100%.
 
-
-
+18. **Pengaturan Rentang Waktu Laporan Bulanan (Monthly Date Range) & Validasi Submit Ketat (11 September 2026)**:
+    - **Perubahan Konfigurasi dari Single Due Day menjadi Rentang Waktu (Start Day s/d End Day)**:
+      - Mengubah konfigurasi jadwal laporan tipe `Monthly` dari sebelumnya hanya satu tanggal batas (`monthly_due_day`, misal: 25) menjadi rentang waktu tanggal aktif (`monthly_start_day` s/d `monthly_end_day`, misal: tanggal 24 s/d 30).
+      - Database migration `2026_09_11_090000_add_monthly_date_range_to_report_templates_table.php` menambahkan kolom `monthly_start_day` & `monthly_end_day` (unsignedTinyInteger, nullable) dan mengonversi template bulanan yang ada. Khusus laporan stock opname Dulux (`RPT-DULUX-STOCK-END`) diset default rentang tanggal 24 s/d 30.
+    - **Antarmuka Web Admin Filament & Web Portal Principal**:
+      - **Filament Admin Form (`ReportTemplateForm.php`)**: Mengganti single input `monthly_due_day` dengan 2 input angka berdampingan: `🗓️ Dari Tgl (1 - 31)` dan `🗓️ S/d Tgl (1 - 31)` dalam grid kondisional mode `monthly`.
+      - **Filament Admin Table (`ReportTemplatesTable.php`)**: Kolom jadwal menampilkan badge rentang tanggal `[Tgl X - Y]` untuk template bulanan.
+      - **Portal Principal Form & Index (`form.blade.php` & `index.blade.php`)**: Input rentang tanggal berdampingan dengan validasi client-side, badge jadwal `Tgl X - Y`, dan pembaruan controller `PrincipalPortalController.php` pada method `storeReportTemplate` dan `updateReportTemplate`.
+      - **Cross-Server Sync Service (`TemplateSyncService.php`)**: Menyertakan `monthly_start_day` dan `monthly_end_day` dalam payload export dan import template antar server node.
+    - **Backend API Reporting (`ReportingApiController.php`)**:
+      - `templates()`: Mengembalikan properti `monthly_start_day`, `monthly_end_day`, `is_within_monthly_range`, `monthly_range_text`, dan `is_monthly_skippable` (true jika di luar rentang tanggal).
+      - `submit()`: Proteksi validasi ketat. Jika form berjadwal `monthly` dan disubmit di luar rentang tanggal, server menolak dan merespons HTTP 422: *"Laporan bulanan '[Title]' hanya dapat disubmit pada rentang tanggal [X] sampai [Y] setiap bulannya"*.
+      - `checkPendingReportsStatic()`: Laporan bulanan yang berada di luar rentang tanggal tidak masuk ke daftar pending dan tidak memblokir check-out presensi karyawan (skippable).
+    - **Aplikasi Mobile Flutter (`att-mobile`)**:
+      - **Model (`report_template_model.dart`)**: Properti baru `monthlyStartDay`, `monthlyEndDay`, `isWithinMonthlyRange`, `monthlyRangeText`, dan `scheduleBadgeLabel` (misal: "Bulanan (Tgl 24-30)").
+      - **Reporting Hub (`reporting_hub_screen.dart`)**: Peringatan dialog interaktif jika kartu diklik di luar rentang tanggal (*"Laporan hanya dapat diisi pada rentang tanggal X - Y"*), serta badge status *"Bisa Dilewati (Aktif Tgl X - Y)"*.
+      - **Dynamic Form (`dynamic_form_screen.dart`)**: Banner peringatan rentang tanggal, tombol submit utama dan tombol submit Stock End dikunci (*"Terkunci (Hanya Aktif Tgl X - Y)"*), serta validasi penjaga di awal `_submitForm()` dan `_submitStockEnd()`.
+      - **Provider (`dynamic_reporting_provider.dart`)**: Menangani respons HTTP 422 secara eksplisit sehingga error validasi rentang tanggal tidak dialihkan ke antrean offline (offline queue).

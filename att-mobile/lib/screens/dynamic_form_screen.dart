@@ -1981,6 +1981,20 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       return;
     }
 
+    // Validasi pembatasan rentang tanggal pengisian laporan bulanan (Monthly)
+    if (widget.template.scheduleType.toLowerCase() == 'monthly' && !widget.template.isWithinMonthlyRange) {
+      final start = widget.template.monthlyStartDay ?? 1;
+      final end = widget.template.monthlyEndDay ?? (widget.template.monthlyDueDay ?? 31);
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Di Luar Jadwal Laporan Bulanan'),
+        description: Text('Laporan "${widget.template.title}" hanya dapat disubmit pada rentang tanggal $start sampai $end setiap bulannya.'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
     if (_selectedStoreName.isEmpty) {
       _selectedStoreName = 'Lokasi Kunjungan Terdaftar';
     }
@@ -2463,6 +2477,51 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           children: [
 
+            // ─── Monthly Report Date Range Alert Banner ───
+            if (widget.template.scheduleType.toLowerCase() == 'monthly' && !widget.template.isWithinMonthlyRange) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(isDarkMode ? 0.15 : 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.amber.shade700, width: 1.2),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.calendar_month_rounded, color: Colors.amber.shade800, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Laporan Bulanan Di Luar Jadwal',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.amber.shade200 : Colors.amber.shade900,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Laporan "${widget.template.title}" hanya dapat diisi dan dikirim pada rentang tanggal ${widget.template.monthlyStartDay ?? 1} sampai ${widget.template.monthlyEndDay ?? (widget.template.monthlyDueDay ?? 31)} setiap bulannya.\nTombol pengiriman laporan saat ini dinonaktifkan.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: isDarkMode ? Colors.amber.shade200 : Colors.amber.shade900,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+
             // ─── Session Progress Banner (Multi-Category Reporting) ───
             if (_submittedCategories.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -2587,6 +2646,22 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               _buildMachineProgressAndButtons(themeColor, cardColor, textColor, subtitleColor, isDarkMode)
             else if (_hasProductBinding() && _getTotalProductsCount() > 0)
               _buildProductProgressAndButtons(themeColor, cardColor, textColor, subtitleColor, isDarkMode)
+            else if (widget.template.scheduleType.toLowerCase() == 'monthly' && !widget.template.isWithinMonthlyRange)
+              ElevatedButton.icon(
+                onPressed: null,
+                icon: const Icon(Icons.lock_clock_rounded, color: Colors.grey, size: 18),
+                label: Text(
+                  'Terkunci (Hanya Aktif Tgl ${widget.template.monthlyStartDay ?? 1} - ${widget.template.monthlyEndDay ?? (widget.template.monthlyDueDay ?? 31)})',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+                  disabledBackgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
+                ),
+              )
             else
               Row(
                 children: [
@@ -11589,6 +11664,24 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               elevation: 0,
             ),
           )
+        else if (!widget.template.isWithinMonthlyRange)
+          ElevatedButton.icon(
+            onPressed: null,
+            icon: const Icon(Icons.lock_clock_rounded, size: 18, color: Colors.grey),
+            label: Text(
+              'Terkunci (Hanya Aktif Tgl ${widget.template.monthlyStartDay ?? 1} - ${widget.template.monthlyEndDay ?? (widget.template.monthlyDueDay ?? 31)})',
+              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.grey),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              disabledBackgroundColor:
+                  isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              disabledForegroundColor: Colors.grey.shade500,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+          )
         else
           ElevatedButton.icon(
             onPressed: _isSubmitting ? null : _submitStockEnd,
@@ -12013,6 +12106,19 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         description: const Text(
             'Anda wajib Check-In atau Visit-In terlebih dahulu untuk mengirim laporan.'),
         autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    if (widget.template.scheduleType.toLowerCase() == 'monthly' &&
+        !widget.template.isWithinMonthlyRange) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Di Luar Jadwal Laporan Bulanan'),
+        description: Text(
+            'Laporan bulanan "${widget.template.title}" hanya dapat disubmit pada ${widget.template.monthlyRangeText}.'),
+        autoCloseDuration: const Duration(seconds: 5),
       );
       return;
     }

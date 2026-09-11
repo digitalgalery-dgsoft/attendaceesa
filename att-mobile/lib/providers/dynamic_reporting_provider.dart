@@ -256,6 +256,19 @@ class DynamicReportingProvider with ChangeNotifier {
           'message': resData['message'] ?? 'Laporan berhasil dikirim.',
           'is_offline': false,
         };
+      } else if (response.statusCode == 422) {
+        _isLoading = false;
+        notifyListeners();
+        String errorMsg = 'Validasi form gagal.';
+        try {
+          final errData = jsonDecode(response.body);
+          errorMsg = errData['message'] ?? errData['error'] ?? errorMsg;
+        } catch (_) {}
+        return {
+          'success': false,
+          'message': errorMsg,
+          'is_offline': false,
+        };
       } else {
         throw Exception('Server returned ${response.statusCode}: ${response.body}');
       }

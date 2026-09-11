@@ -38,6 +38,10 @@ class ReportTemplateModel {
   final List<ReportFormFieldModel> fields;
   final Map<String, dynamic>? oosReference;
   final int? monthlyDueDay;
+  final int? monthlyStartDay;
+  final int? monthlyEndDay;
+  final bool isWithinMonthlyRange;
+  final String? monthlyRangeText;
   final bool isMonthlySkippable;
 
   static const Map<String, int> duluxOrderMap = {
@@ -89,6 +93,10 @@ class ReportTemplateModel {
     required this.fields,
     this.oosReference,
     this.monthlyDueDay,
+    this.monthlyStartDay,
+    this.monthlyEndDay,
+    this.isWithinMonthlyRange = true,
+    this.monthlyRangeText,
     this.isMonthlySkippable = false,
   });
 
@@ -108,7 +116,9 @@ class ReportTemplateModel {
     if (type == 'weekly') {
       return '🗓️ Weekly (${targetCount}x/mg)';
     } else if (type == 'monthly') {
-      if (monthlyDueDay != null) {
+      if (monthlyStartDay != null && monthlyEndDay != null) {
+        return '📆 Monthly (Tgl $monthlyStartDay - $monthlyEndDay)';
+      } else if (monthlyDueDay != null) {
         return '📆 Monthly (Maks Tgl $monthlyDueDay)';
       }
       return '📆 Monthly (${targetCount}x/bln)';
@@ -223,8 +233,27 @@ class ReportTemplateModel {
       fields: fieldsList,
       oosReference: oosRef,
       monthlyDueDay: json['monthly_due_day'] != null ? int.tryParse(json['monthly_due_day'].toString()) : null,
+      monthlyStartDay: json['monthly_start_day'] != null ? int.tryParse(json['monthly_start_day'].toString()) : null,
+      monthlyEndDay: json['monthly_end_day'] != null
+          ? int.tryParse(json['monthly_end_day'].toString())
+          : (json['monthly_due_day'] != null ? int.tryParse(json['monthly_due_day'].toString()) : null),
+      isWithinMonthlyRange: json['is_within_monthly_range'] != null
+          ? (json['is_within_monthly_range'] == true || json['is_within_monthly_range'] == 1 || json['is_within_monthly_range'] == 'true')
+          : _calcIsWithinMonthlyRange(json['schedule_type'], json['monthly_start_day'], json['monthly_end_day'] ?? json['monthly_due_day']),
+      monthlyRangeText: json['monthly_range_text']?.toString(),
       isMonthlySkippable: json['is_monthly_skippable'] == true || json['is_monthly_skippable'] == 1 || json['is_monthly_skippable'] == 'true',
     );
+  }
+
+  static bool _calcIsWithinMonthlyRange(dynamic schedType, dynamic start, dynamic end) {
+    if (schedType?.toString().toLowerCase() != 'monthly') return true;
+    final s = start != null ? int.tryParse(start.toString()) : null;
+    final e = end != null ? int.tryParse(end.toString()) : null;
+    if (s == null && e == null) return true;
+    final nowDay = DateTime.now().day;
+    final startDay = s ?? 1;
+    final endDay = e ?? 31;
+    return nowDay >= startDay && nowDay <= endDay;
   }
 
   ReportTemplateModel copyWith({
@@ -267,6 +296,10 @@ class ReportTemplateModel {
     List<ReportFormFieldModel>? fields,
     Map<String, dynamic>? oosReference,
     int? monthlyDueDay,
+    int? monthlyStartDay,
+    int? monthlyEndDay,
+    bool? isWithinMonthlyRange,
+    String? monthlyRangeText,
     bool? isMonthlySkippable,
   }) {
     return ReportTemplateModel(
@@ -309,6 +342,10 @@ class ReportTemplateModel {
       fields: fields ?? this.fields,
       oosReference: oosReference ?? this.oosReference,
       monthlyDueDay: monthlyDueDay ?? this.monthlyDueDay,
+      monthlyStartDay: monthlyStartDay ?? this.monthlyStartDay,
+      monthlyEndDay: monthlyEndDay ?? this.monthlyEndDay,
+      isWithinMonthlyRange: isWithinMonthlyRange ?? this.isWithinMonthlyRange,
+      monthlyRangeText: monthlyRangeText ?? this.monthlyRangeText,
       isMonthlySkippable: isMonthlySkippable ?? this.isMonthlySkippable,
     );
   }
@@ -384,6 +421,10 @@ class ReportTemplateModel {
       'schedule_type': scheduleType,
       'target_count': targetCount,
       'monthly_due_day': monthlyDueDay,
+      'monthly_start_day': monthlyStartDay,
+      'monthly_end_day': monthlyEndDay,
+      'is_within_monthly_range': isWithinMonthlyRange,
+      'monthly_range_text': monthlyRangeText,
       'is_monthly_skippable': isMonthlySkippable,
       'cutoff_target': cutoffTarget,
       'cutoff_submitted': cutoffSubmitted,

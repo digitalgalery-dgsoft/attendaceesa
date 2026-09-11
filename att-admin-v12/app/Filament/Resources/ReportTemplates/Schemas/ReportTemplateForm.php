@@ -155,15 +155,26 @@ class ReportTemplateForm
                                     default => 'Jumlah target pengisian.',
                                 })
                                 ->required(),
-                            TextInput::make('monthly_due_day')
-                                ->label('🗓️ Maksimal Tanggal Harus Lapor (1 - 31)')
-                                ->numeric()
-                                ->minValue(1)
-                                ->maxValue(31)
-                                ->placeholder('Contoh: 25')
+                            Grid::make(2)
                                 ->visible(fn ($get) => $get('schedule_type') === 'monthly')
-                                ->helperText('Batas tanggal wajib lapor. Sebelum tanggal ini, laporan bisa dilewati dan tidak memblokir check-out. Mulai tanggal ini, laporan wajib disubmit agar karyawan dapat check-out.')
-                                ->nullable(),
+                                ->schema([
+                                    TextInput::make('monthly_start_day')
+                                        ->label('🗓️ Dari Tgl (1 - 31)')
+                                        ->numeric()
+                                        ->minValue(1)
+                                        ->maxValue(31)
+                                        ->placeholder('Contoh: 24')
+                                        ->helperText('Awal rentang tanggal aktif laporan.')
+                                        ->nullable(),
+                                    TextInput::make('monthly_end_day')
+                                        ->label('🗓️ S/d Tgl (1 - 31)')
+                                        ->numeric()
+                                        ->minValue(1)
+                                        ->maxValue(31)
+                                        ->placeholder('Contoh: 30')
+                                        ->helperText('Batas akhir rentang tanggal.')
+                                        ->nullable(),
+                                ]),
                             Select::make('report_days')
                                 ->label(fn ($get) => match ($get('schedule_type')) {
                                     'daily' => '🗓️ Pilihan Hari Aktif (Opsional)',
@@ -184,7 +195,7 @@ class ReportTemplateForm
                                 ->multiple()
                                 ->searchable()
                                 ->columnSpan(fn ($get) => match ($get('schedule_type')) {
-                                    'monthly' => 1,
+                                    'monthly' => 3,
                                     'weekly' => 1,
                                     default => 2,
                                 })
