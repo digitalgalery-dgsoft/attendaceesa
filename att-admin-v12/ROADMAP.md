@@ -1677,9 +1677,14 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Penyelesaian Backend (Smart Cross-Server Media Proxy di `routes/web.php`)**:
       - Menambahkan route fallback cerdas `/storage/{folder}/{filename}` pada backend web.
       - Jika file foto presensi/laporan diminta pada server gateway (`appsend.my.id`) tetapi belum ada di disk lokal, server secara otomatis mengambil (*fetch & stream*) berkas dari peer cluster server production (`atk.esa-solutions.id`, `amk.esa-solutions.id`, `akp.esa-solutions.id`), menyimpannya di cache lokal untuk Nginx, dan menyajikan gambar secara instan (`HTTP 200 image/webp`).
-      - Solusi ini langsung mengobati seluruh aplikasi mobile yang sudah terpasang di HP pengguna secara instan tanpa wajib install ulang APK.
+      - Solusi ini langsung menyelesaikan kendala bagi seluruh aplikasi mobile yang sudah terpasang di HP pengguna secara instan tanpa perlu build atau install ulang APK.
     - **Penyempurnaan Mobile (`history_screen.dart`)**:
       - Memprioritaskan penggunaan `rawPhotoUrl` yang dikembalikan dari API jika berupa URL HTTP yang valid dan absolut, sebelum jatuh ke fallback lokal `Constants.getImageUrl(photoPath)`.
+    - **Pembersihan & Multi-Server Deployment**:
+      - Menghapus route diagnostik sementara `/debug-attendance-photo` dari `routes/web.php`.
+      - Menjalankan deployment ke Gateway `appsend.my.id` via webhook `deploy.php` dan ke seluruh node cluster production (AMK, AKP, ATK) via `deploy-production.php`.
+      - Seluruh 4 server telah terverifikasi merespons **HTTP 200 OK** (`Content-Type: image/webp`, 27.5 KB) untuk URL foto selfie check-in.
+
 
 
 
