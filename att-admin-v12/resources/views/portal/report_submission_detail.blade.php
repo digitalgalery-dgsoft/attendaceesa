@@ -1343,6 +1343,12 @@
         // Cek apakah submission ini memiliki list item Penjualan Event MBR multi-produk
         $hasDynamicMbrSalesItems = false;
         $mbrSalesItemsList = [];
+        $mbrGlobalData = [
+            'total_value_penjualan_rp' => 0,
+            'total_qty_penjualan' => 0,
+            'total_bayar_di_booth_rp' => 0,
+            'total_bayar_di_kasir_rp' => 0,
+        ];
 
         foreach ($submission->values as $v) {
             $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
@@ -1358,6 +1364,14 @@
                     $hasDynamicMbrSalesItems = true;
                     $mbrSalesItemsList = $rawMbr;
                 }
+            } elseif ($fn === 'total_value_penjualan_rp') {
+                $mbrGlobalData['total_value_penjualan_rp'] = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
+            } elseif ($fn === 'total_qty_penjualan') {
+                $mbrGlobalData['total_qty_penjualan'] = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
+            } elseif ($fn === 'total_bayar_di_booth_rp') {
+                $mbrGlobalData['total_bayar_di_booth_rp'] = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
+            } elseif ($fn === 'total_bayar_di_kasir_rp') {
+                $mbrGlobalData['total_bayar_di_kasir_rp'] = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
             } elseif ($fn === 'oos_items_json') {
                 $rawOos = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
                 if (is_array($rawOos) && !empty($rawOos)) {
@@ -1398,6 +1412,28 @@
                 $offtakeGlobalData['estimasi_market_share_persen'] = $v->value_text;
             } elseif ($fn === 'tipe_laporan_offtake') {
                 $offtakeGlobalData['tipe_laporan_offtake'] = $v->value_text ?: 'Sale';
+            }
+        }
+
+        if ($hasDynamicMbrSalesItems && !empty($mbrSalesItemsList)) {
+            $calcQty = 0; $calcVal = 0; $calcBooth = 0; $calcKasir = 0;
+            foreach ($mbrSalesItemsList as $it) {
+                $q = (int)($it['qty'] ?? 0);
+                $v = (float)($it['value_rp'] ?? ($q * (float)($it['store_price'] ?? 0)));
+                $pt = strtolower($it['payment_type'] ?? 'booth');
+                $calcQty += $q;
+                $calcVal += $v;
+                if (str_contains($pt, 'kasir')) {
+                    $calcKasir += $v;
+                } else {
+                    $calcBooth += $v;
+                }
+            }
+            if ($mbrGlobalData['total_qty_penjualan'] <= 0) $mbrGlobalData['total_qty_penjualan'] = $calcQty;
+            if ($mbrGlobalData['total_value_penjualan_rp'] <= 0) $mbrGlobalData['total_value_penjualan_rp'] = $calcVal;
+            if ($mbrGlobalData['total_bayar_di_booth_rp'] <= 0 && $mbrGlobalData['total_bayar_di_kasir_rp'] <= 0) {
+                $mbrGlobalData['total_bayar_di_booth_rp'] = $calcBooth;
+                $mbrGlobalData['total_bayar_di_kasir_rp'] = $calcKasir;
             }
         }
 
@@ -1869,6 +1905,19 @@
                 }
             }
 
+            if ($hasDynamicMbrSalesItems) {
+                $suppressMbrFields = [
+                    'mbr_sales_items_json',
+                    'total_qty_penjualan',
+                    'total_value_penjualan_rp',
+                    'total_bayar_di_booth_rp',
+                    'total_bayar_di_kasir_rp',
+                ];
+                if (in_array($fn, $suppressMbrFields) || in_array($flClean, $suppressMbrFields)) {
+                    return false;
+                }
+            }
+
             if ($isCustomerDbReport) {
                 if (in_array($fn, $suppressCustomerFields) || in_array($flClean, $suppressCustomerFields)) {
                     return false;
@@ -2238,6 +2287,67 @@
                         <span class="offtake-stat-sub" title="Cust Masuk: {{ $offtakeGlobalData['jml_customer_masuk'] ?? 0 }} | Beli Cat: {{ $offtakeGlobalData['jml_customer_beli_cat'] ?? 0 }} | Beli Dulux: {{ $offtakeGlobalData['jml_customer_beli_dulux'] ?? 0 }}">
                             Masuk: {{ $offtakeGlobalData['jml_customer_masuk'] ?? 0 }} | Beli Cat: {{ $offtakeGlobalData['jml_customer_beli_cat'] ?? 0 }} | Beli Dulux: {{ $offtakeGlobalData['jml_customer_beli_dulux'] ?? 0 }}
                         </span>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        {{-- PANEL RINGKASAN GLOBAL PENJUALAN EVENT MBR WINGS SURYA (CARD STATISTIK) --}}
+        @if($hasDynamicMbrSalesItems)
+            <div class="offtake-summary-grid">
+                {{-- CARD 1: TOTAL NILAI PENJUALAN --}}
+                <div class="offtake-stat-card" style="border-left: 4px solid #16a34a;">
+                    <div class="offtake-stat-icon" style="background: rgba(22, 163, 74, 0.12); color: #16a34a;">
+                        <i class="fa-solid fa-coins"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Total Nilai Penjualan</span>
+                        <span class="offtake-stat-value" style="color: #15803d;">
+                            Rp {{ number_format($mbrGlobalData['total_value_penjualan_rp'], 0, ',', '.') }}
+                        </span>
+                        <span class="offtake-stat-sub">Akumulasi seluruh transaksi event MBR</span>
+                    </div>
+                </div>
+
+                {{-- CARD 2: TOTAL KUANTITI TERJUAL --}}
+                <div class="offtake-stat-card" style="border-left: 4px solid #d97706;">
+                    <div class="offtake-stat-icon" style="background: rgba(217, 119, 6, 0.12); color: #d97706;">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Total Kuantiti Terjual</span>
+                        <span class="offtake-stat-value" style="color: #b45309;">
+                            {{ number_format($mbrGlobalData['total_qty_penjualan']) }} <span style="font-size: 0.85rem; font-weight: 700; color: #64748b;">Pcs</span>
+                        </span>
+                        <span class="offtake-stat-sub">Dari {{ count($mbrSalesItemsList) }} macam produk terjual</span>
+                    </div>
+                </div>
+
+                {{-- CARD 3: TOTAL BAYAR DI BOOTH --}}
+                <div class="offtake-stat-card" style="border-left: 4px solid #0284c7;">
+                    <div class="offtake-stat-icon" style="background: rgba(2, 132, 199, 0.12); color: #0284c7;">
+                        <i class="fa-solid fa-store"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Bayar di Booth (SPG)</span>
+                        <span class="offtake-stat-value" style="color: #0369a1;">
+                            Rp {{ number_format($mbrGlobalData['total_bayar_di_booth_rp'], 0, ',', '.') }}
+                        </span>
+                        <span class="offtake-stat-sub">Pembayaran langsung di booth SPG</span>
+                    </div>
+                </div>
+
+                {{-- CARD 4: TOTAL BAYAR DI KASIR --}}
+                <div class="offtake-stat-card" style="border-left: 4px solid #7c3aed;">
+                    <div class="offtake-stat-icon" style="background: rgba(124, 58, 237, 0.12); color: #7c3aed;">
+                        <i class="fa-solid fa-cash-register"></i>
+                    </div>
+                    <div class="offtake-stat-info">
+                        <span class="offtake-stat-label">Bayar di Kasir Toko</span>
+                        <span class="offtake-stat-value" style="color: #6d28d9;">
+                            Rp {{ number_format($mbrGlobalData['total_bayar_di_kasir_rp'], 0, ',', '.') }}
+                        </span>
+                        <span class="offtake-stat-sub">Struk transaksi bayar di kasir outlet</span>
                     </div>
                 </div>
             </div>
