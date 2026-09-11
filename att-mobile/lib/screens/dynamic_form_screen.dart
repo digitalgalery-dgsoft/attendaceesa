@@ -14315,6 +14315,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     required bool canSubmitReport,
   }) async {
     if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
 
     final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
     final bool isVisiting = attProvider.isVisiting;
@@ -14323,6 +14324,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     final bool hasActiveAttendance = isVisiting || isCheckedIn || isEditMode;
 
     if (!hasActiveAttendance) {
+      setState(() => _isSubmitting = false);
       toastification.show(
         context: context,
         type: ToastificationType.error,
@@ -14334,6 +14336,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
 
     if (!_isWithinRadius && !isEditMode) {
+      setState(() => _isSubmitting = false);
       toastification.show(
         context: context,
         type: ToastificationType.error,
@@ -14345,6 +14348,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
 
     if (_mbrSalesCart.isEmpty) {
+      setState(() => _isSubmitting = false);
       toastification.show(
         context: context,
         type: ToastificationType.warning,
@@ -14356,6 +14360,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
 
     if (_mbrSellOutPhoto == null && widget.editSubmission == null) {
+      setState(() => _isSubmitting = false);
       toastification.show(
         context: context,
         type: ToastificationType.warning,
@@ -14366,7 +14371,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       return;
     }
 
-    setState(() => _isSubmitting = true);
     CustomLoadingIndicator.show(context, message: 'Mengirim laporan penjualan MBR...');
 
     try {

@@ -29,6 +29,24 @@ class OfflineReportingSyncService {
     final prefs = await SharedPreferences.getInstance();
     List<String> queue = prefs.getStringList(_storageKey) ?? [];
 
+    // Check if an identical report is already in the offline queue
+    final valuesJsonStr = jsonEncode(values);
+    final bool isDuplicate = queue.any((itemStr) {
+      try {
+        final existing = jsonDecode(itemStr) as Map<String, dynamic>;
+        return existing['template_id'] == templateId &&
+               existing['work_location_id'] == workLocationId &&
+               jsonEncode(existing['values']) == valuesJsonStr;
+      } catch (_) {
+        return false;
+      }
+    });
+
+    if (isDuplicate) {
+      debugPrint('Report already exists in offline queue, skipping duplicate.');
+      return;
+    }
+
     final reportItem = {
       'id': 'offline_${DateTime.now().millisecondsSinceEpoch}',
       'template_id': templateId,

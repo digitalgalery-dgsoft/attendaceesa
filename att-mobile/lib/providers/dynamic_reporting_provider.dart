@@ -196,6 +196,14 @@ class DynamicReportingProvider with ChangeNotifier {
     required Map<String, dynamic> photoFiles,
     required Map<String, String> watermarkTexts,
   }) async {
+    if (_isLoading) {
+      return {
+        'success': false,
+        'message': 'Sedang memproses pengiriman laporan...',
+        'is_offline': false,
+      };
+    }
+
     _isLoading = true;
     notifyListeners();
 
