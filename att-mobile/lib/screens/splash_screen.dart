@@ -105,22 +105,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Top Header: Logo + ESA Branding
+                      // Top Header: ESA Branding (Logo icon removed per user request)
                       Column(
                         children: [
-                          const SizedBox(height: 12),
-                          // ESA 3D Hexagon Logo
-                          Image.asset(
-                            'assets/images/esa_3d_logo.png',
-                            height: 52,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.hexagon_outlined,
-                              color: Colors.white,
-                              size: 48,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 16),
                           const Text(
                             'ESA',
                             style: TextStyle(
@@ -152,22 +140,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         ],
                       ),
 
-                      // Center: Mascot Illustration with Loading Logo
+                      // Center: Mascot Illustration
                       Expanded(
                         child: Center(
                           child: Image.asset(
-                            'assets/images/loadinglogo.png',
+                            'assets/images/maskot_esa.png',
                             fit: BoxFit.contain,
                             height: MediaQuery.of(context).size.height * 0.44,
-                            errorBuilder: (_, __, ___) => Image.asset(
-                              'assets/images/maskot_esa.png',
-                              fit: BoxFit.contain,
-                              height: MediaQuery.of(context).size.height * 0.44,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.fingerprint,
-                                color: Colors.white,
-                                size: 90,
-                              ),
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.fingerprint,
+                              color: Colors.white,
+                              size: 90,
                             ),
                           ),
                         ),

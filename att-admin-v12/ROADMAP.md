@@ -1584,3 +1584,21 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Server 3 (ATK): `https://atk.esa-solutions.id/app-release.apk`
         - Tenant Dulux: `https://dulux.esa-solutions.id/app-release.apk`
       - Arsip lokal tersimpan di `APK/app-release-1.0.145.apk` dan `app-release.apk`.
+
+21. **Pembaruan UI Branding Splashscreen, Server Configuration Field, & Default Light Mode (11 September 2026)**:
+    - **Pembaruan Splash Screen (`splash_screen.dart`)**:
+      - Maskot utama diganti menggunakan `maskot_esa.png` (`assets/images/maskot_esa.png`).
+      - Logo hexagon 3D (`esa_3d_logo.png`) di atas tulisan "ESA" dihilangkan sesuai permintaan, sehingga tata letak branding lebih bersih dan fokus.
+    - **Field Input URL Server Configuration Permanen (`server_config_screen.dart`)**:
+      - Prefix `https://` dan suffix `.esa-solutions.id` kini dibuat permanen menggunakan container badge modern.
+      - Pengguna hanya perlu mengetikkan subdomain server (contoh: `api`, `amk`, `akp`, `atk`, `dulux`).
+      - Dilengkapi tombol chip *Pilihan Cepat* (`api`, `amk`, `akp`, `atk`, `dulux`) untuk pengisian instan satu kali klik.
+      - Banner preview live menampilkan URL lengkap yang akan dituju (`https://[subdomain].esa-solutions.id/api`).
+      - Fitur lanjutan *Gunakan Domain Kustom Lainnya* tetap tersedia untuk kebutuhan pengujian developer/staging (`appsend.my.id`).
+    - **Default Light Mode (`theme_provider.dart` & `profile_screen.dart`)**:
+      - Nilai awal tema aplikasi diatur ke **Light Mode** secara default (`ThemeMode.light`), sehingga pengguna baru atau sistem yang belum menyimpan preferensi otomatis berada di mode terang.
+      - Toggle tema di menu profil diselaraskan untuk mengaktifkan/menonaktifkan Dark Mode secara presisi.
+    - **Kompilasi Rilis APK v1.0.146**:
+      - Versi aplikasi dinaikkan menjadi **`v1.0.146+146`**.
+      - Berhasil dikompilasi ke `app-release.apk` (`110.0 MB`, `115,301,913 bytes`).
+      - Berkas installer diarsipkan secara lokal di `APK/app-release-1.0.146.apk` dan root project (tidak diunggah ke server sesuai instruksi).

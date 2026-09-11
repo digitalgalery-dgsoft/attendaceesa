@@ -1046,8 +1046,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildThemeToggleSetting(Color textColor, Color subtitleColor, Color primaryColor, LocaleProvider locale) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.themeMode == ThemeMode.dark ||
-        (themeProvider.themeMode == ThemeMode.system && MediaQuery.of(context).platformBrightness == Brightness.dark);
+    final isDark = themeProvider.themeMode == ThemeMode.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
