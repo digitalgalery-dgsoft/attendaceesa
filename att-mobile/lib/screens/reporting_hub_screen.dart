@@ -745,6 +745,44 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
+            final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+            final bool isCheckedIn = attProvider.isCheckedIn;
+            final bool isVisiting = attProvider.isVisiting;
+            if (!isCheckedIn && !isVisiting) {
+              showDialog(
+                context: context,
+                builder: (dialogCtx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  backgroundColor: cardColor,
+                  title: Row(
+                    children: [
+                      const Icon(Icons.location_off_rounded, color: Colors.red, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Belum Absensi Kehadiran',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                    ],
+                  ),
+                  content: Text(
+                    'Anda belum melakukan Check-In kehadiran atau Visit-In toko hari ini.\n\nSesuai ketentuan, pelaporan hanya dapat dilakukan jika Anda sudah Check-In atau Visit-In dan berada di dalam radius toko.',
+                    style: TextStyle(fontSize: 13, color: subtitleColor),
+                  ),
+                  actions: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: defaultColor,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Mengerti', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              );
+              return;
+            }
+
             if (template.isExempt) {
               showDialog(
                 context: context,

@@ -239,6 +239,9 @@ class DynamicReportingProvider with ChangeNotifier {
         } else if (val is File) {
           if (await val.exists()) {
             request.files.add(await http.MultipartFile.fromPath('photo_$fieldId', val.path));
+            if (!fieldId.startsWith('photo_')) {
+              request.files.add(await http.MultipartFile.fromPath(fieldId, val.path));
+            }
           }
         }
       }
@@ -365,6 +368,9 @@ class DynamicReportingProvider with ChangeNotifier {
         } else if (val is File) {
           if (await val.exists()) {
             request.files.add(await http.MultipartFile.fromPath('photo_$fieldId', val.path));
+            if (!fieldId.startsWith('photo_')) {
+              request.files.add(await http.MultipartFile.fromPath(fieldId, val.path));
+            }
           }
         }
       }

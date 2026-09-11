@@ -2642,7 +2642,7 @@
                                 $pQty = (int)($pItem['qty'] ?? 0);
                                 $pValue = (float)($pItem['value_rp'] ?? ($pStore * $pQty));
                                 $pPayType = $pItem['payment_type'] ?? ($pItem['jenis_pembayaran'] ?? '-');
-                                $pStrukPhoto = $pItem['struk_photo_path'] ?? ($pItem['foto_struk'] ?? null);
+                                $pStrukPhoto = $pItem['struk_photo_url'] ?? ($pItem['struk_photo_path'] ?? ($pItem['foto_struk'] ?? ($pItem['photo_struk_url'] ?? null)));
                             @endphp
                             <div class="product-breakdown-card" style="border-left: 4px solid #dc2626; background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; border-left-width: 4px; padding: 0.85rem 1rem;">
                                 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.65rem;">

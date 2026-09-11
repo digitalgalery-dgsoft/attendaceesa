@@ -2319,7 +2319,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     final payType = (item['payment_type']?.toString() ?? 'Bayar di Booth').trim();
     final isBooth = !payType.toLowerCase().contains('kasir');
 
-    final String? rawStruk = item['struk_photo_url']?.toString() ?? item['photo_struk_url']?.toString();
+    final String? rawStruk = item['struk_photo_url']?.toString() ??
+        item['photo_struk_url']?.toString() ??
+        item['struk_photo_path']?.toString() ??
+        item['foto_struk']?.toString() ??
+        item['struk_photo']?.toString();
     final String? strukUrl = (rawStruk != null && rawStruk.trim().isNotEmpty) ? _resolveMediaUrl(rawStruk) : null;
 
     return Container(

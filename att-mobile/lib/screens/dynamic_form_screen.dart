@@ -2033,14 +2033,25 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     final bool isVisiting = attProvider.isVisiting;
     final bool isCheckedIn = attProvider.isCheckedIn;
     final bool isEditMode = widget.editSubmission != null;
-    final bool canSubmitReport = isVisiting || isCheckedIn || isEditMode;
+    final bool hasActiveAttendance = isVisiting || isCheckedIn || isEditMode;
 
-    if (!canSubmitReport) {
+    if (!hasActiveAttendance) {
       toastification.show(
         context: context,
-        type: ToastificationType.warning,
+        type: ToastificationType.error,
         title: const Text('Belum Absensi Kehadiran / Visit'),
         description: const Text('Anda wajib melakukan Check-In kehadiran atau Visit-In kunjungan toko terlebih dahulu untuk mengirim laporan.'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    if (!_isWithinRadius && !isEditMode) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        title: const Text('Di Luar Radius Toko'),
+        description: Text('Posisi Anda berada di luar batas radius toko (${_calculatedDistance?.round() ?? '-'}m dari toko, maksimal ${_allowedRadiusMeter.round()}m).'),
         autoCloseDuration: const Duration(seconds: 4),
       );
       return;
@@ -2451,7 +2462,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     final bool isVisiting = attProvider.isVisiting;
     final bool isCheckedIn = attProvider.isCheckedIn;
     final bool isEditMode = widget.editSubmission != null;
-    final bool canSubmitReport = isVisiting || isCheckedIn || isEditMode;
+    final bool hasActiveAttendance = isVisiting || isCheckedIn || isEditMode;
+    final bool canSubmitReport = hasActiveAttendance && (_isWithinRadius || isEditMode);
 
     final primaryColor = auth.appColor ?? const Color(0xFF0F52BA);
     final themeColor = Color(int.tryParse(widget.template.color.replaceAll('#', '0xFF')) ?? primaryColor.value);
@@ -12373,6 +12385,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     required LocaleProvider locale,
   }) {
     final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    final bool hasActiveAttendance = attProvider.isVisiting || attProvider.isCheckedIn || widget.editSubmission != null;
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -12412,6 +12426,59 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
+          // Banner Peringatan jika belum Check-In atau di luar radius toko
+          if (!canSubmitReport) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: (!hasActiveAttendance ? const Color(0xFFEF4444) : const Color(0xFFF59E0B)).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: (!hasActiveAttendance ? const Color(0xFFEF4444) : const Color(0xFFF59E0B)).withOpacity(0.5),
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    !hasActiveAttendance ? Icons.lock_clock_rounded : Icons.wrong_location_rounded,
+                    color: !hasActiveAttendance ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          !hasActiveAttendance
+                              ? 'Wajib Check-In / Visit-In Terlebih Dahulu'
+                              : 'Di Luar Radius Lokasi Toko',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: !hasActiveAttendance ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          !hasActiveAttendance
+                              ? 'Anda belum absensi kehadiran atau visit hari ini. Laporan terkunci dan tidak dapat dikirim.'
+                              : 'Jarak Anda: ${_calculatedDistance?.round() ?? '-'}m dari toko (maksimal: ${_allowedRadiusMeter.round()}m). Laporan hanya dapat dikirim di dalam radius.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: subtitleColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           // Step Switch Tabs
           Container(
             margin: const EdgeInsets.only(bottom: 14),
@@ -13772,35 +13839,69 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         const SizedBox(height: 20),
 
         // ── Submit Button ──
-        ElevatedButton(
-          onPressed: _isSubmitting
-              ? null
-              : () => _submitWingsMbrSales(context: context, canSubmitReport: canSubmitReport),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: themeColor,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            elevation: 0,
+        if (!canSubmitReport)
+          ElevatedButton.icon(
+            onPressed: () {
+              final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+              final bool hasAtt = attProvider.isVisiting || attProvider.isCheckedIn || widget.editSubmission != null;
+              final title = !hasAtt ? 'Belum Absensi Kehadiran' : 'Di Luar Radius Toko';
+              final desc = !hasAtt
+                  ? 'Anda wajib melakukan Check-In kehadiran atau Visit-In kunjungan toko terlebih dahulu.'
+                  : 'Posisi GPS Anda berada di luar radius toko (${_calculatedDistance?.round() ?? '-'}m dari toko, maksimal ${_allowedRadiusMeter.round()}m).';
+              toastification.show(
+                context: context,
+                type: ToastificationType.warning,
+                title: Text(title),
+                description: Text(desc),
+                autoCloseDuration: const Duration(seconds: 4),
+              );
+            },
+            icon: const Icon(Icons.lock_rounded, size: 18, color: Colors.grey),
+            label: Text(
+              !canSubmitReport && (_selectedLocation == null || !_isWithinRadius)
+                  ? 'Di Luar Radius Toko (${_calculatedDistance?.round() ?? '-'}m / ${_allowedRadiusMeter.round()}m)'
+                  : 'Wajib Check-In / Visit-In Terlebih Dahulu',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              disabledBackgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              foregroundColor: Colors.grey.shade600,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+          )
+        else
+          ElevatedButton(
+            onPressed: _isSubmitting
+                ? null
+                : () => _submitWingsMbrSales(context: context, canSubmitReport: canSubmitReport),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: themeColor,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+            child: _isSubmitting
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.send_rounded, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Kirim Laporan Penjualan MBR',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
           ),
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.send_rounded, size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      'Kirim Laporan Penjualan MBR',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-        ),
       ],
     );
   }
@@ -14173,6 +14274,34 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     required bool canSubmitReport,
   }) async {
     if (_isSubmitting) return;
+
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    final bool isVisiting = attProvider.isVisiting;
+    final bool isCheckedIn = attProvider.isCheckedIn;
+    final bool isEditMode = widget.editSubmission != null;
+    final bool hasActiveAttendance = isVisiting || isCheckedIn || isEditMode;
+
+    if (!hasActiveAttendance) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        title: const Text('Belum Absensi Kehadiran / Visit'),
+        description: const Text('Anda wajib melakukan Check-In kehadiran atau Visit-In kunjungan toko terlebih dahulu untuk mengirim laporan.'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    if (!_isWithinRadius && !isEditMode) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        title: const Text('Di Luar Radius Toko'),
+        description: Text('Posisi Anda berada di luar batas radius toko (${_calculatedDistance?.round() ?? '-'}m dari toko, batas maksimal ${_allowedRadiusMeter.round()}m).'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
 
     if (_mbrSalesCart.isEmpty) {
       toastification.show(

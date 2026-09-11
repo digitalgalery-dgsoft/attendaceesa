@@ -758,6 +758,25 @@ class ReportingApiController extends Controller
 
         $today = now()->toDateString();
         
+        // 1. Validasi Kehadiran: Karyawan WAJIB sudah Check-In kehadiran hari ini atau sedang Visit-In aktif
+        $hasActiveCheckIn = \App\Models\Attendance::where('employee_id', $employee->id)
+            ->where('attendance_date', $today)
+            ->whereNotNull('check_in')
+            ->exists();
+
+        $hasActiveVisitIn = \App\Models\AttendanceLog::where('employee_id', $employee->id)
+            ->whereDate('logged_at', $today)
+            ->where('log_type', 'visit_in')
+            ->exists();
+
+        if (!$hasActiveCheckIn && !$hasActiveVisitIn) {
+            return response()->json([
+                'status' => 'error',
+                'success' => false,
+                'message' => 'Anda belum melakukan Check-In kehadiran atau Visit-In toko hari ini. Laporan hanya dapat dilakukan jika Anda sudah Check-In atau Visit-In.',
+            ], 422);
+        }
+
         // Cek jika sedang visit aktif hari ini
         $lastVisitIn = \App\Models\AttendanceLog::where('employee_id', $employee->id)
             ->whereDate('logged_at', $today)
@@ -800,7 +819,9 @@ class ReportingApiController extends Controller
 
         try {
             $employee->loadMissing('position');
-            $isWithinRadius = $request->boolean('is_within_radius', true);
+            $isWithinRadius = $request->boolean('is_within_radius', false);
+            $dist = null;
+            $allowedRadius = 100.0;
 
             if ($request->filled('latitude') && $request->filled('longitude') && $workLocationId) {
                 $targetLoc = \App\Models\WorkLocation::find($workLocationId);
@@ -812,6 +833,17 @@ class ReportingApiController extends Controller
                     $allowedRadius = $targetLoc->getEffectiveRadiusForEmployee($employee);
                     $isWithinRadius = ($dist <= $allowedRadius);
                 }
+            }
+
+            // 2. Validasi Radius: Karyawan WAJIB berada di dalam radius toko
+            if (!$isWithinRadius) {
+                $distText = ($dist !== null) ? round($dist) . ' meter' : 'terdeteksi di luar radius';
+                $radiusText = round($allowedRadius) . ' meter';
+                return response()->json([
+                    'status' => 'error',
+                    'success' => false,
+                    'message' => "Posisi Anda berada di luar radius toko ({$distText} dari toko, batas maksimal {$radiusText}). Laporan hanya dapat dikirim jika berada di dalam radius toko.",
+                ], 422);
             }
 
             DB::beginTransaction();
@@ -1460,19 +1492,42 @@ class ReportingApiController extends Controller
 
                 // Simpan foto struk per item produk jika di-upload
                 foreach ($mbrSalesItems as $idx => &$mItem) {
-                    $strukKey = "struk_photo_{$idx}";
-                    $altStrukKey = "photo_struk_{$idx}";
                     $uploadedStruk = null;
-                    if ($request->hasFile($strukKey)) {
-                        $uploadedStruk = $request->file($strukKey);
-                    } elseif ($request->hasFile($altStrukKey)) {
-                        $uploadedStruk = $request->file($altStrukKey);
+                    $candidateKeys = [
+                        "struk_photo_{$idx}",
+                        "photo_struk_{$idx}",
+                        "photo_struk_photo_{$idx}",
+                        "photo_photo_struk_{$idx}",
+                        "struk_{$idx}",
+                        "photo_struk{$idx}",
+                        "photo_receipt_{$idx}",
+                    ];
+                    foreach ($candidateKeys as $ck) {
+                        if ($request->hasFile($ck)) {
+                            $uploadedStruk = $request->file($ck);
+                            break;
+                        }
                     }
+
+                    // Fallback: cari dari allFiles() jika ada key yang mengandung 'struk' dan indexnya
+                    if (!$uploadedStruk) {
+                        foreach ($request->allFiles() as $fKey => $fVal) {
+                            $lowerK = strtolower($fKey);
+                            if (str_contains($lowerK, 'struk') && str_contains($lowerK, (string)$idx)) {
+                                $uploadedStruk = $fVal;
+                                break;
+                            }
+                        }
+                    }
+
                     if ($uploadedStruk && $uploadedStruk->isValid()) {
                         $filename = "struk_mbr_{$idx}_" . time() . '_' . uniqid() . '.' . $uploadedStruk->getClientOriginalExtension();
                         $path = $uploadedStruk->storeAs("reports/" . now()->format('Y-m'), $filename, 'public');
                         if ($path) {
                             $mItem['struk_photo_url'] = $path;
+                            $mItem['photo_struk_url'] = $path;
+                            $mItem['struk_photo_path'] = $path;
+                            $mItem['foto_struk'] = $path;
                         }
                     }
                 }
