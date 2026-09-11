@@ -3120,7 +3120,21 @@ class ReportingApiController extends Controller
      */
     public function competitorProducts(Request $request): JsonResponse
     {
-        $duluxBrands = [
+        $principalId = $request->query('principal_id');
+        $user = $request->user();
+        if (!$principalId && $user) {
+            $principalId = $user->principal_id ?? ($user->employee?->principal_id ?? null);
+        }
+
+        $isDulux = true;
+        if ($principalId) {
+            $p = \App\Models\Principal::find($principalId);
+            if ($p && !(str_contains(strtoupper($p->name), 'DULUX') || str_contains(strtoupper($p->name), 'ICI') || str_contains(strtoupper($p->code ?? ''), 'DULUX') || str_contains(strtoupper($p->subdomain ?? ''), 'dulux'))) {
+                $isDulux = false;
+            }
+        }
+
+        $standardBrands = $isDulux ? [
             'JOTUN',
             'NIPPON PAINT',
             'AVIAN / NO DROP / LENKOTE',
@@ -3129,10 +3143,11 @@ class ReportingApiController extends Controller
             'KANSAI / DANAPAINT',
             'PACIFIC PAINT',
             'MERK LAINNYA',
-        ];
+        ] : ['MERK LAINNYA'];
 
         $subbrandsByBrand = [];
         $allProducts = [];
+        $finalBrands = $standardBrands;
 
         try {
             if (class_exists(\App\Models\CompetitorProduct::class) && \Illuminate\Support\Facades\Schema::hasTable('competitor_products')) {
@@ -3140,6 +3155,10 @@ class ReportingApiController extends Controller
                     ->orderBy('order_index')
                     ->orderBy('brand')
                     ->orderBy('subbrand');
+
+                if ($principalId) {
+                    $query->where('principal_id', $principalId);
+                }
 
                 if ($request->has('brand') && !empty($request->brand)) {
                     $query->where('brand', $request->brand);
@@ -3149,12 +3168,12 @@ class ReportingApiController extends Controller
 
                 if ($records->isNotEmpty()) {
                     $dbBrands = $records->pluck('brand')->unique()->values()->toArray();
-                    foreach ($duluxBrands as $db) {
+                    foreach ($standardBrands as $db) {
                         if (!in_array($db, $dbBrands)) {
                             $dbBrands[] = $db;
                         }
                     }
-                    $duluxBrands = $dbBrands;
+                    $finalBrands = $dbBrands;
 
                     foreach ($records as $item) {
                         $b = $item->brand;
@@ -3182,7 +3201,7 @@ class ReportingApiController extends Controller
         }
 
         // Pastikan setiap brand standar memiliki minimal opsi 'LAINNYA / INPUT MANUAL'
-        foreach ($duluxBrands as $b) {
+        foreach ($finalBrands as $b) {
             if (!isset($subbrandsByBrand[$b]) || empty($subbrandsByBrand[$b])) {
                 $subbrandsByBrand[$b] = [
                     [
@@ -3220,7 +3239,7 @@ class ReportingApiController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'brands' => $duluxBrands,
+            'brands' => $finalBrands,
             'subbrands_by_brand' => $subbrandsByBrand,
             'products' => $allProducts,
             'total' => count($allProducts),

@@ -1550,3 +1550,23 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - **Reporting Hub (`reporting_hub_screen.dart`)**: Peringatan dialog interaktif jika kartu diklik di luar rentang tanggal (*"Laporan hanya dapat diisi pada rentang tanggal X - Y"*), serta badge status *"Bisa Dilewati (Aktif Tgl X - Y)"*.
       - **Dynamic Form (`dynamic_form_screen.dart`)**: Banner peringatan rentang tanggal, tombol submit utama dan tombol submit Stock End dikunci (*"Terkunci (Hanya Aktif Tgl X - Y)"*), serta validasi penjaga di awal `_submitForm()` dan `_submitStockEnd()`.
       - **Provider (`dynamic_reporting_provider.dart`)**: Menangani respons HTTP 422 secara eksplisit sehingga error validasi rentang tanggal tidak dialihkan ke antrean offline (offline queue).
+
+19. **Penyempurnaan Multi-Tenant Master Produk Kompetitor (Scoping Strict per Principal) (11 September 2026)**:
+    - **Penyebab Masalah (Root Cause)**:
+      - Master Produk Kompetitor sebelumnya tidak difilter berdasarkan `principal_id` pada method `competitorProductsList()`, `storeCompetitorProduct()`, `updateCompetitorProduct()`, dan `destroyCompetitorProduct()` di `PrincipalPortalController.php`.
+      - Akibatnya, 48 produk kompetitor cat yang disemai untuk Dulux (seperti Jotun, Nippon Paint, Avian, dsb.) ikut tampil pada portal principal lain (seperti PT WINGS SURYA).
+      - Tombol katalog produk di header portal kompetitor sebelumnya di-hardcode bertuliskan "Katalog Dulux" untuk semua tenant.
+    - **Perbaikan Backend & Portal Controller (`PrincipalPortalController.php`)**:
+      - **Strict Principal Scoping**: Seluruh query list (`$query`), daftar kategori (`$categories`), daftar merk (`$brands`), dan hitungan total (`$totalCompetitors`) kini secara ketat difilter menggunakan `whereIn('principal_id', $scopedPrincipalIds)`.
+      - **Scoped Mutations**: Operasi `storeCompetitorProduct()` menyertakan `principal_id` tenant dalam kunci pencocokan `updateOrCreate()`, serta `updateCompetitorProduct()` dan `destroyCompetitorProduct()` memvalidasi kepemilikan record menggunakan `whereIn('principal_id', $scopedPrincipalIds)->findOrFail($id)`.
+    - **Antarmuka Web Portal Principal (`competitor_products.blade.php`)**:
+      - **Dinamisasi Tombol & Metadata Header**: Tombol katalog kini secara otomatis menyesuaikan nama principal yang aktif (`Katalog PT WINGS SURYA`, `Katalog Dulux`, dsb.) mengarah ke katalog SKU produk masing-masing. Subheader diperjelas menjadi *Database Master Acuan Formulir & Pembanding Kompetitor • [Nama Principal]*.
+      - **Datalist Fleksibel untuk Semua Industri**: Input merk dan kategori di modal Tambah & Edit kini menggunakan `<input list="...">` yang fleksibel dengan datalist dinamis. Principal non-cat (seperti Wings, FMCG, Mamasuka) dapat dengan bebas mengetikkan merk kompetitor mereka sendiri (misal: Unilever, P&G, Kao, Indofood, dsb.) atau kategori FMCG tanpa terikat opsi cat.
+      - **Header Kolom & Empty State Adaptif**: Kolom acuan harga otomatis menyesuaikan (*Acuan Tin/Galon/Pail* untuk Dulux, dan *Acuan Kecil/Sedang/Besar* untuk principal lain). Empty state menampilkan pesan informatif bahwa data kompetitor untuk principal tersebut belum terdaftar dengan tombol CTA tambah langsung.
+    - **Database Migration (`2026_09_11_100000_assign_existing_competitor_products_to_dulux.php`)**:
+      - Memastikan seluruh produk kompetitor eksisting yang memiliki `principal_id IS NULL` secara otomatis dialokasikan ke ID principal Dulux / ICI Paints, sehingga data acuan Dulux tetap utuh dan portal principal lain tetap bersih.
+    - **Web Admin Filament (`CompetitorProductsTable.php` & `CompetitorProductForm.php`)**:
+      - Menambahkan kolom `Principal` (`TextColumn::make('principal.name')`) dan filter relasi `principal_id` pada tabel Filament admin.
+      - Menjadikan relasi `principal_id` wajib (`required()`) pada form admin serta menggunakan datalist merk/kategori yang fleksibel.
+    - **Mobile API Reporting (`ReportingApiController.php`)**:
+      - Endpoint `competitorProducts()` kini mengenali `principal_id` dari parameter request maupun user/karyawan yang login, serta hanya mengembalikan produk kompetitor milik principal yang bersangkutan.

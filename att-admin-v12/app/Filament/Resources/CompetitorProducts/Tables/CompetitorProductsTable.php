@@ -17,6 +17,14 @@ class CompetitorProductsTable
     {
         return $table
             ->columns([
+                TextColumn::make('principal.name')
+                    ->label('Principal')
+                    ->badge()
+                    ->color('info')
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('Global / Dulux'),
+
                 TextColumn::make('brand')
                     ->label('Merk Kompetitor')
                     ->badge()
@@ -61,6 +69,12 @@ class CompetitorProductsTable
                     ->sortable(),
             ])
             ->filters([
+                SelectFilter::make('principal_id')
+                    ->relationship('principal', 'name')
+                    ->label('Filter Principal')
+                    ->searchable()
+                    ->preload(),
+
                 SelectFilter::make('brand')
                     ->label('Filter Merk')
                     ->options([

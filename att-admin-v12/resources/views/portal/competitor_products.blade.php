@@ -191,6 +191,11 @@
 </style>
 @endpush
 
+@php
+    $isDulux = str_contains(strtoupper($tenantPrincipal->name ?? ''), 'DULUX') || str_contains(strtoupper($tenantPrincipal->name ?? ''), 'ICI');
+    $catalogLabel = 'Katalog ' . ($tenantPrincipal->short_name ?? $tenantPrincipal->name ?? 'Produk');
+@endphp
+
 @section('content')
 <div style="width: 100%; max-width: 100%;">
 
@@ -222,7 +227,7 @@
             <div>
                 <h2 class="comp-title-text">Master Produk & Subbrand Kompetitor</h2>
                 <div class="comp-meta-row">
-                    <span><i class="fa-solid fa-database"></i> Database Master Acuan Formulir CBP (Consumer Buying Price)</span>
+                    <span><i class="fa-solid fa-database"></i> Database Master Acuan Formulir & Pembanding Kompetitor</span>
                     <span>•</span>
                     <span><i class="fa-solid fa-building-shield"></i> {{ $tenantPrincipal->name }}</span>
                 </div>
@@ -232,7 +237,7 @@
         <div style="display: flex; gap: 0.75rem; align-items: center;">
             <a href="{{ route('portal.products', ['p' => $tenantPrincipal->id]) }}" class="btn-import-excel" style="background: #64748b; text-decoration: none; padding: 0.65rem 1.15rem;">
                 <i class="fa-solid fa-boxes-stacked"></i>
-                <span>Katalog Dulux</span>
+                <span>{{ $catalogLabel }}</span>
             </a>
             <button type="button" class="btn-add-comp" onclick="openAddModal()">
                 <i class="fa-solid fa-plus"></i>
@@ -324,9 +329,9 @@
                         <th>Merk / Brand</th>
                         <th>Nama Subbrand Kompetitor</th>
                         <th>Kategori / Segmen</th>
-                        <th style="text-align: right;">Acuan Tin (1L)</th>
-                        <th style="text-align: right;">Acuan Galon (2.5L)</th>
-                        <th style="text-align: right;">Acuan Pail (20L)</th>
+                        <th style="text-align: right;">{{ $isDulux ? 'Acuan Tin (1L)' : 'Acuan Kecil' }}</th>
+                        <th style="text-align: right;">{{ $isDulux ? 'Acuan Galon (2.5L)' : 'Acuan Sedang' }}</th>
+                        <th style="text-align: right;">{{ $isDulux ? 'Acuan Pail (20L)' : 'Acuan Besar' }}</th>
                         <th style="text-align: center; width: 90px;">Aksi</th>
                     </tr>
                 </thead>
@@ -371,9 +376,14 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" style="text-align: center; padding: 3rem 1.5rem; color: var(--text-muted);">
+                            <td colspan="8" style="text-align: center; padding: 3.5rem 1.5rem; color: var(--text-muted);">
                                 <i class="fa-solid fa-box-open" style="font-size: 2.5rem; color: #cbd5e1; margin-bottom: 0.75rem; display: block;"></i>
-                                Tidak ada produk kompetitor yang cocok dengan pencarian / filter.
+                                <div style="font-weight: 700; font-size: 1rem; color: var(--text-heading); margin-bottom: 4px;">Belum Ada Produk Kompetitor</div>
+                                <div style="font-size: 0.85rem;">Belum ada master produk kompetitor yang terdaftar untuk principal <strong>{{ $tenantPrincipal->name }}</strong>.</div>
+                                <button type="button" class="btn-add-comp" onclick="openAddModal()" style="margin-top: 1rem;">
+                                    <i class="fa-solid fa-plus"></i>
+                                    <span>Tambah Produk Kompetitor</span>
+                                </button>
                             </td>
                         </tr>
                     @endforelse
@@ -404,48 +414,75 @@
             <div style="display: flex; flex-direction: column; gap: 1rem;">
                 <div>
                     <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-heading); margin-bottom: 4px;">Nama Merk / Brand Kompetitor <span style="color: #e11d48;">*</span></label>
-                    <select name="brand" required style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.88rem; outline: none; background: #ffffff;">
-                        <option value="JOTUN">JOTUN</option>
-                        <option value="NIPPON PAINT">NIPPON PAINT</option>
-                        <option value="AVIAN / NO DROP / LENKOTE">AVIAN / NO DROP / LENKOTE</option>
-                        <option value="MOWILEX">MOWILEX</option>
-                        <option value="PROPAN">PROPAN</option>
-                        <option value="KANSAI / DANAPAINT">KANSAI / DANAPAINT</option>
-                        <option value="PACIFIC PAINT">PACIFIC PAINT</option>
-                        <option value="MERK LAINNYA">MERK LAINNYA</option>
-                    </select>
+                    <input type="text" name="brand" list="brandListSuggestions" required placeholder="Ketik atau pilih merk kompetitor..." style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.88rem; outline: none; background: #ffffff;">
+                    <datalist id="brandListSuggestions">
+                        @foreach($brands as $b)
+                            <option value="{{ $b }}"></option>
+                        @endforeach
+                        @if($isDulux)
+                            <option value="JOTUN"></option>
+                            <option value="NIPPON PAINT"></option>
+                            <option value="AVIAN / NO DROP / LENKOTE"></option>
+                            <option value="MOWILEX"></option>
+                            <option value="PROPAN"></option>
+                            <option value="KANSAI / DANAPAINT"></option>
+                            <option value="PACIFIC PAINT"></option>
+                        @else
+                            <option value="UNILEVER"></option>
+                            <option value="P&G"></option>
+                            <option value="KAO"></option>
+                            <option value="LION WINGS"></option>
+                            <option value="INDOFOOD"></option>
+                            <option value="MAYORA"></option>
+                            <option value="RECKITT"></option>
+                        @endif
+                        <option value="MERK LAINNYA"></option>
+                    </datalist>
                 </div>
 
                 <div>
                     <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-heading); margin-bottom: 4px;">Nama Subbrand Kompetitor <span style="color: #e11d48;">*</span></label>
-                    <input type="text" name="subbrand" required placeholder="Contoh: Majestic True Beauty / Vinilex / Sunguard" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.88rem; outline: none;">
+                    <input type="text" name="subbrand" required placeholder="Contoh: {{ $isDulux ? 'Majestic True Beauty / Vinilex / Sunguard' : 'Rinso / Daia / Attack / Lifebuoy' }}" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.88rem; outline: none;">
                 </div>
 
                 <div>
                     <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-heading); margin-bottom: 4px;">Kategori / Segmen Produk</label>
-                    <select name="category" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.88rem; outline: none; background: #ffffff;">
-                        <option value="Interior Premium">Interior Premium</option>
-                        <option value="Interior Medium">Interior Medium</option>
-                        <option value="Interior Economy">Interior Economy</option>
-                        <option value="Eksterior Premium">Eksterior Premium</option>
-                        <option value="Eksterior Medium">Eksterior Medium</option>
-                        <option value="Waterproofing">Waterproofing (Anti Bocor)</option>
-                        <option value="Wood & Metal">Wood & Metal (Cat Kayu & Besi)</option>
-                        <option value="Lainnya">Lainnya</option>
-                    </select>
+                    <input type="text" name="category" list="categoryListSuggestions" placeholder="Ketik atau pilih kategori..." style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.88rem; outline: none; background: #ffffff;">
+                    <datalist id="categoryListSuggestions">
+                        @foreach($categories as $c)
+                            <option value="{{ $c }}"></option>
+                        @endforeach
+                        @if($isDulux)
+                            <option value="Interior Premium"></option>
+                            <option value="Interior Medium"></option>
+                            <option value="Interior Economy"></option>
+                            <option value="Eksterior Premium"></option>
+                            <option value="Eksterior Medium"></option>
+                            <option value="Waterproofing"></option>
+                            <option value="Wood & Metal"></option>
+                        @else
+                            <option value="Fabric Care / Detergent"></option>
+                            <option value="Personal Care / Sabun"></option>
+                            <option value="Food & Beverage"></option>
+                            <option value="Home Care"></option>
+                            <option value="Oral Care"></option>
+                            <option value="Skin Care"></option>
+                        @endif
+                        <option value="Lainnya"></option>
+                    </datalist>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
                     <div>
-                        <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Harga Tin (Rp)</label>
+                        <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">{{ $isDulux ? 'Harga Tin (Rp)' : 'Harga Acuan 1 (Rp)' }}</label>
                         <input type="number" name="benchmark_price_tin" placeholder="0" style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.85rem; outline: none;">
                     </div>
                     <div>
-                        <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Harga Galon (Rp)</label>
+                        <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">{{ $isDulux ? 'Harga Galon (Rp)' : 'Harga Acuan 2 (Rp)' }}</label>
                         <input type="number" name="benchmark_price_galon" placeholder="0" style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.85rem; outline: none;">
                     </div>
                     <div>
-                        <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Harga Pail (Rp)</label>
+                        <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">{{ $isDulux ? 'Harga Pail (Rp)' : 'Harga Acuan 3 (Rp)' }}</label>
                         <input type="number" name="benchmark_price_pail" placeholder="0" style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.85rem; outline: none;">
                     </div>
                 </div>
@@ -476,16 +513,7 @@
             <div style="display: flex; flex-direction: column; gap: 1rem;">
                 <div>
                     <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-heading); margin-bottom: 4px;">Nama Merk / Brand Kompetitor <span style="color: #e11d48;">*</span></label>
-                    <select id="edit_brand" name="brand" required style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.88rem; outline: none; background: #ffffff;">
-                        <option value="JOTUN">JOTUN</option>
-                        <option value="NIPPON PAINT">NIPPON PAINT</option>
-                        <option value="AVIAN / NO DROP / LENKOTE">AVIAN / NO DROP / LENKOTE</option>
-                        <option value="MOWILEX">MOWILEX</option>
-                        <option value="PROPAN">PROPAN</option>
-                        <option value="KANSAI / DANAPAINT">KANSAI / DANAPAINT</option>
-                        <option value="PACIFIC PAINT">PACIFIC PAINT</option>
-                        <option value="MERK LAINNYA">MERK LAINNYA</option>
-                    </select>
+                    <input type="text" id="edit_brand" name="brand" list="brandListSuggestions" required placeholder="Ketik atau pilih merk kompetitor..." style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.88rem; outline: none; background: #ffffff;">
                 </div>
 
                 <div>
@@ -495,29 +523,20 @@
 
                 <div>
                     <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-heading); margin-bottom: 4px;">Kategori / Segmen Produk</label>
-                    <select id="edit_category" name="category" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.88rem; outline: none; background: #ffffff;">
-                        <option value="Interior Premium">Interior Premium</option>
-                        <option value="Interior Medium">Interior Medium</option>
-                        <option value="Interior Economy">Interior Economy</option>
-                        <option value="Eksterior Premium">Eksterior Premium</option>
-                        <option value="Eksterior Medium">Eksterior Medium</option>
-                        <option value="Waterproofing">Waterproofing (Anti Bocor)</option>
-                        <option value="Wood & Metal">Wood & Metal (Cat Kayu & Besi)</option>
-                        <option value="Lainnya">Lainnya</option>
-                    </select>
+                    <input type="text" id="edit_category" name="category" list="categoryListSuggestions" placeholder="Ketik atau pilih kategori..." style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.88rem; outline: none; background: #ffffff;">
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
                     <div>
-                        <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Harga Tin (Rp)</label>
+                        <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">{{ $isDulux ? 'Harga Tin (Rp)' : 'Harga Acuan 1 (Rp)' }}</label>
                         <input type="number" id="edit_price_tin" name="benchmark_price_tin" style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.85rem; outline: none;">
                     </div>
                     <div>
-                        <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Harga Galon (Rp)</label>
+                        <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">{{ $isDulux ? 'Harga Galon (Rp)' : 'Harga Acuan 2 (Rp)' }}</label>
                         <input type="number" id="edit_price_galon" name="benchmark_price_galon" style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.85rem; outline: none;">
                     </div>
                     <div>
-                        <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Harga Pail (Rp)</label>
+                        <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">{{ $isDulux ? 'Harga Pail (Rp)' : 'Harga Acuan 3 (Rp)' }}</label>
                         <input type="number" id="edit_price_pail" name="benchmark_price_pail" style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.85rem; outline: none;">
                     </div>
                 </div>

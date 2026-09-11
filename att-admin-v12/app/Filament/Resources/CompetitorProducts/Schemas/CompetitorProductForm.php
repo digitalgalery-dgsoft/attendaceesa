@@ -19,50 +19,62 @@ class CompetitorProductForm
                     ->description('Data master merk dan subbrand kompetitor cat pembanding untuk laporan CBP.')
                     ->schema([
                         Grid::make(2)->schema([
-                            Select::make('brand')
+                            TextInput::make('brand')
                                 ->label('Nama Merk / Brand Kompetitor')
-                                ->options([
-                                    'JOTUN' => 'JOTUN',
-                                    'NIPPON PAINT' => 'NIPPON PAINT',
-                                    'AVIAN / NO DROP / LENKOTE' => 'AVIAN / NO DROP / LENKOTE',
-                                    'MOWILEX' => 'MOWILEX',
-                                    'PROPAN' => 'PROPAN',
-                                    'KANSAI / DANAPAINT' => 'KANSAI / DANAPAINT',
-                                    'PACIFIC PAINT' => 'PACIFIC PAINT',
-                                    'MERK LAINNYA' => 'MERK LAINNYA',
+                                ->datalist([
+                                    'JOTUN',
+                                    'NIPPON PAINT',
+                                    'AVIAN / NO DROP / LENKOTE',
+                                    'MOWILEX',
+                                    'PROPAN',
+                                    'KANSAI / DANAPAINT',
+                                    'PACIFIC PAINT',
+                                    'UNILEVER',
+                                    'P&G',
+                                    'KAO',
+                                    'LION WINGS',
+                                    'INDOFOOD',
+                                    'MAYORA',
+                                    'RECKITT',
+                                    'MERK LAINNYA',
                                 ])
-                                ->searchable()
-                                ->required(),
+                                ->required()
+                                ->maxLength(100),
 
                             Select::make('principal_id')
                                 ->relationship('principal', 'name')
-                                ->label('Terkait Prinsiple (Opsional)')
+                                ->label('Terkait Principal')
                                 ->searchable()
                                 ->preload()
-                                ->nullable(),
+                                ->required(),
 
                             TextInput::make('subbrand')
                                 ->label('Nama Subbrand / Produk Kompetitor')
-                                ->placeholder('Contoh: Majestic True Beauty / Vinilex / Sunguard')
+                                ->placeholder('Contoh: Majestic True Beauty / Vinilex / Rinso / Daia')
                                 ->required()
                                 ->maxLength(150),
 
-                            Select::make('category')
+                            TextInput::make('category')
                                 ->label('Kategori / Segmen Produk')
-                                ->options([
-                                    'Interior Super Premium' => 'Interior Super Premium',
-                                    'Interior Premium' => 'Interior Premium',
-                                    'Interior Medium' => 'Interior Medium',
-                                    'Interior Economy' => 'Interior Economy',
-                                    'Eksterior Super Premium' => 'Eksterior Super Premium',
-                                    'Eksterior Premium' => 'Eksterior Premium',
-                                    'Eksterior Medium' => 'Eksterior Medium',
-                                    'Waterproofing' => 'Waterproofing (Pelapis Anti Bocor)',
-                                    'Wood & Metal' => 'Wood & Metal (Cat Kayu & Besi)',
-                                    'Lainnya' => 'Lainnya',
+                                ->datalist([
+                                    'Interior Super Premium',
+                                    'Interior Premium',
+                                    'Interior Medium',
+                                    'Interior Economy',
+                                    'Eksterior Super Premium',
+                                    'Eksterior Premium',
+                                    'Eksterior Medium',
+                                    'Waterproofing',
+                                    'Wood & Metal',
+                                    'Fabric Care / Detergent',
+                                    'Personal Care / Sabun',
+                                    'Food & Beverage',
+                                    'Home Care',
+                                    'Oral Care',
+                                    'Lainnya',
                                 ])
-                                ->searchable()
-                                ->nullable(),
+                                ->nullable()
+                                ->maxLength(100),
                         ]),
                     ]),
 

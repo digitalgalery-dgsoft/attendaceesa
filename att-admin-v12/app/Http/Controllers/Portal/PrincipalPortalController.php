@@ -4476,7 +4476,8 @@ class PrincipalPortalController extends Controller
         $category = $request->query('category');
         $brand = $request->query('brand');
 
-        $query = \App\Models\CompetitorProduct::where('is_active', true);
+        $query = \App\Models\CompetitorProduct::where('is_active', true)
+            ->whereIn('principal_id', $scopedPrincipalIds);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -4497,18 +4498,22 @@ class PrincipalPortalController extends Controller
         $competitorProducts = $query->orderBy('brand')->orderBy('subbrand')->paginate(20);
 
         $categories = \App\Models\CompetitorProduct::where('is_active', true)
+            ->whereIn('principal_id', $scopedPrincipalIds)
             ->whereNotNull('category')
             ->distinct()
             ->pluck('category')
             ->toArray();
 
         $brands = \App\Models\CompetitorProduct::where('is_active', true)
+            ->whereIn('principal_id', $scopedPrincipalIds)
             ->whereNotNull('brand')
             ->distinct()
             ->pluck('brand')
             ->toArray();
 
-        $totalCompetitors = \App\Models\CompetitorProduct::where('is_active', true)->count();
+        $totalCompetitors = \App\Models\CompetitorProduct::where('is_active', true)
+            ->whereIn('principal_id', $scopedPrincipalIds)
+            ->count();
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();
 
@@ -4533,7 +4538,7 @@ class PrincipalPortalController extends Controller
      */
     public function storeCompetitorProduct(Request $request)
     {
-        [$tenantPrincipal] = $this->resolveTenant($request);
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
 
         if (!$tenantPrincipal) {
             return redirect('/');
@@ -4550,11 +4555,11 @@ class PrincipalPortalController extends Controller
 
         \App\Models\CompetitorProduct::updateOrCreate(
             [
+                'principal_id' => $tenantPrincipal->id,
                 'brand' => trim($validated['brand']),
                 'subbrand' => trim($validated['subbrand']),
             ],
             [
-                'principal_id' => $tenantPrincipal->id,
                 'category' => !empty($validated['category']) ? trim($validated['category']) : null,
                 'packaging_sizes' => ['Tin (1L)', 'Galon (2.5L)', 'Pail (20L)'],
                 'benchmark_price_tin' => $validated['benchmark_price_tin'] ?? 0,
@@ -4572,13 +4577,13 @@ class PrincipalPortalController extends Controller
      */
     public function updateCompetitorProduct(Request $request, int $id)
     {
-        [$tenantPrincipal] = $this->resolveTenant($request);
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
 
         if (!$tenantPrincipal) {
             return redirect('/');
         }
 
-        $product = \App\Models\CompetitorProduct::findOrFail($id);
+        $product = \App\Models\CompetitorProduct::whereIn('principal_id', $scopedPrincipalIds)->findOrFail($id);
 
         $validated = $request->validate([
             'brand' => 'required|string|max:100',
@@ -4608,13 +4613,13 @@ class PrincipalPortalController extends Controller
      */
     public function destroyCompetitorProduct(Request $request, int $id)
     {
-        [$tenantPrincipal] = $this->resolveTenant($request);
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
 
         if (!$tenantPrincipal) {
             return redirect('/');
         }
 
-        $product = \App\Models\CompetitorProduct::findOrFail($id);
+        $product = \App\Models\CompetitorProduct::whereIn('principal_id', $scopedPrincipalIds)->findOrFail($id);
         $product->delete();
 
         return redirect()->route('portal.competitor_products', ['p' => $tenantPrincipal->id])->with('success', 'Produk kompetitor berhasil dihapus!');

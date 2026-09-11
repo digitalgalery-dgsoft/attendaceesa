@@ -49,4 +49,9 @@ class CompetitorProduct extends Model
     {
         return $query->where('brand', $brand);
     }
+
+    public function scopeForPrincipals($query, array $principalIds)
+    {
+        return $query->whereIn('principal_id', $principalIds);
+    }
 }
