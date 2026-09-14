@@ -202,6 +202,8 @@ class ReportTemplatesTable
                         'expiry' => 'Expired Alert (Expiry)',
                         'expired_date' => 'Expired Alert (Expired Date)',
                         'survey' => 'Survey',
+                        'sampling' => 'Sampling / Free Taste',
+                        'freetaste' => 'Free Taste',
                         'general' => 'General',
                     ]),
                 TernaryFilter::make('is_active')

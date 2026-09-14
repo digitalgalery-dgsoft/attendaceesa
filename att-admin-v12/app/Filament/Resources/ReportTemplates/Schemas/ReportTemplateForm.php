@@ -101,6 +101,8 @@ class ReportTemplateForm
                                     'expiry' => 'Monitoring Expired Date (Kadaluarsa)',
                                     'expired_date' => 'Monitoring Expired Date (Kadaluarsa)',
                                     'survey' => 'Survey Pasar / Profil Toko',
+                                    'sampling' => 'Sampling / Free Taste',
+                                    'freetaste' => 'Free Taste',
                                     'general' => 'Pelaporan Umum / Kunjungan Biasa',
                                 ])
                                 ->default('general')
