@@ -995,9 +995,12 @@
                             $subCup = 0;
                             $subAkhir = 0;
                             $subBoothPhoto = null;
+                            $subPhotos = [];
 
                             foreach ($sub->values as $v) {
                                 $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
+                                $ft = strtolower(trim((string)($v->field_type ?: ($v->formField ? $v->formField->field_type : ''))));
+
                                 if ($fn === 'mbr_freetaste_items_json' || $fn === 'mbr_sampling_items_json') {
                                     $raw = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
                                     if (is_array($raw)) $subCart = $raw;
@@ -1007,16 +1010,79 @@
                                     $subCup = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
                                 } elseif ($fn === 'total_stok_akhir_sampling') {
                                     $subAkhir = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
-                                } elseif (str_contains($fn, 'foto_booth') || str_contains($fn, 'booth_sampling')) {
-                                    $subBoothPhoto = $v->value_text;
+                                }
+
+                                $isMedia = in_array($ft, ['photo', 'camera_photo', 'multi_photo', 'image']) 
+                                    || str_contains($fn, 'foto') || str_contains($fn, 'photo') || str_contains($fn, 'image')
+                                    || !empty($v->media_url);
+
+                                if ($isMedia) {
+                                    $rawP = $v->media_url ?: ($v->value_text ?: (is_array($v->value_json) ? ($v->value_json[0] ?? null) : null));
+                                    if (!empty($rawP) && is_string($rawP)) {
+                                        $cleanP = trim($rawP);
+                                        if (!str_starts_with($cleanP, '/data/user/') && !str_starts_with($cleanP, 'data/user/') && !str_contains($cleanP, 'cache/wm_')) {
+                                            $pUrl = (str_starts_with($cleanP, 'http://') || str_starts_with($cleanP, 'https://'))
+                                                ? str_replace(['/storage/storage/', 'esa-solution.id'], ['/storage/', 'esa-solutions.id'], $cleanP)
+                                                : asset('storage/' . ltrim(str_replace(['/storage/', 'storage/'], '', $cleanP), '/'));
+                                            
+                                            $label = $v->formField ? $v->formField->field_label : ucwords(str_replace('_', ' ', $fn));
+                                            $subPhotos[] = [
+                                                'label' => $label,
+                                                'url' => $pUrl,
+                                                'field_name' => $fn,
+                                            ];
+                                            if (!$subBoothPhoto && (str_contains($fn, 'booth') || str_contains($fn, 'foto') || str_contains($fn, 'photo'))) {
+                                                $subBoothPhoto = $pUrl;
+                                            }
+                                        }
+                                    }
                                 }
                             }
 
-                            if (!empty($subCart) && $subDimasak <= 0) {
-                                foreach ($subCart as $it) {
-                                    $subDimasak += (int)($it['jumlah_dimasak'] ?? ($it['dimasak'] ?? 0));
-                                    $subCup += (int)($it['jumlah_cup'] ?? ($it['cup'] ?? 0));
-                                    $subAkhir += (int)($it['stok_akhir'] ?? 0);
+                            // Fallback jika foto booth tersimpan di disk
+                            if (empty($subPhotos)) {
+                                $matches = glob(storage_path("app/public/reports/*/report_{$sub->id}_*.jpg"));
+                                if (!empty($matches)) {
+                                    foreach ($matches as $match) {
+                                        $rel = str_replace(storage_path('app/public/'), '', $match);
+                                        $rel = str_replace('\\', '/', $rel);
+                                        $pUrl = asset('storage/' . ltrim($rel, '/'));
+                                        $subPhotos[] = [
+                                            'label' => 'Foto Stand / Booth Sampling',
+                                            'url' => $pUrl,
+                                            'field_name' => 'foto_booth_sampling',
+                                        ];
+                                        if (!$subBoothPhoto) $subBoothPhoto = $pUrl;
+                                    }
+                                }
+                            }
+                            if (!$subBoothPhoto && !empty($subPhotos)) {
+                                $subBoothPhoto = $subPhotos[0]['url'];
+                            }
+
+                            // Normalisasi foto produk sampling
+                            if (!empty($subCart)) {
+                                foreach ($subCart as &$it) {
+                                    $rawSam = $it['photo_sampling_url'] ?? ($it['foto_sampling'] ?? ($it['sampling_photo_url'] ?? null));
+                                    if ($rawSam && is_string($rawSam)) {
+                                        $cleanS = trim($rawSam);
+                                        if (!str_starts_with($cleanS, '/data/user/') && !str_starts_with($cleanS, 'data/user/')) {
+                                            $sUrl = (str_starts_with($cleanS, 'http://') || str_starts_with($cleanS, 'https://'))
+                                                ? str_replace(['/storage/storage/', 'esa-solution.id'], ['/storage/', 'esa-solutions.id'], $cleanS)
+                                                : asset('storage/' . ltrim(str_replace(['/storage/', 'storage/'], '', $cleanS), '/'));
+                                            $it['photo_sampling_url'] = $sUrl;
+                                            $it['foto_sampling'] = $sUrl;
+                                        }
+                                    }
+                                }
+                                unset($it);
+
+                                if ($subDimasak <= 0) {
+                                    foreach ($subCart as $it) {
+                                        $subDimasak += (int)($it['jumlah_dimasak'] ?? ($it['dimasak'] ?? 0));
+                                        $subCup += (int)($it['jumlah_cup'] ?? ($it['cup'] ?? 0));
+                                        $subAkhir += (int)($it['stok_akhir'] ?? 0);
+                                    }
                                 }
                             }
                         @endphp
@@ -1061,7 +1127,7 @@
                             </td>
                             <td style="text-align: center;">
                                 @if($subBoothPhoto)
-                                    <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('{{ $subBoothPhoto }}')">
+                                    <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('{{ $subBoothPhoto }}')" title="Lihat Foto Stand / Booth">
                                         <i class="fa-solid fa-camera"></i>
                                         <span>Booth</span>
                                     </button>
@@ -1069,8 +1135,8 @@
                                     <span style="color: var(--text-muted); font-size: 0.75rem;">-</span>
                                 @endif
                             </td>
-                            <td style="text-align: center;">
-                                <button type="button" class="portal-freetaste-btn-action" onclick="openFreetasteSubmissionDetailModal({{ json_encode($sub) }}, {{ json_encode($subCart) }})">
+                            <td style="text-align: center; white-space: nowrap;">
+                                <button type="button" class="portal-freetaste-btn-action" onclick='openFreetasteSubmissionDetailModal(@json($sub), @json($subCart), @json($subPhotos), "{{ $subBoothPhoto }}")'>
                                     <i class="fa-solid fa-eye"></i>
                                     <span>Detail</span>
                                 </button>
@@ -1166,6 +1232,7 @@
 </div>
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     const freetasteChartData = {
         daily: @json($freetasteData['chart']['daily'] ?? ['labels' => [], 'dimasaks' => [], 'cups' => []]),
@@ -1179,6 +1246,16 @@
     function initFreetasteChart() {
         const ctx = document.getElementById('freetasteChart');
         if (!ctx) return;
+
+        if (typeof Chart === 'undefined') {
+            console.warn('Chart.js belum siap, mencoba lagi...');
+            setTimeout(initFreetasteChart, 150);
+            return;
+        }
+
+        if (freetasteChartInstance) {
+            freetasteChartInstance.destroy();
+        }
 
         const initialLabels = freetasteChartData.daily.labels || [];
         const initialDimasaks = freetasteChartData.daily.dimasaks || [];
@@ -1198,7 +1275,7 @@
                         maxBarThickness: 38
                     },
                     {
-                        label: 'Cup Dibagikan (Cup)',
+                        label: 'Cup Tester (Cup)',
                         data: initialCups,
                         backgroundColor: '#059669',
                         borderRadius: 8,
@@ -1279,70 +1356,159 @@
     }
 
     // Modal Rincian Submissions
-    function openFreetasteSubmissionDetailModal(sub, cart) {
+    function openFreetasteSubmissionDetailModal(sub, cart, photos, boothPhoto) {
         const modal = document.getElementById('freetasteSubDetailModal');
         const body = document.getElementById('freetasteSubModalBody');
         if (!modal || !body) return;
 
+        photos = photos || [];
+        if (!boothPhoto && photos.length > 0) {
+            boothPhoto = photos[0].url;
+        }
+
+        const resolveUrl = (u) => {
+            if (!u || typeof u !== 'string') return '';
+            let s = u.trim();
+            if (!s || s === '-' || s.startsWith('/data/user/') || s.startsWith('data/user/')) return '';
+            if (s.startsWith('http://') || s.startsWith('https://')) {
+                return s.replace('esa-solution.id', 'esa-solutions.id').replace('/storage/storage/', '/storage/');
+            }
+            if (s.startsWith('/storage/')) return s;
+            if (s.startsWith('storage/')) return '/' + s;
+            return '/storage/' + s.replace(/^\/+/, '');
+        };
+
         let cartHtml = '';
         if (cart && cart.length > 0) {
             cartHtml = `
-                <table class="portal-freetaste-table" style="margin-top: 1rem;">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Nama Varian Produk</th>
-                            <th class="num">Stok Awal</th>
-                            <th class="num">Dimasak</th>
-                            <th class="num">Stok Akhir</th>
-                            <th class="num">Cup Tester</th>
-                            <th style="text-align: center;">Foto</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${cart.map((item, i) => {
-                            const pPhoto = item.photo_sampling_url || item.foto_sampling || item.sampling_photo_url || null;
-                            return `
-                                <tr>
-                                    <td style="color: var(--text-muted); font-weight: 700;">${i + 1}</td>
-                                    <td style="font-weight: 700; color: var(--text-heading);">
-                                        ${item.name || item.product_name || 'Produk Mie Sedaap'}
-                                        <div style="font-size: 0.72rem; color: var(--text-muted);">${item.sku_code || item.sku || '-'}</div>
-                                    </td>
-                                    <td class="num">${Number(item.stok_awal || 0).toLocaleString('id-ID')} Pcs</td>
-                                    <td class="num" style="color: var(--brand-primary);">${Number(item.jumlah_dimasak || item.dimasak || 0).toLocaleString('id-ID')} Pcs</td>
-                                    <td class="num" style="color: #ea580c;">${Number(item.stok_akhir || 0).toLocaleString('id-ID')} Pcs</td>
-                                    <td class="num" style="color: #059669;">${Number(item.jumlah_cup || item.cup || 0).toLocaleString('id-ID')} Cup</td>
-                                    <td style="text-align: center;">
-                                        ${pPhoto ? `
-                                            <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('${pPhoto}')">
-                                                <i class="fa-solid fa-camera"></i>
-                                            </button>
-                                        ` : '<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>'}
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
+                <div style="overflow-x: auto;">
+                    <table class="portal-freetaste-table" style="margin-top: 0.75rem; width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;">#</th>
+                                <th>Nama Varian Produk</th>
+                                <th class="num">Stok Awal</th>
+                                <th class="num">Dimasak</th>
+                                <th class="num">Stok Akhir</th>
+                                <th class="num">Cup Tester</th>
+                                <th style="text-align: center; width: 80px;">Foto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${cart.map((item, i) => {
+                                const rawPhoto = item.photo_sampling_url || item.foto_sampling || item.sampling_photo_url || null;
+                                const pPhoto = rawPhoto ? resolveUrl(rawPhoto) : null;
+                                return `
+                                    <tr>
+                                        <td style="color: var(--text-muted); font-weight: 700; text-align: center;">${i + 1}</td>
+                                        <td>
+                                            <div style="font-weight: 800; color: var(--text-heading);">${item.name || item.product_name || 'Produk Mie Sedaap'}</div>
+                                            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">${item.sku_code || item.sku || '-'}</div>
+                                        </td>
+                                        <td class="num">${Number(item.stok_awal || 0).toLocaleString('id-ID')} Pcs</td>
+                                        <td class="num" style="color: var(--brand-primary); font-weight: 800;">${Number(item.jumlah_dimasak || item.dimasak || 0).toLocaleString('id-ID')} Pcs</td>
+                                        <td class="num" style="color: #ea580c; font-weight: 800;">${Number(item.stok_akhir || 0).toLocaleString('id-ID')} Pcs</td>
+                                        <td class="num" style="color: #059669; font-weight: 800;">${Number(item.jumlah_cup || item.cup || 0).toLocaleString('id-ID')} Cup</td>
+                                        <td style="text-align: center;">
+                                            ${pPhoto ? `
+                                                <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('${pPhoto}')" title="Lihat Foto Sampling" style="padding: 4px 8px; font-size: 0.72rem;">
+                                                    <i class="fa-solid fa-camera"></i> Foto
+                                                </button>
+                                            ` : '<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>'}
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
             `;
         } else {
-            cartHtml = '<p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">Tidak ada item keranjang sampling terperinci.</p>';
+            cartHtml = '<p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.75rem;">Tidak ada item keranjang sampling terperinci.</p>';
+        }
+
+        // Section Dokumentasi Foto Booth / Stand Sampling
+        let photoSectionHtml = '';
+        const mainPhoto = boothPhoto ? resolveUrl(boothPhoto) : (photos.length > 0 ? resolveUrl(photos[0].url) : null);
+
+        if (mainPhoto || photos.length > 0) {
+            photoSectionHtml = `
+                <div style="margin-top: 1.25rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.65rem;">
+                        <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-heading); margin: 0; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-camera" style="color: var(--brand-primary);"></i>
+                            Foto Dokumentasi Stand / Booth Sampling
+                        </h4>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;"><i class="fa-solid fa-magnifying-glass-plus"></i> Klik foto untuk memperbesar</span>
+                    </div>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        ${mainPhoto ? `
+                            <div style="position: relative; border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0; width: 100%; max-width: 300px; background: #0f172a; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                                <img src="${mainPhoto}" alt="Dokumentasi Booth Sampling" onclick="openLightbox('${mainPhoto}')" style="width: 100%; height: 190px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                                <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); padding: 0.6rem 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="color: #fff; font-size: 0.75rem; font-weight: 700;">
+                                        <i class="fa-solid fa-store"></i> Stand / Booth Sampling
+                                    </span>
+                                    <button type="button" onclick="openLightbox('${mainPhoto}')" style="background: rgba(255,255,255,0.25); color: #fff; border: none; border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
+                                        <i class="fa-solid fa-expand"></i> Zoom
+                                    </button>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${photos.filter(p => resolveUrl(p.url) !== mainPhoto).map((p, pI) => {
+                            const pUrl = resolveUrl(p.url);
+                            return `
+                                <div style="position: relative; border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0; width: 100%; max-width: 220px; background: #0f172a; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                                    <img src="${pUrl}" alt="${p.label || 'Foto Laporan'}" onclick="openLightbox('${pUrl}')" style="width: 100%; height: 190px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                                    <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); padding: 0.6rem 0.75rem;">
+                                        <span style="color: #fff; font-size: 0.74rem; font-weight: 700;">${p.label || 'Lampiran #' + (pI + 1)}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            photoSectionHtml = `
+                <div style="margin-top: 1.25rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 0.85rem 1rem; display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.82rem;">
+                    <i class="fa-solid fa-image" style="font-size: 1.2rem; color: #94a3b8;"></i>
+                    <span>Tidak ada lampiran foto dokumentasi booth pada submisi laporan ini.</span>
+                </div>
+            `;
         }
 
         body.innerHTML = `
-            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
+            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem;">
                 <div>
-                    <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Kode Submisi</span>
-                    <div style="font-weight: 800; font-family: monospace; color: var(--brand-primary);">${sub.submission_code || '-'}</div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Kode Submisi</span>
+                    <div style="font-weight: 800; font-family: monospace; color: var(--brand-primary); font-size: 0.95rem;">${sub.submission_code || '-'}</div>
                 </div>
                 <div>
-                    <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Waktu Lapor</span>
-                    <div style="font-weight: 700; color: var(--text-heading);">${sub.submitted_at || sub.created_at || '-'}</div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Waktu Lapor</span>
+                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${sub.submitted_at || sub.created_at || '-'}</div>
+                </div>
+                <div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Petugas / Mitra</span>
+                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${sub.employee?.full_name || sub.employee?.name || 'Petugas'}</div>
+                </div>
+                <div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Toko / Lokasi</span>
+                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${sub.work_location?.name || sub.store_name || '-'}</div>
                 </div>
             </div>
+
+            ${photoSectionHtml}
+
             <div style="margin-top: 1.25rem;">
-                <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-heading); margin-bottom: 0.35rem;">Rincian Varian Sampling & Kuantiti</h4>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                    <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-heading); margin: 0; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-bowl-food" style="color: var(--brand-primary);"></i>
+                        Rincian Varian Sampling & Kuantiti
+                    </h4>
+                    <span style="font-size: 0.78rem; font-weight: 700; color: #059669;">${cart.length} Varian Produk</span>
+                </div>
                 ${cartHtml}
             </div>
         `;
@@ -1368,8 +1534,10 @@
         document.getElementById('freetasteLightboxOverlay')?.classList.remove('active');
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initFreetasteChart);
+    } else {
         initFreetasteChart();
-    });
+    }
 </script>
 @endpush

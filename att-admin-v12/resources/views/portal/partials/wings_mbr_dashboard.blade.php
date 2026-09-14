@@ -1036,9 +1036,12 @@
                             $subBooth = 0;
                             $subKasir = 0;
                             $sellOutPhoto = null;
+                            $subPhotos = [];
 
                             foreach($sub->values as $v) {
                                 $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
+                                $ft = strtolower(trim((string)($v->field_type ?: ($v->formField ? $v->formField->field_type : ''))));
+
                                 if ($fn === 'mbr_sales_items_json') {
                                     $raw = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
                                     if (is_array($raw)) $cart = $raw;
@@ -1050,20 +1053,80 @@
                                     $subBooth = (float)($v->value_number ?? 0);
                                 } elseif ($fn === 'total_bayar_di_kasir_rp') {
                                     $subKasir = (float)($v->value_number ?? 0);
-                                } elseif (str_contains($fn, 'foto_sell_out') || str_contains($fn, 'sell_out')) {
-                                    $sellOutPhoto = $v->value_text;
+                                }
+
+                                $isMedia = in_array($ft, ['photo', 'camera_photo', 'multi_photo', 'image']) 
+                                    || str_contains($fn, 'foto') || str_contains($fn, 'photo') || str_contains($fn, 'image')
+                                    || !empty($v->media_url);
+
+                                if ($isMedia) {
+                                    $rawP = $v->media_url ?: ($v->value_text ?: (is_array($v->value_json) ? ($v->value_json[0] ?? null) : null));
+                                    if (!empty($rawP) && is_string($rawP)) {
+                                        $cleanP = trim($rawP);
+                                        if (!str_starts_with($cleanP, '/data/user/') && !str_starts_with($cleanP, 'data/user/') && !str_contains($cleanP, 'cache/wm_')) {
+                                            $pUrl = (str_starts_with($cleanP, 'http://') || str_starts_with($cleanP, 'https://'))
+                                                ? str_replace(['/storage/storage/', 'esa-solution.id'], ['/storage/', 'esa-solutions.id'], $cleanP)
+                                                : asset('storage/' . ltrim(str_replace(['/storage/', 'storage/'], '', $cleanP), '/'));
+                                            
+                                            $label = $v->formField ? $v->formField->field_label : ucwords(str_replace('_', ' ', $fn));
+                                            $subPhotos[] = [
+                                                'label' => $label,
+                                                'url' => $pUrl,
+                                                'field_name' => $fn,
+                                            ];
+                                            if (!$sellOutPhoto && (str_contains($fn, 'sell_out') || str_contains($fn, 'foto') || str_contains($fn, 'photo'))) {
+                                                $sellOutPhoto = $pUrl;
+                                            }
+                                        }
+                                    }
                                 }
                             }
 
+                            // Fallback jika foto tidak tercatat di submission values tapi tersimpan di disk
+                            if (empty($subPhotos)) {
+                                $matches = glob(storage_path("app/public/reports/*/report_{$sub->id}_*.jpg"));
+                                if (!empty($matches)) {
+                                    foreach ($matches as $match) {
+                                        $rel = str_replace(storage_path('app/public/'), '', $match);
+                                        $rel = str_replace('\\', '/', $rel);
+                                        $pUrl = asset('storage/' . ltrim($rel, '/'));
+                                        $subPhotos[] = [
+                                            'label' => 'Foto Dokumentasi Laporan',
+                                            'url' => $pUrl,
+                                            'field_name' => 'foto_dokumentasi',
+                                        ];
+                                        if (!$sellOutPhoto) $sellOutPhoto = $pUrl;
+                                    }
+                                }
+                            }
+                            if (!$sellOutPhoto && !empty($subPhotos)) {
+                                $sellOutPhoto = $subPhotos[0]['url'];
+                            }
+
+                            // Normalisasi foto struk dalam item cart
                             if (!empty($cart)) {
                                 $calcQ = 0; $calcV = 0;
-                                foreach($cart as $item) {
+                                foreach($cart as &$item) {
                                     $q = (int)($item['qty'] ?? 1);
                                     $pr = (float)($item['store_price'] ?? ($item['price'] ?? 0));
                                     $v = (float)($item['value_rp'] ?? ($q * $pr));
                                     $calcQ += $q;
                                     $calcV += $v;
+
+                                    $rawStruk = $item['struk_photo_url'] ?? ($item['struk_photo_path'] ?? ($item['foto_struk'] ?? ($item['photo_struk_url'] ?? null)));
+                                    if ($rawStruk && is_string($rawStruk)) {
+                                        $cleanS = trim($rawStruk);
+                                        if (!str_starts_with($cleanS, '/data/user/') && !str_starts_with($cleanS, 'data/user/')) {
+                                            $sUrl = (str_starts_with($cleanS, 'http://') || str_starts_with($cleanS, 'https://'))
+                                                ? str_replace(['/storage/storage/', 'esa-solution.id'], ['/storage/', 'esa-solutions.id'], $cleanS)
+                                                : asset('storage/' . ltrim(str_replace(['/storage/', 'storage/'], '', $cleanS), '/'));
+                                            $item['struk_photo_url'] = $sUrl;
+                                            $item['foto_struk'] = $sUrl;
+                                        }
+                                    }
                                 }
+                                unset($item);
+
                                 if ($subQty <= 0) $subQty = $calcQ;
                                 if ($subVal <= 0) $subVal = $calcV;
                             }
@@ -1113,8 +1176,13 @@
                                     <span class="portal-mbr-pill booth"><i class="fa-solid fa-coins"></i> Campuran</span>
                                 @endif
                             </td>
-                            <td style="text-align: center;">
-                                <button type="button" onclick='openSubmissionDetailModal(@json($sub), @json($cart))' class="portal-mbr-btn-action">
+                            <td style="text-align: center; white-space: nowrap;">
+                                @if($sellOutPhoto)
+                                    <button type="button" onclick="openLightbox('{{ $sellOutPhoto }}')" class="portal-mbr-btn-action" style="background: #eff6ff; color: #2563eb; border-color: #bfdbfe; margin-right: 4px;" title="Lihat Foto Dokumentasi">
+                                        <i class="fa-solid fa-camera"></i> Foto
+                                    </button>
+                                @endif
+                                <button type="button" onclick='openSubmissionDetailModal(@json($sub), @json($cart), @json($subPhotos), "{{ $sellOutPhoto }}")' class="portal-mbr-btn-action">
                                     <i class="fa-solid fa-eye"></i> Detail
                                 </button>
                             </td>
@@ -1329,60 +1397,166 @@
     }
 
     // Modal Rincian Cart Submission
-    function openSubmissionDetailModal(sub, cart) {
+    function openSubmissionDetailModal(sub, cart, photos, sellOutPhoto) {
         const modal = document.getElementById('submissionDetailModal');
         const body = document.getElementById('subModalBody');
         if (!modal || !body) return;
 
+        photos = photos || [];
+        if (!sellOutPhoto && photos.length > 0) {
+            sellOutPhoto = photos[0].url;
+        }
+
+        const resolveUrl = (u) => {
+            if (!u || typeof u !== 'string') return '';
+            let s = u.trim();
+            if (!s || s === '-' || s.startsWith('/data/user/') || s.startsWith('data/user/')) return '';
+            if (s.startsWith('http://') || s.startsWith('https://')) {
+                return s.replace('esa-solution.id', 'esa-solutions.id').replace('/storage/storage/', '/storage/');
+            }
+            if (s.startsWith('/storage/')) return s;
+            if (s.startsWith('storage/')) return '/' + s;
+            return '/storage/' + s.replace(/^\/+/, '');
+        };
+
         let cartHtml = '';
         if (cart && cart.length > 0) {
             cartHtml = `
-                <table class="portal-mbr-table" style="margin-top: 1rem;">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Nama Produk</th>
-                            <th class="num">Harga (Rp)</th>
-                            <th class="num">Qty</th>
-                            <th class="num">Subtotal (Rp)</th>
-                            <th style="text-align: center;">Metode Bayar</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${cart.map((item, i) => `
+                <div style="overflow-x: auto;">
+                    <table class="portal-mbr-table" style="margin-top: 0.75rem; width: 100%;">
+                        <thead>
                             <tr>
-                                <td style="color: var(--text-muted); font-weight: 700;">${i + 1}</td>
-                                <td style="font-weight: 700; color: var(--text-heading);">${item.name || item.product_name || 'Produk'}</td>
-                                <td class="num">Rp ${Number(item.store_price || item.price || 0).toLocaleString('id-ID')}</td>
-                                <td class="num" style="color: #2563eb;">${Number(item.qty || 1).toLocaleString('id-ID')}</td>
-                                <td class="num" style="color: #059669;">Rp ${Number(item.value_rp || (item.qty * item.store_price) || 0).toLocaleString('id-ID')}</td>
-                                <td style="text-align: center;">
-                                    <span class="portal-mbr-pill ${String(item.payment_type || '').includes('kasir') ? 'kasir' : 'booth'}">
-                                        ${String(item.payment_type || '').includes('kasir') ? 'Kasir' : 'Booth'}
-                                    </span>
-                                </td>
+                                <th style="width: 40px; text-align: center;">#</th>
+                                <th>Nama Produk</th>
+                                <th class="num">Harga (Rp)</th>
+                                <th class="num">Qty</th>
+                                <th class="num">Subtotal (Rp)</th>
+                                <th style="text-align: center;">Metode Bayar</th>
+                                <th style="text-align: center; width: 90px;">Foto Struk</th>
                             </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            ${cart.map((item, i) => {
+                                const rawPhoto = item.struk_photo_url || item.foto_struk || item.struk_photo_path || item.photo_struk_url || null;
+                                const strukUrl = rawPhoto ? resolveUrl(rawPhoto) : null;
+                                const pName = item.name || item.product_name || 'Produk';
+                                const pSku = item.sku_code || item.sku || '-';
+                                return `
+                                    <tr>
+                                        <td style="color: var(--text-muted); font-weight: 700; text-align: center;">${i + 1}</td>
+                                        <td>
+                                            <div style="font-weight: 800; color: var(--text-heading);">${pName}</div>
+                                            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">${pSku}</div>
+                                        </td>
+                                        <td class="num">Rp ${Number(item.store_price || item.price || 0).toLocaleString('id-ID')}</td>
+                                        <td class="num" style="color: #2563eb; font-weight: 800;">${Number(item.qty || 1).toLocaleString('id-ID')} Pcs</td>
+                                        <td class="num" style="color: #059669; font-weight: 800;">Rp ${Number(item.value_rp || (item.qty * (item.store_price || item.price || 0)) || 0).toLocaleString('id-ID')}</td>
+                                        <td style="text-align: center;">
+                                            <span class="portal-mbr-pill ${String(item.payment_type || '').toLowerCase().includes('kasir') ? 'kasir' : 'booth'}">
+                                                <i class="fa-solid ${String(item.payment_type || '').toLowerCase().includes('kasir') ? 'fa-cash-register' : 'fa-store'}"></i>
+                                                ${String(item.payment_type || '').toLowerCase().includes('kasir') ? 'Kasir' : 'Booth'}
+                                            </span>
+                                        </td>
+                                        <td style="text-align: center;">
+                                            ${strukUrl ? `
+                                                <button type="button" onclick="openLightbox('${strukUrl}')" class="portal-mbr-btn-action" style="background: #fef2f2; color: #dc2626; border-color: #fecaca; padding: 4px 8px; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;" title="Lihat Struk ${pName}">
+                                                    <i class="fa-solid fa-receipt"></i> Struk
+                                                </button>
+                                            ` : '<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>'}
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
             `;
         } else {
-            cartHtml = '<p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">Tidak ada item keranjang terperinci.</p>';
+            cartHtml = '<p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.75rem;">Tidak ada item keranjang terperinci.</p>';
+        }
+
+        // Section Dokumentasi Foto Laporan
+        let photoSectionHtml = '';
+        const mainPhoto = sellOutPhoto ? resolveUrl(sellOutPhoto) : (photos.length > 0 ? resolveUrl(photos[0].url) : null);
+        
+        if (mainPhoto || photos.length > 0) {
+            photoSectionHtml = `
+                <div style="margin-top: 1.25rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.65rem;">
+                        <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-heading); margin: 0; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-camera" style="color: var(--brand-primary);"></i>
+                            Foto Dokumentasi Laporan (Sell Out Toko / Display)
+                        </h4>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;"><i class="fa-solid fa-magnifying-glass-plus"></i> Klik foto untuk memperbesar</span>
+                    </div>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        ${mainPhoto ? `
+                            <div style="position: relative; border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0; width: 100%; max-width: 300px; background: #0f172a; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                                <img src="${mainPhoto}" alt="Dokumentasi Sell Out Toko" onclick="openLightbox('${mainPhoto}')" style="width: 100%; height: 190px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                                <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); padding: 0.6rem 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="color: #fff; font-size: 0.75rem; font-weight: 700;">
+                                        <i class="fa-solid fa-shop"></i> Display / Sell Out Toko
+                                    </span>
+                                    <button type="button" onclick="openLightbox('${mainPhoto}')" style="background: rgba(255,255,255,0.25); color: #fff; border: none; border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
+                                        <i class="fa-solid fa-expand"></i> Zoom
+                                    </button>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${photos.filter(p => resolveUrl(p.url) !== mainPhoto).map((p, pI) => {
+                            const pUrl = resolveUrl(p.url);
+                            return `
+                                <div style="position: relative; border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0; width: 100%; max-width: 220px; background: #0f172a; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                                    <img src="${pUrl}" alt="${p.label || 'Foto Laporan'}" onclick="openLightbox('${pUrl}')" style="width: 100%; height: 190px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                                    <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); padding: 0.6rem 0.75rem;">
+                                        <span style="color: #fff; font-size: 0.74rem; font-weight: 700;">${p.label || 'Lampiran #' + (pI + 1)}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            photoSectionHtml = `
+                <div style="margin-top: 1.25rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 0.85rem 1rem; display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.82rem;">
+                    <i class="fa-solid fa-image" style="font-size: 1.2rem; color: #94a3b8;"></i>
+                    <span>Tidak ada lampiran foto dokumentasi sell out toko pada submisi laporan ini.</span>
+                </div>
+            `;
         }
 
         body.innerHTML = `
-            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
+            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem;">
                 <div>
-                    <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Kode Submisi</span>
-                    <div style="font-weight: 800; font-family: monospace; color: var(--brand-primary);">${sub.submission_code || '-'}</div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Kode Submisi</span>
+                    <div style="font-weight: 800; font-family: monospace; color: var(--brand-primary); font-size: 0.95rem;">${sub.submission_code || '-'}</div>
                 </div>
                 <div>
-                    <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Waktu Lapor</span>
-                    <div style="font-weight: 700; color: var(--text-heading);">${sub.submitted_at || sub.created_at || '-'}</div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Waktu Lapor</span>
+                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${sub.submitted_at || sub.created_at || '-'}</div>
+                </div>
+                <div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Petugas / Mitra</span>
+                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${sub.employee?.full_name || sub.employee?.name || 'Petugas'}</div>
+                </div>
+                <div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Toko / Lokasi</span>
+                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${sub.work_location?.name || sub.store_name || '-'}</div>
                 </div>
             </div>
+
+            ${photoSectionHtml}
+
             <div style="margin-top: 1.25rem;">
-                <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-heading); margin-bottom: 0.35rem;">Rincian Item Keranjang Belanja</h4>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                    <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-heading); margin: 0; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-basket-shopping" style="color: var(--brand-primary);"></i>
+                        Rincian Item Keranjang Belanja
+                    </h4>
+                    <span style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">${cart.length} Varian Produk</span>
+                </div>
                 ${cartHtml}
             </div>
         `;

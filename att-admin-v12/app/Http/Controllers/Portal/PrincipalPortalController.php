@@ -12131,6 +12131,25 @@ class PrincipalPortalController extends Controller
         $dailyAgg = [];
         $galleryPhotos = [];
 
+        $resolveMediaUrl = function($raw) {
+            if (empty($raw)) return null;
+            if (is_array($raw)) $raw = $raw[0] ?? null;
+            if (!is_string($raw) || empty(trim($raw))) return null;
+            $clean = trim($raw);
+            if (str_starts_with($clean, '/data/user/') || str_starts_with($clean, 'data/user/') || str_contains($clean, 'cache/wm_')) {
+                return null;
+            }
+            if (str_starts_with($clean, 'http://') || str_starts_with($clean, 'https://')) {
+                return str_replace(['/storage/storage/', 'esa-solution.id'], ['/storage/', 'esa-solutions.id'], $clean);
+            }
+            if (str_starts_with($clean, 'storage/')) {
+                $clean = substr($clean, 8);
+            } elseif (str_starts_with($clean, '/storage/')) {
+                $clean = substr($clean, 9);
+            }
+            return asset('storage/' . ltrim($clean, '/'));
+        };
+
         $todayStr = Carbon::now()->format('Y-m-d');
 
         foreach ($allSubmissions as $sub) {
@@ -12165,14 +12184,28 @@ class PrincipalPortalController extends Controller
                     $subBooth = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
                 } elseif ($fn === 'total_bayar_di_kasir_rp') {
                     $subKasir = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
-                } elseif (str_contains($fn, 'foto_sell_out') || str_contains($fn, 'sell_out')) {
-                    $subSellOutPhoto = $v->value_text;
+                } elseif (str_contains($fn, 'foto_sell_out') || str_contains($fn, 'sell_out') || str_contains($fn, 'foto') || str_contains($fn, 'photo')) {
+                    $rawP = $v->media_url ?: ($v->value_text ?: (is_array($v->value_json) ? ($v->value_json[0] ?? null) : null));
+                    $cand = $resolveMediaUrl($rawP);
+                    if ($cand && (!$subSellOutPhoto || str_contains($fn, 'sell_out'))) {
+                        $subSellOutPhoto = $cand;
+                    }
+                }
+            }
+
+            // Disk fallback if sell_out photo was not found in DB value text
+            if (!$subSellOutPhoto) {
+                $matches = glob(storage_path("app/public/reports/*/report_{$sub->id}_*.jpg"));
+                if (!empty($matches)) {
+                    $rel = str_replace(storage_path('app/public/'), '', $matches[0]);
+                    $rel = str_replace('\\', '/', $rel);
+                    $subSellOutPhoto = asset('storage/' . ltrim($rel, '/'));
                 }
             }
 
             if (!empty($cartItems)) {
                 $calcQ = 0; $calcV = 0; $calcB = 0; $calcK = 0;
-                foreach ($cartItems as $cIt) {
+                foreach ($cartItems as &$cIt) {
                     $q = (int)($cIt['qty'] ?? 1);
                     $price = (float)($cIt['store_price'] ?? ($cIt['price'] ?? 0));
                     $v = (float)($cIt['value_rp'] ?? ($q * $price));
@@ -12191,8 +12224,11 @@ class PrincipalPortalController extends Controller
                     $productAgg[$pName]['qty'] += $q;
                     $productAgg[$pName]['value'] += $v;
 
-                    $strukPhoto = $cIt['struk_photo_url'] ?? ($cIt['struk_photo_path'] ?? ($cIt['foto_struk'] ?? ($cIt['photo_struk_url'] ?? null)));
+                    $rawStruk = $cIt['struk_photo_url'] ?? ($cIt['struk_photo_path'] ?? ($cIt['foto_struk'] ?? ($cIt['photo_struk_url'] ?? null)));
+                    $strukPhoto = $resolveMediaUrl($rawStruk);
                     if ($strukPhoto) {
+                        $cIt['struk_photo_url'] = $strukPhoto;
+                        $cIt['foto_struk'] = $strukPhoto;
                         $galleryPhotos[] = [
                             'type' => 'struk',
                             'title' => 'Dokumentasi Struk Penjualan',
@@ -12206,6 +12242,8 @@ class PrincipalPortalController extends Controller
                         ];
                     }
                 }
+                unset($cIt);
+
                 if ($subQty <= 0) $subQty = $calcQ;
                 if ($subVal <= 0) $subVal = $calcV;
                 if ($subBooth <= 0 && $subKasir <= 0) {
@@ -12504,6 +12542,25 @@ class PrincipalPortalController extends Controller
         $dailyAgg = [];
         $galleryPhotos = [];
 
+        $resolveMediaUrl = function($raw) {
+            if (empty($raw)) return null;
+            if (is_array($raw)) $raw = $raw[0] ?? null;
+            if (!is_string($raw) || empty(trim($raw))) return null;
+            $clean = trim($raw);
+            if (str_starts_with($clean, '/data/user/') || str_starts_with($clean, 'data/user/') || str_contains($clean, 'cache/wm_')) {
+                return null;
+            }
+            if (str_starts_with($clean, 'http://') || str_starts_with($clean, 'https://')) {
+                return str_replace(['/storage/storage/', 'esa-solution.id'], ['/storage/', 'esa-solutions.id'], $clean);
+            }
+            if (str_starts_with($clean, 'storage/')) {
+                $clean = substr($clean, 8);
+            } elseif (str_starts_with($clean, '/storage/')) {
+                $clean = substr($clean, 9);
+            }
+            return asset('storage/' . ltrim($clean, '/'));
+        };
+
         $todayStr = Carbon::now()->format('Y-m-d');
 
         foreach ($allSubmissions as $sub) {
@@ -12538,14 +12595,28 @@ class PrincipalPortalController extends Controller
                     $subStokAkhir = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
                 } elseif ($fn === 'total_cup_dibagikan') {
                     $subCup = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
-                } elseif (str_contains($fn, 'foto_booth') || str_contains($fn, 'booth_sampling')) {
-                    $subBoothPhoto = $v->value_text;
+                } elseif (str_contains($fn, 'foto_booth') || str_contains($fn, 'booth_sampling') || str_contains($fn, 'foto') || str_contains($fn, 'photo')) {
+                    $rawP = $v->media_url ?: ($v->value_text ?: (is_array($v->value_json) ? ($v->value_json[0] ?? null) : null));
+                    $cand = $resolveMediaUrl($rawP);
+                    if ($cand && (!$subBoothPhoto || str_contains($fn, 'booth'))) {
+                        $subBoothPhoto = $cand;
+                    }
+                }
+            }
+
+            // Disk fallback if booth photo was not found in DB values
+            if (!$subBoothPhoto) {
+                $matches = glob(storage_path("app/public/reports/*/report_{$sub->id}_*.jpg"));
+                if (!empty($matches)) {
+                    $rel = str_replace(storage_path('app/public/'), '', $matches[0]);
+                    $rel = str_replace('\\', '/', $rel);
+                    $subBoothPhoto = asset('storage/' . ltrim($rel, '/'));
                 }
             }
 
             if (!empty($cartItems)) {
                 $calcAwal = 0; $calcMasak = 0; $calcAkhir = 0; $calcCup = 0;
-                foreach ($cartItems as $cIt) {
+                foreach ($cartItems as &$cIt) {
                     $awal = (int)($cIt['stok_awal'] ?? 0);
                     $masak = (int)($cIt['jumlah_dimasak'] ?? ($cIt['dimasak'] ?? 0));
                     $akhir = (int)($cIt['stok_akhir'] ?? max(0, $awal - $masak));
@@ -12575,8 +12646,11 @@ class PrincipalPortalController extends Controller
                     $productAgg[$pName]['stok_akhir'] += $akhir;
                     $productAgg[$pName]['cup'] += $cup;
 
-                    $samplingPhoto = $cIt['photo_sampling_url'] ?? ($cIt['foto_sampling'] ?? ($cIt['sampling_photo_url'] ?? null));
+                    $rawSam = $cIt['photo_sampling_url'] ?? ($cIt['foto_sampling'] ?? ($cIt['sampling_photo_url'] ?? null));
+                    $samplingPhoto = $resolveMediaUrl($rawSam);
                     if ($samplingPhoto) {
+                        $cIt['photo_sampling_url'] = $samplingPhoto;
+                        $cIt['foto_sampling'] = $samplingPhoto;
                         $galleryPhotos[] = [
                             'type' => 'sampling',
                             'title' => 'Dokumentasi Sampling Produk',
@@ -12590,6 +12664,8 @@ class PrincipalPortalController extends Controller
                         ];
                     }
                 }
+                unset($cIt);
+
                 if ($subStokAwal <= 0) $subStokAwal = $calcAwal;
                 if ($subDimasak <= 0) $subDimasak = $calcMasak;
                 if ($subStokAkhir <= 0) $subStokAkhir = $calcAkhir;
