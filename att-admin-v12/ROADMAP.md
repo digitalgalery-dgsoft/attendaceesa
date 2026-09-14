@@ -1685,6 +1685,59 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Menjalankan deployment ke Gateway `appsend.my.id` via webhook `deploy.php` dan ke seluruh node cluster production (AMK, AKP, ATK) via `deploy-production.php`.
       - Seluruh 4 server telah terverifikasi merespons **HTTP 200 OK** (`Content-Type: image/webp`, 27.5 KB) untuk URL foto selfie check-in.
 
+29. **Pembuatan Laporan Free Taste (Event MBR) Wings & Mobile App v1.0.150 (14 September 2026)**:
+    - **Latar Belakang & Kebutuhan Bisnis**:
+      - Mengakomodasi kebutuhan pelaporan sampling / free taste pada event MBR Wings Surya mengacu pada dokumen spesifikasi `Laporan Free Taste.xlsx`.
+      - Sampling memiliki satuan mie mentah (Stok Awal, Mie Dimasak, Sisa Stok) dan cup tester siap saji (Cup dibagikan ke pengunjung).
+      - Menampilkan analitik komprehensif pada Web Portal Prinsiple dan form dinamis interaktif pada aplikasi mobile Flutter.
+    - **Database Migration & Seeder Template (`2026_09_14_110000_seed_wings_mbr_freetaste_report_template.php`)**:
+      - Membuat template `RPT-WINGS-MBR-FREETASTE-01` (`Laporan Free Taste (Event MBR)`), category `sampling`, group `event_mbr`, terhubung ke Principal PT Wings Surya dan 40 SKU master produk Mie Sedaap.
+      - 7 Fields terdaftar: `mbr_freetaste_items_json`, `total_stok_awal_sampling`, `total_mie_dimasak`, `total_stok_akhir_sampling`, `total_cup_dibagikan`, `foto_booth_sampling`, `catatan_sampling`.
+    - **Backend & Web Portal Principal (`PrincipalPortalController.php` & `wings_mbr_freetaste_dashboard.blade.php`)**:
+      - Menambahkan kalkulasi analitik murni data-driven (`calculateWingsMbrFreeTasteDashboardData`) dengan filter dinamis bulan berjalan, wilayah, daerah, dan toko.
+      - Menampilkan 7 Kartu KPI Utama: Total Mie Dimasak (Pcs), Total Cup Dibagikan, Rata-rata Cup per Pcs, Sisa Stok Sampling (Pcs), Total SKU Sampling, Total Booth Aktif, dan Total Submisi.
+      - Dual-series Chart: Tren Harian Mie Dimasak (Pcs) vs Cup Dibagikan.
+      - 4 Tabel Performa Grid: Top Varian Mie Paling Banyak Dimasak, Top Varian Cup Paling Banyak Dibagikan, Top Toko Sampling Paling Aktif, dan Performa Sampling per Wilayah/Daerah.
+      - Tabel Riwayat Submisi Live, modal rincian item sampling, dan galeri foto booth / dokumentasi sampling dengan zoom lightbox.
+      - Menyelaraskan 100% identitas visual native portal (clean white cards, Outfit typography, brand colors).
+    - **Aplikasi Mobile Flutter (`att-mobile`)**:
+      - `dynamic_form_screen.dart`: Form sampling multi-step interaktif (Step 0: Pilih produk Mie Sedaap dari master, input Stok Awal, Mie Dimasak, Cup Tester dibagikan manual, auto-kalkulasi Sisa Stok; Step 1: Review keranjang, foto booth/spg sampling, catatan). Validasi minimal 1 produk wajib dilaporkan sebelum submit.
+      - `report_detail_screen.dart`: Menampilkan panel ringkasan 4 metrik KPI sampling, kartu detail per produk sampling (Awal -> Dimasak -> Sisa Stok & Cup Dibagikan), thumbnail foto dokumentasi dengan modal preview, serta menyembunyikan raw JSON fields.
+      - Version bump di `pubspec.yaml` ke **`v1.0.150+150`**.
+      - Kompilasi APK rilis sukses (`app-release.apk`, `APK/app-release-1.0.150.apk`, `att-admin-v12/public/app-release.apk`).
 
+30. **Penyempurnaan Form Sampling Free Taste, State Retention & Modal Portal (14 September 2026)**:
+    - **Foto Kegiatan Sampling per Produk**:
+      - Pengambilan foto sampling tetap dipertahankan per produk di dalam tabel/keranjang sampling sesuai kebutuhan operasional lapangan.
+      - Menghapus redundansi kartu widget kamera di Step 1 pada form mobile agar mitra tidak perlu mengambil foto ganda yang tidak diperlukan.
+    - **Indikasi Produk Sudah Diinput**:
+      - Pada dialog/dropdown pemilihan produk Free Taste, produk yang sudah ditambahkan ke keranjang otomatis ditandai dengan badge status "Sudah di keranjang" dan didisable dari pemilihan ulang untuk mencegah duplikasi entri SKU yang sama.
+    - **State Persistence Keranjang Sampling**:
+      - Data item laporan yang sudah dimasukkan ke keranjang sebelum disubmit kini disimpan sementara di state lokal. Jika pengguna tidak sengaja keluar atau berpindah form, data keranjang tidak hilang dan pengguna dapat langsung melanjutkan input tanpa harus mengulang dari awal.
+    - **Penyempurnaan Modal Web Portal**:
+      - Merapikan modal rincian submisi dan galeri foto booth / dokumentasi sampling pada Web Portal Wings (`wings_mbr_freetaste_dashboard.blade.php`), memastikan tampilan bersih (*clean modal*), terintegrasi dengan lightbox zoom, dan bebas dari glitch rendering.
 
-
+31. **Pencegahan Karyawan Ter-logout Otomatis, Standarisasi Status "Terkirim" & Pembatasan Edit Same-Day (14 September 2026)**:
+    - **Pencegahan Auto-Logout Karyawan (Robust Offline Session Persistence)**:
+      - **Akar Masalah**: Saat server melakukan reload/deploy script (jeda 2-5 detik) atau saat koneksi internet HP karyawan sempat terputus, `tryAutoLogin()` di aplikasi Flutter menangkap error dan langsung mengeksekusi `await logout()`, menghapus `auth_token` dari `SharedPreferences`.
+      - **Solusi Mobile (`auth_provider.dart`)**:
+        - Memuat profil karyawan dari cache lokal (`cached_employee_data` & `cached_user`) saat inisialisasi aplikasi.
+        - Perintah `logout()` **HANYA** dieksekusi jika server secara eksplisit mengembalikan kode HTTP `401 Unauthorized` atau `403 Forbidden`.
+        - Jika terjadi error jaringan (timeout, socket error) atau server HTTP 500/502/503 saat deploy: aplikasi **TIDAK LOGOUT**, melainkan tetap dalam status terotentikasi (*authenticated*).
+      - **Solusi Backend (`AuthController.php`)**:
+        - Pada endpoint `me()`, server memvalidasi `$employee->is_active`. Token hanya akan dicabut oleh server jika akun karyawan secara manual dinonaktifkan oleh administrator.
+    - **Penghapusan Konsep Approval Laporan (Standarisasi Status "Terkirim")**:
+      - Seluruh laporan operasional lapangan tidak memerlukan alur approval berjenjang. Istilah "Approve", "Menunggu Verifikasi", maupun "Terverifikasi" dihilangkan seluruhnya agar tidak menimbulkan salah paham.
+      - Pada `ReportingApiController.php`, pembuatan laporan baru (Offtake, Stock End, Warehouse, Wings Sales, Wings Free Taste, Standard form) langsung disimpan dengan status `'submitted'`.
+      - Pada response API `history()` dan `show()`, `status_label` dikembalikan seragam sebagai **`Terkirim`** (hijau) atau `Ditolak` (merah).
+      - Admin panel Filament (`ReportSubmissionsTable.php`) dan antarmuka mobile (`report_submission_model.dart`, `reporting_hub_screen.dart`, `report_detail_screen.dart`) diformat seragam dengan badge hijau **"Terkirim"**.
+    - **Pembatasan Hak Edit Laporan Hanya Pada Hari Yang Sama (Same-Day Submission Edit)**:
+      - Laporan yang dikirimkan hanya dapat diedit pada hari yang sama saat submisi (`isToday()`). Jika sudah berganti hari (H+1 ke atas), laporan terkunci permanen demi integritas data historis.
+      - Backend `ReportingApiController@update` memvalidasi tanggal submisi: jika `!$subDate->isToday()`, sistem menolak permintaan dengan HTTP 422: *"Laporan yang sudah lewat hari tidak dapat diubah kembali. Hanya laporan yang disubmit hari ini yang dapat diedit."*.
+      - Pada aplikasi mobile, tombol edit otomatis disembunyikan untuk submisi yang telah lewat hari.
+    - **Build APK Rilis v1.0.152 (Kompilasi Lokal)**:
+      - Menaikkan versi mobile di `pubspec.yaml` menjadi **`v1.0.152+152`**.
+      - Memperbaiki null safety default value parameter status pada konstruktor `ReportSubmissionModel`.
+      - Menjalankan kompilasi Gradle release (`flutter build apk --release`) lokal dengan hasil **100% SUKSES** (110.7 MB).
+      - Sesuai instruksi khusus pengguna, file APK disimpan secara lokal (`att-mobile/app-release-1.0.152.apk` dan `att-admin-v12/public/app-release-1.0.152.apk`) dan **tidak diunggah ke server**.
+      - Seluruh source code backend telah di-deploy ke server staging (`appsend.my.id`) dan 3 server cluster production (`amk`, `akp`, `atk`).
