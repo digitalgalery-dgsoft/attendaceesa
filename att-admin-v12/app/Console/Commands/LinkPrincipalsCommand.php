@@ -81,6 +81,19 @@ class LinkPrincipalsCommand extends Command
             } elseif (str_contains($text, 'DULUX') || str_contains($text, 'ICI') || str_contains($text, 'AKZONOBEL') || str_contains($text, 'TINTER') || str_contains($text, 'CATYLAC')) {
                 $targetPrincipal = $principals['dulux'];
             } elseif (str_contains($text, 'WINGS') || str_contains($text, 'SAYAP')) {
+                // Khusus Laporan Event MBR: Hanya khusus entitas PT WINGS SURYA saja (bukan Lion Wings / Group)
+                if ($tpl->report_group === 'event_mbr' || str_contains($text, 'MBR')) {
+                    $wingsSurya = Principal::where('name', 'LIKE', '%WINGS SURYA%')->get();
+                    if ($wingsSurya->isNotEmpty()) {
+                        $targetPrincipal = $wingsSurya->first();
+                        $tpl->principal_id = $targetPrincipal->id;
+                        $tpl->save();
+                        $tpl->principals()->sync($wingsSurya->pluck('id')->toArray());
+                        $linkedCount++;
+                        $this->line(" - Template MBR [{$tpl->code}] khusus dihubungkan ke PT WINGS SURYA (" . $wingsSurya->count() . " entitas)");
+                        continue;
+                    }
+                }
                 $targetPrincipal = $principals['wings'];
             } elseif (str_contains($text, 'MAMASUKA') || str_contains($text, 'DAESANG') || str_contains($text, 'MIWON')) {
                 $targetPrincipal = $principals['mamasuka'];

@@ -31,50 +31,6 @@ Route::match(['get', 'post'], '/check', function () {
     return response()->json(['status' => 'ok', 'app' => 'ESA Attendance']);
 });
 
-Route::get('/check-wings-debug', function () {
-    $principals = \App\Models\Principal::with('company')->where(function ($q) {
-        $q->where('name', 'LIKE', '%WINGS%')
-          ->orWhere('name', 'LIKE', '%LION%')
-          ->orWhere('code', 'LIKE', '%WINGS%')
-          ->orWhere('subdomain', 'LIKE', '%wings%');
-    })->get()->map(function ($p) {
-        return [
-            'id' => $p->id,
-            'name' => $p->name,
-            'code' => $p->code,
-            'subdomain' => $p->subdomain,
-            'company_id' => $p->company_id,
-            'company_name' => $p->company?->name,
-            'products_count' => \App\Models\Product::where('principal_id', $p->id)->count(),
-        ];
-    });
-
-    $sedaapProducts = \App\Models\Product::where('name', 'LIKE', '%SEDAAP%')
-        ->orWhere('name', 'LIKE', '%SEDAP%')
-        ->orWhere('brand', 'LIKE', '%SEDAAP%')
-        ->get(['id', 'name', 'brand', 'principal_id']);
-
-    $tpl = \App\Models\ReportTemplate::with(['principals', 'products'])->where('code', 'RPT-WINGS-MBR-FREETASTE-01')->first();
-
-    $wingsProductsByPrincipal = \App\Models\Product::whereIn('principal_id', [162, 146, 96, 150, 64, 121, 147])
-        ->get(['id', 'name', 'brand', 'principal_id'])
-        ->groupBy('principal_id');
-
-    return response()->json([
-        'principals' => $principals,
-        'wings_products_by_principal' => $wingsProductsByPrincipal->map(fn($items) => [
-            'count' => $items->count(),
-            'brands' => $items->pluck('brand')->unique()->values(),
-            'sample' => $items->take(3)->pluck('name'),
-        ]),
-        'sedaap_products_count' => $sedaapProducts->count(),
-        'sedaap_principal_ids' => $sedaapProducts->pluck('principal_id')->unique()->values(),
-        'template_principals' => $tpl ? $tpl->principals->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'company' => $p->company?->name]) : null,
-        'template_products_count' => $tpl ? $tpl->products->count() : 0,
-        'template_product_principal_ids' => $tpl ? $tpl->products->pluck('principal_id')->unique()->values() : [],
-    ]);
-});
-
 Route::get('/settings', function () {
     $bypassCache = request()->has('_t') || request()->header('Cache-Control') === 'no-cache';
     $data = null;

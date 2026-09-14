@@ -53,11 +53,49 @@ class ReportTemplateForm
                                 ->required(),
                         ]),
                         Select::make('products')
-                            ->relationship('products', 'name', modifyQueryUsing: function ($query, callable $get) {
-                                $selectedPrincipals = $get('principals') ?? [];
+                            ->relationship('products', 'name', modifyQueryUsing: function ($query, callable $get, $record = null) {
+                                $selectedPrincipals = array_filter((array) ($get('principals') ?? []));
+                                $existingProductIds = $record ? $record->products()->pluck('products.id')->toArray() : [];
+
                                 if (!empty($selectedPrincipals)) {
-                                    $query->whereIn('products.principal_id', $selectedPrincipals);
+                                    $principalRecords = \App\Models\Principal::whereIn('id', $selectedPrincipals)->get();
+                                    $expandedPrincipalIds = collect($selectedPrincipals);
+
+                                    foreach ($principalRecords as $pRecord) {
+                                        $pName = trim(strtoupper($pRecord->name));
+                                        $pSubdomain = trim(strtolower($pRecord->subdomain ?? ''));
+
+                                        // Khusus PT WINGS SURYA
+                                        if (str_contains($pName, 'WINGS SURYA') || str_contains($pName, 'WINGS')) {
+                                            $sisterIds = \App\Models\Principal::where(function ($q) {
+                                                $q->where('name', 'LIKE', '%WINGS%')
+                                                  ->orWhere('code', 'LIKE', '%WINGS%')
+                                                  ->orWhere('subdomain', 'wings');
+                                            })->where('name', 'NOT LIKE', '%LION%')->pluck('id');
+                                            $expandedPrincipalIds = $expandedPrincipalIds->merge($sisterIds);
+                                        } else {
+                                            // Entitas umum (misal PT ICI PAINTS, PT FONTERRA, dll.)
+                                            $sisterIds = \App\Models\Principal::where('name', $pRecord->name)
+                                                ->orWhere(function ($q) use ($pSubdomain) {
+                                                    if (!empty($pSubdomain)) {
+                                                        $q->where('subdomain', $pSubdomain);
+                                                    }
+                                                })
+                                                ->pluck('id');
+                                            $expandedPrincipalIds = $expandedPrincipalIds->merge($sisterIds);
+                                        }
+                                    }
+
+                                    $allAllowedPrincipalIds = $expandedPrincipalIds->unique()->values()->toArray();
+
+                                    $query->where(function ($q) use ($allAllowedPrincipalIds, $existingProductIds) {
+                                        $q->whereIn('products.principal_id', $allAllowedPrincipalIds);
+                                        if (!empty($existingProductIds)) {
+                                            $q->orWhereIn('products.id', $existingProductIds);
+                                        }
+                                    });
                                 }
+
                                 return $query->select([
                                     'products.id',
                                     'products.name',
