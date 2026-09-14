@@ -56,11 +56,19 @@ Route::get('/check-wings-debug', function () {
 
     $tpl = \App\Models\ReportTemplate::with(['principals', 'products'])->where('code', 'RPT-WINGS-MBR-FREETASTE-01')->first();
 
+    $wingsProductsByPrincipal = \App\Models\Product::whereIn('principal_id', [162, 146, 96, 150, 64, 121, 147])
+        ->get(['id', 'name', 'brand', 'principal_id'])
+        ->groupBy('principal_id');
+
     return response()->json([
         'principals' => $principals,
+        'wings_products_by_principal' => $wingsProductsByPrincipal->map(fn($items) => [
+            'count' => $items->count(),
+            'brands' => $items->pluck('brand')->unique()->values(),
+            'sample' => $items->take(3)->pluck('name'),
+        ]),
         'sedaap_products_count' => $sedaapProducts->count(),
         'sedaap_principal_ids' => $sedaapProducts->pluck('principal_id')->unique()->values(),
-        'sedaap_sample' => $sedaapProducts->take(5),
         'template_principals' => $tpl ? $tpl->principals->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'company' => $p->company?->name]) : null,
         'template_products_count' => $tpl ? $tpl->products->count() : 0,
         'template_product_principal_ids' => $tpl ? $tpl->products->pluck('principal_id')->unique()->values() : [],
