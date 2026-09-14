@@ -1174,23 +1174,14 @@
                                 {{ number_format($subAkhir, 0, ',', '.') }} Pcs
                             </td>
                             <td style="text-align: center;">
-                                <div style="display: flex; gap: 4px; justify-content: center; align-items: center; flex-wrap: wrap;">
-                                    @if($subKegiatanPhoto)
-                                        <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('{{ $subKegiatanPhoto }}')" title="Lihat Foto Kegiatan Sampling" style="padding: 4px 8px; font-size: 0.72rem; background: #f59e0b; color: #ffffff; border-color: #f59e0b;">
-                                            <i class="fa-solid fa-camera"></i>
-                                            <span>Kegiatan</span>
-                                        </button>
-                                    @endif
-                                    @if($subBoothPhoto)
-                                        <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('{{ $subBoothPhoto }}')" title="Lihat Foto Stand / Booth" style="padding: 4px 8px; font-size: 0.72rem;">
-                                            <i class="fa-solid fa-store"></i>
-                                            <span>Booth</span>
-                                        </button>
-                                    @endif
-                                    @if(!$subKegiatanPhoto && !$subBoothPhoto)
-                                        <span style="color: var(--text-muted); font-size: 0.75rem;">-</span>
-                                    @endif
-                                </div>
+                                @if($subBoothPhoto)
+                                    <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('{{ $subBoothPhoto }}')" title="Lihat Foto Stand / Booth" style="padding: 4px 8px; font-size: 0.72rem;">
+                                        <i class="fa-solid fa-store"></i>
+                                        <span>Booth</span>
+                                    </button>
+                                @else
+                                    <span style="color: var(--text-muted); font-size: 0.75rem;">-</span>
+                                @endif
                             </td>
                             <td style="text-align: center; white-space: nowrap;">
                                 <button type="button" class="portal-freetaste-btn-action" onclick='openFreetasteSubmissionDetailModal(@json($sub), @json($subCart), @json($subPhotos), "{{ $subBoothPhoto }}", "{{ $subKegiatanPhoto }}", "{{ $freetasteTimeFormatted }}")'>
@@ -1553,101 +1544,37 @@
             cartHtml = '<p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.75rem;">Tidak ada item keranjang sampling terperinci.</p>';
         }
 
-        // Section Dokumentasi Foto Sampling & Booth (Menampilkan Foto Kegiatan dan Foto Stand/Booth)
+        // Section Dokumentasi Foto Stand / Booth Sampling (Foto Kegiatan Sampling sudah ada di tabel rincian varian)
         let photoSectionHtml = '';
-        const resolvedKegiatan = kegiatanPhoto ? resolveUrl(kegiatanPhoto) : null;
         const resolvedBooth = boothPhoto ? resolveUrl(boothPhoto) : null;
-        const hasAnyPhoto = resolvedKegiatan || resolvedBooth || photos.length > 0;
 
-        if (hasAnyPhoto) {
+        if (resolvedBooth || photos.length > 0) {
             photoSectionHtml = `
                 <div style="margin-top: 1.25rem;">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.65rem;">
                         <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-heading); margin: 0; display: flex; align-items: center; gap: 6px;">
-                            <i class="fa-solid fa-camera" style="color: var(--brand-primary);"></i>
-                            Dokumentasi Foto Sampling & Stand / Booth
+                            <i class="fa-solid fa-store" style="color: var(--brand-primary);"></i>
+                            Foto Dokumentasi Stand / Booth Sampling
                         </h4>
-                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;"><i class="fa-solid fa-magnifying-glass-plus"></i> Klik foto untuk memperbesar</span>
+                        ${resolvedBooth ? '<span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;"><i class="fa-solid fa-magnifying-glass-plus"></i> Klik foto untuk memperbesar</span>' : ''}
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
-                        <!-- Card 1: Foto Kegiatan Sampling -->
-                        <div style="background: #ffffff; border: 1.5px solid ${resolvedKegiatan ? '#f59e0b' : '#e2e8f0'}; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column;">
-                            <div style="padding: 0.6rem 0.85rem; background: ${resolvedKegiatan ? 'rgba(245, 158, 11, 0.1)' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
-                                <span style="font-weight: 800; font-size: 0.82rem; color: ${resolvedKegiatan ? '#b45309' : 'var(--text-muted)'}; display: flex; align-items: center; gap: 6px;">
-                                    <i class="fa-solid fa-fire-burner"></i> Foto Kegiatan Sampling
-                                </span>
-                                ${resolvedKegiatan ? '<span style="font-size: 0.7rem; font-weight: 700; background: #f59e0b; color: #fff; padding: 2px 7px; border-radius: 4px;">Tersedia</span>' : '<span style="font-size: 0.7rem; color: #94a3b8;">Belum diunggah</span>'}
-                            </div>
-                            ${resolvedKegiatan ? `
-                                <div style="position: relative; background: #0f172a;">
-                                    <img src="${resolvedKegiatan}" alt="Foto Kegiatan Sampling" onclick="openLightbox('${resolvedKegiatan}')" style="width: 100%; height: 200px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                                    <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); padding: 0.5rem 0.75rem; display: flex; align-items: center; justify-content: space-between;">
-                                        <span style="color: #fff; font-size: 0.72rem; font-weight: 600;"><i class="fa-solid fa-utensils"></i> Aktivitas Sampling Pengunjung</span>
-                                        <button type="button" onclick="openLightbox('${resolvedKegiatan}')" style="background: rgba(255,255,255,0.25); color: #fff; border: none; border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
-                                            <i class="fa-solid fa-expand"></i> Zoom
-                                        </button>
-                                    </div>
-                                </div>
-                            ` : `
-                                <div style="height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f8fafc; color: #94a3b8; gap: 6px;">
-                                    <i class="fa-solid fa-image" style="font-size: 2rem;"></i>
-                                    <span style="font-size: 0.78rem;">Foto kegiatan sampling tidak tersedia</span>
-                                </div>
-                            `}
-                        </div>
-
-                        <!-- Card 2: Foto Stand / Booth Sampling -->
-                        <div style="background: #ffffff; border: 1.5px solid ${resolvedBooth ? 'var(--brand-primary)' : '#e2e8f0'}; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column;">
-                            <div style="padding: 0.6rem 0.85rem; background: ${resolvedBooth ? 'rgba(235, 33, 46, 0.08)' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
-                                <span style="font-weight: 800; font-size: 0.82rem; color: ${resolvedBooth ? 'var(--brand-primary)' : 'var(--text-muted)'}; display: flex; align-items: center; gap: 6px;">
-                                    <i class="fa-solid fa-store"></i> Foto Stand / Booth Sampling
-                                </span>
-                                ${resolvedBooth ? '<span style="font-size: 0.7rem; font-weight: 700; background: var(--brand-primary); color: #fff; padding: 2px 7px; border-radius: 4px;">Tersedia</span>' : '<span style="font-size: 0.7rem; color: #94a3b8;">Belum diunggah</span>'}
-                            </div>
-                            ${resolvedBooth ? `
-                                <div style="position: relative; background: #0f172a;">
-                                    <img src="${resolvedBooth}" alt="Foto Stand / Booth Sampling" onclick="openLightbox('${resolvedBooth}')" style="width: 100%; height: 200px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                                    <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); padding: 0.5rem 0.75rem; display: flex; align-items: center; justify-content: space-between;">
-                                        <span style="color: #fff; font-size: 0.72rem; font-weight: 600;"><i class="fa-solid fa-location-dot"></i> Setup Booth Sampling Toko</span>
-                                        <button type="button" onclick="openLightbox('${resolvedBooth}')" style="background: rgba(255,255,255,0.25); color: #fff; border: none; border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
-                                            <i class="fa-solid fa-expand"></i> Zoom
-                                        </button>
-                                    </div>
-                                </div>
-                            ` : `
-                                <div style="height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f8fafc; color: #94a3b8; gap: 6px;">
-                                    <i class="fa-solid fa-image" style="font-size: 2rem;"></i>
-                                    <span style="font-size: 0.78rem;">Foto stand / booth sampling tidak tersedia</span>
-                                </div>
-                            `}
-                        </div>
-                    </div>
-
-                    ${photos.filter(p => {
-                        const u = resolveUrl(p.url);
-                        return u !== resolvedKegiatan && u !== resolvedBooth;
-                    }).length > 0 ? `
-                        <div style="margin-top: 1rem;">
-                            <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem;">Lampiran Foto Tambahan:</div>
-                            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                                ${photos.filter(p => {
-                                    const u = resolveUrl(p.url);
-                                    return u !== resolvedKegiatan && u !== resolvedBooth;
-                                }).map((p, pI) => {
-                                    const pUrl = resolveUrl(p.url);
-                                    return `
-                                        <div style="position: relative; border-radius: 10px; overflow: hidden; border: 1px solid #cbd5e1; width: 140px; height: 110px; background: #0f172a;">
-                                            <img src="${pUrl}" alt="${p.label || 'Foto'}" onclick="openLightbox('${pUrl}')" style="width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer;">
-                                            <div style="position: absolute; bottom: 0; inset-x: 0; background: rgba(0,0,0,0.7); padding: 2px 4px; font-size: 0.65rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                                ${p.label || '#' + (pI + 1)}
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
+                    ${resolvedBooth ? `
+                        <div style="position: relative; border-radius: 14px; overflow: hidden; border: 1.5px solid var(--brand-primary); max-width: 380px; background: #0f172a; box-shadow: 0 4px 14px rgba(0,0,0,0.08);">
+                            <img src="${resolvedBooth}" alt="Foto Stand / Booth Sampling" onclick="openLightbox('${resolvedBooth}')" style="width: 100%; height: 210px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                            <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); padding: 0.6rem 0.85rem; display: flex; align-items: center; justify-content: space-between;">
+                                <span style="color: #fff; font-size: 0.75rem; font-weight: 700;"><i class="fa-solid fa-store"></i> Setup Booth Sampling Toko</span>
+                                <button type="button" onclick="openLightbox('${resolvedBooth}')" style="background: rgba(255,255,255,0.25); color: #fff; border: none; border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
+                                    <i class="fa-solid fa-expand"></i> Zoom
+                                </button>
                             </div>
                         </div>
-                    ` : ''}
+                    ` : `
+                        <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 0.85rem 1rem; display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 0.82rem;">
+                            <i class="fa-solid fa-store" style="font-size: 1.4rem; color: #94a3b8;"></i>
+                            <span>Foto stand / booth sampling belum diunggah.</span>
+                        </div>
+                    `}
                 </div>
             `;
         } else {

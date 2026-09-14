@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:toastification/toastification.dart';
 import 'package:att_mobile/models/report_template_model.dart';
@@ -483,6 +484,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
       // Ikat lokasi otomatis dari Check-in atau Visit aktif
       _initLocationFromAttendance();
+      if (_isWingsMbrFreeTasteTemplate() && widget.editSubmission == null && _mbrFreeTasteCart.isEmpty) {
+        _loadMbrFreeTasteDraft();
+      }
     });
   }
 
@@ -1596,6 +1600,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             if (val.valueText != null) _mbrCatatanSamplingCtrl.text = val.valueText!;
           }
         }
+      } else {
+        _loadMbrFreeTasteDraft();
       }
     }
 
@@ -14849,6 +14855,130 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     if (mounted) setState(() {});
   }
 
+  String _getMbrFreeTasteDraftKey() {
+    final store = (_selectedStoreName.isNotEmpty ? _selectedStoreName : (widget.storeName ?? 'default'))
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    return 'draft_mbr_freetaste_${widget.template.id}_$store';
+  }
+
+  Future<void> _saveMbrFreeTasteDraft() async {
+    if (!_isWingsMbrFreeTasteTemplate() || widget.editSubmission != null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _getMbrFreeTasteDraftKey();
+      if (_mbrFreeTasteCart.isEmpty) {
+        await prefs.remove(key);
+        return;
+      }
+      final serializableCart = _mbrFreeTasteCart.map((item) {
+        final file = item['sampling_photo_file'] as File?;
+        return {
+          'product_id': item['product_id'],
+          'name': item['name'],
+          'product_name': item['product_name'],
+          'sku_code': item['sku_code'],
+          'stok_awal': item['stok_awal'],
+          'jumlah_dimasak': item['jumlah_dimasak'],
+          'stok_akhir': item['stok_akhir'],
+          'jumlah_cup': item['jumlah_cup'],
+          'sampling_photo_path': file?.path,
+          'sampling_photo_watermark': item['sampling_photo_watermark'],
+        };
+      }).toList();
+
+      final data = {
+        'store_name': _selectedStoreName,
+        'work_location_id': _selectedWorkLocationId,
+        'updated_at': DateTime.now().toIso8601String(),
+        'cart': serializableCart,
+        'catatan_sampling': _mbrCatatanSamplingCtrl.text,
+        'booth_photo_path': _mbrBoothSamplingPhoto?.path,
+        'booth_photo_watermark': _mbrBoothSamplingWatermark,
+      };
+      await prefs.setString(key, jsonEncode(data));
+    } catch (e) {
+      debugPrint('Error saving MBR Free Taste draft: $e');
+    }
+  }
+
+  Future<void> _loadMbrFreeTasteDraft() async {
+    if (!_isWingsMbrFreeTasteTemplate() || widget.editSubmission != null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _getMbrFreeTasteDraftKey();
+      String? raw = prefs.getString(key);
+      if (raw == null || raw.isEmpty) {
+        final allKeys = prefs.getKeys();
+        for (final k in allKeys) {
+          if (k.startsWith('draft_mbr_freetaste_${widget.template.id}_')) {
+            raw = prefs.getString(k);
+            if (raw != null && raw.isNotEmpty) break;
+          }
+        }
+      }
+
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map && decoded['cart'] is List) {
+          final List list = decoded['cart'];
+          if (list.isNotEmpty && _mbrFreeTasteCart.isEmpty) {
+            for (final itm in list) {
+              if (itm is Map) {
+                final map = Map<String, dynamic>.from(itm);
+                final photoPath = map['sampling_photo_path'] as String?;
+                if (photoPath != null && photoPath.isNotEmpty) {
+                  final f = File(photoPath);
+                  if (f.existsSync()) {
+                    map['sampling_photo_file'] = f;
+                  }
+                }
+                _mbrFreeTasteCart.add(map);
+              }
+            }
+            if (_mbrCatatanSamplingCtrl.text.isEmpty && decoded['catatan_sampling'] != null) {
+              _mbrCatatanSamplingCtrl.text = decoded['catatan_sampling'].toString();
+            }
+            if (_mbrBoothSamplingPhoto == null && decoded['booth_photo_path'] != null) {
+              final bp = File(decoded['booth_photo_path'].toString());
+              if (bp.existsSync()) {
+                _mbrBoothSamplingPhoto = bp;
+                _mbrBoothSamplingWatermark = decoded['booth_photo_watermark']?.toString();
+              }
+            }
+            if (mounted) {
+              setState(() {});
+              toastification.show(
+                context: context,
+                type: ToastificationType.info,
+                title: const Text('Draf Keranjang Dipulihkan'),
+                description: Text('${_mbrFreeTasteCart.length} produk dari inputan sebelumnya berhasil dimuat kembali.'),
+                autoCloseDuration: const Duration(seconds: 3),
+              );
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading MBR Free Taste draft: $e');
+    }
+  }
+
+  Future<void> _clearMbrFreeTasteDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_getMbrFreeTasteDraftKey());
+      final allKeys = prefs.getKeys();
+      for (final k in allKeys) {
+        if (k.startsWith('draft_mbr_freetaste_${widget.template.id}_')) {
+          await prefs.remove(k);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error clearing MBR Free Taste draft: $e');
+    }
+  }
+
   Widget _buildMbrFreeTasteStep0Body(
     Color themeColor,
     Color cardColor,
@@ -15313,6 +15443,22 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     return;
                   }
 
+                  final bool isDuplicate = _mbrFreeTasteCart.any((c) =>
+                    (c['product_id'] != null && c['product_id'] == _currentMbrFreeTasteProduct!.id) ||
+                    (c['sku_code'] != null && c['sku_code'] != '-' && _currentMbrFreeTasteProduct!.skuCode != null && c['sku_code'] == _currentMbrFreeTasteProduct!.skuCode) ||
+                    (c['product_name'] != null && c['product_name'] == _currentMbrFreeTasteProduct!.name)
+                  );
+                  if (isDuplicate) {
+                    toastification.show(
+                      context: context,
+                      type: ToastificationType.warning,
+                      title: const Text('Produk Sudah Ada di Keranjang'),
+                      description: const Text('Produk ini sudah ditambahkan ke daftar sampling. Hapus item dari daftar jika ingin menginput ulang.'),
+                      autoCloseDuration: const Duration(seconds: 3),
+                    );
+                    return;
+                  }
+
                   final stokAkhir = math.max(0, stokAwal - dimasak);
 
                   setState(() {
@@ -15338,6 +15484,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     _mbrCurrentSamplingPhoto = null;
                     _mbrCurrentSamplingWatermark = null;
                   });
+
+                  _saveMbrFreeTasteDraft();
 
                   toastification.show(
                     context: context,
@@ -15375,7 +15523,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
               ),
               TextButton(
-                onPressed: () => setState(() => _mbrFreeTasteCart.clear()),
+                onPressed: () {
+                  setState(() => _mbrFreeTasteCart.clear());
+                  _clearMbrFreeTasteDraft();
+                },
                 child: const Text('Kosongkan', style: TextStyle(fontSize: 11.5, color: Colors.red)),
               ),
             ],
@@ -15475,7 +15626,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     IconButton(
                       icon: const Icon(Icons.close_rounded, size: 18),
                       color: Colors.red.shade400,
-                      onPressed: () => setState(() => _mbrFreeTasteCart.removeAt(idx)),
+                      onPressed: () {
+                        setState(() => _mbrFreeTasteCart.removeAt(idx));
+                        _saveMbrFreeTasteDraft();
+                      },
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -15617,105 +15771,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         ),
         const SizedBox(height: 14),
 
-        // ── Card: Foto Kegiatan Sampling (Wajib) ──
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFD97706).withOpacity(0.3)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFD97706).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.soup_kitchen_rounded, size: 16, color: Color(0xFFD97706)),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'FOTO KEGIATAN SAMPLING',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Text('*Wajib', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFE11D48))),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              if (_mbrKegiatanSamplingPhoto != null) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(_mbrKegiatanSamplingPhoto!, height: 180, width: double.infinity, fit: BoxFit.cover),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: const [
-                        Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF10B981)),
-                        SizedBox(width: 4),
-                        Text('Foto Kegiatan Berhasil Diambil', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
-                      ],
-                    ),
-                    TextButton.icon(
-                      onPressed: () async {
-                        final src = await _showPhotoSourceDialog(title: 'Ganti Foto Kegiatan Sampling');
-                        if (src != null) _pickMbrKegiatanSamplingPhoto(src);
-                      },
-                      icon: const Icon(Icons.sync_rounded, size: 16),
-                      label: const Text('Ganti', style: TextStyle(fontSize: 12)),
-                    ),
-                  ],
-                ),
-              ] else ...[
-                InkWell(
-                  onTap: () async {
-                    final src = await _showPhotoSourceDialog(title: 'Ambil Foto Kegiatan Sampling');
-                    if (src != null) _pickMbrKegiatanSamplingPhoto(src);
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: elevatedColor,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid),
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_a_photo_rounded, size: 30, color: const Color(0xFFD97706)),
-                          const SizedBox(height: 6),
-                          Text('Ambil Foto Kegiatan Sampling Pengunjung', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: themeColor)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-
         // ── Card: Foto Stand / Booth Sampling (Wajib) ──
         Container(
           padding: const EdgeInsets.all(16),
@@ -15832,6 +15887,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 controller: _mbrCatatanSamplingCtrl,
                 maxLines: 3,
                 style: TextStyle(fontSize: 13, color: textColor),
+                onChanged: (_) => _saveMbrFreeTasteDraft(),
                 decoration: InputDecoration(
                   hintText: 'Catatan antusiasme pengunjung, kendala kompor/alat, dll...',
                   hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
@@ -15875,6 +15931,19 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
   void _openMbrFreeTasteProductPickerBottomSheet(Color themeColor, bool isDarkMode) {
     final allProducts = _getProducts();
+
+    final Set<dynamic> cartProductIds = _mbrFreeTasteCart
+        .map((c) => c['product_id'])
+        .where((id) => id != null)
+        .toSet();
+    final Set<String> cartSkuCodes = _mbrFreeTasteCart
+        .map((c) => c['sku_code']?.toString().toLowerCase().trim() ?? '')
+        .where((s) => s.isNotEmpty && s != '-')
+        .toSet();
+    final Set<String> cartProductNames = _mbrFreeTasteCart
+        .map((c) => c['product_name']?.toString().toLowerCase().trim() ?? '')
+        .where((n) => n.isNotEmpty)
+        .toSet();
 
     showModalBottomSheet(
       context: context,
@@ -15978,8 +16047,29 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                             separatorBuilder: (_, __) => const SizedBox(height: 6),
                             itemBuilder: (context, idx) {
                               final prod = filteredProducts[idx];
+                              final bool isAlreadyInCart = cartProductIds.contains(prod.id) ||
+                                  (prod.skuCode != null && cartSkuCodes.contains(prod.skuCode!.toLowerCase().trim())) ||
+                                  cartProductNames.contains(prod.name.toLowerCase().trim());
+
+                              final Color rowBg = isAlreadyInCart
+                                  ? (isDarkMode ? const Color(0xFF132E22) : const Color(0xFFF0FDF4))
+                                  : itemBg;
+                              final Color rowBorder = isAlreadyInCart
+                                  ? const Color(0xFF10B981).withOpacity(0.5)
+                                  : Colors.grey.withOpacity(0.15);
+
                               return InkWell(
                                 onTap: () {
+                                  if (isAlreadyInCart) {
+                                    toastification.show(
+                                      context: context,
+                                      type: ToastificationType.warning,
+                                      title: const Text('Produk Sudah Diinput'),
+                                      description: Text('Produk "${prod.name}" sudah ada di keranjang sampling. Hapus dari keranjang jika ingin menginput ulang.'),
+                                      autoCloseDuration: const Duration(seconds: 2),
+                                    );
+                                    return;
+                                  }
                                   Navigator.pop(sheetCtx);
                                   setState(() {
                                     _currentMbrFreeTasteProduct = prod;
@@ -15989,19 +16079,25 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: itemBg,
+                                    color: rowBg,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.grey.withOpacity(0.15)),
+                                    border: Border.all(color: rowBorder, width: isAlreadyInCart ? 1.4 : 1.0),
                                   ),
                                   child: Row(
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFD97706).withOpacity(0.1),
+                                          color: isAlreadyInCart
+                                              ? const Color(0xFF10B981).withOpacity(0.15)
+                                              : const Color(0xFFD97706).withOpacity(0.1),
                                           borderRadius: BorderRadius.circular(8),
                                         ),
-                                        child: const Icon(Icons.restaurant_rounded, size: 18, color: Color(0xFFD97706)),
+                                        child: Icon(
+                                          isAlreadyInCart ? Icons.check_circle_rounded : Icons.restaurant_rounded,
+                                          size: 18,
+                                          color: isAlreadyInCart ? const Color(0xFF10B981) : const Color(0xFFD97706),
+                                        ),
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
@@ -16010,7 +16106,13 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                                           children: [
                                             Text(
                                               prod.name,
-                                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: sheetText),
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                                color: isAlreadyInCart
+                                                    ? (isDarkMode ? const Color(0xFF34D399) : const Color(0xFF047857))
+                                                    : sheetText,
+                                              ),
                                             ),
                                             if (prod.skuCode != null)
                                               Text(
@@ -16020,7 +16122,31 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                                           ],
                                         ),
                                       ),
-                                      const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey),
+                                      if (isAlreadyInCart)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF10B981),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: const [
+                                              Icon(Icons.check_rounded, size: 12, color: Colors.white),
+                                              SizedBox(width: 3),
+                                              Text(
+                                                'Sudah Diinput',
+                                                style: TextStyle(
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      else
+                                        const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey),
                                     ],
                                   ),
                                 ),
@@ -16142,6 +16268,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         _mbrBoothSamplingWatermark = res.watermarkText;
       });
 
+      _saveMbrFreeTasteDraft();
+
       toastification.show(
         context: context,
         type: ToastificationType.success,
@@ -16167,13 +16295,13 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       return;
     }
 
-    if (_mbrKegiatanSamplingPhoto == null && _mbrBoothSamplingPhoto == null && widget.editSubmission == null) {
+    if (_mbrBoothSamplingPhoto == null && widget.editSubmission == null) {
       setState(() => _isSubmitting = false);
       toastification.show(
         context: context,
         type: ToastificationType.warning,
-        title: const Text('Foto Dokumentasi Wajib'),
-        description: const Text('Silakan ambil foto kegiatan sampling atau booth sampling terlebih dahulu.'),
+        title: const Text('Foto Stand / Booth Wajib'),
+        description: const Text('Silakan ambil foto stand / booth sampling terlebih dahulu.'),
         autoCloseDuration: const Duration(seconds: 3),
       );
       return;
@@ -16314,6 +16442,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
 
       if (result['success'] == true && mounted) {
+        await _clearMbrFreeTasteDraft();
         if (attProvider.isVisiting) {
           attProvider.markVisitReportFilled();
         }
