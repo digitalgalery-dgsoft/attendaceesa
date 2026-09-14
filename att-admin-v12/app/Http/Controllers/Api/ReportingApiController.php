@@ -1522,6 +1522,41 @@ class ReportingApiController extends Controller
             $isWingsMbrSalesTemplate = ($template->code === 'RPT-WINGS-MBR-SALES-01' || Str::contains($template->code, 'MBR-SALES') || (stripos($template->title, 'mbr') !== false && stripos($template->title, 'penjualan') !== false));
             $isMbrSalesWithItems = $isWingsMbrSalesTemplate && !empty($mbrSalesItems);
 
+            // Cek apakah ini template Wings MBR Free Taste dengan cart multi-produk
+            $mbrFreeTasteItems = [];
+            if (isset($valuesInput['mbr_freetaste_items_json'])) {
+                $rawMbrFtItems = $valuesInput['mbr_freetaste_items_json'];
+                if (is_string($rawMbrFtItems)) {
+                    $rawMbrFtItems = json_decode($rawMbrFtItems, true) ?? [];
+                }
+                if (is_array($rawMbrFtItems)) {
+                    $mbrFreeTasteItems = $rawMbrFtItems;
+                }
+            }
+            if (empty($mbrFreeTasteItems) && isset($normalizedValues['mbr_freetaste_items_json'])) {
+                $rawMbrFtItems = $normalizedValues['mbr_freetaste_items_json'];
+                if (is_string($rawMbrFtItems)) {
+                    $rawMbrFtItems = json_decode($rawMbrFtItems, true) ?? [];
+                }
+                if (is_array($rawMbrFtItems)) {
+                    $mbrFreeTasteItems = $rawMbrFtItems;
+                }
+            }
+            if (empty($mbrFreeTasteItems) && isset($valuesInput['mbr_sampling_items_json'])) {
+                $rawMbrFtItems = $valuesInput['mbr_sampling_items_json'];
+                if (is_string($rawMbrFtItems)) {
+                    $rawMbrFtItems = json_decode($rawMbrFtItems, true) ?? [];
+                }
+                if (is_array($rawMbrFtItems)) {
+                    $mbrFreeTasteItems = $rawMbrFtItems;
+                }
+            }
+
+            $isWingsMbrFreeTasteTemplate = ($template->code === 'RPT-WINGS-MBR-FREETASTE-01' 
+                || Str::contains($template->code, 'MBR-FREETASTE') 
+                || (stripos($template->title, 'mbr') !== false && (stripos($template->title, 'free taste') !== false || stripos($template->title, 'sampling') !== false)));
+            $isMbrFreeTasteWithItems = $isWingsMbrFreeTasteTemplate && !empty($mbrFreeTasteItems);
+
             // JIKA WINGS MBR SALES DENGAN MULTI-PRODUK CART: BUAT 1 BARIS REPORT SUBMISSION
             if ($isMbrSalesWithItems) {
                 // Simpan seluruh file media/foto (termasuk foto_sell_out_toko)
@@ -1690,6 +1725,241 @@ class ReportingApiController extends Controller
                 return response()->json([
                     'status' => 'success',
                     'message' => 'Laporan Penjualan Event MBR (' . count($mbrSalesItems) . ' produk) berhasil dikirim.',
+                    'data' => [
+                        'id' => $sub->id,
+                        'submission_code' => $sub->submission_code,
+                        'template_title' => $template->title,
+                        'submitted_at' => $sub->submitted_at->toDateTimeString(),
+                        'status' => $sub->status,
+                    ],
+                ]);
+            }
+
+            // JIKA WINGS MBR FREE TASTE DENGAN MULTI-PRODUK CART: BUAT 1 BARIS REPORT SUBMISSION
+            if ($isMbrFreeTasteWithItems) {
+                // Simpan seluruh file media/foto template (termasuk foto_kegiatan_sampling & foto_booth_sampling)
+                $allSavedMedia = [];
+                foreach ($template->fields as $field) {
+                    if (in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature', 'image'])) {
+                        $savedPhotos = $this->saveUploadedPhotos($request, 0, (string)$field->id, $field->field_name);
+                        if (!empty($savedPhotos)) {
+                            $allSavedMedia[$field->id] = $savedPhotos;
+                            $allSavedMedia[$field->field_name] = $savedPhotos;
+                        }
+                    }
+                }
+
+                // Fallback pencarian file langsung jika foto_kegiatan_sampling / foto_booth_sampling dikirim via multipart
+                $directPhotoKeys = ['foto_kegiatan_sampling', 'foto_booth_sampling'];
+                foreach ($directPhotoKeys as $dpKey) {
+                    if (!isset($allSavedMedia[$dpKey])) {
+                        $uploadedDirect = null;
+                        if ($request->hasFile($dpKey)) {
+                            $uploadedDirect = $request->file($dpKey);
+                        } else {
+                            foreach ($request->allFiles() as $fKey => $fVal) {
+                                if (strcasecmp($fKey, $dpKey) === 0 || str_contains(strtolower($fKey), strtolower($dpKey))) {
+                                    $uploadedDirect = $fVal;
+                                    break;
+                                }
+                            }
+                        }
+                        if ($uploadedDirect && $uploadedDirect->isValid()) {
+                            $filename = "{$dpKey}_" . time() . '_' . uniqid() . '.' . $uploadedDirect->getClientOriginalExtension();
+                            $path = $uploadedDirect->storeAs("reports/" . now()->format('Y-m'), $filename, 'public');
+                            if ($path) {
+                                $fullUrl = asset('storage/' . $path);
+                                $allSavedMedia[$dpKey] = [$fullUrl];
+                            }
+                        }
+                    }
+                }
+
+                // Simpan foto sampling per item produk jika di-upload
+                foreach ($mbrFreeTasteItems as $idx => &$mItem) {
+                    $uploadedSampling = null;
+                    $candidateKeys = [
+                        "sampling_photo_{$idx}",
+                        "photo_sampling_{$idx}",
+                        "photo_sampling_photo_{$idx}",
+                        "sampling_{$idx}",
+                        "photo_sampling{$idx}",
+                    ];
+                    foreach ($candidateKeys as $ck) {
+                        if ($request->hasFile($ck)) {
+                            $uploadedSampling = $request->file($ck);
+                            break;
+                        }
+                    }
+
+                    // Fallback: cari dari allFiles() jika ada key yang mengandung 'sampling' dan indexnya
+                    if (!$uploadedSampling) {
+                        foreach ($request->allFiles() as $fKey => $fVal) {
+                            $lowerK = strtolower($fKey);
+                            if (str_contains($lowerK, 'sampling') && str_contains($lowerK, (string)$idx)) {
+                                $uploadedSampling = $fVal;
+                                break;
+                            }
+                        }
+                    }
+
+                    if ($uploadedSampling && $uploadedSampling->isValid()) {
+                        $filename = "sampling_mbr_{$idx}_" . time() . '_' . uniqid() . '.' . $uploadedSampling->getClientOriginalExtension();
+                        $path = $uploadedSampling->storeAs("reports/" . now()->format('Y-m'), $filename, 'public');
+                        if ($path) {
+                            $fullUrl = asset('storage/' . $path);
+                            $mItem['sampling_photo_url'] = $fullUrl;
+                            $mItem['photo_sampling_url'] = $fullUrl;
+                            $mItem['foto_sampling'] = $fullUrl;
+                            $mItem['sampling_photo_path'] = $path;
+                        }
+                    }
+                }
+                unset($mItem);
+
+                // Buat ReportSubmission tunggal
+                $sub = ReportSubmission::create([
+                    'report_template_id' => $template->id,
+                    'principal_id' => $principalId,
+                    'employee_id' => $employee->id,
+                    'work_location_id' => $workLocationId,
+                    'itinerary_item_id' => $itineraryItemId,
+                    'submission_code' => $submissionCode,
+                    'store_name' => $storeName,
+                    'address' => $address,
+                    'latitude' => $request->latitude,
+                    'longitude' => $request->longitude,
+                    'is_within_radius' => $isWithinRadius,
+                    'status' => 'pending',
+                    'submitted_at' => now(),
+                ]);
+
+                // Hitung total akumulatif sampling
+                $totalStokAwal = 0;
+                $totalDimasak = 0;
+                $totalStokAkhir = 0;
+                $totalCup = 0;
+
+                foreach ($mbrFreeTasteItems as $item) {
+                    $sa = intval($item['stok_awal'] ?? 0);
+                    $dm = intval($item['jumlah_dimasak'] ?? ($item['dimasak'] ?? 0));
+                    $sk = intval($item['stok_akhir'] ?? max(0, $sa - $dm));
+                    $cp = intval($item['jumlah_cup'] ?? ($item['cup'] ?? 0));
+
+                    $totalStokAwal += $sa;
+                    $totalDimasak += $dm;
+                    $totalStokAkhir += $sk;
+                    $totalCup += $cp;
+                }
+
+                if ($totalStokAwal === 0 && isset($valuesInput['total_stok_awal_sampling'])) {
+                    $totalStokAwal = intval($valuesInput['total_stok_awal_sampling']);
+                }
+                if ($totalDimasak === 0 && isset($valuesInput['total_mie_dimasak'])) {
+                    $totalDimasak = intval($valuesInput['total_mie_dimasak']);
+                }
+                if ($totalStokAkhir === 0 && isset($valuesInput['total_stok_akhir_sampling'])) {
+                    $totalStokAkhir = intval($valuesInput['total_stok_akhir_sampling']);
+                }
+                if ($totalCup === 0 && isset($valuesInput['total_cup_dibagikan'])) {
+                    $totalCup = intval($valuesInput['total_cup_dibagikan']);
+                }
+
+                foreach ($template->fields as $field) {
+                    $fn = strtolower(trim($field->field_name));
+                    $vText = null;
+                    $vNum = null;
+                    $vJson = null;
+                    $photoPath = null;
+
+                    if ($fn === 'mbr_freetaste_items_json' || $fn === 'mbr_sampling_items_json') {
+                        $vJson = $mbrFreeTasteItems;
+                        $vText = json_encode($mbrFreeTasteItems, JSON_UNESCAPED_UNICODE);
+                        $vNum = count($mbrFreeTasteItems);
+                    } elseif ($fn === 'total_stok_awal_sampling') {
+                        $vNum = $totalStokAwal;
+                        $vText = (string) $totalStokAwal;
+                    } elseif ($fn === 'total_mie_dimasak') {
+                        $vNum = $totalDimasak;
+                        $vText = (string) $totalDimasak;
+                    } elseif ($fn === 'total_stok_akhir_sampling') {
+                        $vNum = $totalStokAkhir;
+                        $vText = (string) $totalStokAkhir;
+                    } elseif ($fn === 'total_cup_dibagikan') {
+                        $vNum = $totalCup;
+                        $vText = (string) $totalCup;
+                    } elseif (in_array($field->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature', 'image'])) {
+                        $saved = $allSavedMedia[$field->id] ?? $allSavedMedia[$field->field_name] ?? $allSavedMedia[$fn] ?? [];
+                        if (!empty($saved)) {
+                            $photoPath = $saved[0];
+                            $vJson = $saved;
+                            $vText = $saved[0];
+                        }
+                    } else {
+                        $fKey = (string)$field->id;
+                        $raw = $normalizedValues[$fKey] ?? $normalizedValues[$fn] ?? $valuesInput[$fn] ?? null;
+                        if ($raw !== null) {
+                            $vText = is_string($raw) ? $raw : json_encode($raw);
+                            if (is_numeric($raw)) $vNum = (float)$raw;
+                        }
+                    }
+
+                    ReportSubmissionValue::create([
+                        'report_submission_id' => $sub->id,
+                        'report_form_field_id' => $field->id,
+                        'field_name' => $field->field_name,
+                        'field_type' => $field->field_type,
+                        'value_text' => $vText,
+                        'value_number' => $vNum,
+                        'value_json' => $vJson,
+                        'media_url' => $photoPath,
+                    ]);
+                }
+
+                // Pastikan mbr_freetaste_items_json tersimpan
+                $hasMbrFtJson = ReportSubmissionValue::where('report_submission_id', $sub->id)
+                    ->where('field_name', 'mbr_freetaste_items_json')
+                    ->exists();
+                if (!$hasMbrFtJson) {
+                    ReportSubmissionValue::create([
+                        'report_submission_id' => $sub->id,
+                        'report_form_field_id' => null,
+                        'field_name' => 'mbr_freetaste_items_json',
+                        'field_type' => 'json',
+                        'value_text' => json_encode($mbrFreeTasteItems, JSON_UNESCAPED_UNICODE),
+                        'value_number' => count($mbrFreeTasteItems),
+                        'value_json' => $mbrFreeTasteItems,
+                        'media_url' => null,
+                    ]);
+                }
+
+                // Pastikan foto_kegiatan_sampling & foto_booth_sampling tersimpan jika ada di allSavedMedia
+                foreach ($directPhotoKeys as $dpKey) {
+                    if (!empty($allSavedMedia[$dpKey])) {
+                        $exists = ReportSubmissionValue::where('report_submission_id', $sub->id)
+                            ->where('field_name', $dpKey)
+                            ->exists();
+                        if (!$exists) {
+                            $mediaUrl = $allSavedMedia[$dpKey][0];
+                            ReportSubmissionValue::create([
+                                'report_submission_id' => $sub->id,
+                                'report_form_field_id' => null,
+                                'field_name' => $dpKey,
+                                'field_type' => 'photo',
+                                'value_text' => $mediaUrl,
+                                'value_number' => null,
+                                'value_json' => [$mediaUrl],
+                                'media_url' => $mediaUrl,
+                            ]);
+                        }
+                    }
+                }
+
+                DB::commit();
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Laporan Free Taste Event MBR (' . count($mbrFreeTasteItems) . ' produk) berhasil dikirim.',
                     'data' => [
                         'id' => $sub->id,
                         'submission_code' => $sub->submission_code,

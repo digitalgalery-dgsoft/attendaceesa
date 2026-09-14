@@ -442,6 +442,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   File? _mbrBoothSamplingPhoto;
   String? _mbrBoothSamplingWatermark;
 
+  File? _mbrKegiatanSamplingPhoto;
+  String? _mbrKegiatanSamplingWatermark;
+
   // GPS & Status
   double? _latitude;
   double? _longitude;
@@ -1569,6 +1572,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       _mbrCurrentSamplingWatermark = null;
       _mbrBoothSamplingPhoto = null;
       _mbrBoothSamplingWatermark = null;
+      _mbrKegiatanSamplingPhoto = null;
+      _mbrKegiatanSamplingWatermark = null;
 
       if (widget.editSubmission != null) {
         for (final val in widget.editSubmission!.values) {
@@ -15612,6 +15617,105 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         ),
         const SizedBox(height: 14),
 
+        // ── Card: Foto Kegiatan Sampling (Wajib) ──
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFD97706).withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD97706).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.soup_kitchen_rounded, size: 16, color: Color(0xFFD97706)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'FOTO KEGIATAN SAMPLING',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Text('*Wajib', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFE11D48))),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              if (_mbrKegiatanSamplingPhoto != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(_mbrKegiatanSamplingPhoto!, height: 180, width: double.infinity, fit: BoxFit.cover),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF10B981)),
+                        SizedBox(width: 4),
+                        Text('Foto Kegiatan Berhasil Diambil', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                      ],
+                    ),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final src = await _showPhotoSourceDialog(title: 'Ganti Foto Kegiatan Sampling');
+                        if (src != null) _pickMbrKegiatanSamplingPhoto(src);
+                      },
+                      icon: const Icon(Icons.sync_rounded, size: 16),
+                      label: const Text('Ganti', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                InkWell(
+                  onTap: () async {
+                    final src = await _showPhotoSourceDialog(title: 'Ambil Foto Kegiatan Sampling');
+                    if (src != null) _pickMbrKegiatanSamplingPhoto(src);
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: elevatedColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_a_photo_rounded, size: 30, color: const Color(0xFFD97706)),
+                          const SizedBox(height: 6),
+                          Text('Ambil Foto Kegiatan Sampling Pengunjung', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: themeColor)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
         // ── Card: Foto Stand / Booth Sampling (Wajib) ──
         Container(
           padding: const EdgeInsets.all(16),
@@ -15971,6 +16075,44 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
   }
 
+  Future<void> _pickMbrKegiatanSamplingPhoto(ImageSource source) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final employeeName = auth.employeeData?['full_name'] ?? 'Promoter MBR';
+    final employeeNik = auth.employeeData?['nik'] ?? '';
+    final currentStore = _selectedStoreName.isNotEmpty ? _selectedStoreName : 'Kunjungan Toko';
+
+    WatermarkCaptureResult? res;
+    if (source == ImageSource.camera) {
+      res = await WatermarkCameraService.captureWithWatermark(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+        latitude: _latitude,
+        longitude: _longitude,
+      );
+    } else {
+      res = await WatermarkCameraService.pickFromGallery(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+      );
+    }
+
+    if (res != null && mounted) {
+      setState(() {
+        _mbrKegiatanSamplingPhoto = res!.file;
+        _mbrKegiatanSamplingWatermark = res.watermarkText;
+      });
+
+      toastification.show(
+        context: context,
+        type: ToastificationType.success,
+        title: const Text('Foto Kegiatan Sampling Berhasil Diambil'),
+        autoCloseDuration: const Duration(seconds: 2),
+      );
+    }
+  }
+
   Future<void> _pickMbrBoothSamplingPhoto(ImageSource source) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final employeeName = auth.employeeData?['full_name'] ?? 'Promoter MBR';
@@ -16025,13 +16167,13 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       return;
     }
 
-    if (_mbrBoothSamplingPhoto == null && widget.editSubmission == null) {
+    if (_mbrKegiatanSamplingPhoto == null && _mbrBoothSamplingPhoto == null && widget.editSubmission == null) {
       setState(() => _isSubmitting = false);
       toastification.show(
         context: context,
         type: ToastificationType.warning,
-        title: const Text('Foto Stand / Booth Wajib'),
-        description: const Text('Silakan ambil foto dokumentasi booth/stand sampling terlebih dahulu.'),
+        title: const Text('Foto Dokumentasi Wajib'),
+        description: const Text('Silakan ambil foto kegiatan sampling atau booth sampling terlebih dahulu.'),
         autoCloseDuration: const Duration(seconds: 3),
       );
       return;
@@ -16097,7 +16239,26 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         }
       }
 
-      // 2. Foto Booth Sampling
+      // 2. Foto Kegiatan Sampling
+      if (_mbrKegiatanSamplingPhoto != null) {
+        photoFiles['foto_kegiatan_sampling'] = _mbrKegiatanSamplingPhoto!;
+        if (_mbrKegiatanSamplingWatermark != null) {
+          watermarkTexts['foto_kegiatan_sampling'] = _mbrKegiatanSamplingWatermark!;
+        }
+        for (final f in widget.template.fields) {
+          final fn = f.fieldName.toLowerCase();
+          if (fn == 'foto_kegiatan_sampling' || fn.contains('kegiatan')) {
+            photoFiles[f.id.toString()] = _mbrKegiatanSamplingPhoto!;
+            photoFiles[f.fieldName] = _mbrKegiatanSamplingPhoto!;
+            if (_mbrKegiatanSamplingWatermark != null) {
+              watermarkTexts[f.id.toString()] = _mbrKegiatanSamplingWatermark!;
+              watermarkTexts[f.fieldName] = _mbrKegiatanSamplingWatermark!;
+            }
+          }
+        }
+      }
+
+      // 3. Foto Booth Sampling
       if (_mbrBoothSamplingPhoto != null) {
         photoFiles['foto_booth_sampling'] = _mbrBoothSamplingPhoto!;
         if (_mbrBoothSamplingWatermark != null) {
@@ -16105,7 +16266,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         }
         for (final f in widget.template.fields) {
           final fn = f.fieldName.toLowerCase();
-          if (fn == 'foto_booth_sampling' ||
+          if (fn == 'foto_booth_sampling' || fn.contains('booth') || fn.contains('stand') ||
               ['image', 'photo', 'camera_photo', 'multi_photo'].contains(f.fieldType)) {
             photoFiles[f.id.toString()] = _mbrBoothSamplingPhoto!;
             photoFiles[f.fieldName] = _mbrBoothSamplingPhoto!;

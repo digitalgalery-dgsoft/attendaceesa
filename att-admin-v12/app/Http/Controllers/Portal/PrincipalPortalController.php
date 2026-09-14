@@ -12684,9 +12684,12 @@ class PrincipalPortalController extends Controller
             $subStokAkhir = 0;
             $subCup = 0;
             $subBoothPhoto = null;
+            $subKegiatanPhoto = null;
 
             foreach ($sub->values as $v) {
                 $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
+                $ft = strtolower(trim((string)($v->field_type ?: ($v->formField ? $v->formField->field_type : ''))));
+
                 if ($fn === 'mbr_freetaste_items_json' || $fn === 'mbr_sampling_items_json') {
                     $raw = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
                     if (is_array($raw)) {
@@ -12700,22 +12703,48 @@ class PrincipalPortalController extends Controller
                     $subStokAkhir = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
                 } elseif ($fn === 'total_cup_dibagikan') {
                     $subCup = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
-                } elseif (str_contains($fn, 'foto_booth') || str_contains($fn, 'booth_sampling') || str_contains($fn, 'foto') || str_contains($fn, 'photo')) {
+                } elseif (str_contains($fn, 'kegiatan') || str_contains($fn, 'sampling_kegiatan')) {
                     $rawP = $v->media_url ?: ($v->value_text ?: (is_array($v->value_json) ? ($v->value_json[0] ?? null) : null));
                     $cand = $resolveMediaUrl($rawP);
-                    if ($cand && (!$subBoothPhoto || str_contains($fn, 'booth'))) {
+                    if ($cand) {
+                        $subKegiatanPhoto = $cand;
+                    }
+                } elseif (str_contains($fn, 'booth') || str_contains($fn, 'stand')) {
+                    $rawP = $v->media_url ?: ($v->value_text ?: (is_array($v->value_json) ? ($v->value_json[0] ?? null) : null));
+                    $cand = $resolveMediaUrl($rawP);
+                    if ($cand) {
                         $subBoothPhoto = $cand;
+                    }
+                } elseif (in_array($ft, ['photo', 'camera_photo', 'multi_photo', 'image']) || str_contains($fn, 'foto') || str_contains($fn, 'photo')) {
+                    $rawP = $v->media_url ?: ($v->value_text ?: (is_array($v->value_json) ? ($v->value_json[0] ?? null) : null));
+                    $cand = $resolveMediaUrl($rawP);
+                    if ($cand) {
+                        if (!$subBoothPhoto) {
+                            $subBoothPhoto = $cand;
+                        } elseif (!$subKegiatanPhoto) {
+                            $subKegiatanPhoto = $cand;
+                        }
                     }
                 }
             }
 
-            // Disk fallback if booth photo was not found in DB values
-            if (!$subBoothPhoto) {
+            // Disk fallback if booth or kegiatan photo was not found in DB values
+            if (!$subBoothPhoto || !$subKegiatanPhoto) {
                 $matches = glob(storage_path("app/public/reports/*/report_{$sub->id}_*.jpg"));
+                if (empty($matches)) {
+                    $matches = glob(storage_path("app/public/reports/*/*_{$sub->id}_*.jpg"));
+                }
                 if (!empty($matches)) {
-                    $rel = str_replace(storage_path('app/public/'), '', $matches[0]);
-                    $rel = str_replace('\\', '/', $rel);
-                    $subBoothPhoto = asset('storage/' . ltrim($rel, '/'));
+                    foreach ($matches as $match) {
+                        $rel = str_replace(storage_path('app/public/'), '', $match);
+                        $rel = str_replace('\\', '/', $rel);
+                        $candDisk = asset('storage/' . ltrim($rel, '/'));
+                        if (!$subBoothPhoto) {
+                            $subBoothPhoto = $candDisk;
+                        } elseif (!$subKegiatanPhoto && $candDisk !== $subBoothPhoto) {
+                            $subKegiatanPhoto = $candDisk;
+                        }
+                    }
                 }
             }
 
@@ -12873,6 +12902,20 @@ class PrincipalPortalController extends Controller
                     $regionAgg[$regionName]['breakdown'][$rBreakKey]['dimasak'] += $subDimasak;
                     $regionAgg[$regionName]['breakdown'][$rBreakKey]['cup'] += $subCup;
                 }
+            }
+
+            if ($subKegiatanPhoto) {
+                $galleryPhotos[] = [
+                    'type' => 'kegiatan',
+                    'title' => 'Dokumentasi Kegiatan Sampling',
+                    'url' => $subKegiatanPhoto,
+                    'product' => 'Aktivitas Sampling Pengunjung',
+                    'date' => $subDateDisplay,
+                    'mitra' => $empName,
+                    'store' => $storeName,
+                    'dimasak' => $subDimasak,
+                    'cup' => $subCup,
+                ];
             }
 
             if ($subBoothPhoto) {

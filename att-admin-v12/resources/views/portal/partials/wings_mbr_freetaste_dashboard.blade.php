@@ -1019,6 +1019,7 @@
                             $subCup = 0;
                             $subAkhir = 0;
                             $subBoothPhoto = null;
+                            $subKegiatanPhoto = null;
                             $subPhotos = [];
 
                             foreach ($sub->values as $v) {
@@ -1055,7 +1056,9 @@
                                                 'url' => $pUrl,
                                                 'field_name' => $fn,
                                             ];
-                                            if (!$subBoothPhoto && (str_contains($fn, 'booth') || str_contains($fn, 'foto') || str_contains($fn, 'photo'))) {
+                                            if (str_contains($fn, 'kegiatan') || str_contains($fn, 'sampling_kegiatan')) {
+                                                $subKegiatanPhoto = $pUrl;
+                                            } elseif (str_contains($fn, 'booth') || str_contains($fn, 'stand')) {
                                                 $subBoothPhoto = $pUrl;
                                             }
                                         }
@@ -1063,9 +1066,25 @@
                                 }
                             }
 
-                            // Fallback jika foto booth tersimpan di disk
+                            // If not yet tagged, assign from available subPhotos
+                            if (!$subBoothPhoto && !empty($subPhotos)) {
+                                $subBoothPhoto = $subPhotos[0]['url'];
+                            }
+                            if (!$subKegiatanPhoto && count($subPhotos) > 1) {
+                                foreach ($subPhotos as $sp) {
+                                    if ($sp['url'] !== $subBoothPhoto) {
+                                        $subKegiatanPhoto = $sp['url'];
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // Fallback jika foto tersimpan di disk
                             if (empty($subPhotos)) {
                                 $matches = glob(storage_path("app/public/reports/*/report_{$sub->id}_*.jpg"));
+                                if (empty($matches)) {
+                                    $matches = glob(storage_path("app/public/reports/*/*_{$sub->id}_*.jpg"));
+                                }
                                 if (!empty($matches)) {
                                     foreach ($matches as $match) {
                                         $rel = str_replace(storage_path('app/public/'), '', $match);
@@ -1076,7 +1095,11 @@
                                             'url' => $pUrl,
                                             'field_name' => 'foto_booth_sampling',
                                         ];
-                                        if (!$subBoothPhoto) $subBoothPhoto = $pUrl;
+                                        if (!$subBoothPhoto) {
+                                            $subBoothPhoto = $pUrl;
+                                        } elseif (!$subKegiatanPhoto && $pUrl !== $subBoothPhoto) {
+                                            $subKegiatanPhoto = $pUrl;
+                                        }
                                     }
                                 }
                             }
@@ -1151,17 +1174,26 @@
                                 {{ number_format($subAkhir, 0, ',', '.') }} Pcs
                             </td>
                             <td style="text-align: center;">
-                                @if($subBoothPhoto)
-                                    <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('{{ $subBoothPhoto }}')" title="Lihat Foto Stand / Booth">
-                                        <i class="fa-solid fa-camera"></i>
-                                        <span>Booth</span>
-                                    </button>
-                                @else
-                                    <span style="color: var(--text-muted); font-size: 0.75rem;">-</span>
-                                @endif
+                                <div style="display: flex; gap: 4px; justify-content: center; align-items: center; flex-wrap: wrap;">
+                                    @if($subKegiatanPhoto)
+                                        <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('{{ $subKegiatanPhoto }}')" title="Lihat Foto Kegiatan Sampling" style="padding: 4px 8px; font-size: 0.72rem; background: #f59e0b; color: #ffffff; border-color: #f59e0b;">
+                                            <i class="fa-solid fa-camera"></i>
+                                            <span>Kegiatan</span>
+                                        </button>
+                                    @endif
+                                    @if($subBoothPhoto)
+                                        <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('{{ $subBoothPhoto }}')" title="Lihat Foto Stand / Booth" style="padding: 4px 8px; font-size: 0.72rem;">
+                                            <i class="fa-solid fa-store"></i>
+                                            <span>Booth</span>
+                                        </button>
+                                    @endif
+                                    @if(!$subKegiatanPhoto && !$subBoothPhoto)
+                                        <span style="color: var(--text-muted); font-size: 0.75rem;">-</span>
+                                    @endif
+                                </div>
                             </td>
                             <td style="text-align: center; white-space: nowrap;">
-                                <button type="button" class="portal-freetaste-btn-action" onclick='openFreetasteSubmissionDetailModal(@json($sub), @json($subCart), @json($subPhotos), "{{ $subBoothPhoto }}", "{{ $freetasteTimeFormatted }}")'>
+                                <button type="button" class="portal-freetaste-btn-action" onclick='openFreetasteSubmissionDetailModal(@json($sub), @json($subCart), @json($subPhotos), "{{ $subBoothPhoto }}", "{{ $subKegiatanPhoto }}", "{{ $freetasteTimeFormatted }}")'>
                                     <i class="fa-solid fa-eye"></i>
                                     <span>Detail</span>
                                 </button>
@@ -1230,7 +1262,12 @@
                 <div class="portal-freetaste-photo-grid">
                     @foreach($galleryPhotos as $photo)
                         <div class="portal-freetaste-photo-card">
-                            <img src="{{ $photo['url'] }}" alt="{{ $photo['title'] }}" class="portal-freetaste-photo-thumb" onclick="openLightbox('{{ $photo['url'] }}')">
+                            <div style="position: relative;">
+                                <img src="{{ $photo['url'] }}" alt="{{ $photo['title'] }}" class="portal-freetaste-photo-thumb" onclick="openLightbox('{{ $photo['url'] }}')">
+                                <span style="position: absolute; top: 6px; left: 6px; padding: 2px 7px; border-radius: 4px; font-size: 0.68rem; font-weight: 800; color: #fff; background: {{ ($photo['type'] ?? '') === 'kegiatan' ? '#f59e0b' : (($photo['type'] ?? '') === 'booth' ? 'var(--brand-primary)' : '#10b981') }}; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                                    {{ ($photo['type'] ?? '') === 'kegiatan' ? 'Kegiatan Sampling' : (($photo['type'] ?? '') === 'booth' ? 'Stand / Booth' : 'Varian Produk') }}
+                                </span>
+                            </div>
                             <div class="portal-freetaste-photo-info">
                                 <div style="font-weight: 700; color: var(--text-heading); font-size: 0.82rem;">{{ $photo['product'] }}</div>
                                 <div class="portal-freetaste-photo-meta">
@@ -1423,15 +1460,20 @@
     }
 
     // Modal Rincian Submissions
-    function openFreetasteSubmissionDetailModal(sub, cart, photos, boothPhoto, formattedTime) {
+    function openFreetasteSubmissionDetailModal(sub, cart, photos, boothPhoto, kegiatanPhoto, formattedTime) {
         const modal = document.getElementById('freetasteSubDetailModal');
         const body = document.getElementById('freetasteSubModalBody');
         if (!modal || !body) return;
 
-        photos = photos || [];
-        if (!boothPhoto && photos.length > 0) {
-            boothPhoto = photos[0].url;
+        // Backward compatibility jika formattedTime dikirim di argumen ke-5
+        if (typeof kegiatanPhoto === 'string' && (kegiatanPhoto.includes('WIB') || kegiatanPhoto.includes(':') || !formattedTime)) {
+            if (!formattedTime) {
+                formattedTime = kegiatanPhoto;
+                kegiatanPhoto = null;
+            }
         }
+
+        photos = photos || [];
 
         const resolveUrl = (u) => {
             if (!u || typeof u !== 'string') return '';
@@ -1444,6 +1486,23 @@
             if (s.startsWith('storage/')) return '/' + s;
             return '/storage/' + s.replace(/^\/+/, '');
         };
+
+        // Identifikasi foto kegiatan & foto booth dari photos array jika belum spesifik
+        if (!kegiatanPhoto && photos.length > 0) {
+            const kegObj = photos.find(p => p.field_name && (p.field_name.includes('kegiatan') || p.field_name.includes('sampling_kegiatan')));
+            if (kegObj) kegiatanPhoto = kegObj.url;
+        }
+        if (!boothPhoto && photos.length > 0) {
+            const boothObj = photos.find(p => p.field_name && (p.field_name.includes('booth') || p.field_name.includes('stand')));
+            if (boothObj) boothPhoto = boothObj.url;
+        }
+        if (!kegiatanPhoto && photos.length > 1) {
+            const other = photos.find(p => resolveUrl(p.url) !== resolveUrl(boothPhoto));
+            if (other) kegiatanPhoto = other.url;
+        }
+        if (!boothPhoto && photos.length > 0) {
+            boothPhoto = photos[0].url;
+        }
 
         let cartHtml = '';
         if (cart && cart.length > 0) {
@@ -1478,7 +1537,7 @@
                                         <td class="num" style="color: #059669; font-weight: 800;">${Number(item.jumlah_cup || item.cup || 0).toLocaleString('id-ID')} Cup</td>
                                         <td style="text-align: center;">
                                             ${pPhoto ? `
-                                                <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('${pPhoto}')" title="Lihat Foto Sampling" style="padding: 4px 8px; font-size: 0.72rem;">
+                                                <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('${pPhoto}')" title="Lihat Foto Sampling" style="padding: 4px 8px; font-size: 0.72rem; background: #f59e0b; color: #fff;">
                                                     <i class="fa-solid fa-camera"></i> Foto
                                                 </button>
                                             ` : '<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>'}
@@ -1494,54 +1553,108 @@
             cartHtml = '<p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.75rem;">Tidak ada item keranjang sampling terperinci.</p>';
         }
 
-        // Section Dokumentasi Foto Booth / Stand Sampling
+        // Section Dokumentasi Foto Sampling & Booth (Menampilkan Foto Kegiatan dan Foto Stand/Booth)
         let photoSectionHtml = '';
-        const mainPhoto = boothPhoto ? resolveUrl(boothPhoto) : (photos.length > 0 ? resolveUrl(photos[0].url) : null);
+        const resolvedKegiatan = kegiatanPhoto ? resolveUrl(kegiatanPhoto) : null;
+        const resolvedBooth = boothPhoto ? resolveUrl(boothPhoto) : null;
+        const hasAnyPhoto = resolvedKegiatan || resolvedBooth || photos.length > 0;
 
-        if (mainPhoto || photos.length > 0) {
+        if (hasAnyPhoto) {
             photoSectionHtml = `
                 <div style="margin-top: 1.25rem;">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.65rem;">
                         <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-heading); margin: 0; display: flex; align-items: center; gap: 6px;">
                             <i class="fa-solid fa-camera" style="color: var(--brand-primary);"></i>
-                            Foto Dokumentasi Stand / Booth Sampling
+                            Dokumentasi Foto Sampling & Stand / Booth
                         </h4>
                         <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;"><i class="fa-solid fa-magnifying-glass-plus"></i> Klik foto untuk memperbesar</span>
                     </div>
-                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                        ${mainPhoto ? `
-                            <div style="position: relative; border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0; width: 100%; max-width: 300px; background: #0f172a; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-                                <img src="${mainPhoto}" alt="Dokumentasi Booth Sampling" onclick="openLightbox('${mainPhoto}')" style="width: 100%; height: 190px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
-                                <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); padding: 0.6rem 0.75rem; display: flex; align-items: center; justify-content: space-between;">
-                                    <span style="color: #fff; font-size: 0.75rem; font-weight: 700;">
-                                        <i class="fa-solid fa-store"></i> Stand / Booth Sampling
-                                    </span>
-                                    <button type="button" onclick="openLightbox('${mainPhoto}')" style="background: rgba(255,255,255,0.25); color: #fff; border: none; border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
-                                        <i class="fa-solid fa-expand"></i> Zoom
-                                    </button>
-                                </div>
-                            </div>
-                        ` : ''}
 
-                        ${photos.filter(p => resolveUrl(p.url) !== mainPhoto).map((p, pI) => {
-                            const pUrl = resolveUrl(p.url);
-                            return `
-                                <div style="position: relative; border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0; width: 100%; max-width: 220px; background: #0f172a; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-                                    <img src="${pUrl}" alt="${p.label || 'Foto Laporan'}" onclick="openLightbox('${pUrl}')" style="width: 100%; height: 190px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
-                                    <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); padding: 0.6rem 0.75rem;">
-                                        <span style="color: #fff; font-size: 0.74rem; font-weight: 700;">${p.label || 'Lampiran #' + (pI + 1)}</span>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+                        <!-- Card 1: Foto Kegiatan Sampling -->
+                        <div style="background: #ffffff; border: 1.5px solid ${resolvedKegiatan ? '#f59e0b' : '#e2e8f0'}; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column;">
+                            <div style="padding: 0.6rem 0.85rem; background: ${resolvedKegiatan ? 'rgba(245, 158, 11, 0.1)' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                                <span style="font-weight: 800; font-size: 0.82rem; color: ${resolvedKegiatan ? '#b45309' : 'var(--text-muted)'}; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-fire-burner"></i> Foto Kegiatan Sampling
+                                </span>
+                                ${resolvedKegiatan ? '<span style="font-size: 0.7rem; font-weight: 700; background: #f59e0b; color: #fff; padding: 2px 7px; border-radius: 4px;">Tersedia</span>' : '<span style="font-size: 0.7rem; color: #94a3b8;">Belum diunggah</span>'}
+                            </div>
+                            ${resolvedKegiatan ? `
+                                <div style="position: relative; background: #0f172a;">
+                                    <img src="${resolvedKegiatan}" alt="Foto Kegiatan Sampling" onclick="openLightbox('${resolvedKegiatan}')" style="width: 100%; height: 200px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                                    <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); padding: 0.5rem 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                                        <span style="color: #fff; font-size: 0.72rem; font-weight: 600;"><i class="fa-solid fa-utensils"></i> Aktivitas Sampling Pengunjung</span>
+                                        <button type="button" onclick="openLightbox('${resolvedKegiatan}')" style="background: rgba(255,255,255,0.25); color: #fff; border: none; border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
+                                            <i class="fa-solid fa-expand"></i> Zoom
+                                        </button>
                                     </div>
                                 </div>
-                            `;
-                        }).join('')}
+                            ` : `
+                                <div style="height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f8fafc; color: #94a3b8; gap: 6px;">
+                                    <i class="fa-solid fa-image" style="font-size: 2rem;"></i>
+                                    <span style="font-size: 0.78rem;">Foto kegiatan sampling tidak tersedia</span>
+                                </div>
+                            `}
+                        </div>
+
+                        <!-- Card 2: Foto Stand / Booth Sampling -->
+                        <div style="background: #ffffff; border: 1.5px solid ${resolvedBooth ? 'var(--brand-primary)' : '#e2e8f0'}; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column;">
+                            <div style="padding: 0.6rem 0.85rem; background: ${resolvedBooth ? 'rgba(235, 33, 46, 0.08)' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                                <span style="font-weight: 800; font-size: 0.82rem; color: ${resolvedBooth ? 'var(--brand-primary)' : 'var(--text-muted)'}; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-store"></i> Foto Stand / Booth Sampling
+                                </span>
+                                ${resolvedBooth ? '<span style="font-size: 0.7rem; font-weight: 700; background: var(--brand-primary); color: #fff; padding: 2px 7px; border-radius: 4px;">Tersedia</span>' : '<span style="font-size: 0.7rem; color: #94a3b8;">Belum diunggah</span>'}
+                            </div>
+                            ${resolvedBooth ? `
+                                <div style="position: relative; background: #0f172a;">
+                                    <img src="${resolvedBooth}" alt="Foto Stand / Booth Sampling" onclick="openLightbox('${resolvedBooth}')" style="width: 100%; height: 200px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                                    <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); padding: 0.5rem 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                                        <span style="color: #fff; font-size: 0.72rem; font-weight: 600;"><i class="fa-solid fa-location-dot"></i> Setup Booth Sampling Toko</span>
+                                        <button type="button" onclick="openLightbox('${resolvedBooth}')" style="background: rgba(255,255,255,0.25); color: #fff; border: none; border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
+                                            <i class="fa-solid fa-expand"></i> Zoom
+                                        </button>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div style="height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f8fafc; color: #94a3b8; gap: 6px;">
+                                    <i class="fa-solid fa-image" style="font-size: 2rem;"></i>
+                                    <span style="font-size: 0.78rem;">Foto stand / booth sampling tidak tersedia</span>
+                                </div>
+                            `}
+                        </div>
                     </div>
+
+                    ${photos.filter(p => {
+                        const u = resolveUrl(p.url);
+                        return u !== resolvedKegiatan && u !== resolvedBooth;
+                    }).length > 0 ? `
+                        <div style="margin-top: 1rem;">
+                            <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem;">Lampiran Foto Tambahan:</div>
+                            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                                ${photos.filter(p => {
+                                    const u = resolveUrl(p.url);
+                                    return u !== resolvedKegiatan && u !== resolvedBooth;
+                                }).map((p, pI) => {
+                                    const pUrl = resolveUrl(p.url);
+                                    return `
+                                        <div style="position: relative; border-radius: 10px; overflow: hidden; border: 1px solid #cbd5e1; width: 140px; height: 110px; background: #0f172a;">
+                                            <img src="${pUrl}" alt="${p.label || 'Foto'}" onclick="openLightbox('${pUrl}')" style="width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer;">
+                                            <div style="position: absolute; bottom: 0; inset-x: 0; background: rgba(0,0,0,0.7); padding: 2px 4px; font-size: 0.65rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                                ${p.label || '#' + (pI + 1)}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
             `;
         } else {
             photoSectionHtml = `
                 <div style="margin-top: 1.25rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 0.85rem 1rem; display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.82rem;">
                     <i class="fa-solid fa-image" style="font-size: 1.2rem; color: #94a3b8;"></i>
-                    <span>Tidak ada lampiran foto dokumentasi booth pada submisi laporan ini.</span>
+                    <span>Tidak ada lampiran foto dokumentasi pada submisi laporan ini.</span>
                 </div>
             `;
         }
