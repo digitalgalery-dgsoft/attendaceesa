@@ -99,8 +99,8 @@ class PrivacyPolicyScreen extends StatelessWidget {
               icon: Icons.info_outline_rounded,
               title: isEn ? '1. Introduction' : '1. Pendahuluan',
               content: isEn
-                  ? 'Enterprise Solution Apps (ESA) is dedicated to protecting the privacy of our employees. This policy outlines how information is gathered, utilized, and safeguarded throughout your attendance and field activity logging.'
-                  : 'Aplikasi Enterprise Solution Apps (ESA) berkomitmen melindungi privasi data pribadi setiap pengguna/karyawan. Kebijakan ini menjelaskan bagaimana data dikumpulkan, digunakan, dan dilindungi selama Anda menggunakan aplikasi ini.',
+                  ? 'ESA Groups Mobile is developed under PT Arina Multi Karya as the parent entity of ESA Groups (including PT Alva Karya Perkasa and PT Anugrah Talenta Berkarya). We are dedicated to protecting the privacy of our employees throughout attendance and field activity logging.'
+                  : 'Aplikasi ESA Groups Mobile dikembangkan dan dikelola di bawah naungan PT Arina Multi Karya sebagai Induk Usaha ESA Groups (beserta PT Alva Karya Perkasa & PT Anugrah Talenta Berkarya). Kami berkomitmen penuh melindungi privasi dan keamanan data pribadi karyawan.',
             ),
 
             const SizedBox(height: 16),
@@ -167,10 +167,14 @@ class PrivacyPolicyScreen extends StatelessWidget {
               primaryColor: primaryColor,
               isDarkMode: isDarkMode,
               icon: Icons.support_agent_rounded,
-              title: isEn ? '5. Contact & Support' : '5. Pertanyaan & Bantuan',
+              title: isEn ? '5. Corporate Contact & Support' : '5. Kontak Resmi Perusahaan',
               content: isEn
-                  ? 'If you have inquiries regarding privacy practices or your data, please reach out to HR / IT Helpdesk via the Help Center menu.'
-                  : 'Jika Anda memiliki pertanyaan mengenai kebijakan privasi atau pengelolaan data pribadi Anda, silakan hubungi bagian HRD / IT Helpdesk melalui menu Pusat Bantuan (Help Center).',
+                  ? 'PT Arina Multi Karya (Holding)\n'
+                    'Address: Jl. Rajawali No. 18-20 Surabaya, Jawa Timur, Indonesia\n'
+                    'Support Email: itsupport@arina.co.id'
+                  : 'PT Arina Multi Karya (Induk Usaha)\n'
+                    'Alamat: Jl. Rajawali No. 18-20 Surabaya, Jawa Timur, Indonesia\n'
+                    'Email Dukungan: itsupport@arina.co.id',
             ),
 
             const SizedBox(height: 24),
@@ -178,8 +182,8 @@ class PrivacyPolicyScreen extends StatelessWidget {
             Center(
               child: Text(
                 isEn
-                    ? 'Last Updated: August 2026\nESA - Enterprise Solution Apps'
-                    : 'Terakhir Diperbarui: Agustus 2026\nESA - Enterprise Solution Apps',
+                    ? 'Last Updated: September 2026\nPT Arina Multi Karya - ESA Groups Mobile'
+                    : 'Terakhir Diperbarui: September 2026\nPT Arina Multi Karya - ESA Groups Mobile',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
