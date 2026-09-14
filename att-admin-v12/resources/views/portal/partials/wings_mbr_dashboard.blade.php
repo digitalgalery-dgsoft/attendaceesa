@@ -1,1029 +1,1129 @@
 {{-- 
-    WINGS SURYA - DASHBOARD LAPORAN PENJUALAN EVENT MBR
-    Referensi: Web Report Wings AdhiTech (Slide 1 - 9)
-    100% Khusus Data Submission Form Penjualan
+    WINGS SURYA - DASHBOARD LAPORAN PENJUALAN (EVENT MBR)
+    Identitas Visual: 100% Selaras dengan Principal Portal (Native Brand Tokens, Clean White Cards, Soft Badges)
+    100% Data Riil Submisi Masuk (Tanpa Dummy)
 --}}
 
 @push('styles')
 <style>
-    /* Styling Dasar Dashboard Wings MBR */
-    .mbr-container {
+    /* Wrapper Utama */
+    .portal-mbr-wrapper {
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
         margin-bottom: 2.5rem;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        width: 100%;
+        max-width: 100%;
     }
 
-    /* 1. Filter Box (Gaya AdhiTech Navy Header) */
-    .mbr-filter-box {
+    /* 1. Filter Bar Portal Style */
+    .portal-mbr-filter-bar {
         background: #ffffff;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 1.15rem 1.35rem;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
     }
-    .mbr-filter-header {
-        background: #2c3e50;
-        color: #ffffff;
-        padding: 0.85rem 1.25rem;
-        font-weight: 700;
+    .portal-mbr-filter-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .portal-mbr-filter-title {
         font-size: 0.95rem;
+        font-weight: 800;
+        color: var(--text-heading);
         display: flex;
         align-items: center;
         gap: 0.5rem;
     }
-    .mbr-filter-body {
-        padding: 1.25rem;
+    .portal-mbr-filter-title i {
+        color: var(--brand-primary);
     }
-    .mbr-filter-grid {
+    .portal-mbr-filter-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.85rem;
         align-items: flex-end;
     }
-    .mbr-filter-field {
+    .portal-mbr-field-group {
         display: flex;
         flex-direction: column;
         gap: 0.35rem;
     }
-    .mbr-filter-label {
-        font-size: 0.78rem;
+    .portal-mbr-field-label {
+        font-size: 0.75rem;
         font-weight: 700;
-        color: #475569;
-        text-transform: capitalize;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
     }
-    .mbr-filter-select, .mbr-filter-input {
+    .portal-mbr-input, .portal-mbr-select {
         width: 100%;
-        padding: 0.55rem 0.75rem;
-        border-radius: 8px;
-        border: 1px solid #cbd5e1;
-        background-color: #ffffff;
+        padding: 0.55rem 0.85rem;
+        background: #f8fafc;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
         font-size: 0.85rem;
-        color: #1e293b;
+        font-weight: 600;
+        color: var(--text-heading);
         outline: none;
-        transition: border-color 0.2s;
+        transition: all 0.2s ease;
     }
-    .mbr-filter-select:focus, .mbr-filter-input:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+    .portal-mbr-input:focus, .portal-mbr-select:focus {
+        background: #ffffff;
+        border-color: var(--brand-primary);
+        box-shadow: 0 0 0 3px var(--brand-glow);
     }
-    .mbr-btn-reload {
-        background-color: #ea580c;
+    .portal-mbr-btn-submit {
+        background: var(--brand-gradient);
         color: #ffffff;
         border: none;
+        border-radius: 10px;
         padding: 0.6rem 1.25rem;
-        border-radius: 8px;
-        font-weight: 700;
         font-size: 0.85rem;
+        font-weight: 700;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
-        gap: 0.4rem;
-        transition: background-color 0.2s;
+        justify-content: center;
+        gap: 0.45rem;
+        box-shadow: 0 2px 8px var(--brand-glow);
+        transition: all 0.2s ease;
     }
-    .mbr-btn-reload:hover {
-        background-color: #c2410c;
-        color: #ffffff;
+    .portal-mbr-btn-submit:hover {
+        opacity: 0.92;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px var(--brand-glow);
     }
-    .mbr-btn-reset {
-        background-color: #334155;
-        color: #ffffff;
-        border: none;
-        padding: 0.6rem 1.25rem;
-        border-radius: 8px;
-        font-weight: 700;
+    .portal-mbr-btn-reset {
+        background: #f1f5f9;
+        color: var(--text-muted);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 0.6rem 1rem;
         font-size: 0.85rem;
-        cursor: pointer;
+        font-weight: 700;
+        text-decoration: none;
         display: inline-flex;
         align-items: center;
-        gap: 0.4rem;
-        transition: background-color 0.2s;
+        justify-content: center;
+        gap: 0.45rem;
+        transition: all 0.2s ease;
     }
-    .mbr-btn-reset:hover {
-        background-color: #1e293b;
-        color: #ffffff;
+    .portal-mbr-btn-reset:hover {
+        background: #e2e8f0;
+        color: var(--text-heading);
     }
 
-    /* 2. Kartu KPI Stat (Slide 1 & Slide 8) */
-    .mbr-kpi-grid-4 {
+    /* 2. Grid KPI Cards (Native Principal Portal Style) */
+    .portal-mbr-kpi-grid-4 {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 1.25rem;
+        gap: 1.15rem;
     }
-    .mbr-kpi-grid-3 {
+    .portal-mbr-kpi-grid-3 {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 1.25rem;
+        gap: 1.15rem;
     }
-    @media (max-width: 1024px) {
-        .mbr-kpi-grid-4 { grid-template-columns: repeat(2, 1fr); }
-        .mbr-kpi-grid-3 { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 1200px) {
+        .portal-mbr-kpi-grid-4 { grid-template-columns: repeat(2, 1fr); }
+        .portal-mbr-kpi-grid-3 { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 640px) {
-        .mbr-kpi-grid-4 { grid-template-columns: 1fr; }
-        .mbr-kpi-grid-3 { grid-template-columns: 1fr; }
+        .portal-mbr-kpi-grid-4 { grid-template-columns: 1fr; }
+        .portal-mbr-kpi-grid-3 { grid-template-columns: 1fr; }
     }
 
-    .mbr-kpi-card {
-        border-radius: 12px;
-        padding: 1.25rem 1.25rem 0.85rem 1.25rem;
-        color: #ffffff;
+    .portal-mbr-kpi-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 1.25rem 1.35rem;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
         position: relative;
         overflow: hidden;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        min-height: 155px;
     }
-    .mbr-kpi-card.green { background: linear-gradient(135deg, #10b981, #059669); }
-    .mbr-kpi-card.blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-    .mbr-kpi-card.orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
-    .mbr-kpi-card.red { background: linear-gradient(135deg, #ef4444, #dc2626); }
-    .mbr-kpi-card.teal { background: linear-gradient(135deg, #14b8a6, #0d9488); }
-    .mbr-kpi-card.purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
-    .mbr-kpi-card.slate { background: linear-gradient(135deg, #64748b, #475569); }
-
-    .mbr-kpi-top {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 0.5rem;
+    .portal-mbr-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--border-hover);
     }
-    .mbr-kpi-title {
-        font-size: 0.88rem;
+    .portal-mbr-kpi-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .portal-mbr-kpi-label {
+        font-size: 0.76rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 0.35rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .portal-mbr-kpi-val {
+        font-size: 1.65rem;
+        font-weight: 800;
+        color: var(--text-heading);
+        line-height: 1.15;
+    }
+    .portal-mbr-kpi-unit {
+        font-size: 0.85rem;
         font-weight: 600;
-        opacity: 0.95;
+        color: var(--text-muted);
+        margin-left: 2px;
     }
-    .mbr-kpi-icon-badge {
-        width: 38px;
-        height: 38px;
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.2);
+    .portal-mbr-kpi-sub {
+        font-size: 0.74rem;
+        color: var(--text-muted);
+        margin-top: 0.35rem;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    /* Icon Badges (Pastel Tints Native to Portal) */
+    .portal-mbr-icon-badge {
+        width: 50px;
+        height: 50px;
+        border-radius: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.15rem;
+        font-size: 1.35rem;
+        flex-shrink: 0;
     }
-    .mbr-kpi-val {
-        font-size: 1.85rem;
-        font-weight: 800;
-        line-height: 1.15;
-        margin: 0.35rem 0 0.2rem 0;
-        letter-spacing: -0.5px;
-    }
-    .mbr-kpi-sub {
-        font-size: 0.74rem;
-        opacity: 0.88;
-        margin-bottom: 0.75rem;
-    }
-    .mbr-kpi-footer-link {
-        border-top: 1px solid rgba(255, 255, 255, 0.25);
-        padding-top: 0.55rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        font-size: 0.78rem;
-        font-weight: 700;
-        color: #ffffff;
-        text-decoration: none;
-        cursor: pointer;
-        transition: opacity 0.2s;
-    }
-    .mbr-kpi-footer-link:hover {
-        opacity: 0.85;
-        color: #ffffff;
-    }
+    .portal-mbr-icon-badge.brand   { background: var(--brand-light); color: var(--brand-primary); }
+    .portal-mbr-icon-badge.emerald { background: #ecfdf5; color: #059669; }
+    .portal-mbr-icon-badge.blue    { background: #eff6ff; color: #2563eb; }
+    .portal-mbr-icon-badge.orange  { background: #fff7ed; color: #ea580c; }
+    .portal-mbr-icon-badge.purple  { background: #f5f3ff; color: #7c3aed; }
+    .portal-mbr-icon-badge.indigo  { background: #eef2ff; color: #4f46e5; }
+    .portal-mbr-icon-badge.amber   { background: #fef3c7; color: #d97706; }
 
-    /* 3. Section Grafik Penjualan (Slide 2 & 8) */
-    .mbr-chart-card {
+    /* 3. Section Cards (Standard Portal Styling) */
+    .portal-mbr-card {
         background: #ffffff;
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    }
-    .mbr-chart-header {
-        background: #14b8a6;
-        color: #ffffff;
-        padding: 0.85rem 1.25rem;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 1.35rem 1.5rem;
+        box-shadow: var(--shadow-sm);
         display: flex;
-        justify-content: space-between;
+        flex-direction: column;
+    }
+    .portal-mbr-card-header {
+        display: flex;
         align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.15rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--border-color);
         flex-wrap: wrap;
         gap: 0.75rem;
     }
-    .mbr-chart-title {
-        font-weight: 700;
-        font-size: 0.98rem;
+    .portal-mbr-card-title {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: var(--text-heading);
         display: flex;
         align-items: center;
         gap: 0.5rem;
     }
-    .mbr-chart-switcher {
-        display: inline-flex;
-        background: #ffffff;
-        border-radius: 6px;
-        overflow: hidden;
-        padding: 2px;
+    .portal-mbr-card-title i {
+        color: var(--brand-primary);
     }
-    .mbr-chart-btn {
-        padding: 0.3rem 0.85rem;
+    .portal-mbr-card-sub {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 0.2rem;
+    }
+
+    /* Chart Pill Switcher */
+    .portal-mbr-chart-switcher {
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 10px;
+        display: inline-flex;
+        gap: 4px;
+    }
+    .portal-mbr-switcher-btn {
         border: none;
         background: transparent;
-        font-size: 0.78rem;
+        padding: 0.35rem 0.85rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
         font-weight: 700;
-        color: #475569;
+        color: var(--text-muted);
         cursor: pointer;
-        border-radius: 4px;
-        transition: all 0.2s;
+        transition: all 0.2s ease;
     }
-    .mbr-chart-btn.active {
-        background: #ea580c;
+    .portal-mbr-switcher-btn:hover {
+        color: var(--text-heading);
+    }
+    .portal-mbr-switcher-btn.active {
+        background: var(--brand-primary);
         color: #ffffff;
-    }
-    .mbr-chart-body {
-        padding: 1.5rem;
-        position: relative;
-        height: 330px;
+        box-shadow: 0 2px 6px var(--brand-glow);
     }
 
-    /* 4. Grid 2x2 Tabel Performa (Slide 2 & 3) */
-    .mbr-table-grid {
+    /* 4. Grid 2x2 Tables */
+    .portal-mbr-table-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 1.5rem;
+        gap: 1.25rem;
     }
-    @media (max-width: 900px) {
-        .mbr-table-grid { grid-template-columns: 1fr; }
+    @media (max-width: 992px) {
+        .portal-mbr-table-grid { grid-template-columns: 1fr; }
     }
 
-    .mbr-panel-table {
-        background: #ffffff;
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    }
-    .mbr-panel-header {
-        padding: 0.85rem 1.25rem;
-        color: #ffffff;
-        font-weight: 700;
-        font-size: 0.95rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    .mbr-panel-header.green { background-color: #10b981; }
-    .mbr-panel-header.purple { background-color: #8b5cf6; }
-    .mbr-panel-header.teal { background-color: #0d9488; }
-    .mbr-panel-header.red { background-color: #dc2626; }
-
-    .mbr-table {
+    /* Tables Native Portal Style */
+    .portal-mbr-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.85rem;
+        font-size: 0.86rem;
     }
-    .mbr-table th {
+    .portal-mbr-table thead th {
         background: #f8fafc;
-        color: #475569;
+        color: var(--text-muted);
         font-weight: 700;
-        padding: 0.65rem 0.85rem;
-        text-align: left;
-        border-bottom: 1px solid #e2e8f0;
-        font-size: 0.78rem;
+        font-size: 0.74rem;
         text-transform: uppercase;
+        letter-spacing: 0.4px;
+        padding: 0.75rem 0.95rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+        white-space: nowrap;
     }
-    .mbr-table td {
-        padding: 0.75rem 0.85rem;
-        border-bottom: 1px solid #f1f5f9;
-        color: #1e293b;
+    .portal-mbr-table thead th.num { text-align: right; }
+    .portal-mbr-table tbody td {
+        padding: 0.75rem 0.95rem;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-body);
         vertical-align: middle;
     }
-    .mbr-table tr:hover td {
-        background-color: #f8fafc;
+    .portal-mbr-table tbody td.num { text-align: right; font-weight: 700; }
+    .portal-mbr-table tbody tr:last-child td {
+        border-bottom: none;
     }
-    .mbr-table td.num {
-        font-weight: 700;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
+    .portal-mbr-table tbody tr:hover {
+        background: #f8fafc;
     }
-    .mbr-btn-detail {
-        background-color: #f97316;
-        color: #ffffff;
-        border: none;
-        padding: 0.3rem 0.75rem;
+
+    /* Rank Badge */
+    .portal-mbr-rank-badge {
+        width: 24px;
+        height: 24px;
         border-radius: 6px;
-        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         font-size: 0.75rem;
+        font-weight: 800;
+        background: #f1f5f9;
+        color: var(--text-heading);
+    }
+    .portal-mbr-rank-badge.top-1 { background: #fef3c7; color: #b45309; }
+    .portal-mbr-rank-badge.top-2 { background: #e2e8f0; color: #475569; }
+    .portal-mbr-rank-badge.top-3 { background: #ffedd5; color: #c2410c; }
+
+    /* Action Buttons in Table */
+    .portal-mbr-btn-action {
+        background: #f1f5f9;
+        color: var(--brand-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0.35rem 0.7rem;
+        font-size: 0.78rem;
+        font-weight: 700;
         cursor: pointer;
-        text-decoration: none;
-        display: inline-block;
-        transition: background-color 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        transition: all 0.15s ease;
     }
-    .mbr-btn-detail:hover {
-        background-color: #ea580c;
-        color: #ffffff;
+    .portal-mbr-btn-action:hover {
+        background: var(--brand-light);
+        border-color: var(--brand-primary);
     }
 
-    /* 5. Tabel Live Submissions Transaksi */
-    .mbr-submissions-card {
-        background: #ffffff;
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    }
-    .mbr-submissions-header {
-        background: #1e293b;
-        color: #ffffff;
-        padding: 1rem 1.25rem;
-        display: flex;
-        justify-content: space-between;
+    /* Status Pills */
+    .portal-mbr-pill {
+        display: inline-flex;
         align-items: center;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-    }
-    .mbr-submissions-title {
-        font-size: 1rem;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    .mbr-badge-pill {
-        display: inline-block;
-        padding: 0.2rem 0.55rem;
-        border-radius: 6px;
-        font-size: 0.72rem;
+        gap: 4px;
+        padding: 0.25rem 0.65rem;
+        border-radius: 999px;
+        font-size: 0.74rem;
         font-weight: 700;
     }
-    .mbr-badge-booth { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
-    .mbr-badge-kasir { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+    .portal-mbr-pill.booth { background: #eff6ff; color: #1d4ed8; }
+    .portal-mbr-pill.kasir { background: #f5f3ff; color: #6d28d9; }
+    .portal-mbr-pill.valid { background: #dcfce7; color: #15803d; }
+    .portal-mbr-pill.warning { background: #fef3c7; color: #b45309; }
 
-    /* 6. Modal Dialog Galeri Foto (Slide 9) */
-    .mbr-modal-overlay {
+    /* Modal Styling Portal Standard */
+    .portal-mbr-modal-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(15, 23, 42, 0.7);
+        background: rgba(15, 23, 42, 0.6);
         backdrop-filter: blur(4px);
         z-index: 9999;
         display: none;
         align-items: center;
         justify-content: center;
-        padding: 1rem;
+        padding: 1.5rem;
     }
-    .mbr-modal-overlay.active {
+    .portal-mbr-modal-overlay.active {
         display: flex;
     }
-    .mbr-modal-box {
+    .portal-mbr-modal-card {
         background: #ffffff;
-        border-radius: 16px;
+        border-radius: 18px;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--border-color);
         width: 100%;
-        max-width: 960px;
-        max-height: 90vh;
+        max-width: 820px;
+        max-height: 88vh;
         display: flex;
         flex-direction: column;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
         overflow: hidden;
-        animation: mbrModalIn 0.25s ease-out;
+        animation: portalModalIn 0.2s ease-out;
     }
-    @keyframes mbrModalIn {
-        from { opacity: 0; transform: scale(0.96) translateY(10px); }
+    @keyframes portalModalIn {
+        from { opacity: 0; transform: scale(0.96) translateY(8px); }
         to { opacity: 1; transform: scale(1) translateY(0); }
     }
-    .mbr-modal-header {
+    .portal-mbr-modal-header {
         padding: 1.25rem 1.5rem;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid var(--border-color);
         display: flex;
         align-items: center;
         justify-content: space-between;
+        background: #ffffff;
     }
-    .mbr-modal-title {
-        font-size: 1.15rem;
+    .portal-mbr-modal-title {
+        font-size: 1.1rem;
         font-weight: 800;
-        color: #0f172a;
+        color: var(--text-heading);
         display: flex;
         align-items: center;
         gap: 0.5rem;
     }
-    .mbr-modal-close {
+    .portal-mbr-modal-close {
         background: #f1f5f9;
         border: none;
-        border-radius: 8px;
         width: 32px;
         height: 32px;
+        border-radius: 8px;
+        color: var(--text-muted);
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #475569;
-        font-size: 1.1rem;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: all 0.15s ease;
     }
-    .mbr-modal-close:hover {
-        background: #e2e8f0;
-        color: #0f172a;
+    .portal-mbr-modal-close:hover {
+        background: #fee2e2;
+        color: #ef4444;
     }
-    .mbr-modal-body {
+    .portal-mbr-modal-body {
         padding: 1.5rem;
         overflow-y: auto;
     }
-    .mbr-photo-grid {
+
+    /* Photo Grid inside Modal */
+    .portal-mbr-photo-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-        gap: 1.25rem;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1rem;
     }
-    .mbr-photo-card {
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        overflow: hidden;
+    .portal-mbr-photo-card {
         background: #ffffff;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-        display: flex;
-        flex-direction: column;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s ease;
     }
-    .mbr-photo-thumb {
+    .portal-mbr-photo-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--brand-primary);
+    }
+    .portal-mbr-photo-img {
         width: 100%;
-        height: 170px;
+        height: 150px;
         object-fit: cover;
-        background: #f8fafc;
         cursor: pointer;
-        transition: transform 0.2s;
+        display: block;
+        background: #f1f5f9;
     }
-    .mbr-photo-thumb:hover {
-        transform: scale(1.02);
-    }
-    .mbr-photo-info {
-        padding: 0.85rem;
+    .portal-mbr-photo-meta {
+        padding: 0.75rem;
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
-        flex: 1;
-    }
-    .mbr-photo-tag {
-        font-size: 0.72rem;
-        font-weight: 800;
-        color: #ea580c;
-        text-transform: uppercase;
-    }
-    .mbr-photo-date {
-        font-size: 0.75rem;
-        color: #64748b;
-    }
-    .mbr-photo-name {
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: #1e293b;
-        margin-top: 0.2rem;
-    }
-    .mbr-photo-store {
-        font-size: 0.78rem;
-        color: #475569;
-    }
-    .mbr-btn-view-photo {
-        margin-top: 0.5rem;
-        padding: 0.4rem;
-        border-radius: 6px;
-        border: 1px solid #f97316;
-        color: #ea580c;
-        background: #fff;
-        font-size: 0.75rem;
-        font-weight: 700;
-        text-align: center;
-        cursor: pointer;
-        text-decoration: none;
-        display: block;
-        transition: all 0.2s;
-    }
-    .mbr-btn-view-photo:hover {
-        background: #ea580c;
-        color: #ffffff;
     }
 
     /* Lightbox Preview */
-    .mbr-lightbox-overlay {
+    .portal-mbr-lightbox {
         position: fixed;
         inset: 0;
         background: rgba(0, 0, 0, 0.88);
-        z-index: 10000;
+        z-index: 10001;
         display: none;
         align-items: center;
         justify-content: center;
         padding: 1.5rem;
     }
-    .mbr-lightbox-overlay.active {
+    .portal-mbr-lightbox.active {
         display: flex;
     }
-    .mbr-lightbox-img {
+    .portal-mbr-lightbox img {
         max-width: 90vw;
         max-height: 85vh;
-        border-radius: 8px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        border-radius: 10px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.6);
     }
 </style>
 @endpush
 
-<div class="mbr-container">
+<div class="portal-mbr-wrapper">
 
-    {{-- 1. FILTER DATA (GAYA ADHITECH - DARK NAVY HEADER) --}}
-    <div class="mbr-filter-box">
-        <div class="mbr-filter-header">
-            <i class="fa-solid fa-filter"></i>
-            <span>Filter Data Penjualan (Event MBR)</span>
-        </div>
-        <div class="mbr-filter-body">
-            <form action="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" method="GET">
-                <input type="hidden" name="p" value="{{ $tenantPrincipal->id }}">
-                <div class="mbr-filter-grid">
-                    
-                    {{-- Periode Tanggal --}}
-                    <div class="mbr-filter-field" style="grid-column: span 2;">
-                        <label class="mbr-filter-label">Periode Bulan & Tahun</label>
-                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                            <select name="start_month" class="mbr-filter-select">
-                                @for($m = 1; $m <= 12; $m++)
-                                    <option value="{{ $m }}" {{ $startMonth == $m ? 'selected' : '' }}>
-                                        {{ Carbon\Carbon::create(null, $m, 1)->translatedFormat('F') }}
-                                    </option>
-                                @endfor
-                            </select>
-                            <select name="start_year" class="mbr-filter-select" style="max-width: 90px;">
-                                @for($y = Carbon\Carbon::now()->year + 1; $y >= 2023; $y--)
-                                    <option value="{{ $y }}" {{ $startYear == $y ? 'selected' : '' }}>{{ $y }}</option>
-                                @endfor
-                            </select>
-                            <span style="font-weight: 700; color: #94a3b8; font-size: 0.8rem;">s/d</span>
-                            <select name="end_month" class="mbr-filter-select">
-                                @for($m = 1; $m <= 12; $m++)
-                                    <option value="{{ $m }}" {{ $endMonth == $m ? 'selected' : '' }}>
-                                        {{ Carbon\Carbon::create(null, $m, 1)->translatedFormat('F') }}
-                                    </option>
-                                @endfor
-                            </select>
-                            <select name="end_year" class="mbr-filter-select" style="max-width: 90px;">
-                                @for($y = Carbon\Carbon::now()->year + 1; $y >= 2023; $y--)
-                                    <option value="{{ $y }}" {{ $endYear == $y ? 'selected' : '' }}>{{ $y }}</option>
-                                @endfor
-                            </select>
-                        </div>
-                    </div>
-
-                    {{-- Wilayah (Region) --}}
-                    <div class="mbr-filter-field">
-                        <label class="mbr-filter-label">Wilayah</label>
-                        <select name="region" class="mbr-filter-select">
-                            <option value="">Semua Wilayah</option>
-                            @foreach($regions as $r)
-                                <option value="{{ $r }}" {{ $selectedRegion == $r ? 'selected' : '' }}>{{ $r }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Daerah Mitra (Area / Cabang) --}}
-                    <div class="mbr-filter-field">
-                        <label class="mbr-filter-label">Daerah Mitra</label>
-                        <select name="area_id" class="mbr-filter-select">
-                            <option value="">Semua Daerah</option>
-                            @foreach($areas as $a)
-                                @php $aId = is_object($a) ? $a->id : $a; $aName = is_object($a) ? $a->name : $a; @endphp
-                                <option value="{{ $aId }}" {{ (string)$selectedAreaId === (string)$aId ? 'selected' : '' }}>{{ $aName }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Toko (Work Location) --}}
-                    <div class="mbr-filter-field">
-                        <label class="mbr-filter-label">Toko / Outlet</label>
-                        <select name="location_id" class="mbr-filter-select">
-                            <option value="">Semua Toko</option>
-                            @foreach($workLocations as $loc)
-                                @php $lId = is_object($loc) ? $loc->id : $loc; $lName = is_object($loc) ? $loc->name : $loc; @endphp
-                                <option value="{{ $lId }}" {{ (string)$selectedLocationId === (string)$lId ? 'selected' : '' }}>{{ $lName }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Pencarian --}}
-                    <div class="mbr-filter-field">
-                        <label class="mbr-filter-label">Cari Mitra / Toko</label>
-                        <input type="text" name="q" value="{{ $search }}" class="mbr-filter-input" placeholder="Ketik kata kunci...">
-                    </div>
-
-                    {{-- Tombol Filter --}}
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button type="submit" class="mbr-btn-reload">
-                            <i class="fa-solid fa-rotate"></i> Reload
-                        </button>
-                        <a href="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" class="mbr-btn-reset">
-                            <i class="fa-solid fa-arrow-rotate-left"></i> Reset
-                        </a>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    {{-- 2. KARTU KPI STAT UTAMA (BARIS 1: 4 KARTU SESUAI SLIDE 1 & 8) --}}
-    <div class="mbr-kpi-grid-4">
+    {{-- 1. FILTER BAR PORTAL STYLE (Clean White Card, Brand Gradient Filter Button) --}}
+    <form action="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" method="GET" class="portal-mbr-filter-bar">
+        <input type="hidden" name="p" value="{{ $tenantPrincipal->id }}">
         
-        {{-- Card 1: Total Nilai Penjualan / Omzet (Green) --}}
-        <div class="mbr-kpi-card green">
-            <div>
-                <div class="mbr-kpi-top">
-                    <span class="mbr-kpi-title">Total Nilai Penjualan (Omzet)</span>
-                    <div class="mbr-kpi-icon-badge"><i class="fa-solid fa-money-bill-wave"></i></div>
-                </div>
-                <div class="mbr-kpi-val" style="font-size: 1.45rem;">Rp {{ number_format($mbrData['kpis']['total_value_penjualan_rp'], 0, ',', '.') }}</div>
-                <div class="mbr-kpi-sub">Periode: {{ Carbon\Carbon::create($startYear, $startMonth, 1)->translatedFormat('F Y') }} - {{ Carbon\Carbon::create($endYear, $endMonth, 1)->translatedFormat('F Y') }}</div>
+        <div class="portal-mbr-filter-header">
+            <div class="portal-mbr-filter-title">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Filter Laporan Penjualan (Event MBR)</span>
             </div>
-            <a href="#table_submissions" class="mbr-kpi-footer-link">
-                <span>👁️ Lihat Rincian Transaksi</span>
-                <i class="fa-solid fa-arrow-right"></i>
-            </a>
+            <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">
+                Default: Bulan Berjalan ({{ Carbon\Carbon::now()->translatedFormat('F Y') }})
+            </span>
         </div>
 
-        {{-- Card 2: Total Qty Penjualan (Blue) --}}
-        <div class="mbr-kpi-card blue">
-            <div>
-                <div class="mbr-kpi-top">
-                    <span class="mbr-kpi-title">Total Qty Penjualan</span>
-                    <div class="mbr-kpi-icon-badge"><i class="fa-solid fa-box"></i></div>
+        <div class="portal-mbr-filter-grid">
+            
+            {{-- Rentang Bulan & Tahun --}}
+            <div class="portal-mbr-field-group" style="grid-column: span 2;">
+                <label class="portal-mbr-field-label">Periode Bulan & Tahun</label>
+                <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                    <select name="start_month" class="portal-mbr-select" style="width: auto; flex: 1;">
+                        @for($m = 1; $m <= 12; $m++)
+                            <option value="{{ $m }}" {{ $startMonth == $m ? 'selected' : '' }}>
+                                {{ Carbon\Carbon::create(null, $m, 1)->translatedFormat('F') }}
+                            </option>
+                        @endfor
+                    </select>
+                    <select name="start_year" class="portal-mbr-select" style="width: 88px;">
+                        @for($y = Carbon\Carbon::now()->year + 1; $y >= 2023; $y--)
+                            <option value="{{ $y }}" {{ $startYear == $y ? 'selected' : '' }}>{{ $y }}</option>
+                        @endfor
+                    </select>
+                    <span style="font-weight: 700; color: var(--text-muted); font-size: 0.78rem;">s/d</span>
+                    <select name="end_month" class="portal-mbr-select" style="width: auto; flex: 1;">
+                        @for($m = 1; $m <= 12; $m++)
+                            <option value="{{ $m }}" {{ $endMonth == $m ? 'selected' : '' }}>
+                                {{ Carbon\Carbon::create(null, $m, 1)->translatedFormat('F') }}
+                            </option>
+                        @endfor
+                    </select>
+                    <select name="end_year" class="portal-mbr-select" style="width: 88px;">
+                        @for($y = Carbon\Carbon::now()->year + 1; $y >= 2023; $y--)
+                            <option value="{{ $y }}" {{ $endYear == $y ? 'selected' : '' }}>{{ $y }}</option>
+                        @endfor
+                    </select>
                 </div>
-                <div class="mbr-kpi-val">{{ number_format($mbrData['kpis']['total_qty_penjualan']) }} <span style="font-size: 1rem; font-weight: 600;">Pcs</span></div>
-                <div class="mbr-kpi-sub">Periode: {{ Carbon\Carbon::create($startYear, $startMonth, 1)->translatedFormat('F Y') }} - {{ Carbon\Carbon::create($endYear, $endMonth, 1)->translatedFormat('F Y') }}</div>
             </div>
-            <a href="#table_submissions" class="mbr-kpi-footer-link">
-                <span>👁️ Lihat Detail</span>
-                <i class="fa-solid fa-arrow-right"></i>
-            </a>
+
+            {{-- Wilayah (Region) --}}
+            <div class="portal-mbr-field-group">
+                <label class="portal-mbr-field-label">Wilayah (Region)</label>
+                <select name="region" class="portal-mbr-select">
+                    <option value="">Semua Wilayah</option>
+                    @foreach($regions as $r)
+                        <option value="{{ $r }}" {{ $selectedRegion == $r ? 'selected' : '' }}>{{ $r }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- Daerah / Cabang Mitra --}}
+            <div class="portal-mbr-field-group">
+                <label class="portal-mbr-field-label">Daerah Mitra (Area)</label>
+                <select name="area_id" class="portal-mbr-select">
+                    <option value="">Semua Daerah</option>
+                    @foreach($areas as $a)
+                        @php $aId = is_object($a) ? $a->id : $a; $aName = is_object($a) ? $a->name : $a; @endphp
+                        <option value="{{ $aId }}" {{ (string)$selectedAreaId === (string)$aId ? 'selected' : '' }}>{{ $aName }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- Toko / Outlet --}}
+            <div class="portal-mbr-field-group">
+                <label class="portal-mbr-field-label">Toko / Outlet</label>
+                <select name="location_id" class="portal-mbr-select">
+                    <option value="">Semua Toko</option>
+                    @foreach($workLocations as $loc)
+                        @php $lId = is_object($loc) ? $loc->id : $loc; $lName = is_object($loc) ? $loc->name : $loc; @endphp
+                        <option value="{{ $lId }}" {{ (string)$selectedLocationId === (string)$lId ? 'selected' : '' }}>{{ $lName }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- Cari Petugas / Toko --}}
+            <div class="portal-mbr-field-group">
+                <label class="portal-mbr-field-label">Cari Data</label>
+                <input type="text" name="q" value="{{ $search }}" class="portal-mbr-input" placeholder="Nama mitra / toko...">
+            </div>
+
+            {{-- Tombol Filter & Reset --}}
+            <div style="display: flex; gap: 0.5rem;">
+                <button type="submit" class="portal-mbr-btn-submit" style="flex: 1;">
+                    <i class="fa-solid fa-filter"></i> Terapkan Filter
+                </button>
+                @if($selectedRegion || $selectedAreaId || $selectedLocationId || $search || $startMonth != Carbon\Carbon::now()->month || $endMonth != Carbon\Carbon::now()->month)
+                    <a href="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" class="portal-mbr-btn-reset" title="Reset Filter">
+                        <i class="fa-solid fa-rotate-left"></i> Reset
+                    </a>
+                @endif
+            </div>
+
+        </div>
+    </form>
+
+    {{-- 2. KARTU METRIK KPI UTAMA (NATIVE PORTAL CARD STYLE) --}}
+    <div class="portal-mbr-kpi-grid-4">
+        
+        {{-- KPI 1: Total Nilai Omzet --}}
+        <div class="portal-mbr-kpi-card">
+            <div class="portal-mbr-kpi-info">
+                <div class="portal-mbr-kpi-label">Total Nilai Penjualan (Omzet)</div>
+                <div class="portal-mbr-kpi-val" style="color: #059669; font-size: 1.55rem;">
+                    Rp {{ number_format($mbrData['kpis']['total_value_penjualan_rp'], 0, ',', '.') }}
+                </div>
+                <div class="portal-mbr-kpi-sub">
+                    <i class="fa-regular fa-calendar" style="color: var(--brand-primary);"></i>
+                    <span>{{ Carbon\Carbon::create($startYear, $startMonth, 1)->translatedFormat('M Y') }} - {{ Carbon\Carbon::create($endYear, $endMonth, 1)->translatedFormat('M Y') }}</span>
+                </div>
+            </div>
+            <div class="portal-mbr-icon-badge emerald">
+                <i class="fa-solid fa-money-bill-wave"></i>
+            </div>
         </div>
 
-        {{-- Card 3: Total Produk Penjualan (Orange) --}}
-        <div class="mbr-kpi-card orange">
-            <div>
-                <div class="mbr-kpi-top">
-                    <span class="mbr-kpi-title">Total Varian Produk</span>
-                    <div class="mbr-kpi-icon-badge"><i class="fa-solid fa-tags"></i></div>
+        {{-- KPI 2: Total Qty Fisik Terjual --}}
+        <div class="portal-mbr-kpi-card">
+            <div class="portal-mbr-kpi-info">
+                <div class="portal-mbr-kpi-label">Total Qty Penjualan</div>
+                <div class="portal-mbr-kpi-val" style="color: #2563eb;">
+                    {{ number_format($mbrData['kpis']['total_qty_penjualan']) }}<span class="portal-mbr-kpi-unit">Pcs</span>
                 </div>
-                <div class="mbr-kpi-val">{{ $mbrData['kpis']['total_produk_penjualan'] }} <span style="font-size: 1rem; font-weight: 600;">SKU</span></div>
-                <div class="mbr-kpi-sub">Varian Produk Terjual di Laporan</div>
+                <div class="portal-mbr-kpi-sub">
+                    <i class="fa-solid fa-box-open" style="color: #2563eb;"></i>
+                    <span>Akumulasi fisik seluruh item</span>
+                </div>
             </div>
-            <a href="#table_top_products" class="mbr-kpi-footer-link">
-                <span>👁️ Lihat Detail</span>
-                <i class="fa-solid fa-arrow-right"></i>
-            </a>
+            <div class="portal-mbr-icon-badge blue">
+                <i class="fa-solid fa-boxes-stacked"></i>
+            </div>
         </div>
 
-        {{-- Card 4: Total Penjualan Hari Ini (Red) --}}
-        <div class="mbr-kpi-card red">
-            <div>
-                <div class="mbr-kpi-top">
-                    <span class="mbr-kpi-title">Total Penjualan Hari Ini</span>
-                    <div class="mbr-kpi-icon-badge"><i class="fa-solid fa-calendar-day"></i></div>
+        {{-- KPI 3: Total Varian SKU --}}
+        <div class="portal-mbr-kpi-card">
+            <div class="portal-mbr-kpi-info">
+                <div class="portal-mbr-kpi-label">Total Varian Produk</div>
+                <div class="portal-mbr-kpi-val" style="color: #ea580c;">
+                    {{ $mbrData['kpis']['total_produk_penjualan'] }}<span class="portal-mbr-kpi-unit">SKU</span>
                 </div>
-                <div class="mbr-kpi-val">{{ number_format($mbrData['kpis']['total_penjualan_hari_ini']) }} <span style="font-size: 1rem; font-weight: 600;">Pcs</span></div>
-                <div class="mbr-kpi-sub">{{ Carbon\Carbon::now()->translatedFormat('d F Y') }}</div>
+                <div class="portal-mbr-kpi-sub">
+                    <i class="fa-solid fa-tags" style="color: #ea580c;"></i>
+                    <span>Varian produk aktif terjual</span>
+                </div>
             </div>
-            <a href="#table_submissions" class="mbr-kpi-footer-link">
-                <span>👁️ Lihat Detail</span>
-                <i class="fa-solid fa-arrow-right"></i>
-            </a>
+            <div class="portal-mbr-icon-badge orange">
+                <i class="fa-solid fa-tags"></i>
+            </div>
         </div>
+
+        {{-- KPI 4: Penjualan Hari Ini --}}
+        <div class="portal-mbr-kpi-card">
+            <div class="portal-mbr-kpi-info">
+                <div class="portal-mbr-kpi-label">Penjualan Hari Ini</div>
+                <div class="portal-mbr-kpi-val" style="color: var(--brand-primary);">
+                    {{ number_format($mbrData['kpis']['total_penjualan_hari_ini']) }}<span class="portal-mbr-kpi-unit">Pcs</span>
+                </div>
+                <div class="portal-mbr-kpi-sub">
+                    <i class="fa-regular fa-clock" style="color: var(--brand-primary);"></i>
+                    <span>{{ Carbon\Carbon::now()->translatedFormat('d F Y') }}</span>
+                </div>
+            </div>
+            <div class="portal-mbr-icon-badge brand">
+                <i class="fa-solid fa-calendar-day"></i>
+            </div>
+        </div>
+
     </div>
 
-    {{-- KARTU KPI STAT PENDUKUNG (BARIS 2: METODE BAYAR, MITRA AKTIF & OUTLET) --}}
-    <div class="mbr-kpi-grid-3">
-        {{-- Card 5: Metode Pembayaran Booth vs Kasir (Purple) --}}
-        <div class="mbr-kpi-card purple">
-            <div>
-                <div class="mbr-kpi-top">
-                    <span class="mbr-kpi-title">Metode Pembayaran</span>
-                    <div class="mbr-kpi-icon-badge"><i class="fa-solid fa-cash-register"></i></div>
-                </div>
-                <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700;">
-                        <span>🛒 Bayar di Booth:</span>
-                        <span>Rp {{ number_format($mbrData['kpis']['total_bayar_di_booth_rp'], 0, ',', '.') }}</span>
+    {{-- KARTU METRIK KPI BARIS 2 (METODE BAYAR, MITRA AKTIF, TOKO TERCOVER) --}}
+    <div class="portal-mbr-kpi-grid-3">
+        
+        {{-- KPI 5: Metode Pembayaran --}}
+        <div class="portal-mbr-kpi-card">
+            <div class="portal-mbr-kpi-info">
+                <div class="portal-mbr-kpi-label">Metode Pembayaran</div>
+                <div style="margin-top: 0.35rem; display: flex; flex-direction: column; gap: 0.25rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 700;">
+                        <span style="color: #1d4ed8;"><i class="fa-solid fa-store" style="font-size: 0.75rem;"></i> Bayar Booth:</span>
+                        <span style="color: var(--text-heading);">Rp {{ number_format($mbrData['kpis']['total_bayar_di_booth_rp'], 0, ',', '.') }}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700;">
-                        <span>🏬 Bayar di Kasir:</span>
-                        <span>Rp {{ number_format($mbrData['kpis']['total_bayar_di_kasir_rp'], 0, ',', '.') }}</span>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 700;">
+                        <span style="color: #6d28d9;"><i class="fa-solid fa-cash-register" style="font-size: 0.75rem;"></i> Bayar Kasir:</span>
+                        <span style="color: var(--text-heading);">Rp {{ number_format($mbrData['kpis']['total_bayar_di_kasir_rp'], 0, ',', '.') }}</span>
                     </div>
                 </div>
-                <div class="mbr-kpi-sub" style="margin-top: 0.5rem;">Tunai SPG vs Mesin Kasir Outlet</div>
+                <div class="portal-mbr-kpi-sub">
+                    <a href="javascript:void(0)" onclick="openGalleryModal('struk')" style="color: var(--brand-primary); text-decoration: none; font-weight: 700;">
+                        <i class="fa-solid fa-receipt"></i> Lihat Bukti Foto Struk
+                    </a>
+                </div>
             </div>
-            <a href="javascript:void(0)" onclick="openGalleryModal('struk')" class="mbr-kpi-footer-link">
-                <span>🧾 Galeri Foto Struk Penjualan</span>
-                <i class="fa-solid fa-arrow-right"></i>
-            </a>
+            <div class="portal-mbr-icon-badge purple">
+                <i class="fa-solid fa-cash-register"></i>
+            </div>
         </div>
 
-        {{-- Card 6: Total Mitra Penjualan (Teal) --}}
-        <div class="mbr-kpi-card teal">
-            <div>
-                <div class="mbr-kpi-top">
-                    <span class="mbr-kpi-title">Total Mitra Aktif (SPG/MD)</span>
-                    <div class="mbr-kpi-icon-badge"><i class="fa-solid fa-user-tie"></i></div>
+        {{-- KPI 6: Mitra Aktif Penjualan --}}
+        <div class="portal-mbr-kpi-card">
+            <div class="portal-mbr-kpi-info">
+                <div class="portal-mbr-kpi-label">Mitra Penjualan (SPG/MD)</div>
+                <div class="portal-mbr-kpi-val" style="color: #4f46e5;">
+                    {{ count($mbrData['top_mitra'] ?? []) }}<span class="portal-mbr-kpi-unit">Mitra</span>
                 </div>
-                <div class="mbr-kpi-val">{{ count($mbrData['top_mitra'] ?? []) }} <span style="font-size: 1rem; font-weight: 600;">Mitra</span></div>
-                <div class="mbr-kpi-sub">Rata-rata: Rp {{ count($mbrData['top_mitra'] ?? []) > 0 ? number_format($mbrData['kpis']['total_value_penjualan_rp'] / count($mbrData['top_mitra']), 0, ',', '.') : '0' }} / mitra</div>
+                <div class="portal-mbr-kpi-sub">
+                    <i class="fa-solid fa-calculator" style="color: #4f46e5;"></i>
+                    <span>Rata-rata: Rp {{ count($mbrData['top_mitra'] ?? []) > 0 ? number_format($mbrData['kpis']['total_value_penjualan_rp'] / count($mbrData['top_mitra']), 0, ',', '.') : '0' }} / mitra</span>
+                </div>
             </div>
-            <a href="#table_top_mitra" class="mbr-kpi-footer-link">
-                <span>👥 Lihat Top Mitra</span>
-                <i class="fa-solid fa-arrow-right"></i>
-            </a>
+            <div class="portal-mbr-icon-badge indigo">
+                <i class="fa-solid fa-user-tie"></i>
+            </div>
         </div>
 
-        {{-- Card 7: Total Submissions & Outlet (Slate) --}}
-        <div class="mbr-kpi-card slate">
-            <div>
-                <div class="mbr-kpi-top">
-                    <span class="mbr-kpi-title">Total Laporan & Toko Dikunjungi</span>
-                    <div class="mbr-kpi-icon-badge"><i class="fa-solid fa-store"></i></div>
+        {{-- KPI 7: Total Submisi & Toko Tercover --}}
+        <div class="portal-mbr-kpi-card">
+            <div class="portal-mbr-kpi-info">
+                <div class="portal-mbr-kpi-label">Total Laporan Submisi</div>
+                <div class="portal-mbr-kpi-val" style="color: var(--text-heading);">
+                    {{ number_format($mbrData['kpis']['total_submissions']) }}<span class="portal-mbr-kpi-unit">Laporan</span>
                 </div>
-                <div class="mbr-kpi-val">{{ number_format($mbrData['kpis']['total_submissions']) }} <span style="font-size: 1rem; font-weight: 600;">Laporan</span></div>
-                <div class="mbr-kpi-sub">Tersebar di {{ $mbrData['kpis']['unique_stores'] }} Toko & Lokasi Mitra</div>
+                <div class="portal-mbr-kpi-sub">
+                    <i class="fa-solid fa-shop" style="color: #d97706;"></i>
+                    <span>Tersebar di <strong>{{ $mbrData['kpis']['unique_stores'] }}</strong> Toko & Outlet</span>
+                </div>
             </div>
-            <a href="javascript:void(0)" onclick="openGalleryModal('all')" class="mbr-kpi-footer-link">
-                <span>📸 Lihat Dokumentasi Foto Sell Out</span>
-                <i class="fa-solid fa-arrow-right"></i>
-            </a>
+            <div class="portal-mbr-icon-badge amber">
+                <i class="fa-solid fa-store"></i>
+            </div>
         </div>
+
     </div>
 
-    {{-- 3. GRAFIK PENJUALAN PRODUK (SLIDE 2 & 8) --}}
-    <div class="mbr-chart-card">
-        <div class="mbr-chart-header">
-            <div class="mbr-chart-title">
-                <i class="fa-solid fa-chart-column"></i>
-                <span>Grafik Penjualan Produk</span>
+    {{-- 3. GRAFIK PENJUALAN DINAMIS (NATIVE PORTAL CARD) --}}
+    <div class="portal-mbr-card">
+        <div class="portal-mbr-card-header">
+            <div>
+                <div class="portal-mbr-card-title">
+                    <i class="fa-solid fa-chart-column"></i>
+                    <span>Tren Penjualan Produk Event MBR</span>
+                </div>
+                <div class="portal-mbr-card-sub">Grafik kuantiti penjualan aktual berdasarkan periode terpilih</div>
             </div>
-            <div class="mbr-chart-switcher">
-                <button type="button" class="mbr-chart-btn active" id="btn_mode_daily" onclick="switchChartMode('daily')">Harian</button>
-                <button type="button" class="mbr-chart-btn" id="btn_mode_weekly" onclick="switchChartMode('weekly')">Mingguan</button>
-                <button type="button" class="mbr-chart-btn" id="btn_mode_monthly" onclick="switchChartMode('monthly')">Bulanan</button>
+
+            <div class="portal-mbr-chart-switcher">
+                <button type="button" class="portal-mbr-switcher-btn active" id="btn_mode_daily" onclick="switchChartMode('daily')">Harian</button>
+                <button type="button" class="portal-mbr-switcher-btn" id="btn_mode_weekly" onclick="switchChartMode('weekly')">Mingguan</button>
+                <button type="button" class="portal-mbr-switcher-btn" id="btn_mode_monthly" onclick="switchChartMode('monthly')">Bulanan</button>
             </div>
         </div>
-        <div class="mbr-chart-body">
+
+        <div style="position: relative; height: 320px; width: 100%;">
             <canvas id="mbrSalesChart"></canvas>
         </div>
     </div>
 
-    {{-- 4. GRID 2X2 TABEL PERFORMA (SLIDE 2 & 3) --}}
-    <div class="mbr-table-grid">
+    {{-- 4. GRID 2X2 TABEL PERFORMA (NATIVE PORTAL WHITE CARDS) --}}
+    <div class="portal-mbr-table-grid">
         
-        {{-- Tabel 1: Top 5 Mitra Penjualan (Green Header) --}}
-        <div class="mbr-panel-table" id="table_top_mitra">
-            <div class="mbr-panel-header green">
-                <i class="fa-solid fa-trophy"></i>
-                <span>Top 5 Mitra Penjualan</span>
+        {{-- Tabel 1: Top 5 Mitra Penjualan --}}
+        <div class="portal-mbr-card" id="table_top_mitra">
+            <div class="portal-mbr-card-header">
+                <div>
+                    <div class="portal-mbr-card-title">
+                        <i class="fa-solid fa-trophy" style="color: #eab308;"></i>
+                        <span>Top 5 Mitra Penjualan</span>
+                    </div>
+                    <div class="portal-mbr-card-sub">Peringkat kontribusi penjualan tertinggi oleh SPG/MD</div>
+                </div>
             </div>
-            <table class="mbr-table">
-                <thead>
-                    <tr>
-                        <th style="width: 35px;">#</th>
-                        <th>Nama Mitra</th>
-                        <th>Daerah</th>
-                        <th class="num">Total Qty</th>
-                        <th style="width: 70px; text-align: center;">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($mbrData['top_mitra'] as $idx => $m)
+
+            <div style="overflow-x: auto;">
+                <table class="portal-mbr-table">
+                    <thead>
                         <tr>
-                            <td style="font-weight: 800; color: #10b981;">{{ $idx + 1 }}</td>
-                            <td style="font-weight: 700;">{{ $m['name'] }}</td>
-                            <td style="color: #64748b;">{{ $m['area'] }}</td>
-                            <td class="num">{{ number_format($m['qty']) }}</td>
-                            <td style="text-align: center;">
-                                <button type="button" onclick="showDetailModal('Mitra: {{ $m['name'] }}', 'Total Penjualan: {{ number_format($m['qty']) }} Pcs (Rp {{ number_format($m['value'], 0, ',', '.') }})')" class="mbr-btn-detail">Detail</button>
-                            </td>
+                            <th style="width: 40px; text-align: center;">#</th>
+                            <th>Nama Petugas (Mitra)</th>
+                            <th>Daerah / Cabang</th>
+                            <th class="num">Total Qty</th>
+                            <th style="width: 70px; text-align: center;">Aksi</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="5" style="text-align: center; color: #94a3b8;">Belum ada data mitra</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @forelse($mbrData['top_mitra'] as $idx => $m)
+                            <tr>
+                                <td style="text-align: center;">
+                                    <span class="portal-mbr-rank-badge {{ $idx == 0 ? 'top-1' : ($idx == 1 ? 'top-2' : ($idx == 2 ? 'top-3' : '')) }}">
+                                        {{ $idx + 1 }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div style="font-weight: 700; color: var(--text-heading);">{{ $m['name'] }}</div>
+                                    <div style="font-size: 0.74rem; color: var(--text-muted);">Rp {{ number_format($m['value'], 0, ',', '.') }}</div>
+                                </td>
+                                <td style="color: var(--text-muted); font-weight: 600;">{{ $m['area'] }}</td>
+                                <td class="num" style="color: #2563eb;">{{ number_format($m['qty']) }} Pcs</td>
+                                <td style="text-align: center;">
+                                    <button type="button" onclick="showDetailModal('Mitra: {{ $m['name'] }}', 'Total Penjualan: {{ number_format($m['qty']) }} Pcs (Rp {{ number_format($m['value'], 0, ',', '.') }})')" class="portal-mbr-btn-action">
+                                        Detail
+                                    </button>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                    <i class="fa-solid fa-inbox" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
+                                    Belum ada data mitra pada periode ini.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
 
-        {{-- Tabel 2: Top 5 Produk Penjualan (Purple Header) --}}
-        <div class="mbr-panel-table" id="table_top_products">
-            <div class="mbr-panel-header purple">
-                <i class="fa-solid fa-star"></i>
-                <span>Top 5 Produk Penjualan</span>
+        {{-- Tabel 2: Top 5 Produk Terlaris --}}
+        <div class="portal-mbr-card" id="table_top_products">
+            <div class="portal-mbr-card-header">
+                <div>
+                    <div class="portal-mbr-card-title">
+                        <i class="fa-solid fa-medal" style="color: #6366f1;"></i>
+                        <span>Top 5 Produk Terlaris</span>
+                    </div>
+                    <div class="portal-mbr-card-sub">Varian SKU produk dengan volume penjualan tertinggi</div>
+                </div>
             </div>
-            <table class="mbr-table">
-                <thead>
-                    <tr>
-                        <th style="width: 35px;">#</th>
-                        <th>Produk</th>
-                        <th class="num">Total Qty</th>
-                        <th style="width: 70px; text-align: center;">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($mbrData['top_products'] as $idx => $p)
+
+            <div style="overflow-x: auto;">
+                <table class="portal-mbr-table">
+                    <thead>
                         <tr>
-                            <td style="font-weight: 800; color: #8b5cf6;">{{ $idx + 1 }}</td>
-                            <td style="font-weight: 700;">
-                                {{ $p['name'] }}
-                                @if(!empty($p['sku']) && $p['sku'] !== '-')
-                                    <span style="display: block; font-size: 0.72rem; color: #64748b; font-weight: 500;">{{ $p['sku'] }}</span>
-                                @endif
-                            </td>
-                            <td class="num">{{ number_format($p['qty']) }}</td>
-                            <td style="text-align: center;">
-                                <button type="button" onclick="showDetailModal('Produk: {{ $p['name'] }}', 'Total Terjual: {{ number_format($p['qty']) }} Pcs | Nilai: Rp {{ number_format($p['value'], 0, ',', '.') }}')" class="mbr-btn-detail">Detail</button>
-                            </td>
+                            <th style="width: 40px; text-align: center;">#</th>
+                            <th>Nama Produk</th>
+                            <th class="num">Total Qty</th>
+                            <th class="num">Nilai (Rp)</th>
+                            <th style="width: 70px; text-align: center;">Aksi</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="4" style="text-align: center; color: #94a3b8;">Belum ada data produk</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @forelse($mbrData['top_products'] as $idx => $p)
+                            <tr>
+                                <td style="text-align: center;">
+                                    <span class="portal-mbr-rank-badge {{ $idx == 0 ? 'top-1' : ($idx == 1 ? 'top-2' : ($idx == 2 ? 'top-3' : '')) }}">
+                                        {{ $idx + 1 }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div style="font-weight: 700; color: var(--text-heading);">{{ $p['name'] }}</div>
+                                    @if(!empty($p['sku']) && $p['sku'] !== '-')
+                                        <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">{{ $p['sku'] }}</div>
+                                    @endif
+                                </td>
+                                <td class="num" style="color: #2563eb;">{{ number_format($p['qty']) }} Pcs</td>
+                                <td class="num" style="color: #059669;">Rp {{ number_format($p['value'], 0, ',', '.') }}</td>
+                                <td style="text-align: center;">
+                                    <button type="button" onclick="showDetailModal('Produk: {{ $p['name'] }}', 'Total Terjual: {{ number_format($p['qty']) }} Pcs | Nilai: Rp {{ number_format($p['value'], 0, ',', '.') }}')" class="portal-mbr-btn-action">
+                                        Detail
+                                    </button>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                    <i class="fa-solid fa-inbox" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
+                                    Belum ada data produk pada periode ini.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
 
-        {{-- Tabel 3: Total Penjualan Per Daerah (Teal Header) --}}
-        <div class="mbr-panel-table" id="table_sales_area">
-            <div class="mbr-panel-header teal">
-                <i class="fa-solid fa-location-dot"></i>
-                <span>Total Penjualan Per Daerah</span>
+        {{-- Tabel 3: Penjualan Per Daerah / Cabang --}}
+        <div class="portal-mbr-card" id="table_sales_area">
+            <div class="portal-mbr-card-header">
+                <div>
+                    <div class="portal-mbr-card-title">
+                        <i class="fa-solid fa-map-location-dot" style="color: #0d9488;"></i>
+                        <span>Penjualan Per Daerah / Cabang</span>
+                    </div>
+                    <div class="portal-mbr-card-sub">Distribusi volume penjualan di tiap area cabang</div>
+                </div>
             </div>
-            <table class="mbr-table">
-                <thead>
-                    <tr>
-                        <th style="width: 35px;">#</th>
-                        <th>Daerah</th>
-                        <th class="num">Total Qty</th>
-                        <th style="width: 70px; text-align: center;">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($mbrData['sales_by_area'] as $idx => $a)
+
+            <div style="overflow-x: auto;">
+                <table class="portal-mbr-table">
+                    <thead>
                         <tr>
-                            <td style="font-weight: 800; color: #0d9488;">{{ $idx + 1 }}</td>
-                            <td style="font-weight: 700;">
-                                {{ $a['area'] }}
-                                <span style="display: block; font-size: 0.72rem; color: #64748b; font-weight: 500;">{{ $a['store_count'] }} Toko Tercover</span>
-                            </td>
-                            <td class="num">{{ number_format($a['qty']) }}</td>
-                            <td style="text-align: center;">
-                                <button type="button" onclick="showDetailModal('Daerah: {{ $a['area'] }}', 'Total Penjualan: {{ number_format($a['qty']) }} Pcs (Rp {{ number_format($a['value'], 0, ',', '.') }}) di {{ $a['store_count'] }} Toko')" class="mbr-btn-detail">Detail</button>
-                            </td>
+                            <th style="width: 40px; text-align: center;">#</th>
+                            <th>Daerah / Cabang</th>
+                            <th style="text-align: center;">Toko Tercover</th>
+                            <th class="num">Total Qty</th>
+                            <th class="num">Nilai (Rp)</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="4" style="text-align: center; color: #94a3b8;">Belum ada data daerah</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @forelse($mbrData['sales_by_area'] as $idx => $a)
+                            <tr>
+                                <td style="text-align: center; font-weight: 700; color: var(--text-muted);">{{ $idx + 1 }}</td>
+                                <td style="font-weight: 700; color: var(--text-heading);">{{ $a['area'] }}</td>
+                                <td style="text-align: center;">
+                                    <span class="portal-mbr-pill" style="background: #f1f5f9; color: var(--text-body);">
+                                        {{ $a['store_count'] }} Toko
+                                    </span>
+                                </td>
+                                <td class="num" style="color: #2563eb;">{{ number_format($a['qty']) }} Pcs</td>
+                                <td class="num" style="color: #059669;">Rp {{ number_format($a['value'], 0, ',', '.') }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                    <i class="fa-solid fa-inbox" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
+                                    Belum ada data daerah pada periode ini.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
 
-        {{-- Tabel 4: Total Penjualan Per Wilayah (Red Header) --}}
-        <div class="mbr-panel-table" id="table_sales_region">
-            <div class="mbr-panel-header red">
-                <i class="fa-solid fa-map"></i>
-                <span>Total Penjualan Per Wilayah</span>
+        {{-- Tabel 4: Penjualan Per Wilayah (Region) --}}
+        <div class="portal-mbr-card" id="table_sales_region">
+            <div class="portal-mbr-card-header">
+                <div>
+                    <div class="portal-mbr-card-title">
+                        <i class="fa-solid fa-earth-asia" style="color: var(--brand-primary);"></i>
+                        <span>Penjualan Per Wilayah (Region)</span>
+                    </div>
+                    <div class="portal-mbr-card-sub">Agregasi performa penjualan tingkat regional</div>
+                </div>
             </div>
-            <table class="mbr-table">
-                <thead>
-                    <tr>
-                        <th style="width: 35px;">#</th>
-                        <th>Wilayah</th>
-                        <th class="num">Total Qty</th>
-                        <th style="width: 70px; text-align: center;">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($mbrData['sales_by_region'] as $idx => $r)
+
+            <div style="overflow-x: auto;">
+                <table class="portal-mbr-table">
+                    <thead>
                         <tr>
-                            <td style="font-weight: 800; color: #dc2626;">{{ $idx + 1 }}</td>
-                            <td style="font-weight: 700;">
-                                {{ $r['region'] }}
-                                <span style="display: block; font-size: 0.72rem; color: #64748b; font-weight: 500;">{{ $r['area_count'] }} Daerah / Cabang</span>
-                            </td>
-                            <td class="num">{{ number_format($r['qty']) }}</td>
-                            <td style="text-align: center;">
-                                <button type="button" onclick="showDetailModal('Wilayah: {{ $r['region'] }}', 'Total Wilayah: {{ number_format($r['qty']) }} Pcs (Rp {{ number_format($r['value'], 0, ',', '.') }})')" class="mbr-btn-detail">Detail</button>
-                            </td>
+                            <th style="width: 40px; text-align: center;">#</th>
+                            <th>Wilayah (Region)</th>
+                            <th style="text-align: center;">Jumlah Daerah</th>
+                            <th class="num">Total Qty</th>
+                            <th class="num">Nilai (Rp)</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="4" style="text-align: center; color: #94a3b8;">Belum ada data wilayah</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @forelse($mbrData['sales_by_region'] as $idx => $r)
+                            <tr>
+                                <td style="text-align: center; font-weight: 700; color: var(--text-muted);">{{ $idx + 1 }}</td>
+                                <td style="font-weight: 700; color: var(--text-heading);">{{ $r['region'] }}</td>
+                                <td style="text-align: center;">
+                                    <span class="portal-mbr-pill" style="background: #f1f5f9; color: var(--text-body);">
+                                        {{ $r['area_count'] }} Daerah
+                                    </span>
+                                </td>
+                                <td class="num" style="color: #2563eb;">{{ number_format($r['qty']) }} Pcs</td>
+                                <td class="num" style="color: #059669;">Rp {{ number_format($r['value'], 0, ',', '.') }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                    <i class="fa-solid fa-inbox" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
+                                    Belum ada data wilayah pada periode ini.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
+
     </div>
 
-    {{-- 5. TABEL DATA RINCIAN TRANSAKSI SUBMISSION (LIVE LIST) --}}
-    <div class="mbr-submissions-card" id="table_submissions">
-        <div class="mbr-submissions-header">
-            <div class="mbr-submissions-title">
-                <i class="fa-solid fa-list-check"></i>
-                <span>Rincian Transaksi Laporan Penjualan (Live Data)</span>
+    {{-- 5. TABEL RINCIAN TRANSAKSI SUBMISI AKTUAL (LIVE LIST) --}}
+    <div class="portal-mbr-card" id="table_submissions">
+        <div class="portal-mbr-card-header">
+            <div>
+                <div class="portal-mbr-card-title">
+                    <i class="fa-solid fa-table-list"></i>
+                    <span>Rincian Transaksi Submission (Live Submissions)</span>
+                </div>
+                <div class="portal-mbr-card-sub">
+                    Menampilkan <strong>{{ $submissions->count() }}</strong> dari <strong>{{ $submissions->total() }}</strong> total laporan masuk
+                </div>
             </div>
+
             <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <button type="button" onclick="openGalleryModal('all')" class="mbr-btn-detail" style="background: #2563eb;">
-                    <i class="fa-solid fa-images"></i> Galeri Foto Lengkap ({{ count($mbrData['gallery_photos']) }})
+                <button type="button" onclick="openGalleryModal('all')" class="portal-mbr-btn-action" style="padding: 0.5rem 1rem; background: var(--brand-gradient); color: #ffffff; border: none; box-shadow: 0 2px 8px var(--brand-glow);">
+                    <i class="fa-solid fa-images"></i> Galeri Dokumentasi ({{ count($mbrData['gallery_photos']) }})
                 </button>
             </div>
         </div>
 
         <div style="overflow-x: auto;">
-            <table class="mbr-table">
+            <table class="portal-mbr-table">
                 <thead>
                     <tr>
-                        <th style="width: 40px;">#</th>
-                        <th>Tanggal Submit</th>
-                        <th>Nama Mitra (Karyawan)</th>
-                        <th>Toko / Outlet</th>
-                        <th>Rincian Produk Terjual</th>
+                        <th style="width: 40px; text-align: center;">#</th>
+                        <th>Waktu Submit</th>
+                        <th>Petugas (Mitra)</th>
+                        <th>Toko / Lokasi</th>
+                        <th>Ringkasan Keranjang (Cart)</th>
                         <th class="num">Total Qty</th>
-                        <th class="num">Total Omzet (Rp)</th>
-                        <th>Metode Bayar</th>
-                        <th style="text-align: center;">Aksi</th>
+                        <th class="num">Nilai (Rp)</th>
+                        <th style="text-align: center;">Pembayaran</th>
+                        <th style="width: 90px; text-align: center;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($submissions as $idx => $sub)
                         @php
-                            $cartJson = null;
-                            $qty = 0; $val = 0; $booth = 0; $kasir = 0;
+                            $subDateDisplay = $sub->submitted_at ? $sub->submitted_at->translatedFormat('d M Y, H:i') : ($sub->created_at ? $sub->created_at->translatedFormat('d M Y, H:i') : '-');
+                            $empName = $sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'Petugas';
+                            $empNik = $sub->employee?->nik ?? ($sub->employee?->employee_no ?? '-');
+                            $storeName = $sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: 'Toko / Outlet');
+                            $storeArea = $sub->workLocation && $sub->workLocation->branch ? $sub->workLocation->branch->name : ($sub->employee && $sub->employee->branch ? $sub->employee->branch->name : '-');
+                            
+                            $cart = [];
+                            $subQty = 0;
+                            $subVal = 0;
+                            $subBooth = 0;
+                            $subKasir = 0;
+                            $sellOutPhoto = null;
+
                             foreach($sub->values as $v) {
                                 $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
                                 if ($fn === 'mbr_sales_items_json') {
-                                    $cartJson = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
+                                    $raw = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
+                                    if (is_array($raw)) $cart = $raw;
                                 } elseif ($fn === 'total_qty_penjualan') {
-                                    $qty = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text));
+                                    $subQty = (int)($v->value_number ?? 0);
                                 } elseif ($fn === 'total_value_penjualan_rp') {
-                                    $val = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text));
+                                    $subVal = (float)($v->value_number ?? 0);
                                 } elseif ($fn === 'total_bayar_di_booth_rp') {
-                                    $booth = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text));
+                                    $subBooth = (float)($v->value_number ?? 0);
                                 } elseif ($fn === 'total_bayar_di_kasir_rp') {
-                                    $kasir = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text));
+                                    $subKasir = (float)($v->value_number ?? 0);
+                                } elseif (str_contains($fn, 'foto_sell_out') || str_contains($fn, 'sell_out')) {
+                                    $sellOutPhoto = $v->value_text;
                                 }
                             }
-                            if ($qty <= 0 && is_array($cartJson)) {
-                                foreach($cartJson as $cIt) $qty += (int)($cIt['qty'] ?? 1);
-                            }
-                            if ($val <= 0 && is_array($cartJson)) {
-                                foreach($cartJson as $cIt) $val += (float)($cIt['value_rp'] ?? (((int)($cIt['qty'] ?? 1)) * (float)($cIt['store_price'] ?? 3100)));
+
+                            if (!empty($cart)) {
+                                $calcQ = 0; $calcV = 0;
+                                foreach($cart as $item) {
+                                    $q = (int)($item['qty'] ?? 1);
+                                    $pr = (float)($item['store_price'] ?? ($item['price'] ?? 0));
+                                    $v = (float)($item['value_rp'] ?? ($q * $pr));
+                                    $calcQ += $q;
+                                    $calcV += $v;
+                                }
+                                if ($subQty <= 0) $subQty = $calcQ;
+                                if ($subVal <= 0) $subVal = $calcV;
                             }
                         @endphp
                         <tr>
-                            <td style="color: #64748b; font-weight: 700;">{{ $submissions->firstItem() + $idx }}</td>
-                            <td>
-                                <strong style="color: #0f172a;">{{ $sub->submitted_at ? $sub->submitted_at->format('d/m/Y') : $sub->created_at->format('d/m/Y') }}</strong>
-                                <span style="display: block; font-size: 0.72rem; color: #64748b;">{{ $sub->submitted_at ? $sub->submitted_at->format('H:i') : $sub->created_at->format('H:i') }} WIB</span>
+                            <td style="text-align: center; color: var(--text-muted); font-weight: 700;">
+                                {{ $submissions->firstItem() + $idx }}
                             </td>
                             <td>
-                                <strong style="color: #0f172a;">{{ $sub->employee ? $sub->employee->full_name : 'Mitra Wings' }}</strong>
-                                <span style="display: block; font-size: 0.72rem; color: #64748b;">NIK: {{ $sub->employee ? $sub->employee->employee_no : '-' }}</span>
+                                <div style="font-weight: 700; color: var(--text-heading);">{{ $subDateDisplay }}</div>
+                                <div style="font-size: 0.74rem; color: var(--text-muted); font-family: monospace;">{{ $sub->submission_code }}</div>
                             </td>
                             <td>
-                                <strong style="color: #0f172a;">{{ $sub->workLocation ? $sub->workLocation->name : 'Outlet Toko' }}</strong>
-                                <span style="display: block; font-size: 0.72rem; color: #64748b;">{{ $sub->workLocation && $sub->workLocation->branch ? $sub->workLocation->branch->name : '-' }}</span>
+                                <div style="font-weight: 700; color: var(--text-heading);">{{ $empName }}</div>
+                                <div style="font-size: 0.74rem; color: var(--text-muted);">NIK: {{ $empNik }}</div>
                             </td>
                             <td>
-                                @if(is_array($cartJson) && !empty($cartJson))
-                                    <div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 280px;">
-                                        @foreach(array_slice($cartJson, 0, 3) as $cIt)
-                                            <span style="background: #f1f5f9; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; color: #334155;">
-                                                {{ $cIt['name'] ?? ($cIt['product_name'] ?? 'Mie Sedaap') }}: <strong>{{ $cIt['qty'] ?? 1 }}</strong>
+                                <div style="font-weight: 700; color: var(--text-heading);">{{ $storeName }}</div>
+                                <div style="font-size: 0.74rem; color: var(--text-muted);">{{ $storeArea }}</div>
+                            </td>
+                            <td>
+                                @if(!empty($cart))
+                                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                                        @foreach(array_slice($cart, 0, 2) as $cItem)
+                                            <span style="font-size: 0.74rem; color: var(--text-body);">
+                                                &bull; {{ $cItem['name'] ?? 'Produk' }} (<strong>{{ $cItem['qty'] ?? 1 }}</strong>)
                                             </span>
                                         @endforeach
-                                        @if(count($cartJson) > 3)
-                                            <span style="font-size: 0.72rem; color: #ea580c; font-weight: 700;">+{{ count($cartJson) - 3 }} produk lagi</span>
+                                        @if(count($cart) > 2)
+                                            <span style="font-size: 0.72rem; color: var(--brand-primary); font-weight: 700;">
+                                                +{{ count($cart) - 2 }} produk lainnya
+                                            </span>
                                         @endif
                                     </div>
                                 @else
-                                    <span style="color: #94a3b8; font-size: 0.78rem;">-</span>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">-</span>
                                 @endif
                             </td>
-                            <td class="num"><strong style="color: #2563eb;">{{ number_format($qty) }}</strong></td>
-                            <td class="num"><strong style="color: #059669;">Rp {{ number_format($val, 0, ',', '.') }}</strong></td>
-                            <td>
-                                @if($kasir > 0 && $booth > 0)
-                                    <span class="mbr-badge-pill mbr-badge-booth">Booth (Rp {{ number_format($booth, 0, ',', '.') }})</span>
-                                    <span class="mbr-badge-pill mbr-badge-kasir">Kasir (Rp {{ number_format($kasir, 0, ',', '.') }})</span>
-                                @elseif($kasir > 0)
-                                    <span class="mbr-badge-pill mbr-badge-kasir">Kasir Toko</span>
+                            <td class="num" style="color: #2563eb;">{{ number_format($subQty) }} Pcs</td>
+                            <td class="num" style="color: #059669;">Rp {{ number_format($subVal, 0, ',', '.') }}</td>
+                            <td style="text-align: center;">
+                                @if($subKasir > 0 && $subBooth <= 0)
+                                    <span class="portal-mbr-pill kasir"><i class="fa-solid fa-cash-register"></i> Kasir</span>
+                                @elseif($subBooth > 0 && $subKasir <= 0)
+                                    <span class="portal-mbr-pill booth"><i class="fa-solid fa-store"></i> Booth</span>
                                 @else
-                                    <span class="mbr-badge-pill mbr-badge-booth">Bayar di Booth</span>
+                                    <span class="portal-mbr-pill booth"><i class="fa-solid fa-coins"></i> Campuran</span>
                                 @endif
                             </td>
                             <td style="text-align: center;">
-                                <a href="{{ route('portal.report.submission.detail', ['code' => $template->code, 'id' => $sub->id, 'p' => $tenantPrincipal->id]) }}" class="mbr-btn-detail" style="background: #0284c7;">
+                                <button type="button" onclick='openSubmissionDetailModal(@json($sub), @json($cart))' class="portal-mbr-btn-action">
                                     <i class="fa-solid fa-eye"></i> Detail
-                                </a>
+                                </button>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" style="text-align: center; padding: 2.5rem; color: #94a3b8;">
+                            <td colspan="9" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
                                 <i class="fa-solid fa-folder-open" style="font-size: 2rem; display: block; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
-                                <div style="font-weight: 700; color: #475569; font-size: 1rem;">Belum Ada Data Laporan Masuk</div>
+                                <div style="font-weight: 700; color: var(--text-heading); font-size: 1rem;">Belum Ada Data Laporan Masuk</div>
                                 <div style="font-size: 0.82rem; margin-top: 0.35rem;">Data transaksi submission untuk periode ini akan otomatis muncul saat petugas SPG/MD mengirimkan laporan.</div>
                             </td>
                         </tr>
@@ -1033,48 +1133,48 @@
         </div>
 
         @if($submissions->hasPages())
-            <div style="padding: 1rem; border-top: 1px solid #e2e8f0;">
+            <div style="padding-top: 1.25rem; margin-top: 1rem; border-top: 1px solid var(--border-color);">
                 {{ $submissions->links('portal.pagination') }}
             </div>
         @endif
     </div>
+
 </div>
 
-{{-- 6. MODAL DETAIL FOTO (SLIDE 9 PPTX) --}}
-<div class="mbr-modal-overlay" id="galleryModal">
-    <div class="mbr-modal-box">
-        <div class="mbr-modal-header">
-            <div class="mbr-modal-title">
-                <i class="fa-solid fa-images" style="color: #ea580c;"></i>
-                <span id="galleryModalTitle">Detail Foto Penjualan & Struk Event MBR</span>
+{{-- MODAL 1: GALERI DOKUMENTASI STRUK & SELL OUT --}}
+<div class="portal-mbr-modal-overlay" id="galleryModal" onclick="closeGalleryModal()">
+    <div class="portal-mbr-modal-card" onclick="event.stopPropagation()">
+        <div class="portal-mbr-modal-header">
+            <div class="portal-mbr-modal-title">
+                <i class="fa-solid fa-images" style="color: var(--brand-primary);"></i>
+                <span id="galleryModalTitle">Galeri Dokumentasi Foto Penjualan Event MBR</span>
             </div>
-            <button type="button" class="mbr-modal-close" onclick="closeGalleryModal()">
+            <button type="button" class="portal-mbr-modal-close" onclick="closeGalleryModal()">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <div class="mbr-modal-body">
-            <div class="mbr-photo-grid" id="galleryGridContainer">
+        <div class="portal-mbr-modal-body">
+            <div class="portal-mbr-photo-grid" id="galleryGridContainer">
                 @forelse($mbrData['gallery_photos'] as $gp)
-                    <div class="mbr-photo-card" data-type="{{ $gp['type'] }}">
-                        <img src="{{ $gp['url'] }}" alt="{{ $gp['title'] }}" class="mbr-photo-thumb" onclick="openLightbox('{{ $gp['url'] }}')">
-                        <div class="mbr-photo-info">
-                            <span class="mbr-photo-tag">{{ $gp['title'] }}</span>
-                            <span class="mbr-photo-date">{{ $gp['date'] }}</span>
-                            <span class="mbr-photo-name">{{ $gp['mitra'] }}</span>
-                            <span class="mbr-photo-store">📍 {{ $gp['store'] }}</span>
+                    <div class="portal-mbr-photo-card" data-type="{{ $gp['type'] }}">
+                        <img src="{{ $gp['url'] }}" alt="{{ $gp['title'] }}" class="portal-mbr-photo-img" onclick="openLightbox('{{ $gp['url'] }}')">
+                        <div class="portal-mbr-photo-meta">
+                            <span class="portal-mbr-pill {{ $gp['type'] === 'struk' ? 'kasir' : 'booth' }}" style="align-self: flex-start;">
+                                {{ $gp['type'] === 'struk' ? 'Struk Penjualan' : 'Display Sell Out' }}
+                            </span>
+                            <div style="font-weight: 700; font-size: 0.82rem; color: var(--text-heading); margin-top: 2px;">{{ $gp['mitra'] }}</div>
+                            <div style="font-size: 0.74rem; color: var(--text-muted);">📍 {{ $gp['store'] }}</div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted);">🗓️ {{ $gp['date'] }}</div>
                             @if(!empty($gp['product']))
-                                <span style="font-size: 0.72rem; color: #0284c7; font-weight: 700;">{{ $gp['product'] }} ({{ $gp['qty'] }} pcs)</span>
+                                <div style="font-size: 0.74rem; color: var(--brand-primary); font-weight: 700;">{{ $gp['product'] }} ({{ $gp['qty'] }} pcs)</div>
                             @endif
-                            <button type="button" onclick="openLightbox('{{ $gp['url'] }}')" class="mbr-btn-view-photo">
-                                <i class="fa-solid fa-magnifying-glass-plus"></i> Perbesar Foto
-                            </button>
                         </div>
                     </div>
                 @empty
-                    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem; color: #94a3b8;">
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
                         <i class="fa-solid fa-images" style="font-size: 2.5rem; display: block; margin-bottom: 0.75rem; color: #cbd5e1;"></i>
-                        <div style="font-weight: 700; color: #475569; font-size: 1rem;">Belum Ada Foto Struk / Sell Out</div>
-                        <p style="font-size: 0.82rem; margin-top: 0.35rem;">Dokumentasi foto struk dan foto sell out toko akan otomatis muncul di sini saat petugas mengirimkan laporan melalui aplikasi.</p>
+                        <div style="font-weight: 700; color: var(--text-heading); font-size: 1rem;">Belum Ada Foto Dokumentasi Masuk</div>
+                        <p style="font-size: 0.82rem; margin-top: 0.35rem;">Foto bukti struk dan display sell out akan otomatis terkumpul di sini saat petugas mengirimkan laporan melalui aplikasi mobile.</p>
                     </div>
                 @endforelse
             </div>
@@ -1082,24 +1182,45 @@
     </div>
 </div>
 
-{{-- MODAL DETAIL TEKS UMUM --}}
-<div class="mbr-modal-overlay" id="genericDetailModal">
-    <div class="mbr-modal-box" style="max-width: 520px;">
-        <div class="mbr-modal-header">
-            <div class="mbr-modal-title" id="genericModalTitle">Detail Informasi</div>
-            <button type="button" class="mbr-modal-close" onclick="closeGenericModal()">
+{{-- MODAL 2: RINCIAN LENGKAP TRANSAKSI (SUBMISSION CART) --}}
+<div class="portal-mbr-modal-overlay" id="submissionDetailModal" onclick="closeSubmissionDetailModal()">
+    <div class="portal-mbr-modal-card" onclick="event.stopPropagation()">
+        <div class="portal-mbr-modal-header">
+            <div class="portal-mbr-modal-title">
+                <i class="fa-solid fa-basket-shopping" style="color: var(--brand-primary);"></i>
+                <span id="subModalTitle">Rincian Transaksi Submission</span>
+            </div>
+            <button type="button" class="portal-mbr-modal-close" onclick="closeSubmissionDetailModal()">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <div class="mbr-modal-body">
-            <p id="genericModalContent" style="font-size: 0.95rem; color: #334155; line-height: 1.6; margin: 0;"></p>
+        <div class="portal-mbr-modal-body" id="subModalBody">
+            {{-- Injected dynamically --}}
         </div>
     </div>
 </div>
 
-{{-- LIGHTBOX OVERLAY --}}
-<div class="mbr-lightbox-overlay" id="lightboxOverlay" onclick="closeLightbox()">
-    <img id="lightboxImg" src="" alt="Zoom Foto" class="mbr-lightbox-img" onclick="event.stopPropagation()">
+{{-- MODAL 3: MODAL DETAIL UMUM --}}
+<div class="portal-mbr-modal-overlay" id="genericDetailModal" onclick="closeGenericModal()">
+    <div class="portal-mbr-modal-card" style="max-width: 480px;" onclick="event.stopPropagation()">
+        <div class="portal-mbr-modal-header">
+            <div class="portal-mbr-modal-title">
+                <i class="fa-solid fa-circle-info" style="color: var(--brand-primary);"></i>
+                <span id="genericModalTitle">Informasi Detail</span>
+            </div>
+            <button type="button" class="portal-mbr-modal-close" onclick="closeGenericModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="portal-mbr-modal-body">
+            <p id="genericModalContent" style="font-size: 0.95rem; color: var(--text-body); line-height: 1.6; margin: 0;"></p>
+        </div>
+    </div>
+</div>
+
+{{-- LIGHTBOX ZOOM PREVIEW --}}
+<div class="portal-mbr-lightbox" id="lightboxOverlay" onclick="closeLightbox()">
+    <img id="lightboxImg" src="" alt="Perbesar Foto" onclick="event.stopPropagation()">
 </div>
 
 @push('scripts')
@@ -1111,6 +1232,9 @@
         weekly: @json($mbrData['chart']['weekly'] ?? ['labels' => [], 'qtys' => []]),
         monthly: @json($mbrData['chart']['monthly'] ?? ['labels' => [], 'qtys' => []])
     };
+
+    // Brand Primary Color from Portal
+    const portalBrandPrimary = '{{ $brandColor }}';
 
     function initMbrSalesChart() {
         const ctx = document.getElementById('mbrSalesChart');
@@ -1128,12 +1252,12 @@
             data: {
                 labels: initialLabels,
                 datasets: [{
-                    label: 'Qty Penjualan (Pcs)',
+                    label: 'Volume Penjualan (Pcs)',
                     data: initialQtys,
-                    backgroundColor: '#10b981',
-                    borderRadius: 6,
+                    backgroundColor: portalBrandPrimary,
+                    borderRadius: 8,
                     borderSkipped: false,
-                    maxBarThickness: 45
+                    maxBarThickness: 42
                 }]
             },
             options: {
@@ -1142,8 +1266,11 @@
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: '#1e293b',
+                        backgroundColor: '#0f172a',
+                        titleFont: { size: 12, weight: '700' },
+                        bodyFont: { size: 12 },
                         padding: 10,
+                        cornerRadius: 8,
                         callbacks: {
                             label: function(context) {
                                 return ' Penjualan: ' + Number(context.raw).toLocaleString('id-ID') + ' Pcs';
@@ -1183,24 +1310,99 @@
         mbrChartInstance.update();
     }
 
-    // Modal Galeri Foto
+    // Modal Galeri
     function openGalleryModal(filterType = 'all') {
         const modal = document.getElementById('galleryModal');
         if (!modal) return;
         modal.classList.add('active');
 
         const titleEl = document.getElementById('galleryModalTitle');
-        if (filterType === 'freetaste') {
-            if (titleEl) titleEl.innerText = 'Detail Foto Sampling Freetaste';
-        } else if (filterType === 'struk') {
-            if (titleEl) titleEl.innerText = 'Detail Foto Struk Penjualan';
+        if (filterType === 'struk') {
+            if (titleEl) titleEl.innerText = 'Dokumentasi Foto Struk Penjualan Kasir';
         } else {
-            if (titleEl) titleEl.innerText = 'Detail Dokumentasi Foto Penjualan Event MBR';
+            if (titleEl) titleEl.innerText = 'Galeri Dokumentasi Foto Penjualan Event MBR';
         }
     }
 
     function closeGalleryModal() {
         document.getElementById('galleryModal')?.classList.remove('active');
+    }
+
+    // Modal Rincian Cart Submission
+    function openSubmissionDetailModal(sub, cart) {
+        const modal = document.getElementById('submissionDetailModal');
+        const body = document.getElementById('subModalBody');
+        if (!modal || !body) return;
+
+        let cartHtml = '';
+        if (cart && cart.length > 0) {
+            cartHtml = `
+                <table class="portal-mbr-table" style="margin-top: 1rem;">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nama Produk</th>
+                            <th class="num">Harga (Rp)</th>
+                            <th class="num">Qty</th>
+                            <th class="num">Subtotal (Rp)</th>
+                            <th style="text-align: center;">Metode Bayar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${cart.map((item, i) => `
+                            <tr>
+                                <td style="color: var(--text-muted); font-weight: 700;">${i + 1}</td>
+                                <td style="font-weight: 700; color: var(--text-heading);">${item.name || item.product_name || 'Produk'}</td>
+                                <td class="num">Rp ${Number(item.store_price || item.price || 0).toLocaleString('id-ID')}</td>
+                                <td class="num" style="color: #2563eb;">${Number(item.qty || 1).toLocaleString('id-ID')}</td>
+                                <td class="num" style="color: #059669;">Rp ${Number(item.value_rp || (item.qty * item.store_price) || 0).toLocaleString('id-ID')}</td>
+                                <td style="text-align: center;">
+                                    <span class="portal-mbr-pill ${String(item.payment_type || '').includes('kasir') ? 'kasir' : 'booth'}">
+                                        ${String(item.payment_type || '').includes('kasir') ? 'Kasir' : 'Booth'}
+                                    </span>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            cartHtml = '<p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">Tidak ada item keranjang terperinci.</p>';
+        }
+
+        body.innerHTML = `
+            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
+                <div>
+                    <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Kode Submisi</span>
+                    <div style="font-weight: 800; font-family: monospace; color: var(--brand-primary);">${sub.submission_code || '-'}</div>
+                </div>
+                <div>
+                    <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Waktu Lapor</span>
+                    <div style="font-weight: 700; color: var(--text-heading);">${sub.submitted_at || sub.created_at || '-'}</div>
+                </div>
+            </div>
+            <div style="margin-top: 1.25rem;">
+                <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-heading); margin-bottom: 0.35rem;">Rincian Item Keranjang Belanja</h4>
+                ${cartHtml}
+            </div>
+        `;
+
+        modal.classList.add('active');
+    }
+
+    function closeSubmissionDetailModal() {
+        document.getElementById('submissionDetailModal')?.classList.remove('active');
+    }
+
+    // Modal Detail Ringkas
+    function showDetailModal(title, content) {
+        document.getElementById('genericModalTitle').innerText = title;
+        document.getElementById('genericModalContent').innerText = content;
+        document.getElementById('genericDetailModal')?.classList.add('active');
+    }
+
+    function closeGenericModal() {
+        document.getElementById('genericDetailModal')?.classList.remove('active');
     }
 
     // Lightbox Zoom
@@ -1215,17 +1417,6 @@
 
     function closeLightbox() {
         document.getElementById('lightboxOverlay')?.classList.remove('active');
-    }
-
-    // Detail Modal Umum
-    function showDetailModal(title, text) {
-        document.getElementById('genericModalTitle').innerText = title;
-        document.getElementById('genericModalContent').innerText = text;
-        document.getElementById('genericDetailModal')?.classList.add('active');
-    }
-
-    function closeGenericModal() {
-        document.getElementById('genericDetailModal')?.classList.remove('active');
     }
 
     document.addEventListener('DOMContentLoaded', function() {
