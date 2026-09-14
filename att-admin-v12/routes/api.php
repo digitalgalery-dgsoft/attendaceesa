@@ -17,7 +17,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\SalesReportController;
 use App\Http\Controllers\Api\DashboardApiController;
 
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
 Route::get('/ping', function () {
     return response()->json(['status' => 'pong', 'time' => now()->timestamp]);
@@ -76,7 +76,7 @@ Route::get('/settings', function () {
 });
 
 // Helpdesk & Real-Time Login Assistance Routes (Public - NIK verified)
-Route::post('/helpdesk/check-nik', [\App\Http\Controllers\Api\HelpdeskApiController::class, 'checkNik']);
+Route::post('/helpdesk/check-nik', [\App\Http\Controllers\Api\HelpdeskApiController::class, 'checkNik'])->middleware('throttle:helpdesk-check');
 Route::post('/helpdesk/initiate-chat', [\App\Http\Controllers\Api\HelpdeskApiController::class, 'initiateChat']);
 Route::get('/helpdesk/messages', [\App\Http\Controllers\Api\HelpdeskApiController::class, 'getMessages']);
 Route::post('/helpdesk/send-message', [\App\Http\Controllers\Api\HelpdeskApiController::class, 'sendMessage']);
@@ -191,7 +191,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Multi-Server Gateway & Discovery Routes (Public)
 Route::post('/v1/gateway/discover', [\App\Http\Controllers\Api\ServerGatewayController::class, 'discover']);
-Route::post('/v1/gateway/login', [\App\Http\Controllers\Api\ServerGatewayController::class, 'login']);
+Route::post('/v1/gateway/login', [\App\Http\Controllers\Api\ServerGatewayController::class, 'login'])->middleware('throttle:login');
 
 // Cross-Server Template & Settings Synchronization Routes (Secure Token)
 Route::prefix('v1/sync')->group(function () {

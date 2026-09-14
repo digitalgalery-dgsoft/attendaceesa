@@ -29,3 +29,14 @@
         Header set Access-Control-Allow-Origin "*"
     </FilesMatch>
 </IfModule>
+
+# Security Hardening: Block sensitive files & extensions
+<FilesMatch "^\.(env|git|htaccess|htpasswd|gitignore|gitattributes)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "\.(sql|sqlite|sqlite3|db|log|sh|py|yml|yaml|composer\.json|composer\.lock|package\.json)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

@@ -30,6 +30,17 @@ class AppServiceProvider extends ServiceProvider
             return \Illuminate\Cache\RateLimiting\Limit::perMinute(5000)->by($request->user()?->id ?: $request->ip());
         });
 
+        // Anti-Brute Force for employee login (10 attempts per minute per identity / IP)
+        \Illuminate\Support\Facades\RateLimiter::for('login', function (\Illuminate\Http\Request $request) {
+            $key = (string)($request->input('employee_no') ?: ($request->input('email') ?: $request->ip()));
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(10)->by($key);
+        });
+
+        // Anti-Enumeration for helpdesk NIK check (20 requests per minute per IP)
+        \Illuminate\Support\Facades\RateLimiter::for('helpdesk-check', function (\Illuminate\Http\Request $request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(20)->by($request->ip());
+        });
+
         \App\Models\LeaveRequest::observe(\App\Observers\LeaveRequestObserver::class);
         \App\Models\EmployeeSchedule::observe(\App\Observers\EmployeeScheduleObserver::class);
 

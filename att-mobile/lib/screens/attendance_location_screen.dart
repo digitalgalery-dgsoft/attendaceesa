@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
+import 'package:safe_device/safe_device.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
@@ -341,6 +342,28 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
         style: ToastificationStyle.flat,
         alignment: Alignment.topRight,
         autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    // Real-Time Anti-Fraud: Fake GPS / Mock Location Detection
+    bool isMock = _currentPosition?.isMocked ?? false;
+    if (!isMock) {
+      try {
+        isMock = await SafeDevice.isMockLocation;
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    if (isMock) {
+      toastification.show(
+        context: context,
+        title: const Text('⚠️ Fake GPS Terdeteksi'),
+        description: const Text('Presensi ditolak: Terdeteksi penggunaan Mock Location / Fake GPS. Harap matikan aplikasi lokasi palsu.'),
+        type: ToastificationType.error,
+        style: ToastificationStyle.flat,
+        alignment: Alignment.topRight,
+        autoCloseDuration: const Duration(seconds: 4),
       );
       return;
     }

@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(\App\Http\Middleware\CheckIfInstalled::class);
+        $middleware->append(\App\Http\Middleware\SecurityHeadersMiddleware::class);
         $middleware->append(\App\Http\Middleware\SmartGatewayRelayMiddleware::class);
         $middleware->append(\App\Http\Middleware\IdentifyTenantSubdomain::class);
         $middleware->alias([

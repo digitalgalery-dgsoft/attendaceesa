@@ -26,7 +26,6 @@ import 'package:att_mobile/screens/splash_screen.dart';
 import 'package:att_mobile/screens/onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:att_mobile/providers/dynamic_reporting_provider.dart';
 import 'package:att_mobile/services/push_notification_service.dart';
 
@@ -215,6 +214,13 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
 
     // 1. Security Checks
     try {
+      bool isJailBroken = await SafeDevice.isJailBroken;
+      if (isJailBroken) {
+        _isSecure = false;
+        _securityMessage = 'Perangkat terdeteksi telah dimodifikasi (Root / Jailbreak). Demi keamanan data perusahaan dan keabsahan presensi, aplikasi tidak dapat dijalankan pada perangkat ini.';
+        return false;
+      }
+
       bool isDevMode = await SafeDevice.isDevelopmentModeEnable;
       if (isDevMode) {
         _isSecure = false;

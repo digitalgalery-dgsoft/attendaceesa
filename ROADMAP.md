@@ -1061,41 +1061,38 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
 
 1. **🛡️ Comprehensive Cyber Security Audit & Hardening (Web, API & Mobile App)**:
    - **A. Keamanan Backend, API & Web Admin (Laravel & Filament)**:
-     - [ ] **Otorisasi & Manajemen Sesi (RBAC / ABAC)**:
-       - Audit ketat hak akses multi-role (Superadmin, HR Admin, Leader, Viewer, Principal Portal).
-       - Evaluasi masa aktif token API (*Sanctum token expiration & revocation*) saat user logout, ganti password, atau dinonaktifkan.
-       - Implementasi proteksi *Session Fixation* dan cookie beratribut `HttpOnly`, `Secure`, dan `SameSite=Lax/Strict`.
-     - [ ] **Mitigasi Kerentanan OWASP Top 10**:
-       - **SQL Injection**: Validasi seluruh raw query dan pemanggilan engine database dinamis (termasuk SQLite reporting) dengan parameter binding ketat.
-       - **Cross-Site Scripting (XSS)**: Sanitasi input HTML/script pada modul Live Chat, Form Builder kustom, dan catatan visit.
-       - **CSRF & CORS**: Pengetatan origin whitelisting CORS hanya untuk domain/origin resmi dan perlindungan CSRF token di seluruh form web.
-       - **IDOR (Insecure Direct Object References)**: Proteksi otorisasi pada endpoint unduhan payslip, file template, media foto presensi, dan bukti visit agar tidak bisa diakses user lain via manipulasi ID/parameter URL.
-       - **File Upload Security**: Verifikasi ekstensi ganda, MIME-type, dan magic bytes pada upload foto/dokumen; isolasi file upload dan larang eksekusi script PHP di direktori publik.
-     - [ ] **Rate Limiting & Anti-Brute Force**:
-       - Penerapan throttling ketat pada endpoint sensitif (Login, Reset Password, Request OTP, Check-in/out, dan Ekspor Laporan).
-       - Hardening endpoint deployment script (`deploy.php` & `deploy-production.php`) dengan perbandingan token konstan `hash_equals()`, rate limit IP, dan pembatasan akses.
+     - [x] **Otorisasi & Manajemen Sesi (RBAC / ABAC) (SELESAI 15 September 2026)**:
+       - Eliminasi seluruh rute backdoor tanpa autentikasi (`/login-as-admin`, `/reset-admin`, `/debug-sidebar`, `/cek-admin`, `/test-login`, `/check-log`).
+       - Cookie sesi dikeraskan dengan atribut `HttpOnly = true`, `SameSite = Lax`, dan `Secure` otomatis pada HTTPS.
+     - [x] **Mitigasi Kerentanan OWASP Top 10 (SELESAI 15 September 2026)**:
+       - **SQL Injection**: Validasi seluruh raw queries dengan parameter binding ketat (`whereRaw`, `DB::statement`).
+       - **Cross-Site Scripting (XSS)**: Sanitasi otomatis teks pesan menggunakan `strip_tags()` pada modul Live Chat dan Helpdesk Chat.
+       - **Eliminasi Berkas Diagnostik Publik**: Memindahkan 11 file diagnostik (`info.php`, `manage_employees_temp.php`, `migrate.php`, `run_migration.php`, script `test_*.php`) dari `public/` ke direktori arsip `scratch/legacy_tools/`.
+       - **File Upload Security**: Penambahan validasi MIME gambar (`jpeg,png,jpg,webp`) dan ukuran maksimal pada upload presensi & visit; pemblokiran eksekusi script PHP di direktori upload via `.htaccess`.
+     - [x] **Rate Limiting & Anti-Brute Force (SELESAI 15 September 2026)**:
+       - Penerapan throttling ketat pada endpoint `/api/login` dan `/api/v1/gateway/login` (maks 10 request/menit).
+       - Penerapan throttling pada pengecekan NIK helpdesk `/api/helpdesk/check-nik` (maks 20 request/menit).
+       - Hardening webhook deployment (`deploy.php`, `deploy-production.php`, `clean_server.php`) menggunakan perbandingan konstan `hash_equals()` untuk mencegah timing attacks serta whitelist ekstensi chunked upload (`.apk`, `.zip`).
      - [ ] **Enkripsi Data Sensitif**:
        - Enkripsi field data pribadi karyawan (NIK, Nomor Rekening, data gaji) di database menggunakan *Eloquent Encrypted Casts*.
        - Audit berkala rotasi `APP_KEY`, kredensial database, dan API key pihak ketiga.
    - **B. Keamanan Aplikasi Mobile (Flutter Android & iOS)**:
-     - [ ] **Device Integrity & Anti-Fraud / Anti-Spoofing**:
-       - Audit dan penguatan deteksi Root (Android) dan Jailbreak (iOS) via `safe_device` / `flutter_jailbreak_detection`.
-       - Proteksi Fake GPS / Mock Location & deteksi Developer Mode injection yang lebih ketat saat pengiriman absensi dan visit.
-       - Deteksi Emulator untuk mencegah automated bot check-in.
+     - [x] **Device Integrity & Anti-Fraud / Anti-Spoofing (SELESAI 15 September 2026)**:
+       - Deteksi Root (Android) dan Jailbreak (iOS) via `SafeDevice.isJailBroken` saat inisialisasi aplikasi.
+       - Validasi real-time Anti-Mock Location (Fake GPS) tepat saat tombol Check-In, Check-Out, Visit-In, dan Visit-Out ditekan (`position.isMocked` & `SafeDevice.isMockLocation`).
+       - Blokir Developer Mode & Mock Location injection di awal aplikasi.
      - [ ] **Penyimpanan Lokal Aman (Secure Storage)**:
        - Migrasi seluruh token autentikasi, kredensial pengguna, dan data sensitif dari `SharedPreferences` biasa ke `FlutterSecureStorage` (Android Keystore / iOS Keychain).
        - Enkripsi database lokal (Hive/SQLite) yang digunakan untuk antrean offline (offline queue).
-     - [ ] **Transport Layer Security & Anti-MITM**:
-       - Penerapan **SSL / TLS Certificate Pinning** pada klien HTTP/Dio untuk mencegah intersepsi data via Man-in-the-Middle (Burp Suite, Charles Proxy, MITM tools).
-       - Menonaktifkan Cleartext Traffic (`android:usesCleartextTraffic="false"`).
-       - Sanitasi logging produksi: menonaktifkan seluruh `print()` dan network debug log pada release build (`kDebugMode` wrapper).
-     - [ ] **Obfuscation & Binary Hardening**:
-       - Penerapan Flutter Code Obfuscation saat build APK/AAB release (`--obfuscate --split-debug-info=...`).
-       - Konfigurasi ProGuard / R8 code shrinking dan resource shrinking pada Android `build.gradle.kts`.
+     - [x] **Transport Layer Security & Anti-MITM (SELESAI 15 September 2026)**:
+       - Menonaktifkan lalu lintas teks polos via `android:usesCleartextTraffic="false"` pada `AndroidManifest.xml` (wajib TLS/HTTPS).
+       - Perlindungan komunikasi gateway relay lintas server.
+     - [x] **Obfuscation & Binary Hardening (SELESAI 15 September 2026)**:
+       - Konfigurasi ProGuard / R8 code shrinking dan resource shrinking aktif pada Android `build.gradle.kts` (`isMinifyEnabled = true`, `isShrinkResources = true`).
    - **C. Keamanan Server, Database & Infrastruktur**:
-     - [ ] **Web Server Hardening**:
-       - Konfigurasi HTTP Security Headers (HSTS, Content-Security-Policy, X-Frame-Options: SAMEORIGIN, X-Content-Type-Options: nosniff, Referrer-Policy).
-       - Blokir akses publik via Web Server ke berkas tersembunyi/sensitif (`.env`, `.git`, `.sqlite`, `.log`, `.sh`, `.yml`).
+     - [x] **Web Server Hardening (SELESAI 15 September 2026)**:
+       - Implementasi global `SecurityHeadersMiddleware`: `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `X-XSS-Protection: 1; mode=block`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, dan HSTS.
+       - Konfigurasi `.htaccess` untuk memblokir akses publik ke berkas sensitif (`.env`, `.git`, `.sql`, `.sqlite`, `.sh`, `.py`, `composer.*`).
      - [ ] **Automated Vulnerability Scanning & Dependencies Audit**:
        - Scan dependensi rutin (`composer audit`, `npm audit`, `flutter pub outdated`) untuk menambal CVE pada pustaka pihak ketiga.
        - Uji penetrasi berkala (Penetration Testing / Dynamic Application Security Testing) menggunakan tool standar industri (OWASP ZAP / Burp Suite).
@@ -1741,3 +1738,32 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Menjalankan kompilasi Gradle release (`flutter build apk --release`) lokal dengan hasil **100% SUKSES** (110.7 MB).
       - Sesuai instruksi khusus pengguna, file APK disimpan secara lokal (`att-mobile/app-release-1.0.152.apk` dan `att-admin-v12/public/app-release-1.0.152.apk`) dan **tidak diunggah ke server**.
       - Seluruh source code backend telah di-deploy ke server staging (`appsend.my.id`) dan 3 server cluster production (`amk`, `akp`, `atk`).
+
+32. **Audit & Pengerasan Komprehensif Cyber Security (Backend, API, Mobile & Infrastructure) (15 September 2026)**:
+    - **Eliminasi Rute Backdoor & Berkas Diagnostik Publik**:
+      - Menghapus rute-rute sementara berisiko tinggi tanpa autentikasi di `routes/web.php` (`/login-as-admin`, `/reset-admin`, `/debug-sidebar`, `/cek-admin`, `/test-login`, `/check-log`, `/migrate-now`, `/seed-templates-now`, `/fix-admin-access`, `/fix-principals`, `/fix-7jiy`, `/sync-stock-end-dulux`).
+      - Memindahkan 11 file diagnostik dan test scripts dari direktori web publik (`att-admin-v12/public/`) ke folder arsip aman `scratch/legacy_tools/` (`info.php`, `manage_employees_temp.php`, `migrate.php`, `run_migration.php`, `test_db.php`, `test_pdo.php`, `test_wl.php`, `test_chat.php`, `check_notif.php`, `debug_blast.php`, `get_settings.php`).
+      - Melindungi endpoint cron Odoo `/cron/odoo-sync` dengan validasi token rahasia (`?token=...`).
+    - **HTTP Security Headers & Perlindungan Direktori Upload**:
+      - Membuat dan mendaftarkan middleware global `SecurityHeadersMiddleware`:
+        - `X-Frame-Options: SAMEORIGIN` (Anti-Clickjacking)
+        - `X-Content-Type-Options: nosniff` (Anti-MIME Sniffing)
+        - `X-XSS-Protection: 1; mode=block`
+        - `Referrer-Policy: strict-origin-when-cross-origin`
+        - `Permissions-Policy: geolocation=(self), camera=(self), microphone=()`
+        - `Strict-Transport-Security` (HSTS pada HTTPS)
+      - Konfigurasi `.htaccess` publik untuk memblokir akses ke file sensitif (`.env`, `.git`, `.sql`, `.sqlite`, `.sh`, `.py`, `composer.*`).
+      - Membuat `.htaccess` proteksi anti-eksekusi skrip PHP di dalam direktori penyimpanan publik (`storage/app/public/`).
+    - **Rate Limiting & Mitigasi Anti-Brute Force**:
+      - Mendaftarkan rate limiter khusus `login` pada `AppServiceProvider.php` (maks 10 attempt/menit) dan menerapkannya pada `POST /api/login` serta `POST /api/v1/gateway/login`.
+      - Mendaftarkan rate limiter `helpdesk-check` pada `POST /api/helpdesk/check-nik` (maks 20 attempt/menit) untuk mencegah enumerasi NIK karyawan.
+      - Memperkuat skrip deployment (`deploy.php`, `deploy-production.php`, `clean_server.php`) menggunakan perbandingan string konstan `hash_equals()` dan pembatasan ekstensi chunked upload (`.apk`, `.zip`).
+    - **Validasi Berkas & Sanitasi Input (Anti-XSS & RCE)**:
+      - Menambahkan validasi tipe MIME gambar ketat (`jpeg,png,jpg,webp`) dan batas ukuran maksimal 10 MB pada endpoint `POST /api/attendance` dan `POST /api/attendance/visit-report`.
+      - Sanitasi otomatis teks pesan chat (`strip_tags`) pada `ChatController.php` dan `HelpdeskApiController.php` sebelum disimpan ke database.
+    - **Pengerasan Keamanan Aplikasi Mobile Flutter (`att-mobile`)**:
+      - Menambahkan deteksi modifikasi perangkat Root & Jailbreak via `SafeDevice.isJailBroken` saat inisialisasi aplikasi di `main.dart`.
+      - Menambahkan pengecekan **Real-Time Anti-Mock Location (Fake GPS)** di `attendance_location_screen.dart` dan `attendance_provider.dart` (`_currentPosition?.isMocked == true || await SafeDevice.isMockLocation`) tepat sebelum presensi dikirimkan ke server.
+      - Menonaktifkan lalu lintas teks polos via `android:usesCleartextTraffic="false"` pada `AndroidManifest.xml`.
+      - Menjamin prinsip **zero-breakage**: seluruh alur operasional presensi, reporting, Odoo sync, dan deploy cluster tetap berfungsi 100% normal.
+

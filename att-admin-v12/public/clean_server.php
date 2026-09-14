@@ -5,10 +5,10 @@
  */
 
 // 1. Security Token Check
-$validToken = 'dgsoft_rahasia_123';
-$inputToken = $_GET['token'] ?? $_POST['token'] ?? '';
+$validToken = getenv('DEPLOY_SECRET_TOKEN') ?: 'dgsoft_rahasia_123';
+$inputToken = (string)($_GET['token'] ?? $_POST['token'] ?? '');
 
-if ($inputToken !== $validToken) {
+if (empty($inputToken) || !hash_equals($validToken, $inputToken)) {
     http_response_code(403);
     die(json_encode([
         'status' => 'error',

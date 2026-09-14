@@ -8,10 +8,10 @@
 @error_reporting(E_ALL);
 @set_time_limit(600);
 @ini_set('memory_limit', '512M');
+$secretToken = getenv('DEPLOY_SECRET_TOKEN') ?: "dgsoft_rahasia_123";
+$inputToken = (string)($_GET['token'] ?? $_POST['token'] ?? '');
 
-$secretToken = "dgsoft_rahasia_123";
-
-if (!isset($_GET['token']) || $_GET['token'] !== $secretToken) {
+if (empty($inputToken) || !hash_equals($secretToken, $inputToken)) {
     http_response_code(403);
     die("Akses Ditolak: Token tidak valid.");
 }

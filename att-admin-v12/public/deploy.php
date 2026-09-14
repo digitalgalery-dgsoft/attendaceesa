@@ -5,16 +5,17 @@
 @set_time_limit(300);
 @ini_set('memory_limit', '256M');
 
-// Anda dapat mengganti token rahasia ini
-$secretToken = "dgsoft_rahasia_123";
+// Anda dapat mengganti token rahasia ini via ENV atau default
+$secretToken = getenv('DEPLOY_SECRET_TOKEN') ?: "dgsoft_rahasia_123";
+$inputToken = (string)($_GET['token'] ?? $_POST['token'] ?? '');
 
-if (!isset($_GET['token']) || $_GET['token'] !== $secretToken) {
+if (empty($inputToken) || !hash_equals($secretToken, $inputToken)) {
     http_response_code(403);
     die("Akses Ditolak.");
 }
 
 // Info endpoint
-if (isset($_GET['info']) && $_GET['token'] === $secretToken) {
+if (isset($_GET['info'])) {
     header('Content-Type: application/json');
     echo json_encode([
         'upload_max_filesize' => ini_get('upload_max_filesize'),
@@ -26,11 +27,18 @@ if (isset($_GET['info']) && $_GET['token'] === $secretToken) {
     exit;
 }
 
-// Handler chunked upload untuk file APK besar
-if (isset($_GET['chunk_upload']) && $_GET['token'] === $secretToken) {
+// Handler chunked upload untuk file APK/ZIP besar
+if (isset($_GET['chunk_upload'])) {
     $chunkIndex = intval($_POST['chunk_index'] ?? 0);
     $totalChunks = intval($_POST['total_chunks'] ?? 1);
     $filename = basename($_POST['filename'] ?? 'app-release.apk');
+
+    // Security Whitelist: Hanya izinkan file berekstensi .apk atau .zip
+    if (!preg_match('/^[a-zA-Z0-9_\-\.]+\.(apk|zip)$/i', $filename)) {
+        http_response_code(400);
+        die(json_encode(['status' => 'error', 'message' => 'Format file tidak diizinkan. Hanya .apk atau .zip']));
+    }
+
     $tempDir = sys_get_temp_dir() . '/apk_chunks';
     if (!is_dir($tempDir)) @mkdir($tempDir, 0777, true);
     

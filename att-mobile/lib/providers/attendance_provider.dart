@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../utils/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/location_service.dart';
 import '../services/offline_sync_service.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/meeting_model.dart';
+import 'package:safe_device/safe_device.dart';
 
 class AttendanceProvider with ChangeNotifier {
   bool _isLoading = false;
@@ -404,6 +404,18 @@ class AttendanceProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      // Anti-Fraud check: SafeDevice Mock Location
+      try {
+        if (await SafeDevice.isMockLocation) {
+          _isLoading = false;
+          notifyListeners();
+          return {
+            'status': 'error',
+            'message': 'Presensi ditolak: Mock Location (Fake GPS) terdeteksi aktif.',
+          };
+        }
+      } catch (_) {}
+
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
 

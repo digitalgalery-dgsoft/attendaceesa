@@ -271,7 +271,7 @@ class HelpdeskApiController extends Controller
         $message = $conversation->messages()->create([
             'sender_type' => 'employee',
             'sender_id' => $employeeId,
-            'message' => $request->message,
+            'message' => strip_tags(trim((string)$request->message)),
             'is_read' => false,
         ]);
 

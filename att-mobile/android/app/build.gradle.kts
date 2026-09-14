@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.attendance.att_mobile"
     compileSdk = 36
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true

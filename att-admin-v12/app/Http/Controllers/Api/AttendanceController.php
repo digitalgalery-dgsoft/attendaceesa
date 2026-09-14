@@ -261,6 +261,9 @@ class AttendanceController extends Controller
             }
 
             if ($request->hasFile('photo')) {
+                $request->validate([
+                    'photo' => 'image|mimes:jpeg,png,jpg,webp|max:10240',
+                ]);
                 $path = $request->file('photo')->store('attendances', 'public');
             } elseif (in_array($request->type, ['checkin', 'visit_in', 'meet_in'])) {
                 if ($isFaceRequired) {
@@ -708,7 +711,7 @@ class AttendanceController extends Controller
     {
         $request->validate([
             'notes' => 'nullable|string',
-            'photo' => 'required|image|max:5120',
+            'photo' => 'required|image|mimes:jpeg,png,jpg,webp|max:10240',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
             'met_with' => 'nullable|string',
