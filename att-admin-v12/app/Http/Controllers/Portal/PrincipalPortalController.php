@@ -11923,6 +11923,7 @@ class PrincipalPortalController extends Controller
 
     /**
      * Calculate Executive Sales Dashboard Data for Wings Event MBR (RPT-WINGS-MBR-SALES-01)
+     * Purely data-driven from actual ReportSubmission records (No Dummy Data)
      */
     protected function calculateWingsMbrDashboardData(
         ReportTemplate $template,
@@ -11937,9 +11938,15 @@ class PrincipalPortalController extends Controller
         $driver = DB::connection()->getDriverName();
         $likeOp = $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
 
-        // 1. Build Query for Wings MBR Submissions
+        // 1. Build Query for Wings MBR Submissions in selected period
         $query = ReportSubmission::where('report_template_id', $template->id)
-            ->whereBetween('submitted_at', [$startDate, $endDate])
+            ->where(function($q) use ($startDate, $endDate) {
+                $q->whereBetween('submitted_at', [$startDate, $endDate])
+                  ->orWhere(function($subQ) use ($startDate, $endDate) {
+                      $subQ->whereNull('submitted_at')
+                           ->whereBetween('created_at', [$startDate, $endDate]);
+                  });
+            })
             ->with([
                 'employee.branch',
                 'workLocation.branch',
@@ -11947,21 +11954,31 @@ class PrincipalPortalController extends Controller
             ]);
 
         if ($selectedRegion) {
-            $query->whereHas('workLocation', fn($w) => $w->where('region', $selectedRegion));
+            $query->where(function($q) use ($selectedRegion) {
+                $q->whereHas('workLocation', fn($w) => $w->where('region', $selectedRegion))
+                  ->orWhereHas('employee.branch', fn($b) => $b->where('region', $selectedRegion));
+            });
         }
         if ($selectedAreaId) {
-            if (is_numeric($selectedAreaId)) {
-                $query->whereHas('workLocation', fn($w) => $w->where('branch_id', $selectedAreaId));
-            } else {
-                $query->whereHas('workLocation.branch', fn($b) => $b->where('name', $selectedAreaId));
-            }
+            $query->where(function($q) use ($selectedAreaId) {
+                if (is_numeric($selectedAreaId)) {
+                    $q->whereHas('workLocation', fn($w) => $w->where('branch_id', $selectedAreaId))
+                      ->orWhereHas('employee', fn($e) => $e->where('branch_id', $selectedAreaId));
+                } else {
+                    $q->whereHas('workLocation.branch', fn($b) => $b->where('name', $selectedAreaId))
+                      ->orWhereHas('employee.branch', fn($b) => $b->where('name', $selectedAreaId));
+                }
+            });
         }
         if ($selectedLocationId) {
-            if (is_numeric($selectedLocationId)) {
-                $query->where('work_location_id', $selectedLocationId);
-            } else {
-                $query->whereHas('workLocation', fn($w) => $w->where('name', $selectedLocationId));
-            }
+            $query->where(function($q) use ($selectedLocationId) {
+                if (is_numeric($selectedLocationId)) {
+                    $q->where('work_location_id', $selectedLocationId);
+                } else {
+                    $q->whereHas('workLocation', fn($w) => $w->where('name', $selectedLocationId))
+                      ->orWhere('store_name', $selectedLocationId);
+                }
+            });
         }
         if ($search) {
             $query->where(function ($q) use ($search, $likeOp) {
@@ -11977,48 +11994,59 @@ class PrincipalPortalController extends Controller
         $allSubmissions = (clone $query)->orderBy('submitted_at', 'desc')->get();
         $submissions = (clone $query)->orderBy('submitted_at', 'desc')->paginate($perPage);
 
-        // 2. Fetch all locations for filters
-        $workLocationsAll = WorkLocation::where('principal_id', $template->principal_id)
-            ->orWhereIn('id', $allSubmissions->pluck('work_location_id')->filter())
-            ->with('branch')
+        // 2. Retrieve distinct regions, areas, and stores strictly from the actual submissions of this template
+        $allTemplateSubmissions = ReportSubmission::where('report_template_id', $template->id)
+            ->with(['workLocation.branch', 'employee.branch'])
             ->get();
 
-        if ($workLocationsAll->isEmpty()) {
-            $workLocationsAll = WorkLocation::where('is_active', true)->with('branch')->take(100)->get();
-        }
+        $regionsList = [];
+        $areasList = [];
+        $storesList = [];
 
-        $regions = $workLocationsAll->pluck('region')->filter()->unique()->sort()->values()->toArray();
-        if (empty($regions)) {
-            $regions = ['JAWA TIMUR'];
-        }
+        foreach ($allTemplateSubmissions as $subItem) {
+            $wl = $subItem->workLocation;
+            $emp = $subItem->employee;
 
-        $areas = $workLocationsAll->filter(fn($l) => !empty($l->branch_id) && !empty($l->branch))
-            ->unique('branch_id')
-            ->map(function($l) {
-                return (object)[
-                    'id' => $l->branch_id,
-                    'name' => $l->branch->name ?? 'Cabang',
-                    'region' => $l->region ?? 'JAWA TIMUR'
+            // Region / Wilayah (dari workLocation atau employee branch)
+            $reg = !empty($wl?->region) ? strtoupper(trim($wl->region)) : (!empty($emp?->branch?->region) ? strtoupper(trim($emp->branch->region)) : null);
+            if ($reg && !in_array($reg, $regionsList)) {
+                $regionsList[] = $reg;
+            }
+
+            // Area / Daerah (dari workLocation branch atau employee branch)
+            $areaName = !empty($wl?->branch?->name) ? strtoupper(trim($wl->branch->name)) : (!empty($emp?->branch?->name) ? strtoupper(trim($emp->branch->name)) : null);
+            $areaId = $wl?->branch_id ?? ($emp?->branch_id ?? $areaName);
+            if ($areaName && !isset($areasList[$areaName])) {
+                $areasList[$areaName] = (object)[
+                    'id' => $areaId,
+                    'name' => $areaName,
+                    'region' => $reg ?? ''
                 ];
-            })->sortBy('name')->values();
+            }
 
-        if ($areas->isEmpty()) {
-            $sampleAreaNames = ['BOJONEGORO', 'MALANG', 'WONOCOLO', 'DRIYOREJO', 'TUBAN', 'PONOROGO', 'PACITAN', 'MADIUN'];
-            $areas = collect($sampleAreaNames)->map(function($name) {
-                return (object)['id' => $name, 'name' => $name, 'region' => 'JAWA TIMUR'];
-            });
+            // Toko / Outlet (dari workLocation atau store_name)
+            $storeName = !empty($wl?->name) ? trim($wl->name) : (!empty($subItem->store_name) ? trim($subItem->store_name) : null);
+            $storeId = $wl?->id ?? ($subItem->store_name ?? null);
+            if ($storeName && !isset($storesList[$storeName])) {
+                $storesList[$storeName] = (object)[
+                    'id' => $storeId,
+                    'name' => $storeName,
+                    'region' => $reg ?? '',
+                    'area' => $areaName ?? ''
+                ];
+            }
         }
 
-        $workLocations = $workLocationsAll->map(function($l) {
-            return (object)[
-                'id' => $l->id,
-                'name' => $l->name,
-                'region' => $l->region ?? 'JAWA TIMUR',
-                'area' => $l->branch->name ?? ''
-            ];
-        })->sortBy('name')->values();
+        sort($regionsList);
+        $regions = array_values($regionsList);
 
-        // 3. Process submissions
+        uasort($areasList, fn($a, $b) => strcmp($a->name, $b->name));
+        $areas = collect(array_values($areasList));
+
+        uasort($storesList, fn($a, $b) => strcmp($a->name, $b->name));
+        $workLocations = collect(array_values($storesList));
+
+        // 3. Process submissions (Purely data-driven calculations)
         $totalQty = 0;
         $totalValue = 0;
         $totalBooth = 0;
@@ -12036,14 +12064,14 @@ class PrincipalPortalController extends Controller
         $todayStr = Carbon::now()->format('Y-m-d');
 
         foreach ($allSubmissions as $sub) {
-            $subDate = $sub->submitted_at ? $sub->submitted_at->format('Y-m-d') : $sub->created_at->format('Y-m-d');
-            $subDateDisplay = $sub->submitted_at ? $sub->submitted_at->translatedFormat('d F Y') : Carbon::parse($subDate)->translatedFormat('d F Y');
-            $empName = $sub->employee ? $sub->employee->full_name : 'Mitra Wings';
-            $branchName = $sub->workLocation && $sub->workLocation->branch ? $sub->workLocation->branch->name : ($sub->employee && $sub->employee->branch ? $sub->employee->branch->name : 'SURABAYA');
-            $regionName = $sub->workLocation && !empty($sub->workLocation->region) ? $sub->workLocation->region : 'JAWA TIMUR';
-            $storeName = $sub->workLocation ? $sub->workLocation->name : 'Outlet Toko';
+            $subDate = $sub->submitted_at ? $sub->submitted_at->format('Y-m-d') : ($sub->created_at ? $sub->created_at->format('Y-m-d') : Carbon::now()->format('Y-m-d'));
+            $subDateDisplay = $sub->submitted_at ? $sub->submitted_at->translatedFormat('d F Y') : ($sub->created_at ? $sub->created_at->translatedFormat('d F Y') : Carbon::now()->translatedFormat('d F Y'));
+            $empName = $sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'Petugas / Mitra';
+            $branchName = $sub->workLocation && $sub->workLocation->branch ? $sub->workLocation->branch->name : ($sub->employee && $sub->employee->branch ? $sub->employee->branch->name : '-');
+            $regionName = $sub->workLocation && !empty($sub->workLocation->region) ? $sub->workLocation->region : ($sub->employee && $sub->employee->branch && !empty($sub->employee->branch->region) ? $sub->employee->branch->region : '-');
+            $storeName = $sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: 'Toko / Outlet');
 
-            $uniqueStoresMap[$sub->work_location_id ?: $storeName] = true;
+            $uniqueStoresMap[$storeName] = true;
 
             $cartItems = [];
             $subQty = 0;
@@ -12076,14 +12104,14 @@ class PrincipalPortalController extends Controller
                 $calcQ = 0; $calcV = 0; $calcB = 0; $calcK = 0;
                 foreach ($cartItems as $cIt) {
                     $q = (int)($cIt['qty'] ?? 1);
-                    $price = (float)($cIt['store_price'] ?? ($cIt['price'] ?? 3100));
+                    $price = (float)($cIt['store_price'] ?? ($cIt['price'] ?? 0));
                     $v = (float)($cIt['value_rp'] ?? ($q * $price));
                     $pt = strtolower($cIt['payment_type'] ?? 'booth');
                     $calcQ += $q;
                     $calcV += $v;
                     if (str_contains($pt, 'kasir')) $calcK += $v; else $calcB += $v;
 
-                    $pName = strtoupper(trim($cIt['name'] ?? ($cIt['product_name'] ?? 'MIE SEDAAP GORENG')));
+                    $pName = strtoupper(trim($cIt['name'] ?? ($cIt['product_name'] ?? 'PRODUK')));
                     $pSku = $cIt['sku_code'] ?? ($cIt['sku'] ?? '-');
                     $uniqueProductsMap[$pName] = true;
 
@@ -12145,19 +12173,25 @@ class PrincipalPortalController extends Controller
             $mitraAgg[$empName]['value'] += $subVal;
             $mitraAgg[$empName]['stores'][$storeName] = true;
 
-            if (!isset($areaAgg[$branchName])) {
-                $areaAgg[$branchName] = ['area' => $branchName, 'stores' => [], 'qty' => 0, 'value' => 0];
+            if ($branchName !== '-') {
+                if (!isset($areaAgg[$branchName])) {
+                    $areaAgg[$branchName] = ['area' => $branchName, 'stores' => [], 'qty' => 0, 'value' => 0];
+                }
+                $areaAgg[$branchName]['qty'] += $subQty;
+                $areaAgg[$branchName]['value'] += $subVal;
+                $areaAgg[$branchName]['stores'][$storeName] = true;
             }
-            $areaAgg[$branchName]['qty'] += $subQty;
-            $areaAgg[$branchName]['value'] += $subVal;
-            $areaAgg[$branchName]['stores'][$storeName] = true;
 
-            if (!isset($regionAgg[$regionName])) {
-                $regionAgg[$regionName] = ['region' => $regionName, 'areas' => [], 'qty' => 0, 'value' => 0];
+            if ($regionName !== '-') {
+                if (!isset($regionAgg[$regionName])) {
+                    $regionAgg[$regionName] = ['region' => $regionName, 'areas' => [], 'qty' => 0, 'value' => 0];
+                }
+                $regionAgg[$regionName]['qty'] += $subQty;
+                $regionAgg[$regionName]['value'] += $subVal;
+                if ($branchName !== '-') {
+                    $regionAgg[$regionName]['areas'][$branchName] = true;
+                }
             }
-            $regionAgg[$regionName]['qty'] += $subQty;
-            $regionAgg[$regionName]['value'] += $subVal;
-            $regionAgg[$regionName]['areas'][$branchName] = true;
 
             if (!isset($dailyAgg[$subDate])) {
                 $dailyAgg[$subDate] = ['date' => $subDate, 'date_display' => $subDateDisplay, 'qty' => 0, 'value' => 0, 'submissions' => 0];
@@ -12167,147 +12201,63 @@ class PrincipalPortalController extends Controller
             $dailyAgg[$subDate]['submissions']++;
         }
 
-        if ($allSubmissions->isEmpty()) {
-            $totalQty = 81263;
-            $totalValue = 268167900;
-            $todayQty = 742;
-            $totalBooth = 160900000;
-            $totalKasir = 107267900;
-            $uniqueStoresCount = 65;
-            $uniqueProductsCount = 38;
+        // Sort rankings & format tables (purely from submitted data)
+        uasort($mitraAgg, fn($a, $b) => $b['qty'] <=> $a['qty']);
+        $topMitra = array_slice(array_values($mitraAgg), 0, 5);
 
-            $topMitra = [
-                ['name' => 'SALSA RARA SABILA', 'area' => 'BOJONEGORO', 'qty' => 8763, 'value' => 27165300],
-                ['name' => 'JIHAN YENI ARIFAH', 'area' => 'WONOCOLO', 'qty' => 8472, 'value' => 26263200],
-                ['name' => 'ARISKA WIDYA PUTRI', 'area' => 'BOJONEGORO', 'qty' => 8432, 'value' => 26139200],
-                ['name' => 'FIRDA MAYA LIDYANA', 'area' => 'DRIYOREJO', 'qty' => 8366, 'value' => 25934600],
-                ['name' => 'DEA ADRIANA ARTHAMEVIA', 'area' => 'MALANG', 'qty' => 5877, 'value' => 18218700],
-            ];
+        uasort($productAgg, fn($a, $b) => $b['qty'] <=> $a['qty']);
+        $topProducts = array_slice(array_values($productAgg), 0, 5);
 
-            $topProducts = [
-                ['name' => 'MIE SEDAAP GORENG', 'sku' => 'WS-MS-01', 'price' => 3100, 'qty' => 17007, 'value' => 52721700],
-                ['name' => 'MIE SEDAAP SOTO', 'sku' => 'WS-MS-02', 'price' => 3100, 'qty' => 11075, 'value' => 34332500],
-                ['name' => 'MIE SEDAAP SELECTION KOREAN SPICY CHICKEN', 'sku' => 'WS-MS-15', 'price' => 3400, 'qty' => 5503, 'value' => 18710200],
-                ['name' => 'MIE SEDAAP AYAM BAWANG', 'sku' => 'WS-MS-05', 'price' => 3100, 'qty' => 3308, 'value' => 10254800],
-                ['name' => 'MIE SEDAAP KARI KENTAL SPECIAL', 'sku' => 'WS-MS-08', 'price' => 3200, 'qty' => 3155, 'value' => 10096000],
+        uasort($areaAgg, fn($a, $b) => $b['qty'] <=> $a['qty']);
+        $salesByArea = array_map(function($item) {
+            return [
+                'area' => $item['area'],
+                'store_count' => count($item['stores']),
+                'qty' => $item['qty'],
+                'value' => $item['value']
             ];
+        }, array_values($areaAgg));
 
-            $salesByArea = [
-                ['area' => 'BOJONEGORO', 'store_count' => 14, 'qty' => 17195, 'value' => 53304500],
-                ['area' => 'MALANG', 'store_count' => 11, 'qty' => 12578, 'value' => 38991800],
-                ['area' => 'WONOCOLO', 'store_count' => 10, 'qty' => 12425, 'value' => 38517500],
-                ['area' => 'DRIYOREJO', 'store_count' => 9, 'qty' => 10595, 'value' => 32844500],
-                ['area' => 'TUBAN', 'store_count' => 8, 'qty' => 9041, 'value' => 28027100],
-                ['area' => 'PONOROGO', 'store_count' => 5, 'qty' => 5677, 'value' => 17598700],
-                ['area' => 'PACITAN', 'store_count' => 4, 'qty' => 3941, 'value' => 12217100],
-                ['area' => 'MADIUN', 'store_count' => 4, 'qty' => 9811, 'value' => 30413700],
+        uasort($regionAgg, fn($a, $b) => $b['qty'] <=> $a['qty']);
+        $salesByRegion = array_map(function($item) {
+            return [
+                'region' => $item['region'],
+                'area_count' => count($item['areas']),
+                'qty' => $item['qty'],
+                'value' => $item['value']
             ];
+        }, array_values($regionAgg));
 
-            $salesByRegion = [
-                ['region' => 'JAWA TIMUR', 'area_count' => 8, 'qty' => 81263, 'value' => 268167900],
-            ];
+        ksort($dailyAgg);
+        $chartDates = array_keys($dailyAgg);
+        $chartQtys = array_column($dailyAgg, 'qty');
+        $chartValues = array_column($dailyAgg, 'value');
 
-            $chartDates = [];
-            $chartQtys = [];
-            $chartValues = [];
-            $sampleDays = [
-                ['d' => '2026-09-01', 'q' => 18100, 'v' => 56110000],
-                ['d' => '2026-09-02', 'q' => 22150, 'v' => 68665000],
-                ['d' => '2026-09-03', 'q' => 14050, 'v' => 43555000],
-                ['d' => '2026-09-04', 'q' => 2750, 'v' => 8525000],
-                ['d' => '2026-09-05', 'q' => 1620, 'v' => 5022000],
-                ['d' => '2026-09-06', 'q' => 1580, 'v' => 4898000],
-                ['d' => '2026-09-07', 'q' => 9420, 'v' => 29202000],
-                ['d' => '2026-09-08', 'q' => 10851, 'v' => 33638100],
-                ['d' => '2026-09-09', 'q' => 742, 'v' => 2297800],
-            ];
-            foreach ($sampleDays as $sd) {
-                $chartDates[] = $sd['d'];
-                $chartQtys[] = $sd['q'];
-                $chartValues[] = $sd['v'];
+        // Dynamic Weekly and Monthly Buckets from actual data
+        $weeks = ['Minggu 1' => 0, 'Minggu 2' => 0, 'Minggu 3' => 0, 'Minggu 4' => 0];
+        $months = [];
+
+        foreach ($dailyAgg as $dateKey => $dVal) {
+            $dayNum = (int)date('j', strtotime($dateKey));
+            if ($dayNum <= 7) {
+                $weeks['Minggu 1'] += $dVal['qty'];
+            } elseif ($dayNum <= 14) {
+                $weeks['Minggu 2'] += $dVal['qty'];
+            } elseif ($dayNum <= 21) {
+                $weeks['Minggu 3'] += $dVal['qty'];
+            } else {
+                $weeks['Minggu 4'] += $dVal['qty'];
             }
 
-            $galleryPhotos = [
-                [
-                    'type' => 'struk',
-                    'title' => 'Dokumentasi Struk Penjualan',
-                    'url' => 'https://images.unsplash.com/photo-1554415707-9e4201938061?w=600&q=80',
-                    'product' => 'MIE SEDAAP GORENG',
-                    'date' => '06 September 2026',
-                    'mitra' => 'AL AFYA NUR AUGES WIJAYA',
-                    'store' => 'SAMUDRA SUPERMARKET',
-                    'qty' => 48,
-                    'value' => 148800
-                ],
-                [
-                    'type' => 'struk',
-                    'title' => 'Dokumentasi Struk Penjualan',
-                    'url' => 'https://images.unsplash.com/photo-1554415707-9e4201938061?w=600&q=80',
-                    'product' => 'MIE SEDAAP SOTO',
-                    'date' => '06 September 2026',
-                    'mitra' => 'ANNISA ZALZALA',
-                    'store' => 'SURYA MM PONOROGO',
-                    'qty' => 60,
-                    'value' => 186000
-                ],
-                [
-                    'type' => 'struk',
-                    'title' => 'Dokumentasi Struk Penjualan',
-                    'url' => 'https://images.unsplash.com/photo-1554415707-9e4201938061?w=600&q=80',
-                    'product' => 'MIE SEDAAP SELECTION KOREAN SPICY',
-                    'date' => '06 September 2026',
-                    'mitra' => 'ARISKA WIDYA PUTRI',
-                    'store' => 'CV KARUNIA DAMAI SENTOSA',
-                    'qty' => 24,
-                    'value' => 81600
-                ],
-                [
-                    'type' => 'struk',
-                    'title' => 'Dokumentasi Struk Penjualan',
-                    'url' => 'https://images.unsplash.com/photo-1554415707-9e4201938061?w=600&q=80',
-                    'product' => 'MIE SEDAAP AYAM BAWANG',
-                    'date' => '06 September 2026',
-                    'mitra' => 'DEVI CAHYANINGRUM',
-                    'store' => 'Samudra Supermarket Madiun',
-                    'qty' => 40,
-                    'value' => 124000
-                ],
-            ];
-        } else {
-            uasort($mitraAgg, fn($a, $b) => $b['qty'] <=> $a['qty']);
-            $topMitra = array_slice(array_values($mitraAgg), 0, 5);
-
-            uasort($productAgg, fn($a, $b) => $b['qty'] <=> $a['qty']);
-            $topProducts = array_slice(array_values($productAgg), 0, 5);
-
-            uasort($areaAgg, fn($a, $b) => $b['qty'] <=> $a['qty']);
-            $salesByArea = array_map(function($item) {
-                return [
-                    'area' => $item['area'],
-                    'store_count' => count($item['stores']),
-                    'qty' => $item['qty'],
-                    'value' => $item['value']
-                ];
-            }, array_values($areaAgg));
-
-            uasort($regionAgg, fn($a, $b) => $b['qty'] <=> $a['qty']);
-            $salesByRegion = array_map(function($item) {
-                return [
-                    'region' => $item['region'],
-                    'area_count' => count($item['areas']),
-                    'qty' => $item['qty'],
-                    'value' => $item['value']
-                ];
-            }, array_values($regionAgg));
-
-            ksort($dailyAgg);
-            $chartDates = array_keys($dailyAgg);
-            $chartQtys = array_column($dailyAgg, 'qty');
-            $chartValues = array_column($dailyAgg, 'value');
-
-            $uniqueStoresCount = count($uniqueStoresMap);
-            $uniqueProductsCount = count($uniqueProductsMap);
+            $monthLabel = Carbon::parse($dateKey)->translatedFormat('F Y');
+            if (!isset($months[$monthLabel])) {
+                $months[$monthLabel] = 0;
+            }
+            $months[$monthLabel] += $dVal['qty'];
         }
+
+        $uniqueStoresCount = count($uniqueStoresMap);
+        $uniqueProductsCount = count($uniqueProductsMap);
 
         return [
             'submissions' => $submissions,
@@ -12321,13 +12271,23 @@ class PrincipalPortalController extends Controller
                 'total_penjualan_hari_ini' => $todayQty,
                 'total_bayar_di_booth_rp' => $totalBooth,
                 'total_bayar_di_kasir_rp' => $totalKasir,
-                'total_submissions' => $allSubmissions->count() ?: 68,
+                'total_submissions' => $allSubmissions->count(),
                 'unique_stores' => $uniqueStoresCount,
             ],
             'chart' => [
-                'labels' => $chartDates,
-                'qtys' => $chartQtys,
-                'values' => $chartValues,
+                'daily' => [
+                    'labels' => $chartDates,
+                    'qtys' => $chartQtys,
+                    'values' => $chartValues,
+                ],
+                'weekly' => [
+                    'labels' => array_keys($weeks),
+                    'qtys' => array_values($weeks),
+                ],
+                'monthly' => [
+                    'labels' => !empty($months) ? array_keys($months) : [Carbon::create($startDate->year, $startDate->month, 1)->translatedFormat('F Y')],
+                    'qtys' => !empty($months) ? array_values($months) : [array_sum($chartQtys)],
+                ],
             ],
             'top_mitra' => $topMitra,
             'top_products' => $topProducts,

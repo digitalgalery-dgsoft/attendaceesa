@@ -628,18 +628,18 @@
     {{-- 2. KARTU KPI STAT UTAMA (BARIS 1: 4 KARTU SESUAI SLIDE 1 & 8) --}}
     <div class="mbr-kpi-grid-4">
         
-        {{-- Card 1: Total Sampling Freetaste (Green) --}}
+        {{-- Card 1: Total Nilai Penjualan / Omzet (Green) --}}
         <div class="mbr-kpi-card green">
             <div>
                 <div class="mbr-kpi-top">
-                    <span class="mbr-kpi-title">Total Sampling Freetaste</span>
-                    <div class="mbr-kpi-icon-badge"><i class="fa-solid fa-mug-hot"></i></div>
+                    <span class="mbr-kpi-title">Total Nilai Penjualan (Omzet)</span>
+                    <div class="mbr-kpi-icon-badge"><i class="fa-solid fa-money-bill-wave"></i></div>
                 </div>
-                <div class="mbr-kpi-val">4.839</div>
+                <div class="mbr-kpi-val" style="font-size: 1.45rem;">Rp {{ number_format($mbrData['kpis']['total_value_penjualan_rp'], 0, ',', '.') }}</div>
                 <div class="mbr-kpi-sub">Periode: {{ Carbon\Carbon::create($startYear, $startMonth, 1)->translatedFormat('F Y') }} - {{ Carbon\Carbon::create($endYear, $endMonth, 1)->translatedFormat('F Y') }}</div>
             </div>
-            <a href="javascript:void(0)" onclick="openGalleryModal('freetaste')" class="mbr-kpi-footer-link">
-                <span>👁️ Lihat Detail</span>
+            <a href="#table_submissions" class="mbr-kpi-footer-link">
+                <span>👁️ Lihat Rincian Transaksi</span>
                 <i class="fa-solid fa-arrow-right"></i>
             </a>
         </div>
@@ -664,11 +664,11 @@
         <div class="mbr-kpi-card orange">
             <div>
                 <div class="mbr-kpi-top">
-                    <span class="mbr-kpi-title">Total Produk Penjualan</span>
+                    <span class="mbr-kpi-title">Total Varian Produk</span>
                     <div class="mbr-kpi-icon-badge"><i class="fa-solid fa-tags"></i></div>
                 </div>
                 <div class="mbr-kpi-val">{{ $mbrData['kpis']['total_produk_penjualan'] }} <span style="font-size: 1rem; font-weight: 600;">SKU</span></div>
-                <div class="mbr-kpi-sub">Varian Mie Sedaap Terjual</div>
+                <div class="mbr-kpi-sub">Varian Produk Terjual di Laporan</div>
             </div>
             <a href="#table_top_products" class="mbr-kpi-footer-link">
                 <span>👁️ Lihat Detail</span>
@@ -693,25 +693,9 @@
         </div>
     </div>
 
-    {{-- KARTU KPI STAT PENDUKUNG (BARIS 2: TOTAL OMZET & BREAKDOWN BAYAR) --}}
+    {{-- KARTU KPI STAT PENDUKUNG (BARIS 2: METODE BAYAR, MITRA AKTIF & OUTLET) --}}
     <div class="mbr-kpi-grid-3">
-        {{-- Card 5: Total Nilai Omzet (Teal) --}}
-        <div class="mbr-kpi-card teal">
-            <div>
-                <div class="mbr-kpi-top">
-                    <span class="mbr-kpi-title">Total Nilai Penjualan (Omzet)</span>
-                    <div class="mbr-kpi-icon-badge"><i class="fa-solid fa-money-bill-wave"></i></div>
-                </div>
-                <div class="mbr-kpi-val" style="font-size: 1.55rem;">Rp {{ number_format($mbrData['kpis']['total_value_penjualan_rp'], 0, ',', '.') }}</div>
-                <div class="mbr-kpi-sub">Akumulasi seluruh transaksi event MBR</div>
-            </div>
-            <a href="#table_submissions" class="mbr-kpi-footer-link">
-                <span>👁️ Lihat Rincian Transaksi</span>
-                <i class="fa-solid fa-arrow-right"></i>
-            </a>
-        </div>
-
-        {{-- Card 6: Metode Pembayaran Booth vs Kasir (Purple) --}}
+        {{-- Card 5: Metode Pembayaran Booth vs Kasir (Purple) --}}
         <div class="mbr-kpi-card purple">
             <div>
                 <div class="mbr-kpi-top">
@@ -732,6 +716,22 @@
             </div>
             <a href="javascript:void(0)" onclick="openGalleryModal('struk')" class="mbr-kpi-footer-link">
                 <span>🧾 Galeri Foto Struk Penjualan</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </a>
+        </div>
+
+        {{-- Card 6: Total Mitra Penjualan (Teal) --}}
+        <div class="mbr-kpi-card teal">
+            <div>
+                <div class="mbr-kpi-top">
+                    <span class="mbr-kpi-title">Total Mitra Aktif (SPG/MD)</span>
+                    <div class="mbr-kpi-icon-badge"><i class="fa-solid fa-user-tie"></i></div>
+                </div>
+                <div class="mbr-kpi-val">{{ count($mbrData['top_mitra'] ?? []) }} <span style="font-size: 1rem; font-weight: 600;">Mitra</span></div>
+                <div class="mbr-kpi-sub">Rata-rata: Rp {{ count($mbrData['top_mitra'] ?? []) > 0 ? number_format($mbrData['kpis']['total_value_penjualan_rp'] / count($mbrData['top_mitra']), 0, ',', '.') : '0' }} / mitra</div>
+            </div>
+            <a href="#table_top_mitra" class="mbr-kpi-footer-link">
+                <span>👥 Lihat Top Mitra</span>
                 <i class="fa-solid fa-arrow-right"></i>
             </a>
         </div>
@@ -1020,23 +1020,11 @@
                             </td>
                         </tr>
                     @empty
-                        {{-- Jika belum ada transaksi live di database, tampilkan sample row representatif --}}
                         <tr>
-                            <td style="color: #64748b; font-weight: 700;">1</td>
-                            <td><strong>06/09/2026</strong><span style="display: block; font-size: 0.72rem; color: #64748b;">14:30 WIB</span></td>
-                            <td><strong>SALSA RARA SABILA</strong><span style="display: block; font-size: 0.72rem; color: #64748b;">NIK: WS-09281</span></td>
-                            <td><strong>SAMUDRA SUPERMARKET</strong><span style="display: block; font-size: 0.72rem; color: #64748b;">BOJONEGORO</span></td>
-                            <td>
-                                <span style="background: #f1f5f9; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem;">MIE SEDAAP GORENG: <strong>24</strong></span>
-                                <span style="background: #f1f5f9; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem;">MIE SEDAAP SOTO: <strong>24</strong></span>
-                            </td>
-                            <td class="num"><strong style="color: #2563eb;">48</strong></td>
-                            <td class="num"><strong style="color: #059669;">Rp 148.800</strong></td>
-                            <td><span class="mbr-badge-pill mbr-badge-booth">Bayar di Booth</span></td>
-                            <td style="text-align: center;">
-                                <button type="button" onclick="showDetailModal('Detail Transaksi #1', 'Salsa Rara Sabila • Samudra Supermarket Bojonegoro • Total 48 Pcs (Rp 148.800)')" class="mbr-btn-detail" style="background: #0284c7;">
-                                    <i class="fa-solid fa-eye"></i> Detail
-                                </button>
+                            <td colspan="9" style="text-align: center; padding: 2.5rem; color: #94a3b8;">
+                                <i class="fa-solid fa-folder-open" style="font-size: 2rem; display: block; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
+                                <div style="font-weight: 700; color: #475569; font-size: 1rem;">Belum Ada Data Laporan Masuk</div>
+                                <div style="font-size: 0.82rem; margin-top: 0.35rem;">Data transaksi submission untuk periode ini akan otomatis muncul saat petugas SPG/MD mengirimkan laporan.</div>
                             </td>
                         </tr>
                     @endforelse
@@ -1066,7 +1054,7 @@
         </div>
         <div class="mbr-modal-body">
             <div class="mbr-photo-grid" id="galleryGridContainer">
-                @foreach($mbrData['gallery_photos'] as $gp)
+                @forelse($mbrData['gallery_photos'] as $gp)
                     <div class="mbr-photo-card" data-type="{{ $gp['type'] }}">
                         <img src="{{ $gp['url'] }}" alt="{{ $gp['title'] }}" class="mbr-photo-thumb" onclick="openLightbox('{{ $gp['url'] }}')">
                         <div class="mbr-photo-info">
@@ -1078,11 +1066,17 @@
                                 <span style="font-size: 0.72rem; color: #0284c7; font-weight: 700;">{{ $gp['product'] }} ({{ $gp['qty'] }} pcs)</span>
                             @endif
                             <button type="button" onclick="openLightbox('{{ $gp['url'] }}')" class="mbr-btn-view-photo">
-                                <i class="fa-solid fa-magnifying-glass-plus"></i> Lihat Foto
+                                <i class="fa-solid fa-magnifying-glass-plus"></i> Perbesar Foto
                             </button>
                         </div>
                     </div>
-                @endforeach
+                @empty
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem; color: #94a3b8;">
+                        <i class="fa-solid fa-images" style="font-size: 2.5rem; display: block; margin-bottom: 0.75rem; color: #cbd5e1;"></i>
+                        <div style="font-weight: 700; color: #475569; font-size: 1rem;">Belum Ada Foto Struk / Sell Out</div>
+                        <p style="font-size: 0.82rem; margin-top: 0.35rem;">Dokumentasi foto struk dan foto sell out toko akan otomatis muncul di sini saat petugas mengirimkan laporan melalui aplikasi.</p>
+                    </div>
+                @endforelse
             </div>
         </div>
     </div>
@@ -1112,9 +1106,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     let mbrChartInstance = null;
-    const rawChartDates = @json($mbrData['chart']['labels'] ?? []);
-    const rawChartQtys = @json($mbrData['chart']['qtys'] ?? []);
-    const rawChartValues = @json($mbrData['chart']['values'] ?? []);
+    const chartData = {
+        daily: @json($mbrData['chart']['daily'] ?? ['labels' => [], 'qtys' => []]),
+        weekly: @json($mbrData['chart']['weekly'] ?? ['labels' => [], 'qtys' => []]),
+        monthly: @json($mbrData['chart']['monthly'] ?? ['labels' => [], 'qtys' => []])
+    };
 
     function initMbrSalesChart() {
         const ctx = document.getElementById('mbrSalesChart');
@@ -1124,13 +1120,16 @@
             mbrChartInstance.destroy();
         }
 
+        const initialLabels = chartData.daily.labels || [];
+        const initialQtys = chartData.daily.qtys || [];
+
         mbrChartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: rawChartDates,
+                labels: initialLabels,
                 datasets: [{
                     label: 'Qty Penjualan (Pcs)',
-                    data: rawChartQtys,
+                    data: initialQtys,
                     backgroundColor: '#10b981',
                     borderRadius: 6,
                     borderSkipped: false,
@@ -1177,18 +1176,10 @@
         document.getElementById('btn_mode_monthly')?.classList.remove('active');
         document.getElementById('btn_mode_' + mode)?.classList.add('active');
 
-        if (!mbrChartInstance) return;
+        if (!mbrChartInstance || !chartData[mode]) return;
 
-        if (mode === 'daily') {
-            mbrChartInstance.data.labels = rawChartDates;
-            mbrChartInstance.data.datasets[0].data = rawChartQtys;
-        } else if (mode === 'weekly') {
-            mbrChartInstance.data.labels = ['Minggu 1', 'Minggu 2', 'Minggu 3', 'Minggu 4'];
-            mbrChartInstance.data.datasets[0].data = [35000, 28000, 15000, 3263];
-        } else if (mode === 'monthly') {
-            mbrChartInstance.data.labels = ['September 2026'];
-            mbrChartInstance.data.datasets[0].data = [81263];
-        }
+        mbrChartInstance.data.labels = chartData[mode].labels || [];
+        mbrChartInstance.data.datasets[0].data = chartData[mode].qtys || [];
         mbrChartInstance.update();
     }
 
