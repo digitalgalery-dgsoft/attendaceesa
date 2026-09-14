@@ -20,6 +20,7 @@ import 'profile_screen.dart';
 import 'reporting_hub_screen.dart';
 import 'package:att_mobile/utils/constants.dart';
 import '../widgets/custom_loading_indicator.dart';
+import '../widgets/location_disclosure_dialog.dart';
 
 class ScheduledLocationItem {
   final String id;
@@ -209,6 +210,13 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
 
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
+      if (mounted) {
+        final consented = await LocationDisclosureHelper.ensureDisclosure(context);
+        if (!consented) {
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         setState(() => _isLoading = false);

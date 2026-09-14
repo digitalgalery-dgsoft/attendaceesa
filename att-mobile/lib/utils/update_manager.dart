@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:open_filex/open_filex.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:att_mobile/utils/constants.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -38,7 +36,7 @@ class UpdateManager {
 
         debugPrint('[UpdateManager] BaseURL: ${Constants.baseUrl}, ServerVersion: $serverVersion, DownloadUrl: $downloadUrl, Force: $isForceUpdate');
 
-        if (serverVersion != null && serverVersion.isNotEmpty && downloadUrl != null && downloadUrl.isNotEmpty) {
+        if (serverVersion != null && serverVersion.isNotEmpty) {
           final packageInfo = await PackageInfo.fromPlatform();
           final String currentVersion = packageInfo.version;
           debugPrint('[UpdateManager] Local Version: $currentVersion vs Server: $serverVersion');
@@ -60,12 +58,14 @@ class UpdateManager {
 
   static bool _isUpdateAvailable(String currentVersion, String serverVersion) {
     try {
-      List<int> currentParts = currentVersion.split('.').map(int.parse).toList();
-      List<int> serverParts = serverVersion.split('.').map(int.parse).toList();
+      final currentParts = currentVersion.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+      final serverParts = serverVersion.split('.').map((e) => int.tryParse(e) ?? 0).toList();
 
-      for (int i = 0; i < serverParts.length; i++) {
-        int currentPart = i < currentParts.length ? currentParts[i] : 0;
-        if (serverParts[i] > currentPart) {
+      for (int i = 0; i < 3; i++) {
+        final currentPart = i < currentParts.length ? currentParts[i] : 0;
+        final serverPart = i < serverParts.length ? serverParts[i] : 0;
+
+        if (serverPart > currentPart) {
           return true;
         } else if (serverParts[i] < currentPart) {
           return false;
@@ -77,7 +77,7 @@ class UpdateManager {
     }
   }
 
-  static void _showUpdateDialog(BuildContext context, String newVersion, String url, bool isForceUpdate) {
+  static void _showUpdateDialog(BuildContext context, String newVersion, String? customUrl, bool isForceUpdate) {
     showDialog(
       context: context,
       barrierDismissible: !isForceUpdate,
@@ -89,7 +89,7 @@ class UpdateManager {
           },
           child: AlertDialog(
             title: const Text('Update Tersedia'),
-            content: Text('Versi terbaru ($newVersion) telah tersedia. Silakan update aplikasi Anda untuk kelancaran absensi dan kestabilan sistem.'),
+            content: Text('Versi terbaru ($newVersion) telah tersedia di Google Play Store. Silakan perbarui aplikasi Anda untuk kelancaran absensi dan kestabilan sistem.'),
             actions: [
               if (!isForceUpdate)
                 TextButton(
@@ -103,9 +103,9 @@ class UpdateManager {
                 onPressed: () {
                   _isDialogShowing = false;
                   if (!isForceUpdate) Navigator.pop(context);
-                  _downloadAndInstall(context, url);
+                  _openPlayStore(customUrl);
                 },
-                child: const Text('Update Sekarang'),
+                child: const Text('Buka Play Store'),
               ),
             ],
           ),
@@ -116,104 +116,24 @@ class UpdateManager {
     });
   }
 
-  static Future<void> _downloadAndInstall(BuildContext context, String url) async {
-    String message = 'Memulai proses update...';
-    bool hasError = false;
-    
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        double progress = 0.0;
-        
-        return StatefulBuilder(builder: (context, setState) {
-          // Hanya jalankan download sekali
-          if (progress == 0.0 && message == 'Memulai proses update...' && !hasError) {
-            _performDownload(url, (received, total) {
-              if (total != -1) {
-                setState(() {
-                  progress = received / total;
-                  message = 'Mengunduh: ${(progress * 100).toStringAsFixed(0)}%';
-                });
-              }
-            }).then((filePath) {
-              if (filePath != null) {
-                if (dialogContext.mounted) {
-                  Navigator.pop(dialogContext); // Close progress dialog
-                }
-                _installApk(filePath);
-              } else {
-                if (dialogContext.mounted) {
-                  setState(() {
-                    hasError = true;
-                    message = 'Koneksi terputus saat aplikasi diminimize atau jaringan tidak stabil.';
-                  });
-                }
-              }
-            });
-          }
+  static Future<void> _openPlayStore(String? customUrl) async {
+    // 1. Prioritize Google Play Market protocol
+    final playStoreUri = Uri.parse('market://details?id=com.attendance.att_mobile');
+    final webPlayStoreUri = Uri.parse('https://play.google.com/store/apps/details?id=com.attendance.att_mobile');
 
-          return PopScope(
-            canPop: hasError,
-            child: AlertDialog(
-              title: const Text('Mengunduh Update'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (!hasError) LinearProgressIndicator(value: progress),
-                  const SizedBox(height: 16),
-                  Text(message, textAlign: TextAlign.center),
-                ],
-              ),
-              actions: hasError
-                  ? [
-                      TextButton(
-                        onPressed: () => Navigator.pop(dialogContext),
-                        child: const Text('Tutup'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            hasError = false;
-                            message = 'Memulai proses update...';
-                            progress = 0.0;
-                          });
-                        },
-                        child: const Text('Coba Lagi'),
-                      ),
-                    ]
-                  : null,
-            ),
-          );
-        });
-      },
-    );
-  }
-
-  static Future<String?> _performDownload(String url, Function(int, int) onReceiveProgress) async {
     try {
-      final dio = Dio();
-      final dir = await getExternalStorageDirectory();
-      final savePath = '${dir?.path}/update_app.apk';
-
-      await dio.download(
-        url,
-        savePath,
-        onReceiveProgress: onReceiveProgress,
-      );
-      
-      return savePath;
+      if (await canLaunchUrl(playStoreUri)) {
+        await launchUrl(playStoreUri, mode: LaunchMode.externalApplication);
+      } else if (await canLaunchUrl(webPlayStoreUri)) {
+        await launchUrl(webPlayStoreUri, mode: LaunchMode.externalApplication);
+      } else if (customUrl != null && customUrl.isNotEmpty) {
+        final uri = Uri.parse(customUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      }
     } catch (e) {
-      debugPrint('Download error: $e');
-      return null;
-    }
-  }
-
-  static Future<void> _installApk(String filePath) async {
-    try {
-      await OpenFilex.open(filePath);
-    } catch (e) {
-      debugPrint('Install error: $e');
+      debugPrint('[UpdateManager] Error opening Play Store: $e');
     }
   }
 }

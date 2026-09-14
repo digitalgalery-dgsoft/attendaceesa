@@ -55,6 +55,9 @@ if (Test-Path $sourceApk) {
         Copy-Item -Path $sourceApk -Destination "$adminPublic\$destApk" -Force
         Write-Host "Copied to $adminPublic\app-release.apk and $adminPublic\$destApk"
     }
+    Copy-Item -Path $sourceApk -Destination "..\app-release.apk" -Force
+    Copy-Item -Path $sourceApk -Destination "..\$destApk" -Force
+    Write-Host "Copied to ..\app-release.apk and ..\$destApk"
 } else {
     Write-Host "Failed to build APK."
     exit 1

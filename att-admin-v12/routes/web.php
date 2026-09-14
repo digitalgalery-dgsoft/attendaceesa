@@ -783,3 +783,15 @@ Route::middleware(['web'])->group(function () {
     Route::get('/server-monitoring', [\App\Http\Controllers\Admin\ServerMonitoringController::class, 'standalone'])->name('server.monitoring.standalone');
 });
 
+// ==============================================================================
+// 📄 PUBLIC PRIVACY POLICY (GOOGLE PLAY COMPLIANT)
+// ==============================================================================
+Route::get('/privacy-policy', function () {
+    return view('privacy_policy');
+})->name('privacy.policy');
+
+Route::get('/privasy-policy', function () {
+    return view('privacy_policy');
+});
+
+
