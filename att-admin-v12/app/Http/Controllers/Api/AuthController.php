@@ -110,6 +110,17 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $employee = $request->user();
+
+        if (!$employee || !$employee->is_active) {
+            if ($employee && method_exists($employee, 'tokens')) {
+                $employee->tokens()->delete();
+            }
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Akun karyawan tidak aktif atau telah dinonaktifkan. Silakan hubungi administrator.'
+            ], 401);
+        }
+
         $employee->load(['company', 'principal', 'branch', 'department', 'position']);
 
         return response()->json([

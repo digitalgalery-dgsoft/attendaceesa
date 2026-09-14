@@ -33,8 +33,8 @@ class ReportSubmissionModel {
     this.storeName,
     this.address,
     this.workLocationId,
-    required this.status,
-    this.statusLabel = 'Menunggu Verifikasi',
+    this.status,
+    this.statusLabel = 'Terkirim',
     this.canEdit = true,
     this.isWithinRadius = true,
     this.latitude,
@@ -59,9 +59,21 @@ class ReportSubmissionModel {
       } catch (_) {}
     }
 
-    final rawStatus = json['status']?.toString().toLowerCase() ?? 'pending';
-    final isApproved = rawStatus == 'approved' || rawStatus == 'verified';
-    final canEditVal = json['can_edit'] != null ? (json['can_edit'] == true || json['can_edit'] == 1) : !isApproved;
+    final parsedSubmittedAt = json['submitted_at'] != null 
+        ? DateTime.tryParse(json['submitted_at'].toString()) ?? DateTime.now()
+        : DateTime.now();
+
+    final now = DateTime.now();
+    final isToday = parsedSubmittedAt.year == now.year &&
+                    parsedSubmittedAt.month == now.month &&
+                    parsedSubmittedAt.day == now.day;
+
+    final rawStatus = json['status']?.toString().toLowerCase() ?? 'submitted';
+    final canEditVal = json['can_edit'] != null 
+        ? (json['can_edit'] == true || json['can_edit'] == 1) 
+        : isToday;
+
+    final defaultStatusLabel = rawStatus == 'rejected' ? 'Ditolak' : 'Terkirim';
 
     return ReportSubmissionModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
@@ -74,14 +86,12 @@ class ReportSubmissionModel {
       address: json['address'],
       workLocationId: json['work_location_id'] is int ? json['work_location_id'] : int.tryParse(json['work_location_id']?.toString() ?? ''),
       status: rawStatus,
-      statusLabel: json['status_label'] ?? (isApproved ? 'Terverifikasi (Approve)' : (rawStatus == 'rejected' ? 'Ditolak' : 'Menunggu Verifikasi')),
+      statusLabel: json['status_label'] ?? defaultStatusLabel,
       canEdit: canEditVal,
       isWithinRadius: json['is_within_radius'] == true || json['is_within_radius'] == 1,
       latitude: json['latitude'] is num ? (json['latitude'] as num).toDouble() : double.tryParse(json['latitude']?.toString() ?? ''),
       longitude: json['longitude'] is num ? (json['longitude'] as num).toDouble() : double.tryParse(json['longitude']?.toString() ?? ''),
-      submittedAt: json['submitted_at'] != null 
-          ? DateTime.tryParse(json['submitted_at'].toString()) ?? DateTime.now()
-          : DateTime.now(),
+      submittedAt: parsedSubmittedAt,
       submittedAtFormatted: json['submitted_at_formatted'],
       principalName: json['principal_name'] ?? json['principal']?['name'],
       template: parsedTemplate,

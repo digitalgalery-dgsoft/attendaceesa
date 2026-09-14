@@ -100,16 +100,12 @@ class ReportSubmissionsTable
                     ->label('Status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => match($state) {
-                        'pending', 'submitted' => 'Menunggu Verifikasi',
-                        'approved', 'verified' => 'Terverifikasi',
                         'rejected' => 'Ditolak',
-                        default => $state,
+                        default => 'Terkirim',
                     })
                     ->color(fn ($state) => match($state) {
-                        'pending', 'submitted' => 'warning',
-                        'approved', 'verified' => 'success',
                         'rejected' => 'danger',
-                        default => 'gray',
+                        default => 'success',
                     }),
 
                 IconColumn::make('is_within_radius')

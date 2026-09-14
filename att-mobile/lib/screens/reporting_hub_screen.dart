@@ -1396,18 +1396,14 @@ class _ReportingHubScreenState extends State<ReportingHubScreen> with SingleTick
         Color statusTextColor;
         String statusLabel;
 
-        if (item.status == 'verified') {
-          statusBgColor = Colors.green.withOpacity(0.12);
-          statusTextColor = Colors.green.shade700;
-          statusLabel = 'Terverifikasi';
-        } else if (item.status == 'rejected') {
+        if (item.status == 'rejected') {
           statusBgColor = Colors.red.withOpacity(0.12);
           statusTextColor = Colors.red.shade700;
           statusLabel = 'Ditolak';
         } else {
-          statusBgColor = Colors.orange.withOpacity(0.12);
-          statusTextColor = Colors.orange.shade800;
-          statusLabel = 'Menunggu';
+          statusBgColor = Colors.teal.withOpacity(0.12);
+          statusTextColor = Colors.teal.shade700;
+          statusLabel = 'Terkirim';
         }
 
         return Container(

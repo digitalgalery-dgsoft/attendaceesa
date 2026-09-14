@@ -167,25 +167,20 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     final subtitleColor = isDarkMode ? Colors.grey.shade400 : const Color(0xFF707893);
     final elevatedColor = isDarkMode ? Colors.grey.shade800 : const Color(0xFFEDF1F8);
 
-    final isApproved = _currentSubmission.status == 'approved' || _currentSubmission.status == 'verified';
     final isRejected = _currentSubmission.status == 'rejected';
 
     Color statusBgColor;
     Color statusTextColor;
     IconData statusIcon;
 
-    if (isApproved) {
-      statusBgColor = Colors.green.withOpacity(0.15);
-      statusTextColor = Colors.green.shade700;
-      statusIcon = Icons.check_circle_rounded;
-    } else if (isRejected) {
+    if (isRejected) {
       statusBgColor = Colors.red.withOpacity(0.15);
       statusTextColor = Colors.red.shade700;
       statusIcon = Icons.cancel_rounded;
     } else {
-      statusBgColor = Colors.orange.withOpacity(0.15);
-      statusTextColor = Colors.orange.shade800;
-      statusIcon = Icons.hourglass_top_rounded;
+      statusBgColor = Colors.teal.withOpacity(0.15);
+      statusTextColor = Colors.teal.shade700;
+      statusIcon = Icons.check_circle_rounded;
     }
 
     final dateStr = DateFormat('dd MMMM yyyy, HH:mm').format(_currentSubmission.submittedAt);

@@ -960,7 +960,7 @@ class ReportingApiController extends Controller
                     'latitude' => $request->latitude,
                     'longitude' => $request->longitude,
                     'is_within_radius' => $isWithinRadius,
-                    'status' => 'pending',
+                    'status' => 'submitted',
                     'submitted_at' => now(),
                 ]);
 
@@ -1167,7 +1167,7 @@ class ReportingApiController extends Controller
                     'latitude' => $request->latitude,
                     'longitude' => $request->longitude,
                     'is_within_radius' => $isWithinRadius,
-                    'status' => 'pending',
+                    'status' => 'submitted',
                     'submitted_at' => now(),
                 ]);
 
@@ -1360,7 +1360,7 @@ class ReportingApiController extends Controller
                     'latitude' => $request->latitude,
                     'longitude' => $request->longitude,
                     'is_within_radius' => $isWithinRadius,
-                    'status' => 'pending',
+                    'status' => 'submitted',
                     'submitted_at' => now(),
                 ]);
 
@@ -1628,7 +1628,7 @@ class ReportingApiController extends Controller
                     'latitude' => $request->latitude,
                     'longitude' => $request->longitude,
                     'is_within_radius' => $isWithinRadius,
-                    'status' => 'pending',
+                    'status' => 'submitted',
                     'submitted_at' => now(),
                 ]);
 
@@ -1830,7 +1830,7 @@ class ReportingApiController extends Controller
                     'latitude' => $request->latitude,
                     'longitude' => $request->longitude,
                     'is_within_radius' => $isWithinRadius,
-                    'status' => 'pending',
+                    'status' => 'submitted',
                     'submitted_at' => now(),
                 ]);
 
@@ -1983,7 +1983,7 @@ class ReportingApiController extends Controller
                 'latitude' => $request->latitude,
                 'longitude' => $request->longitude,
                 'is_within_radius' => $isWithinRadius,
-                'status' => 'pending',
+                'status' => 'submitted',
                 'submitted_at' => now(),
             ]);
 
@@ -2350,8 +2350,8 @@ class ReportingApiController extends Controller
             ->paginate($limit);
 
         $items = collect($submissions->items())->map(function ($s) {
-            $isApproved = in_array(strtolower($s->status ?? ''), ['approved', 'verified']);
-            $canEdit = !$isApproved;
+            $subDate = $s->submitted_at ?? $s->created_at;
+            $canEdit = $subDate ? $subDate->isToday() : false;
 
             $valuesFormatted = $this->formatSubmissionValues($s->values);
 
@@ -2365,11 +2365,10 @@ class ReportingApiController extends Controller
                 'store_name' => $s->store_name,
                 'address' => $s->address,
                 'work_location_id' => $s->work_location_id,
-                'status' => $s->status ?? 'pending',
+                'status' => $s->status ?? 'submitted',
                 'status_label' => match(strtolower($s->status ?? '')) {
-                    'approved', 'verified' => 'Terverifikasi (Approve)',
                     'rejected' => 'Ditolak',
-                    default => 'Menunggu Verifikasi (Pending)',
+                    default => 'Terkirim',
                 },
                 'can_edit' => $canEdit,
                 'is_within_radius' => (bool) $s->is_within_radius,
@@ -2443,8 +2442,8 @@ class ReportingApiController extends Controller
             ->where('employee_id', $employee->id)
             ->firstOrFail();
 
-        $isApproved = in_array(strtolower($submission->status ?? ''), ['approved', 'verified']);
-        $canEdit = !$isApproved;
+        $subDate = $submission->submitted_at ?? $submission->created_at;
+        $canEdit = $subDate ? $subDate->isToday() : false;
 
         $valuesFormatted = $this->formatSubmissionValues($submission->values);
 
@@ -2460,11 +2459,10 @@ class ReportingApiController extends Controller
                 'store_name' => $submission->store_name,
                 'address' => $submission->address,
                 'work_location_id' => $submission->work_location_id,
-                'status' => $submission->status ?? 'pending',
+                'status' => $submission->status ?? 'submitted',
                 'status_label' => match(strtolower($submission->status ?? '')) {
-                    'approved', 'verified' => 'Terverifikasi (Approve)',
                     'rejected' => 'Ditolak',
-                    default => 'Menunggu Verifikasi (Pending)',
+                    default => 'Terkirim',
                 },
                 'can_edit' => $canEdit,
                 'is_within_radius' => (bool) $submission->is_within_radius,
@@ -2523,11 +2521,12 @@ class ReportingApiController extends Controller
             ->where('employee_id', $employee->id)
             ->firstOrFail();
 
-        // Cek apakah status sudah Approve / Verified
-        if (in_array(strtolower($submission->status ?? ''), ['approved', 'verified'])) {
+        // Pembatasan: Hanya laporan yang disubmit pada hari ini yang dapat diedit
+        $subDate = $submission->submitted_at ?? $submission->created_at;
+        if (!$subDate || !$subDate->isToday()) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Laporan ini sudah disetujui (Approved) dan tidak dapat diubah lagi.',
+                'message' => 'Laporan yang sudah lewat hari tidak dapat diubah kembali. Hanya laporan yang disubmit hari ini yang dapat diedit.',
             ], 422);
         }
 

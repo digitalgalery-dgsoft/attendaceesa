@@ -84,7 +84,25 @@ class AuthProvider with ChangeNotifier {
     }
     
     _token = prefs.getString('auth_token');
-    
+    if (_token == null || _token!.isEmpty) {
+      return false;
+    }
+
+    // Muat data profil cache lokal terlebih dahulu agar aplikasi langsung responsif
+    final cachedEmpStr = prefs.getString('cached_employee_data');
+    if (cachedEmpStr != null && cachedEmpStr.isNotEmpty) {
+      try {
+        _employeeData = json.decode(cachedEmpStr);
+        _updateAppColorFromEmployee();
+      } catch (_) {}
+    }
+    final cachedUserStr = prefs.getString('cached_user');
+    if (cachedUserStr != null && cachedUserStr.isNotEmpty) {
+      try {
+        _user = json.decode(cachedUserStr);
+      } catch (_) {}
+    }
+
     try {
       final response = await http.get(
         Uri.parse('${Constants.baseUrl}/me'),
@@ -92,22 +110,41 @@ class AuthProvider with ChangeNotifier {
           'Authorization': 'Bearer $_token',
           'Accept': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        _user = data['data']['user'];
-        _employeeData = data['data']['employee_data'];
+        _user = data['data']['user'] ?? _user;
+        _employeeData = data['data']['employee_data'] ?? _employeeData;
         _updateAppColorFromEmployee();
+
+        // Perbarui cache profil lokal
+        if (_employeeData != null) {
+          await prefs.setString('cached_employee_data', json.encode(_employeeData));
+        }
+        if (_user != null) {
+          await prefs.setString('cached_user', json.encode(_user));
+        }
+
+        notifyListeners();
+        return true;
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        // Hanya logout jika server secara eksplisit menolak otentikasi (token hangus atau karyawan dinonaktifkan)
+        debugPrint('[AuthProvider] Token invalid or employee inactive (HTTP ${response.statusCode}), logging out.');
+        await logout();
+        return false;
+      } else {
+        // Error sementara di server (misal 500, 502, 503 saat deploy restart): JANGAN LOGOUT!
+        debugPrint('[AuthProvider] Server returned HTTP ${response.statusCode} during check. Retaining authenticated session.');
         notifyListeners();
         return true;
       }
     } catch (e) {
-      // Token invalid or network error
+      // Kendala jaringan / timeout / offline: JANGAN LOGOUT! Sesi karyawan tetap aktif.
+      debugPrint('[AuthProvider] Network error during tryAutoLogin: $e. Retaining authenticated session.');
+      notifyListeners();
+      return true;
     }
-    
-    await logout();
-    return false;
   }
 
   Future<bool> loginWithSavedToken(String savedToken) async {
@@ -120,7 +157,7 @@ class AuthProvider with ChangeNotifier {
           'Authorization': 'Bearer $savedToken',
           'Accept': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -130,9 +167,17 @@ class AuthProvider with ChangeNotifier {
         _updateAppColorFromEmployee();
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', savedToken);
+        if (_employeeData != null) {
+          await prefs.setString('cached_employee_data', json.encode(_employeeData));
+        }
+        if (_user != null) {
+          await prefs.setString('cached_user', json.encode(_user));
+        }
         _isLoading = false;
         notifyListeners();
         return true;
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        await logout();
       }
     } catch (e) {
       debugPrint('Biometric token login error: $e');
@@ -198,6 +243,12 @@ class AuthProvider with ChangeNotifier {
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', _token!);
+        if (_employeeData != null) {
+          await prefs.setString('cached_employee_data', json.encode(_employeeData));
+        }
+        if (_user != null) {
+          await prefs.setString('cached_user', json.encode(_user));
+        }
 
         _isLoading = false;
         notifyListeners();
@@ -235,6 +286,8 @@ class AuthProvider with ChangeNotifier {
     
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
+    await prefs.remove('cached_employee_data');
+    await prefs.remove('cached_user');
     
     notifyListeners();
   }
