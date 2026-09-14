@@ -995,7 +995,7 @@
         </div>
 
         <div class="header-actions-group">
-            @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport) && (!isset($isDailyMaintenanceReport) || !$isDailyMaintenanceReport) && (!isset($isCustomerDbReport) || !$isCustomerDbReport))
+            @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport) && (!isset($isDailyMaintenanceReport) || !$isDailyMaintenanceReport) && (!isset($isCustomerDbReport) || !$isCustomerDbReport) && (!isset($isWingsMbrReport) || !$isWingsMbrReport))
             <button type="button" class="btn-studio-toggle" id="btn_toggle_studio" onclick="toggleStudioMode()">
                 <i class="fa-solid fa-layer-group"></i>
                 <span id="studio_btn_text">🎨 Studio Dashboard</span>
@@ -1049,6 +1049,7 @@
         </div>
     </div>
 
+    @if(!isset($isWingsMbrReport) || !$isWingsMbrReport)
     <!-- Enhanced Filter Bar (Range Bulan Awal - Akhir, Region, Area, Store / Toko) -->
     <form action="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" method="GET" class="filter-bar" style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 16px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; width: 100%; max-width: 100%; min-width: 0;">
         <input type="hidden" name="p" value="{{ $tenantPrincipal->id }}">
@@ -1286,6 +1287,7 @@
         }
     });
     </script>
+    @endif
 
     @if(isset($isYtdReport) && $isYtdReport)
         <div class="widget-content-card" style="margin-bottom: 1.5rem; border: 2px solid var(--brand-primary); padding: 0; overflow: hidden;">
@@ -1584,7 +1586,18 @@
         ])
     @endif
 
-    @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport) && (!isset($isDailyMaintenanceReport) || !$isDailyMaintenanceReport) && (!isset($isCustomerDbReport) || !$isCustomerDbReport))
+    {{-- WINGS MBR SALES EXECUTIVE DASHBOARD (ADVENTURE/AGENCY REPORT STYLE) --}}
+    @if(isset($isWingsMbrReport) && $isWingsMbrReport && !empty($wingsMbrData))
+        @include('portal.partials.wings_mbr_dashboard', [
+            'mbrData' => $wingsMbrData,
+            'submissions' => $submissions ?? null,
+            'liveSubmissionsCount' => $liveSubmissionsCount ?? 0,
+            'template' => $template ?? null,
+            'tenantPrincipal' => $tenantPrincipal ?? null,
+        ])
+    @endif
+
+    @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport) && (!isset($isDailyMaintenanceReport) || !$isDailyMaintenanceReport) && (!isset($isCustomerDbReport) || !$isCustomerDbReport) && (!isset($isWingsMbrReport) || !$isWingsMbrReport))
     <!-- Dynamic 12-Column Dashboard Canvas (Sortable in Studio Mode) -->
     <div id="dashboard_canvas" class="dashboard-grid">
         @php
