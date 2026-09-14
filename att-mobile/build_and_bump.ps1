@@ -32,10 +32,17 @@ foreach ($line in $content) {
 
 $newContent | Set-Content $pubspecPath
 
+$sourceApk = "build\app\outputs\flutter-apk\app-release.apk"
+if (Test-Path $sourceApk) {
+    Remove-Item -Path $sourceApk -Force
+}
+
 Write-Host "Building APK..."
 flutter build apk --release
-
-$sourceApk = "build\app\outputs\flutter-apk\app-release.apk"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Flutter build failed with exit code $LASTEXITCODE"
+    exit $LASTEXITCODE
+}
 $destApk = "app-release-$version.apk"
 
 if (Test-Path $sourceApk) {

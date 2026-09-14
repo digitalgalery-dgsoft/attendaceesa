@@ -33,7 +33,7 @@ class ReportSubmissionModel {
     this.storeName,
     this.address,
     this.workLocationId,
-    this.status,
+    this.status = 'submitted',
     this.statusLabel = 'Terkirim',
     this.canEdit = true,
     this.isWithinRadius = true,
