@@ -778,6 +778,7 @@
                             <th class="num">Dimasak</th>
                             <th class="num">Cup</th>
                             <th class="num">Sisa</th>
+                            <th style="width: 65px; text-align: center;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -796,10 +797,15 @@
                                 <td class="num" style="color: var(--brand-primary);">{{ number_format($p['dimasak'] ?? 0, 0, ',', '.') }}</td>
                                 <td class="num" style="color: #059669;">{{ number_format($p['cup'] ?? 0, 0, ',', '.') }}</td>
                                 <td class="num" style="color: #ea580c;">{{ number_format($p['stok_akhir'] ?? 0, 0, ',', '.') }}</td>
+                                <td style="text-align: center;">
+                                    <button type="button" class="portal-freetaste-btn-action" onclick='openFreetasteBreakdownModal("variant", "{{ addslashes($p['name']) }}", "{{ addslashes($p['sku'] ?? '') }}", @json($p['breakdown'] ?? []))'>
+                                        <i class="fa-solid fa-list-ul"></i> Detail
+                                    </button>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="portal-freetaste-empty-state">
+                                <td colspan="7" class="portal-freetaste-empty-state">
                                     <div class="portal-freetaste-empty-icon"><i class="fa-solid fa-bowl-food"></i></div>
                                     <div style="font-weight: 700;">Belum Ada Data Sampling Masuk</div>
                                     <div style="font-size: 0.78rem;">Data varian produk akan muncul otomatis saat laporan disubmit.</div>
@@ -831,6 +837,7 @@
                             <th>Daerah (Cabang)</th>
                             <th class="num">Dimasak (Pcs)</th>
                             <th class="num">Cup Dibagikan</th>
+                            <th style="width: 65px; text-align: center;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -848,10 +855,15 @@
                                 <td><span style="font-weight: 600;">{{ $m['area'] }}</span></td>
                                 <td class="num" style="color: var(--brand-primary);">{{ number_format($m['dimasak'], 0, ',', '.') }}</td>
                                 <td class="num" style="color: #059669;">{{ number_format($m['cup'], 0, ',', '.') }}</td>
+                                <td style="text-align: center;">
+                                    <button type="button" class="portal-freetaste-btn-action" onclick='openFreetasteBreakdownModal("mitra", "{{ addslashes($m['name']) }}", "{{ addslashes($m['area']) }}", @json($m['breakdown'] ?? []))'>
+                                        <i class="fa-solid fa-list-ul"></i> Detail
+                                    </button>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="portal-freetaste-empty-state">
+                                <td colspan="6" class="portal-freetaste-empty-state">
                                     <div class="portal-freetaste-empty-icon"><i class="fa-solid fa-user-xmark"></i></div>
                                     <div style="font-weight: 700;">Belum Ada Data Mitra</div>
                                     <div style="font-size: 0.78rem;">Data keaktifan mitra akan dihitung dari laporan yang masuk.</div>
@@ -883,6 +895,7 @@
                             <th class="num">Toko Tercover</th>
                             <th class="num">Dimasak (Pcs)</th>
                             <th class="num">Cup Dibagikan</th>
+                            <th style="width: 65px; text-align: center;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -897,10 +910,15 @@
                                 <td class="num">{{ count($ar['stores'] ?? []) }} Toko</td>
                                 <td class="num" style="color: var(--brand-primary);">{{ number_format($ar['dimasak'], 0, ',', '.') }}</td>
                                 <td class="num" style="color: #059669;">{{ number_format($ar['cup'], 0, ',', '.') }}</td>
+                                <td style="text-align: center;">
+                                    <button type="button" class="portal-freetaste-btn-action" onclick='openFreetasteBreakdownModal("area", "{{ addslashes($ar['area']) }}", "", @json($ar['breakdown'] ?? []))'>
+                                        <i class="fa-solid fa-list-ul"></i> Detail
+                                    </button>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="portal-freetaste-empty-state">
+                                <td colspan="6" class="portal-freetaste-empty-state">
                                     <div class="portal-freetaste-empty-icon"><i class="fa-solid fa-map-pin"></i></div>
                                     <div style="font-weight: 700;">Belum Ada Data Daerah</div>
                                     <div style="font-size: 0.78rem;">Data per cabang akan terakumulasi dari laporan yang terkirim.</div>
@@ -931,6 +949,7 @@
                             <th>Wilayah (Region)</th>
                             <th class="num">Dimasak (Pcs)</th>
                             <th class="num">Cup Dibagikan</th>
+                            <th style="width: 65px; text-align: center;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -944,10 +963,15 @@
                                 <td style="font-weight: 700; color: var(--text-heading);">{{ $rg['region'] }}</td>
                                 <td class="num" style="color: var(--brand-primary);">{{ number_format($rg['dimasak'], 0, ',', '.') }}</td>
                                 <td class="num" style="color: #059669;">{{ number_format($rg['cup'], 0, ',', '.') }}</td>
+                                <td style="text-align: center;">
+                                    <button type="button" class="portal-freetaste-btn-action" onclick='openFreetasteBreakdownModal("region", "{{ addslashes($rg['region']) }}", "", @json($rg['breakdown'] ?? []))'>
+                                        <i class="fa-solid fa-list-ul"></i> Detail
+                                    </button>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="portal-freetaste-empty-state">
+                                <td colspan="5" class="portal-freetaste-empty-state">
                                     <div class="portal-freetaste-empty-icon"><i class="fa-solid fa-earth-asia"></i></div>
                                     <div style="font-weight: 700;">Belum Ada Data Wilayah</div>
                                     <div style="font-size: 0.78rem;">Data regional akan muncul otomatis dari laporan submisi.</div>
@@ -1085,6 +1109,7 @@
                                     }
                                 }
                             }
+                            $freetasteTimeFormatted = ($sub->submitted_at ? $sub->submitted_at->timezone('Asia/Jakarta')->translatedFormat('d M Y, H:i') : ($sub->created_at ? $sub->created_at->timezone('Asia/Jakarta')->translatedFormat('d M Y, H:i') : '-')) . ' WIB';
                         @endphp
                         <tr>
                             <td>
@@ -1136,7 +1161,7 @@
                                 @endif
                             </td>
                             <td style="text-align: center; white-space: nowrap;">
-                                <button type="button" class="portal-freetaste-btn-action" onclick='openFreetasteSubmissionDetailModal(@json($sub), @json($subCart), @json($subPhotos), "{{ $subBoothPhoto }}")'>
+                                <button type="button" class="portal-freetaste-btn-action" onclick='openFreetasteSubmissionDetailModal(@json($sub), @json($subCart), @json($subPhotos), "{{ $subBoothPhoto }}", "{{ $freetasteTimeFormatted }}")'>
                                     <i class="fa-solid fa-eye"></i>
                                     <span>Detail</span>
                                 </button>
@@ -1222,6 +1247,24 @@
                     @endforeach
                 </div>
             @endif
+        </div>
+    </div>
+</div>
+
+{{-- MODAL RINCIAN DETAIL DRILLDOWN (TOP VARIAN, TOP MITRA, DAERAH, WILAYAH) --}}
+<div class="portal-freetaste-modal-overlay" id="freetasteBreakdownModal" onclick="closeFreetasteBreakdownModal()">
+    <div class="portal-freetaste-modal-card" style="max-width: 860px;" onclick="event.stopPropagation()">
+        <div class="portal-freetaste-modal-header">
+            <div class="portal-freetaste-modal-title" id="freetasteBreakdownModalTitle">
+                <i class="fa-solid fa-list-ul" style="color: var(--brand-primary);"></i>
+                <span>Rincian Detail</span>
+            </div>
+            <button type="button" class="portal-freetaste-modal-close" onclick="closeFreetasteBreakdownModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="portal-freetaste-modal-body" id="freetasteBreakdownModalBody">
+            {{-- Injected dynamically --}}
         </div>
     </div>
 </div>
@@ -1355,8 +1398,32 @@
         document.getElementById('freetasteGalleryModal')?.classList.remove('active');
     }
 
+    // Helper Format Waktu Lapor ke Jam Indonesia (WIB)
+    function formatWaktuLapor(dateVal, fallbackFormatted) {
+        if (fallbackFormatted && fallbackFormatted !== '-' && !fallbackFormatted.includes('T')) {
+            return fallbackFormatted;
+        }
+        if (!dateVal) return '-';
+        try {
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return dateVal;
+            const options = {
+                timeZone: 'Asia/Jakarta',
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            };
+            return d.toLocaleDateString('id-ID', options).replace(/\./g, ':') + ' WIB';
+        } catch (e) {
+            return dateVal;
+        }
+    }
+
     // Modal Rincian Submissions
-    function openFreetasteSubmissionDetailModal(sub, cart, photos, boothPhoto) {
+    function openFreetasteSubmissionDetailModal(sub, cart, photos, boothPhoto, formattedTime) {
         const modal = document.getElementById('freetasteSubDetailModal');
         const body = document.getElementById('freetasteSubModalBody');
         if (!modal || !body) return;
@@ -1479,6 +1546,8 @@
             `;
         }
 
+        const waktuLaporStr = formatWaktuLapor(sub.submitted_at || sub.created_at, formattedTime);
+
         body.innerHTML = `
             <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem;">
                 <div>
@@ -1487,7 +1556,7 @@
                 </div>
                 <div>
                     <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Waktu Lapor</span>
-                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${sub.submitted_at || sub.created_at || '-'}</div>
+                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${waktuLaporStr}</div>
                 </div>
                 <div>
                     <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Petugas / Mitra</span>
@@ -1518,6 +1587,271 @@
 
     function closeFreetasteSubmissionDetailModal() {
         document.getElementById('freetasteSubDetailModal')?.classList.remove('active');
+    }
+
+    // Modal Breakdown Drilldown Sampling (Top Varian, Top Mitra, Daerah, Wilayah)
+    function openFreetasteBreakdownModal(type, title, subtitle, list) {
+        const modal = document.getElementById('freetasteBreakdownModal');
+        const titleEl = document.getElementById('freetasteBreakdownModalTitle');
+        const bodyEl = document.getElementById('freetasteBreakdownModalBody');
+        if (!modal || !bodyEl) return;
+
+        list = list || [];
+        let modalTitleHtml = '';
+        let tableHtml = '';
+        let totalDimasak = 0;
+        let totalCup = 0;
+
+        list.forEach(item => {
+            totalDimasak += Number(item.dimasak || 0);
+            totalCup += Number(item.cup || 0);
+        });
+
+        if (type === 'variant') {
+            modalTitleHtml = `<i class="fa-solid fa-trophy" style="color: var(--brand-primary);"></i> Rincian Sampling Varian: <strong>${title}</strong>`;
+            tableHtml = `
+                <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 0.85rem 1.15rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Kode SKU</div>
+                        <div style="font-weight: 700; font-family: monospace; color: var(--text-heading);">${subtitle || '-'}</div>
+                    </div>
+                    <div style="display: flex; gap: 1.5rem;">
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Dimasak</div>
+                            <div style="font-weight: 800; color: var(--brand-primary); font-size: 1.15rem;">${totalDimasak.toLocaleString('id-ID')} Pcs</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Cup Tester</div>
+                            <div style="font-weight: 800; color: #059669; font-size: 1.15rem;">${totalCup.toLocaleString('id-ID')} Cup</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="portal-freetaste-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;">#</th>
+                                <th>Nama Mitra (SPG)</th>
+                                <th>Toko / Lokasi</th>
+                                <th>Area / Cabang</th>
+                                <th class="num">Dimasak (Pcs)</th>
+                                <th class="num">Cup Tester</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${list.length > 0 ? list.map((it, idx) => `
+                                <tr>
+                                    <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${it.mitra || '-'}</td>
+                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
+                                    <td style="color: var(--text-muted); font-weight: 600;">${it.area || '-'}</td>
+                                    <td class="num" style="color: var(--brand-primary); font-weight: 700;">${Number(it.dimasak || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669; font-weight: 700;">${Number(it.cup || 0).toLocaleString('id-ID')} Cup</td>
+                                </tr>
+                            `).join('') : `
+                                <tr>
+                                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data rincian sampling untuk varian ini.</td>
+                                </tr>
+                            `}
+                        </tbody>
+                        ${list.length > 0 ? `
+                            <tfoot>
+                                <tr style="background: #f8fafc; font-weight: 800;">
+                                    <td colspan="4" style="text-align: right; padding: 0.75rem 1rem;">TOTAL:</td>
+                                    <td class="num" style="color: var(--brand-primary);">${totalDimasak.toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669;">${totalCup.toLocaleString('id-ID')} Cup</td>
+                                </tr>
+                            </tfoot>
+                        ` : ''}
+                    </table>
+                </div>
+            `;
+        } else if (type === 'mitra') {
+            modalTitleHtml = `<i class="fa-solid fa-user-check" style="color: #059669;"></i> Rincian Sampling Mitra: <strong>${title}</strong>`;
+            tableHtml = `
+                <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 0.85rem 1.15rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Daerah / Cabang</div>
+                        <div style="font-weight: 700; color: var(--text-heading);">${subtitle || '-'}</div>
+                    </div>
+                    <div style="display: flex; gap: 1.5rem;">
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Dimasak</div>
+                            <div style="font-weight: 800; color: var(--brand-primary); font-size: 1.15rem;">${totalDimasak.toLocaleString('id-ID')} Pcs</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Cup Tester</div>
+                            <div style="font-weight: 800; color: #059669; font-size: 1.15rem;">${totalCup.toLocaleString('id-ID')} Cup</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="portal-freetaste-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;">#</th>
+                                <th>Varian Produk</th>
+                                <th>Toko / Lokasi</th>
+                                <th class="num">Dimasak (Pcs)</th>
+                                <th class="num">Cup Tester</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${list.length > 0 ? list.map((it, idx) => `
+                                <tr>
+                                    <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${it.product || '-'}</td>
+                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
+                                    <td class="num" style="color: var(--brand-primary); font-weight: 700;">${Number(it.dimasak || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669; font-weight: 700;">${Number(it.cup || 0).toLocaleString('id-ID')} Cup</td>
+                                </tr>
+                            `).join('') : `
+                                <tr>
+                                    <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data produk sampling untuk mitra ini.</td>
+                                </tr>
+                            `}
+                        </tbody>
+                        ${list.length > 0 ? `
+                            <tfoot>
+                                <tr style="background: #f8fafc; font-weight: 800;">
+                                    <td colspan="3" style="text-align: right; padding: 0.75rem 1rem;">TOTAL:</td>
+                                    <td class="num" style="color: var(--brand-primary);">${totalDimasak.toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669;">${totalCup.toLocaleString('id-ID')} Cup</td>
+                                </tr>
+                            </tfoot>
+                        ` : ''}
+                    </table>
+                </div>
+            `;
+        } else if (type === 'area') {
+            modalTitleHtml = `<i class="fa-solid fa-map-location-dot" style="color: #0d9488;"></i> Rincian Distribusi Sampling Daerah / Cabang: <strong>${title}</strong>`;
+            tableHtml = `
+                <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 0.85rem 1.15rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Daerah / Cabang</div>
+                        <div style="font-weight: 800; color: var(--text-heading); font-size: 1.05rem;">${title}</div>
+                    </div>
+                    <div style="display: flex; gap: 1.5rem;">
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Dimasak</div>
+                            <div style="font-weight: 800; color: var(--brand-primary); font-size: 1.15rem;">${totalDimasak.toLocaleString('id-ID')} Pcs</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Cup Tester</div>
+                            <div style="font-weight: 800; color: #059669; font-size: 1.15rem;">${totalCup.toLocaleString('id-ID')} Cup</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="portal-freetaste-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;">#</th>
+                                <th>Nama Mitra (SPG)</th>
+                                <th>Toko / Lokasi</th>
+                                <th>Varian Produk</th>
+                                <th class="num">Dimasak (Pcs)</th>
+                                <th class="num">Cup Tester</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${list.length > 0 ? list.map((it, idx) => `
+                                <tr>
+                                    <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${it.mitra || '-'}</td>
+                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
+                                    <td style="color: var(--brand-primary); font-weight: 600;">${it.product || '-'}</td>
+                                    <td class="num" style="color: var(--brand-primary); font-weight: 700;">${Number(it.dimasak || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669; font-weight: 700;">${Number(it.cup || 0).toLocaleString('id-ID')} Cup</td>
+                                </tr>
+                            `).join('') : `
+                                <tr>
+                                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data sampling di daerah ini.</td>
+                                </tr>
+                            `}
+                        </tbody>
+                        ${list.length > 0 ? `
+                            <tfoot>
+                                <tr style="background: #f8fafc; font-weight: 800;">
+                                    <td colspan="4" style="text-align: right; padding: 0.75rem 1rem;">TOTAL:</td>
+                                    <td class="num" style="color: var(--brand-primary);">${totalDimasak.toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669;">${totalCup.toLocaleString('id-ID')} Cup</td>
+                                </tr>
+                            </tfoot>
+                        ` : ''}
+                    </table>
+                </div>
+            `;
+        } else if (type === 'region') {
+            modalTitleHtml = `<i class="fa-solid fa-globe" style="color: var(--brand-primary);"></i> Rincian Distribusi Sampling Wilayah (Region): <strong>${title}</strong>`;
+            tableHtml = `
+                <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 0.85rem 1.15rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Wilayah (Region)</div>
+                        <div style="font-weight: 800; color: var(--text-heading); font-size: 1.05rem;">${title}</div>
+                    </div>
+                    <div style="display: flex; gap: 1.5rem;">
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Dimasak</div>
+                            <div style="font-weight: 800; color: var(--brand-primary); font-size: 1.15rem;">${totalDimasak.toLocaleString('id-ID')} Pcs</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Cup Tester</div>
+                            <div style="font-weight: 800; color: #059669; font-size: 1.15rem;">${totalCup.toLocaleString('id-ID')} Cup</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="portal-freetaste-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;">#</th>
+                                <th>Nama Mitra (SPG)</th>
+                                <th>Area / Cabang</th>
+                                <th>Toko / Lokasi</th>
+                                <th>Varian Produk</th>
+                                <th class="num">Dimasak (Pcs)</th>
+                                <th class="num">Cup Tester</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${list.length > 0 ? list.map((it, idx) => `
+                                <tr>
+                                    <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${it.mitra || '-'}</td>
+                                    <td style="color: var(--text-muted); font-weight: 600;">${it.area || '-'}</td>
+                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
+                                    <td style="color: var(--brand-primary); font-weight: 600;">${it.product || '-'}</td>
+                                    <td class="num" style="color: var(--brand-primary); font-weight: 700;">${Number(it.dimasak || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669; font-weight: 700;">${Number(it.cup || 0).toLocaleString('id-ID')} Cup</td>
+                                </tr>
+                            `).join('') : `
+                                <tr>
+                                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data sampling di wilayah ini.</td>
+                                </tr>
+                            `}
+                        </tbody>
+                        ${list.length > 0 ? `
+                            <tfoot>
+                                <tr style="background: #f8fafc; font-weight: 800;">
+                                    <td colspan="5" style="text-align: right; padding: 0.75rem 1rem;">TOTAL:</td>
+                                    <td class="num" style="color: var(--brand-primary);">${totalDimasak.toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669;">${totalCup.toLocaleString('id-ID')} Cup</td>
+                                </tr>
+                            </tfoot>
+                        ` : ''}
+                    </table>
+                </div>
+            `;
+        }
+
+        titleEl.innerHTML = modalTitleHtml;
+        bodyEl.innerHTML = tableHtml;
+        modal.classList.add('active');
+    }
+
+    function closeFreetasteBreakdownModal() {
+        document.getElementById('freetasteBreakdownModal')?.classList.remove('active');
     }
 
     // Lightbox Zoom

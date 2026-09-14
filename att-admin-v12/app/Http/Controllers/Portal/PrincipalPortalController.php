@@ -12203,6 +12203,16 @@ class PrincipalPortalController extends Controller
                 }
             }
 
+            if (!isset($mitraAgg[$empName])) {
+                $mitraAgg[$empName] = ['name' => $empName, 'area' => $branchName, 'qty' => 0, 'value' => 0, 'stores' => [], 'products' => []];
+            }
+            if ($branchName !== '-' && !isset($areaAgg[$branchName])) {
+                $areaAgg[$branchName] = ['area' => $branchName, 'stores' => [], 'qty' => 0, 'value' => 0, 'breakdown' => []];
+            }
+            if ($regionName !== '-' && !isset($regionAgg[$regionName])) {
+                $regionAgg[$regionName] = ['region' => $regionName, 'areas' => [], 'qty' => 0, 'value' => 0, 'breakdown' => []];
+            }
+
             if (!empty($cartItems)) {
                 $calcQ = 0; $calcV = 0; $calcB = 0; $calcK = 0;
                 foreach ($cartItems as &$cIt) {
@@ -12219,10 +12229,64 @@ class PrincipalPortalController extends Controller
                     $uniqueProductsMap[$pName] = true;
 
                     if (!isset($productAgg[$pName])) {
-                        $productAgg[$pName] = ['name' => $pName, 'sku' => $pSku, 'price' => $price, 'qty' => 0, 'value' => 0];
+                        $productAgg[$pName] = ['name' => $pName, 'sku' => $pSku, 'price' => $price, 'qty' => 0, 'value' => 0, 'breakdown' => []];
                     }
                     $productAgg[$pName]['qty'] += $q;
                     $productAgg[$pName]['value'] += $v;
+
+                    // Detail Top 5 Mitra Penjualan: produk, pcs, total penjualan
+                    if (!isset($mitraAgg[$empName]['products'][$pName])) {
+                        $mitraAgg[$empName]['products'][$pName] = ['name' => $pName, 'sku' => $pSku, 'qty' => 0, 'value' => 0];
+                    }
+                    $mitraAgg[$empName]['products'][$pName]['qty'] += $q;
+                    $mitraAgg[$empName]['products'][$pName]['value'] += $v;
+
+                    // Detail Top 5 Produk Terlaris: mitra, area, toko, pcs, total penjualan
+                    $pBreakKey = $empName . '|' . $branchName . '|' . $storeName;
+                    if (!isset($productAgg[$pName]['breakdown'][$pBreakKey])) {
+                        $productAgg[$pName]['breakdown'][$pBreakKey] = [
+                            'mitra' => $empName,
+                            'area' => $branchName,
+                            'store' => $storeName,
+                            'qty' => 0,
+                            'value' => 0,
+                        ];
+                    }
+                    $productAgg[$pName]['breakdown'][$pBreakKey]['qty'] += $q;
+                    $productAgg[$pName]['breakdown'][$pBreakKey]['value'] += $v;
+
+                    // Penjualan per Daerah: mitra, produk, toko, pcs, total penjualan
+                    if ($branchName !== '-') {
+                        $aBreakKey = $empName . '|' . $pName . '|' . $storeName;
+                        if (!isset($areaAgg[$branchName]['breakdown'][$aBreakKey])) {
+                            $areaAgg[$branchName]['breakdown'][$aBreakKey] = [
+                                'mitra' => $empName,
+                                'product' => $pName,
+                                'store' => $storeName,
+                                'qty' => 0,
+                                'value' => 0,
+                            ];
+                        }
+                        $areaAgg[$branchName]['breakdown'][$aBreakKey]['qty'] += $q;
+                        $areaAgg[$branchName]['breakdown'][$aBreakKey]['value'] += $v;
+                    }
+
+                    // Penjualan per Wilayah: mitra, area, produk, toko, pcs, total penjualan
+                    if ($regionName !== '-') {
+                        $rBreakKey = $empName . '|' . $branchName . '|' . $pName . '|' . $storeName;
+                        if (!isset($regionAgg[$regionName]['breakdown'][$rBreakKey])) {
+                            $regionAgg[$regionName]['breakdown'][$rBreakKey] = [
+                                'mitra' => $empName,
+                                'area' => $branchName,
+                                'product' => $pName,
+                                'store' => $storeName,
+                                'qty' => 0,
+                                'value' => 0,
+                            ];
+                        }
+                        $regionAgg[$regionName]['breakdown'][$rBreakKey]['qty'] += $q;
+                        $regionAgg[$regionName]['breakdown'][$rBreakKey]['value'] += $v;
+                    }
 
                     $rawStruk = $cIt['struk_photo_url'] ?? ($cIt['struk_photo_path'] ?? ($cIt['foto_struk'] ?? ($cIt['photo_struk_url'] ?? null)));
                     $strukPhoto = $resolveMediaUrl($rawStruk);
@@ -12250,6 +12314,32 @@ class PrincipalPortalController extends Controller
                     $subBooth = $calcB;
                     $subKasir = $calcK;
                 }
+            } else if ($subQty > 0) {
+                // Fallback jika tidak ada item array namun ada total Qty
+                $fallbackPName = 'PRODUK PENJUALAN';
+                if (!isset($mitraAgg[$empName]['products'][$fallbackPName])) {
+                    $mitraAgg[$empName]['products'][$fallbackPName] = ['name' => $fallbackPName, 'sku' => '-', 'qty' => 0, 'value' => 0];
+                }
+                $mitraAgg[$empName]['products'][$fallbackPName]['qty'] += $subQty;
+                $mitraAgg[$empName]['products'][$fallbackPName]['value'] += $subVal;
+
+                if ($branchName !== '-') {
+                    $aBreakKey = $empName . '|' . $fallbackPName . '|' . $storeName;
+                    if (!isset($areaAgg[$branchName]['breakdown'][$aBreakKey])) {
+                        $areaAgg[$branchName]['breakdown'][$aBreakKey] = ['mitra' => $empName, 'product' => $fallbackPName, 'store' => $storeName, 'qty' => 0, 'value' => 0];
+                    }
+                    $areaAgg[$branchName]['breakdown'][$aBreakKey]['qty'] += $subQty;
+                    $areaAgg[$branchName]['breakdown'][$aBreakKey]['value'] += $subVal;
+                }
+
+                if ($regionName !== '-') {
+                    $rBreakKey = $empName . '|' . $branchName . '|' . $fallbackPName . '|' . $storeName;
+                    if (!isset($regionAgg[$regionName]['breakdown'][$rBreakKey])) {
+                        $regionAgg[$regionName]['breakdown'][$rBreakKey] = ['mitra' => $empName, 'area' => $branchName, 'product' => $fallbackPName, 'store' => $storeName, 'qty' => 0, 'value' => 0];
+                    }
+                    $regionAgg[$regionName]['breakdown'][$rBreakKey]['qty'] += $subQty;
+                    $regionAgg[$regionName]['breakdown'][$rBreakKey]['value'] += $subVal;
+                }
             }
 
             if ($subSellOutPhoto) {
@@ -12274,26 +12364,17 @@ class PrincipalPortalController extends Controller
                 $todayQty += $subQty;
             }
 
-            if (!isset($mitraAgg[$empName])) {
-                $mitraAgg[$empName] = ['name' => $empName, 'area' => $branchName, 'qty' => 0, 'value' => 0, 'stores' => []];
-            }
             $mitraAgg[$empName]['qty'] += $subQty;
             $mitraAgg[$empName]['value'] += $subVal;
             $mitraAgg[$empName]['stores'][$storeName] = true;
 
             if ($branchName !== '-') {
-                if (!isset($areaAgg[$branchName])) {
-                    $areaAgg[$branchName] = ['area' => $branchName, 'stores' => [], 'qty' => 0, 'value' => 0];
-                }
                 $areaAgg[$branchName]['qty'] += $subQty;
                 $areaAgg[$branchName]['value'] += $subVal;
                 $areaAgg[$branchName]['stores'][$storeName] = true;
             }
 
             if ($regionName !== '-') {
-                if (!isset($regionAgg[$regionName])) {
-                    $regionAgg[$regionName] = ['region' => $regionName, 'areas' => [], 'qty' => 0, 'value' => 0];
-                }
                 $regionAgg[$regionName]['qty'] += $subQty;
                 $regionAgg[$regionName]['value'] += $subVal;
                 if ($branchName !== '-') {
@@ -12309,30 +12390,54 @@ class PrincipalPortalController extends Controller
             $dailyAgg[$subDate]['submissions']++;
         }
 
-        // Sort rankings & format tables (purely from submitted data)
+        // Sort rankings & format tables with nested details
+        foreach ($mitraAgg as &$m) {
+            if (isset($m['products'])) {
+                uasort($m['products'], fn($a, $b) => $b['qty'] <=> $a['qty']);
+                $m['products'] = array_values($m['products']);
+            } else {
+                $m['products'] = [];
+            }
+        }
+        unset($m);
         uasort($mitraAgg, fn($a, $b) => $b['qty'] <=> $a['qty']);
         $topMitra = array_slice(array_values($mitraAgg), 0, 5);
 
+        foreach ($productAgg as &$p) {
+            if (isset($p['breakdown'])) {
+                uasort($p['breakdown'], fn($a, $b) => $b['qty'] <=> $a['qty']);
+                $p['breakdown'] = array_values($p['breakdown']);
+            } else {
+                $p['breakdown'] = [];
+            }
+        }
+        unset($p);
         uasort($productAgg, fn($a, $b) => $b['qty'] <=> $a['qty']);
         $topProducts = array_slice(array_values($productAgg), 0, 5);
 
         uasort($areaAgg, fn($a, $b) => $b['qty'] <=> $a['qty']);
         $salesByArea = array_map(function($item) {
+            $bd = $item['breakdown'] ?? [];
+            uasort($bd, fn($a, $b) => $b['qty'] <=> $a['qty']);
             return [
                 'area' => $item['area'],
                 'store_count' => count($item['stores']),
                 'qty' => $item['qty'],
-                'value' => $item['value']
+                'value' => $item['value'],
+                'breakdown' => array_values($bd),
             ];
         }, array_values($areaAgg));
 
         uasort($regionAgg, fn($a, $b) => $b['qty'] <=> $a['qty']);
         $salesByRegion = array_map(function($item) {
+            $bd = $item['breakdown'] ?? [];
+            uasort($bd, fn($a, $b) => $b['qty'] <=> $a['qty']);
             return [
                 'region' => $item['region'],
                 'area_count' => count($item['areas']),
                 'qty' => $item['qty'],
-                'value' => $item['value']
+                'value' => $item['value'],
+                'breakdown' => array_values($bd),
             ];
         }, array_values($regionAgg));
 
@@ -12614,6 +12719,16 @@ class PrincipalPortalController extends Controller
                 }
             }
 
+            if (!isset($mitraAgg[$empName])) {
+                $mitraAgg[$empName] = ['name' => $empName, 'area' => $branchName, 'dimasak' => 0, 'cup' => 0, 'stores' => [], 'breakdown' => []];
+            }
+            if ($branchName !== '-' && !isset($areaAgg[$branchName])) {
+                $areaAgg[$branchName] = ['area' => $branchName, 'stores' => [], 'dimasak' => 0, 'cup' => 0, 'breakdown' => []];
+            }
+            if ($regionName !== '-' && !isset($regionAgg[$regionName])) {
+                $regionAgg[$regionName] = ['region' => $regionName, 'dimasak' => 0, 'cup' => 0, 'breakdown' => []];
+            }
+
             if (!empty($cartItems)) {
                 $calcAwal = 0; $calcMasak = 0; $calcAkhir = 0; $calcCup = 0;
                 foreach ($cartItems as &$cIt) {
@@ -12638,13 +12753,74 @@ class PrincipalPortalController extends Controller
                             'stok_awal' => 0,
                             'dimasak' => 0,
                             'stok_akhir' => 0,
-                            'cup' => 0
+                            'cup' => 0,
+                            'breakdown' => []
                         ];
                     }
                     $productAgg[$pName]['stok_awal'] += $awal;
                     $productAgg[$pName]['dimasak'] += $masak;
                     $productAgg[$pName]['stok_akhir'] += $akhir;
                     $productAgg[$pName]['cup'] += $cup;
+
+                    // Detail Top 5 Varian: Nama Mitra, toko, area, dimasak (pcs), cup tester
+                    $vBreakKey = $empName . '|' . $storeName . '|' . $branchName;
+                    if (!isset($productAgg[$pName]['breakdown'][$vBreakKey])) {
+                        $productAgg[$pName]['breakdown'][$vBreakKey] = [
+                            'mitra' => $empName,
+                            'store' => $storeName,
+                            'area' => $branchName,
+                            'dimasak' => 0,
+                            'cup' => 0,
+                        ];
+                    }
+                    $productAgg[$pName]['breakdown'][$vBreakKey]['dimasak'] += $masak;
+                    $productAgg[$pName]['breakdown'][$vBreakKey]['cup'] += $cup;
+
+                    // Detail Top 5 Mitra: Varian Produk, toko, dimasak (pcs), cup tester
+                    $mBreakKey = $pName . '|' . $storeName;
+                    if (!isset($mitraAgg[$empName]['breakdown'][$mBreakKey])) {
+                        $mitraAgg[$empName]['breakdown'][$mBreakKey] = [
+                            'product' => $pName,
+                            'store' => $storeName,
+                            'dimasak' => 0,
+                            'cup' => 0,
+                        ];
+                    }
+                    $mitraAgg[$empName]['breakdown'][$mBreakKey]['dimasak'] += $masak;
+                    $mitraAgg[$empName]['breakdown'][$mBreakKey]['cup'] += $cup;
+
+                    // Detail Distribusi Sampling Daerah: Nama Mitra, toko, varian produk, dimasak (pcs), cup tester
+                    if ($branchName !== '-') {
+                        $aBreakKey = $empName . '|' . $storeName . '|' . $pName;
+                        if (!isset($areaAgg[$branchName]['breakdown'][$aBreakKey])) {
+                            $areaAgg[$branchName]['breakdown'][$aBreakKey] = [
+                                'mitra' => $empName,
+                                'store' => $storeName,
+                                'product' => $pName,
+                                'dimasak' => 0,
+                                'cup' => 0,
+                            ];
+                        }
+                        $areaAgg[$branchName]['breakdown'][$aBreakKey]['dimasak'] += $masak;
+                        $areaAgg[$branchName]['breakdown'][$aBreakKey]['cup'] += $cup;
+                    }
+
+                    // Detail Distribusi Sampling Wilayah: Nama Mitra, area, toko, varian produk, dimasak (pcs), cup tester
+                    if ($regionName !== '-') {
+                        $rBreakKey = $empName . '|' . $branchName . '|' . $storeName . '|' . $pName;
+                        if (!isset($regionAgg[$regionName]['breakdown'][$rBreakKey])) {
+                            $regionAgg[$regionName]['breakdown'][$rBreakKey] = [
+                                'mitra' => $empName,
+                                'area' => $branchName,
+                                'store' => $storeName,
+                                'product' => $pName,
+                                'dimasak' => 0,
+                                'cup' => 0,
+                            ];
+                        }
+                        $regionAgg[$regionName]['breakdown'][$rBreakKey]['dimasak'] += $masak;
+                        $regionAgg[$regionName]['breakdown'][$rBreakKey]['cup'] += $cup;
+                    }
 
                     $rawSam = $cIt['photo_sampling_url'] ?? ($cIt['foto_sampling'] ?? ($cIt['sampling_photo_url'] ?? null));
                     $samplingPhoto = $resolveMediaUrl($rawSam);
@@ -12670,6 +12846,33 @@ class PrincipalPortalController extends Controller
                 if ($subDimasak <= 0) $subDimasak = $calcMasak;
                 if ($subStokAkhir <= 0) $subStokAkhir = $calcAkhir;
                 if ($subCup <= 0) $subCup = $calcCup;
+            } else if ($subDimasak > 0) {
+                // Fallback jika tidak ada item array namun ada total dimasak
+                $fallbackPName = 'SAMPLING MIE SEDAAP';
+                $mBreakKey = $fallbackPName . '|' . $storeName;
+                if (!isset($mitraAgg[$empName]['breakdown'][$mBreakKey])) {
+                    $mitraAgg[$empName]['breakdown'][$mBreakKey] = ['product' => $fallbackPName, 'store' => $storeName, 'dimasak' => 0, 'cup' => 0];
+                }
+                $mitraAgg[$empName]['breakdown'][$mBreakKey]['dimasak'] += $subDimasak;
+                $mitraAgg[$empName]['breakdown'][$mBreakKey]['cup'] += $subCup;
+
+                if ($branchName !== '-') {
+                    $aBreakKey = $empName . '|' . $storeName . '|' . $fallbackPName;
+                    if (!isset($areaAgg[$branchName]['breakdown'][$aBreakKey])) {
+                        $areaAgg[$branchName]['breakdown'][$aBreakKey] = ['mitra' => $empName, 'store' => $storeName, 'product' => $fallbackPName, 'dimasak' => 0, 'cup' => 0];
+                    }
+                    $areaAgg[$branchName]['breakdown'][$aBreakKey]['dimasak'] += $subDimasak;
+                    $areaAgg[$branchName]['breakdown'][$aBreakKey]['cup'] += $subCup;
+                }
+
+                if ($regionName !== '-') {
+                    $rBreakKey = $empName . '|' . $branchName . '|' . $storeName . '|' . $fallbackPName;
+                    if (!isset($regionAgg[$regionName]['breakdown'][$rBreakKey])) {
+                        $regionAgg[$regionName]['breakdown'][$rBreakKey] = ['mitra' => $empName, 'area' => $branchName, 'store' => $storeName, 'product' => $fallbackPName, 'dimasak' => 0, 'cup' => 0];
+                    }
+                    $regionAgg[$regionName]['breakdown'][$rBreakKey]['dimasak'] += $subDimasak;
+                    $regionAgg[$regionName]['breakdown'][$rBreakKey]['cup'] += $subCup;
+                }
             }
 
             if ($subBoothPhoto) {
@@ -12696,26 +12899,17 @@ class PrincipalPortalController extends Controller
                 $todayCup += $subCup;
             }
 
-            if (!isset($mitraAgg[$empName])) {
-                $mitraAgg[$empName] = ['name' => $empName, 'area' => $branchName, 'dimasak' => 0, 'cup' => 0, 'stores' => []];
-            }
             $mitraAgg[$empName]['dimasak'] += $subDimasak;
             $mitraAgg[$empName]['cup'] += $subCup;
             $mitraAgg[$empName]['stores'][$storeName] = true;
 
             if ($branchName !== '-') {
-                if (!isset($areaAgg[$branchName])) {
-                    $areaAgg[$branchName] = ['area' => $branchName, 'stores' => [], 'dimasak' => 0, 'cup' => 0];
-                }
                 $areaAgg[$branchName]['dimasak'] += $subDimasak;
                 $areaAgg[$branchName]['cup'] += $subCup;
                 $areaAgg[$branchName]['stores'][$storeName] = true;
             }
 
             if ($regionName !== '-') {
-                if (!isset($regionAgg[$regionName])) {
-                    $regionAgg[$regionName] = ['region' => $regionName, 'dimasak' => 0, 'cup' => 0];
-                }
                 $regionAgg[$regionName]['dimasak'] += $subDimasak;
                 $regionAgg[$regionName]['cup'] += $subCup;
             }
@@ -12727,18 +12921,55 @@ class PrincipalPortalController extends Controller
             $dailyAgg[$subDate]['cup'] += $subCup;
         }
 
-        // Sort Top Performers
+        // Sort Top Performers with breakdowns
+        foreach ($mitraAgg as &$m) {
+            if (isset($m['breakdown'])) {
+                uasort($m['breakdown'], fn($a, $b) => $b['dimasak'] <=> $a['dimasak']);
+                $m['breakdown'] = array_values($m['breakdown']);
+            } else {
+                $m['breakdown'] = [];
+            }
+        }
+        unset($m);
         uasort($mitraAgg, fn($a, $b) => $b['dimasak'] <=> $a['dimasak']);
         $topMitra = array_values(array_slice($mitraAgg, 0, 5));
 
+        foreach ($productAgg as &$p) {
+            if (isset($p['breakdown'])) {
+                uasort($p['breakdown'], fn($a, $b) => $b['dimasak'] <=> $a['dimasak']);
+                $p['breakdown'] = array_values($p['breakdown']);
+            } else {
+                $p['breakdown'] = [];
+            }
+        }
+        unset($p);
         uasort($productAgg, fn($a, $b) => $b['dimasak'] <=> $a['dimasak']);
         $topProducts = array_values(array_slice($productAgg, 0, 5));
 
         uasort($areaAgg, fn($a, $b) => $b['dimasak'] <=> $a['dimasak']);
-        $samplingByArea = array_values($areaAgg);
+        $samplingByArea = array_map(function($item) {
+            $bd = $item['breakdown'] ?? [];
+            uasort($bd, fn($a, $b) => $b['dimasak'] <=> $a['dimasak']);
+            return [
+                'area' => $item['area'],
+                'stores' => $item['stores'] ?? [],
+                'dimasak' => $item['dimasak'],
+                'cup' => $item['cup'],
+                'breakdown' => array_values($bd),
+            ];
+        }, array_values($areaAgg));
 
         uasort($regionAgg, fn($a, $b) => $b['dimasak'] <=> $a['dimasak']);
-        $samplingByRegion = array_values($regionAgg);
+        $samplingByRegion = array_map(function($item) {
+            $bd = $item['breakdown'] ?? [];
+            uasort($bd, fn($a, $b) => $b['dimasak'] <=> $a['dimasak']);
+            return [
+                'region' => $item['region'],
+                'dimasak' => $item['dimasak'],
+                'cup' => $item['cup'],
+                'breakdown' => array_values($bd),
+            ];
+        }, array_values($regionAgg));
 
         // Chart Data (Harian, Mingguan, Bulanan)
         $chartLabels = [];

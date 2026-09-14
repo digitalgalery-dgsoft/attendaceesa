@@ -810,8 +810,8 @@
                                 <td style="color: var(--text-muted); font-weight: 600;">{{ $m['area'] }}</td>
                                 <td class="num" style="color: #2563eb;">{{ number_format($m['qty']) }} Pcs</td>
                                 <td style="text-align: center;">
-                                    <button type="button" onclick="showDetailModal('Mitra: {{ $m['name'] }}', 'Total Penjualan: {{ number_format($m['qty']) }} Pcs (Rp {{ number_format($m['value'], 0, ',', '.') }})')" class="portal-mbr-btn-action">
-                                        Detail
+                                    <button type="button" onclick='openMbrBreakdownModal("mitra", "{{ addslashes($m['name']) }}", "{{ addslashes($m['area']) }}", @json($m['products'] ?? []))' class="portal-mbr-btn-action">
+                                        <i class="fa-solid fa-list-ul"></i> Detail
                                     </button>
                                 </td>
                             </tr>
@@ -868,8 +868,8 @@
                                 <td class="num" style="color: #2563eb;">{{ number_format($p['qty']) }} Pcs</td>
                                 <td class="num" style="color: #059669;">Rp {{ number_format($p['value'], 0, ',', '.') }}</td>
                                 <td style="text-align: center;">
-                                    <button type="button" onclick="showDetailModal('Produk: {{ $p['name'] }}', 'Total Terjual: {{ number_format($p['qty']) }} Pcs | Nilai: Rp {{ number_format($p['value'], 0, ',', '.') }}')" class="portal-mbr-btn-action">
-                                        Detail
+                                    <button type="button" onclick='openMbrBreakdownModal("product", "{{ addslashes($p['name']) }}", "{{ addslashes($p['sku'] ?? '') }}", @json($p['breakdown'] ?? []))' class="portal-mbr-btn-action">
+                                        <i class="fa-solid fa-list-ul"></i> Detail
                                     </button>
                                 </td>
                             </tr>
@@ -907,6 +907,7 @@
                             <th style="text-align: center;">Toko Tercover</th>
                             <th class="num">Total Qty</th>
                             <th class="num">Nilai (Rp)</th>
+                            <th style="width: 70px; text-align: center;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -921,10 +922,15 @@
                                 </td>
                                 <td class="num" style="color: #2563eb;">{{ number_format($a['qty']) }} Pcs</td>
                                 <td class="num" style="color: #059669;">Rp {{ number_format($a['value'], 0, ',', '.') }}</td>
+                                <td style="text-align: center;">
+                                    <button type="button" onclick='openMbrBreakdownModal("area", "{{ addslashes($a['area']) }}", "", @json($a['breakdown'] ?? []))' class="portal-mbr-btn-action">
+                                        <i class="fa-solid fa-list-ul"></i> Detail
+                                    </button>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
                                     <i class="fa-solid fa-inbox" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
                                     Belum ada data daerah pada periode ini.
                                 </td>
@@ -956,6 +962,7 @@
                             <th style="text-align: center;">Jumlah Daerah</th>
                             <th class="num">Total Qty</th>
                             <th class="num">Nilai (Rp)</th>
+                            <th style="width: 70px; text-align: center;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -970,10 +977,15 @@
                                 </td>
                                 <td class="num" style="color: #2563eb;">{{ number_format($r['qty']) }} Pcs</td>
                                 <td class="num" style="color: #059669;">Rp {{ number_format($r['value'], 0, ',', '.') }}</td>
+                                <td style="text-align: center;">
+                                    <button type="button" onclick='openMbrBreakdownModal("region", "{{ addslashes($r['region']) }}", "", @json($r['breakdown'] ?? []))' class="portal-mbr-btn-action">
+                                        <i class="fa-solid fa-list-ul"></i> Detail
+                                    </button>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
                                     <i class="fa-solid fa-inbox" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
                                     Belum ada data wilayah pada periode ini.
                                 </td>
@@ -1024,7 +1036,7 @@
                 <tbody>
                     @forelse($submissions as $idx => $sub)
                         @php
-                            $subDateDisplay = $sub->submitted_at ? $sub->submitted_at->translatedFormat('d M Y, H:i') : ($sub->created_at ? $sub->created_at->translatedFormat('d M Y, H:i') : '-');
+                            $subDateDisplay = $sub->submitted_at ? $sub->submitted_at->timezone('Asia/Jakarta')->translatedFormat('d M Y, H:i') . ' WIB' : ($sub->created_at ? $sub->created_at->timezone('Asia/Jakarta')->translatedFormat('d M Y, H:i') . ' WIB' : '-');
                             $empName = $sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'Petugas';
                             $empNik = $sub->employee?->nik ?? ($sub->employee?->employee_no ?? '-');
                             $storeName = $sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: 'Toko / Outlet');
@@ -1182,7 +1194,7 @@
                                         <i class="fa-solid fa-camera"></i> Foto
                                     </button>
                                 @endif
-                                <button type="button" onclick='openSubmissionDetailModal(@json($sub), @json($cart), @json($subPhotos), "{{ $sellOutPhoto }}")' class="portal-mbr-btn-action">
+                                <button type="button" onclick='openSubmissionDetailModal(@json($sub), @json($cart), @json($subPhotos), "{{ $sellOutPhoto }}", "{{ $subDateDisplay }}")' class="portal-mbr-btn-action">
                                     <i class="fa-solid fa-eye"></i> Detail
                                 </button>
                             </td>
@@ -1282,6 +1294,24 @@
         </div>
         <div class="portal-mbr-modal-body">
             <p id="genericModalContent" style="font-size: 0.95rem; color: var(--text-body); line-height: 1.6; margin: 0;"></p>
+        </div>
+    </div>
+</div>
+
+{{-- MODAL 4: MODAL RINCIAN DETAIL DRILLDOWN (TOP MITRA, TOP PRODUK, DAERAH, WILAYAH) --}}
+<div class="portal-mbr-modal-overlay" id="mbrBreakdownModal" onclick="closeMbrBreakdownModal()">
+    <div class="portal-mbr-modal-card" style="max-width: 860px;" onclick="event.stopPropagation()">
+        <div class="portal-mbr-modal-header">
+            <div class="portal-mbr-modal-title" id="mbrBreakdownModalTitle">
+                <i class="fa-solid fa-list-ul" style="color: var(--brand-primary);"></i>
+                <span>Rincian Detail</span>
+            </div>
+            <button type="button" class="portal-mbr-modal-close" onclick="closeMbrBreakdownModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="portal-mbr-modal-body" id="mbrBreakdownModalBody">
+            {{-- Injected dynamically --}}
         </div>
     </div>
 </div>
@@ -1396,8 +1426,32 @@
         document.getElementById('galleryModal')?.classList.remove('active');
     }
 
+    // Helper Format Waktu Lapor ke Jam Indonesia (WIB)
+    function formatWaktuLapor(dateVal, fallbackFormatted) {
+        if (fallbackFormatted && fallbackFormatted !== '-' && !fallbackFormatted.includes('T')) {
+            return fallbackFormatted;
+        }
+        if (!dateVal) return '-';
+        try {
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return dateVal;
+            const options = {
+                timeZone: 'Asia/Jakarta',
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            };
+            return d.toLocaleDateString('id-ID', options).replace(/\./g, ':') + ' WIB';
+        } catch (e) {
+            return dateVal;
+        }
+    }
+
     // Modal Rincian Cart Submission
-    function openSubmissionDetailModal(sub, cart, photos, sellOutPhoto) {
+    function openSubmissionDetailModal(sub, cart, photos, sellOutPhoto, formattedTime) {
         const modal = document.getElementById('submissionDetailModal');
         const body = document.getElementById('subModalBody');
         if (!modal || !body) return;
@@ -1527,6 +1581,8 @@
             `;
         }
 
+        const waktuLaporStr = formatWaktuLapor(sub.submitted_at || sub.created_at, formattedTime);
+
         body.innerHTML = `
             <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem;">
                 <div>
@@ -1535,7 +1591,7 @@
                 </div>
                 <div>
                     <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Waktu Lapor</span>
-                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${sub.submitted_at || sub.created_at || '-'}</div>
+                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${waktuLaporStr}</div>
                 </div>
                 <div>
                     <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Petugas / Mitra</span>
@@ -1566,6 +1622,272 @@
 
     function closeSubmissionDetailModal() {
         document.getElementById('submissionDetailModal')?.classList.remove('active');
+    }
+
+    // Modal Breakdown Drilldown (Top Mitra, Top Produk, Daerah, Wilayah)
+    function openMbrBreakdownModal(type, title, subtitle, list) {
+        const modal = document.getElementById('mbrBreakdownModal');
+        const titleEl = document.getElementById('mbrBreakdownModalTitle');
+        const bodyEl = document.getElementById('mbrBreakdownModalBody');
+        if (!modal || !bodyEl) return;
+
+        list = list || [];
+        let modalTitleHtml = '';
+        let tableHtml = '';
+        let totalQty = 0;
+        let totalVal = 0;
+
+        list.forEach(item => {
+            totalQty += Number(item.qty || 0);
+            totalVal += Number(item.value || 0);
+        });
+
+        if (type === 'mitra') {
+            modalTitleHtml = `<i class="fa-solid fa-user-tie" style="color: #4f46e5;"></i> Rincian Penjualan Mitra: <strong>${title}</strong>`;
+            tableHtml = `
+                <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 0.85rem 1.15rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Daerah / Cabang</div>
+                        <div style="font-weight: 700; color: var(--text-heading);">${subtitle || '-'}</div>
+                    </div>
+                    <div style="display: flex; gap: 1.5rem;">
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Qty Terjual</div>
+                            <div style="font-weight: 800; color: #2563eb; font-size: 1.15rem;">${totalQty.toLocaleString('id-ID')} Pcs</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Nilai Penjualan</div>
+                            <div style="font-weight: 800; color: #059669; font-size: 1.15rem;">Rp ${totalVal.toLocaleString('id-ID')}</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="portal-mbr-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;">#</th>
+                                <th>Nama Produk</th>
+                                <th class="num">Jumlah Pcs</th>
+                                <th class="num">Total Penjualan (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${list.length > 0 ? list.map((it, idx) => `
+                                <tr>
+                                    <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                                    <td>
+                                        <div style="font-weight: 700; color: var(--text-heading);">${it.name}</div>
+                                        ${it.sku && it.sku !== '-' ? `<div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">${it.sku}</div>` : ''}
+                                    </td>
+                                    <td class="num" style="color: #2563eb; font-weight: 700;">${Number(it.qty || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669; font-weight: 700;">Rp ${Number(it.value || 0).toLocaleString('id-ID')}</td>
+                                </tr>
+                            `).join('') : `
+                                <tr>
+                                    <td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data produk untuk mitra ini.</td>
+                                </tr>
+                            `}
+                        </tbody>
+                        ${list.length > 0 ? `
+                            <tfoot>
+                                <tr style="background: #f8fafc; font-weight: 800;">
+                                    <td colspan="2" style="text-align: right; padding: 0.75rem 1rem;">TOTAL:</td>
+                                    <td class="num" style="color: #2563eb;">${totalQty.toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669;">Rp ${totalVal.toLocaleString('id-ID')}</td>
+                                </tr>
+                            </tfoot>
+                        ` : ''}
+                    </table>
+                </div>
+            `;
+        } else if (type === 'product') {
+            modalTitleHtml = `<i class="fa-solid fa-medal" style="color: #6366f1;"></i> Rincian Distribusi Penjualan Produk: <strong>${title}</strong>`;
+            tableHtml = `
+                <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 0.85rem 1.15rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Kode SKU</div>
+                        <div style="font-weight: 700; font-family: monospace; color: var(--text-heading);">${subtitle || '-'}</div>
+                    </div>
+                    <div style="display: flex; gap: 1.5rem;">
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Qty Terjual</div>
+                            <div style="font-weight: 800; color: #2563eb; font-size: 1.15rem;">${totalQty.toLocaleString('id-ID')} Pcs</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Nilai</div>
+                            <div style="font-weight: 800; color: #059669; font-size: 1.15rem;">Rp ${totalVal.toLocaleString('id-ID')}</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="portal-mbr-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;">#</th>
+                                <th>Nama Mitra (SPG)</th>
+                                <th>Area / Cabang</th>
+                                <th>Toko / Lokasi</th>
+                                <th class="num">Jumlah Pcs</th>
+                                <th class="num">Total Penjualan (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${list.length > 0 ? list.map((it, idx) => `
+                                <tr>
+                                    <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${it.mitra || '-'}</td>
+                                    <td style="color: var(--text-muted); font-weight: 600;">${it.area || '-'}</td>
+                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
+                                    <td class="num" style="color: #2563eb; font-weight: 700;">${Number(it.qty || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669; font-weight: 700;">Rp ${Number(it.value || 0).toLocaleString('id-ID')}</td>
+                                </tr>
+                            `).join('') : `
+                                <tr>
+                                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data distribusi untuk produk ini.</td>
+                                </tr>
+                            `}
+                        </tbody>
+                        ${list.length > 0 ? `
+                            <tfoot>
+                                <tr style="background: #f8fafc; font-weight: 800;">
+                                    <td colspan="4" style="text-align: right; padding: 0.75rem 1rem;">TOTAL:</td>
+                                    <td class="num" style="color: #2563eb;">${totalQty.toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669;">Rp ${totalVal.toLocaleString('id-ID')}</td>
+                                </tr>
+                            </tfoot>
+                        ` : ''}
+                    </table>
+                </div>
+            `;
+        } else if (type === 'area') {
+            modalTitleHtml = `<i class="fa-solid fa-map-location-dot" style="color: #0d9488;"></i> Rincian Penjualan Daerah / Cabang: <strong>${title}</strong>`;
+            tableHtml = `
+                <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 0.85rem 1.15rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Daerah / Cabang</div>
+                        <div style="font-weight: 800; color: var(--text-heading); font-size: 1.05rem;">${title}</div>
+                    </div>
+                    <div style="display: flex; gap: 1.5rem;">
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Qty</div>
+                            <div style="font-weight: 800; color: #2563eb; font-size: 1.15rem;">${totalQty.toLocaleString('id-ID')} Pcs</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Nilai</div>
+                            <div style="font-weight: 800; color: #059669; font-size: 1.15rem;">Rp ${totalVal.toLocaleString('id-ID')}</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="portal-mbr-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;">#</th>
+                                <th>Nama Mitra (SPG)</th>
+                                <th>Produk</th>
+                                <th>Toko / Lokasi</th>
+                                <th class="num">Jumlah Pcs</th>
+                                <th class="num">Total Penjualan (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${list.length > 0 ? list.map((it, idx) => `
+                                <tr>
+                                    <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${it.mitra || '-'}</td>
+                                    <td style="color: var(--brand-primary); font-weight: 600;">${it.product || '-'}</td>
+                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
+                                    <td class="num" style="color: #2563eb; font-weight: 700;">${Number(it.qty || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669; font-weight: 700;">Rp ${Number(it.value || 0).toLocaleString('id-ID')}</td>
+                                </tr>
+                            `).join('') : `
+                                <tr>
+                                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data penjualan di daerah ini.</td>
+                                </tr>
+                            `}
+                        </tbody>
+                        ${list.length > 0 ? `
+                            <tfoot>
+                                <tr style="background: #f8fafc; font-weight: 800;">
+                                    <td colspan="4" style="text-align: right; padding: 0.75rem 1rem;">TOTAL:</td>
+                                    <td class="num" style="color: #2563eb;">${totalQty.toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669;">Rp ${totalVal.toLocaleString('id-ID')}</td>
+                                </tr>
+                            </tfoot>
+                        ` : ''}
+                    </table>
+                </div>
+            `;
+        } else if (type === 'region') {
+            modalTitleHtml = `<i class="fa-solid fa-earth-asia" style="color: var(--brand-primary);"></i> Rincian Penjualan Wilayah (Region): <strong>${title}</strong>`;
+            tableHtml = `
+                <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 0.85rem 1.15rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Wilayah (Region)</div>
+                        <div style="font-weight: 800; color: var(--text-heading); font-size: 1.05rem;">${title}</div>
+                    </div>
+                    <div style="display: flex; gap: 1.5rem;">
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Qty</div>
+                            <div style="font-weight: 800; color: #2563eb; font-size: 1.15rem;">${totalQty.toLocaleString('id-ID')} Pcs</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Nilai</div>
+                            <div style="font-weight: 800; color: #059669; font-size: 1.15rem;">Rp ${totalVal.toLocaleString('id-ID')}</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="portal-mbr-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;">#</th>
+                                <th>Nama Mitra (SPG)</th>
+                                <th>Area / Cabang</th>
+                                <th>Produk</th>
+                                <th>Toko / Lokasi</th>
+                                <th class="num">Jumlah Pcs</th>
+                                <th class="num">Total Penjualan (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${list.length > 0 ? list.map((it, idx) => `
+                                <tr>
+                                    <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${it.mitra || '-'}</td>
+                                    <td style="color: var(--text-muted); font-weight: 600;">${it.area || '-'}</td>
+                                    <td style="color: var(--brand-primary); font-weight: 600;">${it.product || '-'}</td>
+                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
+                                    <td class="num" style="color: #2563eb; font-weight: 700;">${Number(it.qty || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669; font-weight: 700;">Rp ${Number(it.value || 0).toLocaleString('id-ID')}</td>
+                                </tr>
+                            `).join('') : `
+                                <tr>
+                                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data penjualan di wilayah ini.</td>
+                                </tr>
+                            `}
+                        </tbody>
+                        ${list.length > 0 ? `
+                            <tfoot>
+                                <tr style="background: #f8fafc; font-weight: 800;">
+                                    <td colspan="5" style="text-align: right; padding: 0.75rem 1rem;">TOTAL:</td>
+                                    <td class="num" style="color: #2563eb;">${totalQty.toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669;">Rp ${totalVal.toLocaleString('id-ID')}</td>
+                                </tr>
+                            </tfoot>
+                        ` : ''}
+                    </table>
+                </div>
+            `;
+        }
+
+        titleEl.innerHTML = modalTitleHtml;
+        bodyEl.innerHTML = tableHtml;
+        modal.classList.add('active');
+    }
+
+    function closeMbrBreakdownModal() {
+        document.getElementById('mbrBreakdownModal')?.classList.remove('active');
     }
 
     // Modal Detail Ringkas
