@@ -523,12 +523,58 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               }
             }
 
+            // Cek apakah ada data Wings MBR Free Taste (Sampling) multi-produk dinamis
+            List<dynamic>? mbrFreeTasteItemsList;
+            for (final v in _currentSubmission.values) {
+              final fn = v.fieldName.toLowerCase();
+              if (fn == 'mbr_freetaste_items_json' || fn.contains('freetaste_items') || fn.contains('sampling_items')) {
+                if (v.valueJson is List && (v.valueJson as List).isNotEmpty) {
+                  mbrFreeTasteItemsList = v.valueJson as List;
+                  break;
+                } else if (v.valueText != null && v.valueText!.trim().isNotEmpty) {
+                  try {
+                    final decoded = jsonDecode(v.valueText!);
+                    if (decoded is List && decoded.isNotEmpty) {
+                      mbrFreeTasteItemsList = decoded;
+                      break;
+                    }
+                  } catch (_) {}
+                }
+              }
+            }
+            final hasDynamicMbrFreeTaste = mbrFreeTasteItemsList != null && mbrFreeTasteItemsList.isNotEmpty;
+            int mbrFtTotalAwal = 0;
+            int mbrFtTotalDimasak = 0;
+            int mbrFtTotalAkhir = 0;
+            int mbrFtTotalCup = 0;
+            if (hasDynamicMbrFreeTaste) {
+              for (final it in mbrFreeTasteItemsList) {
+                if (it is! Map) continue;
+                final a = (it['stok_awal'] as num?)?.toInt() ?? int.tryParse(it['stok_awal']?.toString() ?? '0') ?? 0;
+                final d = (it['jumlah_dimasak'] as num?)?.toInt() ?? int.tryParse(it['jumlah_dimasak']?.toString() ?? '0') ?? 0;
+                final s = (it['stok_akhir'] as num?)?.toInt() ?? (a - d);
+                final c = (it['jumlah_cup'] as num?)?.toInt() ?? int.tryParse(it['jumlah_cup']?.toString() ?? '0') ?? 0;
+                mbrFtTotalAwal += a;
+                mbrFtTotalDimasak += d;
+                mbrFtTotalAkhir += (s < 0 ? 0 : s);
+                mbrFtTotalCup += c;
+              }
+            }
+
             final suppressMbrSalesFields = {
               'mbr_sales_items_json',
               'total_qty_penjualan',
               'total_value_penjualan_rp',
               'total_bayar_di_booth_rp',
               'total_bayar_di_kasir_rp',
+            };
+
+            final suppressMbrFreeTasteFields = {
+              'mbr_freetaste_items_json',
+              'total_stok_awal_sampling',
+              'total_mie_dimasak',
+              'total_stok_akhir_sampling',
+              'total_cup_dibagikan',
             };
 
             final suppressStockFields = {
@@ -908,6 +954,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   return false;
                 }
               }
+              if (hasDynamicMbrFreeTaste) {
+                if (suppressMbrFreeTasteFields.contains(fn) || suppressMbrFreeTasteFields.contains(fl)) {
+                  return false;
+                }
+              }
               if (isCustomerDbReport) {
                 if (suppressCustomerFields.contains(fn) || suppressCustomerFields.contains(fl)) {
                   return false;
@@ -1170,6 +1221,60 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     final item = entry.value;
                     if (item is! Map) return const SizedBox.shrink();
                     return _buildMbrSalesProductCard(
+                      index: idx + 1,
+                      item: Map<String, dynamic>.from(item),
+                      cardColor: cardColor,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
+                      elevatedColor: elevatedColor,
+                      primaryColor: primaryColor,
+                      isDarkMode: isDarkMode,
+                    );
+                  }),
+                  const SizedBox(height: 12),
+                ],
+
+                // ── 1.66. Panel Ringkasan KPI Global Wings MBR Free Taste (Sampling) ──
+                if (hasDynamicMbrFreeTaste) ...[
+                  _buildMbrFreeTasteSummaryGrid(
+                    totalSku: mbrFreeTasteItemsList!.length,
+                    totalDimasak: mbrFtTotalDimasak,
+                    totalCup: mbrFtTotalCup,
+                    totalStokAwal: mbrFtTotalAwal,
+                    totalStokAkhir: mbrFtTotalAkhir,
+                    cardColor: cardColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    isDarkMode: isDarkMode,
+                  ),
+                  const SizedBox(height: 8),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'RINCIAN PRODUK SAMPLING MBR',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD97706).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${mbrFreeTasteItemsList!.length} SKU Sampling',
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ...mbrFreeTasteItemsList!.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final item = entry.value;
+                    if (item is! Map) return const SizedBox.shrink();
+                    return _buildMbrFreeTasteProductCard(
                       index: idx + 1,
                       item: Map<String, dynamic>.from(item),
                       cardColor: cardColor,
@@ -2476,6 +2581,299 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       ),
                     ),
                     const Icon(Icons.zoom_in_rounded, size: 18, color: Color(0xFF10B981)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMbrFreeTasteSummaryGrid({
+    required int totalSku,
+    required int totalDimasak,
+    required int totalCup,
+    required int totalStokAwal,
+    required int totalStokAkhir,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required bool isDarkMode,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.restaurant_menu_rounded, size: 18, color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFD97706)),
+              const SizedBox(width: 8),
+              Text(
+                'RINGKASAN SAMPLING FREE TASTE MBR',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFD97706),
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.whatshot_rounded,
+                  iconColor: const Color(0xFFD97706),
+                  iconBgColor: const Color(0xFFD97706).withOpacity(0.12),
+                  label: 'Total Mie Dimasak',
+                  value: '$totalDimasak Pcs',
+                  valueColor: const Color(0xFFD97706),
+                  subText: '$totalSku SKU Produk',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.coffee_rounded,
+                  iconColor: const Color(0xFF10B981),
+                  iconBgColor: const Color(0xFF10B981).withOpacity(0.12),
+                  label: 'Cup Dibagikan',
+                  value: '$totalCup Cup',
+                  valueColor: const Color(0xFF10B981),
+                  subText: 'Sampling Pengunjung',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.inventory_rounded,
+                  iconColor: const Color(0xFF0284C7),
+                  iconBgColor: const Color(0xFF0284C7).withOpacity(0.12),
+                  label: 'Stok Awal Sampling',
+                  value: '$totalStokAwal Pcs',
+                  valueColor: const Color(0xFF0284C7),
+                  subText: 'Bungkus Mie Mentah',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildOfftakeStatCard(
+                  icon: Icons.inventory_2_rounded,
+                  iconColor: const Color(0xFFEA580C),
+                  iconBgColor: const Color(0xFFEA580C).withOpacity(0.12),
+                  label: 'Sisa Stok Akhir',
+                  value: '$totalStokAkhir Pcs',
+                  valueColor: const Color(0xFFEA580C),
+                  subText: 'Stok Awal - Dimasak',
+                  cardColor: cardColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  isDarkMode: isDarkMode,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMbrFreeTasteProductCard({
+    required int index,
+    required Map<String, dynamic> item,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color elevatedColor,
+    required Color primaryColor,
+    required bool isDarkMode,
+  }) {
+    final pName = (item['product_name']?.toString() ?? item['name']?.toString() ?? item['product_code']?.toString() ?? 'Produk Mie Sedaap').trim();
+    final pSku = (item['sku_code']?.toString() ?? '-').trim();
+    final stokAwal = (item['stok_awal'] as num?)?.toInt() ?? int.tryParse(item['stok_awal']?.toString() ?? '0') ?? 0;
+    final dimasak = (item['jumlah_dimasak'] as num?)?.toInt() ?? int.tryParse(item['jumlah_dimasak']?.toString() ?? '0') ?? 0;
+    final stokAkhir = (item['stok_akhir'] as num?)?.toInt() ?? (stokAwal - dimasak < 0 ? 0 : stokAwal - dimasak);
+    final cup = (item['jumlah_cup'] as num?)?.toInt() ?? int.tryParse(item['jumlah_cup']?.toString() ?? '0') ?? 0;
+
+    final String? rawPhoto = item['sampling_photo_url']?.toString() ??
+        item['photo_url']?.toString() ??
+        item['sampling_photo_path']?.toString() ??
+        item['foto_sampling']?.toString();
+    final String? photoUrl = (rawPhoto != null && rawPhoto.trim().isNotEmpty) ? _resolveMediaUrl(rawPhoto) : null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD97706).withOpacity(0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD97706).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '#$index',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      pName,
+                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor),
+                    ),
+                    if (pSku != '-' && pSku.isNotEmpty)
+                      Text(
+                        'SKU: $pSku',
+                        style: TextStyle(fontSize: 11, color: subtitleColor),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.coffee_rounded, size: 13, color: Color(0xFF10B981)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$cup Cup',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Stok and Dimasak breakdown
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: elevatedColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Stok Awal Sampling:', style: TextStyle(fontSize: 11.5, color: subtitleColor)),
+                    Text('$stokAwal Pcs', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: textColor)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Mie yang Dimasak:', style: TextStyle(fontSize: 11.5, color: subtitleColor)),
+                    Text('$dimasak Pcs', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
+                  ],
+                ),
+                const Divider(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Sisa Stok Sampling:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text('$stokAkhir Pcs', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFEA580C))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          if (photoUrl != null && photoUrl.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            InkWell(
+              onTap: () => _showImageDialog(context, photoUrl, 'Foto Sampling: $pName'),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFD97706).withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Image.network(
+                        photoUrl,
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 44,
+                          height: 44,
+                          color: Colors.grey.shade300,
+                          child: const Icon(Icons.broken_image_rounded, size: 20, color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Foto Dokumentasi Sampling',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                          ),
+                          Text(
+                            'Sentuh untuk memperbesar foto',
+                            style: TextStyle(fontSize: 10.5, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.zoom_in_rounded, size: 18, color: Color(0xFFD97706)),
                   ],
                 ),
               ),

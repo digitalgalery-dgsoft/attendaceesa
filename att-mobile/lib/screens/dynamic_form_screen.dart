@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math' as math;
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -250,6 +252,14 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         (title.contains('mbr') && (title.contains('penjualan') || title.contains('sales')));
   }
 
+  bool _isWingsMbrFreeTasteTemplate() {
+    final code = widget.template.code.toUpperCase();
+    final title = widget.template.title.toLowerCase();
+    return code == 'RPT-WINGS-MBR-FREETASTE-01' ||
+        code.contains('MBR-FREETASTE') ||
+        (title.contains('mbr') && (title.contains('free taste') || title.contains('sampling')));
+  }
+
   bool _hasProductBinding() {
     if (_isDailyMaintenanceTemplate()) return false;
     if (_isOfftakeTemplate()) return false; // Offtake uses cart + confirmation review, NOT sequential per-product locks!
@@ -257,6 +267,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     if (_isCustomerDbTemplate()) return false; // Data Pelanggan is NOT bound to Master Produk!
     if (_isStockEndTemplate()) return false; // Stock End uses cart + confirmation review, NOT sequential per-product locks!
     if (_isWingsMbrSalesTemplate()) return false; // Wings MBR Sales uses cart + confirmation review!
+    if (_isWingsMbrFreeTasteTemplate()) return false; // Wings MBR Free Taste uses sampling cart + confirmation review!
     if (widget.template.hasProductBinding) return true;
     if (_getProducts().isNotEmpty) return true;
     final code = widget.template.code.toUpperCase();
@@ -413,6 +424,23 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
   File? _mbrSellOutPhoto;
   String? _mbrSellOutWatermark;
+
+  // Wings Surya MBR Free Taste / Sampling Reporting State
+  int _mbrFreeTasteStep = 0; // 0: Input Sampling Produk, 1: Review & Konfirmasi
+  final List<Map<String, dynamic>> _mbrFreeTasteCart = [];
+  TemplateProductModel? _currentMbrFreeTasteProduct;
+
+  final TextEditingController _mbrStokAwalCtrl = TextEditingController();
+  final TextEditingController _mbrDimasakCtrl = TextEditingController();
+  final TextEditingController _mbrStokAkhirCtrl = TextEditingController();
+  final TextEditingController _mbrCupCtrl = TextEditingController();
+  final TextEditingController _mbrCatatanSamplingCtrl = TextEditingController();
+
+  File? _mbrCurrentSamplingPhoto;
+  String? _mbrCurrentSamplingWatermark;
+
+  File? _mbrBoothSamplingPhoto;
+  String? _mbrBoothSamplingWatermark;
 
   // GPS & Status
   double? _latitude;
@@ -1526,6 +1554,46 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     }
 
+    // Inisialisasi data laporan Wings Surya MBR Free Taste (Sampling Cart & Konfirmasi Review)
+    final bool isWingsMbrFreeTaste = _isWingsMbrFreeTasteTemplate();
+    if (isWingsMbrFreeTaste) {
+      _mbrFreeTasteCart.clear();
+      _mbrFreeTasteStep = 0;
+      _currentMbrFreeTasteProduct = null;
+      _mbrStokAwalCtrl.clear();
+      _mbrDimasakCtrl.clear();
+      _mbrStokAkhirCtrl.clear();
+      _mbrCupCtrl.clear();
+      _mbrCatatanSamplingCtrl.clear();
+      _mbrCurrentSamplingPhoto = null;
+      _mbrCurrentSamplingWatermark = null;
+      _mbrBoothSamplingPhoto = null;
+      _mbrBoothSamplingWatermark = null;
+
+      if (widget.editSubmission != null) {
+        for (final val in widget.editSubmission!.values) {
+          final fn = val.fieldName.toLowerCase();
+          if (fn == 'mbr_freetaste_items_json' || fn == 'mbr_sampling_items_json') {
+            try {
+              final raw = val.valueJson ?? val.valueText;
+              final list = raw is List ? raw : (raw is String ? jsonDecode(raw) : null);
+              if (list is List) {
+                for (final itm in list) {
+                  if (itm is Map) {
+                    _mbrFreeTasteCart.add(Map<String, dynamic>.from(itm));
+                  }
+                }
+              }
+            } catch (e) {
+              debugPrint('Error decoding mbr_freetaste_items_json: $e');
+            }
+          } else if (fn == 'catatan_sampling') {
+            if (val.valueText != null) _mbrCatatanSamplingCtrl.text = val.valueText!;
+          }
+        }
+      }
+    }
+
     // Attach reactive calculation listeners
     for (final ctrl in _controllers.values) {
       ctrl.addListener(_recalculateFormulas);
@@ -1582,6 +1650,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
     _mbrStorePriceCtrl.dispose();
     _mbrQtyCtrl.dispose();
+
+    _mbrStokAwalCtrl.dispose();
+    _mbrDimasakCtrl.dispose();
+    _mbrStokAkhirCtrl.dispose();
+    _mbrCupCtrl.dispose();
+    _mbrCatatanSamplingCtrl.dispose();
 
     for (final itm in _competitorItems) {
       itm.dispose();
@@ -2526,6 +2600,20 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
     if (_isWingsMbrSalesTemplate()) {
       return _buildWingsMbrSalesScaffold(
+        context: context,
+        canSubmitReport: canSubmitReport,
+        isDarkMode: isDarkMode,
+        themeColor: themeColor,
+        cardColor: cardColor,
+        textColor: textColor,
+        subtitleColor: subtitleColor,
+        elevatedColor: elevatedColor,
+        locale: locale,
+      );
+    }
+
+    if (_isWingsMbrFreeTasteTemplate()) {
+      return _buildWingsMbrFreeTasteScaffold(
         context: context,
         canSubmitReport: canSubmitReport,
         isDarkMode: isDarkMode,
@@ -14505,6 +14593,1575 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           title: const Text('Laporan Penjualan MBR Terkirim'),
           description: Text(
               'Laporan Penjualan (${_mbrSalesCart.length} produk, Total: ${_formatRupiah(totalValue)}) berhasil dikirim.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+        Navigator.of(context).pop(true);
+      } else if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Gagal Mengirim Laporan'),
+          description: Text(result['message'] ?? 'Terjadi kesalahan sistem.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomLoadingIndicator.hide(context);
+        setState(() => _isSubmitting = false);
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Terjadi Kesalahan'),
+          description: Text(e.toString()),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    } finally {
+      if (mounted) {
+        CustomLoadingIndicator.hide(context);
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // WINGS SURYA - LAPORAN FREE TASTE / SAMPLING (EVENT MBR)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildWingsMbrFreeTasteScaffold({
+    required BuildContext context,
+    required bool canSubmitReport,
+    required bool isDarkMode,
+    required Color themeColor,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color elevatedColor,
+    required LocaleProvider locale,
+  }) {
+    final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6EAF2);
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    final bool hasActiveAttendance = attProvider.isVisiting || attProvider.isCheckedIn || widget.editSubmission != null;
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.editSubmission != null
+                  ? 'Edit Laporan Free Taste MBR'
+                  : 'Laporan Free Taste (Event MBR)',
+              style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (_selectedStoreName.isNotEmpty)
+              Text(
+                _selectedStoreName,
+                style: TextStyle(color: subtitleColor, fontSize: 11.5, fontWeight: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: _buildLocationStatusIndicator(canSubmitReport, isDarkMode),
+          ),
+        ],
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
+      ),
+      body: ListView(
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        children: [
+          // Banner Peringatan jika belum Check-In atau di luar radius toko
+          if (!canSubmitReport) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: (!hasActiveAttendance ? const Color(0xFFEF4444) : const Color(0xFFF59E0B)).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: (!hasActiveAttendance ? const Color(0xFFEF4444) : const Color(0xFFF59E0B)).withOpacity(0.5),
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    !hasActiveAttendance ? Icons.lock_clock_rounded : Icons.wrong_location_rounded,
+                    color: !hasActiveAttendance ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          !hasActiveAttendance
+                              ? 'Wajib Check-In / Visit-In Terlebih Dahulu'
+                              : 'Di Luar Radius Lokasi Toko',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: !hasActiveAttendance ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          !hasActiveAttendance
+                              ? 'Anda belum absensi kehadiran atau visit hari ini. Laporan terkunci dan tidak dapat dikirim.'
+                              : 'Jarak Anda: ${_calculatedDistance?.round() ?? '-'}m dari toko (maksimal: ${_allowedRadiusMeter.round()}m). Laporan hanya dapat dikirim di dalam radius.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: subtitleColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Step Switch Tabs
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() => _mbrFreeTasteStep = 0),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _mbrFreeTasteStep == 0 ? themeColor.withOpacity(0.12) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _mbrFreeTasteStep == 0
+                              ? themeColor
+                              : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.soup_kitchen_rounded,
+                              size: 16, color: _mbrFreeTasteStep == 0 ? themeColor : subtitleColor),
+                          const SizedBox(width: 6),
+                          Text(
+                            '1. Input Sampling (${_mbrFreeTasteCart.length})',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _mbrFreeTasteStep == 0 ? themeColor : subtitleColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: InkWell(
+                    onTap: _mbrFreeTasteCart.isEmpty
+                        ? () {
+                            toastification.show(
+                              context: context,
+                              type: ToastificationType.warning,
+                              title: const Text('Daftar Sampling Masih Kosong'),
+                              description: const Text('Tambahkan minimal 1 produk sampling terlebih dahulu.'),
+                              autoCloseDuration: const Duration(seconds: 2),
+                            );
+                          }
+                        : () => setState(() => _mbrFreeTasteStep = 1),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _mbrFreeTasteStep == 1 ? themeColor.withOpacity(0.12) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _mbrFreeTasteStep == 1
+                              ? themeColor
+                              : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.fact_check_rounded,
+                              size: 16, color: _mbrFreeTasteStep == 1 ? themeColor : subtitleColor),
+                          const SizedBox(width: 6),
+                          Text(
+                            '2. Review & Submit',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _mbrFreeTasteStep == 1 ? themeColor : subtitleColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          if (_mbrFreeTasteStep == 0)
+            _buildMbrFreeTasteStep0Body(
+                themeColor, cardColor, textColor, subtitleColor, elevatedColor, isDarkMode)
+          else
+            _buildMbrFreeTasteStep1Body(
+                themeColor, cardColor, textColor, subtitleColor, elevatedColor, isDarkMode, canSubmitReport),
+
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  void _recalculateFreeTasteStokAkhir() {
+    final awal = int.tryParse(_mbrStokAwalCtrl.text) ?? 0;
+    final masak = int.tryParse(_mbrDimasakCtrl.text) ?? 0;
+    final akhir = awal - masak;
+    _mbrStokAkhirCtrl.text = akhir >= 0 ? akhir.toString() : '0';
+    if (mounted) setState(() {});
+  }
+
+  Widget _buildMbrFreeTasteStep0Body(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    bool isDarkMode,
+  ) {
+    final p = _currentMbrFreeTasteProduct;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Info Lokasi Store ──
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: themeColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.storefront_rounded, color: themeColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _selectedStoreName.isNotEmpty ? _selectedStoreName : 'Lokasi Kunjungan Toko',
+                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Sesuai Check-In / Visit-In • Free Taste Event MBR',
+                      style: TextStyle(fontSize: 11, color: subtitleColor),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // ── Card 1: Master Produk Mie Sedaap ──
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFFD97706).withOpacity(0.35),
+              width: 1.2,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD97706).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.ramen_dining_rounded, size: 16, color: Color(0xFFD97706)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '1. PRODUK FREE TASTE / SAMPLING',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              if (p == null) ...[
+                InkWell(
+                  onTap: () => _openMbrFreeTasteProductPickerBottomSheet(themeColor, isDarkMode),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFD97706).withOpacity(0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.search_rounded, color: Color(0xFFD97706), size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Pilih Produk Mie Sedaap dari Master',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFD97706),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFD97706).withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p.name,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                            if (p.skuCode != null && p.skuCode!.isNotEmpty)
+                              Text(
+                                'SKU: ${p.skuCode}',
+                                style: TextStyle(fontSize: 11, color: subtitleColor),
+                              ),
+                          ],
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _openMbrFreeTasteProductPickerBottomSheet(themeColor, isDarkMode),
+                        icon: const Icon(Icons.sync_rounded, size: 16),
+                        label: const Text('Ganti', style: TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFFD97706),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // ── Card 2: Form Kuantitas Sampling & Stok (Bungkus & Cup) ──
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.calculate_rounded, size: 16, color: Color(0xFF10B981)),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '2. DATA STOK SAMPLING & MASAK',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isDarkMode ? const Color(0xFF34D399) : const Color(0xFF047857),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // Stok Awal Sampling Mie (Pcs) & Jumlah Mie yang Dimasak (Pcs)
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'STOK AWAL MIE (PCS)',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
+                        ),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: _mbrStokAwalCtrl,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                          decoration: InputDecoration(
+                            hintText: '0',
+                            suffixText: 'Pcs',
+                            filled: true,
+                            fillColor: elevatedColor,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                          ),
+                          onChanged: (_) => _recalculateFreeTasteStokAkhir(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'MIE DIMASAK (PCS)',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
+                        ),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: _mbrDimasakCtrl,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: themeColor),
+                          decoration: InputDecoration(
+                            hintText: '0',
+                            suffixText: 'Pcs',
+                            filled: true,
+                            fillColor: elevatedColor,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                          ),
+                          onChanged: (_) => _recalculateFreeTasteStokAkhir(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Stok Akhir Sampling (Auto-calculated) & Jumlah Free Taste (Cup)
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'STOK AKHIR MIE (PCS)',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.auto_awesome_rounded, size: 12, color: Color(0xFFD97706)),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: _mbrStokAkhirCtrl,
+                          readOnly: true,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
+                          ),
+                          decoration: InputDecoration(
+                            hintText: '0',
+                            suffixText: 'Pcs',
+                            filled: true,
+                            fillColor: isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFFFFBEB),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: const Color(0xFFD97706).withOpacity(0.3)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'CUP DIBAGIKAN (CUP)',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
+                        ),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: _mbrCupCtrl,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                          decoration: InputDecoration(
+                            hintText: '0',
+                            suffixText: 'Cup',
+                            filled: true,
+                            fillColor: elevatedColor,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // ── Foto Dokumentasi Sampling Per Produk ──
+              Text(
+                'FOTO DOKUMENTASI SAMPLING PRODUK (OPSIONAL)',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
+              ),
+              const SizedBox(height: 6),
+
+              if (_mbrCurrentSamplingPhoto != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: elevatedColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(_mbrCurrentSamplingPhoto!, width: 60, height: 60, fit: BoxFit.cover),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: const [
+                                Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF10B981)),
+                                SizedBox(width: 4),
+                                Text('Foto Sampling Siap', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                              ],
+                            ),
+                            Text('Watermark Geotag aktif', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => setState(() {
+                          _mbrCurrentSamplingPhoto = null;
+                          _mbrCurrentSamplingWatermark = null;
+                        }),
+                        icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                        color: Colors.red.shade400,
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                InkWell(
+                  onTap: () async {
+                    final src = await _showPhotoSourceDialog(title: 'Ambil Foto Sampling');
+                    if (src != null) _pickMbrSamplingPhoto(src);
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: elevatedColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade400),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.camera_alt_rounded, size: 18, color: themeColor),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Ambil Foto Kegiatan Sampling Ini',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: themeColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+
+              // Button: Tambah ke Daftar Sampling
+              ElevatedButton.icon(
+                onPressed: () {
+                  if (_currentMbrFreeTasteProduct == null) {
+                    toastification.show(
+                      context: context,
+                      type: ToastificationType.warning,
+                      title: const Text('Produk Belum Dipilih'),
+                      description: const Text('Silakan pilih produk Mie Sedaap dari Master terlebih dahulu.'),
+                      autoCloseDuration: const Duration(seconds: 2),
+                    );
+                    return;
+                  }
+
+                  final stokAwal = int.tryParse(_mbrStokAwalCtrl.text) ?? 0;
+                  final dimasak = int.tryParse(_mbrDimasakCtrl.text) ?? 0;
+                  final cup = int.tryParse(_mbrCupCtrl.text) ?? 0;
+
+                  if (stokAwal <= 0 && dimasak <= 0 && cup <= 0) {
+                    toastification.show(
+                      context: context,
+                      type: ToastificationType.warning,
+                      title: const Text('Kuantiti Masih Kosong'),
+                      description: const Text('Masukkan jumlah mie yang dimasak atau cup sampling.'),
+                      autoCloseDuration: const Duration(seconds: 2),
+                    );
+                    return;
+                  }
+
+                  if (dimasak > stokAwal && stokAwal > 0) {
+                    toastification.show(
+                      context: context,
+                      type: ToastificationType.warning,
+                      title: const Text('Kuantiti Tidak Valid'),
+                      description: const Text('Jumlah mie yang dimasak tidak boleh melebihi stok awal.'),
+                      autoCloseDuration: const Duration(seconds: 3),
+                    );
+                    return;
+                  }
+
+                  final stokAkhir = math.max(0, stokAwal - dimasak);
+
+                  setState(() {
+                    _mbrFreeTasteCart.add({
+                      'product_id': _currentMbrFreeTasteProduct!.id,
+                      'name': _currentMbrFreeTasteProduct!.name,
+                      'product_name': _currentMbrFreeTasteProduct!.name,
+                      'sku_code': _currentMbrFreeTasteProduct!.skuCode ?? '-',
+                      'stok_awal': stokAwal,
+                      'jumlah_dimasak': dimasak,
+                      'stok_akhir': stokAkhir,
+                      'jumlah_cup': cup,
+                      'sampling_photo_file': _mbrCurrentSamplingPhoto,
+                      'sampling_photo_watermark': _mbrCurrentSamplingWatermark,
+                    });
+
+                    // Reset form input item
+                    _currentMbrFreeTasteProduct = null;
+                    _mbrStokAwalCtrl.clear();
+                    _mbrDimasakCtrl.clear();
+                    _mbrStokAkhirCtrl.clear();
+                    _mbrCupCtrl.clear();
+                    _mbrCurrentSamplingPhoto = null;
+                    _mbrCurrentSamplingWatermark = null;
+                  });
+
+                  toastification.show(
+                    context: context,
+                    type: ToastificationType.success,
+                    title: const Text('Produk Sampling Ditambahkan'),
+                    description: Text('Total saat ini: ${_mbrFreeTasteCart.length} produk di daftar.'),
+                    autoCloseDuration: const Duration(seconds: 2),
+                  );
+                },
+                icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
+                label: const Text(
+                  'Tambah ke Daftar Sampling',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD97706),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 46),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ── Card 3: Daftar Produk yang Telah Dimasukkan ──
+        if (_mbrFreeTasteCart.isNotEmpty) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'PRODUK DALAM DAFTAR SAMPLING (${_mbrFreeTasteCart.length})',
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _mbrFreeTasteCart.clear()),
+                child: const Text('Kosongkan', style: TextStyle(fontSize: 11.5, color: Colors.red)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _mbrFreeTasteCart.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, idx) {
+              final itm = _mbrFreeTasteCart[idx];
+              final samplingFile = itm['sampling_photo_file'] as File?;
+              final dimasak = itm['jumlah_dimasak'] ?? 0;
+              final cup = itm['jumlah_cup'] ?? 0;
+              final akhir = itm['stok_akhir'] ?? 0;
+
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                ),
+                child: Row(
+                  children: [
+                    if (samplingFile != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(samplingFile, width: 48, height: 48, fit: BoxFit.cover),
+                      )
+                    else
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: elevatedColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.soup_kitchen_rounded, size: 22, color: Colors.grey),
+                      ),
+                    const SizedBox(width: 10),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            itm['product_name']?.toString() ?? '-',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: themeColor.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Masak: $dimasak Pcs',
+                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: themeColor),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF10B981).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Cup: $cup Cup',
+                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEA580C).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Sisa: $akhir Pcs',
+                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFEA580C)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      color: Colors.red.shade400,
+                      onPressed: () => setState(() => _mbrFreeTasteCart.removeAt(idx)),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+
+          // Tombol Lanjut ke Step 2 (Review)
+          ElevatedButton.icon(
+            onPressed: () => setState(() => _mbrFreeTasteStep = 1),
+            icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+            label: Text(
+              'Lanjut ke Review & Konfirmasi (${_mbrFreeTasteCart.length} Produk)',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: themeColor,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMbrFreeTasteStep1Body(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    bool isDarkMode,
+    bool canSubmitReport,
+  ) {
+    final int totalDimasak = _mbrFreeTasteCart.fold<int>(0, (sum, itm) => sum + ((itm['jumlah_dimasak'] as num?)?.toInt() ?? 0));
+    final int totalCup = _mbrFreeTasteCart.fold<int>(0, (sum, itm) => sum + ((itm['jumlah_cup'] as num?)?.toInt() ?? 0));
+    final int totalStokAkhir = _mbrFreeTasteCart.fold<int>(0, (sum, itm) => sum + ((itm['stok_akhir'] as num?)?.toInt() ?? 0));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── 3 KPI Grid Cards ──
+        Row(
+          children: [
+            Expanded(
+              child: _buildMbrKpiCard(
+                title: 'TOTAL DIMASAK',
+                value: '$totalDimasak Pcs',
+                icon: Icons.whatshot_rounded,
+                color: const Color(0xFFD97706),
+                isDarkMode: isDarkMode,
+                cardColor: cardColor,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildMbrKpiCard(
+                title: 'TOTAL CUP',
+                value: '$totalCup Cup',
+                icon: Icons.coffee_rounded,
+                color: const Color(0xFF10B981),
+                isDarkMode: isDarkMode,
+                cardColor: cardColor,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildMbrKpiCard(
+                title: 'SISA STOK',
+                value: '$totalStokAkhir Pcs',
+                icon: Icons.inventory_2_rounded,
+                color: const Color(0xFFEA580C),
+                isDarkMode: isDarkMode,
+                cardColor: cardColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+
+        // ── Rincian Item di Keranjang ──
+        Text(
+          'RINCIAN PRODUK SAMPLING (${_mbrFreeTasteCart.length} ITEM)',
+          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: subtitleColor, letterSpacing: 0.8),
+        ),
+        const SizedBox(height: 8),
+
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _mbrFreeTasteCart.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, idx) {
+            final itm = _mbrFreeTasteCart[idx];
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundColor: const Color(0xFFD97706).withOpacity(0.12),
+                    child: Text(
+                      '${idx + 1}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(itm['product_name']?.toString() ?? '-', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+                        Text('SKU: ${itm['sku_code'] ?? '-'}', style: TextStyle(fontSize: 11, color: subtitleColor)),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('${itm['jumlah_dimasak']} Pcs dimasak', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: themeColor)),
+                      Text('${itm['jumlah_cup']} Cup dibagikan', style: const TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 14),
+
+        // ── Card: Foto Stand / Booth Sampling (Wajib) ──
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFD97706).withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD97706).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.camera_alt_rounded, size: 16, color: Color(0xFFD97706)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'FOTO STAND / BOOTH SAMPLING',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Text('*Wajib', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFE11D48))),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              if (_mbrBoothSamplingPhoto != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(_mbrBoothSamplingPhoto!, height: 180, width: double.infinity, fit: BoxFit.cover),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF10B981)),
+                        SizedBox(width: 4),
+                        Text('Foto Booth Berhasil Diambil', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                      ],
+                    ),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final src = await _showPhotoSourceDialog(title: 'Ganti Foto Booth');
+                        if (src != null) _pickMbrBoothSamplingPhoto(src);
+                      },
+                      icon: const Icon(Icons.sync_rounded, size: 16),
+                      label: const Text('Ganti', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                InkWell(
+                  onTap: () async {
+                    final src = await _showPhotoSourceDialog(title: 'Ambil Foto Booth');
+                    if (src != null) _pickMbrBoothSamplingPhoto(src);
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: elevatedColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_a_photo_rounded, size: 30, color: themeColor),
+                          const SizedBox(height: 6),
+                          Text('Ambil Foto Stand / Booth Sampling', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: themeColor)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // ── Card: Catatan Sampling (Opsional) ──
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('CATATAN AKTIVITAS SAMPLING (OPSIONAL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _mbrCatatanSamplingCtrl,
+                maxLines: 3,
+                style: TextStyle(fontSize: 13, color: textColor),
+                decoration: InputDecoration(
+                  hintText: 'Catatan antusiasme pengunjung, kendala kompor/alat, dll...',
+                  hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                  filled: true,
+                  fillColor: elevatedColor,
+                  contentPadding: const EdgeInsets.all(12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // ── Tombol Submit Laporan Free Taste ──
+        ElevatedButton.icon(
+          onPressed: _isSubmitting || (!canSubmitReport && widget.editSubmission == null)
+              ? null
+              : () => _submitWingsMbrFreeTaste(context),
+          icon: _isSubmitting
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Icon(Icons.send_rounded, size: 20),
+          label: Text(
+            _isSubmitting
+                ? 'Sedang Mengirim...'
+                : 'Kirim Laporan Free Taste (${_mbrFreeTasteCart.length} Produk)',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFD97706),
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: Colors.grey.shade400,
+            minimumSize: const Size(double.infinity, 50),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            elevation: 0,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _openMbrFreeTasteProductPickerBottomSheet(Color themeColor, bool isDarkMode) {
+    final allProducts = _getProducts();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        String searchQuery = '';
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final filteredProducts = allProducts.where((p) {
+              if (searchQuery.isEmpty) return true;
+              final q = searchQuery.toLowerCase();
+              final matchesName = p.name.toLowerCase().contains(q);
+              final matchesSku = p.skuCode?.toLowerCase().contains(q) ?? false;
+              return matchesName || matchesSku;
+            }).toList();
+
+            final sheetBg = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
+            final itemBg = isDarkMode ? const Color(0xFF2A2A2A) : const Color(0xFFF8FAFC);
+            final sheetText = isDarkMode ? Colors.white : const Color(0xFF1E293B);
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.82,
+              decoration: BoxDecoration(
+                color: sheetBg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD97706).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.ramen_dining_rounded, color: Color(0xFFD97706), size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Pilih Master Produk Mie Sedaap',
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: sheetText),
+                              ),
+                              Text(
+                                '${allProducts.length} SKU Master Produk Wings Surya',
+                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: TextField(
+                      autofocus: false,
+                      style: TextStyle(color: sheetText, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Cari varian Mie Sedaap...',
+                        hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                        filled: true,
+                        fillColor: isDarkMode ? const Color(0xFF2C2C2C) : const Color(0xFFF1F5F9),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      ),
+                      onChanged: (val) => setSheetState(() => searchQuery = val),
+                    ),
+                  ),
+                  Expanded(
+                    child: filteredProducts.isEmpty
+                        ? Center(
+                            child: Text(
+                              'Produk tidak ditemukan.',
+                              style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            itemCount: filteredProducts.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 6),
+                            itemBuilder: (context, idx) {
+                              final prod = filteredProducts[idx];
+                              return InkWell(
+                                onTap: () {
+                                  Navigator.pop(sheetCtx);
+                                  setState(() {
+                                    _currentMbrFreeTasteProduct = prod;
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: itemBg,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey.withOpacity(0.15)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFD97706).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(Icons.restaurant_rounded, size: 18, color: Color(0xFFD97706)),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              prod.name,
+                                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: sheetText),
+                                            ),
+                                            if (prod.skuCode != null)
+                                              Text(
+                                                'SKU: ${prod.skuCode}',
+                                                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _pickMbrSamplingPhoto(ImageSource source) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final employeeName = auth.employeeData?['full_name'] ?? 'Promoter MBR';
+    final employeeNik = auth.employeeData?['nik'] ?? '';
+    final currentStore = _selectedStoreName.isNotEmpty ? _selectedStoreName : 'Kunjungan Toko';
+
+    WatermarkCaptureResult? res;
+    if (source == ImageSource.camera) {
+      res = await WatermarkCameraService.captureWithWatermark(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+        latitude: _latitude,
+        longitude: _longitude,
+      );
+    } else {
+      res = await WatermarkCameraService.pickFromGallery(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+      );
+    }
+
+    if (res != null && mounted) {
+      setState(() {
+        _mbrCurrentSamplingPhoto = res!.file;
+        _mbrCurrentSamplingWatermark = res.watermarkText;
+      });
+
+      toastification.show(
+        context: context,
+        type: ToastificationType.success,
+        title: const Text('Foto Sampling Berhasil Diambil'),
+        autoCloseDuration: const Duration(seconds: 2),
+      );
+    }
+  }
+
+  Future<void> _pickMbrBoothSamplingPhoto(ImageSource source) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final employeeName = auth.employeeData?['full_name'] ?? 'Promoter MBR';
+    final employeeNik = auth.employeeData?['nik'] ?? '';
+    final currentStore = _selectedStoreName.isNotEmpty ? _selectedStoreName : 'Kunjungan Toko';
+
+    WatermarkCaptureResult? res;
+    if (source == ImageSource.camera) {
+      res = await WatermarkCameraService.captureWithWatermark(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+        latitude: _latitude,
+        longitude: _longitude,
+      );
+    } else {
+      res = await WatermarkCameraService.pickFromGallery(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+      );
+    }
+
+    if (res != null && mounted) {
+      setState(() {
+        _mbrBoothSamplingPhoto = res!.file;
+        _mbrBoothSamplingWatermark = res.watermarkText;
+      });
+
+      toastification.show(
+        context: context,
+        type: ToastificationType.success,
+        title: const Text('Foto Stand / Booth Berhasil Diambil'),
+        autoCloseDuration: const Duration(seconds: 2),
+      );
+    }
+  }
+
+  Future<void> _submitWingsMbrFreeTaste(BuildContext context) async {
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+
+    if (_mbrFreeTasteCart.isEmpty) {
+      setState(() => _isSubmitting = false);
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Daftar Sampling Masih Kosong'),
+        description: const Text('Tambahkan minimal 1 produk sampling yang dilaporkan.'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    if (_mbrBoothSamplingPhoto == null && widget.editSubmission == null) {
+      setState(() => _isSubmitting = false);
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Foto Stand / Booth Wajib'),
+        description: const Text('Silakan ambil foto dokumentasi booth/stand sampling terlebih dahulu.'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    CustomLoadingIndicator.show(context, message: 'Mengirim laporan Free Taste MBR...');
+
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+      final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+      final token = auth.token;
+
+      if (token == null) {
+        CustomLoadingIndicator.hide(context);
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      final int totalStokAwal = _mbrFreeTasteCart.fold<int>(0, (sum, itm) => sum + ((itm['stok_awal'] as num?)?.toInt() ?? 0));
+      final int totalDimasak = _mbrFreeTasteCart.fold<int>(0, (sum, itm) => sum + ((itm['jumlah_dimasak'] as num?)?.toInt() ?? 0));
+      final int totalStokAkhir = _mbrFreeTasteCart.fold<int>(0, (sum, itm) => sum + ((itm['stok_akhir'] as num?)?.toInt() ?? 0));
+      final int totalCup = _mbrFreeTasteCart.fold<int>(0, (sum, itm) => sum + ((itm['jumlah_cup'] as num?)?.toInt() ?? 0));
+
+      // Prepare serializable cart items (strip local File objects)
+      final List<Map<String, dynamic>> itemsForPayload = _mbrFreeTasteCart.map((itm) {
+        final copy = Map<String, dynamic>.from(itm);
+        copy.remove('sampling_photo_file');
+        return copy;
+      }).toList();
+
+      final Map<String, dynamic> cleanFormValues = {
+        'mbr_freetaste_items_json': jsonEncode(itemsForPayload),
+        'total_stok_awal_sampling': totalStokAwal,
+        'total_mie_dimasak': totalDimasak,
+        'total_stok_akhir_sampling': totalStokAkhir,
+        'total_cup_dibagikan': totalCup,
+        'catatan_sampling': _mbrCatatanSamplingCtrl.text.trim(),
+      };
+
+      for (final f in widget.template.fields) {
+        final fn = f.fieldName.toLowerCase();
+        final fKey = f.id.toString();
+        if (cleanFormValues.containsKey(fn)) {
+          cleanFormValues[fKey] = cleanFormValues[fn];
+        }
+      }
+
+      final Map<String, File> photoFiles = {};
+      final Map<String, String> watermarkTexts = {};
+
+      // 1. Per-item Sampling Photos
+      for (int i = 0; i < _mbrFreeTasteCart.length; i++) {
+        final itm = _mbrFreeTasteCart[i];
+        if (itm['sampling_photo_file'] is File) {
+          final file = itm['sampling_photo_file'] as File;
+          photoFiles['sampling_photo_$i'] = file;
+          photoFiles['photo_sampling_$i'] = file;
+          if (itm['sampling_photo_watermark'] != null) {
+            watermarkTexts['sampling_photo_$i'] = itm['sampling_photo_watermark'].toString();
+            watermarkTexts['photo_sampling_$i'] = itm['sampling_photo_watermark'].toString();
+          }
+        }
+      }
+
+      // 2. Foto Booth Sampling
+      if (_mbrBoothSamplingPhoto != null) {
+        photoFiles['foto_booth_sampling'] = _mbrBoothSamplingPhoto!;
+        if (_mbrBoothSamplingWatermark != null) {
+          watermarkTexts['foto_booth_sampling'] = _mbrBoothSamplingWatermark!;
+        }
+        for (final f in widget.template.fields) {
+          final fn = f.fieldName.toLowerCase();
+          if (fn == 'foto_booth_sampling' ||
+              ['image', 'photo', 'camera_photo', 'multi_photo'].contains(f.fieldType)) {
+            photoFiles[f.id.toString()] = _mbrBoothSamplingPhoto!;
+            photoFiles[f.fieldName] = _mbrBoothSamplingPhoto!;
+            if (_mbrBoothSamplingWatermark != null) {
+              watermarkTexts[f.id.toString()] = _mbrBoothSamplingWatermark!;
+              watermarkTexts[f.fieldName] = _mbrBoothSamplingWatermark!;
+            }
+          }
+        }
+      }
+
+      Map<String, dynamic> result;
+      if (widget.editSubmission != null) {
+        result = await repProvider.updateReport(
+          token: token,
+          submissionId: widget.editSubmission!.id,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          address: _selectedLocation?['address'] ?? _address,
+          values: cleanFormValues,
+          photoFiles: photoFiles,
+          existingPhotos: _existingMultiPhotoUrls,
+        );
+      } else {
+        result = await repProvider.submitReport(
+          token: token,
+          templateId: widget.template.id,
+          templateTitle: widget.template.title,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          itineraryItemId: widget.itineraryItemId,
+          latitude: _latitude,
+          longitude: _longitude,
+          address: _selectedLocation?['address'] ?? _address,
+          isWithinRadius: _isWithinRadius,
+          values: cleanFormValues,
+          photoFiles: photoFiles,
+          watermarkTexts: watermarkTexts,
+        );
+      }
+
+      if (mounted) {
+        CustomLoadingIndicator.hide(context);
+        setState(() => _isSubmitting = false);
+      }
+
+      if (result['success'] == true && mounted) {
+        if (attProvider.isVisiting) {
+          attProvider.markVisitReportFilled();
+        }
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          title: const Text('Laporan Free Taste MBR Terkirim'),
+          description: Text(
+              'Laporan Free Taste (${_mbrFreeTasteCart.length} varian, Dimasak: $totalDimasak Pcs, Dibagikan: $totalCup Cup) berhasil dikirim.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
         Navigator.of(context).pop(true);

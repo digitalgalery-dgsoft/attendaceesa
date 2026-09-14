@@ -1,0 +1,1375 @@
+{{-- 
+    WINGS SURYA - DASHBOARD LAPORAN FREE TASTE / SAMPLING (EVENT MBR)
+    Identitas Visual: 100% Selaras dengan Principal Portal (Native Brand Tokens, Clean White Cards, Soft Badges)
+    100% Data Riil Submisi Masuk (Tanpa Dummy)
+--}}
+
+@push('styles')
+<style>
+    /* Wrapper Utama */
+    .portal-freetaste-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        margin-bottom: 2.5rem;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* 1. Filter Bar Portal Style */
+    .portal-freetaste-filter-bar {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 1.15rem 1.35rem;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .portal-freetaste-filter-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .portal-freetaste-filter-title {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: var(--text-heading);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .portal-freetaste-filter-title i {
+        color: var(--brand-primary);
+    }
+    .portal-freetaste-filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.85rem;
+        align-items: flex-end;
+    }
+    .portal-freetaste-field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+    .portal-freetaste-field-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .portal-freetaste-input, .portal-freetaste-select {
+        width: 100%;
+        padding: 0.55rem 0.85rem;
+        background: #f8fafc;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-heading);
+        outline: none;
+        transition: all 0.2s ease;
+    }
+    .portal-freetaste-input:focus, .portal-freetaste-select:focus {
+        background: #ffffff;
+        border-color: var(--brand-primary);
+        box-shadow: 0 0 0 3px var(--brand-glow);
+    }
+    .portal-freetaste-btn-submit {
+        background: var(--brand-gradient);
+        color: #ffffff;
+        border: none;
+        border-radius: 10px;
+        padding: 0.6rem 1.25rem;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        box-shadow: 0 2px 8px var(--brand-glow);
+        transition: all 0.2s ease;
+    }
+    .portal-freetaste-btn-submit:hover {
+        opacity: 0.92;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px var(--brand-glow);
+    }
+    .portal-freetaste-btn-reset {
+        background: #f1f5f9;
+        color: var(--text-muted);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 0.6rem 1rem;
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        transition: all 0.2s ease;
+    }
+    .portal-freetaste-btn-reset:hover {
+        background: #e2e8f0;
+        color: var(--text-heading);
+    }
+
+    /* 2. Grid KPI Cards */
+    .portal-freetaste-kpi-grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.15rem;
+    }
+    .portal-freetaste-kpi-grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.15rem;
+    }
+    @media (max-width: 1200px) {
+        .portal-freetaste-kpi-grid-4 { grid-template-columns: repeat(2, 1fr); }
+        .portal-freetaste-kpi-grid-3 { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+        .portal-freetaste-kpi-grid-4 { grid-template-columns: 1fr; }
+        .portal-freetaste-kpi-grid-3 { grid-template-columns: 1fr; }
+    }
+
+    .portal-freetaste-kpi-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 1.25rem 1.35rem;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .portal-freetaste-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--border-hover);
+    }
+    .portal-freetaste-kpi-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .portal-freetaste-kpi-label {
+        font-size: 0.76rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 0.35rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .portal-freetaste-kpi-val {
+        font-size: 1.65rem;
+        font-weight: 800;
+        color: var(--text-heading);
+        line-height: 1.15;
+    }
+    .portal-freetaste-kpi-unit {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-left: 2px;
+    }
+    .portal-freetaste-kpi-sub {
+        font-size: 0.74rem;
+        color: var(--text-muted);
+        margin-top: 0.35rem;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    /* Icon Badges */
+    .portal-freetaste-icon-badge {
+        width: 50px;
+        height: 50px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        flex-shrink: 0;
+    }
+    .portal-freetaste-icon-badge.brand   { background: var(--brand-light); color: var(--brand-primary); }
+    .portal-freetaste-icon-badge.emerald { background: #ecfdf5; color: #059669; }
+    .portal-freetaste-icon-badge.amber   { background: #fef3c7; color: #d97706; }
+    .portal-freetaste-icon-badge.blue    { background: #eff6ff; color: #2563eb; }
+    .portal-freetaste-icon-badge.orange  { background: #fff7ed; color: #ea580c; }
+    .portal-freetaste-icon-badge.purple  { background: #f5f3ff; color: #7c3aed; }
+    .portal-freetaste-icon-badge.indigo  { background: #eef2ff; color: #4f46e5; }
+
+    /* 3. Section Cards */
+    .portal-freetaste-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 1.35rem 1.5rem;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+    }
+    .portal-freetaste-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.15rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    .portal-freetaste-card-title {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: var(--text-heading);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .portal-freetaste-card-title i {
+        color: var(--brand-primary);
+    }
+    .portal-freetaste-card-sub {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 0.2rem;
+    }
+
+    /* Chart Pill Switcher */
+    .portal-freetaste-chart-switcher {
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 10px;
+        display: inline-flex;
+        gap: 4px;
+    }
+    .portal-freetaste-switcher-btn {
+        border: none;
+        background: transparent;
+        padding: 0.35rem 0.85rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .portal-freetaste-switcher-btn:hover {
+        color: var(--text-heading);
+    }
+    .portal-freetaste-switcher-btn.active {
+        background: var(--brand-primary);
+        color: #ffffff;
+        box-shadow: 0 2px 6px var(--brand-glow);
+    }
+
+    /* 4. Grid 2x2 Tables */
+    .portal-freetaste-table-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.25rem;
+    }
+    @media (max-width: 992px) {
+        .portal-freetaste-table-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Tables Native Portal Style */
+    .portal-freetaste-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.86rem;
+    }
+    .portal-freetaste-table thead th {
+        background: #f8fafc;
+        color: var(--text-muted);
+        font-weight: 700;
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        padding: 0.75rem 0.95rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+        white-space: nowrap;
+    }
+    .portal-freetaste-table thead th.num { text-align: right; }
+    .portal-freetaste-table tbody td {
+        padding: 0.75rem 0.95rem;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-body);
+        vertical-align: middle;
+    }
+    .portal-freetaste-table tbody td.num { text-align: right; font-weight: 700; }
+    .portal-freetaste-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    .portal-freetaste-table tbody tr:hover {
+        background: #f8fafc;
+    }
+
+    /* Rank Badge */
+    .portal-freetaste-rank-badge {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 800;
+        background: #f1f5f9;
+        color: var(--text-heading);
+    }
+    .portal-freetaste-rank-badge.top-1 { background: #fef3c7; color: #b45309; }
+    .portal-freetaste-rank-badge.top-2 { background: #e2e8f0; color: #475569; }
+    .portal-freetaste-rank-badge.top-3 { background: #ffedd5; color: #c2410c; }
+
+    /* Action Buttons in Table */
+    .portal-freetaste-btn-action {
+        background: #f1f5f9;
+        color: var(--brand-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0.35rem 0.7rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        transition: all 0.15s ease;
+    }
+    .portal-freetaste-btn-action:hover {
+        background: var(--brand-light);
+        border-color: var(--brand-primary);
+    }
+
+    /* Status Pills */
+    .portal-freetaste-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0.25rem 0.65rem;
+        border-radius: 999px;
+        font-size: 0.74rem;
+        font-weight: 700;
+    }
+    .portal-freetaste-pill.cup { background: #ecfdf5; color: #059669; }
+    .portal-freetaste-pill.pcs { background: #eff6ff; color: #1d4ed8; }
+
+    /* Modal Styling */
+    .portal-freetaste-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+    }
+    .portal-freetaste-modal-overlay.active {
+        display: flex;
+    }
+    .portal-freetaste-modal-card {
+        background: #ffffff;
+        border-radius: 18px;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--border-color);
+        width: 100%;
+        max-width: 820px;
+        max-height: 88vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        animation: portalModalIn 0.2s ease-out;
+    }
+    .portal-freetaste-modal-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #ffffff;
+    }
+    .portal-freetaste-modal-title {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: var(--text-heading);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .portal-freetaste-modal-close {
+        background: #f1f5f9;
+        border: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .portal-freetaste-modal-close:hover {
+        background: #fee2e2;
+        color: #ef4444;
+    }
+    .portal-freetaste-modal-body {
+        padding: 1.5rem;
+        overflow-y: auto;
+    }
+
+    /* Photo Grid inside Modal */
+    .portal-freetaste-photo-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1rem;
+    }
+    .portal-freetaste-photo-card {
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #ffffff;
+        box-shadow: var(--shadow-xs);
+        transition: transform 0.2s ease;
+    }
+    .portal-freetaste-photo-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-sm);
+    }
+    .portal-freetaste-photo-thumb {
+        width: 100%;
+        height: 170px;
+        object-fit: cover;
+        cursor: pointer;
+        background: #f8fafc;
+        display: block;
+    }
+    .portal-freetaste-photo-info {
+        padding: 0.75rem 0.85rem;
+        font-size: 0.78rem;
+    }
+    .portal-freetaste-photo-meta {
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        margin-top: 0.2rem;
+    }
+
+    /* Lightbox */
+    .portal-freetaste-lightbox {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.88);
+        z-index: 10000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        cursor: zoom-out;
+    }
+    .portal-freetaste-lightbox.active {
+        display: flex;
+    }
+    .portal-freetaste-lightbox img {
+        max-width: 92vw;
+        max-height: 92vh;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+
+    /* Empty state */
+    .portal-freetaste-empty-state {
+        text-align: center;
+        padding: 2.5rem 1.5rem;
+        color: var(--text-muted);
+    }
+    .portal-freetaste-empty-icon {
+        font-size: 2.25rem;
+        color: #cbd5e1;
+        margin-bottom: 0.75rem;
+    }
+</style>
+@endpush
+
+@php
+    $freetasteKpis = $freetasteData['kpis'] ?? [];
+    $totalDimasak = $freetasteKpis['total_dimasak'] ?? 0;
+    $totalCup = $freetasteKpis['total_cup'] ?? 0;
+    $cupPerPcs = $freetasteKpis['cup_per_pcs'] ?? 0;
+    $totalStokAwal = $freetasteKpis['total_stok_awal'] ?? 0;
+    $totalStokAkhir = $freetasteKpis['total_stok_akhir'] ?? 0;
+    $uniqueSkus = $freetasteKpis['unique_skus'] ?? 0;
+    $todayDimasak = $freetasteKpis['today_dimasak'] ?? 0;
+    $todayCup = $freetasteKpis['today_cup'] ?? 0;
+    $uniqueStores = $freetasteKpis['unique_stores'] ?? 0;
+    $uniqueMitras = $freetasteKpis['unique_mitras'] ?? 0;
+
+    $galleryPhotos = $freetasteData['gallery_photos'] ?? [];
+@endphp
+
+<div class="portal-freetaste-wrapper">
+
+    {{-- 1. FILTER BAR PORTAL IDENTITY --}}
+    <div class="portal-freetaste-filter-bar">
+        <div class="portal-freetaste-filter-header">
+            <div class="portal-freetaste-filter-title">
+                <i class="fa-solid fa-filter"></i>
+                <span>Filter Data Laporan Free Taste (Event MBR)</span>
+            </div>
+            @if(!empty($galleryPhotos))
+                <button type="button" class="portal-freetaste-btn-action" onclick="openFreetasteGalleryModal('all')">
+                    <i class="fa-solid fa-images"></i>
+                    <span>Galeri Foto Sampling ({{ count($galleryPhotos) }})</span>
+                </button>
+            @endif
+        </div>
+
+        <form method="GET" action="{{ route('portal.report.detail', ['code' => $tenantPrincipal->code ?? 'wings', 'reportId' => $template->id]) }}" class="portal-freetaste-filter-grid">
+            <input type="hidden" name="tab" value="{{ request('tab', 'dashboard') }}">
+
+            {{-- Periode Bulan & Tahun --}}
+            <div class="portal-freetaste-field-group">
+                <label class="portal-freetaste-field-label">Periode Laporan</label>
+                <div style="display: flex; gap: 0.4rem;">
+                    <select name="start_month" class="portal-freetaste-select" style="flex: 1;">
+                        @for($m = 1; $m <= 12; $m++)
+                            <option value="{{ $m }}" {{ (request('start_month', $startMonth ?? date('n')) == $m) ? 'selected' : '' }}>
+                                {{ \Carbon\Carbon::create(2000, $m, 1)->translatedFormat('M') }}
+                            </option>
+                        @endfor
+                    </select>
+                    <select name="start_year" class="portal-freetaste-select" style="width: 85px;">
+                        @for($y = date('Y'); $y >= date('Y') - 3; $y--)
+                            <option value="{{ $y }}" {{ (request('start_year', $startYear ?? date('Y')) == $y) ? 'selected' : '' }}>{{ $y }}</option>
+                        @endfor
+                    </select>
+                </div>
+            </div>
+
+            {{-- Filter Wilayah / Region --}}
+            <div class="portal-freetaste-field-group">
+                <label class="portal-freetaste-field-label">Wilayah (Region)</label>
+                <select name="region" class="portal-freetaste-select">
+                    <option value="">Semua Wilayah</option>
+                    @foreach($regions as $reg)
+                        <option value="{{ $reg }}" {{ request('region', $selectedRegion) == $reg ? 'selected' : '' }}>{{ $reg }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- Filter Daerah / Cabang --}}
+            <div class="portal-freetaste-field-group">
+                <label class="portal-freetaste-field-label">Daerah (Area)</label>
+                <select name="area_id" class="portal-freetaste-select">
+                    <option value="">Semua Daerah</option>
+                    @foreach($areas as $ar)
+                        <option value="{{ $ar->name ?? $ar->id }}" {{ (request('area_id', $selectedAreaId) == ($ar->name ?? $ar->id)) ? 'selected' : '' }}>
+                            {{ $ar->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- Filter Toko / Outlet --}}
+            <div class="portal-freetaste-field-group">
+                <label class="portal-freetaste-field-label">Toko / Outlet</label>
+                <select name="work_location_id" class="portal-freetaste-select">
+                    <option value="">Semua Toko</option>
+                    @foreach($workLocations as $loc)
+                        <option value="{{ $loc->name ?? $loc->id }}" {{ (request('work_location_id', $selectedLocationId) == ($loc->name ?? $loc->id)) ? 'selected' : '' }}>
+                            {{ $loc->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- Search & Action Buttons --}}
+            <div class="portal-freetaste-field-group">
+                <label class="portal-freetaste-field-label">Pencarian Petugas / Toko</label>
+                <input type="text" name="search" class="portal-freetaste-input" placeholder="Cari nama mitra / toko..." value="{{ request('search', $search) }}">
+            </div>
+
+            <div style="display: flex; gap: 0.5rem;">
+                <button type="submit" class="portal-freetaste-btn-submit">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <span>Terapkan</span>
+                </button>
+                <a href="{{ route('portal.report.detail', ['code' => $tenantPrincipal->code ?? 'wings', 'reportId' => $template->id]) }}" class="portal-freetaste-btn-reset">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span>Reset</span>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    {{-- 2. GRID 7 KPI UTAMA PORTAL STYLE --}}
+    <div class="portal-freetaste-kpi-grid-4">
+        {{-- Card 1: Total Mie Dimasak --}}
+        <div class="portal-freetaste-kpi-card">
+            <div class="portal-freetaste-kpi-info">
+                <div class="portal-freetaste-kpi-label">Total Mie Dimasak</div>
+                <div class="portal-freetaste-kpi-val">{{ number_format($totalDimasak, 0, ',', '.') }}<span class="portal-freetaste-kpi-unit">Pcs</span></div>
+                <div class="portal-freetaste-kpi-sub">
+                    <i class="fa-solid fa-fire" style="color: var(--brand-primary);"></i>
+                    <span>{{ number_format($todayDimasak, 0, ',', '.') }} Pcs dimasak hari ini</span>
+                </div>
+            </div>
+            <div class="portal-freetaste-icon-badge brand">
+                <i class="fa-solid fa-fire-burner"></i>
+            </div>
+        </div>
+
+        {{-- Card 2: Total Cup Dibagikan --}}
+        <div class="portal-freetaste-kpi-card">
+            <div class="portal-freetaste-kpi-info">
+                <div class="portal-freetaste-kpi-label">Total Cup Dibagikan</div>
+                <div class="portal-freetaste-kpi-val" style="color: #059669;">{{ number_format($totalCup, 0, ',', '.') }}<span class="portal-freetaste-kpi-unit">Cup</span></div>
+                <div class="portal-freetaste-kpi-sub">
+                    <i class="fa-solid fa-mug-hot" style="color: #059669;"></i>
+                    <span>{{ number_format($todayCup, 0, ',', '.') }} Cup tester hari ini</span>
+                </div>
+            </div>
+            <div class="portal-freetaste-icon-badge emerald">
+                <i class="fa-solid fa-mug-hot"></i>
+            </div>
+        </div>
+
+        {{-- Card 3: Rata-rata Cup per Pcs --}}
+        <div class="portal-freetaste-kpi-card">
+            <div class="portal-freetaste-kpi-info">
+                <div class="portal-freetaste-kpi-label">Rasio Cup / Pcs Mie</div>
+                <div class="portal-freetaste-kpi-val" style="color: #d97706;">{{ $cupPerPcs }}<span class="portal-freetaste-kpi-unit">Cup/Bungkus</span></div>
+                <div class="portal-freetaste-kpi-sub">
+                    <i class="fa-solid fa-chart-pie" style="color: #d97706;"></i>
+                    <span>Efisiensi penyajian sampling</span>
+                </div>
+            </div>
+            <div class="portal-freetaste-icon-badge amber">
+                <i class="fa-solid fa-calculator"></i>
+            </div>
+        </div>
+
+        {{-- Card 4: Sisa Stok Akhir Sampling --}}
+        <div class="portal-freetaste-kpi-card">
+            <div class="portal-freetaste-kpi-info">
+                <div class="portal-freetaste-kpi-label">Sisa Stok Akhir</div>
+                <div class="portal-freetaste-kpi-val" style="color: #ea580c;">{{ number_format($totalStokAkhir, 0, ',', '.') }}<span class="portal-freetaste-kpi-unit">Pcs</span></div>
+                <div class="portal-freetaste-kpi-sub">
+                    <i class="fa-solid fa-boxes-stacked" style="color: #ea580c;"></i>
+                    <span>Dari {{ number_format($totalStokAwal, 0, ',', '.') }} Pcs stok awal</span>
+                </div>
+            </div>
+            <div class="portal-freetaste-icon-badge orange">
+                <i class="fa-solid fa-boxes-stacked"></i>
+            </div>
+        </div>
+    </div>
+
+    {{-- Grid 3 Card Pendukung --}}
+    <div class="portal-freetaste-kpi-grid-3">
+        {{-- Card 5: Varian SKU Disampling --}}
+        <div class="portal-freetaste-kpi-card">
+            <div class="portal-freetaste-kpi-info">
+                <div class="portal-freetaste-kpi-label">Varian SKU Disampling</div>
+                <div class="portal-freetaste-kpi-val">{{ number_format($uniqueSkus, 0, ',', '.') }}<span class="portal-freetaste-kpi-unit">Varian</span></div>
+                <div class="portal-freetaste-kpi-sub">
+                    <i class="fa-solid fa-layer-group" style="color: #7c3aed;"></i>
+                    <span>SKU Mie Sedaap aktif disampling</span>
+                </div>
+            </div>
+            <div class="portal-freetaste-icon-badge purple">
+                <i class="fa-solid fa-layer-group"></i>
+            </div>
+        </div>
+
+        {{-- Card 6: Toko Tercover --}}
+        <div class="portal-freetaste-kpi-card">
+            <div class="portal-freetaste-kpi-info">
+                <div class="portal-freetaste-kpi-label">Toko / Outlet Tercover</div>
+                <div class="portal-freetaste-kpi-val">{{ number_format($uniqueStores, 0, ',', '.') }}<span class="portal-freetaste-kpi-unit">Outlet</span></div>
+                <div class="portal-freetaste-kpi-sub">
+                    <i class="fa-solid fa-store" style="color: #2563eb;"></i>
+                    <span>Titik pelaksanaan event MBR</span>
+                </div>
+            </div>
+            <div class="portal-freetaste-icon-badge blue">
+                <i class="fa-solid fa-store"></i>
+            </div>
+        </div>
+
+        {{-- Card 7: SPG / Mitra Sampling --}}
+        <div class="portal-freetaste-kpi-card">
+            <div class="portal-freetaste-kpi-info">
+                <div class="portal-freetaste-kpi-label">Mitra / SPG Pelaksana</div>
+                <div class="portal-freetaste-kpi-val">{{ number_format($uniqueMitras, 0, ',', '.') }}<span class="portal-freetaste-kpi-unit">Orang</span></div>
+                <div class="portal-freetaste-kpi-sub">
+                    <i class="fa-solid fa-users" style="color: #4f46e5;"></i>
+                    <span>{{ $freetasteKpis['total_submissions'] ?? 0 }} sesi pelaporan sampling</span>
+                </div>
+            </div>
+            <div class="portal-freetaste-icon-badge indigo">
+                <i class="fa-solid fa-users"></i>
+            </div>
+        </div>
+    </div>
+
+    {{-- 3. GRAFIK TREN SAMPLING (MIE DIMASAK VS CUP DIBAGIKAN) --}}
+    <div class="portal-freetaste-card">
+        <div class="portal-freetaste-card-header">
+            <div>
+                <div class="portal-freetaste-card-title">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Tren Aktivitas Sampling Mie Sedaap</span>
+                </div>
+                <div class="portal-freetaste-card-sub">Perbandingan kuantiti mie yang dimasak (Pcs) dan jumlah cup tester yang dibagikan ke pengunjung</div>
+            </div>
+            <div class="portal-freetaste-chart-switcher">
+                <button type="button" class="portal-freetaste-switcher-btn active" id="freetasteBtnHarian" onclick="switchFreetasteChartMode('daily')">Harian</button>
+                <button type="button" class="portal-freetaste-switcher-btn" id="freetasteBtnMingguan" onclick="switchFreetasteChartMode('weekly')">Mingguan</button>
+                <button type="button" class="portal-freetaste-switcher-btn" id="freetasteBtnBulanan" onclick="switchFreetasteChartMode('monthly')">Bulanan</button>
+            </div>
+        </div>
+        <div style="position: relative; height: 320px; width: 100%;">
+            <canvas id="freetasteChart"></canvas>
+        </div>
+    </div>
+
+    {{-- 4. GRID 2X2 TABEL PERFORMA --}}
+    <div class="portal-freetaste-table-grid">
+        {{-- Tabel 1: Top 5 Varian Mie Paling Banyak Disampling --}}
+        <div class="portal-freetaste-card">
+            <div class="portal-freetaste-card-header">
+                <div>
+                    <div class="portal-freetaste-card-title">
+                        <i class="fa-solid fa-trophy"></i>
+                        <span>Top 5 Varian Paling Banyak Disampling</span>
+                    </div>
+                    <div class="portal-freetaste-card-sub">Peringkat produk berdasarkan kuantiti bungkus yang dimasak</div>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="portal-freetaste-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 45px;">#</th>
+                            <th>Varian Produk</th>
+                            <th class="num">Stok Awal</th>
+                            <th class="num">Dimasak</th>
+                            <th class="num">Cup</th>
+                            <th class="num">Sisa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($freetasteData['top_products'] ?? [] as $idx => $p)
+                            <tr>
+                                <td>
+                                    <span class="portal-freetaste-rank-badge {{ $idx === 0 ? 'top-1' : ($idx === 1 ? 'top-2' : ($idx === 2 ? 'top-3' : '')) }}">
+                                        {{ $idx + 1 }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div style="font-weight: 700; color: var(--text-heading);">{{ $p['name'] }}</div>
+                                    <div style="font-size: 0.72rem; color: var(--text-muted);">{{ $p['sku'] }}</div>
+                                </td>
+                                <td class="num">{{ number_format($p['stok_awal'] ?? 0, 0, ',', '.') }}</td>
+                                <td class="num" style="color: var(--brand-primary);">{{ number_format($p['dimasak'] ?? 0, 0, ',', '.') }}</td>
+                                <td class="num" style="color: #059669;">{{ number_format($p['cup'] ?? 0, 0, ',', '.') }}</td>
+                                <td class="num" style="color: #ea580c;">{{ number_format($p['stok_akhir'] ?? 0, 0, ',', '.') }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="portal-freetaste-empty-state">
+                                    <div class="portal-freetaste-empty-icon"><i class="fa-solid fa-bowl-food"></i></div>
+                                    <div style="font-weight: 700;">Belum Ada Data Sampling Masuk</div>
+                                    <div style="font-size: 0.78rem;">Data varian produk akan muncul otomatis saat laporan disubmit.</div>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{-- Tabel 2: Top 5 Petugas / Mitra SPG Teraktif --}}
+        <div class="portal-freetaste-card">
+            <div class="portal-freetaste-card-header">
+                <div>
+                    <div class="portal-freetaste-card-title">
+                        <i class="fa-solid fa-user-check"></i>
+                        <span>Top 5 Mitra / SPG Teraktif Sampling</span>
+                    </div>
+                    <div class="portal-freetaste-card-sub">Peringkat petugas pelaksana event MBR berdasarkan kuantiti penyajian</div>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="portal-freetaste-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 45px;">#</th>
+                            <th>Nama Petugas / SPG</th>
+                            <th>Daerah (Cabang)</th>
+                            <th class="num">Dimasak (Pcs)</th>
+                            <th class="num">Cup Dibagikan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($freetasteData['top_mitra'] ?? [] as $idx => $m)
+                            <tr>
+                                <td>
+                                    <span class="portal-freetaste-rank-badge {{ $idx === 0 ? 'top-1' : ($idx === 1 ? 'top-2' : ($idx === 2 ? 'top-3' : '')) }}">
+                                        {{ $idx + 1 }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div style="font-weight: 700; color: var(--text-heading);">{{ $m['name'] }}</div>
+                                    <div style="font-size: 0.72rem; color: var(--text-muted);">{{ count($m['stores'] ?? []) }} Toko Tercover</div>
+                                </td>
+                                <td><span style="font-weight: 600;">{{ $m['area'] }}</span></td>
+                                <td class="num" style="color: var(--brand-primary);">{{ number_format($m['dimasak'], 0, ',', '.') }}</td>
+                                <td class="num" style="color: #059669;">{{ number_format($m['cup'], 0, ',', '.') }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="portal-freetaste-empty-state">
+                                    <div class="portal-freetaste-empty-icon"><i class="fa-solid fa-user-xmark"></i></div>
+                                    <div style="font-weight: 700;">Belum Ada Data Mitra</div>
+                                    <div style="font-size: 0.78rem;">Data keaktifan mitra akan dihitung dari laporan yang masuk.</div>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{-- Tabel 3: Performa Sampling per Daerah (Area) --}}
+        <div class="portal-freetaste-card">
+            <div class="portal-freetaste-card-header">
+                <div>
+                    <div class="portal-freetaste-card-title">
+                        <i class="fa-solid fa-map-location-dot"></i>
+                        <span>Distribusi Sampling per Daerah (Cabang)</span>
+                    </div>
+                    <div class="portal-freetaste-card-sub">Sebaran aktivitas sampling di masing-masing cabang/depo</div>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="portal-freetaste-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 45px;">#</th>
+                            <th>Daerah / Cabang</th>
+                            <th class="num">Toko Tercover</th>
+                            <th class="num">Dimasak (Pcs)</th>
+                            <th class="num">Cup Dibagikan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($freetasteData['sampling_by_area'] ?? [] as $idx => $ar)
+                            <tr>
+                                <td>
+                                    <span class="portal-freetaste-rank-badge {{ $idx === 0 ? 'top-1' : ($idx === 1 ? 'top-2' : ($idx === 2 ? 'top-3' : '')) }}">
+                                        {{ $idx + 1 }}
+                                    </span>
+                                </td>
+                                <td style="font-weight: 700; color: var(--text-heading);">{{ $ar['area'] }}</td>
+                                <td class="num">{{ count($ar['stores'] ?? []) }} Toko</td>
+                                <td class="num" style="color: var(--brand-primary);">{{ number_format($ar['dimasak'], 0, ',', '.') }}</td>
+                                <td class="num" style="color: #059669;">{{ number_format($ar['cup'], 0, ',', '.') }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="portal-freetaste-empty-state">
+                                    <div class="portal-freetaste-empty-icon"><i class="fa-solid fa-map-pin"></i></div>
+                                    <div style="font-weight: 700;">Belum Ada Data Daerah</div>
+                                    <div style="font-size: 0.78rem;">Data per cabang akan terakumulasi dari laporan yang terkirim.</div>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{-- Tabel 4: Performa Sampling per Wilayah (Region) --}}
+        <div class="portal-freetaste-card">
+            <div class="portal-freetaste-card-header">
+                <div>
+                    <div class="portal-freetaste-card-title">
+                        <i class="fa-solid fa-globe"></i>
+                        <span>Distribusi Sampling per Wilayah (Region)</span>
+                    </div>
+                    <div class="portal-freetaste-card-sub">Akumulasi kuantiti penyajian sampling di level regional</div>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="portal-freetaste-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 45px;">#</th>
+                            <th>Wilayah (Region)</th>
+                            <th class="num">Dimasak (Pcs)</th>
+                            <th class="num">Cup Dibagikan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($freetasteData['sampling_by_region'] ?? [] as $idx => $rg)
+                            <tr>
+                                <td>
+                                    <span class="portal-freetaste-rank-badge {{ $idx === 0 ? 'top-1' : ($idx === 1 ? 'top-2' : ($idx === 2 ? 'top-3' : '')) }}">
+                                        {{ $idx + 1 }}
+                                    </span>
+                                </td>
+                                <td style="font-weight: 700; color: var(--text-heading);">{{ $rg['region'] }}</td>
+                                <td class="num" style="color: var(--brand-primary);">{{ number_format($rg['dimasak'], 0, ',', '.') }}</td>
+                                <td class="num" style="color: #059669;">{{ number_format($rg['cup'], 0, ',', '.') }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" class="portal-freetaste-empty-state">
+                                    <div class="portal-freetaste-empty-icon"><i class="fa-solid fa-earth-asia"></i></div>
+                                    <div style="font-weight: 700;">Belum Ada Data Wilayah</div>
+                                    <div style="font-size: 0.78rem;">Data regional akan muncul otomatis dari laporan submisi.</div>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {{-- 5. TABEL RINCIAN SUBMISSION LIVE --}}
+    <div class="portal-freetaste-card">
+        <div class="portal-freetaste-card-header">
+            <div>
+                <div class="portal-freetaste-card-title">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Rincian Laporan Masuk (Submissions Live)</span>
+                </div>
+                <div class="portal-freetaste-card-sub">Daftar transaksi sampling dan dokumentasi booth yang dilaporkan oleh petugas</div>
+            </div>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="portal-freetaste-table">
+                <thead>
+                    <tr>
+                        <th>Kode Laporan</th>
+                        <th>Waktu Pelaporan</th>
+                        <th>Petugas (Mitra)</th>
+                        <th>Toko / Outlet</th>
+                        <th>Daerah</th>
+                        <th class="num">Mie Dimasak</th>
+                        <th class="num">Cup Dibagikan</th>
+                        <th class="num">Sisa Stok</th>
+                        <th style="text-align: center;">Dokumentasi</th>
+                        <th style="text-align: center;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($submissions as $sub)
+                        @php
+                            $subCart = [];
+                            $subDimasak = 0;
+                            $subCup = 0;
+                            $subAkhir = 0;
+                            $subBoothPhoto = null;
+
+                            foreach ($sub->values as $v) {
+                                $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
+                                if ($fn === 'mbr_freetaste_items_json' || $fn === 'mbr_sampling_items_json') {
+                                    $raw = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
+                                    if (is_array($raw)) $subCart = $raw;
+                                } elseif ($fn === 'total_mie_dimasak') {
+                                    $subDimasak = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
+                                } elseif ($fn === 'total_cup_dibagikan') {
+                                    $subCup = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
+                                } elseif ($fn === 'total_stok_akhir_sampling') {
+                                    $subAkhir = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
+                                } elseif (str_contains($fn, 'foto_booth') || str_contains($fn, 'booth_sampling')) {
+                                    $subBoothPhoto = $v->value_text;
+                                }
+                            }
+
+                            if (!empty($subCart) && $subDimasak <= 0) {
+                                foreach ($subCart as $it) {
+                                    $subDimasak += (int)($it['jumlah_dimasak'] ?? ($it['dimasak'] ?? 0));
+                                    $subCup += (int)($it['jumlah_cup'] ?? ($it['cup'] ?? 0));
+                                    $subAkhir += (int)($it['stok_akhir'] ?? 0);
+                                }
+                            }
+                        @endphp
+                        <tr>
+                            <td>
+                                <span style="font-family: monospace; font-weight: 700; color: var(--brand-primary);">
+                                    {{ $sub->submission_code ?: ('SUB-' . $sub->id) }}
+                                </span>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: var(--text-heading);">
+                                    {{ $sub->submitted_at ? $sub->submitted_at->translatedFormat('d M Y') : $sub->created_at->translatedFormat('d M Y') }}
+                                </div>
+                                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                                    {{ $sub->submitted_at ? $sub->submitted_at->format('H:i') : $sub->created_at->format('H:i') }} WIB
+                                </div>
+                            </td>
+                            <td>
+                                <div style="font-weight: 700; color: var(--text-heading);">
+                                    {{ $sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'Mitra SPG' }}
+                                </div>
+                                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                                    {{ $sub->employee?->employee_no ?? '-' }}
+                                </div>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600;">
+                                    {{ $sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: '-') }}
+                                </div>
+                            </td>
+                            <td>
+                                <span>{{ $sub->workLocation && $sub->workLocation->branch ? $sub->workLocation->branch->name : ($sub->employee && $sub->employee->branch ? $sub->employee->branch->name : '-') }}</span>
+                            </td>
+                            <td class="num" style="color: var(--brand-primary);">
+                                {{ number_format($subDimasak, 0, ',', '.') }} Pcs
+                            </td>
+                            <td class="num" style="color: #059669;">
+                                {{ number_format($subCup, 0, ',', '.') }} Cup
+                            </td>
+                            <td class="num" style="color: #ea580c;">
+                                {{ number_format($subAkhir, 0, ',', '.') }} Pcs
+                            </td>
+                            <td style="text-align: center;">
+                                @if($subBoothPhoto)
+                                    <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('{{ $subBoothPhoto }}')">
+                                        <i class="fa-solid fa-camera"></i>
+                                        <span>Booth</span>
+                                    </button>
+                                @else
+                                    <span style="color: var(--text-muted); font-size: 0.75rem;">-</span>
+                                @endif
+                            </td>
+                            <td style="text-align: center;">
+                                <button type="button" class="portal-freetaste-btn-action" onclick="openFreetasteSubmissionDetailModal({{ json_encode($sub) }}, {{ json_encode($subCart) }})">
+                                    <i class="fa-solid fa-eye"></i>
+                                    <span>Detail</span>
+                                </button>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="10" class="portal-freetaste-empty-state">
+                                <div class="portal-freetaste-empty-icon"><i class="fa-solid fa-inbox"></i></div>
+                                <div style="font-weight: 700;">Belum Ada Laporan Free Taste Masuk</div>
+                                <div style="font-size: 0.78rem;">Data laporan submisi sampling yang dikirim mitra akan otomatis tampil di sini.</div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        @if($submissions->hasPages())
+            <div style="margin-top: 1.25rem; display: flex; justify-content: flex-end;">
+                {{ $submissions->withQueryString()->links() }}
+            </div>
+        @endif
+    </div>
+
+</div>
+
+{{-- MODAL DETAIL SUBMISSION & ITEM SAMPLING --}}
+<div class="portal-freetaste-modal-overlay" id="freetasteSubDetailModal" onclick="closeFreetasteSubmissionDetailModal()">
+    <div class="portal-freetaste-modal-card" onclick="event.stopPropagation()">
+        <div class="portal-freetaste-modal-header">
+            <div class="portal-freetaste-modal-title">
+                <i class="fa-solid fa-bowl-food" style="color: var(--brand-primary);"></i>
+                <span>Rincian Produk Sampling Laporan MBR</span>
+            </div>
+            <button type="button" class="portal-freetaste-modal-close" onclick="closeFreetasteSubmissionDetailModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="portal-freetaste-modal-body" id="freetasteSubModalBody">
+            <!-- Dynamic Content -->
+        </div>
+    </div>
+</div>
+
+{{-- MODAL GALERI FOTO SAMPLING --}}
+<div class="portal-freetaste-modal-overlay" id="freetasteGalleryModal" onclick="closeFreetasteGalleryModal()">
+    <div class="portal-freetaste-modal-card" style="max-width: 950px;" onclick="event.stopPropagation()">
+        <div class="portal-freetaste-modal-header">
+            <div class="portal-freetaste-modal-title">
+                <i class="fa-solid fa-images" style="color: var(--brand-primary);"></i>
+                <span id="freetasteGalleryModalTitle">Dokumentasi Foto Sampling & Booth Event MBR</span>
+            </div>
+            <button type="button" class="portal-freetaste-modal-close" onclick="closeFreetasteGalleryModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="portal-freetaste-modal-body">
+            @if(empty($galleryPhotos))
+                <div class="portal-freetaste-empty-state">
+                    <div class="portal-freetaste-empty-icon"><i class="fa-solid fa-camera-retro"></i></div>
+                    <div style="font-weight: 700;">Belum Ada Foto Dokumentasi Sampling</div>
+                    <div style="font-size: 0.8rem;">Foto booth dan foto sampling yang dikirim mitra akan otomatis terkumpul di galeri ini.</div>
+                </div>
+            @else
+                <div class="portal-freetaste-photo-grid">
+                    @foreach($galleryPhotos as $photo)
+                        <div class="portal-freetaste-photo-card">
+                            <img src="{{ $photo['url'] }}" alt="{{ $photo['title'] }}" class="portal-freetaste-photo-thumb" onclick="openLightbox('{{ $photo['url'] }}')">
+                            <div class="portal-freetaste-photo-info">
+                                <div style="font-weight: 700; color: var(--text-heading); font-size: 0.82rem;">{{ $photo['product'] }}</div>
+                                <div class="portal-freetaste-photo-meta">
+                                    <div><i class="fa-solid fa-store"></i> {{ $photo['store'] }}</div>
+                                    <div><i class="fa-solid fa-user"></i> {{ $photo['mitra'] }} &bull; {{ $photo['date'] }}</div>
+                                    @if(isset($photo['dimasak']) && $photo['dimasak'] > 0)
+                                        <div style="margin-top: 0.25rem; font-weight: 700; color: var(--brand-primary);">
+                                            Masak: {{ $photo['dimasak'] }} Pcs &bull; Cup: {{ $photo['cup'] }}
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    </div>
+</div>
+
+{{-- LIGHTBOX ZOOM PREVIEW --}}
+<div class="portal-freetaste-lightbox" id="freetasteLightboxOverlay" onclick="closeFreetasteLightbox()">
+    <img id="freetasteLightboxImg" src="" alt="Perbesar Foto" onclick="event.stopPropagation()">
+</div>
+
+@push('scripts')
+<script>
+    const freetasteChartData = {
+        daily: @json($freetasteData['chart']['daily'] ?? ['labels' => [], 'dimasaks' => [], 'cups' => []]),
+        weekly: @json($freetasteData['chart']['weekly'] ?? ['labels' => [], 'dimasaks' => [], 'cups' => []]),
+        monthly: @json($freetasteData['chart']['monthly'] ?? ['labels' => [], 'dimasaks' => [], 'cups' => []])
+    };
+
+    const freetasteBrandPrimary = '{{ $brandColor }}';
+    let freetasteChartInstance = null;
+
+    function initFreetasteChart() {
+        const ctx = document.getElementById('freetasteChart');
+        if (!ctx) return;
+
+        const initialLabels = freetasteChartData.daily.labels || [];
+        const initialDimasaks = freetasteChartData.daily.dimasaks || [];
+        const initialCups = freetasteChartData.daily.cups || [];
+
+        freetasteChartInstance = new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: initialLabels,
+                datasets: [
+                    {
+                        label: 'Mie Dimasak (Pcs)',
+                        data: initialDimasaks,
+                        backgroundColor: freetasteBrandPrimary,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        maxBarThickness: 38
+                    },
+                    {
+                        label: 'Cup Dibagikan (Cup)',
+                        data: initialCups,
+                        backgroundColor: '#059669',
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        maxBarThickness: 38
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: { family: 'Outfit', size: 12, weight: '700' },
+                            boxWidth: 14,
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#0f172a',
+                        titleFont: { size: 12, weight: '700' },
+                        bodyFont: { size: 12 },
+                        padding: 10,
+                        cornerRadius: 8
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { family: 'Outfit', size: 11, weight: '600' }, color: '#64748b' }
+                    },
+                    y: {
+                        grid: { color: '#f1f5f9' },
+                        ticks: {
+                            font: { family: 'Outfit', size: 11 },
+                            color: '#64748b',
+                            callback: function(value) {
+                                return Number(value).toLocaleString('id-ID');
+                            }
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    function switchFreetasteChartMode(mode) {
+        document.getElementById('freetasteBtnHarian')?.classList.remove('active');
+        document.getElementById('freetasteBtnMingguan')?.classList.remove('active');
+        document.getElementById('freetasteBtnBulanan')?.classList.remove('active');
+
+        if (mode === 'daily') document.getElementById('freetasteBtnHarian')?.classList.add('active');
+        if (mode === 'weekly') document.getElementById('freetasteBtnMingguan')?.classList.add('active');
+        if (mode === 'monthly') document.getElementById('freetasteBtnBulanan')?.classList.add('active');
+
+        if (!freetasteChartInstance) return;
+
+        const d = freetasteChartData[mode] || { labels: [], dimasaks: [], cups: [] };
+        freetasteChartInstance.data.labels = d.labels;
+        freetasteChartInstance.data.datasets[0].data = d.dimasaks;
+        freetasteChartInstance.data.datasets[1].data = d.cups;
+        freetasteChartInstance.update();
+    }
+
+    // Modal Galeri
+    function openFreetasteGalleryModal(filterType = 'all') {
+        const modal = document.getElementById('freetasteGalleryModal');
+        if (!modal) return;
+        modal.classList.add('active');
+    }
+
+    function closeFreetasteGalleryModal() {
+        document.getElementById('freetasteGalleryModal')?.classList.remove('active');
+    }
+
+    // Modal Rincian Submissions
+    function openFreetasteSubmissionDetailModal(sub, cart) {
+        const modal = document.getElementById('freetasteSubDetailModal');
+        const body = document.getElementById('freetasteSubModalBody');
+        if (!modal || !body) return;
+
+        let cartHtml = '';
+        if (cart && cart.length > 0) {
+            cartHtml = `
+                <table class="portal-freetaste-table" style="margin-top: 1rem;">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nama Varian Produk</th>
+                            <th class="num">Stok Awal</th>
+                            <th class="num">Dimasak</th>
+                            <th class="num">Stok Akhir</th>
+                            <th class="num">Cup Tester</th>
+                            <th style="text-align: center;">Foto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${cart.map((item, i) => {
+                            const pPhoto = item.photo_sampling_url || item.foto_sampling || item.sampling_photo_url || null;
+                            return `
+                                <tr>
+                                    <td style="color: var(--text-muted); font-weight: 700;">${i + 1}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">
+                                        ${item.name || item.product_name || 'Produk Mie Sedaap'}
+                                        <div style="font-size: 0.72rem; color: var(--text-muted);">${item.sku_code || item.sku || '-'}</div>
+                                    </td>
+                                    <td class="num">${Number(item.stok_awal || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: var(--brand-primary);">${Number(item.jumlah_dimasak || item.dimasak || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #ea580c;">${Number(item.stok_akhir || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669;">${Number(item.jumlah_cup || item.cup || 0).toLocaleString('id-ID')} Cup</td>
+                                    <td style="text-align: center;">
+                                        ${pPhoto ? `
+                                            <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('${pPhoto}')">
+                                                <i class="fa-solid fa-camera"></i>
+                                            </button>
+                                        ` : '<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>'}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            cartHtml = '<p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">Tidak ada item keranjang sampling terperinci.</p>';
+        }
+
+        body.innerHTML = `
+            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
+                <div>
+                    <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Kode Submisi</span>
+                    <div style="font-weight: 800; font-family: monospace; color: var(--brand-primary);">${sub.submission_code || '-'}</div>
+                </div>
+                <div>
+                    <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Waktu Lapor</span>
+                    <div style="font-weight: 700; color: var(--text-heading);">${sub.submitted_at || sub.created_at || '-'}</div>
+                </div>
+            </div>
+            <div style="margin-top: 1.25rem;">
+                <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-heading); margin-bottom: 0.35rem;">Rincian Varian Sampling & Kuantiti</h4>
+                ${cartHtml}
+            </div>
+        `;
+
+        modal.classList.add('active');
+    }
+
+    function closeFreetasteSubmissionDetailModal() {
+        document.getElementById('freetasteSubDetailModal')?.classList.remove('active');
+    }
+
+    // Lightbox Zoom
+    function openLightbox(url) {
+        const lb = document.getElementById('freetasteLightboxOverlay');
+        const img = document.getElementById('freetasteLightboxImg');
+        if (lb && img) {
+            img.src = url;
+            lb.classList.add('active');
+        }
+    }
+
+    function closeFreetasteLightbox() {
+        document.getElementById('freetasteLightboxOverlay')?.classList.remove('active');
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initFreetasteChart();
+    });
+</script>
+@endpush

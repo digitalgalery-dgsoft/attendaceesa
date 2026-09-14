@@ -1685,6 +1685,23 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Menjalankan deployment ke Gateway `appsend.my.id` via webhook `deploy.php` dan ke seluruh node cluster production (AMK, AKP, ATK) via `deploy-production.php`.
       - Seluruh 4 server telah terverifikasi merespons **HTTP 200 OK** (`Content-Type: image/webp`, 27.5 KB) untuk URL foto selfie check-in.
 
-
-
-
+29. **Pembuatan Laporan Free Taste (Event MBR) Wings & Mobile App v1.0.150 (14 September 2026)**:
+    - **Latar Belakang & Kebutuhan Bisnis**:
+      - Mengakomodasi kebutuhan pelaporan sampling / free taste pada event MBR Wings Surya mengacu pada dokumen spesifikasi `Laporan Free Taste.xlsx`.
+      - Sampling memiliki satuan mie mentah (Stok Awal, Mie Dimasak, Sisa Stok) dan cup tester siap saji (Cup dibagikan ke pengunjung).
+      - Menampilkan analitik komprehensif pada Web Portal Prinsiple dan form dinamis interaktif pada aplikasi mobile Flutter.
+    - **Database Migration & Seeder Template (`2026_09_14_110000_seed_wings_mbr_freetaste_report_template.php`)**:
+      - Membuat template `RPT-WINGS-MBR-FREETASTE-01` (`Laporan Free Taste (Event MBR)`), category `sampling`, group `event_mbr`, terhubung ke Principal PT Wings Surya dan 40 SKU master produk Mie Sedaap.
+      - 7 Fields terdaftar: `mbr_freetaste_items_json`, `total_stok_awal_sampling`, `total_mie_dimasak`, `total_stok_akhir_sampling`, `total_cup_dibagikan`, `foto_booth_sampling`, `catatan_sampling`.
+    - **Backend & Web Portal Principal (`PrincipalPortalController.php` & `wings_mbr_freetaste_dashboard.blade.php`)**:
+      - Menambahkan kalkulasi analitik murni data-driven (`calculateWingsMbrFreeTasteDashboardData`) dengan filter dinamis bulan berjalan, wilayah, daerah, dan toko.
+      - Menampilkan 7 Kartu KPI Utama: Total Mie Dimasak (Pcs), Total Cup Dibagikan, Rata-rata Cup per Pcs, Sisa Stok Sampling (Pcs), Total SKU Sampling, Total Booth Aktif, dan Total Submisi.
+      - Dual-series Chart: Tren Harian Mie Dimasak (Pcs) vs Cup Dibagikan.
+      - 4 Tabel Performa Grid: Top Varian Mie Paling Banyak Dimasak, Top Varian Cup Paling Banyak Dibagikan, Top Toko Sampling Paling Aktif, dan Performa Sampling per Wilayah/Daerah.
+      - Tabel Riwayat Submisi Live, modal rincian item sampling, dan galeri foto booth / dokumentasi sampling dengan zoom lightbox.
+      - Menyelaraskan 100% identitas visual native portal (clean white cards, Outfit typography, brand colors).
+    - **Aplikasi Mobile Flutter (`att-mobile`)**:
+      - `dynamic_form_screen.dart`: Form sampling multi-step interaktif (Step 0: Pilih produk Mie Sedaap dari master, input Stok Awal, Mie Dimasak, Cup Tester dibagikan manual, auto-kalkulasi Sisa Stok; Step 1: Review keranjang, foto booth/spg sampling, catatan). Validasi minimal 1 produk wajib dilaporkan sebelum submit.
+      - `report_detail_screen.dart`: Menampilkan panel ringkasan 4 metrik KPI sampling, kartu detail per produk sampling (Awal -> Dimasak -> Sisa Stok & Cup Dibagikan), thumbnail foto dokumentasi dengan modal preview, serta menyembunyikan raw JSON fields.
+      - Version bump di `pubspec.yaml` ke **`v1.0.150+150`**.
+      - Kompilasi APK rilis sukses (`app-release.apk`, `APK/app-release-1.0.150.apk`, `att-admin-v12/public/app-release.apk`).

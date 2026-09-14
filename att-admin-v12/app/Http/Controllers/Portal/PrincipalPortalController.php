@@ -152,6 +152,14 @@ class PrincipalPortalController extends Controller
             return 10;
         }
 
+        // Event MBR Wings
+        if (str_contains($code, 'MBR-SALES') || (str_contains($title, 'mbr') && str_contains($title, 'penjualan'))) {
+            return 11;
+        }
+        if (str_contains($code, 'MBR-FREETASTE') || str_contains($code, 'SAMPLING') || (str_contains($title, 'mbr') && (str_contains($title, 'free taste') || str_contains($title, 'sampling')))) {
+            return 12;
+        }
+
         // 2. Stok End (must check before generic stock / oos)
         if (
             str_contains($code, 'STOCK-END') || str_contains($code, 'STOCK_END') ||
@@ -869,13 +877,18 @@ class PrincipalPortalController extends Controller
         $isOosReport     = in_array($template->code, ['RPT-DULUX-OOS-SSO', 'RPT-DULUX-OOS-LSO']) || str_contains($template->code, 'OOS');
         $isDailyMaintenanceReport = ($template->code === 'RPT-DULUX-DAILY-MAINTENANCE' || str_contains($template->code, 'DAILY-MAINTENANCE'));
         $isCustomerDbReport       = ($template->code === 'RPT-DULUX-DATABASE-PELANGGAN' || str_contains($template->code, 'PELANGGAN'));
-        $isWingsMbrReport         = ($template->code === 'RPT-WINGS-MBR-SALES-01'
-            || ($template->report_group ?? '') === 'event_mbr'
-            || str_contains($template->code, 'WINGS-MBR')
+        $isWingsMbrSalesReport    = ($template->code === 'RPT-WINGS-MBR-SALES-01'
+            || str_contains($template->code, 'MBR-SALES')
             || (str_contains(strtolower($template->title ?? ''), 'mbr') && str_contains(strtolower($template->title ?? ''), 'penjualan')));
 
+        $isWingsMbrFreeTasteReport = ($template->code === 'RPT-WINGS-MBR-FREETASTE-01'
+            || str_contains($template->code, 'MBR-FREETASTE')
+            || (str_contains(strtolower($template->title ?? ''), 'mbr') && (str_contains(strtolower($template->title ?? ''), 'free taste') || str_contains(strtolower($template->title ?? ''), 'sampling'))));
+
+        $isWingsMbrReport         = $isWingsMbrSalesReport;
+
         // --- WINGS MBR SALES EXECUTIVE DASHBOARD ---
-        if ($isWingsMbrReport) {
+        if ($isWingsMbrSalesReport) {
             $wingsMbrData = $this->calculateWingsMbrDashboardData(
                 $template,
                 $startDate,
@@ -927,6 +940,63 @@ class PrincipalPortalController extends Controller
                 'ytdData',
                 'isWingsMbrReport',
                 'wingsMbrData',
+                'activeTab'
+            ));
+        }
+
+        // --- WINGS MBR FREE TASTE / SAMPLING EXECUTIVE DASHBOARD ---
+        if ($isWingsMbrFreeTasteReport) {
+            $wingsMbrFreeTasteData = $this->calculateWingsMbrFreeTasteDashboardData(
+                $template,
+                $startDate,
+                $endDate,
+                $selectedRegion,
+                $selectedAreaId,
+                $selectedLocationId,
+                $search
+            );
+
+            $regions = $wingsMbrFreeTasteData['regions'] ?? [];
+            $areas = $wingsMbrFreeTasteData['areas'] ?? collect();
+            $workLocations = $wingsMbrFreeTasteData['work_locations'] ?? collect();
+            $submissions = $wingsMbrFreeTasteData['submissions'];
+            $liveSubmissionsCount = $submissions->total();
+            $totalTemplateSubmissions = $wingsMbrFreeTasteData['kpis']['total_submissions'] ?? $liveSubmissionsCount;
+            $uniqueStores = $wingsMbrFreeTasteData['kpis']['unique_stores'] ?? 0;
+            $dashboardConfig = [];
+            $widgetResults = [];
+            $isYtdReport = false;
+            $ytdData = [];
+            $activeTab = $request->query('tab', 'dashboard');
+
+            return view('portal.report_detail', compact(
+                'tenantPrincipal',
+                'tenantPrincipalsAll',
+                'brandColor',
+                'activeTemplates',
+                'template',
+                'submissions',
+                'liveSubmissionsCount',
+                'totalTemplateSubmissions',
+                'uniqueStores',
+                'startMonth',
+                'startYear',
+                'endMonth',
+                'endYear',
+                'search',
+                'selectedRegion',
+                'selectedAreaId',
+                'selectedLocationId',
+                'regions',
+                'areas',
+                'workLocations',
+                'setting',
+                'dashboardConfig',
+                'widgetResults',
+                'isYtdReport',
+                'ytdData',
+                'isWingsMbrFreeTasteReport',
+                'wingsMbrFreeTasteData',
                 'activeTab'
             ));
         }
@@ -12293,6 +12363,393 @@ class PrincipalPortalController extends Controller
             'top_products' => $topProducts,
             'sales_by_area' => $salesByArea,
             'sales_by_region' => $salesByRegion,
+            'gallery_photos' => $galleryPhotos,
+        ];
+    }
+
+    /**
+     * Calculate 100% data-driven metrics for Wings MBR Free Taste / Sampling Report
+     */
+    protected function calculateWingsMbrFreeTasteDashboardData(
+        ReportTemplate $template,
+        Carbon $startDate,
+        Carbon $endDate,
+        ?string $selectedRegion,
+        $selectedAreaId,
+        $selectedLocationId,
+        ?string $search,
+        int $perPage = 20
+    ): array {
+        $driver = DB::connection()->getDriverName();
+        $likeOp = $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
+
+        // 1. Build Query for Wings MBR Free Taste Submissions in selected period
+        $query = ReportSubmission::where('report_template_id', $template->id)
+            ->where(function($q) use ($startDate, $endDate) {
+                $q->whereBetween('submitted_at', [$startDate, $endDate])
+                  ->orWhere(function($subQ) use ($startDate, $endDate) {
+                      $subQ->whereNull('submitted_at')
+                           ->whereBetween('created_at', [$startDate, $endDate]);
+                  });
+            })
+            ->with([
+                'employee.branch',
+                'workLocation.branch',
+                'values.formField'
+            ]);
+
+        if ($selectedRegion) {
+            $query->where(function($q) use ($selectedRegion) {
+                $q->whereHas('workLocation', fn($w) => $w->where('region', $selectedRegion))
+                  ->orWhereHas('employee.branch', fn($b) => $b->where('region', $selectedRegion));
+            });
+        }
+        if ($selectedAreaId) {
+            $query->where(function($q) use ($selectedAreaId) {
+                if (is_numeric($selectedAreaId)) {
+                    $q->whereHas('workLocation', fn($w) => $w->where('branch_id', $selectedAreaId))
+                      ->orWhereHas('employee', fn($e) => $e->where('branch_id', $selectedAreaId));
+                } else {
+                    $q->whereHas('workLocation.branch', fn($b) => $b->where('name', $selectedAreaId))
+                      ->orWhereHas('employee.branch', fn($b) => $b->where('name', $selectedAreaId));
+                }
+            });
+        }
+        if ($selectedLocationId) {
+            $query->where(function($q) use ($selectedLocationId) {
+                if (is_numeric($selectedLocationId)) {
+                    $q->where('work_location_id', $selectedLocationId);
+                } else {
+                    $q->whereHas('workLocation', fn($w) => $w->where('name', $selectedLocationId))
+                      ->orWhere('store_name', $selectedLocationId);
+                }
+            });
+        }
+        if ($search) {
+            $query->where(function ($q) use ($search, $likeOp) {
+                $q->whereHas('employee', function ($sub) use ($search, $likeOp) {
+                    $sub->where('full_name', $likeOp, "%{$search}%")
+                        ->orWhere('employee_no', $likeOp, "%{$search}%");
+                })->orWhereHas('workLocation', function ($sub) use ($search, $likeOp) {
+                    $sub->where('name', $likeOp, "%{$search}%");
+                });
+            });
+        }
+
+        $allSubmissions = (clone $query)->orderBy('submitted_at', 'desc')->get();
+        $submissions = (clone $query)->orderBy('submitted_at', 'desc')->paginate($perPage);
+
+        // 2. Retrieve distinct regions, areas, and stores strictly from the actual submissions of this template
+        $allTemplateSubmissions = ReportSubmission::where('report_template_id', $template->id)
+            ->with(['workLocation.branch', 'employee.branch'])
+            ->get();
+
+        $regionsList = [];
+        $areasList = [];
+        $storesList = [];
+
+        foreach ($allTemplateSubmissions as $subItem) {
+            $wl = $subItem->workLocation;
+            $emp = $subItem->employee;
+
+            $reg = !empty($wl?->region) ? strtoupper(trim($wl->region)) : (!empty($emp?->branch?->region) ? strtoupper(trim($emp->branch->region)) : null);
+            if ($reg && !in_array($reg, $regionsList)) {
+                $regionsList[] = $reg;
+            }
+
+            $areaName = !empty($wl?->branch?->name) ? strtoupper(trim($wl->branch->name)) : (!empty($emp?->branch?->name) ? strtoupper(trim($emp->branch->name)) : null);
+            $areaId = $wl?->branch_id ?? ($emp?->branch_id ?? $areaName);
+            if ($areaName && !isset($areasList[$areaName])) {
+                $areasList[$areaName] = (object)[
+                    'id' => $areaId,
+                    'name' => $areaName,
+                    'region' => $reg ?? ''
+                ];
+            }
+
+            $storeName = !empty($wl?->name) ? trim($wl->name) : (!empty($subItem->store_name) ? trim($subItem->store_name) : null);
+            $storeId = $wl?->id ?? ($subItem->store_name ?? null);
+            if ($storeName && !isset($storesList[$storeName])) {
+                $storesList[$storeName] = (object)[
+                    'id' => $storeId,
+                    'name' => $storeName,
+                    'region' => $reg ?? '',
+                    'area' => $areaName ?? ''
+                ];
+            }
+        }
+
+        sort($regionsList);
+        $regions = array_values($regionsList);
+
+        uasort($areasList, fn($a, $b) => strcmp($a->name, $b->name));
+        $areas = collect(array_values($areasList));
+
+        uasort($storesList, fn($a, $b) => strcmp($a->name, $b->name));
+        $workLocations = collect(array_values($storesList));
+
+        // 3. Process submissions (Purely data-driven calculations)
+        $totalStokAwal = 0;
+        $totalDimasak = 0;
+        $totalStokAkhir = 0;
+        $totalCup = 0;
+        $todayDimasak = 0;
+        $todayCup = 0;
+        $uniqueStoresMap = [];
+        $uniqueProductsMap = [];
+        $mitraAgg = [];
+        $productAgg = [];
+        $areaAgg = [];
+        $regionAgg = [];
+        $dailyAgg = [];
+        $galleryPhotos = [];
+
+        $todayStr = Carbon::now()->format('Y-m-d');
+
+        foreach ($allSubmissions as $sub) {
+            $subDate = $sub->submitted_at ? $sub->submitted_at->format('Y-m-d') : ($sub->created_at ? $sub->created_at->format('Y-m-d') : Carbon::now()->format('Y-m-d'));
+            $subDateDisplay = $sub->submitted_at ? $sub->submitted_at->translatedFormat('d F Y') : ($sub->created_at ? $sub->created_at->translatedFormat('d F Y') : Carbon::now()->translatedFormat('d F Y'));
+            $empName = $sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'Petugas / Mitra';
+            $branchName = $sub->workLocation && $sub->workLocation->branch ? $sub->workLocation->branch->name : ($sub->employee && $sub->employee->branch ? $sub->employee->branch->name : '-');
+            $regionName = $sub->workLocation && !empty($sub->workLocation->region) ? $sub->workLocation->region : ($sub->employee && $sub->employee->branch && !empty($sub->employee->branch->region) ? $sub->employee->branch->region : '-');
+            $storeName = $sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: 'Toko / Outlet');
+
+            $uniqueStoresMap[$storeName] = true;
+
+            $cartItems = [];
+            $subStokAwal = 0;
+            $subDimasak = 0;
+            $subStokAkhir = 0;
+            $subCup = 0;
+            $subBoothPhoto = null;
+
+            foreach ($sub->values as $v) {
+                $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
+                if ($fn === 'mbr_freetaste_items_json' || $fn === 'mbr_sampling_items_json') {
+                    $raw = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
+                    if (is_array($raw)) {
+                        $cartItems = $raw;
+                    }
+                } elseif ($fn === 'total_stok_awal_sampling') {
+                    $subStokAwal = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
+                } elseif ($fn === 'total_mie_dimasak') {
+                    $subDimasak = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
+                } elseif ($fn === 'total_stok_akhir_sampling') {
+                    $subStokAkhir = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
+                } elseif ($fn === 'total_cup_dibagikan') {
+                    $subCup = (int)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
+                } elseif (str_contains($fn, 'foto_booth') || str_contains($fn, 'booth_sampling')) {
+                    $subBoothPhoto = $v->value_text;
+                }
+            }
+
+            if (!empty($cartItems)) {
+                $calcAwal = 0; $calcMasak = 0; $calcAkhir = 0; $calcCup = 0;
+                foreach ($cartItems as $cIt) {
+                    $awal = (int)($cIt['stok_awal'] ?? 0);
+                    $masak = (int)($cIt['jumlah_dimasak'] ?? ($cIt['dimasak'] ?? 0));
+                    $akhir = (int)($cIt['stok_akhir'] ?? max(0, $awal - $masak));
+                    $cup = (int)($cIt['jumlah_cup'] ?? ($cIt['cup'] ?? 0));
+
+                    $calcAwal += $awal;
+                    $calcMasak += $masak;
+                    $calcAkhir += $akhir;
+                    $calcCup += $cup;
+
+                    $pName = strtoupper(trim($cIt['name'] ?? ($cIt['product_name'] ?? 'PRODUK')));
+                    $pSku = $cIt['sku_code'] ?? ($cIt['sku'] ?? '-');
+                    $uniqueProductsMap[$pName] = true;
+
+                    if (!isset($productAgg[$pName])) {
+                        $productAgg[$pName] = [
+                            'name' => $pName,
+                            'sku' => $pSku,
+                            'stok_awal' => 0,
+                            'dimasak' => 0,
+                            'stok_akhir' => 0,
+                            'cup' => 0
+                        ];
+                    }
+                    $productAgg[$pName]['stok_awal'] += $awal;
+                    $productAgg[$pName]['dimasak'] += $masak;
+                    $productAgg[$pName]['stok_akhir'] += $akhir;
+                    $productAgg[$pName]['cup'] += $cup;
+
+                    $samplingPhoto = $cIt['photo_sampling_url'] ?? ($cIt['foto_sampling'] ?? ($cIt['sampling_photo_url'] ?? null));
+                    if ($samplingPhoto) {
+                        $galleryPhotos[] = [
+                            'type' => 'sampling',
+                            'title' => 'Dokumentasi Sampling Produk',
+                            'url' => $samplingPhoto,
+                            'product' => $pName,
+                            'date' => $subDateDisplay,
+                            'mitra' => $empName,
+                            'store' => $storeName,
+                            'dimasak' => $masak,
+                            'cup' => $cup,
+                        ];
+                    }
+                }
+                if ($subStokAwal <= 0) $subStokAwal = $calcAwal;
+                if ($subDimasak <= 0) $subDimasak = $calcMasak;
+                if ($subStokAkhir <= 0) $subStokAkhir = $calcAkhir;
+                if ($subCup <= 0) $subCup = $calcCup;
+            }
+
+            if ($subBoothPhoto) {
+                $galleryPhotos[] = [
+                    'type' => 'booth',
+                    'title' => 'Dokumentasi Stand / Booth Sampling',
+                    'url' => $subBoothPhoto,
+                    'product' => 'Stand / Booth Event MBR',
+                    'date' => $subDateDisplay,
+                    'mitra' => $empName,
+                    'store' => $storeName,
+                    'dimasak' => $subDimasak,
+                    'cup' => $subCup,
+                ];
+            }
+
+            $totalStokAwal += $subStokAwal;
+            $totalDimasak += $subDimasak;
+            $totalStokAkhir += $subStokAkhir;
+            $totalCup += $subCup;
+
+            if ($subDate === $todayStr) {
+                $todayDimasak += $subDimasak;
+                $todayCup += $subCup;
+            }
+
+            if (!isset($mitraAgg[$empName])) {
+                $mitraAgg[$empName] = ['name' => $empName, 'area' => $branchName, 'dimasak' => 0, 'cup' => 0, 'stores' => []];
+            }
+            $mitraAgg[$empName]['dimasak'] += $subDimasak;
+            $mitraAgg[$empName]['cup'] += $subCup;
+            $mitraAgg[$empName]['stores'][$storeName] = true;
+
+            if ($branchName !== '-') {
+                if (!isset($areaAgg[$branchName])) {
+                    $areaAgg[$branchName] = ['area' => $branchName, 'stores' => [], 'dimasak' => 0, 'cup' => 0];
+                }
+                $areaAgg[$branchName]['dimasak'] += $subDimasak;
+                $areaAgg[$branchName]['cup'] += $subCup;
+                $areaAgg[$branchName]['stores'][$storeName] = true;
+            }
+
+            if ($regionName !== '-') {
+                if (!isset($regionAgg[$regionName])) {
+                    $regionAgg[$regionName] = ['region' => $regionName, 'dimasak' => 0, 'cup' => 0];
+                }
+                $regionAgg[$regionName]['dimasak'] += $subDimasak;
+                $regionAgg[$regionName]['cup'] += $subCup;
+            }
+
+            if (!isset($dailyAgg[$subDate])) {
+                $dailyAgg[$subDate] = ['dimasak' => 0, 'cup' => 0];
+            }
+            $dailyAgg[$subDate]['dimasak'] += $subDimasak;
+            $dailyAgg[$subDate]['cup'] += $subCup;
+        }
+
+        // Sort Top Performers
+        uasort($mitraAgg, fn($a, $b) => $b['dimasak'] <=> $a['dimasak']);
+        $topMitra = array_values(array_slice($mitraAgg, 0, 5));
+
+        uasort($productAgg, fn($a, $b) => $b['dimasak'] <=> $a['dimasak']);
+        $topProducts = array_values(array_slice($productAgg, 0, 5));
+
+        uasort($areaAgg, fn($a, $b) => $b['dimasak'] <=> $a['dimasak']);
+        $samplingByArea = array_values($areaAgg);
+
+        uasort($regionAgg, fn($a, $b) => $b['dimasak'] <=> $a['dimasak']);
+        $samplingByRegion = array_values($regionAgg);
+
+        // Chart Data (Harian, Mingguan, Bulanan)
+        $chartLabels = [];
+        $chartDimasak = [];
+        $chartCup = [];
+
+        $periodDays = $startDate->diffInDays($endDate) + 1;
+        if ($periodDays <= 31) {
+            $curr = $startDate->copy();
+            while ($curr <= $endDate) {
+                $dKey = $curr->format('Y-m-d');
+                $chartLabels[] = $curr->format('d/m');
+                $chartDimasak[] = $dailyAgg[$dKey]['dimasak'] ?? 0;
+                $chartCup[] = $dailyAgg[$dKey]['cup'] ?? 0;
+                $curr->addDay();
+            }
+        } else {
+            ksort($dailyAgg);
+            foreach ($dailyAgg as $dKey => $dV) {
+                $chartLabels[] = Carbon::parse($dKey)->format('d/m');
+                $chartDimasak[] = $dV['dimasak'];
+                $chartCup[] = $dV['cup'];
+            }
+        }
+
+        // Weekly Aggregation (W1 - W4)
+        $weeks = ['W1' => ['dimasak' => 0, 'cup' => 0], 'W2' => ['dimasak' => 0, 'cup' => 0], 'W3' => ['dimasak' => 0, 'cup' => 0], 'W4' => ['dimasak' => 0, 'cup' => 0]];
+        foreach ($dailyAgg as $dKey => $dV) {
+            $dayNum = (int)Carbon::parse($dKey)->format('j');
+            if ($dayNum <= 7) { $weeks['W1']['dimasak'] += $dV['dimasak']; $weeks['W1']['cup'] += $dV['cup']; }
+            elseif ($dayNum <= 14) { $weeks['W2']['dimasak'] += $dV['dimasak']; $weeks['W2']['cup'] += $dV['cup']; }
+            elseif ($dayNum <= 21) { $weeks['W3']['dimasak'] += $dV['dimasak']; $weeks['W3']['cup'] += $dV['cup']; }
+            else { $weeks['W4']['dimasak'] += $dV['dimasak']; $weeks['W4']['cup'] += $dV['cup']; }
+        }
+
+        // Monthly Aggregation
+        $months = [];
+        foreach ($dailyAgg as $dKey => $dV) {
+            $mKey = Carbon::parse($dKey)->translatedFormat('F Y');
+            if (!isset($months[$mKey])) {
+                $months[$mKey] = ['dimasak' => 0, 'cup' => 0];
+            }
+            $months[$mKey]['dimasak'] += $dV['dimasak'];
+            $months[$mKey]['cup'] += $dV['cup'];
+        }
+
+        $cupPerPcs = $totalDimasak > 0 ? round($totalCup / $totalDimasak, 1) : 0;
+
+        return [
+            'submissions' => $submissions,
+            'regions' => $regions,
+            'areas' => $areas,
+            'work_locations' => $workLocations,
+            'kpis' => [
+                'total_dimasak' => $totalDimasak,
+                'total_cup' => $totalCup,
+                'cup_per_pcs' => $cupPerPcs,
+                'total_stok_awal' => $totalStokAwal,
+                'total_stok_akhir' => $totalStokAkhir,
+                'unique_skus' => count($uniqueProductsMap),
+                'today_dimasak' => $todayDimasak,
+                'today_cup' => $todayCup,
+                'unique_stores' => count($uniqueStoresMap),
+                'unique_mitras' => count($mitraAgg),
+                'total_submissions' => $allSubmissions->count(),
+            ],
+            'chart' => [
+                'daily' => [
+                    'labels' => $chartLabels,
+                    'dimasaks' => $chartDimasak,
+                    'cups' => $chartCup,
+                ],
+                'weekly' => [
+                    'labels' => array_keys($weeks),
+                    'dimasaks' => array_column(array_values($weeks), 'dimasak'),
+                    'cups' => array_column(array_values($weeks), 'cup'),
+                ],
+                'monthly' => [
+                    'labels' => !empty($months) ? array_keys($months) : [Carbon::create($startDate->year, $startDate->month, 1)->translatedFormat('F Y')],
+                    'dimasaks' => !empty($months) ? array_column(array_values($months), 'dimasak') : [$totalDimasak],
+                    'cups' => !empty($months) ? array_column(array_values($months), 'cup') : [$totalCup],
+                ],
+            ],
+            'top_mitra' => $topMitra,
+            'top_products' => $topProducts,
+            'sampling_by_area' => $samplingByArea,
+            'sampling_by_region' => $samplingByRegion,
             'gallery_photos' => $galleryPhotos,
         ];
     }

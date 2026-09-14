@@ -1586,7 +1586,7 @@
         ])
     @endif
 
-    {{-- WINGS MBR SALES EXECUTIVE DASHBOARD (ADVENTURE/AGENCY REPORT STYLE) --}}
+    {{-- WINGS MBR SALES EXECUTIVE DASHBOARD --}}
     @if(isset($isWingsMbrReport) && $isWingsMbrReport && !empty($wingsMbrData))
         @include('portal.partials.wings_mbr_dashboard', [
             'mbrData' => $wingsMbrData,
@@ -1597,7 +1597,18 @@
         ])
     @endif
 
-    @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport) && (!isset($isDailyMaintenanceReport) || !$isDailyMaintenanceReport) && (!isset($isCustomerDbReport) || !$isCustomerDbReport) && (!isset($isWingsMbrReport) || !$isWingsMbrReport))
+    {{-- WINGS MBR FREE TASTE / SAMPLING EXECUTIVE DASHBOARD --}}
+    @if(isset($isWingsMbrFreeTasteReport) && $isWingsMbrFreeTasteReport && !empty($wingsMbrFreeTasteData))
+        @include('portal.partials.wings_mbr_freetaste_dashboard', [
+            'freetasteData' => $wingsMbrFreeTasteData,
+            'submissions' => $submissions ?? null,
+            'liveSubmissionsCount' => $liveSubmissionsCount ?? 0,
+            'template' => $template ?? null,
+            'tenantPrincipal' => $tenantPrincipal ?? null,
+        ])
+    @endif
+
+    @if((!isset($isCbpReport) || !$isCbpReport) && (!isset($isOfftakeReport) || !$isOfftakeReport) && (!isset($isStockReport) || !$isStockReport) && (!isset($isOosReport) || !$isOosReport) && (!isset($isDailyMaintenanceReport) || !$isDailyMaintenanceReport) && (!isset($isCustomerDbReport) || !$isCustomerDbReport) && (!isset($isWingsMbrReport) || !$isWingsMbrReport) && (!isset($isWingsMbrFreeTasteReport) || !$isWingsMbrFreeTasteReport))
     <!-- Dynamic 12-Column Dashboard Canvas (Sortable in Studio Mode) -->
     <div id="dashboard_canvas" class="dashboard-grid">
         @php
