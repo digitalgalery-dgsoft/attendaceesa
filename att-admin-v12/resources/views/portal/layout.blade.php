@@ -999,6 +999,9 @@
                         @php
                             $iconClass = 'fa-solid fa-cart-shopping';
                             $tStr = strtolower(($tpl->title ?? '') . ' ' . ($tpl->code ?? '') . ' ' . ($tpl->category ?? ''));
+                            if (str_contains($tStr, 'taste') || str_contains($tStr, 'sampling') || str_contains($tStr, 'freetaste') || str_contains($tStr, 'makan') || str_contains($tStr, 'masak')) {
+                                $iconClass = 'fa-solid fa-utensils';
+                            }
                             $isCurrent = request()->routeIs('portal.report.detail') && request()->route('code') === $tpl->code;
                         @endphp
                         <a href="{{ route('portal.report.detail', ['code' => $tpl->code, 'p' => $tenantPrincipal->id]) }}" class="sidebar-nav-item {{ $isCurrent ? 'active' : '' }}" data-title="{{ $tpl->title }}">
