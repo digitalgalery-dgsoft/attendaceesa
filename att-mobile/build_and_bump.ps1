@@ -41,7 +41,15 @@ $destApk = "app-release-$version.apk"
 if (Test-Path $sourceApk) {
     Copy-Item -Path $sourceApk -Destination $destApk -Force
     Write-Host "APK built successfully: $destApk"
+    
+    $adminPublic = "..\att-admin-v12\public"
+    if (Test-Path $adminPublic) {
+        Copy-Item -Path $sourceApk -Destination "$adminPublic\app-release.apk" -Force
+        Copy-Item -Path $sourceApk -Destination "$adminPublic\$destApk" -Force
+        Write-Host "Copied to $adminPublic\app-release.apk and $adminPublic\$destApk"
+    }
 } else {
     Write-Host "Failed to build APK."
     exit 1
 }
+
