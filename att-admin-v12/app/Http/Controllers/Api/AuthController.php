@@ -91,15 +91,15 @@ class AuthController extends Controller
             $employee->save();
         }
 
-        // Hapus token lama jika ada (opsional)
-        $employee->tokens()->delete();
-
+        // Simpan token baru untuk sesi mobile ini
         $token = $employee->createToken('mobile_token')->plainTextToken;
 
         return response()->json([
-            'status'  => 'success',
-            'message' => 'Login berhasil',
-            'data'    => [
+            'status'         => 'success',
+            'is_active'      => true,
+            'account_status' => 'active',
+            'message'        => 'Login berhasil',
+            'data'           => [
                 'access_token'  => $token,
                 'token_type'    => 'Bearer',
                 'employee_data' => $employee,
@@ -116,15 +116,19 @@ class AuthController extends Controller
                 $employee->tokens()->delete();
             }
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Akun karyawan tidak aktif atau telah dinonaktifkan. Silakan hubungi administrator.'
-            ], 401);
+                'status'         => 'error',
+                'is_active'      => false,
+                'account_status' => 'inactive',
+                'message'        => 'Akun karyawan tidak aktif atau telah dinonaktifkan. Silakan hubungi administrator.'
+            ], 403);
         }
 
         $employee->load(['company', 'principal', 'branch', 'department', 'position']);
 
         return response()->json([
-            'status' => 'success',
+            'status'         => 'success',
+            'is_active'      => true,
+            'account_status' => 'active',
             'data'   => [
                 'employee_data' => $employee,
             ]

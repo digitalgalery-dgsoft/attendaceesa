@@ -40,7 +40,7 @@ if (Test-Path $sourceApk) {
 Write-Host "Building APK..."
 flutter build apk --release
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Flutter build failed with exit code $LASTEXITCODE"
+    Write-Host "Flutter build APK failed with exit code $LASTEXITCODE"
     exit $LASTEXITCODE
 }
 $destApk = "app-release-$version.apk"
@@ -53,13 +53,45 @@ if (Test-Path $sourceApk) {
     if (Test-Path $adminPublic) {
         Copy-Item -Path $sourceApk -Destination "$adminPublic\app-release.apk" -Force
         Copy-Item -Path $sourceApk -Destination "$adminPublic\$destApk" -Force
-        Write-Host "Copied to $adminPublic\app-release.apk and $adminPublic\$destApk"
+        Write-Host "Copied APK to $adminPublic\app-release.apk and $adminPublic\$destApk"
     }
     Copy-Item -Path $sourceApk -Destination "..\app-release.apk" -Force
     Copy-Item -Path $sourceApk -Destination "..\$destApk" -Force
-    Write-Host "Copied to ..\app-release.apk and ..\$destApk"
+    Write-Host "Copied APK to ..\app-release.apk and ..\$destApk"
 } else {
     Write-Host "Failed to build APK."
+    exit 1
+}
+
+# --- BUILD AAB (Android App Bundle for Google Play Store) ---
+$sourceAab = "build\app\outputs\bundle\release\app-release.aab"
+if (Test-Path $sourceAab) {
+    Remove-Item -Path $sourceAab -Force
+}
+
+Write-Host "Building AAB (App Bundle)..."
+flutter build appbundle --release
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Flutter build AAB failed with exit code $LASTEXITCODE"
+    exit $LASTEXITCODE
+}
+$destAab = "app-release-$version.aab"
+
+if (Test-Path $sourceAab) {
+    Copy-Item -Path $sourceAab -Destination $destAab -Force
+    Write-Host "AAB built successfully: $destAab"
+    
+    $adminPublic = "..\att-admin-v12\public"
+    if (Test-Path $adminPublic) {
+        Copy-Item -Path $sourceAab -Destination "$adminPublic\app-release.aab" -Force
+        Copy-Item -Path $sourceAab -Destination "$adminPublic\$destAab" -Force
+        Write-Host "Copied AAB to $adminPublic\app-release.aab and $adminPublic\$destAab"
+    }
+    Copy-Item -Path $sourceAab -Destination "..\app-release.aab" -Force
+    Copy-Item -Path $sourceAab -Destination "..\$destAab" -Force
+    Write-Host "Copied AAB to ..\app-release.aab and ..\$destAab"
+} else {
+    Write-Host "Failed to build AAB."
     exit 1
 }
 

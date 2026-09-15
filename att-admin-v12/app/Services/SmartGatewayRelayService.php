@@ -93,7 +93,7 @@ class SmartGatewayRelayService
                                 'target_host' => $serverInfo['host'] ?? '',
                                 'server_key' => $serverKey,
                                 'employee_id' => $responseData['data']['employee_data']['id'] ?? null,
-                            ], now()->addDays(30));
+                            ], now()->addDays(180));
                         }
 
                         return response()->json($responseData, $response->status());
@@ -128,6 +128,49 @@ class SmartGatewayRelayService
         $cached = Cache::get('gateway_relay_token_' . $token);
         if ($cached && !empty($cached['target_server'])) {
             return $cached;
+        }
+
+        // Fallback: Jika cache hilang (misal akibat artisan cache:clear atau restart server),
+        // cek apakah token ada di database lokal personal_access_tokens.
+        // Jika TIDAK ADA di database lokal, berarti token ini milik peer server cluster (AKP / ATK).
+        try {
+            $isLocalToken = false;
+            if (\Illuminate\Support\Facades\Schema::hasTable('personal_access_tokens')) {
+                [$tokenId] = explode('|', $token, 2);
+                if (is_numeric($tokenId)) {
+                    $isLocalToken = \Illuminate\Support\Facades\DB::table('personal_access_tokens')
+                        ->where('id', (int) $tokenId)
+                        ->exists();
+                }
+            }
+
+            if (!$isLocalToken) {
+                $peers = self::getPeerServers();
+                foreach ($peers as $serverKey => $serverInfo) {
+                    foreach ($serverInfo['urls'] as $targetUrl) {
+                        if (empty($targetUrl)) continue;
+                        $endpoint = rtrim($targetUrl, '/') . '/api/me';
+                        $res = Http::timeout(2)->withoutVerifying()->withHeaders([
+                            'Authorization'       => 'Bearer ' . $token,
+                            'Accept'              => 'application/json',
+                            'X-ESA-Gateway-Relay' => '1',
+                        ])->get($endpoint);
+
+                        if ($res->successful()) {
+                            $targetInfo = [
+                                'target_server' => rtrim($targetUrl, '/'),
+                                'target_host'   => $serverInfo['host'] ?? '',
+                                'server_key'    => $serverKey,
+                                'employee_id'   => $res->json('data.employee_data.id'),
+                            ];
+                            Cache::put('gateway_relay_token_' . $token, $targetInfo, now()->addDays(180));
+                            return $targetInfo;
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning("SmartGatewayRelay fallback error: " . $e->getMessage());
         }
 
         return null;

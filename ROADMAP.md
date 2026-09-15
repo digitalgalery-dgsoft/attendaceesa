@@ -1767,3 +1767,30 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Menonaktifkan lalu lintas teks polos via `android:usesCleartextTraffic="false"` pada `AndroidManifest.xml`.
       - Menjamin prinsip **zero-breakage**: seluruh alur operasional presensi, reporting, Odoo sync, dan deploy cluster tetap berfungsi 100% normal.
 
+33. **Proteksi Sesi Login Permanen & Anti Auto-Logout Karyawan (15 September 2026)**:
+    - **Kebijakan Sesi Permanen (Zero Unwanted Logout)**:
+      - Menjamin bahwa akun karyawan yang telah dalam posisi login **TIDAK AKAN PERNAH ter-logout otomatis** akibat restart server, deploy pembaruan, gangguan jaringan sementara, maupun response 401 unauthenticated biasa.
+      - Aplikasi **HANYA** akan keluar / logout jika:
+        1. Karyawan berstatus **TIDAK AKTIF** / dinonaktifkan (`is_active == false` atau `account_status == 'inactive'`).
+        2. Karyawan melakukan **Logout Manual** via tombol "Keluar Akun" di halaman Profil.
+    - **Mekanisme Silent Background Re-Authentication (`auth_provider.dart`)**:
+      - Menyimpan kredensial login (ID/NIK & password) di local storage aman saat proses login berhasil.
+      - Jika token otentikasi kedaluwarsa atau terjadi desinkronisasi server (HTTP 401), sistem secara otomatis melakukan re-login di latar belakang (*silent re-login*) tanpa memutus aktivitas pengguna dan tanpa memunculkan layar login.
+      - Jika koneksi offline, timeout, atau server sedang me-restart (500/502/503), sesi lokal dan data profil cache tetap aktif 100%.
+    - **Backend & Gateway Cluster Token Resiliency**:
+      - Pada `AuthController@me`, backend menyertakan penanda eksplisit `is_active` dan `account_status` (HTTP 403) jika karyawan dinonaktifkan oleh administrator.
+      - Pada `AuthController@login`, penghapusan massal token lama dihilangkan untuk mencegah race-condition antar-perangkat atau background sync.
+      - Pada `SmartGatewayRelayService`, masa simpan cache pemetaan token cluster diperpanjang menjadi 180 hari, dilengkapi dengan mekanisme auto-discovery ke peer server (AKP & ATK) jika cache terhapus saat deployment (`artisan cache:clear`).
+    - **Build APK & AAB Rilis v1.0.154 (Kompilasi Lokal)**:
+      - Versi aplikasi dinaikkan menjadi **`v1.0.154+154`** pada `pubspec.yaml`.
+      - Kompilasi Gradle APK release (`flutter build apk --release`) selesai dengan hasil **100% SUKSES** (110.7 MB).
+      - Kompilasi Gradle AAB release (`flutter build appbundle --release`) selesai dengan hasil **100% SUKSES** (88.6 MB / 92.9 MB).
+      - Berkas rilis telah disimpan secara lokal di:
+        - `att-mobile/app-release-1.0.154.apk` & `att-mobile/app-release-1.0.154.aab`
+        - `att-admin-v12/public/app-release-1.0.154.apk` & `att-admin-v12/public/app-release-1.0.154.aab`
+        - Root project: `app-release-1.0.154.apk` & `app-release-1.0.154.aab`
+      - Skrip `build_and_bump.ps1` telah diperbarui permanen sehingga setiap kali dijalankan akan otomatis memproduksi file **.APK dan .AAB** secara bersamaan dengan versi yang sama.
+
+
+
+

@@ -79,15 +79,9 @@ class AuthProvider with ChangeNotifier {
   Future<bool> tryAutoLogin() async {
     await fetchSettings();
     final prefs = await SharedPreferences.getInstance();
-    if (!prefs.containsKey('auth_token')) {
-      return false;
-    }
     
     _token = prefs.getString('auth_token');
-    if (_token == null || _token!.isEmpty) {
-      return false;
-    }
-
+    
     // Muat data profil cache lokal terlebih dahulu agar aplikasi langsung responsif
     final cachedEmpStr = prefs.getString('cached_employee_data');
     if (cachedEmpStr != null && cachedEmpStr.isNotEmpty) {
@@ -103,6 +97,23 @@ class AuthProvider with ChangeNotifier {
       } catch (_) {}
     }
 
+    // Jika token lokal kosong, periksa apakah ada kredensial tersimpan untuk background login
+    if (_token == null || _token!.isEmpty) {
+      final savedId = prefs.getString('saved_login_id');
+      final savedPass = prefs.getString('saved_login_password');
+      if (savedId != null && savedId.isNotEmpty && savedPass != null && savedPass.isNotEmpty) {
+        final reloginResult = await _silentRelogin(savedId, savedPass);
+        if (reloginResult['success'] == true) {
+          notifyListeners();
+          return true;
+        } else if (reloginResult['is_inactive'] == true) {
+          await logout();
+          return false;
+        }
+      }
+      return false;
+    }
+
     try {
       final response = await http.get(
         Uri.parse('${Constants.baseUrl}/me'),
@@ -114,8 +125,17 @@ class AuthProvider with ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        _user = data['data']['user'] ?? _user;
-        _employeeData = data['data']['employee_data'] ?? _employeeData;
+        final emp = data['data']?['employee_data'];
+        
+        // Cek apakah karyawan berstatus tidak aktif dari server
+        if (data['is_active'] == false || (emp != null && (emp['is_active'] == false || emp['is_active'] == 0))) {
+          debugPrint('[AuthProvider] Server reports employee is INACTIVE (200 OK check). Logging out.');
+          await logout();
+          return false;
+        }
+
+        _user = data['data']?['user'] ?? _user;
+        _employeeData = emp ?? _employeeData;
         _updateAppColorFromEmployee();
 
         // Perbarui cache profil lokal
@@ -129,12 +149,56 @@ class AuthProvider with ChangeNotifier {
         notifyListeners();
         return true;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        // Hanya logout jika server secara eksplisit menolak otentikasi (token hangus atau karyawan dinonaktifkan)
-        debugPrint('[AuthProvider] Token invalid or employee inactive (HTTP ${response.statusCode}), logging out.');
-        await logout();
-        return false;
+        // Cek secara spesifik apakah penolakan karena karyawan TIDAK AKTIF
+        bool isExplicitlyInactive = false;
+        try {
+          final body = json.decode(response.body);
+          if (body is Map) {
+            if (body['is_active'] == false || body['is_active'] == 0 || body['account_status'] == 'inactive') {
+              isExplicitlyInactive = true;
+            }
+            final msg = (body['message'] ?? '').toString().toLowerCase();
+            if (msg.contains('tidak aktif') ||
+                msg.contains('dinonaktifkan') ||
+                msg.contains('nonaktif') ||
+                msg.contains('resigned') ||
+                msg.contains('telah dinonaktifkan')) {
+              isExplicitlyInactive = true;
+            }
+          }
+        } catch (_) {}
+
+        if (isExplicitlyInactive) {
+          debugPrint('[AuthProvider] Employee account is confirmed INACTIVE by server. Logging out.');
+          await logout();
+          return false;
+        }
+
+        // Jika bukan karena tidak aktif (misal token hangus di server / restart deploy / gateway desync),
+        // coba perbarui token via silent background re-login menggunakan kredensial tersimpan
+        debugPrint('[AuthProvider] Token rejected (HTTP ${response.statusCode}), attempting silent background re-login...');
+        final savedId = prefs.getString('saved_login_id');
+        final savedPass = prefs.getString('saved_login_password');
+        if (savedId != null && savedId.isNotEmpty && savedPass != null && savedPass.isNotEmpty) {
+          final reloginResult = await _silentRelogin(savedId, savedPass);
+          if (reloginResult['success'] == true) {
+            debugPrint('[AuthProvider] Silent background re-login successful! Token refreshed.');
+            notifyListeners();
+            return true;
+          } else if (reloginResult['is_inactive'] == true) {
+            debugPrint('[AuthProvider] Silent login detected inactive employee. Logging out.');
+            await logout();
+            return false;
+          }
+        }
+
+        // ATURAN UTAMA: Aplikasi TIDAK BOLEH logout otomatis kecuali karyawan tidak aktif atau manual logout!
+        // Sesi karyawan tetap dipertahankan menggunakan data cache lokal.
+        debugPrint('[AuthProvider] Server returned HTTP ${response.statusCode}. Retaining authenticated local session.');
+        notifyListeners();
+        return true;
       } else {
-        // Error sementara di server (misal 500, 502, 503 saat deploy restart): JANGAN LOGOUT!
+        // Error server sementara (500, 502, 503 saat restart deploy): JANGAN LOGOUT!
         debugPrint('[AuthProvider] Server returned HTTP ${response.statusCode} during check. Retaining authenticated session.');
         notifyListeners();
         return true;
@@ -161,9 +225,17 @@ class AuthProvider with ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        final emp = data['data']?['employee_data'];
+        if (data['is_active'] == false || (emp != null && (emp['is_active'] == false || emp['is_active'] == 0))) {
+          await logout();
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
+
         _token = savedToken;
         _user = data['data']['user'];
-        _employeeData = data['data']['employee_data'];
+        _employeeData = emp ?? _employeeData;
         _updateAppColorFromEmployee();
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', savedToken);
@@ -177,14 +249,89 @@ class AuthProvider with ChangeNotifier {
         notifyListeners();
         return true;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        await logout();
+        bool isExplicitlyInactive = false;
+        try {
+          final body = json.decode(response.body);
+          if (body is Map) {
+            if (body['is_active'] == false || body['account_status'] == 'inactive') {
+              isExplicitlyInactive = true;
+            }
+            final msg = (body['message'] ?? '').toString().toLowerCase();
+            if (msg.contains('tidak aktif') || msg.contains('dinonaktifkan') || msg.contains('nonaktif')) {
+              isExplicitlyInactive = true;
+            }
+          }
+        } catch (_) {}
+
+        if (isExplicitlyInactive) {
+          await logout();
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
+        // Jika bukan tidak aktif, jangan logout
+        _isLoading = false;
+        notifyListeners();
+        return true;
       }
     } catch (e) {
       debugPrint('Biometric token login error: $e');
     }
     _isLoading = false;
     notifyListeners();
-    return false;
+    return true; // Jangan batalkan sesi saat ada gangguan jaringan
+  }
+
+  Future<Map<String, dynamic>> _silentRelogin(String email, String password) async {
+    try {
+      final deviceInfo = await _getDeviceInfo();
+      final pushService = PushNotificationService();
+      final fcmToken = await pushService.getToken();
+
+      final response = await http.post(
+        Uri.parse('${Constants.baseUrl}/login'),
+        body: {
+          'email': email,
+          'password': password,
+          if (deviceInfo['id'] != null) 'device_id': deviceInfo['id']!,
+          if (deviceInfo['name'] != null) 'device_name': deviceInfo['name']!,
+          if (fcmToken != null) 'fcm_token': fcmToken,
+        },
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      final responseData = json.decode(response.body);
+
+      if (response.statusCode == 200 && responseData['status'] == 'success') {
+        _token = responseData['data']['access_token'];
+        _user = responseData['data']['user'] ?? _user;
+        _employeeData = responseData['data']['employee_data'] ?? _employeeData;
+        _updateAppColorFromEmployee();
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', _token!);
+        await prefs.setString('saved_login_id', email.trim());
+        await prefs.setString('saved_login_password', password);
+        if (_employeeData != null) {
+          await prefs.setString('cached_employee_data', json.encode(_employeeData));
+        }
+        if (_user != null) {
+          await prefs.setString('cached_user', json.encode(_user));
+        }
+        return {'success': true, 'is_inactive': false};
+      } else {
+        final msg = (responseData['message'] ?? '').toString().toLowerCase();
+        final bool inactive = responseData['is_active'] == false || 
+                               responseData['account_status'] == 'inactive' ||
+                               msg.contains('tidak aktif') || 
+                               msg.contains('dinonaktifkan') || 
+                               msg.contains('nonaktif');
+        return {'success': false, 'is_inactive': inactive};
+      }
+    } catch (e) {
+      debugPrint('[AuthProvider] Silent relogin error: $e');
+      return {'success': false, 'is_inactive': false};
+    }
   }
 
   Future<Map<String, String?>> _getDeviceInfo() async {
@@ -243,6 +390,8 @@ class AuthProvider with ChangeNotifier {
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', _token!);
+        await prefs.setString('saved_login_id', email.trim());
+        await prefs.setString('saved_login_password', password);
         if (_employeeData != null) {
           await prefs.setString('cached_employee_data', json.encode(_employeeData));
         }
@@ -288,6 +437,8 @@ class AuthProvider with ChangeNotifier {
     await prefs.remove('auth_token');
     await prefs.remove('cached_employee_data');
     await prefs.remove('cached_user');
+    await prefs.remove('saved_login_id');
+    await prefs.remove('saved_login_password');
     
     notifyListeners();
   }
@@ -323,7 +474,7 @@ class AuthProvider with ChangeNotifier {
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
       
-      var responseData;
+      dynamic responseData;
       try {
         responseData = json.decode(response.body);
       } catch (e) {
