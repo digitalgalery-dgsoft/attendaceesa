@@ -377,7 +377,7 @@ class PrincipalPortalController extends Controller
                 'values.formField'
             ]);
 
-        // Filter out legacy split duplicate records (e.g. RPT-...-2, RPT-...-3, dst)
+        // Filter out legacy split duplicate records (e.g. RPT-...-2, RPT-...-3, dst) and batch imports (SUB-%, IMPORT-%)
         $query->where(function ($subQ) {
             $subQ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-2')
                  ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-3')
@@ -386,7 +386,9 @@ class PrincipalPortalController extends Controller
                  ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-6')
                  ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-7')
                  ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-8')
-                 ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-9');
+                 ->where('report_submissions.submission_code', 'NOT LIKE', 'RPT-%-9')
+                 ->where('report_submissions.submission_code', 'NOT LIKE', 'SUB-%')
+                 ->where('report_submissions.submission_code', 'NOT LIKE', 'IMPORT-%');
         });
 
         if ($selectedRegion) {
@@ -8356,12 +8358,15 @@ class PrincipalPortalController extends Controller
         $startDate = Carbon::createFromDate($selectedYear, $sMonth, 1)->startOfMonth();
         $endDate = Carbon::createFromDate($selectedYear, $eMonth, 1)->endOfMonth();
 
-        // 1. Fetch Live Submissions from PostgreSQL
+        // 1. Fetch Live Submissions from PostgreSQL (real mobile submissions only, max 500)
         $liveRows = [];
         $liveUniqueStores = [];
         try {
             $liveQuery = $this->getLiveSubmissionsQuery($template, $startDate, $endDate, $selectedRegion, $selectedAreaId, $selectedLocationId, $search);
-            $liveSubs = $liveQuery->get();
+            $liveSubs = $liveQuery->where('report_submissions.submission_code', 'NOT LIKE', 'SUB-%')
+                ->where('report_submissions.submission_code', 'NOT LIKE', 'IMPORT-%')
+                ->limit(500)
+                ->get();
 
             $parseAmount = function ($val) {
                 if ($val === null || $val === '') return 0.0;
