@@ -794,4 +794,15 @@ Route::get('/privasy-policy', function () {
     return view('privacy_policy');
 });
 
+// ==============================================================================
+// 🗑️ PUBLIC ACCOUNT & DATA DELETION (GOOGLE PLAY COMPLIANT)
+// ==============================================================================
+Route::get('/delete-account', function () {
+    return view('delete_account');
+})->name('account.delete');
+
+Route::get('/account-deletion', function () {
+    return view('delete_account');
+});
+
 
