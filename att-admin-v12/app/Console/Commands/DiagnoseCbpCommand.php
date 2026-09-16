@@ -34,8 +34,15 @@ class DiagnoseCbpCommand extends Command
             ->count();
         $this->info("ReportSubmission count for template in Jan-Sep 2026: {$subCount}");
 
-        $totalSubCount = ReportSubmission::where('report_template_id', $template->id)->count();
-        $this->info("Total ReportSubmission count for template (all time): {$totalSubCount}");
+        $subCbpCount = ReportSubmission::where('report_template_id', $template->id)
+            ->where('submission_code', 'LIKE', 'SUB-CBP-%')
+            ->count();
+        $this->info("SUB-CBP-% count: {$subCbpCount}");
+
+        $liveOnlyCount = ReportSubmission::where('report_template_id', $template->id)
+            ->where('submission_code', 'NOT LIKE', 'SUB-CBP-%')
+            ->count();
+        $this->info("Real live submissions (NOT LIKE SUB-CBP-%): {$liveOnlyCount}");
 
         $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
         $this->info("SQLite file exists: " . (file_exists($sqlitePath) ? 'YES (' . round(filesize($sqlitePath)/1024/1024, 2) . ' MB)' : 'NO'));
@@ -46,7 +53,10 @@ class DiagnoseCbpCommand extends Command
         $t0 = microtime(true);
         $memBefore = memory_get_usage(true);
         try {
-            $res = $controller->calculateCbpDashboardData(
+            $refMethod = new \ReflectionMethod($controller, 'calculateCbpDashboardData');
+            $refMethod->setAccessible(true);
+            $res = $refMethod->invoke(
+                $controller,
                 $template,
                 1, 2026, 9, 2026,
                 null, null, null, null,
