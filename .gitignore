@@ -23,3 +23,7 @@ att-admin-v12/public/download/
 scratch/
 scratch_slides/
 ~$*
+key.properties
+*.jks
+*.keystore
+keystore_backup/
