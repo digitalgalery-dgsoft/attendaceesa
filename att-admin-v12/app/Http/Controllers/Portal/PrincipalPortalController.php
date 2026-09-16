@@ -759,10 +759,35 @@ class PrincipalPortalController extends Controller
 
         // --- CBP Custom Handling (Completely bypasses standard report_submissions queries) ---
         if ($isCbpReport) {
+            @ini_set('memory_limit', '512M');
+            @set_time_limit(120);
+
             $selectedYear = (int)$request->query('year', (int)$request->query('start_year', Carbon::now()->year));
             if ($selectedYear <= 0) $selectedYear = 2026;
 
             $sqlitePath = storage_path("app/dulux_data/cbp_{$selectedYear}.sqlite");
+            $gzPath = storage_path("app/dulux_data/cbp_{$selectedYear}.sqlite.gz");
+            if (!file_exists($sqlitePath) || filesize($sqlitePath) < 1000000) {
+                if (file_exists($gzPath)) {
+                    try {
+                        $zp = gzopen($gzPath, 'rb');
+                        $tmpPath = $sqlitePath . '.tmp.' . uniqid();
+                        $fp = fopen($tmpPath, 'wb');
+                        if ($zp && $fp) {
+                            while (!gzeof($zp)) {
+                                fwrite($fp, gzread($zp, 524288));
+                            }
+                            gzclose($zp);
+                            fclose($fp);
+                            @rename($tmpPath, $sqlitePath);
+                            @chmod($sqlitePath, 0666);
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::error("Auto-extraction of cbp_{$selectedYear}.sqlite.gz failed: " . $e->getMessage());
+                    }
+                }
+            }
+
             if (!file_exists($sqlitePath) && $selectedYear !== 2026 && file_exists(storage_path('app/dulux_data/cbp_2026.sqlite'))) {
                 $sqlitePath = storage_path('app/dulux_data/cbp_2026.sqlite');
             }
@@ -8739,6 +8764,9 @@ class PrincipalPortalController extends Controller
         $sectionProducts = ['d1' => [], 'd2' => []];
         $sqliteRawRows = [];
         $sqliteRawTotal = 0;
+        $pdo = null;
+        $rawWhereSql = '';
+        $rawParams = [];
 
         if (file_exists($sqlitePath)) {
             try {
@@ -8875,9 +8903,7 @@ class PrincipalPortalController extends Controller
                         }
                         $sectionProducts[$dKey][$sKey] = $prods;
                     }
-                }
-
-                // SQLite Raw Data
+                }                // SQLite Raw Data Filter Conditions
                 $rawWhereClauses = ["month BETWEEN ? AND ?"];
                 $rawParams = [$sMonth, $eMonth];
                 if ($selectedRegion) {
@@ -8903,65 +8929,16 @@ class PrincipalPortalController extends Controller
                     $rawParams[] = "%$search%";
                 }
                 $rawWhereSql = implode(" AND ", $rawWhereClauses);
-
-                $countStmt = $pdo->prepare("SELECT COUNT(DISTINCT code) FROM cbp_raw WHERE $rawWhereSql");
-                $countStmt->execute($rawParams);
-                $sqliteRawTotal = (int)$countStmt->fetchColumn();
-
-                $rawSql = "
-                    SELECT code, regional, sap_member, sap_gab, name_store, tl_name, area, rsm_area, class, store_type, product, category, product_group
-                    FROM cbp_raw
-                    WHERE $rawWhereSql
-                    GROUP BY code
-                    ORDER BY regional, area, name_store, product
-                ";
-                $rawStmt = $pdo->prepare($rawSql);
-                $rawStmt->execute($rawParams);
-                $sqliteRawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC);
-
-                // Populate prices for sqlite rows
-                $codes = array_column($sqliteRawRows, 'code');
-                $activeMonthKeys = array_keys($months);
-                if (!empty($codes) && !empty($activeMonthKeys)) {
-                    $codePlaceholders = implode(',', array_fill(0, count($codes), '?'));
-                    $monthPlaceholders = implode(',', array_fill(0, count($activeMonthKeys), '?'));
-
-                    $priceSql = "
-                        SELECT code, month, trans_date,
-                               price_tin, lowest_tin, reason_tin,
-                               price_galon, lowest_galon, reason_galon,
-                               price_pail, lowest_pail, reason_pail
-                        FROM cbp_raw
-                        WHERE code IN ($codePlaceholders) AND month IN ($monthPlaceholders)
-                    ";
-                    $priceStmt = $pdo->prepare($priceSql);
-                    $priceStmt->execute(array_merge($codes, $activeMonthKeys));
-                    $priceRows = $priceStmt->fetchAll(\PDO::FETCH_ASSOC);
-
-                    $pivoted = [];
-                    foreach ($priceRows as $pr) {
-                        $pivoted[$pr['code']][$pr['month']] = $pr;
-                    }
-                    foreach ($sqliteRawRows as &$it) {
-                        $it['monthly_prices'] = $pivoted[$it['code']] ?? [];
-                    }
-                    unset($it);
-                }
             } catch (\Throwable $e) {
                 \Log::error("SQLite query error in CBP: " . $e->getMessage());
             }
         }
 
-        // 4. Merge Live Submissions with SQLite Data
-        $mergedRawMap = [];
-        // First add sqlite rows
-        foreach ($sqliteRawRows as $sr) {
-            $mergedRawMap[$sr['code']] = $sr;
-        }
+        // 4. Process Live Submissions (KPIs, Trends, Sections, and Live Raw Map)
+        $liveRawMap = [];
+        $matchedCodeCache = [];
 
-        // Then merge live submissions
         foreach ($liveRows as $lr) {
-            $code = $lr['code'];
             $m = $lr['month'];
 
             // KPIs
@@ -8983,61 +8960,6 @@ class PrincipalPortalController extends Controller
             if (isset($trendSeries[$bg]) && $lr['price_galon'] >= 1000 && $lr['price_galon'] <= 5000000) {
                 $trendSeries[$bg][$m] = round($lr['price_galon'], 0);
             }
-
-            // Cek apakah ada baris SQLite yang cocok untuk toko & produk ini
-            $matchedCode = null;
-            foreach ($sqliteRawRows as $sr) {
-                if (strcasecmp(trim($sr['name_store']), trim($lr['name_store'])) === 0 &&
-                    (strcasecmp(trim($sr['product']), trim($lr['product'])) === 0 || stripos($sr['product'], $lr['product']) !== false || stripos($lr['product'], $sr['product']) !== false)) {
-                    $matchedCode = $sr['code'];
-                    break;
-                }
-            }
-            if ($matchedCode && isset($mergedRawMap[$matchedCode])) {
-                $code = $matchedCode;
-            }
-
-            // Raw Data Table
-            if (!isset($mergedRawMap[$code])) {
-                $mergedRawMap[$code] = [
-                    'code' => $code,
-                    'regional' => $lr['regional'],
-                    'sap_member' => $lr['sap_member'],
-                    'sap_gab' => $lr['sap_gab'],
-                    'name_store' => $lr['name_store'],
-                    'tl_name' => $lr['tl_name'],
-                    'area' => $lr['area'],
-                    'rsm_area' => $lr['rsm_area'],
-                    'class' => $lr['class'],
-                    'store_type' => $lr['store_type'],
-                    'product' => $lr['product'],
-                    'category' => $lr['category'],
-                    'product_group' => $lr['product_group'],
-                    'monthly_prices' => [],
-                    'is_live' => true,
-                    'submission_code' => $lr['submission_code'],
-                    'submission_id' => $lr['submission_id'],
-                ];
-            } else {
-                $mergedRawMap[$code]['is_live'] = true;
-            }
-            $mergedRawMap[$code]['monthly_prices'][$m] = [
-                'code' => $code,
-                'month' => $m,
-                'trans_date' => $lr['trans_date'],
-                'price_tin' => $lr['price_tin'],
-                'lowest_tin' => $lr['lowest_tin'],
-                'reason_tin' => $lr['reason_tin'],
-                'price_galon' => $lr['price_galon'],
-                'lowest_galon' => $lr['lowest_galon'],
-                'reason_galon' => $lr['reason_galon'],
-                'price_pail' => $lr['price_pail'],
-                'lowest_pail' => $lr['lowest_pail'],
-                'reason_pail' => $lr['reason_pail'],
-                'is_live' => true,
-                'submission_code' => $lr['submission_code'],
-                'submission_id' => $lr['submission_id'],
-            ];
 
             // Sections
             foreach (['d1', 'd2'] as $dKey) {
@@ -9064,6 +8986,72 @@ class PrincipalPortalController extends Controller
                     }
                 }
             }
+
+            // Cek kecocokan toko & produk dengan code di SQLite (menggunakan cache O(1) cepat)
+            $code = $lr['code'];
+            if ($pdo && !empty($lr['name_store']) && !empty($lr['product'])) {
+                $cacheKey = strtoupper(trim($lr['name_store'])) . '___' . strtoupper(trim($lr['product']));
+                if (!array_key_exists($cacheKey, $matchedCodeCache)) {
+                    try {
+                        $matchStmt = $pdo->prepare("SELECT code FROM cbp_raw WHERE UPPER(TRIM(name_store)) = ? AND UPPER(TRIM(product)) = ? LIMIT 1");
+                        $matchStmt->execute([strtoupper(trim($lr['name_store'])), strtoupper(trim($lr['product']))]);
+                        $foundCode = $matchStmt->fetchColumn();
+                        if (!$foundCode) {
+                            $matchStmt2 = $pdo->prepare("SELECT code FROM cbp_raw WHERE UPPER(TRIM(name_store)) = ? AND UPPER(product) LIKE ? LIMIT 1");
+                            $matchStmt2->execute([strtoupper(trim($lr['name_store'])), '%' . strtoupper(trim($lr['product'])) . '%']);
+                            $foundCode = $matchStmt2->fetchColumn();
+                        }
+                        $matchedCodeCache[$cacheKey] = $foundCode ?: null;
+                    } catch (\Throwable $e) {
+                        $matchedCodeCache[$cacheKey] = null;
+                    }
+                }
+                if (!empty($matchedCodeCache[$cacheKey])) {
+                    $code = $matchedCodeCache[$cacheKey];
+                }
+            }
+
+            // Raw Data Table Entry
+            if (!isset($liveRawMap[$code])) {
+                $liveRawMap[$code] = [
+                    'code' => $code,
+                    'regional' => $lr['regional'],
+                    'sap_member' => $lr['sap_member'],
+                    'sap_gab' => $lr['sap_gab'],
+                    'name_store' => $lr['name_store'],
+                    'tl_name' => $lr['tl_name'],
+                    'area' => $lr['area'],
+                    'rsm_area' => $lr['rsm_area'],
+                    'class' => $lr['class'],
+                    'store_type' => $lr['store_type'],
+                    'product' => $lr['product'],
+                    'category' => $lr['category'],
+                    'product_group' => $lr['product_group'],
+                    'monthly_prices' => [],
+                    'is_live' => true,
+                    'submission_code' => $lr['submission_code'],
+                    'submission_id' => $lr['submission_id'],
+                ];
+            } else {
+                $liveRawMap[$code]['is_live'] = true;
+            }
+            $liveRawMap[$code]['monthly_prices'][$m] = [
+                'code' => $code,
+                'month' => $m,
+                'trans_date' => $lr['trans_date'],
+                'price_tin' => $lr['price_tin'],
+                'lowest_tin' => $lr['lowest_tin'],
+                'reason_tin' => $lr['reason_tin'],
+                'price_galon' => $lr['price_galon'],
+                'lowest_galon' => $lr['lowest_galon'],
+                'reason_galon' => $lr['reason_galon'],
+                'price_pail' => $lr['price_pail'],
+                'lowest_pail' => $lr['lowest_pail'],
+                'reason_pail' => $lr['reason_pail'],
+                'is_live' => true,
+                'submission_code' => $lr['submission_code'],
+                'submission_id' => $lr['submission_id'],
+            ];
         }
 
         // Fill null in trendSeries
@@ -9150,24 +9138,137 @@ class PrincipalPortalController extends Controller
         $avgAn = $sqliteKpis['count_an_galon'] > 0 ? ($sqliteKpis['sum_an_galon'] / $sqliteKpis['count_an_galon']) : 0;
         $avgComp = $sqliteKpis['count_comp_galon'] > 0 ? ($sqliteKpis['sum_comp_galon'] / $sqliteKpis['count_comp_galon']) : 0;
         $totalRecords = $sqliteKpis['total_records'] + count($liveRows);
-        $uniqueStores = count(array_unique(array_merge(
-            array_column($sqliteRawRows, 'name_store'),
-            array_keys($liveUniqueStores)
-        )));
-
-        // Finalize Paginated Raw Data
-        uasort($mergedRawMap, function ($a, $b) {
-            $aLive = !empty($a['is_live']) ? 1 : 0;
-            $bLive = !empty($b['is_live']) ? 1 : 0;
-            if ($aLive !== $bLive) {
-                return $bLive <=> $aLive;
+        $uniqueStores = $sqliteKpis['unique_stores'];
+        if (!empty($liveUniqueStores) && $pdo) {
+            try {
+                foreach (array_keys($liveUniqueStores) as $lus) {
+                    if (!empty($lus)) {
+                        $chkStmt = $pdo->prepare("SELECT 1 FROM cbp_raw WHERE UPPER(TRIM(name_store)) = ? LIMIT 1");
+                        $chkStmt->execute([strtoupper(trim($lus))]);
+                        if (!$chkStmt->fetchColumn()) {
+                            $uniqueStores++;
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore fallback
             }
-            return 0;
-        });
-        $allRawRows = array_values($mergedRawMap);
-        $totalRawCount = count($allRawRows);
+        }
+
+        // 5. Paginated Raw Data (Database-Level Pagination to Prevent Memory Exhaustion / HTTP 500)
+        $liveItemsList = array_values($liveRawMap);
+        $totalLive = count($liveItemsList);
+        $liveCodes = array_keys($liveRawMap);
+
+        $excludeSql = "";
+        $excludeParams = [];
+        if (!empty($liveCodes)) {
+            $exPlaceholders = implode(',', array_fill(0, count($liveCodes), '?'));
+            $excludeSql = " AND code NOT IN ($exPlaceholders)";
+            $excludeParams = $liveCodes;
+        }
+
+        $sqliteRawTotal = 0;
+        if ($pdo && !empty($rawWhereSql)) {
+            try {
+                $countStmt = $pdo->prepare("SELECT COUNT(DISTINCT code) FROM cbp_raw WHERE $rawWhereSql $excludeSql");
+                $countStmt->execute(array_merge($rawParams, $excludeParams));
+                $sqliteRawTotal = (int)$countStmt->fetchColumn();
+            } catch (\Throwable $e) {
+                \Log::error("CBP count error: " . $e->getMessage());
+            }
+        }
+
+        $totalRawCount = $totalLive + $sqliteRawTotal;
         $rawOffset = ($rawPage - 1) * $rawPerPage;
-        $pagedRawRows = array_slice($allRawRows, $rawOffset, $rawPerPage);
+
+        $pagedRawRows = [];
+        if ($rawOffset < $totalLive) {
+            // Sebagian atau seluruh baris diambil dari live submissions
+            $pagedRawRows = array_slice($liveItemsList, $rawOffset, $rawPerPage);
+            $neededFromSqlite = $rawPerPage - count($pagedRawRows);
+            if ($neededFromSqlite > 0 && $sqliteRawTotal > 0 && $pdo) {
+                try {
+                    $rawSql = "
+                        SELECT code, regional, sap_member, sap_gab, name_store, tl_name, area, rsm_area, class, store_type, product, category, product_group
+                        FROM cbp_raw
+                        WHERE $rawWhereSql $excludeSql
+                        GROUP BY code
+                        ORDER BY regional, area, name_store, product
+                        LIMIT ? OFFSET 0
+                    ";
+                    $rawStmt = $pdo->prepare($rawSql);
+                    $rawStmt->execute(array_merge($rawParams, $excludeParams, [$neededFromSqlite]));
+                    $sqliteRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC);
+                    foreach ($sqliteRows as $sr) {
+                        $pagedRawRows[] = $sr;
+                    }
+                } catch (\Throwable $e) {
+                    \Log::error("CBP sqlite raw page error: " . $e->getMessage());
+                }
+            }
+        } elseif ($sqliteRawTotal > 0 && $pdo) {
+            // Seluruh baris di halaman ini diambil dari SQLite
+            $sqliteOffset = $rawOffset - $totalLive;
+            try {
+                $rawSql = "
+                    SELECT code, regional, sap_member, sap_gab, name_store, tl_name, area, rsm_area, class, store_type, product, category, product_group
+                    FROM cbp_raw
+                    WHERE $rawWhereSql $excludeSql
+                    GROUP BY code
+                    ORDER BY regional, area, name_store, product
+                    LIMIT ? OFFSET ?
+                ";
+                $rawStmt = $pdo->prepare($rawSql);
+                $rawStmt->execute(array_merge($rawParams, $excludeParams, [$rawPerPage, $sqliteOffset]));
+                $pagedRawRows = $rawStmt->fetchAll(\PDO::FETCH_ASSOC);
+            } catch (\Throwable $e) {
+                \Log::error("CBP sqlite raw page error: " . $e->getMessage());
+            }
+        }
+
+        // Ambil data harga bulanan HANYA untuk item pada halaman saat ini (maks 50 codes)
+        $pageCodes = array_column($pagedRawRows, 'code');
+        $activeMonthKeys = array_keys($months);
+        if (!empty($pageCodes) && !empty($activeMonthKeys) && $pdo) {
+            try {
+                $codePlaceholders = implode(',', array_fill(0, count($pageCodes), '?'));
+                $monthPlaceholders = implode(',', array_fill(0, count($activeMonthKeys), '?'));
+
+                $priceSql = "
+                    SELECT code, month, trans_date,
+                           price_tin, lowest_tin, reason_tin,
+                           price_galon, lowest_galon, reason_galon,
+                           price_pail, lowest_pail, reason_pail
+                    FROM cbp_raw
+                    WHERE code IN ($codePlaceholders) AND month IN ($monthPlaceholders)
+                ";
+                $priceStmt = $pdo->prepare($priceSql);
+                $priceStmt->execute(array_merge($pageCodes, $activeMonthKeys));
+                $priceRows = $priceStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                $pivoted = [];
+                foreach ($priceRows as $pr) {
+                    $pivoted[$pr['code']][$pr['month']] = $pr;
+                }
+                foreach ($pagedRawRows as &$it) {
+                    if (!isset($it['monthly_prices'])) {
+                        $it['monthly_prices'] = [];
+                    }
+                    if (isset($pivoted[$it['code']])) {
+                        foreach ($pivoted[$it['code']] as $mKey => $mPrice) {
+                            // Jangan timpa harga live jika sudah ada di bulan tersebut
+                            if (!isset($it['monthly_prices'][$mKey])) {
+                                $it['monthly_prices'][$mKey] = $mPrice;
+                            }
+                        }
+                    }
+                }
+                unset($it);
+            } catch (\Throwable $e) {
+                \Log::error("CBP price fetch error: " . $e->getMessage());
+            }
+        }
 
         $aggData = [
             'months' => $months,
