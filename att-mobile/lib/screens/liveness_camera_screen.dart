@@ -54,7 +54,7 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
   void initState() {
     super.initState();
     _initializeCamera();
-    if (!widget.isEnrollment && widget.masterPhotoUrl != null && widget.masterPhotoUrl!.isNotEmpty) {
+    if (widget.isRequired && !widget.isEnrollment && widget.masterPhotoUrl != null && widget.masterPhotoUrl!.isNotEmpty) {
       _loadMasterFaceProfile();
     }
   }
@@ -183,11 +183,11 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
         final leftEyeOpen = face.leftEyeOpenProbability;
         final rightEyeOpen = face.rightEyeOpenProbability;
 
-        // ─── BIOMETRIC COMPARISON (JIKA MASTER PHOTO TERSEDIA) ───
+        // ─── BIOMETRIC COMPARISON (JIKA MODE VERIFIKASI AKTIF & MASTER PHOTO TERSEDIA) ───
         bool passSimilarity = true;
         double? similarity;
 
-        if (_masterProfile != null) {
+        if (widget.isRequired && !widget.isEnrollment && _masterProfile != null) {
           final liveProfile = FaceMatcherService.extractProfile(face);
           if (liveProfile != null) {
             similarity = _masterProfile!.compareWith(liveProfile);
@@ -205,7 +205,7 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
           });
         }
 
-        // ─── VALIDASI FACE RECOGNITION BIOMETRIK KETAT ───
+        // ─── VALIDASI FACE RECOGNITION BIOMETRIK KETAT (HANYA JIKA isRequired) ───
         if (widget.isRequired && !widget.isEnrollment) {
           if (_isLoadingMaster) {
             _isEyesClosed = false;
@@ -243,38 +243,45 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
           }
         }
 
-        // Wajah cocok (>= 75%) atau mode registrasi master: Cek kedipan mata
+        // Wajah cocok (>= 75%) atau mode registrasi/selfie biasa: Cek kedipan mata
         if (leftEyeOpen != null && rightEyeOpen != null) {
-            if (leftEyeOpen > 0.65 || rightEyeOpen > 0.65) {
-              if (_isEyesClosed) {
-                // Kedipan berhasil!
-                _hasBlinked = true;
-                if (mounted) {
-                  setState(() {
-                    if (similarity != null) {
-                      _instruction = "✨ Wajah Cocok (${similarity.toStringAsFixed(0)}%)! Mengambil foto...";
-                    } else {
-                      _instruction = "✨ Wajah Terverifikasi! Mengambil foto...";
-                    }
-                  });
-                }
-                _captureAndReturn();
-              } else {
-                if (!_hasBlinked && mounted) {
-                  setState(() {
-                    if (similarity != null) {
-                      _instruction = "✨ Wajah Cocok (${similarity.toStringAsFixed(0)}%)!\nSilakan KEDIPKAN MATA 😉";
-                    } else {
-                      _instruction = "Posisikan wajah & KEDIPKAN mata 😉";
-                    }
-                  });
-                }
+          if (leftEyeOpen > 0.65 || rightEyeOpen > 0.65) {
+            if (_isEyesClosed) {
+              // Kedipan berhasil!
+              _hasBlinked = true;
+              if (mounted) {
+                setState(() {
+                  if (similarity != null) {
+                    _instruction = "✨ Wajah Cocok (${similarity.toStringAsFixed(0)}%)! Mengambil foto...";
+                  } else {
+                    _instruction = "✨ Wajah Terdeteksi! Mengambil foto...";
+                  }
+                });
               }
-            } else if (leftEyeOpen < 0.25 || rightEyeOpen < 0.25) {
-              _isEyesClosed = true;
+              _captureAndReturn();
+            } else {
+              if (!_hasBlinked && mounted) {
+                setState(() {
+                  if (similarity != null) {
+                    _instruction = "✨ Wajah Cocok (${similarity.toStringAsFixed(0)}%)!\nSilakan KEDIPKAN MATA 😉 atau tekan tombol foto";
+                  } else {
+                    _instruction = "Posisikan wajah & KEDIPKAN mata 😉\natau tekan tombol foto di bawah 📸";
+                  }
+                });
+              }
             }
+          } else if (leftEyeOpen < 0.25 || rightEyeOpen < 0.25) {
+            _isEyesClosed = true;
+          }
+        } else {
+          // Jika probabilitas mata tidak didukung / bernilai null pada perangkat
+          if (!_hasBlinked && mounted) {
+            setState(() {
+              _instruction = "Wajah Terdeteksi! Tekan tombol foto di bawah 📸";
+            });
           }
         }
+      }
     } catch (e) {
       debugPrint("Face detection error: $e");
     }
@@ -372,7 +379,7 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
     Color ovalBorderColor;
     if (!_isFaceDetected) {
       ovalBorderColor = Colors.white.withValues(alpha: 0.3);
-    } else if (_masterProfile != null) {
+    } else if (widget.isRequired && !widget.isEnrollment && _masterProfile != null) {
       if (!_isSimilarityPassed) {
         ovalBorderColor = Colors.redAccent;
       } else {
@@ -500,7 +507,7 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                           Text(
                             widget.isEnrollment
                                 ? 'Perekaman Wajah Master'
-                                : (isRequired ? 'Face AI: Wajib (Jabatan)' : 'Face AI: Liveness Active'),
+                                : (isRequired ? 'Face AI: Wajib (Jabatan)' : 'Foto Presensi: Selfie Kehadiran'),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11.5,
@@ -526,8 +533,8 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                   ],
                 ),
 
-                // ─── BIOMETRIC SIMILARITY BADGE (JIKA MODE VERIFIKASI) ───
-                if (_masterProfile != null) ...[
+                // ─── BIOMETRIC SIMILARITY BADGE (JIKA MODE VERIFIKASI AKTIF) ───
+                if (widget.isRequired && !widget.isEnrollment && _masterProfile != null) ...[
                   const SizedBox(height: 10),
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
@@ -579,7 +586,7 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
 
           // ─── BOTTOM INSTRUCTIONS & CONTROLS ──────────────────────────────
           Positioned(
-            bottom: 35,
+            bottom: 25,
             left: 20,
             right: 20,
             child: Column(
@@ -588,14 +595,14 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                 // Teks Instruksi Glassmorphism
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                  padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 16),
                   decoration: BoxDecoration(
-                    color: (_masterProfile != null && _isFaceDetected && !_isSimilarityPassed)
+                    color: (widget.isRequired && !widget.isEnrollment && _masterProfile != null && _isFaceDetected && !_isSimilarityPassed)
                         ? Colors.red.shade900.withValues(alpha: 0.85)
                         : Colors.black.withValues(alpha: 0.75),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: (_masterProfile != null && _isFaceDetected && !_isSimilarityPassed)
+                      color: (widget.isRequired && !widget.isEnrollment && _masterProfile != null && _isFaceDetected && !_isSimilarityPassed)
                           ? Colors.redAccent
                           : Colors.white.withValues(alpha: 0.15),
                       width: 1.2,
@@ -615,10 +622,10 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                         Padding(
                           padding: const EdgeInsets.only(right: 8.0),
                           child: Icon(
-                            _masterProfile != null && !_isSimilarityPassed
+                            (widget.isRequired && !widget.isEnrollment && _masterProfile != null && !_isSimilarityPassed)
                                 ? Icons.warning_amber_rounded
                                 : Icons.face,
-                            color: _masterProfile != null && !_isSimilarityPassed
+                            color: (widget.isRequired && !widget.isEnrollment && _masterProfile != null && !_isSimilarityPassed)
                                 ? Colors.yellowAccent
                                 : const Color(0xFF38BDF8),
                             size: 20,
@@ -630,9 +637,9 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: _isFaceDetected ? Colors.white : Colors.white70,
-                            fontSize: 13.5,
+                            fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            height: 1.3,
+                            height: 1.25,
                           ),
                         ),
                       ),
@@ -640,13 +647,67 @@ class _LivenessCameraScreenState extends State<LivenessCameraScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+
+                // Manual Shutter Button
+                GestureDetector(
+                  onTap: _isCapturing
+                      ? null
+                      : () {
+                          if (widget.isRequired && !widget.isEnrollment && _masterProfile != null && !_isSimilarityPassed) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Wajah belum sesuai dengan Master Wajah (${_currentSimilarity?.toStringAsFixed(0) ?? 0}% < ${FaceMatcherService.defaultThreshold.toStringAsFixed(0)}%). Silakan sesuaikan posisi wajah.',
+                                ),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                            return;
+                          }
+                          _captureAndReturn();
+                        },
+                  child: Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _isFaceDetected ? const Color(0xFF10B981) : Colors.white,
+                        width: 4,
+                      ),
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isFaceDetected ? const Color(0xFF10B981) : Colors.white).withValues(alpha: 0.4),
+                          blurRadius: 14,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: _isCapturing
+                          ? const SizedBox(
+                              width: 26,
+                              height: 26,
+                              child: CircularProgressIndicator(strokeWidth: 3, color: Color(0xFF0F52BA)),
+                            )
+                          : const Icon(
+                              Icons.camera_alt,
+                              size: 32,
+                              color: Color(0xFF1E293B),
+                            ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 8),
 
                 Text(
-                  _masterProfile != null
-                      ? 'Wajah harus sesuai dengan Master Wajah terdaftar (\u2265${FaceMatcherService.defaultThreshold.toStringAsFixed(0)}%) lalu kedipkan mata.'
-                      : 'Posisikan wajah Anda tepat di dalam lingkaran dan kedipkan mata.',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11),
+                  (widget.isRequired && !widget.isEnrollment && _masterProfile != null)
+                      ? 'Wajah harus sesuai Master Wajah terdaftar (\u2265${FaceMatcherService.defaultThreshold.toStringAsFixed(0)}%) • Kedipkan mata atau tekan tombol kamera'
+                      : 'Kedipkan mata atau tekan tombol kamera di atas untuk ambil foto',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 10.5),
                   textAlign: TextAlign.center,
                 ),
               ],

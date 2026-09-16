@@ -1,5 +1,18 @@
 $ErrorActionPreference = "Stop"
 
+# Use H:\Temp or G:\Temp for Gradle and Java bundle tool temp files to prevent drive C: disk full error
+if (Test-Path "H:\Temp") {
+    $env:TEMP = "H:\Temp"
+    $env:TMP = "H:\Temp"
+    $env:_JAVA_OPTIONS = "-Djava.io.tmpdir=H:\Temp"
+    $env:GRADLE_OPTS = "-Djava.io.tmpdir=H:\Temp"
+} elseif (Test-Path "G:\Temp") {
+    $env:TEMP = "G:\Temp"
+    $env:TMP = "G:\Temp"
+    $env:_JAVA_OPTIONS = "-Djava.io.tmpdir=G:\Temp"
+    $env:GRADLE_OPTS = "-Djava.io.tmpdir=G:\Temp"
+}
+
 $pubspecPath = "pubspec.yaml"
 if (-Not (Test-Path $pubspecPath)) {
     Write-Host "pubspec.yaml not found! Make sure you are running this in the att-mobile directory."

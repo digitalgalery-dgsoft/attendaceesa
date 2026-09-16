@@ -265,36 +265,13 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   }
 
   Future<void> _takeSelfie() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final posData = authProvider.employeeData?['position'];
-    final bool isFaceRequired = (posData is Map)
-        ? (posData['require_face_recognition'] == true || posData['require_face_recognition'] == 1 || posData['require_face_recognition'] == '1')
-        : false;
-    final String? masterPhoto = authProvider.employeeData?['photo_url'] ?? authProvider.employeeData?['photo'];
-    final bool hasMasterPhoto = masterPhoto != null && masterPhoto.trim().isNotEmpty && !masterPhoto.contains('default.png') && !masterPhoto.contains('placeholder');
-
-    if (isFaceRequired && !hasMasterPhoto) {
-      toastification.show(
-        context: context,
-        title: const Text('⚠️ Wajib Master Wajah'),
-        description: const Text('Jabatan Anda mewajibkan Face Recognition. Daftarkan foto master wajah Anda terlebih dahulu di menu Profil.'),
-        type: ToastificationType.error,
-        style: ToastificationStyle.flat,
-        alignment: Alignment.topRight,
-        autoCloseDuration: const Duration(seconds: 4),
-      );
-      return;
-    }
-
-    final String? masterPhotoUrl = hasMasterPhoto ? Constants.getImageUrl(masterPhoto!) : null;
-
     final String? photoPath = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => LivenessCameraScreen(
-          isRequired: isFaceRequired,
+        builder: (_) => const LivenessCameraScreen(
+          isRequired: false,
           isEnrollment: false,
-          masterPhotoUrl: masterPhotoUrl,
+          masterPhotoUrl: null,
         ),
       ),
     );
@@ -308,26 +285,6 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
   }
 
   Future<void> _submitAttendance() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final posData = authProvider.employeeData?['position'];
-    final bool isFaceRequired = (posData is Map)
-        ? (posData['require_face_recognition'] == true || posData['require_face_recognition'] == 1 || posData['require_face_recognition'] == '1')
-        : false;
-    final String? masterPhoto = authProvider.employeeData?['photo_url'] ?? authProvider.employeeData?['photo'];
-    final bool hasMasterPhoto = masterPhoto != null && masterPhoto.trim().isNotEmpty && !masterPhoto.contains('default.png') && !masterPhoto.contains('placeholder');
-
-    if (isFaceRequired && !hasMasterPhoto && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in')) {
-      toastification.show(
-        context: context,
-        title: const Text('⚠️ Presensi Ditolak'),
-        description: const Text('Jabatan Anda mewajibkan Face Recognition, namun belum mendaftarkan Master Wajah. Silakan buka menu Profil untuk mendaftar.'),
-        type: ToastificationType.error,
-        style: ToastificationStyle.flat,
-        alignment: Alignment.topRight,
-        autoCloseDuration: const Duration(seconds: 4),
-      );
-      return;
-    }
 
 
     if (_selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in')) {
@@ -1447,50 +1404,37 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                             ),
                           ),
 
-                        // ─── ADAPTIVE FACE RECOGNITION BADGE ───────────────────────
-                        Builder(
-                          builder: (context) {
-                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                            final posData = authProvider.employeeData?['position'];
-                            final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? false) : false;
-                            final posName = (posData is Map) ? (posData['name'] ?? 'Jabatan') : 'Jabatan';
-
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                              margin: const EdgeInsets.only(bottom: 10),
-                              decoration: BoxDecoration(
-                                color: isFaceRequired
-                                    ? (isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF))
-                                    : (isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF)),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: const Color(0xFF38BDF8).withValues(alpha: 0.4),
-                                ),
+                        // ─── SELFIE BADGE ───────────────────────
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            color: isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: const Color(0xFF38BDF8).withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.camera_alt_outlined,
+                                size: 16,
+                                color: Color(0xFF0284C7),
                               ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.face_retouching_natural,
-                                    size: 16,
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Foto Presensi: Selfie Kehadiran',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
                                     color: Color(0xFF0284C7),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      isFaceRequired
-                                          ? 'Face Recognition AI: Wajib Biometrik Master ($posName)'
-                                          : 'Foto Presensi: Liveness AI Detection ($posName)',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF0284C7),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            );
-                          },
+                            ],
+                          ),
                         ),
 
                         // ─── SELFIE PREVIEW & ACTION BUTTONS ───────────────────────
@@ -1527,43 +1471,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
                             Expanded(
                               child: Builder(
                                 builder: (context) {
-                                  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                                  final posData = authProvider.employeeData?['position'];
-                                  final bool isFaceRequired = (posData is Map) ? (posData['require_face_recognition'] ?? false) : false;
-                                  final String? masterPhoto = authProvider.employeeData?['photo_url'] ?? authProvider.employeeData?['photo'];
-                                  final bool hasMasterPhoto = masterPhoto != null && masterPhoto.isNotEmpty && !masterPhoto.contains('default.png');
-                                  final bool isPhotoMissing = isFaceRequired && _selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in');
-
-                                  if (isFaceRequired && !hasMasterPhoto) {
-                                    return Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(12),
-                                        gradient: const LinearGradient(
-                                          colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
-                                        ),
-                                      ),
-                                      child: ElevatedButton.icon(
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                                          );
-                                        },
-                                        icon: const Icon(Icons.face_retouching_natural, color: Colors.white, size: 18),
-                                        label: const Text(
-                                          'Daftarkan Master Wajah',
-                                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 12),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(vertical: 14),
-                                          backgroundColor: Colors.transparent,
-                                          shadowColor: Colors.transparent,
-                                          foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                        ),
-                                      ),
-                                    );
-                                  }
+                                  final bool isPhotoMissing = _selfieFile == null && (widget.type == 'checkin' || widget.type == 'visit_in' || widget.type == 'meet_in');
 
                                   return Container(
                                     decoration: BoxDecoration(

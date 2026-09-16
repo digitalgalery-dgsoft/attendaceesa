@@ -131,7 +131,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   bool _isFaceBlocked(AuthProvider auth) {
-    return _isFaceRequired(auth) && !_hasMasterPhoto(auth);
+    return false; // Nonaktifkan pemblokiran check-in karena face recognition
   }
 
   Future<void> _enrollMasterFace(BuildContext context) async {

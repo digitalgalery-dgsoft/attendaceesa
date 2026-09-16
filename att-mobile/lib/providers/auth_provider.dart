@@ -487,6 +487,8 @@ class AuthProvider with ChangeNotifier {
         if (responseData['data'] != null && responseData['data']['employee_data'] != null) {
           _employeeData = responseData['data']['employee_data'];
           _updateAppColorFromEmployee();
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('cached_employee_data', json.encode(_employeeData));
         }
         _isLoading = false;
         notifyListeners();
