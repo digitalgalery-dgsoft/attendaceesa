@@ -1731,6 +1731,201 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Pada `ReportingApiController.php`, pembuatan laporan baru (Offtake, Stock End, Warehouse, Wings Sales, Wings Free Taste, Standard form) langsung disimpan dengan status `'submitted'`.
       - Pada response API `history()` dan `show()`, `status_label` dikembalikan seragam sebagai **`Terkirim`** (hijau) atau `Ditolak` (merah).
       - Admin panel Filament (`ReportSubmissionsTable.php`) dan antarmuka mobile (`report_submission_model.dart`, `reporting_hub_screen.dart`, `report_detail_screen.dart`) diformat seragam dengan badge hijau **"Terkirim"**.
+    - **Antarmuka Web Admin Filament & Web Portal Principal**:
+      - **Filament Admin Form (`ReportTemplateForm.php`)**: Mengganti single input `monthly_due_day` dengan 2 input angka berdampingan: `🗓️ Dari Tgl (1 - 31)` dan `🗓️ S/d Tgl (1 - 31)` dalam grid kondisional mode `monthly`.
+      - **Filament Admin Table (`ReportTemplatesTable.php`)**: Kolom jadwal menampilkan badge rentang tanggal `[Tgl X - Y]` untuk template bulanan.
+      - **Portal Principal Form & Index (`form.blade.php` & `index.blade.php`)**: Input rentang tanggal berdampingan dengan validasi client-side, badge jadwal `Tgl X - Y`, dan pembaruan controller `PrincipalPortalController.php` pada method `storeReportTemplate` dan `updateReportTemplate`.
+      - **Cross-Server Sync Service (`TemplateSyncService.php`)**: Menyertakan `monthly_start_day` dan `monthly_end_day` dalam payload export dan import template antar server node.
+    - **Backend API Reporting (`ReportingApiController.php`)**:
+      - `templates()`: Mengembalikan properti `monthly_start_day`, `monthly_end_day`, `is_within_monthly_range`, `monthly_range_text`, dan `is_monthly_skippable` (true jika di luar rentang tanggal).
+      - `submit()`: Proteksi validasi ketat. Jika form berjadwal `monthly` dan disubmit di luar rentang tanggal, server menolak dan merespons HTTP 422: *"Laporan bulanan '[Title]' hanya dapat disubmit pada rentang tanggal [X] sampai [Y] setiap bulannya"*.
+      - `checkPendingReportsStatic()`: Laporan bulanan yang berada di luar rentang tanggal tidak masuk ke daftar pending dan tidak memblokir check-out presensi karyawan (skippable).
+    - **Aplikasi Mobile Flutter (`att-mobile`)**:
+      - **Model (`report_template_model.dart`)**: Properti baru `monthlyStartDay`, `monthlyEndDay`, `isWithinMonthlyRange`, `monthlyRangeText`, dan `scheduleBadgeLabel` (misal: "Bulanan (Tgl 24-30)").
+      - **Reporting Hub (`reporting_hub_screen.dart`)**: Peringatan dialog interaktif jika kartu diklik di luar rentang tanggal (*"Laporan hanya dapat diisi pada rentang tanggal X - Y"*), serta badge status *"Bisa Dilewati (Aktif Tgl X - Y)"*.
+      - **Dynamic Form (`dynamic_form_screen.dart`)**: Banner peringatan rentang tanggal, tombol submit utama dan tombol submit Stock End dikunci (*"Terkunci (Hanya Aktif Tgl X - Y)"*), serta validasi penjaga di awal `_submitForm()` dan `_submitStockEnd()`.
+      - **Provider (`dynamic_reporting_provider.dart`)**: Menangani respons HTTP 422 secara eksplisit sehingga error validasi rentang tanggal tidak dialihkan ke antrean offline (offline queue).
+
+19. **Penyempurnaan Multi-Tenant Master Produk Kompetitor (Scoping Strict per Principal) (11 September 2026)**:
+    - **Penyebab Masalah (Root Cause)**:
+      - Master Produk Kompetitor sebelumnya tidak difilter berdasarkan `principal_id` pada method `competitorProductsList()`, `storeCompetitorProduct()`, `updateCompetitorProduct()`, dan `destroyCompetitorProduct()` di `PrincipalPortalController.php`.
+      - Akibatnya, 48 produk kompetitor cat yang disemai untuk Dulux (seperti Jotun, Nippon Paint, Avian, dsb.) ikut tampil pada portal principal lain (seperti PT WINGS SURYA).
+      - Tombol katalog produk di header portal kompetitor sebelumnya di-hardcode bertuliskan "Katalog Dulux" untuk semua tenant.
+    - **Perbaikan Backend & Portal Controller (`PrincipalPortalController.php`)**:
+      - **Strict Principal Scoping**: Seluruh query list (`$query`), daftar kategori (`$categories`), daftar merk (`$brands`), dan hitungan total (`$totalCompetitors`) kini secara ketat difilter menggunakan `whereIn('principal_id', $scopedPrincipalIds)`.
+      - **Scoped Mutations**: Operasi `storeCompetitorProduct()` menyertakan `principal_id` tenant dalam kunci pencocokan `updateOrCreate()`, serta `updateCompetitorProduct()` dan `destroyCompetitorProduct()` memvalidasi kepemilikan record menggunakan `whereIn('principal_id', $scopedPrincipalIds)->findOrFail($id)`.
+    - **Antarmuka Web Portal Principal (`competitor_products.blade.php`)**:
+      - **Dinamisasi Tombol & Metadata Header**: Tombol katalog kini secara otomatis menyesuaikan nama principal yang aktif (`Katalog PT WINGS SURYA`, `Katalog Dulux`, dsb.) mengarah ke katalog SKU produk masing-masing. Subheader diperjelas menjadi *Database Master Acuan Formulir & Pembanding Kompetitor • [Nama Principal]*.
+      - **Datalist Fleksibel untuk Semua Industri**: Input merk dan kategori di modal Tambah & Edit kini menggunakan `<input list="...">` yang fleksibel dengan datalist dinamis. Principal non-cat (seperti Wings, FMCG, Mamasuka) dapat dengan bebas mengetikkan merk kompetitor mereka sendiri (misal: Unilever, P&G, Kao, Indofood, dsb.) atau kategori FMCG tanpa terikat opsi cat.
+      - **Header Kolom & Empty State Adaptif**: Kolom acuan harga otomatis menyesuaikan (*Acuan Tin/Galon/Pail* untuk Dulux, dan *Acuan Kecil/Sedang/Besar* untuk principal lain). Empty state menampilkan pesan informatif bahwa data kompetitor untuk principal tersebut belum terdaftar dengan tombol CTA tambah langsung.
+    - **Database Migration (`2026_09_11_100000_assign_existing_competitor_products_to_dulux.php`)**:
+      - Memastikan seluruh produk kompetitor eksisting yang memiliki `principal_id IS NULL` secara otomatis dialokasikan ke ID principal Dulux / ICI Paints, sehingga data acuan Dulux tetap utuh dan portal principal lain tetap bersih.
+    - **Web Admin Filament (`CompetitorProductsTable.php` & `CompetitorProductForm.php`)**:
+      - Menambahkan kolom `Principal` (`TextColumn::make('principal.name')`) dan filter relasi `principal_id` pada tabel Filament admin.
+      - Menjadikan relasi `principal_id` wajib (`required()`) pada form admin serta menggunakan datalist merk/kategori yang fleksibel.
+    - **Mobile API Reporting (`ReportingApiController.php`)**:
+      - Endpoint `competitorProducts()` kini mengenali `principal_id` dari parameter request maupun user/karyawan yang login, serta hanya mengembalikan produk kompetitor milik principal yang bersangkutan.
+
+20. **Kompilasi Rilis APK Flutter v1.0.145 & Distribusi Multi-Server Cluster (11 September 2026)**:
+    - **Penyelarasan Input Produk Kompetitor di Aplikasi Mobile (`dynamic_form_screen.dart`)**:
+      - Default merk pada formulir CBP kini secara cerdas membaca `competitorBrands` hasil query API tenant aktif (`repProvider.competitorBrands.first`) alih-alih mengunci ke `'JOTUN'`.
+      - Penambahan baris produk kompetitor baru secara otomatis menggunakan merk teratas dari principal aktif karyawan yang login.
+    - **Hasil Kompilasi & Build Release APK**:
+      - Berhasil melakukan kompilasi rilis APK versi **`v1.0.145+145`** (`109.9 MB`, MD5: `7b5b5f60658e3a76481f927abb3d113e`).
+      - Pengunggahan chunked upload sukses ke server staging `https://appsend.my.id/app-release.apk`.
+      - Sinkronisasi otomatis ke seluruh simpul server production:
+        - Server 1 (AMK): `https://amk.esa-solutions.id/app-release.apk`
+        - Server 2 (AKP): `https://akp.esa-solutions.id/app-release.apk`
+        - Server 3 (ATK): `https://atk.esa-solutions.id/app-release.apk`
+        - Tenant Dulux: `https://dulux.esa-solutions.id/app-release.apk`
+      - Arsip lokal tersimpan di `APK/app-release-1.0.145.apk` dan `app-release.apk`.
+
+21. **Pembaruan UI Branding Splashscreen, Server Configuration Field, & Default Light Mode (11 September 2026)**:
+    - **Pembaruan Splash Screen (`splash_screen.dart`)**:
+      - Maskot utama diganti menggunakan `maskot_esa.png` (`assets/images/maskot_esa.png`).
+      - Logo hexagon 3D (`esa_3d_logo.png`) di atas tulisan "ESA" dihilangkan sesuai permintaan, sehingga tata letak branding lebih bersih dan fokus.
+    - **Field Input URL Server Configuration Permanen (`server_config_screen.dart`)**:
+      - Prefix `https://` dan suffix `.esa-solutions.id` kini dibuat permanen menggunakan container badge modern.
+      - Pengguna hanya perlu mengetikkan subdomain server (contoh: `api`, `amk`, `akp`, `atk`, `dulux`).
+      - Dilengkapi tombol chip *Pilihan Cepat* (`api`, `amk`, `akp`, `atk`, `dulux`) untuk pengisian instan satu kali klik.
+      - Banner preview live menampilkan URL lengkap yang akan dituju (`https://[subdomain].esa-solutions.id/api`).
+      - Fitur lanjutan *Gunakan Domain Kustom Lainnya* tetap tersedia untuk kebutuhan pengujian developer/staging (`appsend.my.id`).
+    - **Default Light Mode (`theme_provider.dart` & `profile_screen.dart`)**:
+      - Nilai awal tema aplikasi diatur ke **Light Mode** secara default (`ThemeMode.light`), sehingga pengguna baru atau sistem yang belum menyimpan preferensi otomatis berada di mode terang.
+      - Toggle tema di menu profil diselaraskan untuk mengaktifkan/menonaktifkan Dark Mode secara presisi.
+    - **Kompilasi Rilis APK v1.0.146**:
+      - Versi aplikasi dinaikkan menjadi **`v1.0.146+146`**.
+      - Berhasil dikompilasi ke `app-release.apk` (`110.0 MB`, `115,301,913 bytes`).
+      - Berkas installer diarsipkan secara lokal di `APK/app-release-1.0.146.apk` dan root project (tidak diunggah ke server sesuai instruksi).
+
+22. **Kompresi Foto Pelaporan WebP (`.webp`) & Penurunan Drastis Ukuran Payload (11 September 2026)**:
+    - **Kompresi WebP Global (`watermark_camera_service.dart`)**:
+      - Seluruh pengambilan foto pelaporan (Live Camera maupun Galeri HP, single maupun multi-photo) kini otomatis dikonversi dan dikompresi ke format modern `.webp` (`CompressFormat.webp`, resolusi proporsional 1280x1280 px, kualitas 75%).
+      - Ukuran foto turun drastis dari **~15–25 MB (PNG uncompressed)** menjadi hanya **~100–180 KB per foto** (penghematan storage hingga **99%**).
+      - Watermark teks, koordinat GPS, tanggal-jam, dan struk pembelian tetap tajam dan terbaca jelas.
+      - Total payload pengiriman laporan berkurang drastis dari ~50–60 MB menjadi **< 500 KB**, mencegah timeout jaringan seluler dan mempercepat submit menjadi hanya **1–2 detik**.
+
+23. **Animasi Loading Maskot ESA Interaktif & Indikator Status Online/Offline Real-Time (11 September 2026)**:
+    - **Animasi Loading Maskot ESA (`dynamic_form_screen.dart`)**:
+      - Dialog submit formulir laporan di aplikasi mobile kini menampilkan animasi maskot ESA berlari (`CustomLoadingIndicator.show` & `hide`), memberikan umpan balik visual yang interaktif dan jelas bagi pengguna.
+    - **Indikator Status Koneksi Real-Time (`network_status_service.dart` & `connection_status_badge.dart`)**:
+      - Layanan pemantauan koneksi riil via DNS ping Google & backend dengan `ValueNotifier<bool> isOnline`.
+      - Badge status: Pill hijau lembut dengan titik berdenyut (`● Online`) saat terhubung, dan pill merah lembut (`● Offline`) saat jaringan terputus.
+      - Terpasang di bar profil **Dashboard Depan**, AppBar **Reporting Hub**, dan formulir **Dynamic Form**.
+
+24. **Peningkatan Robustness Sinkronisasi Laporan Offline & Idempotency Anti-Duplikasi (11 September 2026)**:
+    - **Kompresi On-The-Fly Foto Offline Lama (`offline_reporting_sync_service.dart`)**:
+      - Secara otomatis mengompresi foto antrian offline yang berukuran > 350 KB menjadi `.webp` sebelum diunggah ke server.
+    - **Perbaikan Query Kehadiran Sinkronisasi Backend (`ReportingApiController.php`)**:
+      - Mengganti filter `whereNotNull('check_in')` yang memicu error SQL fatal (kolom `check_in` tidak ada di tabel `attendances`) menjadi pengecekan fleksibel: `checkin_at`, `checkin_log_id`, atau status `present` pada `attendances` dan `attendance_logs`.
+      - Mendukung sinkronisasi tanggal lampau (`created_at`) sehingga antrian laporan hari sebelumnya tetap diterima server.
+    - **Idempotency Guard & Mobile Lock Anti-Duplikasi**:
+      - Backend memblokir submit berulang dengan selang waktu < 15 detik untuk karyawan, template, dan toko yang sama.
+      - Mobile UI mengunci tombol submit seketika (`_isSubmitting = true`) saat pertama kali ditekan untuk mencegah *double-tap*.
+      - Antrian offline memfilter duplikasi payload sebelum disimpan ke lokal storage.
+
+25. **Card Statistik Eksekutif Penjualan MBR & Modal Preview Bukti Struk Transaksi (11 September 2026)**:
+    - **Card Statistik Eksekutif di Atas Rincian Produk (`report_submission_detail.blade.php`)**:
+      - 4 parameter tambahan penjualan event MBR:
+        1. **Total Nilai Penjualan** (Aksen hijau, icon koin): Akumulasi seluruh transaksi event MBR.
+        2. **Total Kuantiti Terjual** (Aksen amber, icon box): Total kuantiti unit/pcs produk terjual.
+        3. **Bayar di Booth (SPG)** (Aksen biru, icon store): Transaksi pembayaran langsung ke SPG di booth.
+        4. **Bayar di Kasir Toko** (Aksen ungu, icon mesin kasir): Transaksi struk via kasir outlet.
+      - Diletakkan di bagian atas tepat di atas tabel *Rincian Produk Penjualan Event MBR* sebagai kartu ringkasan KPI eksekutif modern (*offtake-summary-grid*).
+      - Menghapus baris redundan dari daftar teks bawah ("PARAMETER TAMBAHAN").
+    - **Perbaikan Error Undefined Variable**:
+      - Menyertakan variabel `$hasDynamicMbrSalesItems` pada klausul `use (...)` closure filter view `$textValues`.
+    - **Modal Lightbox Bukti Struk Transaksi**:
+      - Foto bukti struk produk kini dilengkapi thumbnail preview yang dapat diklik dan membuka modal lightbox foto di tengah layar (bukan tab baru).
+
+26. **Resolusi Aksesibilitas URL Foto Struk di Aplikasi Mobile & Multi-Tenant (11 September 2026)**:
+    - **Perbaikan URL Disk Storage Publik (`config/filesystems.php`)**:
+      - Menjadikan URL disk publik dinamis menggunakan host request aktif (`request()->getSchemeAndHttpHost() . '/storage'`) serta secara otomatis mengoreksi typo domain `.env` (`esa-solution.id` -> `esa-solutions.id`).
+    - **Normalisasi URL Media di API Backend (`ReportingApiController.php`)**:
+      - Menambahkan helper `formatSubmissionValues` pada endpoint `show()` dan `history()` untuk mengubah foto struk di dalam `mbr_sales_items_json` menjadi URL absolut aktif (`asset('storage/...')`).
+      - Menyimpan URL absolut pada saat submit laporan baru.
+    - **Ketahanan Resolusi Media di Aplikasi Mobile (`report_detail_screen.dart`)**:
+      - Memperbarui helper `_resolveMediaUrl` dengan pembersihan path storage, koreksi typo domain otomatis, dan fallback cerdas ke domain tenant Wings (`https://wings.esa-solutions.id`) jika terdeteksi data laporan Wings.
+      - Menormalkan `imageUrl` pada modal dialog pembesar foto struk.
+    - **Multi-Server Deployment**:
+      - Seluruh perubahan backend terdistribusi dan aktif pada Server 1 (AMK), Server 2 (AKP), dan Server 3 (ATK) via webhook production.
+
+27. **Resolusi Error Check-Out Gateway Relay ("The latitude field is required Line: 423") (11 September 2026)**:
+    - **Identifikasi Masalah**:
+      - Saat pengguna melakukan Check-Out atau Visit-Out tanpa lampiran foto, aplikasi mobile Flutter sebelumnya mengirim `http.MultipartRequest` tanpa berkas lampiran (empty files multipart).
+      - Pada `SmartGatewayRelayService::relayRequest`, pengecekan `$hasFiles` bernilai `false`, sehingga header `Content-Type: multipart/form-data; boundary=...` tidak dihapus dari array `$headers`.
+      - Akibatnya, Guzzle mem-forward data `$request->all()` sebagai URL-encoded form parameters namun tetap mempertahankan header `Content-Type: multipart/form-data; boundary=...` yang tidak cocok dengan body.
+      - Server target (AMK/AKP/ATK) tidak dapat mem-parsing payload yang tidak sesuai boundary, sehingga `$_POST` kosong dan validasi `$request->validate()` gagal dengan pesan: *"The latitude field is required. (and 2 more errors)"*.
+      - `AttendanceController@store` sebelumnya menangkap `ValidationException` sebagai generic `\Exception` dan merespons HTTP 500 dengan pesan *"Failed to record attendance: ... Line: 423"*.
+    - **Penyelesaian Backend (`SmartGatewayRelayService.php` & `AttendanceController.php`)**:
+      - Menghapus header `Content-Type` pada seluruh relayed request non-JSON (`!$request->isJson()`), sehingga Guzzle secara otomatis men-generate header yang valid: `multipart/form-data` dengan boundary baru saat ada file lampiran, atau `application/x-www-form-urlencoded` murni saat tanpa file lampiran.
+      - Menambahkan penanganan khusus `\Illuminate\Validation\ValidationException` pada catch block `AttendanceController@store` agar merespons HTTP 422 dengan pesan validasi yang ramah tanpa nomor baris internal framework.
+    - **Penyempurnaan Aplikasi Mobile (`attendance_provider.dart` & `offline_sync_service.dart`)**:
+      - Mengoptimalkan `submitAttendance` dan antrean offline agar menggunakan standard `http.post` jika tidak ada foto selfie yang dikirimkan (seperti pada Check-Out dan Visit-Out), serta hanya menggunakan `http.MultipartRequest` jika benar-benar ada file foto yang diunggah.
+
+28. **Resolusi Thumbnail Foto Selfie Check-In Pecah/Broken di Riwayat Kehadiran (11 September 2026)**:
+    - **Identifikasi Masalah**:
+      - Pada halaman Riwayat Kehadiran (`history_screen.dart`), thumbnail foto selfie check-in menampilkan ikon patah / broken image (`Icons.broken_image`).
+      - Hal ini terjadi karena kode Flutter sebelumnya mengecek `photoPath` terlebih dahulu (`photoPath != null ? Constants.getImageUrl(photoPath) : rawPhotoUrl`), sehingga URL foto selalu dipaksa mengarah ke server gateway (`https://appsend.my.id/storage/...`).
+      - Padahal untuk karyawan cluster (misal PT ATK / PT AMK), foto selfie diunggah dan tersimpan secara fisik di server entitas masing-masing (`https://atk.esa-solutions.id/storage/...` / `https://amk.esa-solutions.id/storage/...`).
+      - Akibatnya request gambar ke `appsend.my.id` menghasilkan HTTP 403/404 dan gambar gagal dirender.
+    - **Penyelesaian Backend (Smart Cross-Server Media Proxy di `routes/web.php`)**:
+      - Menambahkan route fallback cerdas `/storage/{folder}/{filename}` pada backend web.
+      - Jika file foto presensi/laporan diminta pada server gateway (`appsend.my.id`) tetapi belum ada di disk lokal, server secara otomatis mengambil (*fetch & stream*) berkas dari peer cluster server production (`atk.esa-solutions.id`, `amk.esa-solutions.id`, `akp.esa-solutions.id`), menyimpannya di cache lokal untuk Nginx, dan menyajikan gambar secara instan (`HTTP 200 image/webp`).
+      - Solusi ini langsung menyelesaikan kendala bagi seluruh aplikasi mobile yang sudah terpasang di HP pengguna secara instan tanpa perlu build atau install ulang APK.
+    - **Penyempurnaan Mobile (`history_screen.dart`)**:
+      - Memprioritaskan penggunaan `rawPhotoUrl` yang dikembalikan dari API jika berupa URL HTTP yang valid dan absolut, sebelum jatuh ke fallback lokal `Constants.getImageUrl(photoPath)`.
+    - **Pembersihan & Multi-Server Deployment**:
+      - Menghapus route diagnostik sementara `/debug-attendance-photo` dari `routes/web.php`.
+      - Menjalankan deployment ke Gateway `appsend.my.id` via webhook `deploy.php` dan ke seluruh node cluster production (AMK, AKP, ATK) via `deploy-production.php`.
+      - Seluruh 4 server telah terverifikasi merespons **HTTP 200 OK** (`Content-Type: image/webp`, 27.5 KB) untuk URL foto selfie check-in.
+
+29. **Pembuatan Laporan Free Taste (Event MBR) Wings & Mobile App v1.0.150 (14 September 2026)**:
+    - **Latar Belakang & Kebutuhan Bisnis**:
+      - Mengakomodasi kebutuhan pelaporan sampling / free taste pada event MBR Wings Surya mengacu pada dokumen spesifikasi `Laporan Free Taste.xlsx`.
+      - Sampling memiliki satuan mie mentah (Stok Awal, Mie Dimasak, Sisa Stok) dan cup tester siap saji (Cup dibagikan ke pengunjung).
+      - Menampilkan analitik komprehensif pada Web Portal Prinsiple dan form dinamis interaktif pada aplikasi mobile Flutter.
+    - **Database Migration & Seeder Template (`2026_09_14_110000_seed_wings_mbr_freetaste_report_template.php`)**:
+      - Membuat template `RPT-WINGS-MBR-FREETASTE-01` (`Laporan Free Taste (Event MBR)`), category `sampling`, group `event_mbr`, terhubung ke Principal PT Wings Surya dan 40 SKU master produk Mie Sedaap.
+      - 7 Fields terdaftar: `mbr_freetaste_items_json`, `total_stok_awal_sampling`, `total_mie_dimasak`, `total_stok_akhir_sampling`, `total_cup_dibagikan`, `foto_booth_sampling`, `catatan_sampling`.
+    - **Backend & Web Portal Principal (`PrincipalPortalController.php` & `wings_mbr_freetaste_dashboard.blade.php`)**:
+      - Menambahkan kalkulasi analitik murni data-driven (`calculateWingsMbrFreeTasteDashboardData`) dengan filter dinamis bulan berjalan, wilayah, daerah, dan toko.
+      - Menampilkan 7 Kartu KPI Utama: Total Mie Dimasak (Pcs), Total Cup Dibagikan, Rata-rata Cup per Pcs, Sisa Stok Sampling (Pcs), Total SKU Sampling, Total Booth Aktif, dan Total Submisi.
+      - Dual-series Chart: Tren Harian Mie Dimasak (Pcs) vs Cup Dibagikan.
+      - 4 Tabel Performa Grid: Top Varian Mie Paling Banyak Dimasak, Top Varian Cup Paling Banyak Dibagikan, Top Toko Sampling Paling Aktif, dan Performa Sampling per Wilayah/Daerah.
+      - Tabel Riwayat Submisi Live, modal rincian item sampling, dan galeri foto booth / dokumentasi sampling dengan zoom lightbox.
+      - Menyelaraskan 100% identitas visual native portal (clean white cards, Outfit typography, brand colors).
+    - **Aplikasi Mobile Flutter (`att-mobile`)**:
+      - `dynamic_form_screen.dart`: Form sampling multi-step interaktif (Step 0: Pilih produk Mie Sedaap dari master, input Stok Awal, Mie Dimasak, Cup Tester dibagikan manual, auto-kalkulasi Sisa Stok; Step 1: Review keranjang, foto booth/spg sampling, catatan). Validasi minimal 1 produk wajib dilaporkan sebelum submit.
+      - `report_detail_screen.dart`: Menampilkan panel ringkasan 4 metrik KPI sampling, kartu detail per produk sampling (Awal -> Dimasak -> Sisa Stok & Cup Dibagikan), thumbnail foto dokumentasi dengan modal preview, serta menyembunyikan raw JSON fields.
+      - Version bump di `pubspec.yaml` ke **`v1.0.150+150`**.
+      - Kompilasi APK rilis sukses (`app-release.apk`, `APK/app-release-1.0.150.apk`, `att-admin-v12/public/app-release.apk`).
+
+30. **Penyempurnaan Form Sampling Free Taste, State Retention & Modal Portal (14 September 2026)**:
+    - **Foto Kegiatan Sampling per Produk**:
+      - Pengambilan foto sampling tetap dipertahankan per produk di dalam tabel/keranjang sampling sesuai kebutuhan operasional lapangan.
+      - Menghapus redundansi kartu widget kamera di Step 1 pada form mobile agar mitra tidak perlu mengambil foto ganda yang tidak diperlukan.
+    - **Indikasi Produk Sudah Diinput**:
+      - Pada dialog/dropdown pemilihan produk Free Taste, produk yang sudah ditambahkan ke keranjang otomatis ditandai dengan badge status "Sudah di keranjang" dan didisable dari pemilihan ulang untuk mencegah duplikasi entri SKU yang sama.
+    - **State Persistence Keranjang Sampling**:
+      - Data item laporan yang sudah dimasukkan ke keranjang sebelum disubmit kini disimpan sementara di state lokal. Jika pengguna tidak sengaja keluar atau berpindah form, data keranjang tidak hilang dan pengguna dapat langsung melanjutkan input tanpa harus mengulang dari awal.
+    - **Penyempurnaan Modal Web Portal**:
+      - Merapikan modal rincian submisi dan galeri foto booth / dokumentasi sampling pada Web Portal Wings (`wings_mbr_freetaste_dashboard.blade.php`), memastikan tampilan bersih (*clean modal*), terintegrasi dengan lightbox zoom, dan bebas dari glitch rendering.
+
+31. **Pencegahan Karyawan Ter-logout Otomatis, Standarisasi Status "Terkirim" & Pembatasan Edit Same-Day (14 September 2026)**:
+    - **Pencegahan Auto-Logout Karyawan (Robust Offline Session Persistence)**:
+      - **Akar Masalah**: Saat server melakukan reload/deploy script (jeda 2-5 detik) atau saat koneksi internet HP karyawan sempat terputus, `tryAutoLogin()` di aplikasi Flutter menangkap error dan langsung mengeksekusi `await logout()`, menghapus `auth_token` dari `SharedPreferences`.
+      - **Solusi Mobile (`auth_provider.dart`)**:
+        - Memuat profil karyawan dari cache lokal (`cached_employee_data` & `cached_user`) saat inisialisasi aplikasi.
+        - Perintah `logout()` **HANYA** dieksekusi jika server secara eksplisit mengembalikan kode HTTP `401 Unauthorized` atau `403 Forbidden`.
+        - Jika terjadi error jaringan (timeout, socket error) atau server HTTP 500/502/503 saat deploy: aplikasi **TIDAK LOGOUT**, melainkan tetap dalam status terotentikasi (*authenticated*).
+      - **Solusi Backend (`AuthController.php`)**:
+        - Pada endpoint `me()`, server memvalidasi `$employee->is_active`. Token hanya akan dicabut oleh server jika akun karyawan secara manual dinonaktifkan oleh administrator.
+    - **Penghapusan Konsep Approval Laporan (Standarisasi Status "Terkirim")**:
+      - Seluruh laporan operasional lapangan tidak memerlukan alur approval berjenjang. Istilah "Approve", "Menunggu Verifikasi", maupun "Terverifikasi" dihilangkan seluruhnya agar tidak menimbulkan salah paham.
+      - Pada `ReportingApiController.php`, pembuatan laporan baru (Offtake, Stock End, Warehouse, Wings Sales, Wings Free Taste, Standard form) langsung disimpan dengan status `'submitted'`.
+      - Pada response API `history()` dan `show()`, `status_label` dikembalikan seragam sebagai **`Terkirim`** (hijau) atau `Ditolak` (merah).
+      - Admin panel Filament (`ReportSubmissionsTable.php`) dan antarmuka mobile (`report_submission_model.dart`, `reporting_hub_screen.dart`, `report_detail_screen.dart`) diformat seragam dengan badge hijau **"Terkirim"**.
     - **Pembatasan Hak Edit Laporan Hanya Pada Hari Yang Sama (Same-Day Submission Edit)**:
       - Laporan yang dikirimkan hanya dapat diedit pada hari yang sama saat submisi (`isToday()`). Jika sudah berganti hari (H+1 ke atas), laporan terkunci permanen demi integritas data historis.
       - Backend `ReportingApiController@update` memvalidasi tanggal submisi: jika `!$subDate->isToday()`, sistem menolak permintaan dengan HTTP 422: *"Laporan yang sudah lewat hari tidak dapat diubah kembali. Hanya laporan yang disubmit hari ini yang dapat diedit."*.
@@ -1741,3 +1936,88 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Menjalankan kompilasi Gradle release (`flutter build apk --release`) lokal dengan hasil **100% SUKSES** (110.7 MB).
       - Sesuai instruksi khusus pengguna, file APK disimpan secara lokal (`att-mobile/app-release-1.0.152.apk` dan `att-admin-v12/public/app-release-1.0.152.apk`) dan **tidak diunggah ke server**.
       - Seluruh source code backend telah di-deploy ke server staging (`appsend.my.id`) dan 3 server cluster production (`amk`, `akp`, `atk`).
+
+32. **Audit & Penguatan Keamanan Sistem (Security Hardening) Menyeluruh (15 September 2026)**:
+    - **Pembersihan Berkas Sensitif & Proteksi Endpoint Publik**:
+      - Memindahkan 11 file diagnostik dan test scripts dari direktori web publik (`att-admin-v12/public/`) ke folder arsip aman `scratch/legacy_tools/` (`info.php`, `manage_employees_temp.php`, `migrate.php`, `run_migration.php`, `test_db.php`, `test_pdo.php`, `test_wl.php`, `test_chat.php`, `check_notif.php`, `debug_blast.php`, `get_settings.php`).
+      - Melindungi endpoint cron Odoo `/cron/odoo-sync` dengan validasi token rahasia (`?token=...`).
+    - **HTTP Security Headers & Perlindungan Direktori Upload**:
+      - Membuat dan mendaftarkan middleware global `SecurityHeadersMiddleware`:
+        - `X-Frame-Options: SAMEORIGIN` (Anti-Clickjacking)
+        - `X-Content-Type-Options: nosniff` (Anti-MIME Sniffing)
+        - `X-XSS-Protection: 1; mode=block`
+        - `Referrer-Policy: strict-origin-when-cross-origin`
+        - `Permissions-Policy: geolocation=(self), camera=(self), microphone=()`
+        - `Strict-Transport-Security` (HSTS pada HTTPS)
+      - Konfigurasi `.htaccess` publik untuk memblokir akses ke file sensitif (`.env`, `.git`, `.sql`, `.sqlite`, `.sh`, `.py`, `composer.*`).
+      - Membuat `.htaccess` proteksi anti-eksekusi skrip PHP di dalam direktori penyimpanan publik (`storage/app/public/`).
+    - **Rate Limiting & Mitigasi Anti-Brute Force**:
+      - Mendaftarkan rate limiter khusus `login` pada `AppServiceProvider.php` (maks 10 attempt/menit) dan menerapkannya pada `POST /api/login` serta `POST /api/v1/gateway/login`.
+      - Mendaftarkan rate limiter `helpdesk-check` pada `POST /api/helpdesk/check-nik` (maks 20 attempt/menit) untuk mencegah enumerasi NIK karyawan.
+      - Memperkuat skrip deployment (`deploy.php`, `deploy-production.php`, `clean_server.php`) menggunakan perbandingan string konstan `hash_equals()` dan pembatasan ekstensi chunked upload (`.apk`, `.zip`).
+    - **Validasi Berkas & Sanitasi Input (Anti-XSS & RCE)**:
+      - Menambahkan validasi tipe MIME gambar ketat (`jpeg,png,jpg,webp`) dan batas ukuran maksimal 10 MB pada endpoint `POST /api/attendance` dan `POST /api/attendance/visit-report`.
+      - Sanitasi otomatis teks pesan chat (`strip_tags`) pada `ChatController.php` dan `HelpdeskApiController.php` sebelum disimpan ke database.
+    - **Pengerasan Keamanan Aplikasi Mobile Flutter (`att-mobile`)**:
+      - Menambahkan deteksi modifikasi perangkat Root & Jailbreak via `SafeDevice.isJailBroken` saat inisialisasi aplikasi di `main.dart`.
+      - Menambahkan pengecekan **Real-Time Anti-Mock Location (Fake GPS)** di `attendance_location_screen.dart` dan `attendance_provider.dart` (`_currentPosition?.isMocked == true || await SafeDevice.isMockLocation`) tepat sebelum presensi dikirimkan ke server.
+      - Menonaktifkan lalu lintas teks polos via `android:usesCleartextTraffic="false"` pada `AndroidManifest.xml`.
+      - Menjamin prinsip **zero-breakage**: seluruh alur operasional presensi, reporting, Odoo sync, dan deploy cluster tetap berfungsi 100% normal.
+
+33. **Proteksi Sesi Login Permanen & Anti Auto-Logout Karyawan (15 September 2026)**:
+    - **Kebijakan Sesi Permanen (Zero Unwanted Logout)**:
+      - Menjamin bahwa akun karyawan yang telah dalam posisi login **TIDAK AKAN PERNAH ter-logout otomatis** akibat restart server, deploy pembaruan, gangguan jaringan sementara, maupun response 401 unauthenticated biasa.
+      - Aplikasi **HANYA** akan keluar / logout jika:
+        1. Karyawan berstatus **TIDAK AKTIF** / dinonaktifkan (`is_active == false` atau `account_status == 'inactive'`).
+        2. Karyawan melakukan **Logout Manual** via tombol "Keluar Akun" di halaman Profil.
+    - **Mekanisme Silent Background Re-Authentication (`auth_provider.dart`)**:
+      - Menyimpan kredensial login (ID/NIK & password) di local storage aman saat proses login berhasil.
+      - Jika token otentikasi kedaluwarsa atau terjadi desinkronisasi server (HTTP 401), sistem secara otomatis melakukan re-login di latar belakang (*silent re-login*) tanpa memutus aktivitas pengguna dan tanpa memunculkan layar login.
+      - Jika koneksi offline, timeout, atau server sedang me-restart (500/502/503), sesi lokal dan data profil cache tetap aktif 100%.
+    - **Backend & Gateway Cluster Token Resiliency**:
+      - Pada `AuthController@me`, backend menyertakan penanda eksplisit `is_active` dan `account_status` (HTTP 403) jika karyawan dinonaktifkan oleh administrator.
+      - Pada `AuthController@login`, penghapusan massal token lama dihilangkan untuk mencegah race-condition antar-perangkat atau background sync.
+      - Pada `SmartGatewayRelayService`, masa simpan cache pemetaan token cluster diperpanjang menjadi 180 hari, dilengkapi dengan mekanisme auto-discovery ke peer server (AKP & ATK) jika cache terhapus saat deployment (`artisan cache:clear`).
+    - **Build APK & AAB Rilis v1.0.154 (Kompilasi Lokal)**:
+      - Versi aplikasi dinaikkan menjadi **`v1.0.154+154`** pada `pubspec.yaml`.
+      - Kompilasi Gradle APK release (`flutter build apk --release`) selesai dengan hasil **100% SUKSES** (110.7 MB).
+      - Kompilasi Gradle AAB release (`flutter build appbundle --release`) selesai dengan hasil **100% SUKSES** (88.6 MB / 92.9 MB).
+      - Berkas rilis telah disimpan secara lokal di:
+        - `att-mobile/app-release-1.0.154.apk` & `att-mobile/app-release-1.0.154.aab`
+        - `att-admin-v12/public/app-release-1.0.154.apk` & `att-admin-v12/public/app-release-1.0.154.aab`
+        - Root project: `app-release-1.0.154.apk` & `app-release-1.0.154.aab`
+      - Skrip `build_and_bump.ps1` telah diperbarui permanen sehingga setiap kali dijalankan akan otomatis memproduksi file **.APK dan .AAB** secara bersamaan dengan versi yang sama.
+
+34. **Perbaikan Laporan Portal CBP Dulux, Nonaktifkan Face Recognition Presensi & Rilis Mobile v1.0.155 (16 September 2026)**:
+    - **Perbaikan Fatal Error Laporan CBP Dulux di Portal Prinsiple (Januari - September 2026)**:
+      - **Akar Masalah**: Error `Allowed memory size of 1073741824 bytes exhausted` (1 GB memory limit terlampaui) ketika memfilter laporan CBP Dulux dari Januari hingga September 2026. Hal ini terjadi karena query live database PostgreSQL memuat 117.000+ data batch submission lama (`SUB-CBP-%`) ke dalam memori secara bersamaan.
+      - **Solusi Backend (`PrincipalCbpReportController.php` & `DuluxCbpReportController.php`)**:
+        - Menambahkan filter pengecualian `where('code', 'not like', 'SUB-CBP-%')` pada query live database.
+        - Data historis masa lampau telah tersimpan rapi dan efisien di dalam database terkompresi SQLite (`storage/app/dulux_data/dulux_cbp_2026.sqlite`).
+        - Hasil: Query live hanya memproses baris data baru (6 submission), penggunaan memori turun drastis dari >1 GB menjadi <80 MB, dan laporan berhasil dimuat seketika tanpa error.
+    - **Penonaktifan Face Recognition & Blocking Saat Selfie Presensi (Check-in & Visit-in)**:
+      - **Akar Masalah**: Fitur face recognition biometrik aktif saat karyawan mengambil foto selfie check-in dan visit-in, mencocokkan wajah dengan master photo dan memblokir presensi jika tingkat kecocokan <75% atau belum memiliki master foto.
+      - **Solusi Mobile (`att-mobile`)**:
+        - Pada `attendance_location_screen.dart`, pemanggilan kamera liveness diatur ke `isRequired: false, isEnrollment: false, masterPhotoUrl: null`.
+        - Menghapus seluruh blokade presensi `isFaceRequired && !hasMasterPhoto` di `_takeSelfie()`, `_submitAttendance()`, serta tombol submit.
+        - Menghapus tombol pengganti "Daftarkan Master Wajah" sehingga tombol Check-in / Visit-in selalu aktif dan normal.
+        - Pada `liveness_camera_screen.dart`, pencocokan biometrik master wajah dan badge persentase kecocokan hanya dijalankan jika `widget.isRequired && !widget.isEnrollment`.
+        - Pada `dashboard_screen.dart`, `_isFaceBlocked()` diatur return `false` sehingga tombol Check-in pada dashboard tidak pernah dinonaktifkan / berwarna abu-abu akibat belum mendaftarkan master wajah.
+    - **Penyempurnaan Fitur Pendaftaran Master Wajah & Shutter Manual**:
+      - **Akar Masalah**: Fitur pendaftaran master wajah sebelumnya mengandalkan 100% deteksi kedipan mata otomatis (`leftEyeOpen` & `rightEyeOpen`). Pada beberapa perangkat Android, deteksi probabilitas mata menghasilkan nilai `null` atau tidak mencapai batas sensitivitas, dan tidak ada tombol jepret manual sama sekali sehingga pengguna terjebak di layar kamera.
+      - **Solusi**:
+        - Menambahkan tombol shutter kamera circular manual di `liveness_camera_screen.dart` dengan efek visual glow dan loading indicator. Pengguna kini dapat mengambil foto seketika hanya dengan menyentuh tombol kamera atau dengan berkedip.
+        - Pada `auth_provider.dart`, hasil pembaruan foto master wajah dari API `updateProfile` langsung disimpan ke `SharedPreferences` pada key `cached_employee_data` untuk menjamin sinkronisasi instan saat aplikasi dibuka kembali.
+    - **Penaikan Versi Mobile & Rilis v1.0.155+155 (APK & AAB)**:
+      - Versi aplikasi dinaikkan menjadi **`1.0.155+155`** pada `pubspec.yaml`.
+      - Memperbarui `build_and_bump.ps1` dengan pengalihan direktori sementara Gradle/Java (`TEMP` dan `_JAVA_OPTIONS`) ke drive berkapasitas besar (`H:\Temp` / `G:\Temp`) untuk mencegah kegagalan kompilasi `not enough space on the disk` pada drive C:.
+      - Berhasil mengompilasi:
+        - `app-release-1.0.155.apk` (116 MB)
+        - `app-release-1.0.155.aab` (92.8 MB)
+      - Berkas rilis telah disalin ke:
+        - Root: `app-release.apk`, `app-release.aab`, `app-release-1.0.155.apk`, `app-release-1.0.155.aab`
+        - Public Admin: `att-admin-v12/public/app-release.apk`, `app-release.aab`, `app-release-1.0.155.apk`, `app-release-1.0.155.aab`
+      - Berkas AAB versi 155 (1.0.155) telah diunggah ke Google Play Console pada jalur **Closed Testing (Alpha)** dan sedang dalam proses peninjauan Google.
+    - **Deployment Cluster Production (AMK, AKP, ATK)**:
+      - Seluruh perubahan kode backend telah disinkronkan dan di-deploy ke seluruh cluster production (Server 1 AMK, Server 2 AKP, Server 3 ATK) via console deployment `deploy-production.php`.
+      - Verifikasi health check ping mengonfirmasi seluruh server (3/3) beroperasi 100% normal (HTTP 200).

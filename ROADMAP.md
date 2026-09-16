@@ -1791,6 +1791,36 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Root project: `app-release-1.0.154.apk` & `app-release-1.0.154.aab`
       - Skrip `build_and_bump.ps1` telah diperbarui permanen sehingga setiap kali dijalankan akan otomatis memproduksi file **.APK dan .AAB** secara bersamaan dengan versi yang sama.
 
-
-
-
+34. **Perbaikan Laporan Portal CBP Dulux, Nonaktifkan Face Recognition Presensi & Rilis Mobile v1.0.155 (16 September 2026)**:
+    - **Perbaikan Fatal Error Laporan CBP Dulux di Portal Prinsiple (Januari - September 2026)**:
+      - **Akar Masalah**: Error `Allowed memory size of 1073741824 bytes exhausted` (1 GB memory limit terlampaui) ketika memfilter laporan CBP Dulux dari Januari hingga September 2026. Hal ini terjadi karena query live database PostgreSQL memuat 117.000+ data batch submission lama (`SUB-CBP-%`) ke dalam memori secara bersamaan.
+      - **Solusi Backend (`PrincipalCbpReportController.php` & `DuluxCbpReportController.php`)**:
+        - Menambahkan filter pengecualian `where('code', 'not like', 'SUB-CBP-%')` pada query live database.
+        - Data historis masa lampau telah tersimpan rapi dan efisien di dalam database terkompresi SQLite (`storage/app/dulux_data/dulux_cbp_2026.sqlite`).
+        - Hasil: Query live hanya memproses baris data baru (6 submission), penggunaan memori turun drastis dari >1 GB menjadi <80 MB, dan laporan berhasil dimuat seketika tanpa error.
+    - **Penonaktifan Face Recognition & Blocking Saat Selfie Presensi (Check-in & Visit-in)**:
+      - **Akar Masalah**: Fitur face recognition biometrik aktif saat karyawan mengambil foto selfie check-in dan visit-in, mencocokkan wajah dengan master photo dan memblokir presensi jika tingkat kecocokan <75% atau belum memiliki master foto.
+      - **Solusi Mobile (`att-mobile`)**:
+        - Pada `attendance_location_screen.dart`, pemanggilan kamera liveness diatur ke `isRequired: false, isEnrollment: false, masterPhotoUrl: null`.
+        - Menghapus seluruh blokade presensi `isFaceRequired && !hasMasterPhoto` di `_takeSelfie()`, `_submitAttendance()`, serta tombol submit.
+        - Menghapus tombol pengganti "Daftarkan Master Wajah" sehingga tombol Check-in / Visit-in selalu aktif dan normal.
+        - Pada `liveness_camera_screen.dart`, pencocokan biometrik master wajah dan badge persentase kecocokan hanya dijalankan jika `widget.isRequired && !widget.isEnrollment`.
+        - Pada `dashboard_screen.dart`, `_isFaceBlocked()` diatur return `false` sehingga tombol Check-in pada dashboard tidak pernah dinonaktifkan / berwarna abu-abu akibat belum mendaftarkan master wajah.
+    - **Penyempurnaan Fitur Pendaftaran Master Wajah & Shutter Manual**:
+      - **Akar Masalah**: Fitur pendaftaran master wajah sebelumnya mengandalkan 100% deteksi kedipan mata otomatis (`leftEyeOpen` & `rightEyeOpen`). Pada beberapa perangkat Android, deteksi probabilitas mata menghasilkan nilai `null` atau tidak mencapai batas sensitivitas, dan tidak ada tombol jepret manual sama sekali sehingga pengguna terjebak di layar kamera.
+      - **Solusi**:
+        - Menambahkan tombol shutter kamera circular manual di `liveness_camera_screen.dart` dengan efek visual glow dan loading indicator. Pengguna kini dapat mengambil foto seketika hanya dengan menyentuh tombol kamera atau dengan berkedip.
+        - Pada `auth_provider.dart`, hasil pembaruan foto master wajah dari API `updateProfile` langsung disimpan ke `SharedPreferences` pada key `cached_employee_data` untuk menjamin sinkronisasi instan saat aplikasi dibuka kembali.
+    - **Penaikan Versi Mobile & Rilis v1.0.155+155 (APK & AAB)**:
+      - Versi aplikasi dinaikkan menjadi **`1.0.155+155`** pada `pubspec.yaml`.
+      - Memperbarui `build_and_bump.ps1` dengan pengalihan direktori sementara Gradle/Java (`TEMP` dan `_JAVA_OPTIONS`) ke drive berkapasitas besar (`H:\Temp` / `G:\Temp`) untuk mencegah kegagalan kompilasi `not enough space on the disk` pada drive C:.
+      - Berhasil mengompilasi:
+        - `app-release-1.0.155.apk` (116 MB)
+        - `app-release-1.0.155.aab` (92.8 MB)
+      - Berkas rilis telah disalin ke:
+        - Root: `app-release.apk`, `app-release.aab`, `app-release-1.0.155.apk`, `app-release-1.0.155.aab`
+        - Public Admin: `att-admin-v12/public/app-release.apk`, `app-release.aab`, `app-release-1.0.155.apk`, `app-release-1.0.155.aab`
+      - Berkas AAB versi 155 (1.0.155) telah diunggah ke Google Play Console pada jalur **Closed Testing (Alpha)** dan sedang dalam proses peninjauan Google.
+    - **Deployment Cluster Production (AMK, AKP, ATK)**:
+      - Seluruh perubahan kode backend telah disinkronkan dan di-deploy ke seluruh cluster production (Server 1 AMK, Server 2 AKP, Server 3 ATK) via console deployment `deploy-production.php`.
+      - Verifikasi health check ping mengonfirmasi seluruh server (3/3) beroperasi 100% normal (HTTP 200).
