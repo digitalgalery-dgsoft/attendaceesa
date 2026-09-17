@@ -34,16 +34,27 @@ class CheckPrincipalsCommand extends Command
             $this->line("Principal ID: {$p->id} | Name: {$p->name} | Code: {$p->code} | Company: {$companyName} ({$p->company_id}) | Status: {$active}");
         }
 
-        // Also check principals belonging to any company matching keyword
-        if ($companies->isNotEmpty()) {
-            $this->info("--- PRINCIPALS UNDER MATCHING COMPANIES ---");
-            $companyIds = $companies->pluck('id');
-            $childPrincipals = Principal::whereIn('company_id', $companyIds)->get(['id', 'name', 'code', 'company_id', 'is_active']);
-            foreach ($childPrincipals as $cp) {
-                $active = $cp->is_active ? 'ACTIVE' : 'INACTIVE';
-                $this->line("Under Company {$cp->company_id}: [{$cp->id}] {$cp->name} (Status: {$active})");
-            }
-        }
+        $this->info("--- CHECKING EMPLOYEES UNDER COMPANY 1 & 3 ---");
+        $empComp1 = \App\Models\Employee::where('company_id', 1)->count();
+        $empComp3 = \App\Models\Employee::where('company_id', 3)->count();
+        $this->line("Employees with company_id = 1 (PT ANUGRAH TERPERCAYA KERJA): {$empComp1}");
+        $this->line("Employees with company_id = 3 (PT ANUGRAH TALENTA BERKARYA): {$empComp3}");
+
+        $empP37 = \App\Models\Employee::where('principal_id', 37)->count();
+        $empP42 = \App\Models\Employee::where('principal_id', 42)->count();
+        $this->line("Employees with principal_id = 37 (PT ANUGRAH TALENTA BERKARYA): {$empP37}");
+        $this->line("Employees with principal_id = 42 (PT ANUGRAH TALENTA BERKARYA): {$empP42}");
+
+        // Distinct principals of employees under company 1
+        $distinctPrincipalsComp1 = \App\Models\Employee::where('company_id', 1)
+            ->select('principal_id', \DB::raw('count(*) as count'))
+            ->groupBy('principal_id')
+            ->get();
+        $this->line("Principal IDs of employees under company 1: " . json_encode($distinctPrincipalsComp1->toArray()));
+
+        // Also check if any employee has principal_id null or name matching
+        $nullPrincipalCount = \App\Models\Employee::where('company_id', 1)->whereNull('principal_id')->count();
+        $this->line("Employees under company 1 with principal_id IS NULL: {$nullPrincipalCount}");
 
         return 0;
     }
