@@ -1824,3 +1824,39 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Deployment Cluster Production (AMK, AKP, ATK)**:
       - Seluruh perubahan kode backend telah disinkronkan dan di-deploy ke seluruh cluster production (Server 1 AMK, Server 2 AKP, Server 3 ATK) via console deployment `deploy-production.php`.
       - Verifikasi health check ping mengonfirmasi seluruh server (3/3) beroperasi 100% normal (HTTP 200).
+
+35. **Penyempurnaan Odoo Sync, Prinsiple PT ANUGRAH TERPERCAYA KERJA, dan Integrasi Informasi Area Working Group (17 September 2026)**:
+    - **Pengamanan Roster & Check-In pada Sinkronisasi Odoo**:
+      - Menyempurnakan skrip sinkronisasi Odoo agar relasi data karyawan, riwayat check-in, dan roster (jadwal kerja) mengikat secara konsisten ke NIK (`employee_id` / `identification_id`) dan nama prinsiple.
+      - Menjamin proses sinkronisasi Odoo (pembaruan data profil atau perubahan ID internal Odoo) tidak mengubah, mereset, atau menghapus data jadwal kerja (roster) maupun histori presensi harian karyawan yang sudah tercatat.
+      - Memastikan endpoint dan URL otentikasi login aplikasi mobile terisolasi dan hanya diarahkan ke server production resmi.
+    - **Diagnosa & Optimalisasi Beban Server 3 (ATK / Gabungan)**:
+      - Menangani lonjakan beban CPU 100% dan penumpukan proses PHP-FPM di Server 3 (`38.103.170.224`).
+      - Melakukan audit lock query database PostgreSQL, menghentikan transaksi antrean yang macet, serta memulihkan load server ke performa optimal normal.
+    - **Pendaftaran & Pemulihan Prinsiple PT ANUGRAH TERPERCAYA KERJA (ATK)**:
+      - **Akar Masalah**: Pada form Wizard Working Groups, opsi prinsiple *PT ANUGRAH TERPERCAYA KERJA* tidak muncul pada dropdown pencarian. Selain itu, sebanyak 464 karyawan In-house Company 1 salah terpetakan ke Principal ID 37 (ATB) akibat bentrok ID Odoo pada sinkronisasi tanpa filter perusahaan.
+      - **Solusi Database & Migrasi**:
+        - Membuat migrasi `2026_09_17_160000_ensure_atk_principal_exists.php` untuk mendaftarkan record in-house principal *PT ANUGRAH TERPERCAYA KERJA* (Kode `300`, Company ID `1`, `is_active = true`).
+        - Merelokasi dan memetakan kembali 464 karyawan in-house Company 1 ke Principal ID 56 (*PT ANUGRAH TERPERCAYA KERJA*).
+        - Menjalankan `Principal::syncAllActiveStatuses()` untuk memastikan status aktif tersinkronisasi.
+      - **Perbaikan Backend `OdooSyncService.php`**:
+        - Memperketat pencarian principal pada sinkronisasi Odoo dengan filter `company_id` pada pencarian `odoo_id`, `code`, maupun `name` agar database multi-company tidak saling menimpa.
+        - Memperbaiki model `ReportFormField` pada migrasi `2026_09_14_130000_add_foto_kegiatan_sampling_to_wings_freetaste_template.php`.
+    - **Penambahan Informasi Area & Pencarian Area pada Dropdown Store / Location (Working Groups)**:
+      - **Akar Masalah**: Dropdown *Store/Location (Default)* dan *Store/Location (Custom)* pada Wizard Working Group sebelumnya hanya menampilkan nama toko tanpa asal area/cabang, sehingga admin sulit membedakan cabang dan lokasi dengan nama yang mirip.
+      - **Solusi Backend (`CreateWorkingGroup.php`)**:
+        - Mengoptimalkan pemuatan lokasi (`WorkLocation::with('branch:id,name')`) beserta atribut `area`.
+        - Memetakan nama area efektif (`$areaName = trim($w->branch?->name ?: $w->area ?: '')`) ke dalam struktur data opsi: `['id' => (string)$w->id, 'name' => (string)$w->name, 'area' => $areaName]`.
+        - Menerapkan deduplikasi aman berdasarkan kombinasi `NAME | AREA` agar toko dengan nama sama di cabang berbeda tetap muncul lengkap, serta mempertahankan ID lokasi yang sedang terpilih.
+      - **Solusi Frontend UI/UX (`working-group-wizard.blade.php`)**:
+        - Menambahkan subtitle nama area dengan icon pin lokasi (`Area: [Nama Area]`) dan badge pill area bergaya modern di sisi kanan setiap baris dropdown.
+        - Label pilihan terpilih menampilkan format lengkap: `[Nama Lokasi] - [Area: Nama Area]`.
+        - Mengaktifkan fitur pencarian cerdas ganda (Multi-Search) yang memfilter opsi berdasarkan nama lokasi MAUPUN nama area.
+        - Diterapkan seragam pada *Store / Location (Default)* dan *Store / Location (Custom)* per hari.
+    - **Penyebaran & Verifikasi Cluster Production**:
+      - Seluruh perubahan telah di-commit ke Git (`3272c23`) dan di-push ke branch `main`.
+      - Menjalankan deploy dan migrasi otomatis pada seluruh cluster:
+        - **Server 1 (PT Arina Multi Karya - AMK)**: `HEAD is now at 3272c23` (Health Check OK 200).
+        - **Server 2 (PT Alva Karya Perkasa - AKP)**: `HEAD is now at 3272c23` (Health Check OK 200).
+        - **Server 3 (PT Anugrah Talenta Berkarya / ATK)**: `HEAD is now at 3272c23` (Health Check OK 200).
+
