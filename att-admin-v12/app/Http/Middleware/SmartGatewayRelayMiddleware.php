@@ -31,8 +31,14 @@ class SmartGatewayRelayMiddleware
             }
         }
 
+        // PENTING: Jika request ini adalah hasil relay dari peer server (ada header X-ESA-Gateway-Relay),
+        // JANGAN PERNAH di-relay lagi untuk mencegah infinite recursive storm antar server cluster.
+        if ($request->hasHeader('X-ESA-Gateway-Relay') || $request->header('X-ESA-Gateway-Relay') === '1') {
+            return $next($request);
+        }
+
         // Jangan intercept route login, ping, telemetry, atau endpoint sinkronisasi publik/khusus
-        if ($request->is('api/login') || $request->is('api/v1/auth/login') || $request->is('api/v1/sync/*') || $request->is('api/v1/system/*')) {
+        if ($request->is('api/login') || $request->is('api/v1/auth/login') || $request->is('api/v1/sync/*') || $request->is('api/v1/system/*') || $request->is('api/ping') || $request->is('api/health')) {
             return $next($request);
         }
 
