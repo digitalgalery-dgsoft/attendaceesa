@@ -62,6 +62,13 @@ class CheckPrincipalsCommand extends Command
         if ($inhouseDepts->isNotEmpty()) {
             $inhouseEmps = \App\Models\Employee::where('company_id', 1)->whereIn('department_id', $inhouseDepts->pluck('id'))->count();
             $this->line("Employees in Company 1 with Inhouse Dept: {$inhouseEmps}");
+
+            $inhouseDist = \App\Models\Employee::where('company_id', 1)
+                ->whereIn('department_id', $inhouseDepts->pluck('id'))
+                ->select('principal_id', \DB::raw('count(*) as count'))
+                ->groupBy('principal_id')
+                ->get();
+            $this->line("Inhouse employee principal breakdown: " . json_encode($inhouseDist->toArray()));
         }
 
         return 0;
