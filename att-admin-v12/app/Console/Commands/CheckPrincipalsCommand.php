@@ -76,6 +76,18 @@ class CheckPrincipalsCommand extends Command
             $this->line("Inhouse employee principal breakdown: " . json_encode($inhouseDist->toArray()));
         }
 
+        $this->info("--- CHECKING WORK LOCATIONS ---");
+        $totalLocs = \App\Models\WorkLocation::count();
+        $locsWithBranch = \App\Models\WorkLocation::whereNotNull('branch_id')->count();
+        $locsWithArea = \App\Models\WorkLocation::whereNotNull('area')->where('area', '!=', '')->count();
+        $this->line("Total Work Locations: {$totalLocs}, with branch_id: {$locsWithBranch}, with area: {$locsWithArea}");
+
+        $sampleLocs = \App\Models\WorkLocation::with('branch')->take(10)->get();
+        foreach ($sampleLocs as $sl) {
+            $bName = $sl->branch ? $sl->branch->name : 'NULL';
+            $this->line("Loc ID: {$sl->id} | Name: {$sl->name} | branch: {$bName} (id: {$sl->branch_id}) | area field: {$sl->area}");
+        }
+
         return 0;
     }
 }
