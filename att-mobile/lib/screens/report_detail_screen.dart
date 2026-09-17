@@ -2899,7 +2899,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
     // Gunakan server yang valid untuk wings jika terdeteksi template/data Wings
     String base = Constants.baseUrl.replaceAll(RegExp(r'/api/?$'), '');
-    if (base.contains('appsend.my.id') && (_currentSubmission.templateCode?.contains('WINGS') == true || _currentSubmission.templateTitle.contains('Wings'))) {
+    if (_currentSubmission.templateCode?.contains('WINGS') == true || _currentSubmission.templateTitle.contains('Wings')) {
       base = 'https://wings.esa-solutions.id';
     }
 

@@ -18,6 +18,15 @@ class AuthController extends Controller
             'fcm_token' => 'nullable|string',
         ]);
 
+        // Keamanan Ketat: Tolak login mobile jika diakses melalui server staging (appsend.my.id)
+        $host = $request->getHost();
+        if (str_contains($host, 'appsend.my.id') || $host === '43.129.41.93') {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Login ditolak: Server staging (appsend.my.id) dinonaktifkan untuk login mobile. Silakan gunakan server production resmi (https://api.esa-solutions.id atau subdomain perusahaan Anda).'
+            ], 403);
+        }
+
         $loginId = trim($request->email);
         $password = $request->password;
 

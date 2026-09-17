@@ -6,6 +6,7 @@ import 'package:att_mobile/services/biometric_service.dart';
 import 'package:att_mobile/screens/main_screen.dart';
 import 'package:att_mobile/screens/server_config_screen.dart';
 import 'package:att_mobile/screens/helpdesk_chat_screen.dart';
+import 'package:att_mobile/utils/constants.dart';
 import 'package:toastification/toastification.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -25,6 +26,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    if (!Constants.isProductionUrl(Constants.baseUrl)) {
+      Constants.loadBaseUrl();
+    }
     _checkBiometricLogin();
   }
 
@@ -112,6 +116,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _login() async {
     if (_formKey.currentState!.validate()) {
+      if (!Constants.isProductionUrl(Constants.baseUrl)) {
+        await Constants.loadBaseUrl();
+      }
+
       final locale = Provider.of<LocaleProvider>(context, listen: false);
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final email = _emailController.text.trim();

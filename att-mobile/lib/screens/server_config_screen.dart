@@ -14,9 +14,7 @@ class ServerConfigScreen extends StatefulWidget {
 
 class _ServerConfigScreenState extends State<ServerConfigScreen> {
   final _subdomainController = TextEditingController();
-  final _customUrlController = TextEditingController();
   bool _isLoading = false;
-  bool _useCustomUrl = false;
 
   @override
   void initState() {
@@ -35,11 +33,6 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
       if (clean.endsWith('.esa-solutions.id')) {
         final sub = clean.replaceAll('.esa-solutions.id', '');
         _subdomainController.text = sub.isNotEmpty ? sub : 'api';
-        _useCustomUrl = false;
-      } else if (clean.isNotEmpty) {
-        _customUrlController.text = current.replaceAll('/api', '');
-        _subdomainController.text = 'api';
-        // If current was appsend.my.id, keep subdomain as 'api' ready for esa-solutions.id
       } else {
         _subdomainController.text = 'api';
       }
@@ -51,7 +44,6 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
   @override
   void dispose() {
     _subdomainController.dispose();
-    _customUrlController.dispose();
     super.dispose();
   }
 
@@ -60,30 +52,20 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
     s = s.replaceFirst(RegExp(r'^https?://'), '');
     s = s.replaceFirst(RegExp(r'\.esa-solutions\.id.*$'), '');
     s = s.replaceFirst(RegExp(r'/.*$'), '');
+    s = s.replaceAll(RegExp(r'[^a-z0-9\-]'), '');
     return s.trim();
   }
 
   String _getEffectiveApiUrl() {
-    if (_useCustomUrl) {
-      var custom = _customUrlController.text.trim();
-      if (custom.endsWith('/')) {
-        custom = custom.substring(0, custom.length - 1);
-      }
-      if (!custom.endsWith('/api')) {
-        custom = '$custom/api';
-      }
-      return custom;
-    } else {
-      final sub = _cleanSubdomain(_subdomainController.text);
-      final finalSub = sub.isNotEmpty ? sub : 'api';
-      return 'https://$finalSub.esa-solutions.id/api';
-    }
+    final sub = _cleanSubdomain(_subdomainController.text);
+    final finalSub = sub.isNotEmpty ? sub : 'api';
+    return 'https://$finalSub.esa-solutions.id/api';
   }
 
   Future<void> _testAndSaveUrl() async {
     final apiUrl = _getEffectiveApiUrl();
 
-    if (!_useCustomUrl && _cleanSubdomain(_subdomainController.text).isEmpty) {
+    if (_cleanSubdomain(_subdomainController.text).isEmpty) {
       toastification.show(
         context: context,
         title: const Text('Subdomain server tidak boleh kosong'),
@@ -219,7 +201,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Masukkan kode server perusahaan Anda untuk menghubungkan aplikasi.',
+                    'Pilih atau masukkan kode server resmi perusahaan Anda (*.esa-solutions.id).',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 13,
@@ -229,191 +211,151 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  if (!_useCustomUrl) ...[
-                    // Permanent Prefix & Suffix URL Field
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'URL Domain Server ESA',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: textColor,
+                  // Permanent Prefix & Suffix URL Field
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Domain Server Production ESA',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  Container(
+                    decoration: BoxDecoration(
+                      color: inputBg,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: borderColor, width: 1.5),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    child: Row(
+                      children: [
+                        // Permanent Prefix https://
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.lock_rounded,
+                                size: 13,
+                                color: isDarkMode ? Colors.lightBlueAccent : const Color(0xFF0284C7),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'https://',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                  color: isDarkMode ? Colors.white : const Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+
+                        // Subdomain editable field
+                        Expanded(
+                          child: TextField(
+                            controller: _subdomainController,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: isDarkMode ? Colors.white : Colors.black87,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'api',
+                              hintStyle: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontWeight: FontWeight.normal,
+                              ),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                            keyboardType: TextInputType.text,
+                            autocorrect: false,
+                            enableSuggestions: false,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+
+                        // Permanent Suffix .esa-solutions.id
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '.esa-solutions.id',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                              color: isDarkMode ? Colors.white70 : const Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
+                  ),
 
-                    Container(
-                      decoration: BoxDecoration(
-                        color: inputBg,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: borderColor, width: 1.5),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      child: Row(
-                        children: [
-                          // Permanent Prefix https://
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.lock_rounded,
-                                  size: 13,
-                                  color: isDarkMode ? Colors.lightBlueAccent : const Color(0xFF0284C7),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'https://',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12.5,
-                                    color: isDarkMode ? Colors.white : const Color(0xFF0F172A),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
+                  const SizedBox(height: 10),
 
-                          // Subdomain editable field
-                          Expanded(
-                            child: TextField(
-                              controller: _subdomainController,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: isDarkMode ? Colors.white : Colors.black87,
+                  // Quick Select Server Chips
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          'Pilihan Server:',
+                          style: TextStyle(fontSize: 11.5, color: subtitleColor),
+                        ),
+                        ...['api', 'amk', 'akp', 'atk', 'dulux'].map((sub) {
+                          final isSelected = _cleanSubdomain(_subdomainController.text) == sub;
+                          return InkWell(
+                            onTap: () {
+                              setState(() {
+                                _subdomainController.text = sub;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? primaryColor
+                                    : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                              decoration: InputDecoration(
-                                hintText: 'api',
-                                hintStyle: TextStyle(
-                                  color: Colors.grey.shade400,
-                                  fontWeight: FontWeight.normal,
-                                ),
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              keyboardType: TextInputType.text,
-                              autocorrect: false,
-                              enableSuggestions: false,
-                              onChanged: (_) => setState(() {}),
-                            ),
-                          ),
-
-                          // Permanent Suffix .esa-solutions.id
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '.esa-solutions.id',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12.5,
-                                color: isDarkMode ? Colors.white70 : const Color(0xFF475569),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Quick Select Server Chips
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            'Pilihan Cepat:',
-                            style: TextStyle(fontSize: 11.5, color: subtitleColor),
-                          ),
-                          ...['api', 'amk', 'akp', 'atk', 'dulux'].map((sub) {
-                            final isSelected = _cleanSubdomain(_subdomainController.text) == sub;
-                            return InkWell(
-                              onTap: () {
-                                setState(() {
-                                  _subdomainController.text = sub;
-                                });
-                              },
-                              borderRadius: BorderRadius.circular(6),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
+                              child: Text(
+                                sub,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                                   color: isSelected
-                                      ? primaryColor
-                                      : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  sub,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : (isDarkMode ? Colors.white70 : Colors.black87),
-                                  ),
+                                      ? Colors.white
+                                      : (isDarkMode ? Colors.white70 : Colors.black87),
                                 ),
                               ),
-                            );
-                          }),
-                        ],
-                      ),
+                            ),
+                          );
+                        }),
+                      ],
                     ),
-                  ] else ...[
-                    // Custom URL input mode
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'URL Server Lengkap (Custom)',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: textColor,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _customUrlController,
-                      decoration: InputDecoration(
-                        hintText: 'https://appsend.my.id',
-                        filled: true,
-                        fillColor: inputBg,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: borderColor),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: borderColor),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: primaryColor, width: 1.5),
-                        ),
-                        prefixIcon: const Icon(Icons.link_rounded),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      ),
-                      keyboardType: TextInputType.url,
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ],
+                  ),
 
                   const SizedBox(height: 14),
 
@@ -475,28 +417,6 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
                               'Hubungkan ke Server',
                               style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                             ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Toggle Custom URL Mode
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _useCustomUrl = !_useCustomUrl;
-                      });
-                    },
-                    icon: Icon(
-                      _useCustomUrl ? Icons.dns_rounded : Icons.tune_rounded,
-                      size: 15,
-                      color: subtitleColor,
-                    ),
-                    label: Text(
-                      _useCustomUrl
-                          ? 'Kembali ke Format Standar (.esa-solutions.id)'
-                          : 'Gunakan Domain Kustom Lainnya',
-                      style: TextStyle(fontSize: 12, color: subtitleColor),
                     ),
                   ),
                 ],

@@ -1,14 +1,32 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Constants {
-  static String baseUrl = 'https://appsend.my.id/api';
+  // Official Production Server Gateway URL
+  static const String defaultProductionUrl = 'https://api.esa-solutions.id/api';
+  static String baseUrl = defaultProductionUrl;
+
+  /// Strict security whitelist: Only production domains (*.esa-solutions.id) are permitted
+  static bool isProductionUrl(String url) {
+    try {
+      final uri = Uri.parse(url.trim());
+      final host = uri.host.toLowerCase();
+      return host.endsWith('.esa-solutions.id') || host == 'esa-solutions.id';
+    } catch (_) {
+      return false;
+    }
+  }
 
   static Future<void> loadBaseUrl() async {
     final prefs = await SharedPreferences.getInstance();
-    baseUrl = prefs.getString('server_base_url') ?? 'https://appsend.my.id/api';
-    if (baseUrl.isEmpty) {
-      baseUrl = 'https://appsend.my.id/api';
+    var savedUrl = prefs.getString('server_base_url') ?? '';
+
+    // Strict enforcement: If unconfigured, or pointing to legacy/staging domains (like appsend.my.id),
+    // automatically sanitize and reset to official production URL.
+    if (savedUrl.isEmpty || !isProductionUrl(savedUrl)) {
+      savedUrl = defaultProductionUrl;
+      await prefs.setString('server_base_url', savedUrl);
     }
+    baseUrl = savedUrl;
   }
 
   static Future<void> setBaseUrl(String url) async {
@@ -20,6 +38,11 @@ class Constants {
     if (!cleanUrl.endsWith('/api')) {
       cleanUrl = '$cleanUrl/api';
     }
+
+    if (!isProductionUrl(cleanUrl)) {
+      throw Exception('Hanya server production (*.esa-solutions.id) yang diizinkan.');
+    }
+
     await prefs.setString('server_base_url', cleanUrl);
     baseUrl = cleanUrl;
   }
@@ -31,3 +54,4 @@ class Constants {
     return '$base/storage/$path';
   }
 }
+

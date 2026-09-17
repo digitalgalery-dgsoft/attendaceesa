@@ -19,6 +19,18 @@ class SmartGatewayRelayMiddleware
             return $next($request);
         }
 
+        // Keamanan Ketat: Cegah login dan aktivitas mobile presensi pada domain staging (appsend.my.id)
+        $host = $request->getHost();
+        if (str_contains($host, 'appsend.my.id') || $host === '43.129.41.93') {
+            // Izinkan sinkronisasi antar cluster dan status ping
+            if (!$request->is('api/v1/sync/*') && !$request->is('api/ping') && !$request->is('api/health')) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Akses ditolak: Server staging (appsend.my.id) dinonaktifkan untuk aktivitas mobile presensi. Presensi hanya diizinkan melalui server production resmi (*.esa-solutions.id).'
+                ], 403);
+            }
+        }
+
         // Jangan intercept route login, ping, telemetry, atau endpoint sinkronisasi publik/khusus
         if ($request->is('api/login') || $request->is('api/v1/auth/login') || $request->is('api/v1/sync/*') || $request->is('api/v1/system/*')) {
             return $next($request);
