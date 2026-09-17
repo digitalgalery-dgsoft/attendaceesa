@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use App\Models\ReportTemplate;
-use App\Models\ReportTemplateField;
+use App\Models\ReportFormField;
 
 return new class extends Migration
 {
@@ -19,7 +19,7 @@ return new class extends Migration
         }
 
         // 1. Tambah field foto_kegiatan_sampling jika belum ada
-        $fieldKegiatan = ReportTemplateField::firstOrNew([
+        $fieldKegiatan = ReportFormField::firstOrNew([
             'report_template_id' => $template->id,
             'field_name' => 'foto_kegiatan_sampling',
         ]);
@@ -33,7 +33,7 @@ return new class extends Migration
         $fieldKegiatan->save();
 
         // 2. Sesuaikan urutan foto_booth_sampling ke 7
-        ReportTemplateField::where('report_template_id', $template->id)
+        ReportFormField::where('report_template_id', $template->id)
             ->where('field_name', 'foto_booth_sampling')
             ->update([
                 'field_label' => 'Foto Stand / Booth Sampling',
@@ -42,7 +42,7 @@ return new class extends Migration
             ]);
 
         // 3. Sesuaikan catatan_sampling ke 8
-        ReportTemplateField::where('report_template_id', $template->id)
+        ReportFormField::where('report_template_id', $template->id)
             ->where('field_name', 'catatan_sampling')
             ->update([
                 'order_index' => 8,
@@ -56,7 +56,7 @@ return new class extends Migration
     {
         $template = ReportTemplate::where('code', 'RPT-WINGS-MBR-FREETASTE-01')->first();
         if ($template) {
-            ReportTemplateField::where('report_template_id', $template->id)
+            ReportFormField::where('report_template_id', $template->id)
                 ->where('field_name', 'foto_kegiatan_sampling')
                 ->delete();
         }
