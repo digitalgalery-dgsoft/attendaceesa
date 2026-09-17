@@ -27,3 +27,5 @@ key.properties
 *.jks
 *.keystore
 keystore_backup/
+*.pem
+
