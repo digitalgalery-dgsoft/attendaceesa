@@ -13,7 +13,10 @@ class FixOrphanedEmployeeDataCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'app:fix-orphaned-data';
+    protected $signature = 'app:fix-orphaned-data 
+                            {--nik= : Target specific employee NIK} 
+                            {--today : Only fix employees who have attendance records today} 
+                            {--limit= : Limit the number of duplicate groups processed}';
 
     /**
      * The console command description.
@@ -27,21 +30,51 @@ class FixOrphanedEmployeeDataCommand extends Command
      */
     public function handle()
     {
+        $todayDate = now()->toDateString();
+        $targetNik = $this->option('nik');
+        $onlyToday = $this->option('today');
+        $limit = $this->option('limit') ? intval($this->option('limit')) : null;
+
         $this->info("Scanning for duplicate employee records by NIK...");
 
-        // Get all duplicate groups by employee_no
-        $duplicateGroups = Employee::withTrashed()
+        $query = Employee::withTrashed()
             ->select('employee_no')
             ->whereNotNull('employee_no')
             ->where('employee_no', '!=', '')
-            ->where('employee_no', 'not like', 'OD-%')
-            ->groupBy('employee_no')
+            ->where('employee_no', 'not like', 'OD-%');
+
+        if (!empty($targetNik)) {
+            $query->where('employee_no', $targetNik);
+        } elseif ($onlyToday) {
+            $todayEmpIds = DB::table('attendances')
+                ->where('attendance_date', $todayDate)
+                ->whereNotNull('checkin_at')
+                ->pluck('employee_id')
+                ->unique()
+                ->toArray();
+
+            $todayNiks = Employee::withTrashed()
+                ->whereIn('id', $todayEmpIds)
+                ->whereNotNull('employee_no')
+                ->pluck('employee_no')
+                ->unique()
+                ->toArray();
+
+            $this->info("Found " . count($todayNiks) . " distinct NIKs with check-in records today.");
+            $query->whereIn('employee_no', $todayNiks);
+        }
+
+        $duplicateGroups = $query->groupBy('employee_no')
             ->havingRaw('COUNT(*) > 1')
             ->get();
 
+        if ($limit && $limit > 0) {
+            $duplicateGroups = $duplicateGroups->take($limit);
+        }
+
         $totalCleaned = 0;
         $totalGroups = $duplicateGroups->count();
-        $this->info("Found {$totalGroups} duplicate NIK groups.");
+        $this->info("Processing {$totalGroups} duplicate NIK groups.");
 
         foreach ($duplicateGroups as $idx => $group) {
             $records = Employee::withTrashed()
@@ -55,13 +88,11 @@ class FixOrphanedEmployeeDataCommand extends Command
 
             // Find the best primary account:
             // 1. Prioritaskan yang memiliki riwayat check-in hari ini
-            $todayDate = now()->toDateString();
             $primary = $records->first(function ($e) use ($todayDate) {
                 return DB::table('attendances')
                     ->where('employee_id', $e->id)
                     ->where('attendance_date', $todayDate)
                     ->whereNotNull('checkin_at')
-                    ->where('checkin_at', '!=', '00:00:00')
                     ->exists();
             })
             ?? ($records->firstWhere('is_active', true)

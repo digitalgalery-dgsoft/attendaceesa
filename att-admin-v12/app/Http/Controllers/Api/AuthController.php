@@ -42,7 +42,6 @@ class AuthController extends Controller
                 return \App\Models\Attendance::where('employee_id', $e->id)
                     ->where('attendance_date', $todayJakarta)
                     ->whereNotNull('checkin_at')
-                    ->where('checkin_at', '!=', '00:00:00')
                     ->exists();
             });
             $employee = $withTodayCheckin ?: $candidateEmployees->first();

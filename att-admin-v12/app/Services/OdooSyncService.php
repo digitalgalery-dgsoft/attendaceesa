@@ -644,7 +644,6 @@ class OdooSyncService
                         ->where('employee_id', $primary->id)
                         ->where('attendance_date', $todayDateStr)
                         ->whereNotNull('checkin_at')
-                        ->where('checkin_at', '!=', '00:00:00')
                         ->exists();
 
                     if ($hasCheckedInToday && !$isActiveInOdoo) {
