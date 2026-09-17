@@ -52,6 +52,11 @@ class CheckPrincipalsCommand extends Command
             ->get();
         $this->line("Principal IDs of employees under company 1: " . json_encode($distinctPrincipalsComp1->toArray()));
 
+        $allComps = Company::all();
+        foreach ($allComps as $comp) {
+            $this->line("Comp ID: {$comp->id} | Name: {$comp->name} | Code: {$comp->code} | Odoo URL: {$comp->odoo_url} | Odoo DB: {$comp->odoo_db} | Odoo User: {$comp->odoo_username}");
+        }
+
         $c1 = Company::find(1);
         if ($c1) {
             $this->line("Company 1: ID={$c1->id}, Name={$c1->name}, Code={$c1->code}, Created={$c1->created_at}");
