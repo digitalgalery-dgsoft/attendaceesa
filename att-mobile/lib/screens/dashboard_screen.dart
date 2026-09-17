@@ -1010,9 +1010,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   final canProceed = await _checkReportingComplianceBeforeExit(context, 'checkout');
                                   if (!canProceed) return;
 
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkout'))).then((_) { attProvider.loadDashboardData(); });
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkout'))).then((_) async {
+                                    await attProvider.loadDashboardData();
+                                    if (mounted) await _syncLocationService(attProvider);
+                                  });
                                 } else {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkin'))).then((_) { attProvider.loadDashboardData(); });
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceLocationScreen(type: 'checkin'))).then((_) async {
+                                    await attProvider.loadDashboardData();
+                                    if (mounted) await _syncLocationService(attProvider);
+                                  });
                                 }
                               },
                               child: Container(

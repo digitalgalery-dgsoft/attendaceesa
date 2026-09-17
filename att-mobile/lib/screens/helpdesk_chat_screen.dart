@@ -37,13 +37,22 @@ class _HelpdeskChatScreenState extends State<HelpdeskChatScreen> {
   Timer? _pollTimer;
   bool _hasDeviceBound = false;
 
+  String get _baseUrl {
+    if (Constants.baseUrl.isEmpty || !Constants.isProductionUrl(Constants.baseUrl) || Constants.baseUrl.contains('appsend.my.id')) {
+      return Constants.defaultProductionUrl;
+    }
+    return Constants.baseUrl;
+  }
+
   @override
   void initState() {
     super.initState();
-    if (widget.initialNik != null && widget.initialNik!.isNotEmpty) {
-      _nikController.text = widget.initialNik!;
-      _checkNik();
-    }
+    Constants.loadBaseUrl().then((_) {
+      if (mounted && widget.initialNik != null && widget.initialNik!.isNotEmpty) {
+        _nikController.text = widget.initialNik!;
+        _checkNik();
+      }
+    });
   }
 
   @override
@@ -107,7 +116,7 @@ class _HelpdeskChatScreenState extends State<HelpdeskChatScreen> {
     });
 
     try {
-      final uri = Uri.parse('${Constants.baseUrl}/helpdesk/check-nik');
+      final uri = Uri.parse('$_baseUrl/helpdesk/check-nik');
       final res = await http.post(
         uri,
         headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
@@ -145,7 +154,7 @@ class _HelpdeskChatScreenState extends State<HelpdeskChatScreen> {
     setState(() => _isStartingChat = true);
 
     try {
-      final uri = Uri.parse('${Constants.baseUrl}/helpdesk/initiate-chat');
+      final uri = Uri.parse('$_baseUrl/helpdesk/initiate-chat');
       final res = await http.post(
         uri,
         headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
@@ -186,7 +195,7 @@ class _HelpdeskChatScreenState extends State<HelpdeskChatScreen> {
     if (_employeeId == null || _sessionToken == null || !_isInChatMode) return;
 
     try {
-      final uri = Uri.parse('${Constants.baseUrl}/helpdesk/messages?employee_id=$_employeeId&session_token=$_sessionToken');
+      final uri = Uri.parse('$_baseUrl/helpdesk/messages?employee_id=$_employeeId&session_token=$_sessionToken');
       final res = await http.get(uri, headers: {'Accept': 'application/json'});
 
       if (res.statusCode == 200) {
@@ -220,7 +229,7 @@ class _HelpdeskChatScreenState extends State<HelpdeskChatScreen> {
     setState(() => _isSendingMessage = true);
 
     try {
-      final uri = Uri.parse('${Constants.baseUrl}/helpdesk/send-message');
+      final uri = Uri.parse('$_baseUrl/helpdesk/send-message');
       final res = await http.post(
         uri,
         headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},

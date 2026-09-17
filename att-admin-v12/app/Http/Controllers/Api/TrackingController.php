@@ -28,13 +28,21 @@ class TrackingController extends Controller
         $employeeId = $user->id;
         $today = Carbon::today()->format('Y-m-d');
         
-        // Cari absensi hari ini yang belum checkout (opsional, tapi berguna untuk grouping history per hari)
+        // Cari absensi hari ini yang aktif
         $attendance = Attendance::where('employee_id', $employeeId)
             ->where('attendance_date', $today)
             ->first();
 
-        // Kita tetap rekam history meskipun belum check-in jika service nyala, 
-        // tapi idealnya service dimatikan kalau belum check-in.
+        // Validasi: Jika belum check-in atau sudah check-out hari ini, hentikan tracking dan jangan simpan koordinat
+        if (!$attendance || $attendance->checkout_at !== null) {
+            return response()->json([
+                'status' => 'stopped',
+                'is_tracking_active' => false,
+                'message' => ($attendance && $attendance->checkout_at !== null)
+                    ? 'Karyawan sudah check-out. Pelacakan dinonaktifkan.'
+                    : 'Karyawan belum melakukan check-in. Pelacakan tidak aktif.'
+            ], 200);
+        }
         
         $timezone = 'Asia/Jakarta';
         if ($user->branch && $user->branch->timezone) {

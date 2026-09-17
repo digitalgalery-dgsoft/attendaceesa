@@ -8,6 +8,7 @@ import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/meeting_model.dart';
 import 'package:safe_device/safe_device.dart';
+import '../services/location_service.dart';
 
 class AttendanceProvider with ChangeNotifier {
   bool _isLoading = false;
@@ -298,6 +299,16 @@ class AttendanceProvider with ChangeNotifier {
           'is_visiting': _isVisiting,
           'has_filled_visit_report': _hasFilledVisitReport,
         });
+
+        // Sinkronisasi status background location tracking
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('is_checked_in', _isCheckedIn);
+          if (!_isCheckedIn) {
+            await prefs.setBool('is_tracking_active', false);
+            await LocationService.stopService();
+          }
+        } catch (_) {}
       }
     } catch (e) {
       debugPrint('Error checking status (offline): $e');
@@ -475,9 +486,24 @@ class AttendanceProvider with ChangeNotifier {
       if (response.statusCode == 200 || response.statusCode == 201) {
         await checkAttendanceStatus();
 
+        if (type == 'checkout' || type == 'check_out') {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('is_tracking_active', false);
+            await prefs.setBool('is_checked_in', false);
+            await LocationService.stopService();
+          } catch (_) {}
+        } else if (type == 'checkin' || type == 'check_in') {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('is_tracking_active', true);
+            await prefs.setBool('is_checked_in', true);
+            await LocationService.startService();
+          } catch (_) {}
+        }
+
         _isLoading = false;
         notifyListeners();
-        // Return type so the UI layer can start/stop LocationService AFTER navigation
         return {'success': true, 'message': decodedData['message'] ?? 'Berhasil', 'type': type};
       } else {
         _isLoading = false;
@@ -511,12 +537,24 @@ class AttendanceProvider with ChangeNotifier {
       );
 
       // Perbarui status tampilan secara lokal
-      if (type == 'check_in') {
+      if (type == 'check_in' || type == 'checkin') {
         _isCheckedIn = true;
         _hasCheckedOutToday = false;
-      } else if (type == 'check_out') {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('is_tracking_active', true);
+          await prefs.setBool('is_checked_in', true);
+          await LocationService.startService();
+        } catch (_) {}
+      } else if (type == 'check_out' || type == 'checkout') {
         _isCheckedIn = false;
         _hasCheckedOutToday = true;
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('is_tracking_active', false);
+          await prefs.setBool('is_checked_in', false);
+          await LocationService.stopService();
+        } catch (_) {}
       } else if (type == 'visit_in') {
         _isVisiting = true;
         _hasFilledVisitReport = false;

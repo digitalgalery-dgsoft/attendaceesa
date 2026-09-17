@@ -6,6 +6,7 @@ import 'dart:io';
 import '../utils/constants.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import '../services/push_notification_service.dart';
+import '../services/location_service.dart';
 
 class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
@@ -433,12 +434,18 @@ class AuthProvider with ChangeNotifier {
     _user = null;
     _employeeData = null;
     
+    try {
+      await LocationService.stopService();
+    } catch (_) {}
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     await prefs.remove('cached_employee_data');
     await prefs.remove('cached_user');
     await prefs.remove('saved_login_id');
     await prefs.remove('saved_login_password');
+    await prefs.setBool('is_tracking_active', false);
+    await prefs.setBool('is_checked_in', false);
     
     notifyListeners();
   }

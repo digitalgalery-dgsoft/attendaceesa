@@ -10,6 +10,7 @@ class Constants {
     try {
       final uri = Uri.parse(url.trim());
       final host = uri.host.toLowerCase();
+      if (host.contains('appsend.my.id') || host == '43.129.41.93') return false;
       return host.endsWith('.esa-solutions.id') || host == 'esa-solutions.id';
     } catch (_) {
       return false;
@@ -22,7 +23,7 @@ class Constants {
 
     // Strict enforcement: If unconfigured, or pointing to legacy/staging domains (like appsend.my.id),
     // automatically sanitize and reset to official production URL.
-    if (savedUrl.isEmpty || !isProductionUrl(savedUrl)) {
+    if (savedUrl.isEmpty || !isProductionUrl(savedUrl) || savedUrl.contains('appsend.my.id')) {
       savedUrl = defaultProductionUrl;
       await prefs.setString('server_base_url', savedUrl);
     }

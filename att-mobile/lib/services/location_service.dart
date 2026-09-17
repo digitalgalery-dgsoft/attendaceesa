@@ -82,6 +82,12 @@ class LocationService {
     // Verify location and notification permissions are granted before starting to avoid OS crash
     var notifGranted = await Permission.notification.isGranted;
     if (notifGranted && (await Permission.location.isGranted || await Permission.locationAlways.isGranted)) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('is_tracking_active', true);
+        await prefs.setBool('is_checked_in', true);
+      } catch (_) {}
+
       final service = FlutterBackgroundService();
       var isRunning = await service.isRunning();
       if (!isRunning) {
@@ -99,6 +105,12 @@ class LocationService {
 
   static Future<void> stopService() async {
     if (kIsWeb) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_tracking_active', false);
+      await prefs.setBool('is_checked_in', false);
+    } catch (_) {}
+
     final service = FlutterBackgroundService();
     var isRunning = await service.isRunning();
     if (isRunning) {
@@ -161,6 +173,18 @@ Future<void> _sendLocation(String token, double lat, double lng, {DateTime? time
 
     if (response.statusCode == 200) {
       debugPrint('[Tracking] Sent ($lat, $lng) → HTTP ${response.statusCode}');
+      try {
+        final resData = jsonDecode(response.body);
+        if (resData['is_tracking_active'] == false || resData['status'] == 'stopped') {
+          debugPrint('[Tracking] Server commanded tracking stop (user checked out or not checked in).');
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('is_tracking_active', false);
+          await prefs.setBool('is_checked_in', false);
+          final service = FlutterBackgroundService();
+          service.invoke("stopService");
+          return;
+        }
+      } catch (_) {}
       // Trigger sync for offline locations if any
       _syncOfflineLocations(token);
     } else {
@@ -322,9 +346,18 @@ void onStart(ServiceInstance service) async {
     debugPrint('[Tracking] Error reading prefs in background service: $e');
   }
 
-  // If no token, stop immediately to avoid unnecessary crash
-  if (token == null || token.isEmpty) {
-    debugPrint('[Tracking] No auth token — stopping service');
+  // If no token or inactive or checked out, stop immediately
+  bool isTrackingActive = false;
+  bool isCheckedIn = false;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
+    isTrackingActive = prefs.getBool('is_tracking_active') ?? false;
+    isCheckedIn = prefs.getBool('is_checked_in') ?? false;
+  } catch (_) {}
+
+  if (token == null || token.isEmpty || !isTrackingActive || !isCheckedIn) {
+    debugPrint('[Tracking] No auth token, inactive, or checked out (active: $isTrackingActive, checkedIn: $isCheckedIn) — stopping service');
     service.stopSelf();
     return;
   }
@@ -396,9 +429,11 @@ void onStart(ServiceInstance service) async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.reload();
       final currentToken = prefs.getString('auth_token');
+      final isTrackingActive = prefs.getBool('is_tracking_active') ?? false;
+      final isCheckedIn = prefs.getBool('is_checked_in') ?? false;
 
-      if (currentToken == null || currentToken.isEmpty) {
-        debugPrint('[Tracking] Token is null — stopping service');
+      if (currentToken == null || currentToken.isEmpty || !isTrackingActive || !isCheckedIn) {
+        debugPrint('[Tracking] Token is null, inactive, or checked out (active: $isTrackingActive, checkedIn: $isCheckedIn) — stopping service');
         timer.cancel();
         service.stopSelf();
         return;

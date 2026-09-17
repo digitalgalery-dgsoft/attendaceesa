@@ -21,6 +21,7 @@ import 'reporting_hub_screen.dart';
 import 'package:att_mobile/utils/constants.dart';
 import '../widgets/custom_loading_indicator.dart';
 import '../widgets/location_disclosure_dialog.dart';
+import '../services/location_service.dart';
 
 class ScheduledLocationItem {
   final String id;
@@ -537,6 +538,12 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
     Navigator.pop(context); // Close loading
 
     if (result['success']) {
+      if (widget.type == 'checkout') {
+        LocationService.stopService();
+      } else if (widget.type == 'checkin') {
+        LocationService.startService();
+      }
+
       toastification.show(
         context: context,
         title: Text(result['message']),
