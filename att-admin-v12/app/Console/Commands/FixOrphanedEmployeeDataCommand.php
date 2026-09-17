@@ -53,17 +53,20 @@ class FixOrphanedEmployeeDataCommand extends Command
                 continue;
             }
 
-            // Find the best primary active account:
-            // 1. Must be active or not soft-deleted
-            // 2. Has photo, device_id, or password
-            $primary = $records->firstWhere('is_active', true)
-                    ?? $records->firstWhere('employment_status', 'active')
-                    ?? $records->whereNull('deleted_at')->first();
-
-            if (!$primary) {
-                $primary = $records->first(fn ($e) => !empty($e->photo) || !empty($e->device_id) || !empty($e->password))
-                    ?: ($records->firstWhere('odoo_id', '!=', null) ?: $records->first());
-            }
+            // Find the best primary account:
+            // 1. Prioritaskan yang memiliki riwayat check-in hari ini
+            $todayDate = now()->toDateString();
+            $primary = $records->first(function ($e) use ($todayDate) {
+                return DB::table('attendances')
+                    ->where('employee_id', $e->id)
+                    ->where('attendance_date', $todayDate)
+                    ->whereNotNull('checkin_at')
+                    ->where('checkin_at', '!=', '00:00:00')
+                    ->exists();
+            })
+            ?? ($records->firstWhere('is_active', true)
+            ?? $records->first(fn ($e) => !empty($e->photo) || !empty($e->device_id) || !empty($e->password))
+            ?? ($records->firstWhere('odoo_id', '!=', null) ?: $records->first()));
 
             $dupIds = $records->where('id', '!=', $primary->id)->pluck('id')->toArray();
             if (empty($dupIds)) {
@@ -181,6 +184,9 @@ class FixOrphanedEmployeeDataCommand extends Command
                         DB::table('attendances')->where('id', $record->id)->update([
                             'employee_id' => $primaryId
                         ]);
+                        DB::table('attendance_logs')->where('attendance_id', $record->id)->update([
+                            'employee_id' => $primaryId
+                        ]);
                     } catch (\Throwable $e) {
                         $this->warn("Failed to transfer attendance ID {$record->id}: " . $e->getMessage());
                     }
@@ -188,22 +194,40 @@ class FixOrphanedEmployeeDataCommand extends Command
                     // Conflict resolution:
                     // If primary had absent/blank checkin, but orphan record HAS real checkin data, copy to primary!
                     $updates = [];
-                    if (empty($existing->checkin_at) && !empty($record->checkin_at)) {
-                        $updates['checkin_at'] = $record->checkin_at;
-                        $updates['status'] = $record->status;
+                    $existingHasCheckin = !empty($existing->checkin_at) && $existing->checkin_at !== '00:00:00';
+                    $orphanHasCheckin   = !empty($record->checkin_at) && $record->checkin_at !== '00:00:00';
+
+                    if (!$existingHasCheckin && $orphanHasCheckin) {
+                        $updates['checkin_at']     = $record->checkin_at;
+                        $updates['status']         = $record->status;
                         $updates['checkin_log_id'] = $record->checkin_log_id;
-                        $updates['late_minutes'] = $record->late_minutes;
+                        $updates['late_minutes']   = $record->late_minutes;
                     }
-                    if (empty($existing->checkout_at) && !empty($record->checkout_at)) {
-                        $updates['checkout_at'] = $record->checkout_at;
-                        $updates['checkout_log_id'] = $record->checkout_log_id;
-                        $updates['work_duration_minutes'] = $record->work_duration_minutes;
-                        $updates['early_leave_minutes'] = $record->early_leave_minutes;
-                        $updates['overtime_minutes'] = $record->overtime_minutes;
+
+                    $existingHasCheckout = !empty($existing->checkout_at) && $existing->checkout_at !== '00:00:00';
+                    $orphanHasCheckout   = !empty($record->checkout_at) && $record->checkout_at !== '00:00:00';
+
+                    if (!$existingHasCheckout && $orphanHasCheckout) {
+                        $updates['checkout_at']            = $record->checkout_at;
+                        $updates['checkout_log_id']        = $record->checkout_log_id;
+                        $updates['work_duration_minutes']  = $record->work_duration_minutes;
+                        $updates['early_leave_minutes']    = $record->early_leave_minutes;
+                        $updates['overtime_minutes']       = $record->overtime_minutes;
                     }
+
+                    if ($existing->status === 'absent' && in_array($record->status, ['present', 'late', 'incomplete'])) {
+                        $updates['status'] = $record->status;
+                    }
+
                     if (!empty($updates)) {
                         DB::table('attendances')->where('id', $existing->id)->update($updates);
                     }
+
+                    // Arahkan logs ke existing attendance
+                    DB::table('attendance_logs')->where('attendance_id', $record->id)->update([
+                        'attendance_id' => $existing->id,
+                        'employee_id'   => $primaryId,
+                    ]);
 
                     // Delete orphan duplicate attendance so unique constraint is satisfied
                     DB::table('attendances')->where('id', $record->id)->delete();
@@ -235,6 +259,20 @@ class FixOrphanedEmployeeDataCommand extends Command
                         $this->warn("Failed to transfer schedule ID {$record->id}: " . $e->getMessage());
                     }
                 } else {
+                    if (empty($existing->shift_id) && !empty($record->shift_id)) {
+                        DB::table('employee_schedules')->where('id', $existing->id)->update([
+                            'shift_id'         => $record->shift_id,
+                            'work_location_id' => $existing->work_location_id ?: $record->work_location_id,
+                            'schedule_type'    => $record->schedule_type,
+                            'planned_start_at' => $existing->planned_start_at ?: $record->planned_start_at,
+                            'planned_end_at'   => $existing->planned_end_at ?: $record->planned_end_at,
+                        ]);
+                    }
+
+                    DB::table('attendances')
+                        ->where('employee_schedule_id', $record->id)
+                        ->update(['employee_schedule_id' => $existing->id]);
+
                     // Existing schedule already present on primary; remove duplicate orphan
                     DB::table('employee_schedules')->where('id', $record->id)->delete();
                 }

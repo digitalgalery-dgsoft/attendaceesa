@@ -88,15 +88,45 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                 continue;
             }
 
-            // Cari Karyawan: Acuan Utama adalah NIK (employee_no)
+            // Cari Karyawan: Acuan Utama adalah NIK (employee_no) dan Prinsiple
+            $prinsipleCol = (string)($cleanRow['prinsiple'] ?? ($cleanRow['principal'] ?? ($cleanRow['nama_prinsiple'] ?? ($cleanRow['client'] ?? ''))));
+            
             $employee = null;
             if (!empty($nik)) {
-                $employee = Employee::where('employee_no', $nik)->first();
+                $query = Employee::where('employee_no', $nik);
+                if (!empty($prinsipleCol)) {
+                    $pTrim = trim($prinsipleCol);
+                    $query->whereHas('principal', function ($q) use ($pTrim) {
+                        $q->whereRaw('LOWER(TRIM(name)) = ?', [strtolower($pTrim)]);
+                    });
+                }
+                // Prioritaskan akun yang aktif
+                $employee = (clone $query)->where('is_active', true)->whereNull('deleted_at')->first()
+                    ?? $query->first();
+
+                // Jika tidak ditemukan dengan filter prinsiple spesifik, cari by NIK aktif
+                if (!$employee && !empty($prinsipleCol)) {
+                    $employee = Employee::where('employee_no', $nik)->where('is_active', true)->whereNull('deleted_at')->first()
+                        ?? Employee::where('employee_no', $nik)->first();
+                }
             }
 
             // Fallback: Jika NIK tidak ditemukan / kosong, cari berdasarkan nama karyawan
             if (!$employee && !empty($namaKaryawan)) {
-                $employee = Employee::where('full_name', $namaKaryawan)->first();
+                $query = Employee::where('full_name', $namaKaryawan);
+                if (!empty($prinsipleCol)) {
+                    $pTrim = trim($prinsipleCol);
+                    $query->whereHas('principal', function ($q) use ($pTrim) {
+                        $q->whereRaw('LOWER(TRIM(name)) = ?', [strtolower($pTrim)]);
+                    });
+                }
+                $employee = (clone $query)->where('is_active', true)->whereNull('deleted_at')->first()
+                    ?? $query->first();
+
+                if (!$employee && !empty($prinsipleCol)) {
+                    $employee = Employee::where('full_name', $namaKaryawan)->where('is_active', true)->whereNull('deleted_at')->first()
+                        ?? Employee::where('full_name', $namaKaryawan)->first();
+                }
             }
 
             if (!$employee) {

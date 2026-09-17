@@ -22,14 +22,31 @@ class AuthController extends Controller
         $password = $request->password;
 
         // Cari record karyawan yang berstatus AKTIF (is_active = true) berdasarkan email atau NIK
-        $employee = Employee::where(function($query) use ($loginId) {
+        $candidateEmployees = Employee::where(function($query) use ($loginId) {
                 $query->where('email', $loginId)
                       ->orWhere('employee_no', $loginId);
             })
             ->where('is_active', true)
             ->with(['company', 'principal', 'branch', 'department', 'position', 'user'])
             ->orderByDesc('id')
-            ->first();
+            ->get();
+
+        if ($candidateEmployees->isEmpty()) {
+            $employee = null;
+        } elseif ($candidateEmployees->count() === 1) {
+            $employee = $candidateEmployees->first();
+        } else {
+            // Jika ada lebih dari satu akun aktif, prioritaskan yang memiliki presensi check-in hari ini
+            $todayJakarta = \Carbon\Carbon::today('Asia/Jakarta')->toDateString();
+            $withTodayCheckin = $candidateEmployees->first(function($e) use ($todayJakarta) {
+                return \App\Models\Attendance::where('employee_id', $e->id)
+                    ->where('attendance_date', $todayJakarta)
+                    ->whereNotNull('checkin_at')
+                    ->where('checkin_at', '!=', '00:00:00')
+                    ->exists();
+            });
+            $employee = $withTodayCheckin ?: $candidateEmployees->first();
+        }
 
         if (!$employee) {
             // Jika ini sudah merupakan request relay dari server cluster lain, jangan relay lagi untuk mencegah loop

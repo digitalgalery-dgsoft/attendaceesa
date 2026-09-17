@@ -184,6 +184,12 @@ class OdooSyncService
                         $principal = Principal::where('code', $finalCode)->first();
                     }
 
+                    // 3. If not found, try to find by name (case-insensitive & trimmed)
+                    if (!$principal && !empty($rec['name'])) {
+                        $pNameTrim = trim((string)$rec['name']);
+                        $principal = Principal::whereRaw('LOWER(TRIM(name)) = ?', [strtolower($pNameTrim)])->first();
+                    }
+
                     if ($principal) {
                         // Check code conflict before update
                         $conflict = Principal::where('code', $finalCode)->where('id', '!=', $principal->id)->first();
@@ -377,20 +383,41 @@ class OdooSyncService
                     'abadi berkat odelia',
                 ];
 
-                // Resolve Principal
+                // Resolve Principal — ikat ke NAMA Prinsiple dan odoo_id
                 $principalId = null;
                 $principalName = '';
                 if (!empty($rec['principle_id']) && is_array($rec['principle_id'])) {
-                    $principalName = trim($rec['principle_id'][1]);
-                    $principal = Principal::where('odoo_id', $rec['principle_id'][0])->first();
+                    $odooPrincipalId = (int) $rec['principle_id'][0];
+                    $principalName = trim((string) $rec['principle_id'][1]);
+
+                    // 1. Cari berdasarkan odoo_id
+                    $principal = Principal::where('odoo_id', $odooPrincipalId)->first();
+
+                    // 2. Jika tidak ditemukan, cari berdasarkan NAMA (case-insensitive & trimmed)
+                    if (!$principal && !empty($principalName)) {
+                        $principal = Principal::whereRaw('LOWER(TRIM(name)) = ?', [strtolower($principalName)])->first();
+                    }
+
                     if ($principal) {
                         $principalId = $principal->id;
+                        $principalName = $principal->name;
+                        // Tautkan odoo_id jika belum terisi atau berubah
+                        if (empty($principal->odoo_id) || $principal->odoo_id != $odooPrincipalId) {
+                            $principal->update(['odoo_id' => $odooPrincipalId]);
+                        }
                     } else {
+                        // Cek konflik kode sebelum create
+                        $pCode = 'OD-' . $odooPrincipalId;
+                        if (Principal::where('code', $pCode)->exists()) {
+                            $pCode = 'OD-' . $odooPrincipalId . '-' . \Illuminate\Support\Str::random(3);
+                        }
+
                         $principal = Principal::create([
-                            'odoo_id' => $rec['principle_id'][0],
-                            'name' => $principalName,
-                            'code' => 'OD-' . $rec['principle_id'][0],
+                            'odoo_id'    => $odooPrincipalId,
+                            'name'       => $principalName,
+                            'code'       => $pCode,
                             'company_id' => $companyId,
+                            'is_active'  => true,
                         ]);
                         $principalId = $principal->id;
                     }
@@ -408,14 +435,15 @@ class OdooSyncService
 
                 // If inhouse: company and principal MUST BE IDENTICAL (Principal = Company's own principal)
                 if ($isInhouse) {
-                    $companyPrincipal = Principal::firstOrCreate(
-                        ['name' => $localCompany->name],
-                        [
-                            'code' => 'PRIN-' . ($localCompany->code ?: $companyId),
+                    $companyPrincipal = Principal::whereRaw('LOWER(TRIM(name)) = ?', [strtolower(trim($localCompany->name))])->first();
+                    if (!$companyPrincipal) {
+                        $companyPrincipal = Principal::create([
+                            'name'       => $localCompany->name,
+                            'code'       => 'PRIN-' . ($localCompany->code ?: $companyId),
                             'company_id' => $companyId,
-                            'is_active' => true,
-                        ]
-                    );
+                            'is_active'  => true,
+                        ]);
+                    }
                     $principalId = $companyPrincipal->id;
                     $principalName = $companyPrincipal->name;
                 }
@@ -538,38 +566,51 @@ class OdooSyncService
                 // Employee no — prefer identification_id (NIK / No. KTP)
                 $rawNik = $cleanStr($rec['identification_id'] ?? null);
                 $rawRegNo = $cleanStr($rec['registration_number'] ?? null);
-                $employeeNo = $rawNik ?: ($rawRegNo ?: ('OD-' . $rec['id']));
+                $targetNik = $rawNik ?: ($rawRegNo ?: ('OD-' . $rec['id']));
+                $employeeNo = $targetNik;
 
                 // Look up existing employee:
-                // Parameter Pencocokan: WAJIB HANYA jika No. KTP / NIK (employee_no) DAN Principal (principal_id) KEDUANYA SAMA!
+                // Parameter Pencocokan: WAJIB Mengikat ke NIK (employee_no) dan NAMA PRINSIPLE
                 $existingEmployees = collect();
-                if ($rawNik) {
-                    $query = Employee::withTrashed()->where('employee_no', $rawNik);
-                    if ($principalId) {
-                        $query->where('principal_id', $principalId);
+
+                // Ambil semua kandidat employee berdasarkan NIK (termasuk trashed)
+                $nikCandidates = Employee::withTrashed()->where('employee_no', $targetNik)->get();
+
+                if ($nikCandidates->isNotEmpty()) {
+                    // 1. Prioritas Utama: Cari yang memiliki NIK sama dan NAMA PRINSIPLE yang sama (atau principal_id sama)
+                    $matchedByPrincipal = $nikCandidates->filter(function ($emp) use ($principalId, $principalName) {
+                        if ($principalId && $emp->principal_id == $principalId) {
+                            return true;
+                        }
+                        if (!empty($principalName) && $emp->principal) {
+                            return strtolower(trim((string)$emp->principal->name)) === strtolower(trim((string)$principalName));
+                        }
+                        return false;
+                    });
+
+                    if ($matchedByPrincipal->isNotEmpty()) {
+                        $existingEmployees = $matchedByPrincipal;
                     } else {
-                        $query->whereNull('principal_id');
+                        // 2. Prioritas Kedua: Cari yang memiliki NIK sama dan odoo_id sama persis (kasus update nama prinsiple di Odoo)
+                        $matchedByOdooId = $nikCandidates->where('odoo_id', $rec['id']);
+                        if ($matchedByOdooId->isNotEmpty()) {
+                            $existingEmployees = $matchedByOdooId;
+                        } else {
+                            // 3. Prioritas Ketiga: Cari akun aktif yang ada untuk NIK ini (supaya roster & checkin tidak terpisah)
+                            $activeCandidates = $nikCandidates->where('is_active', true);
+                            if ($activeCandidates->isNotEmpty()) {
+                                $existingEmployees = $activeCandidates;
+                            } else {
+                                $existingEmployees = $nikCandidates;
+                            }
+                        }
                     }
-                    $existingEmployees = $query->get();
-                } elseif ($rawRegNo) {
-                    $query = Employee::withTrashed()->where('employee_no', $rawRegNo);
-                    if ($principalId) {
-                        $query->where('principal_id', $principalId);
-                    } else {
-                        $query->whereNull('principal_id');
-                    }
-                    $existingEmployees = $query->get();
                 } else {
-                    // Fallback jika tidak ada NIK dan NIP di Odoo: gunakan kombinasi odoo_id + company_id + principal_id
-                    $query = Employee::withTrashed()
+                    // Fallback jika tidak ditemukan berdasarkan NIK: coba cari berdasarkan odoo_id + company_id
+                    $existingEmployees = Employee::withTrashed()
                         ->where('odoo_id', $rec['id'])
-                        ->where('company_id', $companyId);
-                    if ($principalId) {
-                        $query->where('principal_id', $principalId);
-                    } else {
-                        $query->whereNull('principal_id');
-                    }
-                    $existingEmployees = $query->get();
+                        ->where('company_id', $companyId)
+                        ->get();
                 }
 
                 if ($existingEmployees->isNotEmpty()) {
@@ -588,15 +629,28 @@ class OdooSyncService
                         $primary->restore();
                     }
 
-                    // If there are duplicate records with this same NIK and same principal, merge and remove the redundant ones
-                    $duplicateIds = $existingEmployees->where('id', '!=', $primary->id)
-                        ->where('principal_id', $principalId)
-                        ->pluck('id')->toArray();
+                    // If there are duplicate records with this same NIK, merge and consolidate them to primary
+                    $duplicateIds = $nikCandidates->where('id', '!=', $primary->id)->pluck('id')->toArray();
                     if (!empty($duplicateIds)) {
                         $this->mergeDuplicates($primary, $duplicateIds);
                     }
 
                     $wasActive = $primary->is_active;
+
+                    // PROTEKSI PRESENSI HARI INI:
+                    // Jika karyawan sudah melakukan check-in hari ini, JANGAN PERNAH dinonaktifkan / di-resign-kan hari ini!
+                    $todayDateStr = now()->toDateString();
+                    $hasCheckedInToday = \Illuminate\Support\Facades\DB::table('attendances')
+                        ->where('employee_id', $primary->id)
+                        ->where('attendance_date', $todayDateStr)
+                        ->whereNotNull('checkin_at')
+                        ->where('checkin_at', '!=', '00:00:00')
+                        ->exists();
+
+                    if ($hasCheckedInToday && !$isActiveInOdoo) {
+                        $isActiveInOdoo = true;
+                        $employmentStatus = 'contract';
+                    }
 
                     $updatePayload = [
                         'odoo_id'           => $rec['id'],
@@ -616,6 +670,15 @@ class OdooSyncService
                         'is_active'         => $isActiveInOdoo,
                         'resign_date'       => !$isActiveInOdoo ? ($departureDate ?: ($primary->resign_date ?: now()->toDateString())) : null,
                     ];
+
+                    // Pastikan kolom principal_id pada attendances ikut selaras
+                    if ($principalId && \Illuminate\Support\Facades\Schema::hasColumn('attendances', 'principal_id')) {
+                        \Illuminate\Support\Facades\DB::table('attendances')
+                            ->where('employee_id', $primary->id)
+                            ->where('attendance_date', $todayDateStr)
+                            ->whereNull('principal_id')
+                            ->update(['principal_id' => $principalId]);
+                    }
 
                     // Set default password '123456' if employee currently has no password
                     if (empty($primary->password)) {
@@ -974,9 +1037,17 @@ class OdooSyncService
             $primary->save();
 
             try {
-                $dup->forceDelete();
+                // JANGAN gunakan forceDelete() agar tidak memicu database ON DELETE CASCADE ke riwayat presensi/roster
+                $dup->update([
+                    'is_active'         => false,
+                    'employment_status' => 'resigned',
+                    'device_id'         => null,
+                    'device_name'       => null,
+                    'fcm_token'         => null,
+                ]);
+                $dup->delete(); // Soft delete aman
             } catch (\Exception $e) {
-                Log::warning("OdooSync delete duplicate employee ID {$dup->id} error: " . $e->getMessage());
+                Log::warning("OdooSync deactivate duplicate employee ID {$dup->id} error: " . $e->getMessage());
             }
         }
     }
@@ -1000,27 +1071,53 @@ class OdooSyncService
                         \Illuminate\Support\Facades\DB::table('attendances')->where('id', $record->id)->update([
                             'employee_id' => $primaryId
                         ]);
+                        // Pastikan logs yang mengikat ke attendance ini juga diarahkan employee_id-nya ke primaryId
+                        \Illuminate\Support\Facades\DB::table('attendance_logs')
+                            ->where('attendance_id', $record->id)
+                            ->update(['employee_id' => $primaryId]);
                     } catch (\Throwable $e) {
                         Log::warning("Failed to merge attendance ID {$record->id}: " . $e->getMessage());
                     }
                 } else {
                     $updates = [];
-                    if (empty($existing->checkin_at) && !empty($record->checkin_at)) {
-                        $updates['checkin_at'] = $record->checkin_at;
-                        $updates['status'] = $record->status;
+                    $existingHasCheckin = !empty($existing->checkin_at) && $existing->checkin_at !== '00:00:00';
+                    $orphanHasCheckin   = !empty($record->checkin_at) && $record->checkin_at !== '00:00:00';
+
+                    // Jika existing belum checkin valid tetapi orphan punya data checkin valid, bawa checkin-nya
+                    if (!$existingHasCheckin && $orphanHasCheckin) {
+                        $updates['checkin_at']     = $record->checkin_at;
+                        $updates['status']         = $record->status;
                         $updates['checkin_log_id'] = $record->checkin_log_id;
-                        $updates['late_minutes'] = $record->late_minutes;
+                        $updates['late_minutes']   = $record->late_minutes;
                     }
-                    if (empty($existing->checkout_at) && !empty($record->checkout_at)) {
-                        $updates['checkout_at'] = $record->checkout_at;
-                        $updates['checkout_log_id'] = $record->checkout_log_id;
-                        $updates['work_duration_minutes'] = $record->work_duration_minutes;
-                        $updates['early_leave_minutes'] = $record->early_leave_minutes;
-                        $updates['overtime_minutes'] = $record->overtime_minutes;
+
+                    $existingHasCheckout = !empty($existing->checkout_at) && $existing->checkout_at !== '00:00:00';
+                    $orphanHasCheckout   = !empty($record->checkout_at) && $record->checkout_at !== '00:00:00';
+
+                    if (!$existingHasCheckout && $orphanHasCheckout) {
+                        $updates['checkout_at']            = $record->checkout_at;
+                        $updates['checkout_log_id']        = $record->checkout_log_id;
+                        $updates['work_duration_minutes']  = $record->work_duration_minutes;
+                        $updates['early_leave_minutes']    = $record->early_leave_minutes;
+                        $updates['overtime_minutes']       = $record->overtime_minutes;
                     }
+
+                    if ($existing->status === 'absent' && in_array($record->status, ['present', 'late', 'incomplete'])) {
+                        $updates['status'] = $record->status;
+                    }
+
                     if (!empty($updates)) {
                         \Illuminate\Support\Facades\DB::table('attendances')->where('id', $existing->id)->update($updates);
                     }
+
+                    // Arahkan log presensi orphan ke existing record
+                    \Illuminate\Support\Facades\DB::table('attendance_logs')
+                        ->where('attendance_id', $record->id)
+                        ->update([
+                            'attendance_id' => $existing->id,
+                            'employee_id'   => $primaryId
+                        ]);
+
                     \Illuminate\Support\Facades\DB::table('attendances')->where('id', $record->id)->delete();
                 }
             }
@@ -1050,6 +1147,22 @@ class OdooSyncService
                         Log::warning("Failed to merge schedule ID {$record->id}: " . $e->getMessage());
                     }
                 } else {
+                    // Jika schedule di primary tidak ada shift tetapi orphan punya shift, bawa shiftnya
+                    if (empty($existing->shift_id) && !empty($record->shift_id)) {
+                        \Illuminate\Support\Facades\DB::table('employee_schedules')->where('id', $existing->id)->update([
+                            'shift_id'         => $record->shift_id,
+                            'work_location_id' => $existing->work_location_id ?: $record->work_location_id,
+                            'schedule_type'    => $record->schedule_type,
+                            'planned_start_at' => $existing->planned_start_at ?: $record->planned_start_at,
+                            'planned_end_at'   => $existing->planned_end_at ?: $record->planned_end_at,
+                        ]);
+                    }
+
+                    // Relasikan attendances yang sebelumnya mengikat ke schedule duplicate ke existing schedule
+                    \Illuminate\Support\Facades\DB::table('attendances')
+                        ->where('employee_schedule_id', $record->id)
+                        ->update(['employee_schedule_id' => $existing->id]);
+
                     \Illuminate\Support\Facades\DB::table('employee_schedules')->where('id', $record->id)->delete();
                 }
             }
@@ -1067,15 +1180,14 @@ class OdooSyncService
             }
         };
 
-        $log('info', "🔍 Memindai seluruh database untuk mendeteksi NIK ganda pada Prinsiple yang sama...");
+        $log('info', "🔍 Memindai seluruh database untuk mendeteksi NIK ganda...");
 
         $duplicateGroups = Employee::withTrashed()
-            ->select('employee_no', 'principal_id')
+            ->select('employee_no')
             ->whereNotNull('employee_no')
             ->where('employee_no', '!=', '')
             ->where('employee_no', 'not like', 'OD-%')
-            ->whereNotNull('principal_id')
-            ->groupBy('employee_no', 'principal_id')
+            ->groupBy('employee_no')
             ->havingRaw('COUNT(*) > 1')
             ->get();
 
@@ -1093,12 +1205,14 @@ class OdooSyncService
             $index++;
             $records = Employee::withTrashed()
                 ->where('employee_no', $group->employee_no)
-                ->where('principal_id', $group->principal_id)
+                ->orderBy('id')
                 ->get();
 
             if ($records->count() > 1) {
-                $primary = $records->first(fn ($e) => !empty($e->photo) || !empty($e->device_id) || !empty($e->password))
-                    ?: ($records->firstWhere('odoo_id', '!=', null) ?: $records->first());
+                // Pilih record utama: prioritaskan yang aktif, memiliki foto/device/password atau odoo_id
+                $primary = $records->firstWhere('is_active', true)
+                    ?: ($records->first(fn ($e) => !empty($e->photo) || !empty($e->device_id) || !empty($e->password))
+                    ?: ($records->firstWhere('odoo_id', '!=', null) ?: $records->first()));
 
                 $dupIds = $records->where('id', '!=', $primary->id)->pluck('id')->toArray();
                 if (!empty($dupIds)) {
