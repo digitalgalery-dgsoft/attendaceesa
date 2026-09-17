@@ -225,6 +225,9 @@ class SmartGatewayRelayService
                 $headers['Host'] = $targetHost;
             }
 
+            // Anti-Loop Guard: Tandai request sebagai relay agar peer server TIDAK PERNAH me-relay ulang
+            $headers['X-ESA-Gateway-Relay'] = '1';
+
             $hasFiles = $request->hasFile('*') || !empty($request->allFiles());
             // WAJIB: Hapus Content-Type jika BUKAN JSON (misal multipart/form-data atau urlencoded)
             // agar Guzzle men-generate boundary multipart sendiri jika ada file attachment,
