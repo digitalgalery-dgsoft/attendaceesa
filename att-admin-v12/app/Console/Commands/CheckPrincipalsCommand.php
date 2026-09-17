@@ -52,9 +52,17 @@ class CheckPrincipalsCommand extends Command
             ->get();
         $this->line("Principal IDs of employees under company 1: " . json_encode($distinctPrincipalsComp1->toArray()));
 
-        // Also check if any employee has principal_id null or name matching
-        $nullPrincipalCount = \App\Models\Employee::where('company_id', 1)->whereNull('principal_id')->count();
-        $this->line("Employees under company 1 with principal_id IS NULL: {$nullPrincipalCount}");
+        $c1 = Company::find(1);
+        if ($c1) {
+            $this->line("Company 1: ID={$c1->id}, Name={$c1->name}, Code={$c1->code}, Created={$c1->created_at}");
+        }
+
+        $inhouseDepts = \App\Models\Department::where('name', 'ILIKE', '%inhouse%')->get(['id', 'name']);
+        $this->line("Inhouse depts: " . json_encode($inhouseDepts->toArray()));
+        if ($inhouseDepts->isNotEmpty()) {
+            $inhouseEmps = \App\Models\Employee::where('company_id', 1)->whereIn('department_id', $inhouseDepts->pluck('id'))->count();
+            $this->line("Employees in Company 1 with Inhouse Dept: {$inhouseEmps}");
+        }
 
         return 0;
     }
