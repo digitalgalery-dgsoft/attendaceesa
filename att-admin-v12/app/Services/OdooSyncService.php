@@ -176,15 +176,27 @@ class OdooSyncService
                     $code = $rec['code_principal'] ?? $rec['ref'] ?? null;
                     $finalCode = $code ?: ('OD-' . $rec['id']);
 
-                    // 1. Try to find by odoo_id first
-                    $principal = Principal::where('odoo_id', $rec['id'])->first();
+                    // 1. Try to find by odoo_id within the same company first
+                    $principal = Principal::where('company_id', $companyId)->where('odoo_id', $rec['id'])->first();
 
-                    // 2. If not found, try to find by code
+                    // 2. If not found, try to find by code within the same company
+                    if (!$principal) {
+                        $principal = Principal::where('company_id', $companyId)->where('code', $finalCode)->first();
+                    }
+
+                    // 3. If not found, try to find by name within the same company
+                    if (!$principal && !empty($rec['name'])) {
+                        $pNameTrim = trim((string)$rec['name']);
+                        $principal = Principal::where('company_id', $companyId)->whereRaw('LOWER(TRIM(name)) = ?', [strtolower($pNameTrim)])->first();
+                    }
+
+                    // 4. Fallback without company scope (for legacy data)
+                    if (!$principal) {
+                        $principal = Principal::where('odoo_id', $rec['id'])->first();
+                    }
                     if (!$principal) {
                         $principal = Principal::where('code', $finalCode)->first();
                     }
-
-                    // 3. If not found, try to find by name (case-insensitive & trimmed)
                     if (!$principal && !empty($rec['name'])) {
                         $pNameTrim = trim((string)$rec['name']);
                         $principal = Principal::whereRaw('LOWER(TRIM(name)) = ?', [strtolower($pNameTrim)])->first();
@@ -390,10 +402,18 @@ class OdooSyncService
                     $odooPrincipalId = (int) $rec['principle_id'][0];
                     $principalName = trim((string) $rec['principle_id'][1]);
 
-                    // 1. Cari berdasarkan odoo_id
-                    $principal = Principal::where('odoo_id', $odooPrincipalId)->first();
+                    // 1. Cari berdasarkan odoo_id DALAM COMPANY YANG SAMA terlebih dahulu
+                    $principal = Principal::where('company_id', $companyId)->where('odoo_id', $odooPrincipalId)->first();
 
-                    // 2. Jika tidak ditemukan, cari berdasarkan NAMA (case-insensitive & trimmed)
+                    // 2. Jika tidak ditemukan, cari berdasarkan NAMA dalam company yang sama
+                    if (!$principal && !empty($principalName)) {
+                        $principal = Principal::where('company_id', $companyId)->whereRaw('LOWER(TRIM(name)) = ?', [strtolower($principalName)])->first();
+                    }
+
+                    // 3. Fallback tanpa batasan company
+                    if (!$principal) {
+                        $principal = Principal::where('odoo_id', $odooPrincipalId)->first();
+                    }
                     if (!$principal && !empty($principalName)) {
                         $principal = Principal::whereRaw('LOWER(TRIM(name)) = ?', [strtolower($principalName)])->first();
                     }
@@ -435,11 +455,29 @@ class OdooSyncService
 
                 // If inhouse: company and principal MUST BE IDENTICAL (Principal = Company's own principal)
                 if ($isInhouse) {
-                    $companyPrincipal = Principal::whereRaw('LOWER(TRIM(name)) = ?', [strtolower(trim($localCompany->name))])->first();
+                    $companyPrincipal = Principal::where('company_id', $companyId)
+                        ->whereRaw('LOWER(TRIM(name)) = ?', [strtolower(trim($localCompany->name))])
+                        ->first();
                     if (!$companyPrincipal) {
+                        $companyPrincipal = Principal::whereRaw('LOWER(TRIM(name)) = ?', [strtolower(trim($localCompany->name))])->first();
+                    }
+                    if (!$companyPrincipal) {
+                        $code = '300';
+                        if (stripos($localCompany->name, 'TERPERCAYA') !== false) {
+                            $code = '300';
+                        } elseif (stripos($localCompany->name, 'TALENTA') !== false) {
+                            $code = '500';
+                        } elseif (stripos($localCompany->name, 'ODELIA') !== false) {
+                            $code = '400';
+                        } else {
+                            $code = 'PRIN-' . ($localCompany->code ?: $companyId);
+                        }
+                        if (Principal::where('code', $code)->exists()) {
+                            $code = 'PRIN-' . ($localCompany->code ?: $companyId);
+                        }
                         $companyPrincipal = Principal::create([
                             'name'       => $localCompany->name,
-                            'code'       => 'PRIN-' . ($localCompany->code ?: $companyId),
+                            'code'       => $code,
                             'company_id' => $companyId,
                             'is_active'  => true,
                         ]);

@@ -17,16 +17,16 @@ class CheckPrincipalsCommand extends Command
         $this->info("=== CHECKING PRINCIPALS & COMPANIES FOR '{$keyword}' ===");
 
         $this->info("--- COMPANIES ---");
-        $companies = Company::where('name', 'ILIKE', "%{$keyword}%")
-            ->orWhere('name', 'ILIKE', '%TERPERCAYA%')
+        $companies = Company::whereRaw('LOWER(name) LIKE ?', ["%".strtolower($keyword)."%"])
+            ->orWhereRaw('LOWER(name) LIKE ?', ['%terpercaya%'])
             ->get(['id', 'name']);
         foreach ($companies as $c) {
             $this->line("Company ID: {$c->id} | Name: {$c->name}");
         }
 
         $this->info("--- ALL PRINCIPALS (COUNT: " . Principal::count() . ") ---");
-        $principals = Principal::where('name', 'ILIKE', "%{$keyword}%")
-            ->orWhere('name', 'ILIKE', '%TERPERCAYA%')
+        $principals = Principal::whereRaw('LOWER(name) LIKE ?', ["%".strtolower($keyword)."%"])
+            ->orWhereRaw('LOWER(name) LIKE ?', ['%terpercaya%'])
             ->get(['id', 'name', 'code', 'company_id', 'is_active']);
         foreach ($principals as $p) {
             $companyName = $p->company ? $p->company->name : 'NO COMPANY';
@@ -62,7 +62,7 @@ class CheckPrincipalsCommand extends Command
             $this->line("Company 1: ID={$c1->id}, Name={$c1->name}, Code={$c1->code}, Created={$c1->created_at}");
         }
 
-        $inhouseDepts = \App\Models\Department::where('name', 'ILIKE', '%inhouse%')->get(['id', 'name']);
+        $inhouseDepts = \App\Models\Department::whereRaw('LOWER(name) LIKE ?', ['%inhouse%'])->get(['id', 'name']);
         $this->line("Inhouse depts: " . json_encode($inhouseDepts->toArray()));
         if ($inhouseDepts->isNotEmpty()) {
             $inhouseEmps = \App\Models\Employee::where('company_id', 1)->whereIn('department_id', $inhouseDepts->pluck('id'))->count();
