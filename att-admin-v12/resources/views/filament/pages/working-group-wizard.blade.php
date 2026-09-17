@@ -353,6 +353,32 @@
             font-size: 12px;
             color: #94a3b8;
         }
+        .area-badge-pill {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            background: #e0f2fe;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+            letter-spacing: 0.025em;
+            white-space: nowrap;
+        }
+        .dark .area-badge-pill {
+            background: #0c4a6e;
+            color: #7dd3fc;
+            border-color: #0284c7;
+        }
+        .store-area-tag {
+            font-size: 11px;
+            color: #64748b;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .dark .store-area-tag {
+            color: #94a3b8;
+        }
 
         .info-box-note {
             background: #f0f9ff;
@@ -670,7 +696,15 @@
         $branchOptions = collect($branches)->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->unique('name')->values()->toArray();
         $principalOptions = collect($principals)->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->unique(fn($item) => trim(strtoupper($item['name'])))->values()->toArray();
         $shiftOptions = collect($shifts)->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->unique('name')->values()->toArray();
-        $locationOptions = collect($workLocations)->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->unique('name')->values()->toArray();
+        if (!empty($workLocations) && isset($workLocations[0]['id'])) {
+            $locationOptions = $workLocations;
+        } else {
+            $locationOptions = collect($workLocations)->map(fn($name, $id) => [
+                'id' => (string)$id,
+                'name' => (string)$name,
+                'area' => '',
+            ])->values()->toArray();
+        }
         $empOptions = collect($availableEmployees)->map(fn($name, $id) => ['id' => (string)$id, 'name' => (string)$name])->values()->toArray();
     @endphp
 
@@ -1088,12 +1122,16 @@
                                     get selectedLabel() {
                                         if (!this.value) return this.placeholder;
                                         let found = this.options.find(o => String(o.id) === String(this.value));
-                                        return found ? found.name : this.placeholder;
+                                        if (!found) return this.placeholder;
+                                        return found.area ? (found.name + ' - [Area: ' + found.area + ']') : found.name;
                                     },
                                     get filteredOptions() {
                                         if (!this.search.trim()) return this.options;
                                         let q = this.search.toLowerCase();
-                                        return this.options.filter(o => o.name.toLowerCase().includes(q));
+                                        return this.options.filter(o => 
+                                            (o.name && o.name.toLowerCase().includes(q)) || 
+                                            (o.area && o.area.toLowerCase().includes(q))
+                                        );
                                     },
                                     selectOption(id) {
                                         this.value = id;
@@ -1133,7 +1171,7 @@
                                             x-ref="searchInput"
                                             type="text"
                                             x-model="search"
-                                            placeholder="Ketik untuk mencari lokasi toko..."
+                                            placeholder="Ketik nama toko atau nama area..."
                                             class="dropdown-search-input"
                                             @keydown.escape="open = false"
                                         />
@@ -1145,16 +1183,31 @@
                                                 class="dropdown-option-item"
                                                 :class="{ 'is-selected': String(opt.id) === String(value) }"
                                             >
-                                                <span x-text="opt.name"></span>
-                                                <template x-if="String(opt.id) === String(value)">
-                                                    <svg style="width: 16px; height: 16px; color: #0284c7;" viewBox="0 0 20 20" fill="currentColor">
-                                                        <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                                                    </svg>
-                                                </template>
+                                                <div style="display: flex; flex-direction: column; gap: 2px; text-align: left; min-width: 0;">
+                                                    <span style="font-weight: 500; line-height: 1.3;" x-text="opt.name"></span>
+                                                    <template x-if="opt.area">
+                                                        <span class="store-area-tag">
+                                                            <svg style="width: 11px; height: 11px; color: #0284c7; flex-shrink: 0;" viewBox="0 0 20 20" fill="currentColor">
+                                                                <path fill-rule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433 1.244-.77 2.92-2.04 4.316-3.824C17.37 12.37 18 10.233 18 8A8 8 0 002 8c0 2.233.63 4.37 2.312 6.528 1.396 1.784 3.072 3.054 4.316 3.824.31.193.57.337.757.433.093.048.18.093.281.14l.018.008.006.003zM10 11a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                                                            </svg>
+                                                            <span x-text="'Area: ' + opt.area"></span>
+                                                        </span>
+                                                    </template>
+                                                </div>
+                                                <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 12px;">
+                                                    <template x-if="opt.area">
+                                                        <span class="area-badge-pill" x-text="opt.area"></span>
+                                                    </template>
+                                                    <template x-if="String(opt.id) === String(value)">
+                                                        <svg style="width: 16px; height: 16px; color: #0284c7;" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                                        </svg>
+                                                    </template>
+                                                </div>
                                             </div>
                                         </template>
                                         <template x-if="filteredOptions.length === 0">
-                                            <div class="no-options-found">Tidak ada lokasi yang cocok</div>
+                                            <div class="no-options-found">Tidak ada lokasi atau area yang cocok</div>
                                         </template>
                                     </div>
                                 </div>
@@ -1322,12 +1375,16 @@
                                                         get selectedLabel() {
                                                             if (!this.value) return this.placeholder;
                                                             let found = this.options.find(o => String(o.id) === String(this.value));
-                                                            return found ? found.name : this.placeholder;
+                                                            if (!found) return this.placeholder;
+                                                            return found.area ? (found.name + ' - [Area: ' + found.area + ']') : found.name;
                                                         },
                                                         get filteredOptions() {
                                                             if (!this.search.trim()) return this.options;
                                                             let q = this.search.toLowerCase();
-                                                            return this.options.filter(o => o.name.toLowerCase().includes(q));
+                                                            return this.options.filter(o => 
+                                                                (o.name && o.name.toLowerCase().includes(q)) || 
+                                                                (o.area && o.area.toLowerCase().includes(q))
+                                                            );
                                                         },
                                                         selectOption(id) {
                                                             this.value = id;
@@ -1361,11 +1418,14 @@
 
                                                     <div x-show="open" x-transition.opacity.duration.150ms class="custom-select-dropdown" style="display: none;">
                                                         <div class="dropdown-search-wrapper">
+                                                            <svg style="width: 14px; height: 14px; color: #94a3b8;" viewBox="0 0 20 20" fill="currentColor">
+                                                                <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+                                                            </svg>
                                                             <input
                                                                 x-ref="searchInput"
                                                                 type="text"
                                                                 x-model="search"
-                                                                placeholder="Cari lokasi..."
+                                                                placeholder="Ketik nama toko atau area..."
                                                                 class="dropdown-search-input"
                                                                 @keydown.escape="open = false"
                                                             />
@@ -1377,11 +1437,31 @@
                                                                     class="dropdown-option-item"
                                                                     :class="{ 'is-selected': String(opt.id) === String(value) }"
                                                                 >
-                                                                    <span x-text="opt.name"></span>
+                                                                    <div style="display: flex; flex-direction: column; gap: 2px; text-align: left; min-width: 0;">
+                                                                        <span style="font-weight: 500; line-height: 1.3;" x-text="opt.name"></span>
+                                                                        <template x-if="opt.area">
+                                                                            <span class="store-area-tag">
+                                                                                <svg style="width: 11px; height: 11px; color: #0284c7; flex-shrink: 0;" viewBox="0 0 20 20" fill="currentColor">
+                                                                                    <path fill-rule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433 1.244-.77 2.92-2.04 4.316-3.824C17.37 12.37 18 10.233 18 8A8 8 0 002 8c0 2.233.63 4.37 2.312 6.528 1.396 1.784 3.072 3.054 4.316 3.824.31.193.57.337.757.433.093.048.18.093.281.14l.018.008.006.003zM10 11a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                                                                                </svg>
+                                                                                <span x-text="'Area: ' + opt.area"></span>
+                                                                            </span>
+                                                                        </template>
+                                                                    </div>
+                                                                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 12px;">
+                                                                        <template x-if="opt.area">
+                                                                            <span class="area-badge-pill" x-text="opt.area"></span>
+                                                                        </template>
+                                                                        <template x-if="String(opt.id) === String(value)">
+                                                                            <svg style="width: 16px; height: 16px; color: #0284c7;" viewBox="0 0 20 20" fill="currentColor">
+                                                                                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                                                            </svg>
+                                                                        </template>
+                                                                    </div>
                                                                 </div>
                                                             </template>
                                                             <template x-if="filteredOptions.length === 0">
-                                                                <div class="no-options-found">Tidak ada lokasi</div>
+                                                                <div class="no-options-found">Tidak ada lokasi atau area yang cocok</div>
                                                             </template>
                                                         </div>
                                                     </div>

@@ -360,12 +360,50 @@ class CreateWorkingGroup extends Page
             ->unique(fn($p) => trim(strtoupper($p->name)))
             ->pluck('name', 'id');
 
-        $workLocations = WorkLocation::whereNotNull('name')
+        $workLocations = WorkLocation::with('branch:id,name')
+            ->whereNotNull('name')
             ->where('name', '!=', '')
             ->orderBy('name')
-            ->get()
-            ->unique(fn($w) => trim(strtoupper($w->name)))
-            ->pluck('name', 'id');
+            ->get(['id', 'name', 'branch_id', 'area'])
+            ->unique(function ($w) {
+                $areaName = trim($w->branch?->name ?: $w->area ?: '');
+                return trim(strtoupper($w->name)) . '|' . trim(strtoupper($areaName));
+            })
+            ->map(function ($w) {
+                $areaName = trim($w->branch?->name ?: $w->area ?: '');
+                return [
+                    'id' => (string) $w->id,
+                    'name' => (string) $w->name,
+                    'area' => $areaName,
+                ];
+            })
+            ->values()
+            ->toArray();
+
+        // Pastikan work_location_id yang sedang dipilih tidak hilang jika ada deduplikasi
+        $selectedLocIds = array_filter(array_merge(
+            [$this->default_work_location_id],
+            array_column($this->days ?? [], 'work_location_id')
+        ));
+
+        if (!empty($selectedLocIds)) {
+            $existingIds = array_column($workLocations, 'id');
+            $missingIds = array_diff($selectedLocIds, $existingIds);
+            if (!empty($missingIds)) {
+                $extraLocations = WorkLocation::with('branch:id,name')
+                    ->whereIn('id', $missingIds)
+                    ->get(['id', 'name', 'branch_id', 'area'])
+                    ->map(function ($w) {
+                        $areaName = trim($w->branch?->name ?: $w->area ?: '');
+                        return [
+                            'id' => (string) $w->id,
+                            'name' => (string) $w->name,
+                            'area' => $areaName,
+                        ];
+                    })->toArray();
+                $workLocations = array_merge($workLocations, $extraLocations);
+            }
+        }
 
         // Dropdown available employees (exclude already selected)
         $availEmpQuery = Employee::where('is_active', 1)
