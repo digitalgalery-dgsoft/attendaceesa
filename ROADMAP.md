@@ -2150,3 +2150,44 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         5. Menyinkronkan pembaruan password ke akun `User` terkait secara otomatis.
     - **Multi-Server Deployment & Verifikasi**:
       - Deployment backend dan migrasi database dijalankan ke server dev (`appsend.my.id`) serta 3 cluster production (AMK, AKP, ATK).
+
+40. **Perbaikan Fatal Error Reset Password Filament v3 Action Namespace (18 September 2026)**:
+    - **Akar Masalah**:
+      - Terjadi error `Class "Filament\Notifications\Actions\Action" not found` pada file `EmployeesTable.php:230` saat admin menekan tombol reset password karyawan di web admin (`akp.esa-solutions.id/admin/employees`).
+      - Pada Filament v3, namespace action untuk notifikasi telah disatukan di bawah `\Filament\Actions\Action` (bukan `\Filament\Notifications\Actions\Action` seperti versi Filament v2 terdahulu).
+    - **Solusi & Perbaikan**:
+      - Memperbaiki namespace action menjadi `\Filament\Actions\Action::make('copy')` pada `EmployeesTable.php` dan `LiveChat.php`.
+      - Memastikan tombol aksi 1-klik "Salin Password" dapat diinstansiasi dengan aman tanpa fatal error.
+      - Pengujian sintaks PHP 8.3 CLI mengonfirmasi 100% valid dan bebas error.
+    - **Multi-Server Deployment**:
+      - Di-deploy ke server gateway `appsend.my.id` dan 3 cluster production (Server 1 AMK, Server 2 AKP, Server 3 ATK) dengan status health check HTTP 200 OK.
+
+41. **Input Manual Koordinat Latitude & Longitude pada Form Work Location (18 September 2026)**:
+    - **Kebutuhan Pengguna**:
+      - Di form *Create & Edit Work Location*, field koordinat Latitude dan Longitude sebelumnya berstatus `readOnly()`, sehingga admin tidak bisa mengetik atau mem-paste titik koordinat secara manual jika ingin menggunakan data koordinat eksisting dari Google Maps atau GPS handheld.
+    - **Solusi Backend & Form Schema (`WorkLocationForm.php`)**:
+      - Menghapus method `->readOnly()` pada komponen TextInput `latitude` dan `longitude`.
+      - Menambahkan mode reaktif `->live(onBlur: true)` dan handler `afterStateUpdated` sehingga ketika admin selesai mengetikkan koordinat manual, pin marker pada peta (*Location Map*) langsung sinkron dan berpindah secara otomatis ke koordinat baru (`$livewire->dispatch('refreshMap')`).
+      - **Fitur Smart Paste Detection**: Menambahkan parser cerdas jika pengguna menyalin-tempel (*paste*) format koordinat gabungan (contoh: `-7.250445, 112.768845`) langsung ke dalam kotak input Latitude, sistem secara otomatis akan memisahkan nilai tersebut menjadi Latitude dan Longitude serta memperbarui posisi peta seketika.
+    - **Multi-Server Deployment**:
+      - Di-deploy ke gateway `appsend.my.id` dan seluruh cluster production (AMK, AKP, ATK) dengan status health check HTTP 200 OK.
+
+42. **Penyempurnaan Import Schedule Roster (Excel), Auto-Detect Baris Header, dan Notifikasi Diagnostik Informatif (18 September 2026)**:
+    - **Akar Masalah ("Berhasil mengimpor 0 jadwal karyawan")**:
+      - Pengguna melaporkan bahwa saat mengunggah file Excel jadwal roster, notifikasi muncul berwarna hijau bertuliskan *"Berhasil mengimpor 0 jadwal karyawan"*, tetapi tidak ada satu pun data jadwal yang masuk dan tidak ada penjelasan mengapa gagal.
+      - Setelah diaudit, terdapat 4 kelemahan utama pada sistem import sebelumnya:
+        1. *Header Row Assumption*: Sistem lama mengasumsikan header selalu di baris ke-1 (`WithHeadingRow`). Jika file memiliki judul/banner pada baris 1-2 dan header tabel baru ada di baris 3 atau 4, semua kolom data gagal terbaca.
+        2. *Silent Skip*: Saat baris data tidak memuat NIK/Nama yang terpetakan, sistem melakukan `continue` tanpa mencatat ke dalam `$this->errors` atau menambah `$this->skippedCount`. Akibatnya `$errors` kosong dan sistem keliru memicu notifikasi sukses.
+        3. *Variasi Judul Kolom Terbatas*: Kolom dengan judul seperti `No. KTP`, `No NIK`, `Nama Lengkap`, `Nama Pegawai`, dll tidak terpetakan.
+        4. *Case-Sensitive Name Match*: Pencarian karyawan berdasarkan nama pada database PostgreSQL (server AKP) peka terhadap huruf besar/kecil.
+    - **Solusi Komprehensif (`EmployeeScheduleImport.php`, `EmployeeScheduleRoster.php`, & `ListEmployeeSchedules.php`)**:
+      - **Auto-Detect Baris Header**: Memindai hingga 15 baris pertama file Excel untuk secara cerdas mendeteksi baris mana yang memuat kata kunci header (`ktp`, `nik`, `nama`, `store`, `bulan`, `shift`, `tanggal`, dll).
+      - **Pemetaan Judul Kolom Lengkap**: Mendukung segala variasi kolom NIK (`ktp`, `nik`, `no_ktp`, `no_nik`, `nomor_ktp`, `employee_no`, `id_karyawan`, `nip`, dll) dan Nama (`name`, `nama`, `nama_karyawan`, `nama_lengkap`, `full_name`, `nama_pegawai`, dll).
+      - **Sanitasi NIK & Query Case-Insensitive**: Membersihkan NIK dari tanda petik, spasi, titik, dan notasi ilmiah (`3.52804E+15`), serta menggunakan query `LOWER(TRIM(full_name))` yang 100% aman untuk PostgreSQL & MySQL.
+      - **Dukungan Format Fleksibel**: Otomatis mendeteksi Format Matrix Harian (kolom 1..31) maupun Format Rentang Tanggal (`tanggal_mulai` s/d `tanggal_akhir`).
+      - **Notifikasi Diagnostik Informatif & Persistent**:
+        1. Jika 0 data masuk: Toast notifikasi berubah menjadi **Merah (Danger)**, **`->persistent()`** (tidak auto-close), bertajuk **`Gagal Mengimpor Jadwal (0 Data Masuk)`** dengan rincian penyebab spesifik per baris (misal: NIK tidak terdaftar di Master Karyawan, kolom tanggal kosong, dll) serta saran menggunakan template resmi.
+        2. Jika sebagian berhasil dan sebagian gagal: Notifikasi **Kuning (Warning)** dengan rincian baris bermasalah.
+        3. Jika seluruhnya berhasil: Notifikasi **Hijau (Success)** dengan jumlah karyawan dan titik jadwal yang diperbarui.
+    - **Multi-Server Deployment**:
+      - Seluruh perubahan di-commit dan di-deploy ke server gateway `appsend.my.id` serta 3 cluster production (AMK, AKP, ATK) dengan status health check HTTP 200 OK.
