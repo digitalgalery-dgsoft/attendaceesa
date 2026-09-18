@@ -9,15 +9,19 @@ use App\Models\WorkLocation;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Maatwebsite\Excel\Concerns\ToCollection;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
 
-class EmployeeScheduleImport implements ToCollection, WithHeadingRow
+class EmployeeScheduleImport implements ToCollection
 {
+    public int $totalRowsRead = 0;
     public int $importedCount = 0;
     public int $skippedCount = 0;
     public int $totalDaysProcessed = 0;
     public array $errors = [];
+    public array $detectedColumns = [];
+    public ?int $headerRowIndex = null;
+    public string $detectedFormat = 'unknown'; // 'matrix' | 'range' | 'unknown'
 
     protected $shiftsMap = [];
     protected $locationsMap = [];
@@ -52,6 +56,11 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
 
     public function collection(Collection $rows)
     {
+        if ($rows->isEmpty()) {
+            $this->errors[] = "File Excel kosong, tidak ditemukan baris data.";
+            return;
+        }
+
         $currentUser = Auth::user();
         $isSuperAdmin = $currentUser && $currentUser->isSuperAdmin();
         $accessibleBranchIds = ($currentUser && !$isSuperAdmin && $currentUser->hasBranchRestriction()) 
@@ -61,78 +70,307 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
             ? $currentUser->getAccessiblePrincipalIds() 
             : null;
 
-        $rowIndex = 1; // Row 1 is header
+        // =========================================================================
+        // 1. AUTO-DETECT HEADER ROW (Scan hingga 15 baris pertama)
+        // =========================================================================
+        $headerRowIdx = null;
+        $rawHeaders = [];
 
-        foreach ($rows as $row) {
-            $rowIndex++;
+        $keywords = [
+            'ktp', 'nik', 'name', 'nama', 'karyawan', 'employee',
+            'store', 'toko', 'outlet', 'bulan', 'month', 'tahun',
+            'year', 'shift', 'tanggal', 'date', 'tgl'
+        ];
 
-            // Ubah row jadi array dengan keys lowercase dan trim
-            $rowArr = $row->toArray();
-            $cleanRow = [];
-            foreach ($rowArr as $k => $v) {
-                $cleanRow[strtolower(trim((string)$k))] = is_string($v) ? trim($v) : $v;
+        foreach ($rows->slice(0, 15) as $rIdx => $rawRow) {
+            $rowItems = is_array($rawRow) ? $rawRow : $rawRow->toArray();
+            $matches = 0;
+            $candidateHeaders = [];
+
+            foreach ($rowItems as $cIdx => $cellVal) {
+                if ($cellVal === null || $cellVal === '') continue;
+                $cellStr = strtolower(trim((string)$cellVal));
+                $candidateHeaders[$cIdx] = $cellStr;
+
+                foreach ($keywords as $kw) {
+                    if (str_contains($cellStr, $kw) || $cellStr === (string)$kw) {
+                        $matches++;
+                        break;
+                    }
+                }
             }
 
-            // Identifikasi Karyawan (KTP / NIK / Employee No)
-            $nik = (string)($cleanRow['ktp'] ?? ($cleanRow['nik'] ?? ($cleanRow['nik_karyawan'] ?? ($cleanRow['no_karyawan'] ?? ($cleanRow['employee_no'] ?? '')))));
-            
-            // Format NIK dari string angka eksponensial jika ada (misal 5.31102E+15)
-            if (stripos($nik, 'E+') !== false && is_numeric($nik)) {
-                $nik = number_format((float)$nik, 0, '', '');
+            // Jika baris ini memiliki minimal 2 kata kunci header yang cocok
+            if ($matches >= 2) {
+                $headerRowIdx = $rIdx;
+                $rawHeaders = $candidateHeaders;
+                break;
             }
+        }
 
-            $namaKaryawan = (string)($cleanRow['name'] ?? ($cleanRow['nama'] ?? ($cleanRow['nama_karyawan'] ?? ($cleanRow['employee_name'] ?? ''))));
+        // Fallback: Jika tidak ada baris yang cocok >= 2 keyword, ambil baris pertama yang memiliki isi >= 2 kolom
+        if ($headerRowIdx === null) {
+            foreach ($rows->slice(0, 5) as $rIdx => $rawRow) {
+                $rowItems = is_array($rawRow) ? $rawRow : $rawRow->toArray();
+                $nonEmpty = array_filter($rowItems, fn($v) => $v !== null && trim((string)$v) !== '');
+                if (count($nonEmpty) >= 2) {
+                    $headerRowIdx = $rIdx;
+                    foreach ($rowItems as $cIdx => $cellVal) {
+                        if ($cellVal !== null && trim((string)$cellVal) !== '') {
+                            $rawHeaders[$cIdx] = strtolower(trim((string)$cellVal));
+                        }
+                    }
+                    break;
+                }
+            }
+        }
 
-            // Jika baris kosong sama sekali, lewati
-            if (empty($nik) && empty($namaKaryawan)) {
+        if ($headerRowIdx === null) {
+            $this->errors[] = "Tidak dapat menemukan baris header pada file Excel. Pastikan file memiliki baris judul kolom seperti NIK / KTP, Nama, Shift / Tanggal.";
+            return;
+        }
+
+        $this->headerRowIndex = $headerRowIdx;
+
+        // Normalisasi nama kolom header
+        $headerMap = []; // [colIndex => normalizedKey]
+        foreach ($rawHeaders as $cIdx => $hVal) {
+            $norm = str_replace([' ', '-', '.'], '_', $hVal);
+            $norm = preg_replace('/[^a-z0-9_]/', '', $norm);
+            $norm = trim($norm, '_');
+            if (!empty($norm)) {
+                $headerMap[$cIdx] = $norm;
+                $this->detectedColumns[] = $norm;
+            }
+        }
+
+        // =========================================================================
+        // 2. MAPPING KOLOM SPESIFIK BERDASARKAN HEADER
+        // =========================================================================
+        $nikColIdx = null;
+        $nameColIdx = null;
+        $principalColIdx = null;
+        $storeCodeColIdx = null;
+        $storeNameColIdx = null;
+        $monthColIdx = null;
+        $yearColIdx = null;
+        $startDateColIdx = null;
+        $endDateColIdx = null;
+        $shiftColIdx = null;
+        $dailyColsMap = []; // [dayNumber (1..31) => cIdx]
+
+        $nikKeywords = [
+            'ktp', 'nik', 'no_ktp', 'no_nik', 'nomor_ktp', 'nomor_nik',
+            'nik_karyawan', 'no_karyawan', 'nomor_karyawan', 'employee_no',
+            'employee_id', 'id_karyawan', 'nip', 'ktp_nik', 'nik_ktp', 'no_id'
+        ];
+        $nameKeywords = [
+            'name', 'nama', 'nama_karyawan', 'employee_name', 'nama_lengkap',
+            'full_name', 'nama_pegawai', 'pegawai', 'karyawan', 'staff', 'nama_staff'
+        ];
+        $principalKeywords = [
+            'prinsiple', 'principal', 'nama_prinsiple', 'nama_principal',
+            'client', 'nama_client', 'account', 'customer'
+        ];
+        $storeCodeKeywords = [
+            'store_code', 'kode_toko', 'kode_store', 'store', 'toko',
+            'outlet_code', 'kode_outlet', 'branch_code', 'kode_cabang'
+        ];
+        $storeNameKeywords = [
+            'store_name', 'nama_toko', 'nama_store', 'lokasi_kerja', 'lokasi',
+            'nama_lokasi', 'outlet', 'nama_outlet', 'work_location', 'area', 'cabang'
+        ];
+        $monthKeywords = ['month', 'bulan', 'periode_bulan', 'bln'];
+        $yearKeywords = ['year', 'tahun', 'periode_tahun', 'thn'];
+        $startDateKeywords = ['tanggal_mulai', 'start_date', 'tgl_mulai', 'tgl_awal', 'start', 'mulai', 'tanggal', 'tgl', 'date'];
+        $endDateKeywords = ['tanggal_akhir', 'end_date', 'tgl_akhir', 'tgl_selesai', 'end', 'selesai', 'sampai'];
+        $shiftKeywords = ['shift', 'shift_name', 'nama_shift', 'kode_shift', 'shift_code', 'jam_kerja'];
+
+        foreach ($headerMap as $cIdx => $colKey) {
+            if ($nikColIdx === null && in_array($colKey, $nikKeywords)) {
+                $nikColIdx = $cIdx;
+                continue;
+            }
+            if ($nameColIdx === null && in_array($colKey, $nameKeywords)) {
+                $nameColIdx = $cIdx;
+                continue;
+            }
+            if ($principalColIdx === null && in_array($colKey, $principalKeywords)) {
+                $principalColIdx = $cIdx;
+                continue;
+            }
+            if ($storeCodeColIdx === null && in_array($colKey, $storeCodeKeywords)) {
+                $storeCodeColIdx = $cIdx;
+                continue;
+            }
+            if ($storeNameColIdx === null && in_array($colKey, $storeNameKeywords)) {
+                $storeNameColIdx = $cIdx;
+                continue;
+            }
+            if ($monthColIdx === null && in_array($colKey, $monthKeywords)) {
+                $monthColIdx = $cIdx;
+                continue;
+            }
+            if ($yearColIdx === null && in_array($colKey, $yearKeywords)) {
+                $yearColIdx = $cIdx;
+                continue;
+            }
+            if ($startDateColIdx === null && in_array($colKey, $startDateKeywords)) {
+                $startDateColIdx = $cIdx;
+                continue;
+            }
+            if ($endDateColIdx === null && in_array($colKey, $endDateKeywords)) {
+                $endDateColIdx = $cIdx;
+                continue;
+            }
+            if ($shiftColIdx === null && in_array($colKey, $shiftKeywords)) {
+                $shiftColIdx = $cIdx;
                 continue;
             }
 
-            // Cari Karyawan: Acuan Utama adalah NIK (employee_no) dan Prinsiple
-            $prinsipleCol = (string)($cleanRow['prinsiple'] ?? ($cleanRow['principal'] ?? ($cleanRow['nama_prinsiple'] ?? ($cleanRow['client'] ?? ''))));
-            
+            // Kolom tanggal harian 1..31 (Matrix)
+            $cleanDayNum = preg_replace('/^(d|tgl_|_)/', '', $colKey);
+            if (is_numeric($cleanDayNum)) {
+                $dInt = (int)$cleanDayNum;
+                if ($dInt >= 1 && $dInt <= 31) {
+                    $dailyColsMap[$dInt] = $cIdx;
+                }
+            }
+        }
+
+        // Validasi ketersediaan kolom kunci (NIK atau Nama)
+        if ($nikColIdx === null && $nameColIdx === null) {
+            $colsFound = !empty($this->detectedColumns) ? implode(', ', array_slice($this->detectedColumns, 0, 8)) : 'kosong';
+            $this->errors[] = "Kolom NIK / KTP atau Nama Karyawan tidak terdeteksi pada baris header (Baris ke-" . ($headerRowIdx + 1) . "). Kolom yang terbaca pada file: {$colsFound}.";
+            return;
+        }
+
+        $isMatrix = count($dailyColsMap) >= 3;
+        $this->detectedFormat = $isMatrix ? 'matrix' : 'range';
+
+        // =========================================================================
+        // 3. PROSES BARIS DATA
+        // =========================================================================
+        $dataRows = $rows->slice($headerRowIdx + 1);
+
+        foreach ($dataRows as $rIdx => $rawRow) {
+            $excelRowNum = $rIdx + 1; // 1-indexed baris di Excel
+            $rowItems = is_array($rawRow) ? $rawRow : $rawRow->toArray();
+
+            // Cek apakah baris kosong total
+            $nonEmptyValues = array_filter($rowItems, fn($v) => $v !== null && trim((string)$v) !== '');
+            if (empty($nonEmptyValues)) {
+                continue; // Lewati baris kosong tanpa dianggap error
+            }
+
+            $this->totalRowsRead++;
+
+            // Ambil NIK dan bersihkan
+            $rawNik = $nikColIdx !== null ? (string)($rowItems[$nikColIdx] ?? '') : '';
+            $rawNik = trim($rawNik, " \t\n\r\0\x0B'`");
+            if (stripos($rawNik, 'E+') !== false && is_numeric($rawNik)) {
+                $rawNik = sprintf('%.0f', (float)$rawNik);
+            }
+            if (str_ends_with($rawNik, '.0')) {
+                $rawNik = substr($rawNik, 0, -2);
+            }
+            $cleanNik = preg_replace('/[^0-9A-Za-z]/', '', $rawNik);
+
+            // Ambil Nama Karyawan
+            $namaKaryawan = $nameColIdx !== null ? trim((string)($rowItems[$nameColIdx] ?? '')) : '';
+
+            // Lewati baris ringkasan / footer (misal "TOTAL", "Grand Total", dsb)
+            $combinedLower = strtolower($rawNik . ' ' . $namaKaryawan);
+            if (str_contains($combinedLower, 'total') || str_contains($combinedLower, 'grand total') || str_contains($combinedLower, 'mengetahui')) {
+                continue;
+            }
+
+            // Jika baris berisi sesuatu tapi NIK dan Nama dua-duanya kosong
+            if (empty($rawNik) && empty($cleanNik) && empty($namaKaryawan)) {
+                $this->skippedCount++;
+                $this->errors[] = "Baris {$excelRowNum}: Kolom NIK/KTP dan Nama kosong (data baris tidak valid).";
+                continue;
+            }
+
+            $prinsipleCol = $principalColIdx !== null ? trim((string)($rowItems[$principalColIdx] ?? '')) : '';
+
+            // =====================================================================
+            // 4. PENCARIAN KARYAWAN DI DATABASE
+            // =====================================================================
             $employee = null;
-            if (!empty($nik)) {
-                $query = Employee::where('employee_no', $nik);
+            $hasNikColumn = Schema::hasColumn('employees', 'nik');
+
+            // 1. Cari berdasarkan NIK (employee_no / nik)
+            if (!empty($rawNik) || !empty($cleanNik)) {
+                $empQuery = Employee::query();
+                $empQuery->where(function ($q) use ($rawNik, $cleanNik, $hasNikColumn) {
+                    $q->where('employee_no', $rawNik);
+                    if (!empty($cleanNik) && $cleanNik !== $rawNik) {
+                        $q->orWhere('employee_no', $cleanNik);
+                    }
+                    if ($hasNikColumn) {
+                        $q->orWhere('nik', $rawNik);
+                        if (!empty($cleanNik) && $cleanNik !== $rawNik) {
+                            $q->orWhere('nik', $cleanNik);
+                        }
+                    }
+                });
+
                 if (!empty($prinsipleCol)) {
                     $pTrim = trim($prinsipleCol);
-                    $query->whereHas('principal', function ($q) use ($pTrim) {
+                    $empQuery->whereHas('principal', function ($q) use ($pTrim) {
                         $q->whereRaw('LOWER(TRIM(name)) = ?', [strtolower($pTrim)]);
                     });
                 }
-                // Prioritaskan akun yang aktif
-                $employee = (clone $query)->where('is_active', true)->whereNull('deleted_at')->first()
-                    ?? $query->first();
 
-                // Jika tidak ditemukan dengan filter prinsiple spesifik, cari by NIK aktif
+                $employee = (clone $empQuery)->where('is_active', true)->whereNull('deleted_at')->first()
+                    ?? $empQuery->first();
+
+                // Coba lagi tanpa filter prinsiple jika tidak ketemu
                 if (!$employee && !empty($prinsipleCol)) {
-                    $employee = Employee::where('employee_no', $nik)->where('is_active', true)->whereNull('deleted_at')->first()
-                        ?? Employee::where('employee_no', $nik)->first();
+                    $fallbackQuery = Employee::where(function ($q) use ($rawNik, $cleanNik, $hasNikColumn) {
+                        $q->where('employee_no', $rawNik);
+                        if (!empty($cleanNik) && $cleanNik !== $rawNik) {
+                            $q->orWhere('employee_no', $cleanNik);
+                        }
+                        if ($hasNikColumn) {
+                            $q->orWhere('nik', $rawNik);
+                            if (!empty($cleanNik) && $cleanNik !== $rawNik) {
+                                $q->orWhere('nik', $cleanNik);
+                            }
+                        }
+                    });
+                    $employee = (clone $fallbackQuery)->where('is_active', true)->whereNull('deleted_at')->first()
+                        ?? $fallbackQuery->first();
                 }
             }
 
-            // Fallback: Jika NIK tidak ditemukan / kosong, cari berdasarkan nama karyawan
+            // 2. Fallback jika tidak ketemu by NIK: Cari by Nama Karyawan (CASE-INSENSITIVE)
             if (!$employee && !empty($namaKaryawan)) {
-                $query = Employee::where('full_name', $namaKaryawan);
+                $nameQuery = Employee::whereRaw('LOWER(TRIM(full_name)) = ?', [strtolower($namaKaryawan)]);
                 if (!empty($prinsipleCol)) {
                     $pTrim = trim($prinsipleCol);
-                    $query->whereHas('principal', function ($q) use ($pTrim) {
+                    $nameQuery->whereHas('principal', function ($q) use ($pTrim) {
                         $q->whereRaw('LOWER(TRIM(name)) = ?', [strtolower($pTrim)]);
                     });
                 }
-                $employee = (clone $query)->where('is_active', true)->whereNull('deleted_at')->first()
-                    ?? $query->first();
+                $employee = (clone $nameQuery)->where('is_active', true)->whereNull('deleted_at')->first()
+                    ?? $nameQuery->first();
 
                 if (!$employee && !empty($prinsipleCol)) {
-                    $employee = Employee::where('full_name', $namaKaryawan)->where('is_active', true)->whereNull('deleted_at')->first()
-                        ?? Employee::where('full_name', $namaKaryawan)->first();
+                    $employee = Employee::whereRaw('LOWER(TRIM(full_name)) = ?', [strtolower($namaKaryawan)])
+                        ->where('is_active', true)->whereNull('deleted_at')->first()
+                        ?? Employee::whereRaw('LOWER(TRIM(full_name)) = ?', [strtolower($namaKaryawan)])->first();
                 }
             }
 
             if (!$employee) {
                 $this->skippedCount++;
-                $identifier = !empty($nik) ? "KTP/NIK '{$nik}'" : "Nama '{$namaKaryawan}'";
-                $this->errors[] = "Baris {$rowIndex}: Karyawan dengan {$identifier} tidak ditemukan.";
+                $identifier = !empty($rawNik) ? "NIK '{$rawNik}'" : "Nama '{$namaKaryawan}'";
+                if (!empty($namaKaryawan) && !empty($rawNik)) {
+                    $identifier .= " ({$namaKaryawan})";
+                }
+                $this->errors[] = "Baris {$excelRowNum}: Karyawan dengan {$identifier} tidak ditemukan di database Master Karyawan.";
                 continue;
             }
 
@@ -140,19 +378,19 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
             if (!$isSuperAdmin) {
                 if ($accessibleBranchIds !== null && !in_array($employee->branch_id, $accessibleBranchIds)) {
                     $this->skippedCount++;
-                    $this->errors[] = "Baris {$rowIndex}: Karyawan '{$employee->full_name}' di luar wewenang Area Anda.";
+                    $this->errors[] = "Baris {$excelRowNum}: Karyawan '{$employee->full_name}' di luar wewenang Area Anda.";
                     continue;
                 }
                 if ($accessiblePrincipalIds !== null && !in_array($employee->principal_id, $accessiblePrincipalIds)) {
                     $this->skippedCount++;
-                    $this->errors[] = "Baris {$rowIndex}: Karyawan '{$employee->full_name}' di luar wewenang Prinsiple Anda.";
+                    $this->errors[] = "Baris {$excelRowNum}: Karyawan '{$employee->full_name}' di luar wewenang Prinsiple Anda.";
                     continue;
                 }
             }
 
-            // Resolusi Lokasi Kerja (Store Code / Store Name / Lokasi)
-            $storeCode = (string)($cleanRow['store_code'] ?? ($cleanRow['kode_toko'] ?? ($cleanRow['store'] ?? '')));
-            $storeName = (string)($cleanRow['store_name'] ?? ($cleanRow['nama_toko'] ?? ($cleanRow['lokasi_kerja'] ?? ($cleanRow['lokasi'] ?? ''))));
+            // Resolusi Lokasi Kerja
+            $storeCode = $storeCodeColIdx !== null ? trim((string)($rowItems[$storeCodeColIdx] ?? '')) : '';
+            $storeName = $storeNameColIdx !== null ? trim((string)($rowItems[$storeNameColIdx] ?? '')) : '';
             
             $locationId = null;
             if (!empty($storeCode)) {
@@ -162,7 +400,6 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                 $locationId = $this->locationsMap[strtolower($storeName)] ?? null;
             }
             if (!$locationId && !empty($storeName)) {
-                // Fuzzy search
                 $foundLoc = WorkLocation::whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($storeName) . '%'])->first();
                 if ($foundLoc) {
                     $locationId = $foundLoc->id;
@@ -172,22 +409,18 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                 $locationId = $this->defaultLocationId;
             }
 
-            // DETEKSI FORMAT:
-            // Cek apakah ini Format Matrix / Per Tanggal (memiliki kolom 1..31)
-            $hasDailyColumns = false;
-            for ($d = 1; $d <= 31; $d++) {
-                if (array_key_exists((string)$d, $cleanRow) || array_key_exists(sprintf('%02d', $d), $cleanRow) || array_key_exists('_' . $d, $cleanRow)) {
-                    $hasDailyColumns = true;
-                    break;
-                }
-            }
+            // =====================================================================
+            // 5. INPUT JADWAL SESUAI FORMAT TERDETEKSI
+            // =====================================================================
+            if ($isMatrix) {
+                // -------------------------------------------------------------
+                // FORMAT MATRIX (Kolom Harian 1..31)
+                // -------------------------------------------------------------
+                $rawMonth = $monthColIdx !== null ? ($rowItems[$monthColIdx] ?? null) : null;
+                $rawYear = $yearColIdx !== null ? ($rowItems[$yearColIdx] ?? null) : null;
 
-            if ($hasDailyColumns) {
-                // ==========================================================
-                // METODE 1: IMPORT PER TANGGAL (MATRIX 1..31)
-                // ==========================================================
-                $month = $this->parseMonth($cleanRow['month'] ?? ($cleanRow['bulan'] ?? null));
-                $year = (int)($cleanRow['year'] ?? ($cleanRow['tahun'] ?? Carbon::now()->year));
+                $month = $this->parseMonth($rawMonth);
+                $year = (int)($rawYear ?: Carbon::now()->year);
                 if ($year < 2000 || $year > 2100) {
                     $year = Carbon::now()->year;
                 }
@@ -196,20 +429,15 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                 $processedForEmp = 0;
 
                 for ($day = 1; $day <= $daysInMonth; $day++) {
-                    $dayKeyStr = (string)$day;
-                    $dayKeyPad = sprintf('%02d', $day);
-                    $dayKeyUnder = '_' . $day;
-                    $dayKeyD = 'd' . $day;
-                    $dayKeyTgl = 'tgl_' . $day;
+                    if (!isset($dailyColsMap[$day])) {
+                        continue;
+                    }
 
-                    $shiftVal = $cleanRow[$dayKeyStr] 
-                        ?? ($cleanRow[$dayKeyPad] 
-                        ?? ($cleanRow[$dayKeyUnder] 
-                        ?? ($cleanRow[$dayKeyD] 
-                        ?? ($cleanRow[$dayKeyTgl] ?? null))));
+                    $cIdx = $dailyColsMap[$day];
+                    $shiftVal = $rowItems[$cIdx] ?? null;
 
-                    if ($shiftVal === null || $shiftVal === '') {
-                        continue; // Lewati jika tanggal ini tidak diisi
+                    if ($shiftVal === null || trim((string)$shiftVal) === '') {
+                        continue; // Tanggal tidak diisi
                     }
 
                     $shiftValStr = trim((string)$shiftVal);
@@ -234,7 +462,6 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                             ]
                         );
                     } else {
-                        // Cari Shift
                         $shift = $this->resolveShift($shiftValStr, $employee->principal_id, $employee->company_id ?? 1);
 
                         $plannedStart = null;
@@ -273,21 +500,24 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
 
                 if ($processedForEmp > 0) {
                     $this->importedCount++;
+                } else {
+                    $this->skippedCount++;
+                    $this->errors[] = "Baris {$excelRowNum}: Karyawan '{$employee->full_name}' dilewati karena seluruh kolom tanggal (1..{$daysInMonth}) kosong.";
                 }
             } else {
-                // ==========================================================
-                // METODE 2: IMPORT RENTANG TANGGAL (START_DATE -> END_DATE)
-                // ==========================================================
-                $rawStartDate = $cleanRow['tanggal_mulai'] ?? ($cleanRow['start_date'] ?? ($cleanRow['tgl_mulai'] ?? ($cleanRow['tanggal'] ?? ($cleanRow['date'] ?? null))));
-                $rawEndDate = $cleanRow['tanggal_akhir'] ?? ($cleanRow['end_date'] ?? ($cleanRow['tgl_akhir'] ?? ($cleanRow['tanggal'] ?? ($cleanRow['date'] ?? null))));
-                $shiftName = (string)($cleanRow['shift'] ?? ($cleanRow['shift_name'] ?? ($cleanRow['nama_shift'] ?? '')));
+                // -------------------------------------------------------------
+                // FORMAT RENTANG TANGGAL (Start Date -> End Date)
+                // -------------------------------------------------------------
+                $rawStartDate = $startDateColIdx !== null ? ($rowItems[$startDateColIdx] ?? null) : null;
+                $rawEndDate = $endDateColIdx !== null ? ($rowItems[$endDateColIdx] ?? null) : null;
+                $shiftName = $shiftColIdx !== null ? trim((string)($rowItems[$shiftColIdx] ?? '')) : '';
 
                 $startDateStr = $this->parseDate($rawStartDate);
                 $endDateStr = $this->parseDate($rawEndDate) ?: $startDateStr;
 
                 if (!$startDateStr) {
                     $this->skippedCount++;
-                    $this->errors[] = "Baris {$rowIndex}: Format tanggal mulai '{$rawStartDate}' tidak valid.";
+                    $this->errors[] = "Baris {$excelRowNum}: Format tanggal mulai '{$rawStartDate}' tidak valid.";
                     continue;
                 }
 
@@ -306,7 +536,6 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                     $shift = $this->resolveShift($shiftName, $employee->principal_id, $employee->company_id ?? 1);
                 }
 
-                // Ambil Hari Kerja Departemen
                 $workingDays = [1, 2, 3, 4, 5];
                 if ($employee->department && !empty($employee->department->working_days)) {
                     $wd = $employee->department->working_days;
@@ -363,6 +592,15 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
                 $this->importedCount++;
             }
         }
+
+        // Jika tidak ada data yang masuk dan belum ada error terdata
+        if ($this->importedCount === 0 && empty($this->errors)) {
+            if ($this->totalRowsRead === 0) {
+                $this->errors[] = "Tidak ada baris data yang ditemukan setelah baris header.";
+            } else {
+                $this->errors[] = "Tidak ada jadwal yang berhasil diproses dari {$this->totalRowsRead} baris data yang dibaca.";
+            }
+        }
     }
 
     protected function resolveShift(string $shiftName, ?int $principalId = null, int $companyId = 1): ?Shift
@@ -394,7 +632,7 @@ class EmployeeScheduleImport implements ToCollection, WithHeadingRow
             return $found;
         }
 
-        // Auto-create shift jika nama shift baru (misal FLEKSIBEL01) belum terdaftar di DB
+        // Auto-create shift jika nama shift baru belum terdaftar di DB
         try {
             $newShift = Shift::create([
                 'principal_id' => $principalId,

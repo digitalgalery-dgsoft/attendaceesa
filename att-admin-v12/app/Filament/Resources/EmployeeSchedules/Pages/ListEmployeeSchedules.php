@@ -227,28 +227,46 @@ class ListEmployeeSchedules extends ListRecords
                         $import = new EmployeeScheduleImport();
                         Excel::import($import, $file);
 
-                        $msg = "Berhasil mengimpor {$import->importedCount} jadwal karyawan.";
-                        if ($import->skippedCount > 0) {
-                            $msg .= " ({$import->skippedCount} baris dilewati / bermasalah).";
-                        }
+                        if ($import->importedCount === 0) {
+                            $errorList = !empty($import->errors) 
+                                ? "\n\n📋 Rincian Penyebab:\n• " . implode("\n• ", array_slice($import->errors, 0, 5))
+                                : "\n\n📋 Kolom yang terbaca pada file: " . (!empty($import->detectedColumns) ? implode(', ', array_slice($import->detectedColumns, 0, 8)) : 'Tidak terdeteksi');
+                            
+                            if (count($import->errors) > 5) {
+                                $errorList .= "\n• ...dan " . (count($import->errors) - 5) . " masalah lainnya.";
+                            }
 
-                        $notif = Notification::make()
-                            ->title('Import Jadwal Selesai')
-                            ->body($msg);
+                            Notification::make()
+                                ->title('Gagal Mengimpor Jadwal (0 Data Masuk)')
+                                ->body("Tidak ada jadwal yang berhasil diimpor ke sistem." . $errorList . "\n\n💡 Saran: Unduh format resmi dari tombol 'Download Template Excel' di atas untuk memastikan nama dan susunan kolom sesuai standar sistem.")
+                                ->danger()
+                                ->persistent()
+                                ->send();
+                        } elseif ($import->skippedCount > 0) {
+                            $skipList = "\n\n⚠️ Rincian Baris Dilewati:\n• " . implode("\n• ", array_slice($import->errors, 0, 4));
+                            if (count($import->errors) > 4) {
+                                $skipList .= "\n• ...dan " . (count($import->errors) - 4) . " baris lainnya.";
+                            }
 
-                        if (!empty($import->errors)) {
-                            $notif->body($msg . "\nCatatan: " . implode(', ', array_slice($import->errors, 0, 3)));
-                            $notif->warning();
+                            Notification::make()
+                                ->title('Import Jadwal Sebagian')
+                                ->body("Berhasil mengimpor {$import->importedCount} karyawan ({$import->totalDaysProcessed} titik jadwal shift harian).\nNamun terdapat {$import->skippedCount} baris yang dilewati / bermasalah." . $skipList)
+                                ->warning()
+                                ->persistent()
+                                ->send();
                         } else {
-                            $notif->success();
+                            Notification::make()
+                                ->title('Import Jadwal Berhasil')
+                                ->body("Berhasil mengimpor seluruh {$import->importedCount} jadwal karyawan ({$import->totalDaysProcessed} titik jadwal shift telah diperbarui).")
+                                ->success()
+                                ->send();
                         }
-
-                        $notif->send();
                     } catch (\Throwable $e) {
                         Notification::make()
                             ->title('Gagal Import Jadwal')
-                            ->body($e->getMessage())
+                            ->body("Terjadi kendala saat membaca file Excel: " . $e->getMessage())
                             ->danger()
+                            ->persistent()
                             ->send();
                     }
                 }),
