@@ -20,6 +20,7 @@ import 'package:att_mobile/widgets/signature_pad_dialog.dart';
 import 'package:att_mobile/widgets/barcode_scanner_dialog.dart';
 import 'package:att_mobile/widgets/custom_loading_indicator.dart';
 import 'package:att_mobile/widgets/connection_status_badge.dart';
+import 'package:att_mobile/screens/reporting_hub_screen.dart';
 
 // Model untuk input dinamis produk kompetitor pada form CBP
 class CompetitorInputItem {
@@ -268,6 +269,61 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         code.contains('MBR-TOOLS') ||
         code.contains('WINGS-TOOLS') ||
         (title.contains('tools') && (title.contains('free taste') || title.contains('properti')));
+  }
+
+  String? _getFieldValueByName(String name) {
+    name = name.toLowerCase();
+    for (final f in widget.template.fields) {
+      if (f.fieldName.toLowerCase() == name) {
+        final val = _formValues[f.id.toString()] ?? _formValues[f.fieldName];
+        if (val != null) return val.toString();
+      }
+    }
+    return null;
+  }
+
+  void _setFieldValueByName(String name, dynamic value) {
+    name = name.toLowerCase();
+    for (final f in widget.template.fields) {
+      if (f.fieldName.toLowerCase() == name) {
+        if (value == null) {
+          _controllers[f.id.toString()]?.clear();
+          _formValues.remove(f.id.toString());
+          _formValues.remove(f.fieldName);
+        } else {
+          _formValues[f.id.toString()] = value;
+          _formValues[f.fieldName] = value;
+        }
+      }
+    }
+  }
+
+  void _returnToReportingScreen() {
+    if (!mounted) return;
+    bool foundReporting = false;
+    Navigator.of(context).popUntil((route) {
+      if (route.settings.name == 'ReportingHubScreen') {
+        foundReporting = true;
+        return true;
+      }
+      if (route.isFirst) {
+        return true;
+      }
+      return false;
+    });
+
+    if (!foundReporting) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          settings: const RouteSettings(name: 'ReportingHubScreen'),
+          builder: (_) => ReportingHubScreen(
+            storeName: widget.storeName,
+            workLocationId: widget.workLocationId ?? _selectedWorkLocationId,
+            itineraryItemId: widget.itineraryItemId,
+          ),
+        ),
+      );
+    }
   }
 
   bool _hasProductBinding() {
@@ -2188,9 +2244,69 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       return;
     }
 
+    // Validasi Khusus Laporan Tools Wings Surya
+    if (_isWingsToolsTemplate()) {
+      final statusVal = _getFieldValueByName('status_ketersediaan')?.toUpperCase().trim();
+      if (statusVal == null || (statusVal != 'ADA' && statusVal != 'TIDAK')) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.warning,
+          title: const Text('Status Ketersediaan Wajib Diisi'),
+          description: const Text('Silakan pilih status ketersediaan tools (ADA / TIDAK)'),
+          autoCloseDuration: const Duration(seconds: 3),
+        );
+        return;
+      }
+
+      if (statusVal == 'ADA') {
+        final kondisiVal = _getFieldValueByName('kondisi_tools')?.toUpperCase().trim();
+        if (kondisiVal == null || (kondisiVal != 'BAGUS' && kondisiVal != 'TIDAK BAGUS')) {
+          toastification.show(
+            context: context,
+            type: ToastificationType.warning,
+            title: const Text('Kondisi Tools Wajib Dipilih'),
+            description: const Text('Silakan pilih kondisi tools (BAGUS / TIDAK BAGUS)'),
+            autoCloseDuration: const Duration(seconds: 3),
+          );
+          return;
+        }
+
+        if (kondisiVal == 'TIDAK BAGUS') {
+          bool hasFoto = false;
+          for (final f in widget.template.fields) {
+            if (f.fieldName.toLowerCase() == 'foto_tools' || f.fieldType == 'camera_photo') {
+              final k = f.id.toString();
+              if (_photoFiles[k] != null ||
+                  _photoFiles[f.fieldName] != null ||
+                  (_multiPhotoFiles[k]?.isNotEmpty ?? false) ||
+                  _existingPhotoUrls.containsKey(k) ||
+                  _existingPhotoUrls.containsKey(f.fieldName)) {
+                hasFoto = true;
+                break;
+              }
+            }
+          }
+          if (!hasFoto) {
+            toastification.show(
+              context: context,
+              type: ToastificationType.warning,
+              title: const Text('Foto Bukti Wajib Dilampirkan'),
+              description: const Text('Karena kondisi tools TIDAK BAGUS, Anda wajib melampirkan foto bukti kondisi fisik alat.'),
+              autoCloseDuration: const Duration(seconds: 4),
+            );
+            return;
+          }
+        }
+      }
+    }
+
     // Validasi foto & tanda tangan required
     for (final field in widget.template.fields) {
       if (field.isRequired && !_isCalculatedField(field)) {
+        // Lewati foto_tools pada template Wings Tools karena divalidasi secara kondisional di atas
+        if (_isWingsToolsTemplate() && (field.fieldName.toLowerCase() == 'foto_tools' || field.fieldType == 'camera_photo')) {
+          continue;
+        }
         final fieldKey = field.id.toString();
         if (['photo', 'camera_photo', 'multi_photo'].contains(field.fieldType)) {
           final hasFiles = _multiPhotoFiles[fieldKey]?.isNotEmpty ?? false;
@@ -2406,6 +2522,43 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     }
 
+    // Khusus Laporan Tools Wings Surya: Bersihkan data kondisi / foto sesuai logika kondisional
+    if (_isWingsToolsTemplate()) {
+      final statusVal = _getFieldValueByName('status_ketersediaan')?.toUpperCase().trim();
+      final kondisiVal = _getFieldValueByName('kondisi_tools')?.toUpperCase().trim();
+
+      cleanFormValues.remove('keterangan_kondisi');
+      for (final f in widget.template.fields) {
+        if (f.fieldName.toLowerCase() == 'keterangan_kondisi') {
+          cleanFormValues.remove(f.id.toString());
+        }
+      }
+
+      if (statusVal == 'TIDAK') {
+        cleanFormValues['kondisi_tools'] = null;
+        for (final f in widget.template.fields) {
+          if (f.fieldName.toLowerCase() == 'kondisi_tools') {
+            cleanFormValues[f.id.toString()] = null;
+          }
+          if (f.fieldName.toLowerCase() == 'foto_tools' || f.fieldType == 'camera_photo') {
+            _photoFiles.remove(f.id.toString());
+            _photoFiles.remove(f.fieldName);
+            _multiPhotoFiles.remove(f.id.toString());
+            _multiPhotoFiles.remove(f.fieldName);
+          }
+        }
+      } else if (statusVal == 'ADA' && kondisiVal == 'BAGUS') {
+        for (final f in widget.template.fields) {
+          if (f.fieldName.toLowerCase() == 'foto_tools' || f.fieldType == 'camera_photo') {
+            _photoFiles.remove(f.id.toString());
+            _photoFiles.remove(f.fieldName);
+            _multiPhotoFiles.remove(f.id.toString());
+            _multiPhotoFiles.remove(f.fieldName);
+          }
+        }
+      }
+    }
+
     // Gabungkan payload foto (single dan multi-foto)
     final Map<String, dynamic> allPhotosPayload = {};
     _photoFiles.forEach((k, v) => allPhotosPayload[k] = v);
@@ -2547,7 +2700,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           description: Text(result['message'] ?? 'Seluruh laporan berhasil diselesaikan.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        Navigator.of(context).pop(true);
+        _returnToReportingScreen();
       }
     } else if (mounted) {
       toastification.show(
@@ -3918,6 +4071,31 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     }
 
+    // Khusus Laporan Tools (Properti Free Taste) Wings:
+    if (_isWingsToolsTemplate()) {
+      // 1. Textarea keterangan_kondisi dihapus / disembunyikan
+      if (fieldNameLower == 'keterangan_kondisi' || fieldLabelLower.contains('keterangan kondisi')) {
+        return const SizedBox.shrink();
+      }
+
+      final statusVal = _getFieldValueByName('status_ketersediaan')?.toUpperCase().trim();
+      final kondisiVal = _getFieldValueByName('kondisi_tools')?.toUpperCase().trim();
+
+      // 2. Kondisi Tools: hanya muncul jika status_ketersediaan == 'ADA'
+      if (fieldNameLower == 'kondisi_tools' || fieldLabelLower.contains('kondisi tools')) {
+        if (statusVal != 'ADA') {
+          return const SizedBox.shrink();
+        }
+      }
+
+      // 3. Foto Tools: hanya muncul jika status_ketersediaan == 'ADA' DAN kondisi_tools == 'TIDAK BAGUS'
+      if (fieldNameLower == 'foto_tools' || field.fieldType == 'camera_photo' || fieldLabelLower.contains('foto bukti')) {
+        if (statusVal != 'ADA' || kondisiVal != 'TIDAK BAGUS') {
+          return const SizedBox.shrink();
+        }
+      }
+    }
+
     final bool isPhoneOrNik = fieldNameLower.contains('hp') ||
         fieldNameLower.contains('phone') ||
         fieldNameLower.contains('wa') ||
@@ -4422,8 +4600,34 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     : (val) {
                         setState(() {
                           _formValues[fieldKey] = val;
+                          _formValues[field.fieldName] = val;
                           if (fieldKey == 'kategori_tinter') {
                             _formValues['tipe_tinter_warna'] = null;
+                          }
+                          if (_isWingsToolsTemplate()) {
+                            final fn = field.fieldName.toLowerCase();
+                            if (fn == 'status_ketersediaan') {
+                              if (val == 'TIDAK') {
+                                _setFieldValueByName('kondisi_tools', null);
+                                for (final f in widget.template.fields) {
+                                  if (f.fieldName.toLowerCase() == 'foto_tools' || f.fieldType == 'camera_photo') {
+                                    _photoFiles.remove(f.id.toString());
+                                    _photoFiles.remove(f.fieldName);
+                                    _watermarkTexts.remove(f.id.toString());
+                                  }
+                                }
+                              }
+                            } else if (fn == 'kondisi_tools') {
+                              if (val == 'BAGUS') {
+                                for (final f in widget.template.fields) {
+                                  if (f.fieldName.toLowerCase() == 'foto_tools' || f.fieldType == 'camera_photo') {
+                                    _photoFiles.remove(f.id.toString());
+                                    _photoFiles.remove(f.fieldName);
+                                    _watermarkTexts.remove(f.id.toString());
+                                  }
+                                }
+                              }
+                            }
                           }
                         });
                       },
@@ -5158,7 +5362,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   ],
                 ),
               ),
-              if (field.isRequired)
+              if (field.isRequired || (_isWingsToolsTemplate() && ((fieldNameLower == 'kondisi_tools' && _getFieldValueByName('status_ketersediaan')?.toUpperCase().trim() == 'ADA') || (fieldNameLower == 'foto_tools' && _getFieldValueByName('kondisi_tools')?.toUpperCase().trim() == 'TIDAK BAGUS'))))
                 const Text(' *', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 14)),
             ],
           ),
@@ -8440,7 +8644,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           description: Text('Total $grandUnit unit (${grandLiter.toStringAsFixed(1)} L) berhasil dilaporkan.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        Navigator.of(context).pop(true);
+        _returnToReportingScreen();
       } else if (mounted) {
         toastification.show(
           context: context,
@@ -8567,7 +8771,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           description: const Text('Laporan tanpa transaksi penjualan berhasil dikirim.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        Navigator.of(context).pop(true);
+        _returnToReportingScreen();
       } else if (mounted) {
         toastification.show(
           context: context,
@@ -10409,7 +10613,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           description: Text('Total ${_oosCart.length} SKU kosong berhasil dilaporkan.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        Navigator.of(context).pop(true);
+        _returnToReportingScreen();
       } else if (mounted) {
         toastification.show(
           context: context,
@@ -10539,7 +10743,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           description: const Text('Laporan No OOS (Stok Lengkap) berhasil dikirim.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        Navigator.of(context).pop(true);
+        _returnToReportingScreen();
       } else if (mounted) {
         toastification.show(
           context: context,
@@ -12500,7 +12704,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               'Laporan Stock End (${_stockEndCart.length} produk, ${grandLiter.toStringAsFixed(1)} L) berhasil dikirim.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        Navigator.of(context).pop(true);
+        _returnToReportingScreen();
       } else if (mounted) {
         toastification.show(
           context: context,
@@ -14621,7 +14825,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               'Laporan Penjualan (${_mbrSalesCart.length} produk, Total: ${_formatRupiah(totalValue)}) berhasil dikirim.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        Navigator.of(context).pop(true);
+        _returnToReportingScreen();
       } else if (mounted) {
         toastification.show(
           context: context,
@@ -16469,7 +16673,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               'Laporan Free Taste (${_mbrFreeTasteCart.length} varian, Dimasak: $totalDimasak Pcs, Dibagikan: $totalCup Cup) berhasil dikirim.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        Navigator.of(context).pop(true);
+        _returnToReportingScreen();
       } else if (mounted) {
         toastification.show(
           context: context,

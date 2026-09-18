@@ -2096,3 +2096,36 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Memastikan `_hasProductBinding()` mengembalikan `false` agar formulir tools tidak keliru mengunci alur input ke SKU master produk Mie Sedaap.
       - Memperbarui `_isCategoryField()` dengan mengenali `nama_tools`, mengaktifkan mode *Continuous Session Checklist* sehingga item yang sudah dilaporkan ditandai selesai dan difilter dari pilihan dropdown sesi tersebut.
 
+38. **Penyempurnaan Logika Kondisional Laporan Tools Wings Surya, Navigasi Post-Submit Reporting Hub, dan Rilis v1.0.157 (18 September 2026)**:
+    - **Penyelarasan Alur Kerja & Kondisional Form Laporan Tools (`RPT-WINGS-MBR-TOOLS-01`)**:
+      - **Akar Kebutuhan**: Menggantikan textarea catatan bebas dengan pilihan radio button terstruktur, serta menerapkan dependensi input dinamis untuk efisiensi pelaporan karyawan di lapangan.
+      - **Logika Kondisional Field**:
+        1. `nama_tools`: Dropdown 13 item tools standar (Panci susu, Gunting, Kompor portable, dll). Wajib dipilih.
+        2. `status_ketersediaan`: Radio button `['ADA', 'TIDAK']`. Wajib dipilih.
+        3. `kondisi_tools`: Radio button `['BAGUS', 'TIDAK BAGUS']`.
+           - Hanya muncul jika `status_ketersediaan == 'ADA'`. Tersembunyi jika `TIDAK`.
+           - Wajib dipilih jika ketersediaan `ADA`.
+        4. `foto_tools`: Lampiran foto kamera ber-watermark geotag permanen.
+           - Hanya muncul dan WAJIB dilampirkan jika `status_ketersediaan == 'ADA'` DAN `kondisi_tools == 'TIDAK BAGUS'`.
+           - Tersembunyi dan TIDAK perlu foto jika kondisi `BAGUS` atau ketersediaan `TIDAK`.
+        5. `keterangan_kondisi`: Field textarea lama telah dihapus dan digantikan sepenuhnya oleh radio button `kondisi_tools`.
+      - **Reset Reaktif & Payload Cleanup**:
+        - Memilih `TIDAK` pada ketersediaan otomatis mereset nilai `kondisi_tools` dan menghapus foto/watermark yang sempat terambil.
+        - Memilih `BAGUS` pada kondisi tools otomatis mereset dan membersihkan file foto dari memori.
+        - Payload pengiriman form otomatis membersihkan `keterangan_kondisi`, mengeset `kondisi_tools = null` jika tidak ada fisik alat, dan membuang payload foto jika kondisi bagus.
+    - **Database Migration & Seeder (`2026_09_18_110000_update_wings_tools_report_template.php`)**:
+      - Menghapus field `keterangan_kondisi`.
+      - Menambahkan field `kondisi_tools` (`type: radio`, options: `['BAGUS', 'TIDAK BAGUS']`, order: 3).
+      - Memperbarui field `foto_tools` (`order: 4`, is_required: false secara schema, dikontrol secara dinamis oleh frontend).
+      - Menyelaraskan seeder `ReportTemplatePresetsSeeder.php` dan migrasi awal `2026_09_18_100000_seed_wings_tools_report_template.php`.
+    - **Perbaikan Alur Navigasi Pasca Submit Laporan (`_returnToReportingScreen`)**:
+      - **Kendala**: Sebelumnya setelah selesai mengirim laporan, aplikasi kembali (pop) hingga ke layar Dashboard, sehingga pengguna harus membuka ulang menu Reporting untuk mengisi laporan selanjutnya.
+      - **Solusi**:
+        - Menyematkan `settings: const RouteSettings(name: 'ReportingHubScreen')` pada navigasi menuju Reporting Hub di `dashboard_screen.dart`, `attendance_location_screen.dart`, dan `visit_report_screen.dart`.
+        - Mengganti seluruh pemanggilan `Navigator.pop(true)` pasca-submit di `dynamic_form_screen.dart` dengan helper `_returnToReportingScreen()`.
+        - Helper menggunakan `Navigator.of(context).popUntil((route) => route.settings.name == 'ReportingHubScreen' || route.isFirst)` sehingga pengguna tetap berada di **Halaman Reporting (`ReportingHubScreen`)**, dengan fallback `pushReplacement` jika rute dibuka langsung.
+    - **Penaikan Versi Mobile & Kompilasi v1.0.157+157 (APK & AAB)**:
+      - Versi aplikasi dinaikkan dari `1.0.156+156` menjadi **`1.0.157+157`** pada `pubspec.yaml`.
+      - Kompilasi APK rilis dan AAB rilis berhasil dibuat dan ditandatangani.
+    - **Multi-Server Deployment & Verifikasi**:
+      - Deployment backend dan migrasi database dijalankan ke server dev (`appsend.my.id`) serta 3 cluster production (AMK, AKP, ATK).

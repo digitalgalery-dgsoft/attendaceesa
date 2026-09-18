@@ -756,7 +756,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       'icon': Icons.assignment_rounded,
                       'color': const Color(0xFF0F52BA),
                       'onTap': () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportingHubScreen()));
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            settings: const RouteSettings(name: 'ReportingHubScreen'),
+                            builder: (_) => const ReportingHubScreen(),
+                          ),
+                        );
                       },
                     });
                   }
@@ -1191,6 +1197,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   await Navigator.push(
                                     context,
                                     MaterialPageRoute(
+                                      settings: const RouteSettings(name: 'ReportingHubScreen'),
                                       builder: (_) => ReportingHubScreen(
                                         storeName: destinationName,
                                       ),
@@ -2026,6 +2033,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               Navigator.push(
                 context,
                 MaterialPageRoute(
+                  settings: const RouteSettings(name: 'ReportingHubScreen'),
                   builder: (_) => ReportingHubScreen(workLocationId: workLocationId),
                 ),
               );

@@ -379,6 +379,7 @@ class _VisitReportScreenState extends State<VisitReportScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
+                                settings: const RouteSettings(name: 'ReportingHubScreen'),
                                 builder: (_) => ReportingHubScreen(
                                   storeName: destinationName,
                                 ),

@@ -614,6 +614,7 @@ class _AttendanceLocationScreenState extends State<AttendanceLocationScreen> wit
               Navigator.push(
                 context,
                 MaterialPageRoute(
+                  settings: const RouteSettings(name: 'ReportingHubScreen'),
                   builder: (_) => ReportingHubScreen(
                     workLocationId: _selectedWorkLocationId,
                   ),
