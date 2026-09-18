@@ -227,7 +227,7 @@ class EmployeesTable
                             ]);
                         }
 
-                        $copyAction = \Filament\Notifications\Actions\Action::make('copy')
+                        $copyAction = \Filament\Actions\Action::make('copy')
                             ->label('Salin Password')
                             ->button()
                             ->color('primary')
