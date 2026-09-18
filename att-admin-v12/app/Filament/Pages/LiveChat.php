@@ -279,6 +279,16 @@ class LiveChat extends Page
             ->title("Password {$employee->name} Berhasil Direset ke: {$defaultPassword}")
             ->body("Password telah disinkronkan ke seluruh data akun terkait (NIK: {$employee->employee_no}).")
             ->success()
+            ->persistent()
+            ->actions([
+                \Filament\Notifications\Actions\Action::make('copy')
+                    ->label('Salin Password')
+                    ->button()
+                    ->color('primary')
+                    ->extraAttributes([
+                        'onclick' => "navigator.clipboard.writeText('{$defaultPassword}').then(() => alert('Password {$defaultPassword} berhasil disalin ke clipboard!'));",
+                    ]),
+            ])
             ->send();
             
         $this->dispatch('scroll-to-bottom');

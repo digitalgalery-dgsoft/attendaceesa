@@ -2129,3 +2129,21 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Kompilasi APK rilis dan AAB rilis berhasil dibuat dan ditandatangani.
     - **Multi-Server Deployment & Verifikasi**:
       - Deployment backend dan migrasi database dijalankan ke server dev (`appsend.my.id`) serta 3 cluster production (AMK, AKP, ATK).
+
+39. **Penyempurnaan Loading Non-Intrusif Tanpa Menutup Layar & Notifikasi Reset Password Persistent (18 September 2026)**:
+    - **Perombakan Animasi Loading Web Admin (`admin-loader.blade.php`)**:
+      - **Akar Masalah**: Sebelumnya animasi loading admin menggunakan backdrop overlay gelap (`inset: 0`) dengan efek blur (`backdrop-filter: blur(10px)`) dan kartu besar di tengah layar yang menutupi seluruh pandangan dan mengganggu kenyamanan pengguna saat melakukan aksi.
+      - **Solusi Non-Intrusif Modern**:
+        1. Menghapus seluruh backdrop gelap dan efek blur pada layar (`background: transparent !important; backdrop-filter: none !important; pointer-events: none !important;`). Layar dan data tabel tetap 100% terlihat jelas tanpa halangan apapun.
+        2. Menggantinya dengan **Top Linear Progress Bar** (garis indikator 3.5px halus beranimasi gradien modern di tepi paling atas layar).
+        3. Menambahkan **Floating Dynamic Island Pill** di pojok kanan atas layar dengan spinner animasi mini, status aksi dinamis ("Memproses...", "Reset Password..."), dan bouncing dots.
+        4. Transisi masuk dan keluar yang mulus (`slide & fade`) dengan `pointer-events: none`, menjamin visual feedback tetap responsif tanpa pernah memblokir layar.
+    - **Penyempurnaan Notifikasi Reset Password (`EmployeesTable.php` & `LiveChat.php`)**:
+      - **Akar Masalah**: Sebelumnya notifikasi reset password toast otomatis tertutup (auto-close) setelah beberapa detik sehingga admin tidak sempat melihat atau mencatat password baru yang dibuat. Selain itu, password baru tidak ditampilkan jika pengiriman email berhasil, dan proses gagal jika email kosong.
+      - **Solusi**:
+        1. Menyematkan `->persistent()` pada `\Filament\Notifications\Notification` agar toast notifikasi **TIDAK AKAN auto-close** dan tetap terbuka sampai admin menekan tombol tutup (X).
+        2. Menampilkan password baru secara jelas dan tebal pada isi notifikasi: `🔑 Password Baru: [password]`.
+        3. Menambahkan tombol aksi 1-klik **[Salin Password]** yang langsung menyalin password ke clipboard.
+        4. Tetap memproses reset password meskipun karyawan belum memiliki email di sistem, sehingga admin dapat memberikan password langsung kepada karyawan.
+        5. Menyinkronkan pembaruan password ke akun `User` terkait secara otomatis.
+

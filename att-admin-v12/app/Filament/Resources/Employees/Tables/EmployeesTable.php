@@ -216,33 +216,53 @@ class EmployeesTable
                     ->modalHeading('Reset Password Mobile')
                     ->modalDescription('Ini akan membuat password baru secara acak untuk akses aplikasi mobile karyawan ini.')
                     ->action(function (\App\Models\Employee $record) {
-                        if (!$record->email) {
-                            \Filament\Notifications\Notification::make()
-                                ->title('Gagal: Email Kosong')
-                                ->body('Karyawan ini tidak memiliki email. Harap isi email karyawan terlebih dahulu.')
-                                ->danger()
-                                ->send();
-                            return;
-                        }
-
                         $newPassword = \Illuminate\Support\Str::random(8);
                         $record->update([
-                            'password' => \Illuminate\Support\Facades\Hash::make($newPassword)
+                            'password' => \Illuminate\Support\Facades\Hash::make($newPassword),
                         ]);
 
-                        try {
-                            \Illuminate\Support\Facades\Mail::to($record->email)
-                                ->send(new \App\Mail\ResetPasswordMail($record, $newPassword));
+                        if ($record->user_id) {
+                            \App\Models\User::where('id', $record->user_id)->update([
+                                'password' => \Illuminate\Support\Facades\Hash::make($newPassword),
+                            ]);
+                        }
+
+                        $copyAction = \Filament\Notifications\Actions\Action::make('copy')
+                            ->label('Salin Password')
+                            ->button()
+                            ->color('primary')
+                            ->extraAttributes([
+                                'onclick' => "navigator.clipboard.writeText('{$newPassword}').then(() => alert('Password {$newPassword} berhasil disalin ke clipboard!'));",
+                            ]);
+
+                        if (!empty($record->email)) {
+                            try {
+                                \Illuminate\Support\Facades\Mail::to($record->email)
+                                    ->send(new \App\Mail\ResetPasswordMail($record, $newPassword));
+
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Password Berhasil Direset')
+                                    ->body("Password baru untuk {$record->name} (NIK: {$record->nik}): **{$newPassword}**\n\n(Telah dikirimkan juga ke email: {$record->email})")
+                                    ->success()
+                                    ->persistent()
+                                    ->actions([$copyAction])
+                                    ->send();
+                            } catch (\Exception $e) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Password Direset (Email Gagal Terkirim)')
+                                    ->body("Password baru untuk {$record->name} (NIK: {$record->nik}): **{$newPassword}**\n\nCatatan: Gagal kirim email ({$e->getMessage()}). Silakan salin dan berikan password ini langsung ke karyawan.")
+                                    ->warning()
+                                    ->persistent()
+                                    ->actions([$copyAction])
+                                    ->send();
+                            }
+                        } else {
                             \Filament\Notifications\Notification::make()
                                 ->title('Password Berhasil Direset')
-                                ->body("Password baru telah dikirim ke {$record->email}.")
+                                ->body("Password baru untuk {$record->name} (NIK: {$record->nik}): **{$newPassword}**\n\n(Karyawan belum memiliki email. Silakan salin dan berikan password di atas langsung ke karyawan.)")
                                 ->success()
-                                ->send();
-                        } catch (\Exception $e) {
-                            \Filament\Notifications\Notification::make()
-                                ->title('Password Direset, tapi Email Gagal Terkirim')
-                                ->body('Password baru: ' . $newPassword . ' | Error: ' . $e->getMessage())
-                                ->warning()
+                                ->persistent()
+                                ->actions([$copyAction])
                                 ->send();
                         }
                     }),
