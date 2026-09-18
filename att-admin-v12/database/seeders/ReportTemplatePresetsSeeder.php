@@ -1570,6 +1570,69 @@ class ReportTemplatePresetsSeeder extends Seeder
                     ['field_label' => 'Catatan Kebersihan, Stok Refill & Kesepakatan Toko', 'field_name' => 'catatan_display', 'field_type' => 'textarea', 'placeholder' => 'Catatan kondisi display, kebutuhan restock, atau perpanjangan kontrak...', 'is_required' => false],
                 ]
             ],
+            // 8. Laporan Tools (Properti Free Taste) - Khusus PT WINGS SURYA
+            [
+                'code' => 'RPT-WINGS-MBR-TOOLS-01',
+                'title' => 'Laporan Tools (Properti Free Taste)',
+                'description' => 'Pencatatan pemeriksaan kelengkapan dan kondisi fisik tools / properti free taste Wings Surya (panci susu, mangkuk pengaduk, kompor, galon, dll) sebelum dan selama kegiatan sampling.',
+                'category' => 'sampling',
+                'report_group' => 'event_mbr',
+                'icon' => 'wrench-screwdriver',
+                'color' => '#D32F2F',
+                'require_gps' => true,
+                'require_signature' => false,
+                'is_active' => true,
+                'version' => 1,
+                'fields' => [
+                    [
+                        'field_label' => 'Pilih Tools / Properti Free Taste',
+                        'field_name' => 'nama_tools',
+                        'field_type' => 'dropdown',
+                        'options' => [
+                            '1 Pcs panci susu',
+                            '1 Pcs mangkuk pengaduk',
+                            '1 Pcs Gunting',
+                            '2 set sendok garpu',
+                            '1 pcs centong sayur',
+                            '1 pcs capitan',
+                            '1 Pcs Pompa dispenser air (optional)',
+                            '1 Pcs Galon air',
+                            '1 Pcs Kompor portable + Gas',
+                            '1 pcs saringan / tirisan mie',
+                            '1 Pcs tray',
+                            '1 Gelas Takar',
+                            'Papercup & Garpu kecil (untuk pengunjung)',
+                        ],
+                        'placeholder' => 'Pilih tools / properti...',
+                        'help_text' => 'Pilih jenis tools sesuai list referensi standar free taste',
+                        'is_required' => true,
+                    ],
+                    [
+                        'field_label' => 'Status Ketersediaan Tools',
+                        'field_name' => 'status_ketersediaan',
+                        'field_type' => 'radio',
+                        'options' => ['ADA', 'TIDAK'],
+                        'help_text' => 'Pilih ADA jika fisik alat tersedia, atau TIDAK jika tidak ada / belum tersedia di lokasi',
+                        'is_required' => true,
+                    ],
+                    [
+                        'field_label' => 'Keterangan Kondisi Tools',
+                        'field_name' => 'keterangan_kondisi',
+                        'field_type' => 'textarea',
+                        'placeholder' => 'Keterangan kondisi tools (contoh: Bersih, mulus, siap pakai / rusak / gagang kendur / hilang...)',
+                        'help_text' => 'Catatan kondisi fisik alat saat dilakukan pengecekan',
+                        'is_required' => false,
+                    ],
+                    [
+                        'field_label' => 'Foto Bukti Fisik Tools',
+                        'field_name' => 'foto_tools',
+                        'field_type' => 'camera_photo',
+                        'placeholder' => 'Ambil foto bukti fisik tools / properti',
+                        'help_text' => 'Foto dokumentasi fisik alat dengan watermark otomatis waktu & lokasi',
+                        'is_required' => false,
+                    ],
+                ]
+            ],
         ];
 
         $hasIconCol = \Illuminate\Support\Facades\Schema::hasColumn('report_templates', 'icon');
@@ -1591,8 +1654,13 @@ class ReportTemplatePresetsSeeder extends Seeder
                 array_merge($tpl, ['principal_id' => $primaryWings->id])
             );
 
-            // Sync seluruh id principal wings yang matching
-            $template->principals()->sync($allWingsIds);
+            // Jika template adalah Laporan Tools MBR, target hanya PT WINGS SURYA
+            if ($tpl['code'] === 'RPT-WINGS-MBR-TOOLS-01') {
+                $template->principals()->sync([$primaryWings->id]);
+            } else {
+                // Sync seluruh id principal wings yang matching
+                $template->principals()->sync($allWingsIds);
+            }
 
             foreach ($fields as $index => $field) {
                 ReportFormField::updateOrCreate(

@@ -261,6 +261,15 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         (title.contains('mbr') && (title.contains('free taste') || title.contains('sampling')));
   }
 
+  bool _isWingsToolsTemplate() {
+    final code = widget.template.code.toUpperCase();
+    final title = widget.template.title.toLowerCase();
+    return code == 'RPT-WINGS-MBR-TOOLS-01' ||
+        code.contains('MBR-TOOLS') ||
+        code.contains('WINGS-TOOLS') ||
+        (title.contains('tools') && (title.contains('free taste') || title.contains('properti')));
+  }
+
   bool _hasProductBinding() {
     if (_isDailyMaintenanceTemplate()) return false;
     if (_isOfftakeTemplate()) return false; // Offtake uses cart + confirmation review, NOT sequential per-product locks!
@@ -269,6 +278,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     if (_isStockEndTemplate()) return false; // Stock End uses cart + confirmation review, NOT sequential per-product locks!
     if (_isWingsMbrSalesTemplate()) return false; // Wings MBR Sales uses cart + confirmation review!
     if (_isWingsMbrFreeTasteTemplate()) return false; // Wings MBR Free Taste uses sampling cart + confirmation review!
+    if (_isWingsToolsTemplate()) return false; // Wings Tools uses tools list, NOT master product SKUs!
     if (widget.template.hasProductBinding) return true;
     if (_getProducts().isNotEmpty) return true;
     final code = widget.template.code.toUpperCase();
@@ -997,7 +1007,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
            name.contains('category') ||
            label.contains('category') ||
            name == 'produk_dulux_cbp' ||
-           name == 'kategori_produk';
+           name == 'kategori_produk' ||
+           name == 'nama_tools' ||
+           name.contains('tools') ||
+           label.contains('tools') ||
+           name.contains('properti') ||
+           label.contains('properti');
   }
 
   void _recalculateFormulas() {

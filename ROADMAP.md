@@ -1886,4 +1886,22 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Terdapat perbedaan fingerprint Upload Key antara laptop development saat ini (`E2:F2:71:...`) dengan Upload Key resmi yang terdaftar pada Google Play App Signing (`30:0D:70:63:...`).
       - Sesuai keputusan, proses kompilasi final AAB v1.0.156 akan dilakukan langsung menggunakan **PC Kantor** yang memegang keystore rilis asli yang cocok dengan Google Play Console.
 
+37. **Pembuatan Formulir Laporan Tools (Properti Free Taste) Khusus PT Wings Surya (18 September 2026)**:
+    - **Latar Belakang & Kebutuhan Spesifikasi**:
+      - Mengakomodasi kebutuhan inspeksi kelengkapan dan kondisi peralatan / properti aktivitas free taste (sampling Mie Sedaap) mengacu pada dokumen acuan `Laporan Tools.xlsx`.
+      - Target Prinsiple: Dibatasi secara spesifik **hanya untuk PT WINGS SURYA**.
+    - **Database Migration & Seeder (`2026_09_18_100000_seed_wings_tools_report_template.php` & `ReportTemplatePresetsSeeder.php`)**:
+      - Membuat template `RPT-WINGS-MBR-TOOLS-01` (`Laporan Tools (Properti Free Taste)`), kategori `sampling`, grup `event_mbr`, GPS wajib aktif (`require_gps = true`), aksen warna `#D32F2F` (Merah Wings Surya).
+      - Mendaftarkan 4 field input sederhana sesuai spesifikasi:
+        1. `nama_tools`: Dropdown pilihan 13 item tools standar (1 Pcs panci susu, 1 Pcs mangkuk pengaduk, 1 Pcs Gunting, 2 set sendok garpu, 1 pcs centong sayur, 1 pcs capitan, 1 Pcs Pompa dispenser air (optional), 1 Pcs Galon air, 1 Pcs Kompor portable + Gas, 1 pcs saringan / tirisan mie, 1 Pcs tray, 1 Gelas Takar, Papercup & Garpu kecil).
+        2. `status_ketersediaan`: Radio button pilihan `['ADA', 'TIDAK']`.
+        3. `keterangan_kondisi`: Textarea untuk mencatat kondisi alat (baik, rusak, gagang goyang, hilang, dsb.).
+        4. `foto_tools`: Camera photo dengan live capture dan auto-watermark waktu serta koordinat toko.
+      - Template di-sync secara eksklusif hanya ke principal `PT WINGS SURYA`.
+    - **Mobile App Flutter (`dynamic_form_screen.dart`)**:
+      - Menambahkan helper `_isWingsToolsTemplate()` untuk mengenali kode `RPT-WINGS-MBR-TOOLS-01`.
+      - Memastikan `_hasProductBinding()` mengembalikan `false` agar formulir tools tidak keliru mengunci alur input ke SKU master produk Mie Sedaap.
+      - Memperbarui `_isCategoryField()` dengan mengenali `nama_tools`, mengaktifkan mode *Continuous Session Checklist* sehingga item yang sudah dilaporkan ditandai selesai dan difilter dari pilihan dropdown sesi tersebut.
+
+
 

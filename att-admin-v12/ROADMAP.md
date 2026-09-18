@@ -2053,7 +2053,46 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
     - **Penyebaran & Verifikasi Cluster Production**:
       - Seluruh perubahan telah di-commit ke Git (`3272c23`) dan di-push ke branch `main`.
       - Menjalankan deploy dan migrasi otomatis pada seluruh cluster:
-        - **Server 1 (PT Arina Multi Karya - AMK)**: `HEAD is now at 3272c23` (Health Check OK 200).
-        - **Server 2 (PT Alva Karya Perkasa - AKP)**: `HEAD is now at 3272c23` (Health Check OK 200).
-        - **Server 3 (PT Anugrah Talenta Berkarya / ATK)**: `HEAD is now at 3272c23` (Health Check OK 200).
+36. **Penyempurnaan Rilis v1.0.156, Kebijakan Izin Google Play Store, Live Tracking Realtime Auto-Stop, dan Pencegahan Relay Loop Antar-Server (17 September 2026)**:
+    - **Penyelarasan URL Helpdesk Chat ke Server Production**:
+      - Memperbarui `Constants.defaultProductionUrl` (`https://api.esa-solutions.id/api`) dan getter `_baseUrl` pada `helpdesk_chat_screen.dart` serta `constants.dart`.
+      - Memastikan URL chat helpdesk tidak lagi mengarah ke staging (`appsend.my.id`), melainkan sepenuhnya terisolasi ke domain server production resmi.
+    - **Pemberhentian Live Tracking Seketika Saat Check-Out**:
+      - **Akar Masalah**: Karyawan yang telah check-out masih terlacak pergerakannya di background service karena flag tracking di Flutter background service belum dihentikan secara sinkron.
+      - **Solusi Mobile (`att-mobile`)**:
+        - Pada `location_service.dart`, `startService()` mengeset `is_tracking_active = true, is_checked_in = true`. `stopService()` mematikan kedua flag dan menghentikan foreground notification.
+        - Timer background `onStart` melakukan self-termination otomatis jika salah satu flag bernilai false atau menerima respons server `status: stopped`.
+        - Pada `attendance_provider.dart`, `LocationService.stopService()` dipanggil seketika saat check-out berhasil atau saat status presensi `_isCheckedIn == false`.
+        - Pada `attendance_location_screen.dart`, memastikan pemanggilan eksplisit `stopService()` sesaat setelah proses check-out sukses.
+        - Pada `dashboard_screen.dart`, sinkronisasi status presensi memastikan service berhenti jika hari ini belum check-in atau sudah check-out.
+        - Pada `auth_provider.dart`, pemanggilan `LocationService.stopService()` dijalankan saat user logout.
+      - **Solusi Backend (`TrackingController.php`)**:
+        - Menambahkan guard validasi pada endpoint pelacakan koordinat GPS (`/api/tracking/update` & `/api/tracking/batch`). Jika karyawan belum check-in atau telah check-out pada hari tersebut, server menolak pencatatan riwayat GPS dan mengembalikan response `{ status: 'stopped', is_tracking_active: false }` yang memicu auto-stop pada mobile.
+    - **Kepatuhan Kebijakan Izin Google Play Store**:
+      - Pada `AndroidManifest.xml`, menambahkan `tools:node="remove"` untuk izin `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, dan `READ_MEDIA_AUDIO` guna memenuhi kebijakan akses penyimpanan Android 13+ (Photo Picker).
+      - Pada `build.gradle.kts`, mengonfigurasi `ndk { debugSymbolLevel = "none" }` untuk mengatasi peringatan debug symbols native library saat build AAB.
+    - **Pencegahan Infinity Loop Forwarding pada Gateway Multi-Server**:
+      - Pada `SmartGatewayRelayService.php`, menyematkan header pelindung `X-ESA-Gateway-Relay: 1` pada fungsi `relayRequest()`.
+      - Mencegah server cluster saling me-relay request secara berulang tanpa henti (mencegah server overload dan CPU spike).
+    - **Catatan Rilis & Build v1.0.156**:
+      - Versi aplikasi telah disiapkan pada `pubspec.yaml` (**`1.0.156+156`**).
+      - Terdapat perbedaan fingerprint Upload Key antara laptop development saat ini (`E2:F2:71:...`) dengan Upload Key resmi yang terdaftar pada Google Play App Signing (`30:0D:70:63:...`).
+      - Sesuai keputusan, proses kompilasi final AAB v1.0.156 akan dilakukan langsung menggunakan **PC Kantor** yang memegang keystore rilis asli yang cocok dengan Google Play Console.
+
+37. **Pembuatan Formulir Laporan Tools (Properti Free Taste) Khusus PT Wings Surya (18 September 2026)**:
+    - **Latar Belakang & Kebutuhan Spesifikasi**:
+      - Mengakomodasi kebutuhan inspeksi kelengkapan dan kondisi peralatan / properti aktivitas free taste (sampling Mie Sedaap) mengacu pada dokumen acuan `Laporan Tools.xlsx`.
+      - Target Prinsiple: Dibatasi secara spesifik **hanya untuk PT WINGS SURYA**.
+    - **Database Migration & Seeder (`2026_09_18_100000_seed_wings_tools_report_template.php` & `ReportTemplatePresetsSeeder.php`)**:
+      - Membuat template `RPT-WINGS-MBR-TOOLS-01` (`Laporan Tools (Properti Free Taste)`), kategori `sampling`, grup `event_mbr`, GPS wajib aktif (`require_gps = true`), aksen warna `#D32F2F` (Merah Wings Surya).
+      - Mendaftarkan 4 field input sederhana sesuai spesifikasi:
+        1. `nama_tools`: Dropdown pilihan 13 item tools standar (1 Pcs panci susu, 1 Pcs mangkuk pengaduk, 1 Pcs Gunting, 2 set sendok garpu, 1 pcs centong sayur, 1 pcs capitan, 1 Pcs Pompa dispenser air (optional), 1 Pcs Galon air, 1 Pcs Kompor portable + Gas, 1 pcs saringan / tirisan mie, 1 Pcs tray, 1 Gelas Takar, Papercup & Garpu kecil).
+        2. `status_ketersediaan`: Radio button pilihan `['ADA', 'TIDAK']`.
+        3. `keterangan_kondisi`: Textarea untuk mencatat kondisi alat (baik, rusak, gagang goyang, hilang, dsb.).
+        4. `foto_tools`: Camera photo dengan live capture dan auto-watermark waktu serta koordinat toko.
+      - Template di-sync secara eksklusif hanya ke principal `PT WINGS SURYA`.
+    - **Mobile App Flutter (`dynamic_form_screen.dart`)**:
+      - Menambahkan helper `_isWingsToolsTemplate()` untuk mengenali kode `RPT-WINGS-MBR-TOOLS-01`.
+      - Memastikan `_hasProductBinding()` mengembalikan `false` agar formulir tools tidak keliru mengunci alur input ke SKU master produk Mie Sedaap.
+      - Memperbarui `_isCategoryField()` dengan mengenali `nama_tools`, mengaktifkan mode *Continuous Session Checklist* sehingga item yang sudah dilaporkan ditandai selesai dan difilter dari pilihan dropdown sesi tersebut.
 
