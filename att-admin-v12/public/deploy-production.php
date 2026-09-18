@@ -204,6 +204,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo '2b. Menyinkronkan ke seluruh virtual host di /www/wwwroot/...'
             for site_dir in /www/wwwroot/*; do
                 if [ -d \"\$site_dir\" ] && [ \"\$site_dir\" != \"\$SRC_DIR\" ]; then
+                    DIR_NAME=\$(basename \"\$site_dir\")
+                    # Proteksi: JANGAN PERNAH menimpa project lain seperti new.asystem.co.id
+                    if [[ \"\$DIR_NAME\" == *\"asystem\"* ]]; then
+                        echo \"  ↳ [SKIP] Melewati direktori project ASystem: \$site_dir\"
+                        continue
+                    fi
+                    if [[ \"\$DIR_NAME\" != *\"dgsoft\"* ]] && [[ \"\$DIR_NAME\" != *\"esa-solutions\"* ]] && [[ \"\$DIR_NAME\" != *\"attend\"* ]]; then
+                        echo \"  ↳ [SKIP] Melewati website non-Attendance: \$site_dir\"
+                        continue
+                    fi
                     if [ -f \"\$site_dir/artisan\" ] || [ -f \"\$site_dir/public/index.php\" ] || [ -d \"\$site_dir/app\" ]; then
                         echo \"  ↳ Syncing code ke: \$site_dir\"
                         \\cp -rf \$SRC_DIR/. \$site_dir/ 2>/dev/null || true
@@ -271,6 +281,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             fi
             if [ -f \"{$srv['path']}/public/app-release.apk\" ]; then
                 for vhost in /www/wwwroot/*; do
+                    if [[ \"\$(basename \"\$vhost\")\" == *\"asystem\"* ]]; then
+                        continue
+                    fi
                     if [ -d \"\$vhost/public\" ]; then
                         cp -f \"{$srv['path']}/public/app-release.apk\" \"\$vhost/public/app-release.apk\" 2>/dev/null || true
                         chmod 644 \"\$vhost/public/app-release.apk\" 2>/dev/null || true
