@@ -291,13 +291,53 @@ class WorkLocationForm
                     })
                     ->dehydrated(false),
                 TextInput::make('latitude')
+                    ->label('Latitude')
+                    ->placeholder('Contoh: -7.250445')
                     ->required()
                     ->numeric()
-                    ->readOnly(),
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(function ($state, $get, $set, ?\Livewire\Component $livewire) {
+                        if (blank($state)) return;
+                        
+                        // Deteksi jika user paste format koordinat gabungan "lat, lng"
+                        if (is_string($state) && str_contains($state, ',')) {
+                            $parts = explode(',', $state);
+                            if (count($parts) === 2 && is_numeric(trim($parts[0])) && is_numeric(trim($parts[1]))) {
+                                $lat = (float) trim($parts[0]);
+                                $lng = (float) trim($parts[1]);
+                                $set('latitude', $lat);
+                                $set('longitude', $lng);
+                                $set('location', ['lat' => $lat, 'lng' => $lng]);
+                                $livewire?->dispatch('refreshMap');
+                                return;
+                            }
+                        }
+                        
+                        $lat = (float) $state;
+                        $lngVal = $get('longitude');
+                        if (is_numeric($state) && is_numeric($lngVal)) {
+                            $lng = (float) $lngVal;
+                            $set('location', ['lat' => $lat, 'lng' => $lng]);
+                            $livewire?->dispatch('refreshMap');
+                        }
+                    }),
                 TextInput::make('longitude')
+                    ->label('Longitude')
+                    ->placeholder('Contoh: 112.768845')
                     ->required()
                     ->numeric()
-                    ->readOnly(),
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(function ($state, $get, $set, ?\Livewire\Component $livewire) {
+                        if (blank($state)) return;
+                        
+                        $latVal = $get('latitude');
+                        if (is_numeric($latVal) && is_numeric($state)) {
+                            $lat = (float) $latVal;
+                            $lng = (float) $state;
+                            $set('location', ['lat' => $lat, 'lng' => $lng]);
+                            $livewire?->dispatch('refreshMap');
+                        }
+                    }),
                 Map::make('location')
                     ->label('Location Map')
                     ->columnSpanFull()
