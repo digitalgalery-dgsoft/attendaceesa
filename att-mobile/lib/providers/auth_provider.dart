@@ -283,19 +283,44 @@ class AuthProvider with ChangeNotifier {
     return true; // Jangan batalkan sesi saat ada gangguan jaringan
   }
 
-  Future<Map<String, dynamic>> _silentRelogin(String email, String password) async {
+  /// Public static method to perform silent background re-login from any provider or service
+  static Future<Map<String, dynamic>> performSilentRelogin() async {
     try {
-      final deviceInfo = await _getDeviceInfo();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final savedId = prefs.getString('saved_login_id');
+      final savedPass = prefs.getString('saved_login_password');
+
+      if (savedId == null || savedId.isEmpty || savedPass == null || savedPass.isEmpty) {
+        return {'success': false, 'message': 'Kredensial login tidak ditemukan'};
+      }
+
+      final deviceInfoPlugin = DeviceInfoPlugin();
+      String? deviceId;
+      String? deviceName;
+
+      try {
+        if (Platform.isAndroid) {
+          final androidInfo = await deviceInfoPlugin.androidInfo;
+          deviceId = androidInfo.id;
+          deviceName = '${androidInfo.brand} ${androidInfo.model}';
+        } else if (Platform.isIOS) {
+          final iosInfo = await deviceInfoPlugin.iosInfo;
+          deviceId = iosInfo.identifierForVendor;
+          deviceName = iosInfo.utsname.machine;
+        }
+      } catch (_) {}
+
       final pushService = PushNotificationService();
       final fcmToken = await pushService.getToken();
 
       final response = await http.post(
         Uri.parse('${Constants.baseUrl}/login'),
         body: {
-          'email': email,
-          'password': password,
-          if (deviceInfo['id'] != null) 'device_id': deviceInfo['id']!,
-          if (deviceInfo['name'] != null) 'device_name': deviceInfo['name']!,
+          'email': savedId,
+          'password': savedPass,
+          if (deviceId != null) 'device_id': deviceId,
+          if (deviceName != null) 'device_name': deviceName,
           if (fcmToken != null) 'fcm_token': fcmToken,
         },
         headers: {'Accept': 'application/json'},
@@ -304,22 +329,26 @@ class AuthProvider with ChangeNotifier {
       final responseData = json.decode(response.body);
 
       if (response.statusCode == 200 && responseData['status'] == 'success') {
-        _token = responseData['data']['access_token'];
-        _user = responseData['data']['user'] ?? _user;
-        _employeeData = responseData['data']['employee_data'] ?? _employeeData;
-        _updateAppColorFromEmployee();
+        final token = responseData['data']?['access_token'];
+        final empData = responseData['data']?['employee_data'];
+        final userData = responseData['data']?['user'];
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token', _token!);
-        await prefs.setString('saved_login_id', email.trim());
-        await prefs.setString('saved_login_password', password);
-        if (_employeeData != null) {
-          await prefs.setString('cached_employee_data', json.encode(_employeeData));
+        if (token != null) {
+          await prefs.setString('auth_token', token.toString());
         }
-        if (_user != null) {
-          await prefs.setString('cached_user', json.encode(_user));
+        if (empData != null) {
+          await prefs.setString('cached_employee_data', json.encode(empData));
         }
-        return {'success': true, 'is_inactive': false};
+        if (userData != null) {
+          await prefs.setString('cached_user', json.encode(userData));
+        }
+
+        return {
+          'success': true,
+          'token': token,
+          'employee_data': empData,
+          'user': userData,
+        };
       } else {
         final msg = (responseData['message'] ?? '').toString().toLowerCase();
         final bool inactive = responseData['is_active'] == false || 
@@ -327,11 +356,25 @@ class AuthProvider with ChangeNotifier {
                                msg.contains('tidak aktif') || 
                                msg.contains('dinonaktifkan') || 
                                msg.contains('nonaktif');
-        return {'success': false, 'is_inactive': inactive};
+        return {'success': false, 'message': responseData['message'] ?? 'Login gagal', 'is_inactive': inactive};
       }
     } catch (e) {
-      debugPrint('[AuthProvider] Silent relogin error: $e');
-      return {'success': false, 'is_inactive': false};
+      debugPrint('[AuthProvider] performSilentRelogin error: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> _silentRelogin(String email, String password) async {
+    final res = await performSilentRelogin();
+    if (res['success'] == true) {
+      _token = res['token'];
+      _user = res['user'] ?? _user;
+      _employeeData = res['employee_data'] ?? _employeeData;
+      _updateAppColorFromEmployee();
+      notifyListeners();
+      return {'success': true, 'is_inactive': false};
+    } else {
+      return {'success': false, 'is_inactive': res['is_inactive'] ?? false};
     }
   }
 

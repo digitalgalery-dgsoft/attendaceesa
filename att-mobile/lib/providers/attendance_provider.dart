@@ -428,7 +428,17 @@ class AttendanceProvider with ChangeNotifier {
       } catch (_) {}
 
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      await prefs.reload();
+      var token = prefs.getString('auth_token');
+
+      // Jika token lokal kosong, coba dapatkan token baru via silent re-login
+      if (token == null || token.isEmpty) {
+        debugPrint('[Attendance] Token lokal kosong. Menjalankan silent re-login...');
+        final reloginRes = await AuthProvider.performSilentRelogin();
+        if (reloginRes['success'] == true && reloginRes['token'] != null) {
+          token = reloginRes['token'].toString();
+        }
+      }
 
       http.Response response;
 
@@ -481,7 +491,72 @@ class AttendanceProvider with ChangeNotifier {
         ).timeout(const Duration(seconds: 15));
       }
 
-      final decodedData = json.decode(response.body);
+      // RESILIENCY: Jika server merespon 401 Unauthenticated (token kedaluwarsa / restart server / gateway desync),
+      // jalankan silent re-login seketika lalu coba kirim ulang presensi secara otomatis!
+      if (response.statusCode == 401) {
+        debugPrint('[Attendance] 401 Unauthenticated terdeteksi. Menjalankan auto silent re-login & retry...');
+        final reloginRes = await AuthProvider.performSilentRelogin();
+        if (reloginRes['success'] == true && reloginRes['token'] != null) {
+          final newToken = reloginRes['token'].toString();
+          debugPrint('[Attendance] Silent re-login sukses! Mengulang request attendance dengan token baru...');
+          
+          if (imagePath != null) {
+            var retryReq = http.MultipartRequest('POST', Uri.parse('${Constants.baseUrl}/attendance'));
+            retryReq.headers['Authorization'] = 'Bearer $newToken';
+            retryReq.headers['Accept'] = 'application/json';
+
+            retryReq.fields['type'] = type;
+            retryReq.fields['latitude'] = latitude.toString();
+            retryReq.fields['longitude'] = longitude.toString();
+
+            if (visitType != null) retryReq.fields['visit_type'] = visitType;
+            if (note != null) retryReq.fields['note'] = note;
+            if (visitLocationId != null) retryReq.fields['visit_location_id'] = visitLocationId.toString();
+            if (scheduledType != null) retryReq.fields['scheduled_type'] = scheduledType;
+            if (scheduledWorkLocationId != null) retryReq.fields['scheduled_work_location_id'] = scheduledWorkLocationId.toString();
+            if (scheduledMeetingId != null) retryReq.fields['scheduled_meeting_id'] = scheduledMeetingId.toString();
+
+            if (isWeb) {
+              final imgResponse = await http.get(Uri.parse(imagePath));
+              final bytes = imgResponse.bodyBytes;
+              retryReq.files.add(http.MultipartFile.fromBytes('photo', bytes, filename: 'selfie.jpg'));
+            } else {
+              retryReq.files.add(await http.MultipartFile.fromPath('photo', imagePath));
+            }
+
+            final retryStream = await retryReq.send().timeout(const Duration(seconds: 15));
+            response = await http.Response.fromStream(retryStream);
+          } else {
+            final Map<String, String> body = {
+              'type': type,
+              'latitude': latitude.toString(),
+              'longitude': longitude.toString(),
+            };
+            if (visitType != null) body['visit_type'] = visitType;
+            if (note != null) body['note'] = note;
+            if (visitLocationId != null) body['visit_location_id'] = visitLocationId.toString();
+            if (scheduledType != null) body['scheduled_type'] = scheduledType;
+            if (scheduledWorkLocationId != null) body['scheduled_work_location_id'] = scheduledWorkLocationId.toString();
+            if (scheduledMeetingId != null) body['scheduled_meeting_id'] = scheduledMeetingId.toString();
+
+            response = await http.post(
+              Uri.parse('${Constants.baseUrl}/attendance'),
+              headers: {
+                'Authorization': 'Bearer $newToken',
+                'Accept': 'application/json',
+              },
+              body: body,
+            ).timeout(const Duration(seconds: 15));
+          }
+        }
+      }
+
+      Map<String, dynamic> decodedData = {};
+      try {
+        decodedData = json.decode(response.body);
+      } catch (_) {
+        decodedData = {'message': response.body};
+      }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         await checkAttendanceStatus();
@@ -508,9 +583,13 @@ class AttendanceProvider with ChangeNotifier {
       } else {
         _isLoading = false;
         notifyListeners();
+        String errMsg = decodedData['message']?.toString() ?? 'Gagal melakukan presensi';
+        if (response.statusCode == 401 || errMsg.toLowerCase().contains('unauthenticated')) {
+          errMsg = 'Sesi login Anda telah kedaluwarsa. Silakan buka menu Profil untuk menyinkronkan login kembali.';
+        }
         return {
           'success': false,
-          'message': decodedData['message'] ?? 'Gagal',
+          'message': errMsg,
           'code': decodedData['code'],
           'pending_reports': decodedData['pending_reports'],
         };

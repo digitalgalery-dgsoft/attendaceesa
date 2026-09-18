@@ -163,12 +163,13 @@ class SmartGatewayRelayService
 
             if (!$isLocalToken) {
                 $peers = self::getPeerServers();
+                $allPeersExplicitlyUnauthorized = true;
                 foreach ($peers as $serverKey => $serverInfo) {
                     foreach ($serverInfo['urls'] as $targetUrl) {
                         if (empty($targetUrl)) continue;
                         $endpoint = rtrim($targetUrl, '/') . '/api/me';
                         try {
-                            $res = Http::timeout(2)->withoutVerifying()->withHeaders([
+                            $res = Http::timeout(5)->withoutVerifying()->withHeaders([
                                 'Authorization'       => 'Bearer ' . $token,
                                 'Accept'              => 'application/json',
                                 'X-ESA-Gateway-Relay' => '1',
@@ -182,17 +183,23 @@ class SmartGatewayRelayService
                                     'employee_id'   => $res->json('data.employee_data.id'),
                                 ];
                                 Cache::put('gateway_relay_token_' . $token, $targetInfo, now()->addDays(180));
+                                Cache::forget('gateway_relay_token_invalid_' . $token);
                                 return $targetInfo;
+                            } elseif ($res->status() !== 401 && $res->status() !== 403) {
+                                $allPeersExplicitlyUnauthorized = false;
                             }
                         } catch (\Throwable $err) {
+                            $allPeersExplicitlyUnauthorized = false;
                             Log::warning("SmartGatewayRelay resolveTargetServer probe failed for {$endpoint}: " . $err->getMessage());
                         }
                     }
                 }
 
-                // Jika sudah dicek ke seluruh peer servers tapi tidak ada yang mengenali token ini,
-                // simpan ke Negative Cache selama 30 menit agar tidak membebani worker cluster!
-                Cache::put('gateway_relay_token_invalid_' . $token, true, now()->addMinutes(30));
+                // Hanya simpan Negative Cache singkat (30 detik) jika SELURUH peer merespon 401/403 secara eksplisit.
+                // Jangan simpan jika terjadi timeout atau gangguan jaringan.
+                if ($allPeersExplicitlyUnauthorized) {
+                    Cache::put('gateway_relay_token_invalid_' . $token, true, now()->addSeconds(30));
+                }
             }
         } catch (\Throwable $e) {
             Log::warning("SmartGatewayRelay fallback error: " . $e->getMessage());
@@ -259,7 +266,7 @@ class SmartGatewayRelayService
             } elseif ($request->isJson()) {
                 $response = $httpClient->withBody($request->getContent(), 'application/json')->$method($targetUrl);
             } else {
-                $response = $httpClient->$method($targetUrl, $request->all());
+                $response = $httpClient->asForm()->$method($targetUrl, $request->all());
             }
 
             $responseHeaders = [];

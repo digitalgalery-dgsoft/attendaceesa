@@ -2191,3 +2191,21 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         3. Jika seluruhnya berhasil: Notifikasi **Hijau (Success)** dengan jumlah karyawan dan titik jadwal yang diperbarui.
     - **Multi-Server Deployment**:
       - Seluruh perubahan di-commit dan di-deploy ke server gateway `appsend.my.id` serta 3 cluster production (AMK, AKP, ATK) dengan status health check HTTP 200 OK.
+
+43. **Perbaikan Bug Check-Out "Unauthenticated", Resiliensi Gateway Multi-Server, dan Auto-Retry Silent Re-Login (18 September 2026)**:
+    - **Akar Masalah Error "Unauthenticated" pada Check-Out**:
+      1. *Stale/Desynchronized Token di Cluster Server*: Saat admin melakukan deployment atau `artisan optimize:clear`, cache relokasi token gateway (`gateway_relay_token_...`) terhapus. Ketika karyawan mencoba melakukan check-out, token di-probe ke server cluster lain dengan timeout hanya 2 detik. Jika terjadi latensi atau timeout, gateway mengunci token tersebut ke dalam `gateway_relay_token_invalid_` selama 30 menit dan meneruskan request ke server lokal yang tidak memiliki token tersebut, sehingga mengembalikan status HTTP 401 `Unauthenticated.`.
+      2. *Format Relay Tanpa Form Data*: Pada `SmartGatewayRelayService::relayRequest`, jika request bukan upload file dan bukan JSON murni (seperti request form-urlencoded dari `http.post` saat check-out tanpa foto), pemanggilan `$httpClient->$method($targetUrl, $request->all())` tanpa `asForm()` menyebabkan Guzzle men-serialize data secara default ke format JSON yang berpotensi ditolak oleh intermediate layer.
+      3. *Tidak Ada Mekanisme Silent Re-Login pada `AttendanceProvider`*: Meskipun `AuthProvider` memiliki fitur background re-login permanen, metode `submitAttendance` pada `attendance_provider.dart` belum pernah memanfaatkannya saat merespons kode 401. Begitu menerima respon 401, fungsi langsung menyerah dan melempar pesan mentah berbahasa Inggris `"Unauthenticated."` ke antarmuka pengguna tanpa mencoba melakukan re-autentikasi dan retry.
+    - **Solusi Komprehensif**:
+      1. **Backend (`SmartGatewayRelayService.php`)**:
+         - Memperpanjang timeout probe server cluster dari 2 detik menjadi 5 detik.
+         - Mengubah mekanisme negative cache: hanya menyimpan negative cache singkat (30 detik) jika SELURUH peer server merespons 401/403 secara eksplisit, dan tidak pernah memblokir token jika terjadi timeout/gangguan jaringan.
+         - Menyematkan `asForm()` pada `relayRequest()` saat meneruskan payload form data non-file.
+      2. **Mobile (`auth_provider.dart`)**:
+         - Menyediakan metode static publik `AuthProvider.performSilentRelogin()` yang aman digunakan di seluruh provider dan background task untuk merefresh sesi token dari kredensial tersimpan (`saved_login_id` & `saved_login_password`).
+      3. **Mobile (`attendance_provider.dart`)**:
+         - Pada `submitAttendance()`, jika token di SharedPreferences kosong atau jika server merespons HTTP 401 `Unauthenticated`, sistem secara otomatis menjalankan `AuthProvider.performSilentRelogin()`.
+         - Jika re-login sukses, sistem memperbarui token dan langsung melakukan **auto-retry** pengiriman check-out ke server secara transparan tanpa perlu intervensi atau restart aplikasi.
+         - Jika re-login gagal (misal akun dinonaktifkan oleh administrator), pesan kesalahan diterjemahkan ke bahasa Indonesia yang informatif dan sopan: `"Sesi login Anda telah kedaluwarsa. Silakan buka menu Profil untuk menyinkronkan login kembali."` alih-alih pesan mentah `"Unauthenticated."`.
+
