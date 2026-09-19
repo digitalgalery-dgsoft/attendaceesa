@@ -2224,3 +2224,19 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Root workspace (`/`)
         - Web Admin Public (`att-admin-v12/public/`)
         - Mobile project root (`att-mobile/`)
+
+45. **Penonaktifan Total Fitur Self-Update & Rilis Mobile v1.0.159 (19 September 2026)**:
+    - **Penonaktifan Total Dialog Update Tersedia**:
+      - Menghapus logika pemanggilan API pembaruan pada UpdateManager.checkForUpdate() di update_manager.dart, menjadikannya fungsi kosong (*no-op*) yang tidak memicu network request maupun dialog pop-up apapun.
+    - **Pembersihan Trigger Siklus Hidup Aplikasi**:
+      - Menghapus trigger pengecekan update pada main.dart (saat inisialisasi awal _initialize dan saat aplikasi dibuka kembali dari latar belakang didChangeAppLifecycleState: resumed).
+      - Menghapus pemanggilan UpdateManager.checkForUpdate() pada dashboard_screen.dart saat memuat halaman dashboard utama.
+    - **Kompilasi Rilis Mobile v1.0.159+159**:
+      - Versi aplikasi dinaikkan menjadi **1.0.159+159** pada pubspec.yaml.
+      - Berhasil mengompilasi berkas rilis final:
+        - pp-release-1.0.159.apk & pp-release.apk (116.7 MB / 111.3 MB)
+        - pp-release-1.0.159.aab & pp-release.aab (60.4 MB)
+      - Seluruh berkas biner telah disinkronkan ke:
+        - Root workspace (/)
+        - Web Admin Public (tt-admin-v12/public/)
+        - Mobile project root (tt-mobile/)
