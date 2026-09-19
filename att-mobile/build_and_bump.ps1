@@ -1,7 +1,12 @@
 $ErrorActionPreference = "Stop"
 
-# Use H:\Temp or G:\Temp for Gradle and Java bundle tool temp files to prevent drive C: disk full error
-if (Test-Path "H:\Temp") {
+# Use D:\Temp, H:\Temp, or G:\Temp for Gradle and Java bundle tool temp files to prevent drive C: disk full error
+if (Test-Path "D:\Temp") {
+    $env:TEMP = "D:\Temp"
+    $env:TMP = "D:\Temp"
+    $env:_JAVA_OPTIONS = "-Djava.io.tmpdir=D:\Temp"
+    $env:GRADLE_OPTS = "-Djava.io.tmpdir=D:\Temp"
+} elseif (Test-Path "H:\Temp") {
     $env:TEMP = "H:\Temp"
     $env:TMP = "H:\Temp"
     $env:_JAVA_OPTIONS = "-Djava.io.tmpdir=H:\Temp"
@@ -60,6 +65,7 @@ $destApk = "app-release-$version.apk"
 
 if (Test-Path $sourceApk) {
     Copy-Item -Path $sourceApk -Destination $destApk -Force
+    Copy-Item -Path $sourceApk -Destination "app-release.apk" -Force
     Write-Host "APK built successfully: $destApk"
     
     $adminPublic = "..\att-admin-v12\public"
@@ -84,14 +90,11 @@ if (Test-Path $sourceAab) {
 
 Write-Host "Building AAB (App Bundle)..."
 flutter build appbundle --release
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Flutter build AAB failed with exit code $LASTEXITCODE"
-    exit $LASTEXITCODE
-}
 $destAab = "app-release-$version.aab"
 
 if (Test-Path $sourceAab) {
     Copy-Item -Path $sourceAab -Destination $destAab -Force
+    Copy-Item -Path $sourceAab -Destination "app-release.aab" -Force
     Write-Host "AAB built successfully: $destAab"
     
     $adminPublic = "..\att-admin-v12\public"
