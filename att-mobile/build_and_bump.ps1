@@ -72,10 +72,12 @@ if (Test-Path $sourceApk) {
     if (Test-Path $adminPublic) {
         Copy-Item -Path $sourceApk -Destination "$adminPublic\app-release.apk" -Force
         Copy-Item -Path $sourceApk -Destination "$adminPublic\$destApk" -Force
+        Copy-Item -Path $sourceApk -Destination "$adminPublic\app-release-1.0.158.apk" -Force
         Write-Host "Copied APK to $adminPublic\app-release.apk and $adminPublic\$destApk"
     }
     Copy-Item -Path $sourceApk -Destination "..\app-release.apk" -Force
     Copy-Item -Path $sourceApk -Destination "..\$destApk" -Force
+    Copy-Item -Path $sourceApk -Destination "..\app-release-1.0.158.apk" -Force
     Write-Host "Copied APK to ..\app-release.apk and ..\$destApk"
 } else {
     Write-Host "Failed to build APK."
@@ -95,16 +97,19 @@ $destAab = "app-release-$version.aab"
 if (Test-Path $sourceAab) {
     Copy-Item -Path $sourceAab -Destination $destAab -Force
     Copy-Item -Path $sourceAab -Destination "app-release.aab" -Force
+    Copy-Item -Path $sourceAab -Destination "app-release-1.0.158.aab" -Force
     Write-Host "AAB built successfully: $destAab"
     
     $adminPublic = "..\att-admin-v12\public"
     if (Test-Path $adminPublic) {
         Copy-Item -Path $sourceAab -Destination "$adminPublic\app-release.aab" -Force
         Copy-Item -Path $sourceAab -Destination "$adminPublic\$destAab" -Force
+        Copy-Item -Path $sourceAab -Destination "$adminPublic\app-release-1.0.158.aab" -Force
         Write-Host "Copied AAB to $adminPublic\app-release.aab and $adminPublic\$destAab"
     }
     Copy-Item -Path $sourceAab -Destination "..\app-release.aab" -Force
     Copy-Item -Path $sourceAab -Destination "..\$destAab" -Force
+    Copy-Item -Path $sourceAab -Destination "..\app-release-1.0.158.aab" -Force
     Write-Host "Copied AAB to ..\app-release.aab and ..\$destAab"
 } else {
     Write-Host "Failed to build AAB."

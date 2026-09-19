@@ -17,7 +17,6 @@ import 'package:att_mobile/screens/login_screen.dart';
 import 'package:att_mobile/screens/main_screen.dart';
 import 'package:att_mobile/screens/server_config_screen.dart';
 import 'package:att_mobile/utils/constants.dart';
-import 'package:att_mobile/utils/update_manager.dart' as att_mobile_update_manager;
 import 'package:att_mobile/services/location_service.dart';
 import 'package:toastification/toastification.dart';
 import 'package:safe_device/safe_device.dart';
@@ -195,11 +194,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      if (Constants.baseUrl.isNotEmpty) {
-        importUpdateManagerAndCheck(context);
-      }
-    }
+    // Update check disabled
   }
 
   Future<bool> _initialize() async {
@@ -241,20 +236,10 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
     // 2. Auto Login
     if (Constants.baseUrl.isNotEmpty) {
       bool isLoggedIn = await Provider.of<AuthProvider>(context, listen: false).tryAutoLogin();
-      
-      // Check for updates
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        importUpdateManagerAndCheck(context);
-      });
       return isLoggedIn;
     }
     
     return false;
-  }
-
-  void importUpdateManagerAndCheck(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    att_mobile_update_manager.UpdateManager.checkForUpdate(context, authToken: auth.token);
   }
 
   @override
