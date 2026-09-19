@@ -2209,3 +2209,18 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
          - Jika re-login sukses, sistem memperbarui token dan langsung melakukan **auto-retry** pengiriman check-out ke server secara transparan tanpa perlu intervensi atau restart aplikasi.
          - Jika re-login gagal (misal akun dinonaktifkan oleh administrator), pesan kesalahan diterjemahkan ke bahasa Indonesia yang informatif dan sopan: `"Sesi login Anda telah kedaluwarsa. Silakan buka menu Profil untuk menyinkronkan login kembali."` alih-alih pesan mentah `"Unauthenticated."`.
 
+44. **Sinkronisasi Keystore Upload, Perbaikan Script Build, dan Rilis Mobile v1.0.158 (19 September 2026)**:
+    - **Sinkronisasi Berkas Keystore Signing**:
+      - Mengganti berkas `upload-keystore.jks` usang di `android/app/` dengan keystore resmi yang cocok dengan `android/key.properties` (alias `upload` dan password `esa2026arina`, SHA-256: `49:5F:2C:CE:05:44:CA:CD...`).
+    - **Peningkatan Script Build & Temp Directory (`build_and_bump.ps1`)**:
+      - Menambahkan pengecekan `D:\Temp` berkapasitas besar (270+ GB) untuk direktori sementara Gradle dan Java toolchain guna mencegah galat disk penuh.
+      - Memperbaiki penanganan salin berkas Android App Bundle (`.aab`) serta menambahkan sinkronisasi lokal otomatis ke berkas default `app-release.apk` dan `app-release.aab`.
+    - **Kompilasi Rilis Mobile v1.0.158+158**:
+      - Versi aplikasi dinaikkan menjadi **`1.0.158+158`** pada `pubspec.yaml`, selaras dengan parameter pembaruan wajib pada server production live (`mobile_app_version: 1.0.158`).
+      - Berhasil mengompilasi berkas biner rilis:
+        - `app-release-1.0.158.apk` & `app-release.apk` (~116.7 MB / 111.3 MB uncompressed)
+        - `app-release-1.0.158.aab` & `app-release.aab` (~60.5 MB)
+      - Seluruh berkas telah disalin dan disinkronkan ke:
+        - Root workspace (`/`)
+        - Web Admin Public (`att-admin-v12/public/`)
+        - Mobile project root (`att-mobile/`)
