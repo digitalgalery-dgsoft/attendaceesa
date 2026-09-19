@@ -2232,11 +2232,40 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Menghapus trigger pengecekan update pada main.dart (saat inisialisasi awal _initialize dan saat aplikasi dibuka kembali dari latar belakang didChangeAppLifecycleState: resumed).
       - Menghapus pemanggilan UpdateManager.checkForUpdate() pada dashboard_screen.dart saat memuat halaman dashboard utama.
     - **Kompilasi Rilis Mobile v1.0.159+159**:
-      - Versi aplikasi dinaikkan menjadi **1.0.159+159** pada pubspec.yaml.
+      - Versi aplikasi dinaikkan menjadi **`1.0.159+159`** pada `pubspec.yaml`.
       - Berhasil mengompilasi berkas rilis final:
-        - pp-release-1.0.159.apk & pp-release.apk (116.7 MB / 111.3 MB)
-        - pp-release-1.0.159.aab & pp-release.aab (60.4 MB)
+        - `app-release-1.0.159.apk` & `app-release.apk` (116.7 MB / 111.3 MB)
+        - `app-release-1.0.159.aab` & `app-release.aab` (60.4 MB)
       - Seluruh berkas biner telah disinkronkan ke:
-        - Root workspace (/)
-        - Web Admin Public (tt-admin-v12/public/)
-        - Mobile project root (tt-mobile/)
+        - Root workspace (`/`)
+        - Web Admin Public (`att-admin-v12/public/`)
+        - Mobile project root (`att-mobile/`)
+
+46. **Penyempurnaan Laporan Wings (Penjualan, Sampling, Tools), Navigasi Reporting, dan Rilis Mobile v1.0.160 (19 September 2026)**:
+    - **Laporan Penjualan Wings (Payment Mode & No Sell Out Flow)**:
+      - Menambahkan pemilih mode di awal formulir: `Pembayaran di booth` vs `No Sell Out`.
+      - **Mode "Pembayaran di booth"**: Foto per-produk pada Step 0 dihapus/tidak diwajibkan sesuai alur bisnis. Dokumentasi foto toko sell-out (`foto_sell_out_toko`) tunggal ber-watermark geotag diletakkan di akhir form sebelum submit. Data dikirimkan dengan parameter `status_penjualan: 'Pembayaran di booth'`.
+      - **Mode "No Sell Out"**: Menyediakan opsi radio alasan kendala (`Toko Tidak Mengijinkan` dan `Barang OOS`), field keterangan/catatan opsional, serta tombol submit langsung tanpa perlu input kuantitas produk dan tanpa wajib foto sell-out toko. Data dikirimkan dengan parameter `status_penjualan: 'No Sell Out'`, `alasan_no_sell_out`, dan `keterangan_no_sell_out`.
+      - **Migrasi Database Backend**: Membuat migrasi `2026_09_19_101000_add_no_sell_out_fields_to_wings_sales_template.php` untuk memastikan template Wings Penjualan siap menampung field `status_penjualan`, `alasan_no_sell_out`, dan `keterangan_no_sell_out`.
+    - **Laporan Sampling Wings (Kalkulasi Otomatis Cup)**:
+      - Rasio cup per bungkus mie ditetapkan secara otomatis menjadi **4 cup per 1 bungkus mie instan dimasak**.
+      - Fungsi `_recalculateFreeTasteStokAkhir` secara reaktif mengisi nilai controller `_mbrCupCtrl = (mie_dimasak * 4)` saat pengguna menginput jumlah mie dimasak, dengan tetap mempertahankan fleksibilitas pengeditan manual.
+    - **Laporan Tools Wings (13 Alat, Anti-Duplikasi & Dual Tombol Aksi)**:
+      - Pelacakan progress dinamis: Menampilkan kartu ringkasan sisa alat (contoh: *"Sisa 12 alat lagi (Progress: 1/13)"*).
+      - Dropdown alat yang sudah dilaporkan ditandai badge `✓ Sudah Dilaporkan` dan dinonaktifkan dari pemilihan ulang untuk mencegah submit ganda.
+      - **Dual Tombol Aksi Terintegrasi**:
+        - Tombol *"Simpan & Lanjut Alat Berikutnya"*: Aktif untuk pelaporan alat ke-1 sampai ke-12. Setelah submit berhasil, form otomatis beralih ke alat berikutnya yang belum dilaporkan.
+        - Tombol *"Kirim & Selesai"*: Hanya aktif pada saat pelaporan alat ke-13 (alat terakhir).
+      - **Backend Validation (`ReportingApiController.php`)**: Memverifikasi jumlah alat yang dilaporkan dan hanya menandai status tugas assignment `RPT-WINGS-MBR-TOOLS-01` selesai setelah seluruh 13 alat berhasil diserahkan.
+    - **Perbaikan Alur Navigasi Pasca-Submit**:
+      - Menyempurnakan fungsi `_returnToReportingScreen()` pada seluruh form pelaporan dinamis agar secara konsisten kembali dan menetap di layar Field Report (`ReportingHubScreen`) tanpa terlempar kembali ke Dashboard utama.
+    - **Kompilasi Rilis Mobile v1.0.160+160**:
+      - Versi aplikasi dinaikkan menjadi **`1.0.160+160`** pada `pubspec.yaml`.
+      - Ditandatangani menggunakan sertifikat resmi Play Store (`upload-keystore.jks`, CN=ESA Mobile, OU=IT Support, O=PT Arina Multi Karya, SHA-1: `30:0D:70:63:01:8A:2A:06:32:24:46:41:CD:09:35:9B:84:11:B2:69`).
+      - Berhasil mengompilasi berkas biner rilis:
+        - `app-release-1.0.160.apk` & `app-release.apk` (111.5 MB)
+        - `app-release-1.0.160.aab` & `app-release.aab` (57.7 MB)
+      - Seluruh berkas biner telah disinkronkan ke:
+        - Root workspace (`/`)
+        - Web Admin Public (`att-admin-v12/public/`)
+        - Mobile project root (`att-mobile/`)

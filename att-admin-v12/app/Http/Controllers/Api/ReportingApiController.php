@@ -542,6 +542,26 @@ class ReportingApiController extends Controller
                 $isCompletedToday = $templateTodaySubs->isNotEmpty();
             } elseif ($hasProductBinding) {
                 $isCompletedToday = count($submittedProductNames) >= $templateProducts->count() && $templateProducts->count() > 0;
+            } elseif ($t->code === 'RPT-WINGS-MBR-TOOLS-01' || str_contains($t->code, 'MBR-TOOLS') || str_contains($t->code, 'WINGS-TOOLS')) {
+                // Laporan Tools Wings Surya: selesai jika seluruh item tools telah disubmit
+                $submittedTools = [];
+                foreach ($templateTodaySubs as $sub) {
+                    foreach ($sub->values as $val) {
+                        $fn = strtolower($val->field_name ?? '');
+                        if ($fn === 'nama_tools' || str_contains($fn, 'tools')) {
+                            $tVal = trim((string)($val->value_text ?? ''));
+                            if ($tVal !== '') {
+                                $submittedTools[] = strtolower($tVal);
+                            }
+                        }
+                    }
+                }
+                $submittedTools = array_values(array_unique($submittedTools));
+                $toolsField = $t->fields->first(function ($f) {
+                    return strtolower($f->field_name) === 'nama_tools';
+                });
+                $totalTools = (!empty($toolsField?->options) && is_array($toolsField->options)) ? count($toolsField->options) : 13;
+                $isCompletedToday = (count($submittedTools) >= $totalTools && $totalTools > 0);
             } else {
                 $isCompletedToday = $templateTodaySubs->isNotEmpty();
             }

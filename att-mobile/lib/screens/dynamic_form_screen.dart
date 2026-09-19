@@ -118,6 +118,92 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     return _submittedMachineNames.contains(clean);
   }
 
+  // Multi-Tools & Sequential Submission Tracking (Wings Surya MBR Tools)
+  final Set<String> _submittedToolsNames = {};
+
+  void _initSubmittedTools() {
+    if (!_isWingsToolsTemplate()) return;
+    final repProv = Provider.of<DynamicReportingProvider>(context, listen: false);
+    final today = DateTime.now();
+    for (final sub in repProv.history) {
+      if (sub.reportTemplateId != widget.template.id && sub.templateCode != widget.template.code) continue;
+      final subDate = sub.submittedAt;
+      if (subDate.year == today.year && subDate.month == today.month && subDate.day == today.day) {
+        for (final val in sub.values) {
+          final fn = val.fieldName.toLowerCase();
+          if (fn == 'nama_tools' || fn.contains('tools')) {
+            final tText = (val.valueText ?? val.valueJson?.toString() ?? '').trim().toLowerCase();
+            if (tText.isNotEmpty) {
+              _submittedToolsNames.add(tText);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  bool _isToolSubmitted(String? toolName) {
+    if (toolName == null || toolName.trim().isEmpty) return false;
+    final clean = toolName.trim().toLowerCase();
+    return _submittedToolsNames.contains(clean);
+  }
+
+  List<String> _getWingsToolsList() {
+    for (final f in widget.template.fields) {
+      final fn = f.fieldName.toLowerCase();
+      if (fn == 'nama_tools' || fn.contains('tools')) {
+        if (f.options.isNotEmpty) return f.options;
+      }
+    }
+    return [
+      '1 Pcs panci susu',
+      '1 Pcs mangkuk pengaduk',
+      '1 Pcs Gunting',
+      '2 set sendok garpu',
+      '1 pcs centong sayur',
+      '1 pcs capitan',
+      '1 Pcs Pompa dispenser air (optional)',
+      '1 Pcs Galon air',
+      '1 Pcs Kompor portable + Gas',
+      '1 pcs saringan / tirisan mie',
+      '1 Pcs tray',
+      '1 Gelas Takar',
+      'Papercup & Garpu kecil (untuk pengunjung)',
+    ];
+  }
+
+  int _getTotalWingsToolsCount() {
+    final list = _getWingsToolsList();
+    return list.isNotEmpty ? list.length : 13;
+  }
+
+  int _getRemainingWingsToolsCount() {
+    final total = _getTotalWingsToolsCount();
+    final rem = total - _submittedToolsNames.length;
+    return rem > 0 ? rem : 0;
+  }
+
+  void _autoSelectNextUnsubmittedTool() {
+    if (!_isWingsToolsTemplate()) return;
+    final tools = _getWingsToolsList();
+    final nextTool = tools.firstWhere(
+      (t) => !_isToolSubmitted(t),
+      orElse: () => '',
+    );
+    if (nextTool.isNotEmpty) {
+      for (final f in widget.template.fields) {
+        final fn = f.fieldName.toLowerCase();
+        if (fn == 'nama_tools' || fn.contains('tools')) {
+          final k = f.id.toString();
+          _formValues[k] = nextTool;
+          _formValues[f.fieldName] = nextTool;
+          _controllers[k]?.text = nextTool;
+          break;
+        }
+      }
+    }
+  }
+
   bool _hasMachineBinding() {
     if (!_isDailyMaintenanceTemplate()) return false;
     if (widget.template.hasMachineBinding) return true;
@@ -300,19 +386,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
   void _returnToReportingScreen() {
     if (!mounted) return;
-    bool foundReporting = false;
-    Navigator.of(context).popUntil((route) {
-      if (route.settings.name == 'ReportingHubScreen') {
-        foundReporting = true;
-        return true;
-      }
-      if (route.isFirst) {
-        return true;
-      }
-      return false;
-    });
-
-    if (!foundReporting) {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop(true);
+    } else {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           settings: const RouteSettings(name: 'ReportingHubScreen'),
@@ -478,6 +554,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   String? _stockEndPhotoWatermark;
 
   // Wings Surya MBR Sales Reporting State (Cart & Confirmation Review)
+  String _mbrSalesMode = 'booth'; // 'booth' (Pembayaran di booth) | 'no_sell_out' (No Sell Out)
+  String _mbrNoSellOutReason = 'Toko Tidak Mengijinkan'; // 'Toko Tidak Mengijinkan' | 'Barang OOS'
+  final TextEditingController _mbrNoSellOutNotesCtrl = TextEditingController();
+
   int _mbrSalesStep = 0; // 0: Input & Keranjang, 1: Review & Foto Sell Out Toko
   final List<Map<String, dynamic>> _mbrSalesCart = [];
   TemplateProductModel? _currentMbrSalesProduct;
@@ -530,6 +610,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
     _initSubmittedProducts();
     _initSubmittedMachines();
+    _initSubmittedTools();
     _initializeForm();
     _fetchCurrentLocation();
 
@@ -550,6 +631,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
       // Ikat lokasi otomatis dari Check-in atau Visit aktif
       _initLocationFromAttendance();
+      if (_isWingsToolsTemplate() && widget.editSubmission == null) {
+        _initSubmittedTools();
+        _autoSelectNextUnsubmittedTool();
+      }
       if (_isWingsMbrFreeTasteTemplate() && widget.editSubmission == null && _mbrFreeTasteCart.isEmpty) {
         _loadMbrFreeTasteDraft();
       }
@@ -1599,6 +1684,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     // Inisialisasi data laporan Wings Surya MBR Sales (Cart & Konfirmasi Review)
     final bool isWingsMbrSales = _isWingsMbrSalesTemplate();
     if (isWingsMbrSales) {
+      _mbrSalesMode = 'booth';
+      _mbrNoSellOutReason = 'Toko Tidak Mengijinkan';
+      _mbrNoSellOutNotesCtrl.clear();
       _mbrSalesCart.clear();
       _mbrSalesStep = 0;
       _currentMbrSalesProduct = null;
@@ -1613,7 +1701,21 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       if (widget.editSubmission != null) {
         for (final val in widget.editSubmission!.values) {
           final fn = val.fieldName.toLowerCase();
-          if (fn == 'mbr_sales_items_json') {
+          if (fn == 'status_penjualan') {
+            if (val.valueText != null && val.valueText!.toLowerCase().contains('no sell out')) {
+              _mbrSalesMode = 'no_sell_out';
+            } else {
+              _mbrSalesMode = 'booth';
+            }
+          } else if (fn == 'alasan_no_sell_out') {
+            if (val.valueText != null && val.valueText!.isNotEmpty) {
+              _mbrNoSellOutReason = val.valueText!;
+            }
+          } else if (fn == 'keterangan_no_sell_out' || fn == 'catatan_no_sell_out') {
+            if (val.valueText != null) {
+              _mbrNoSellOutNotesCtrl.text = val.valueText!;
+            }
+          } else if (fn == 'mbr_sales_items_json') {
             try {
               final raw = val.valueJson ?? val.valueText;
               final list = raw is List ? raw : (raw is String ? jsonDecode(raw) : null);
@@ -1732,6 +1834,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
     _mbrStorePriceCtrl.dispose();
     _mbrQtyCtrl.dispose();
+    _mbrNoSellOutNotesCtrl.dispose();
 
     _mbrStokAwalCtrl.dispose();
     _mbrDimasakCtrl.dispose();
@@ -2446,6 +2549,19 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       return;
     }
 
+    // Cegah pengiriman ganda untuk tools Wings Surya yang telah dilaporkan hari ini
+    if (widget.editSubmission == null && _isWingsToolsTemplate() && submittedCategoryValue.isNotEmpty && _isToolSubmitted(submittedCategoryValue)) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        title: const Text('Tools Sudah Dilaporkan'),
+        description: Text('Tools "$submittedCategoryValue" sudah dilaporkan hari ini. Silakan pilih tools lain yang belum dilaporkan.'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      setState(() => _isSubmitting = false);
+      return;
+    }
+
     // Buat salinan bersih dari formValues tanpa path file lokal perangkat
     // Kirim dengan DUA key: ID angka (f.id) dan field_name agar server 100% selalu cocok
     final Map<String, dynamic> cleanFormValues = {};
@@ -2610,6 +2726,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           if (submittedMachineValue != null && submittedMachineValue.isNotEmpty) {
             _submittedMachineNames.add(submittedMachineValue.toLowerCase().trim());
           }
+          if (_isWingsToolsTemplate() && submittedCategoryValue != null && submittedCategoryValue.isNotEmpty) {
+            _submittedToolsNames.add(submittedCategoryValue.toLowerCase().trim());
+          }
           _submittedCategories.add(submittedCategoryValue!);
           _submittedCategoryLog.add(submittedCategoryValue);
           _submittedProductNames.add(submittedCategoryValue.toLowerCase().trim());
@@ -2642,9 +2761,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
         _recalculateFormulas();
 
-        // Otomatis pilih produk atau mesin berikutnya yang belum dilaporkan
+        // Otomatis pilih produk, mesin, atau tools berikutnya yang belum dilaporkan
         if (_isDailyMaintenanceTemplate()) {
           _autoSelectNextUnsubmittedMachine();
+        } else if (_isWingsToolsTemplate()) {
+          _autoSelectNextUnsubmittedTool();
         } else {
           _autoSelectNextUnsubmittedProduct();
         }
@@ -2674,6 +2795,17 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 : 'Laporan untuk "$submittedMachineValue" berhasil dikirim. Seluruh mesin telah selesai dilaporkan!'),
             autoCloseDuration: const Duration(seconds: 4),
           );
+        } else if (_isWingsToolsTemplate()) {
+          final int remT = _getRemainingWingsToolsCount();
+          toastification.show(
+            context: context,
+            type: result['is_offline'] == true ? ToastificationType.info : ToastificationType.success,
+            title: Text(result['is_offline'] == true ? 'Tersimpan Offline' : 'Laporan Tools Terkirim'),
+            description: Text(remT > 0
+                ? 'Laporan untuk "$submittedCategoryValue" berhasil dikirim. Sisa $remT tools lagi yang harus dilaporkan hari ini.'
+                : 'Laporan untuk "$submittedCategoryValue" berhasil dikirim. Seluruh tools telah selesai dilaporkan!'),
+            autoCloseDuration: const Duration(seconds: 4),
+          );
         } else {
           final int rem = _getRemainingProductsCount();
           toastification.show(
@@ -2689,6 +2821,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       } else {
         if (submittedMachineValue != null && submittedMachineValue.isNotEmpty) {
           _submittedMachineNames.add(submittedMachineValue.toLowerCase().trim());
+        }
+        if (_isWingsToolsTemplate() && submittedCategoryValue != null && submittedCategoryValue.isNotEmpty) {
+          _submittedToolsNames.add(submittedCategoryValue.toLowerCase().trim());
         }
         if (submittedCategoryValue != null) {
           _submittedProductNames.add(submittedCategoryValue.toLowerCase().trim());
@@ -3013,6 +3148,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               _buildMachineProgressAndButtons(themeColor, cardColor, textColor, subtitleColor, isDarkMode)
             else if (_hasProductBinding() && _getTotalProductsCount() > 0)
               _buildProductProgressAndButtons(themeColor, cardColor, textColor, subtitleColor, isDarkMode)
+            else if (_isWingsToolsTemplate())
+              _buildWingsToolsProgressAndButtons(themeColor, cardColor, textColor, subtitleColor, isDarkMode)
             else if (widget.template.scheduleType.toLowerCase() == 'monthly' && !widget.template.isWithinMonthlyRange)
               ElevatedButton.icon(
                 onPressed: null,
@@ -3073,6 +3210,181 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildWingsToolsProgressAndButtons(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    bool isDarkMode,
+  ) {
+    final int total = _getTotalWingsToolsCount();
+    final int submitted = _submittedToolsNames.length;
+    final int remaining = (total - submitted) > 0 ? (total - submitted) : 0;
+    final double progress = total > 0 ? (submitted / total).clamp(0.0, 1.0) : 0.0;
+    final bool isLastTool = remaining <= 1;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Tools Progress Card
+        Container(
+          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isLastTool
+                  ? Colors.green.withOpacity(0.4)
+                  : themeColor.withOpacity(0.3),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: (isLastTool ? Colors.green : themeColor).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          isLastTool ? Icons.task_alt_rounded : Icons.construction_rounded,
+                          size: 16,
+                          color: isLastTool ? Colors.green : themeColor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Progres Pemeriksaan Tools',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                    decoration: BoxDecoration(
+                      color: (isLastTool ? Colors.green : themeColor).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '$submitted / $total Selesai',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: isLastTool ? Colors.green : themeColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 7,
+                  backgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isLastTool ? Colors.green : themeColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isLastTool
+                    ? (remaining == 0
+                        ? 'Seluruh 13 tools telah selesai dilaporkan ✓'
+                        : 'Memeriksa tools terakhir (ke-13). Tombol "Kirim & Selesai" sekarang aktif!')
+                    : 'Sedang memeriksa tools ke-${submitted + 1}. Sisa $remaining tools lagi yang wajib diperiksa.',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: isLastTool ? Colors.green : subtitleColor,
+                  fontWeight: isLastTool ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Sequential Submission Action Buttons
+        if (!isLastTool) ...[
+          ElevatedButton.icon(
+            onPressed: _isSubmitting ? null : () => _submitForm(isNewInput: true),
+            icon: _isSubmitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+            label: Text(
+              _isSubmitting ? 'Mengirim Data Tools...' : 'Kirim & Lanjut Tools Berikutnya',
+              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: themeColor,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: null,
+            icon: const Icon(Icons.lock_outline_rounded, size: 16, color: Colors.grey),
+            label: Text(
+              'Kirim & Selesai (Terkunci: sisa $remaining tools)',
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.grey),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              side: BorderSide(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ] else ...[
+          ElevatedButton.icon(
+            onPressed: _isSubmitting ? null : () => _submitForm(isNewInput: false),
+            icon: _isSubmitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+            label: Text(
+              _isSubmitting ? 'Mengirim & Menyelesaikan...' : 'Kirim & Selesai (Tools Terakhir ✓)',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade600,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 3,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -4362,6 +4674,17 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
              fieldLabelLower.contains('tipe mesin') ||
              fieldLabelLower.contains('mesin tinting post'));
 
+        final isWingsTools = _isWingsToolsTemplate();
+        final isWingsToolsField = isWingsTools &&
+            (fieldNameLower == 'nama_tools' ||
+             fieldNameLower.contains('tools') ||
+             fieldLabelLower.contains('nama tools') ||
+             fieldLabelLower.contains('tools'));
+
+        if (isWingsToolsField && effectiveOptions.isEmpty) {
+          effectiveOptions = _getWingsToolsList();
+        }
+
         if (isMachineTypeField) {
           final storeMachinesMap = _getStoreMachinesMap();
           if (storeMachinesMap.isNotEmpty) {
@@ -4378,7 +4701,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         }
 
         // Pastikan nilai value yang dipilih valid ada di daftar options
-        var currentDropdownVal = _formValues[fieldKey] ?? _formValues[field.fieldName] ?? _formValues['tipe_mesin_post'];
+        var currentDropdownVal = _formValues[fieldKey] ?? _formValues[field.fieldName] ?? _formValues['tipe_mesin_post'] ?? _formValues['nama_tools'];
 
         // Auto-select first unsubmitted machine for Daily Maintenance
         if (isMachineTypeField && (currentDropdownVal == null || _isMachineSubmitted(currentDropdownVal.toString()) || !effectiveOptions.contains(currentDropdownVal.toString()))) {
@@ -4396,6 +4719,23 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 _autoFillMachineSerial(firstUnsubmitted);
               }
             });
+          }
+        }
+
+        // Auto-select first unsubmitted tool for Wings Tools
+        if (isWingsToolsField && (currentDropdownVal == null || _isToolSubmitted(currentDropdownVal.toString()) || !effectiveOptions.contains(currentDropdownVal.toString()))) {
+          final firstUnsubmitted = effectiveOptions.firstWhere(
+            (opt) => !_isToolSubmitted(opt),
+            orElse: () => effectiveOptions.isNotEmpty ? effectiveOptions.first : '',
+          );
+          if (firstUnsubmitted.isNotEmpty) {
+            currentDropdownVal = firstUnsubmitted;
+            _formValues[fieldKey] = firstUnsubmitted;
+            _formValues[field.fieldName] = firstUnsubmitted;
+            _formValues['nama_tools'] = firstUnsubmitted;
+            if (_controllers.containsKey(fieldKey)) {
+              _controllers[fieldKey]!.text = firstUnsubmitted;
+            }
           }
         }
 
@@ -4441,7 +4781,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       orElse: () => null,
                     );
                 final isOptSubmitted = (isProductSelect && _isOptionSubmitted(opt)) ||
-                    (isMachineTypeField && _isMachineSubmitted(opt) && opt != 'Toko Tidak Memiliki Mesin Tinting');
+                    (isMachineTypeField && _isMachineSubmitted(opt) && opt != 'Toko Tidak Memiliki Mesin Tinting') ||
+                    (isWingsToolsField && _isToolSubmitted(opt));
                 return DropdownMenuItem<String>(
                   value: opt,
                   enabled: !isOptSubmitted,
@@ -4514,6 +4855,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     if (isMachineTypeField) {
                       _formValues['tipe_mesin_post'] = v;
                       _autoFillMachineSerial(v);
+                    }
+                    if (isWingsToolsField) {
+                      _formValues['nama_tools'] = v;
                     }
                   });
                 },
@@ -12838,105 +13182,720 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             ),
           ],
 
-          // Step Switch Tabs
+          // ── Pilihan Penjualan di Awal (Pembayaran di booth vs No Sell Out) ──
           Container(
             margin: const EdgeInsets.only(bottom: 14),
-            child: Row(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => setState(() => _mbrSalesStep = 0),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _mbrSalesStep == 0 ? themeColor.withOpacity(0.12) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: _mbrSalesStep == 0
-                              ? themeColor
-                              : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.shopping_cart_outlined,
-                              size: 16, color: _mbrSalesStep == 0 ? themeColor : subtitleColor),
-                          const SizedBox(width: 6),
-                          Text(
-                            '1. Input Produk (${_mbrSalesCart.length})',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: _mbrSalesStep == 0 ? themeColor : subtitleColor,
-                            ),
-                          ),
-                        ],
+                Row(
+                  children: [
+                    Icon(Icons.point_of_sale_rounded, size: 16, color: themeColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      'PILIHAN PENJUALAN DI AWAL',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: subtitleColor,
+                        letterSpacing: 0.5,
                       ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: InkWell(
-                    onTap: _mbrSalesCart.isEmpty
-                        ? () {
-                            toastification.show(
-                              context: context,
-                              type: ToastificationType.warning,
-                              title: const Text('Keranjang Masih Kosong'),
-                              description: const Text('Masukkan minimal 1 produk terlebih dahulu.'),
-                              autoCloseDuration: const Duration(seconds: 2),
-                            );
-                          }
-                        : () => setState(() => _mbrSalesStep = 1),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _mbrSalesStep == 1 ? themeColor.withOpacity(0.12) : Colors.transparent,
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _mbrSalesMode = 'booth'),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: _mbrSalesStep == 1
-                              ? themeColor
-                              : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.fact_check_rounded,
-                              size: 16, color: _mbrSalesStep == 1 ? themeColor : subtitleColor),
-                          const SizedBox(width: 6),
-                          Text(
-                            '2. Review & Submit',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: _mbrSalesStep == 1 ? themeColor : subtitleColor,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: _mbrSalesMode == 'booth'
+                                ? const Color(0xFF10B981).withOpacity(0.15)
+                                : elevatedColor,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _mbrSalesMode == 'booth'
+                                  ? const Color(0xFF10B981)
+                                  : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                              width: _mbrSalesMode == 'booth' ? 1.5 : 1.0,
                             ),
                           ),
-                        ],
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.storefront_rounded,
+                                size: 20,
+                                color: _mbrSalesMode == 'booth'
+                                    ? const Color(0xFF10B981)
+                                    : subtitleColor,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Pembayaran di Booth',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: _mbrSalesMode == 'booth'
+                                      ? const Color(0xFF10B981)
+                                      : textColor,
+                                ),
+                              ),
+                              Text(
+                                'Ada Sell Out',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: subtitleColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _mbrSalesMode = 'no_sell_out'),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: _mbrSalesMode == 'no_sell_out'
+                                ? const Color(0xFFE11D48).withOpacity(0.15)
+                                : elevatedColor,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _mbrSalesMode == 'no_sell_out'
+                                  ? const Color(0xFFE11D48)
+                                  : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                              width: _mbrSalesMode == 'no_sell_out' ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.do_not_disturb_on_rounded,
+                                size: 20,
+                                color: _mbrSalesMode == 'no_sell_out'
+                                    ? const Color(0xFFE11D48)
+                                    : subtitleColor,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'No Sell Out',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: _mbrSalesMode == 'no_sell_out'
+                                      ? const Color(0xFFE11D48)
+                                      : textColor,
+                                ),
+                              ),
+                              Text(
+                                'Tidak Ada Penjualan',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: subtitleColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
 
-          if (_mbrSalesStep == 0)
-            _buildMbrSalesStep0Body(
-                themeColor, cardColor, textColor, subtitleColor, elevatedColor, isDarkMode)
-          else
-            _buildMbrSalesStep1Body(
-                themeColor, cardColor, textColor, subtitleColor, elevatedColor, isDarkMode, canSubmitReport),
+          if (_mbrSalesMode == 'no_sell_out')
+            _buildMbrNoSellOutBody(
+                themeColor, cardColor, textColor, subtitleColor, elevatedColor, isDarkMode, canSubmitReport)
+          else ...[
+            // Step Switch Tabs
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _mbrSalesStep = 0),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _mbrSalesStep == 0 ? themeColor.withOpacity(0.12) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _mbrSalesStep == 0
+                                ? themeColor
+                                : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.shopping_cart_outlined,
+                                size: 16, color: _mbrSalesStep == 0 ? themeColor : subtitleColor),
+                            const SizedBox(width: 6),
+                            Text(
+                              '1. Input Produk (${_mbrSalesCart.length})',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _mbrSalesStep == 0 ? themeColor : subtitleColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
+                      onTap: _mbrSalesCart.isEmpty
+                          ? () {
+                              toastification.show(
+                                context: context,
+                                type: ToastificationType.warning,
+                                title: const Text('Keranjang Masih Kosong'),
+                                description: const Text('Masukkan minimal 1 produk terlebih dahulu.'),
+                                autoCloseDuration: const Duration(seconds: 2),
+                              );
+                            }
+                          : () => setState(() => _mbrSalesStep = 1),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _mbrSalesStep == 1 ? themeColor.withOpacity(0.12) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _mbrSalesStep == 1
+                                ? themeColor
+                                : (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.fact_check_rounded,
+                                size: 16, color: _mbrSalesStep == 1 ? themeColor : subtitleColor),
+                            const SizedBox(width: 6),
+                            Text(
+                              '2. Review & Submit',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _mbrSalesStep == 1 ? themeColor : subtitleColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            if (_mbrSalesStep == 0)
+              _buildMbrSalesStep0Body(
+                  themeColor, cardColor, textColor, subtitleColor, elevatedColor, isDarkMode)
+            else
+              _buildMbrSalesStep1Body(
+                  themeColor, cardColor, textColor, subtitleColor, elevatedColor, isDarkMode, canSubmitReport),
+          ],
 
           const SizedBox(height: 30),
         ],
       ),
     );
+  }
+
+  Widget _buildMbrNoSellOutBody(
+    Color themeColor,
+    Color cardColor,
+    Color textColor,
+    Color subtitleColor,
+    Color elevatedColor,
+    bool isDarkMode,
+    bool canSubmitReport,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Info Lokasi Store ──
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE11D48).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.storefront_rounded, color: Color(0xFFE11D48), size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _selectedStoreName.isNotEmpty ? _selectedStoreName : 'Lokasi Kunjungan Toko',
+                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Laporan Penjualan (No Sell Out) • Wings Event MBR',
+                      style: TextStyle(fontSize: 11, color: subtitleColor),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // ── Card Pilihan Alasan No Sell Out ──
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFFE11D48).withOpacity(0.35),
+              width: 1.2,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE11D48).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFFE11D48)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'ALASAN NO SELL OUT',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? const Color(0xFFFB7185) : const Color(0xFFBE123C),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE11D48).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'Wajib Pilih',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFE11D48),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // Option 1: Toko Tidak Mengijinkan
+              InkWell(
+                onTap: () => setState(() => _mbrNoSellOutReason = 'Toko Tidak Mengijinkan'),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: _mbrNoSellOutReason == 'Toko Tidak Mengijinkan'
+                        ? const Color(0xFFE11D48).withOpacity(0.1)
+                        : elevatedColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _mbrNoSellOutReason == 'Toko Tidak Mengijinkan'
+                          ? const Color(0xFFE11D48)
+                          : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                      width: _mbrNoSellOutReason == 'Toko Tidak Mengijinkan' ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _mbrNoSellOutReason == 'Toko Tidak Mengijinkan'
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_off_rounded,
+                        color: _mbrNoSellOutReason == 'Toko Tidak Mengijinkan'
+                            ? const Color(0xFFE11D48)
+                            : subtitleColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Toko Tidak Mengijinkan',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: _mbrNoSellOutReason == 'Toko Tidak Mengijinkan'
+                                    ? const Color(0xFFE11D48)
+                                    : textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Pihak toko tidak mengijinkan atau menolak aktivitas sell out.',
+                              style: TextStyle(fontSize: 11, color: subtitleColor),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Option 2: Barang OOS
+              InkWell(
+                onTap: () => setState(() => _mbrNoSellOutReason = 'Barang OOS'),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: _mbrNoSellOutReason == 'Barang OOS'
+                        ? const Color(0xFFE11D48).withOpacity(0.1)
+                        : elevatedColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _mbrNoSellOutReason == 'Barang OOS'
+                          ? const Color(0xFFE11D48)
+                          : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                      width: _mbrNoSellOutReason == 'Barang OOS' ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _mbrNoSellOutReason == 'Barang OOS'
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_off_rounded,
+                        color: _mbrNoSellOutReason == 'Barang OOS'
+                            ? const Color(0xFFE11D48)
+                            : subtitleColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Barang OOS (Out of Stock)',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: _mbrNoSellOutReason == 'Barang OOS'
+                                    ? const Color(0xFFE11D48)
+                                    : textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Stok barang di toko kosong / habis sehingga tidak ada penjualan.',
+                              style: TextStyle(fontSize: 11, color: subtitleColor),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Catatan / Keterangan
+              Text(
+                'CATATAN TAMBAHAN (OPSIONAL)',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _mbrNoSellOutNotesCtrl,
+                maxLines: 3,
+                style: TextStyle(fontSize: 13, color: textColor),
+                decoration: InputDecoration(
+                  hintText: 'Tuliskan keterangan lebih lanjut jika ada...',
+                  hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                  filled: true,
+                  fillColor: elevatedColor,
+                  contentPadding: const EdgeInsets.all(12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                        color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                        color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFE11D48), width: 1.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Submit Button No Sell Out
+        if (!canSubmitReport)
+          ElevatedButton.icon(
+            onPressed: () {
+              final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+              final bool hasAtt = attProvider.isVisiting || attProvider.isCheckedIn || widget.editSubmission != null;
+              final title = !hasAtt ? 'Belum Absensi Kehadiran' : 'Di Luar Radius Toko';
+              final desc = !hasAtt
+                  ? 'Anda wajib melakukan Check-In kehadiran atau Visit-In kunjungan toko terlebih dahulu.'
+                  : 'Posisi GPS Anda berada di luar radius toko (${_calculatedDistance?.round() ?? '-'}m dari toko, maksimal ${_allowedRadiusMeter.round()}m).';
+              toastification.show(
+                context: context,
+                type: ToastificationType.warning,
+                title: Text(title),
+                description: Text(desc),
+                autoCloseDuration: const Duration(seconds: 4),
+              );
+            },
+            icon: const Icon(Icons.lock_rounded, size: 18, color: Colors.grey),
+            label: Text(
+              !canSubmitReport && (_selectedLocation == null || !_isWithinRadius)
+                  ? 'Di Luar Radius Toko (${_calculatedDistance?.round() ?? '-'}m / ${_allowedRadiusMeter.round()}m)'
+                  : 'Wajib Check-In / Visit-In Terlebih Dahulu',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              disabledBackgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
+              foregroundColor: Colors.grey.shade600,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+          )
+        else
+          ElevatedButton(
+            onPressed: _isSubmitting
+                ? null
+                : () => _submitWingsNoSellOut(context: context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE11D48),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+            child: _isSubmitting
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.send_rounded, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Kirim Laporan No Sell Out',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _submitWingsNoSellOut({required BuildContext context}) async {
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+
+    final attProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    final bool isVisiting = attProvider.isVisiting;
+    final bool isCheckedIn = attProvider.isCheckedIn;
+    final bool isEditMode = widget.editSubmission != null;
+    final bool hasActiveAttendance = isVisiting || isCheckedIn || isEditMode;
+
+    if (!hasActiveAttendance) {
+      setState(() => _isSubmitting = false);
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        title: const Text('Belum Absensi Kehadiran / Visit'),
+        description: const Text('Anda wajib melakukan Check-In kehadiran atau Visit-In kunjungan toko terlebih dahulu untuk mengirim laporan.'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    if (!_isWithinRadius && !isEditMode) {
+      setState(() => _isSubmitting = false);
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        title: const Text('Di Luar Radius Toko'),
+        description: Text('Posisi Anda berada di luar batas radius toko (${_calculatedDistance?.round() ?? '-'}m dari toko, batas maksimal ${_allowedRadiusMeter.round()}m).'),
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    CustomLoadingIndicator.show(context, message: 'Mengirim laporan No Sell Out...');
+
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
+      final token = auth.token;
+
+      if (token == null) {
+        CustomLoadingIndicator.hide(context);
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      final Map<String, dynamic> cleanFormValues = {
+        'status_penjualan': 'No Sell Out',
+        'alasan_no_sell_out': _mbrNoSellOutReason,
+        'keterangan_no_sell_out': _mbrNoSellOutNotesCtrl.text.trim(),
+        'catatan': _mbrNoSellOutNotesCtrl.text.trim(),
+        'catatan_penjualan': _mbrNoSellOutNotesCtrl.text.trim(),
+        'mbr_sales_items_json': jsonEncode([]),
+        'total_qty_penjualan': 0,
+        'total_value_penjualan_rp': 0,
+        'total_bayar_di_booth_rp': 0,
+        'total_bayar_di_kasir_rp': 0,
+      };
+
+      for (final f in widget.template.fields) {
+        final fn = f.fieldName.toLowerCase();
+        final fKey = f.id.toString();
+        if (cleanFormValues.containsKey(fn)) {
+          cleanFormValues[fKey] = cleanFormValues[fn];
+        }
+      }
+
+      Map<String, dynamic> result;
+      if (widget.editSubmission != null) {
+        result = await repProvider.updateReport(
+          token: token,
+          submissionId: widget.editSubmission!.id,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          address: _selectedLocation?['address'] ?? _address,
+          values: cleanFormValues,
+          photoFiles: {},
+          existingPhotos: _existingMultiPhotoUrls,
+        );
+      } else {
+        result = await repProvider.submitReport(
+          token: token,
+          templateId: widget.template.id,
+          templateTitle: widget.template.title,
+          storeName: _selectedStoreName,
+          workLocationId: _selectedWorkLocationId,
+          itineraryItemId: widget.itineraryItemId,
+          latitude: _latitude,
+          longitude: _longitude,
+          address: _selectedLocation?['address'] ?? _address,
+          isWithinRadius: _isWithinRadius,
+          values: cleanFormValues,
+          photoFiles: {},
+          watermarkTexts: {},
+        );
+      }
+
+      if (mounted) {
+        CustomLoadingIndicator.hide(context);
+        setState(() => _isSubmitting = false);
+      }
+
+      if (result['success'] == true && mounted) {
+        if (attProvider.isVisiting) {
+          attProvider.markVisitReportFilled();
+        }
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          title: const Text('Laporan No Sell Out Terkirim'),
+          description: Text(result['message'] ?? 'Laporan No Sell Out ($_mbrNoSellOutReason) berhasil dikirim.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+        _returnToReportingScreen();
+      } else if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Gagal Mengirim Laporan'),
+          description: Text(result['message'] ?? 'Terjadi kesalahan sistem.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomLoadingIndicator.hide(context);
+        setState(() => _isSubmitting = false);
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Terjadi Kesalahan'),
+          description: Text(e.toString()),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    }
   }
 
   Widget _buildMbrSalesStep0Body(
@@ -13479,125 +14438,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
-
-              // Foto Struk Penjualan (Per Produk)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'FOTO STRUK (PER PRODUK)',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
-                  ),
-                  const Text(
-                    '*Wajib per produk',
-                    style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: Color(0xFFE11D48)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-
-              if (_mbrCurrentStrukPhoto != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: elevatedColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
-                  ),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          _mbrCurrentStrukPhoto!,
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: const [
-                                Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF10B981)),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Foto Struk Siap',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF10B981),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Text(
-                              'Watermark Geotag aktif',
-                              style: TextStyle(fontSize: 11, color: subtitleColor),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () async {
-                          final src = await _showPhotoSourceDialog(title: 'Ganti Foto Struk');
-                          if (src != null) _pickMbrStrukPhoto(src);
-                        },
-                        icon: const Icon(Icons.sync_rounded, size: 20),
-                        color: themeColor,
-                        tooltip: 'Ganti Foto',
-                      ),
-                      IconButton(
-                        onPressed: () => setState(() {
-                          _mbrCurrentStrukPhoto = null;
-                          _mbrCurrentStrukWatermark = null;
-                        }),
-                        icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                        color: Colors.red.shade400,
-                        tooltip: 'Hapus',
-                      ),
-                    ],
-                  ),
-                ),
-              ] else ...[
-                InkWell(
-                  onTap: () async {
-                    final src = await _showPhotoSourceDialog(title: 'Ambil Foto Struk');
-                    if (src != null) _pickMbrStrukPhoto(src);
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: elevatedColor,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.grey.shade400,
-                        style: BorderStyle.solid,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.camera_alt_rounded, size: 18, color: themeColor),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Ambil Foto Struk Produk Ini',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.bold,
-                            color: themeColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
               const SizedBox(height: 16),
 
               // Button: Tambah ke Keranjang
@@ -13638,17 +14478,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     return;
                   }
 
-                  if (_mbrCurrentStrukPhoto == null) {
-                    toastification.show(
-                      context: context,
-                      type: ToastificationType.warning,
-                      title: const Text('Foto Struk Wajib Diambil'),
-                      description: const Text('Foto struk diambil per produk saat dimasukkan ke keranjang.'),
-                      autoCloseDuration: const Duration(seconds: 3),
-                    );
-                    return;
-                  }
-
                   setState(() {
                     _mbrSalesCart.add({
                       'product_id': _currentMbrSalesProduct!.id,
@@ -13659,8 +14488,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       'qty': q,
                       'value_rp': sPrice * q,
                       'payment_type': _mbrPaymentType,
-                      'struk_photo_file': _mbrCurrentStrukPhoto,
-                      'struk_photo_watermark': _mbrCurrentStrukWatermark,
+                      'struk_photo_file': null,
+                      'struk_photo_watermark': null,
                     });
 
                     // Reset form input
@@ -13676,7 +14505,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     context: context,
                     type: ToastificationType.success,
                     title: const Text('Masuk ke Keranjang'),
-                    description: const Text('Produk & foto struk berhasil ditambahkan.'),
+                    description: const Text('Produk berhasil ditambahkan ke keranjang.'),
                     autoCloseDuration: const Duration(seconds: 2),
                   );
                 },
@@ -13730,7 +14559,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Pilih produk dari Master, masukkan harga & foto struk, lalu klik Tambah ke Keranjang.',
+                  'Pilih produk dari Master, masukkan harga jual toko & kuantiti, lalu klik Tambah ke Keranjang.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 11.5, color: subtitleColor),
                 ),
@@ -13750,7 +14579,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               final vRp = (itm['value_rp'] as num?)?.toInt() ?? 0;
               final payType = itm['payment_type']?.toString() ?? 'Bayar di Booth';
               final isBooth = !payType.toLowerCase().contains('kasir');
-              final File? strukFile = itm['struk_photo_file'] is File ? itm['struk_photo_file'] as File : null;
 
               return Container(
                 padding: const EdgeInsets.all(12),
@@ -13762,22 +14590,16 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Foto Struk Thumbnail
-                    if (strukFile != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(strukFile, width: 50, height: 50, fit: BoxFit.cover),
-                      )
-                    else
-                      Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: elevatedColor,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.receipt_long_rounded, size: 22, color: Colors.grey),
+                    // Product Icon Badge
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
+                      child: const Icon(Icons.fastfood_rounded, size: 22, color: Color(0xFF0284C7)),
+                    ),
                     const SizedBox(width: 10),
 
                     // Detail Item
@@ -14726,6 +15548,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }).toList();
 
       final Map<String, dynamic> cleanFormValues = {
+        'status_penjualan': 'Pembayaran di booth',
+        'alasan_no_sell_out': '',
+        'keterangan_no_sell_out': '',
         'mbr_sales_items_json': jsonEncode(itemsForPayload),
         'total_qty_penjualan': totalQty,
         'total_value_penjualan_rp': totalValue,
@@ -15071,6 +15896,13 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     final masak = int.tryParse(_mbrDimasakCtrl.text) ?? 0;
     final akhir = awal - masak;
     _mbrStokAkhirCtrl.text = akhir >= 0 ? akhir.toString() : '0';
+    if (masak > 0) {
+      _mbrCupCtrl.text = (masak * 4).toString();
+    } else if (_mbrDimasakCtrl.text.isEmpty) {
+      _mbrCupCtrl.clear();
+    } else {
+      _mbrCupCtrl.text = '0';
+    }
     if (mounted) setState(() {});
   }
 
@@ -15518,9 +16350,15 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'CUP DIBAGIKAN (CUP)',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
+                        Row(
+                          children: [
+                            Text(
+                              'CUP DIBAGIKAN (CUP)',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.auto_awesome_rounded, size: 12, color: Color(0xFF059669)),
+                          ],
                         ),
                         const SizedBox(height: 6),
                         TextField(
@@ -15531,6 +16369,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                           decoration: InputDecoration(
                             hintText: '0',
                             suffixText: 'Cup',
+                            helperText: 'Otomatis 4 Cup / Bungkus',
+                            helperStyle: TextStyle(fontSize: 10, color: subtitleColor),
                             filled: true,
                             fillColor: elevatedColor,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
