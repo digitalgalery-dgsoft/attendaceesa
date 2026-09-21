@@ -2269,3 +2269,18 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Root workspace (`/`)
         - Web Admin Public (`att-admin-v12/public/`)
         - Mobile project root (`att-mobile/`)
+
+47. **Perbaikan Komprehensif Fitur Import Master Shift & Penyediaan Template Excel (21 September 2026)**:
+    - **Akar Masalah**:
+      - Fitur import master shift sebelumnya mengandalkan native Filament `ImportAction` (`ShiftImporter`) yang mewajibkan 9 pemetaan kolom secara kaku (`requiredMapping`), gagal validasi jika nilai toleransi/status kosong, gagal mengenali format serial waktu desimal Excel, serta memicu crash duplikasi kode saat update data. Selain itu prosesnya terikat queue background Redis yang dapat gagal jika antrean tidak aktif.
+    - **Solusi & Implementasi Fitur Baru**:
+      - **Dedicated Modal Import Excel & CSV (`ShiftImport.php`)**:
+        - Membaca file `.xlsx`, `.xls`, dan `.csv` secara langsung dan instan menggunakan Maatwebsite Excel tanpa dependensi worker antrean background.
+        - **Auto-Detect Baris Header**: Otomatis memindai hingga 15 baris pertama dan mendukung alias nama kolom dwibahasa (`nama_shift`, `jam_masuk`, `jam_pulang`, `istirahat_mulai`, `toleransi_masuk_menit`, `lintas_hari`, dll.).
+        - **Smart Time Parser**: Mengonversi otomatis serial angka desimal Excel (misal: `0.333333333333333` menjadi `08:00:00`) serta format penulisan jam bertitik (`08.00` menjadi `08:00:00`).
+        - **Smart Cross-Day Detection**: Mengidentifikasi shift malam yang melewati pergantian hari secara otomatis jika jam pulang lebih awal dari jam masuk (contoh: 22:00 s/d 06:00).
+        - **Anti-Duplikasi & Auto-Generate Kode Shift**: Memanfaatkan mekanisme `updateOrCreate` dan mengenerate kode unik `SHF-XXXXX` secara otomatis jika kolom kode dikosongkan.
+      - **Tombol Download Template Excel Resmi (`ShiftTemplateExport.php`)**:
+        - Menyediakan tombol *"Download Template Excel"* pada header halaman Master Shift (`/admin/shifts`) yang menghasilkan berkas `Template_Import_Shift.xlsx` ber-styling rapi lengkap dengan 4 contoh data shift operasional.
+      - **Hardening ShiftImporter Bawaan**:
+        - Memperbaiki `ShiftImporter.php` dengan merelaksasi validasi kolom opsional, mengisi nilai *fallback* default pada `beforeSave()`, dan resolusi record cerdas pada `resolveRecord()`.
