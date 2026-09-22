@@ -2341,8 +2341,15 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Menghilangkan pembatasan lokasi yang sudah dikunjungi hari ini (`whereNotIn('id', $visitedLocationIds)`) pada endpoint `availableWorkLocations` (`ItineraryController.php`) dan `workLocations` (`AttendanceController.php`).
       - Pengguna dapat membuat jadwal visit dan melakukan kunjungan berkali-kali ke area atau lokasi kerja yang sama pada tanggal yang sama tanpa terblokir.
       - Menyesuaikan pelacakan status kunjungan pada itinerary list agar menghitung frekuensi visit secara berurutan (*sequential occurrence matching*).
-    - **Penaikan Versi Mobile App**:
+    - **Penaikan Versi & Kompilasi Rilis Mobile**:
       - Versi aplikasi pada `att-mobile/pubspec.yaml` dinaikkan menjadi **`1.0.161+161`**.
+      - Berhasil mengompilasi berkas rilis final:
+        - `app-release-1.0.161.apk` (116.1 MB)
+        - `app-release-1.0.161.aab` (60.2 MB)
+      - Berkas rilis telah disalin ke:
+        - Root: `app-release.apk`, `app-release.aab`, `app-release-1.0.161.apk`, `app-release-1.0.161.aab`
+        - Public Admin: `att-admin-v12/public/app-release.apk`, `app-release.aab`, `app-release-1.0.161.apk`, `app-release-1.0.161.aab`
+        - Direktori mobile: `att-mobile/app-release-1.0.161.apk` dan `att-mobile/app-release-1.0.161.aab`
 
 
 
