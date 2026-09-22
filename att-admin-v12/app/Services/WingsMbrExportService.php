@@ -47,7 +47,7 @@ class WingsMbrExportService
             ->setLastModifiedBy('Wings Surya Portal Principal')
             ->setTitle('Laporan Penjualan MBR - ' . ($filters['period_label'] ?? ''))
             ->setSubject('Rekapitulasi Penjualan MBR Wings Surya')
-            ->setDescription('Laporan Eksekutif Penjualan Event MBR PT Sayap Mas Utama');
+            ->setDescription('Laporan Eksekutif Penjualan Event MBR PT Wings Surya');
 
         // Sheet 1: Ringkasan & KPI
         $sheet1 = $spreadsheet->getActiveSheet();
@@ -92,7 +92,7 @@ class WingsMbrExportService
             ->setLastModifiedBy('Wings Surya Portal Principal')
             ->setTitle('Laporan Free Taste MBR - ' . ($filters['period_label'] ?? ''))
             ->setSubject('Rekapitulasi Free Taste MBR Wings Surya')
-            ->setDescription('Laporan Eksekutif Free Taste / Sampling Event MBR PT Sayap Mas Utama');
+            ->setDescription('Laporan Eksekutif Free Taste / Sampling Event MBR PT Wings Surya');
 
         // Sheet 1: Ringkasan & KPI
         $sheet1 = $spreadsheet->getActiveSheet();
@@ -137,7 +137,7 @@ class WingsMbrExportService
             ->setLastModifiedBy('Wings Surya Portal Principal')
             ->setTitle('Laporan Tools MBR - ' . ($filters['period_label'] ?? ''))
             ->setSubject('Rekapitulasi Tools & Properti MBR Wings Surya')
-            ->setDescription('Laporan Eksekutif Inspeksi Tools & Properti Free Taste Event MBR PT Sayap Mas Utama');
+            ->setDescription('Laporan Eksekutif Inspeksi Tools & Properti Free Taste Event MBR PT Wings Surya');
 
         // Sheet 1: Ringkasan & KPI
         $sheet1 = $spreadsheet->getActiveSheet();
@@ -183,7 +183,7 @@ class WingsMbrExportService
         // Banner Header (Row 1 - 5)
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'EXECUTIVE SUMMARY - LAPORAN PENJUALAN MBR',
             $filters,
             6
@@ -349,7 +349,7 @@ class WingsMbrExportService
         $sheet->setShowGridlines(true);
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'LEADERBOARD PERFORMA MITRA SPG / PROMOTOR PENJUALAN MBR',
             $filters,
             9
@@ -453,7 +453,7 @@ class WingsMbrExportService
         $sheet->setShowGridlines(true);
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'REKAPITULASI PENJUALAN PRODUK & SKU MBR',
             $filters,
             6
@@ -541,7 +541,7 @@ class WingsMbrExportService
         $sheet->setShowGridlines(true);
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'DISTRIBUSI PENJUALAN BERDASARKAN AREA & REGION',
             $filters,
             6
@@ -672,7 +672,7 @@ class WingsMbrExportService
         $sheet->setShowGridlines(true);
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'DATA MENTAH SUBMISI PENJUALAN MBR LENGKAP',
             $filters,
             15
@@ -842,7 +842,7 @@ class WingsMbrExportService
 
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'EXECUTIVE SUMMARY - LAPORAN FREE TASTE / SAMPLING MBR',
             $filters,
             6
@@ -969,7 +969,7 @@ class WingsMbrExportService
         $sheet->setShowGridlines(true);
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'LEADERBOARD MITRA SPG SAMPLING & DEMO MASAK MBR',
             $filters,
             9
@@ -1063,7 +1063,7 @@ class WingsMbrExportService
         $sheet->setShowGridlines(true);
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'REKAPITULASI SAMPLING PER VARIAN RASA / PRODUK MIE',
             $filters,
             7
@@ -1157,7 +1157,7 @@ class WingsMbrExportService
         $sheet->setShowGridlines(true);
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'DISTRIBUSI KEGIATAN SAMPLING PER AREA & REGION',
             $filters,
             6
@@ -1289,7 +1289,7 @@ class WingsMbrExportService
         $sheet->setShowGridlines(true);
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'DATA MENTAH SUBMISI FREE TASTE / SAMPLING LENGKAP',
             $filters,
             16
@@ -1467,7 +1467,7 @@ class WingsMbrExportService
 
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'EXECUTIVE SUMMARY - LAPORAN INSPEKSI PROPERTI & TOOLS MBR',
             $filters,
             6
@@ -1580,7 +1580,7 @@ class WingsMbrExportService
         $sheet->setShowGridlines(true);
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'REKAPITULASI STATUS & KONDISI 13 ALAT STANDAR FREE TASTE',
             $filters,
             10
@@ -1702,7 +1702,7 @@ class WingsMbrExportService
         $sheet->setShowGridlines(true);
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'DAFTAR TEMUAN ALAT / PROPERTI RUSAK (DEFECT REPORT)',
             $filters,
             9
@@ -1783,7 +1783,7 @@ class WingsMbrExportService
         $sheet->setShowGridlines(true);
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'AKTIVITAS PETUGAS / MITRA PELAPOR PROPERTI TOOLS',
             $filters,
             9
@@ -1880,7 +1880,7 @@ class WingsMbrExportService
         $sheet->setShowGridlines(true);
         $this->applyExecutiveBanner(
             $sheet,
-            'PT SAYAP MAS UTAMA (WINGS SURYA)',
+            'PT WINGS SURYA',
             'DATA MENTAH SUBMISI INSPEKSI PROPERTI / TOOLS LENGKAP',
             $filters,
             14

@@ -2848,6 +2848,7 @@ class PrincipalPortalController extends Controller
         }
 
         $exportFilters = [
+            'company'         => 'PT WINGS SURYA',
             'period_label'    => $periodLabel,
             'region'          => $selectedRegion ?: 'Semua Region',
             'area'            => $selectedAreaName ?: 'Semua Cabang',
