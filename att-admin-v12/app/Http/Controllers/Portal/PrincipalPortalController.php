@@ -13437,6 +13437,74 @@ class PrincipalPortalController extends Controller
         $dailyTrend = [];
         $defectGallery = [];
 
+        // Helper untuk me-resolve URL media bukti tools agar valid dan dapat ditampilkan di browser
+        $resolveMediaUrl = function($raw, $sub = null, $fieldId = null) {
+            if (empty($raw)) {
+                if ($sub) {
+                    $subId = $sub->id;
+                    $matches = [];
+                    if ($fieldId) {
+                        $matches = glob(storage_path("app/public/reports/*/report_{$subId}_{$fieldId}_*.*"));
+                    }
+                    if (empty($matches)) {
+                        $matches = glob(storage_path("app/public/reports/*/report_{$subId}_*.*"));
+                    }
+                    if (empty($matches) && !empty($sub->report_template_id)) {
+                        $matches = glob(storage_path("app/public/reports/*/report_{$sub->report_template_id}_{$subId}_*.*"));
+                    }
+                    if (!empty($matches)) {
+                        $rel = str_replace(storage_path('app/public/'), '', $matches[0]);
+                        $rel = str_replace('\\', '/', $rel);
+                        return asset('storage/' . ltrim($rel, '/'));
+                    }
+                }
+                return null;
+            }
+
+            if (is_array($raw)) {
+                $raw = $raw[0] ?? null;
+            }
+
+            if (!is_string($raw) || empty(trim($raw))) return null;
+            $clean = trim($raw);
+
+            // Jika format json string seperti ["reports/..."]
+            if (str_starts_with($clean, '[') && str_ends_with($clean, ']')) {
+                $decoded = json_decode($clean, true);
+                if (is_array($decoded) && !empty($decoded)) {
+                    $clean = trim((string)($decoded[0] ?? ''));
+                }
+            }
+
+            // Abaikan path cache android lokal
+            if (empty($clean) || str_starts_with($clean, '/data/user/') || str_starts_with($clean, 'data/user/') || str_contains($clean, 'cache/wm_')) {
+                if ($sub) {
+                    $subId = $sub->id;
+                    $matches = glob(storage_path("app/public/reports/*/report_{$subId}_*.*"));
+                    if (!empty($matches)) {
+                        $rel = str_replace(storage_path('app/public/'), '', $matches[0]);
+                        $rel = str_replace('\\', '/', $rel);
+                        return asset('storage/' . ltrim($rel, '/'));
+                    }
+                }
+                return null;
+            }
+
+            if (str_starts_with($clean, 'http://') || str_starts_with($clean, 'https://')) {
+                return str_replace(['/storage/storage/', 'esa-solution.id'], ['/storage/', 'esa-solutions.id'], $clean);
+            }
+
+            if (str_starts_with($clean, 'storage/')) {
+                $clean = substr($clean, 8);
+            } elseif (str_starts_with($clean, '/storage/')) {
+                $clean = substr($clean, 9);
+            } elseif (str_starts_with($clean, 'public/')) {
+                $clean = substr($clean, 7);
+            }
+
+            return asset('storage/' . ltrim($clean, '/'));
+        };
+
         // Inisialisasi rentang hari untuk tren
         $curr = $startDate->copy();
         while ($curr->lte($endDate)) {
@@ -13477,8 +13545,12 @@ class PrincipalPortalController extends Controller
                 $txt = trim((string)($val->value_text ?? ''));
 
                 // 1. Foto Bukti Tools (camera_photo / URL)
-                if ($fn === 'foto_tools' || $val->field_type === 'camera_photo' || str_contains($fn, 'foto') || str_contains($fl, 'foto')) {
-                    $photoUrl = $val->media_url ?: ($txt ?: $photoUrl);
+                if ($fn === 'foto_tools' || $val->field_type === 'camera_photo' || str_contains($fn, 'foto') || str_contains($fl, 'foto') || !empty($val->media_url)) {
+                    $rawP = $val->media_url ?: ($txt ?: (is_array($val->value_json) ? ($val->value_json[0] ?? null) : null));
+                    $cand = $resolveMediaUrl($rawP, $sub, $val->report_form_field_id);
+                    if ($cand) {
+                        $photoUrl = $cand;
+                    }
                 }
                 // 2. Kondisi Tools (BAGUS / TIDAK BAGUS)
                 elseif ($fn === 'kondisi_tools' || str_contains($fn, 'kondisi') || str_contains($fl, 'kondisi')) {
@@ -13498,6 +13570,11 @@ class PrincipalPortalController extends Controller
                         $toolName = $txt;
                     }
                 }
+            }
+
+            // Disk fallback jika photoUrl belum terisi
+            if (!$photoUrl) {
+                $photoUrl = $resolveMediaUrl(null, $sub);
             }
 
             // Fallback second pass: jika nama tools belum terdeteksi, cari dari isian teks yang cocok dengan standar tools
@@ -13579,10 +13656,11 @@ class PrincipalPortalController extends Controller
                         if ($photoUrl) {
                             $toolsBreakdown[$matchedKey]['photos_defect'][] = [
                                 'url' => $photoUrl,
+                                'tool' => $matchedKey,
                                 'sub_code' => $sub->submission_code,
                                 'store' => $storeName,
                                 'mitra' => $empName,
-                                'time' => $sub->submitted_at?->format('d M Y H:i') ?? '-',
+                                'time' => $sub->submitted_at?->format('d M Y H:i') ?? ($sub->created_at?->format('d M Y H:i') ?? '-'),
                             ];
                         }
                     } else {
@@ -13596,10 +13674,10 @@ class PrincipalPortalController extends Controller
             if ($photoUrl && $condition === 'TIDAK BAGUS') {
                 $defectGallery[] = [
                     'url' => $photoUrl,
-                    'tool' => $toolName,
+                    'tool' => $toolName ?: 'Tools / Peralatan',
                     'store' => $storeName,
                     'mitra' => $empName,
-                    'time' => $sub->submitted_at?->format('d M Y H:i') ?? '-',
+                    'time' => $sub->submitted_at?->format('d M Y H:i') ?? ($sub->created_at?->format('d M Y H:i') ?? '-'),
                 ];
             }
 

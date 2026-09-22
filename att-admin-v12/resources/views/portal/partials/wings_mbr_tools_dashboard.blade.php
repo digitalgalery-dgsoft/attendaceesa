@@ -630,13 +630,16 @@
                     @if($totalTidakBagus > 0)
                         <i class="fa-solid fa-triangle-exclamation" style="color: #d97706;"></i>
                         <span>{{ number_format($totalTidakBagus, 0, ',', '.') }} alat rusak ({{ $percentTidakBagus }}%)</span>
+                        @if($totalDefectPhotos > 0)
+                            &bull; <a href="javascript:void(0)" onclick="openDefectGalleryModal()" style="color: #ea580c; text-decoration: underline; font-weight: 800;">Lihat {{ $totalDefectPhotos }} Foto Rusak</a>
+                        @endif
                     @else
                         <i class="fa-solid fa-shield-check" style="color: #10b981;"></i>
                         <span>100% Alat dalam kondisi prima</span>
                     @endif
                 </div>
             </div>
-            <div class="portal-tools-icon-badge indigo">
+            <div class="portal-tools-icon-badge indigo" style="cursor: pointer;" onclick="openDefectGalleryModal()" title="Klik untuk lihat galeri alat rusak">
                 <i class="fa-solid fa-thumbs-up"></i>
             </div>
         </div>
@@ -747,7 +750,7 @@
                                     <div style="font-weight: 800; color: var(--text-heading);">{{ $tItem['name'] }}</div>
                                     @if(!empty($tItem['photos_defect']))
                                         <div style="margin-top: 4px;">
-                                            <button type="button" class="portal-tools-btn-action" style="padding: 2px 6px; font-size: 0.68rem; background: #fffbeb; color: #b45309; border-color: #fde68a;" onclick="openToolDefectModal('{{ addslashes($tItem['name']) }}')">
+                                            <button type="button" class="portal-tools-btn-action" style="padding: 2px 6px; font-size: 0.68rem; background: #fffbeb; color: #b45309; border-color: #fde68a;" onclick="openToolDefectModal('{{ addslashes($tItem['name']) }}', {{ json_encode($tItem['photos_defect']) }})">
                                                 <i class="fa-solid fa-camera"></i> {{ count($tItem['photos_defect']) }} Bukti Rusak
                                             </button>
                                         </div>
@@ -888,8 +891,8 @@
                                 $fLabel = strtolower(trim($v->formField?->field_label ?? ($v->formField?->label ?? '')));
                                 $valTxt = trim((string)($v->value_text ?? ''));
 
-                                if ($fName === 'foto_tools' || $v->field_type === 'camera_photo' || str_contains($fName, 'foto') || str_contains($fLabel, 'foto')) {
-                                    $subPhoto = $v->media_url ?: ($valTxt ?: $subPhoto);
+                                if ($fName === 'foto_tools' || $v->field_type === 'camera_photo' || str_contains($fName, 'foto') || str_contains($fLabel, 'foto') || !empty($v->media_url)) {
+                                    $subPhoto = $v->media_url ?: ($valTxt ?: (is_array($v->value_json) ? ($v->value_json[0] ?? null) : $subPhoto));
                                 } elseif ($fName === 'kondisi_tools' || str_contains($fName, 'kondisi') || str_contains($fLabel, 'kondisi')) {
                                     $subCondition = strtoupper($valTxt) === 'TIDAK BAGUS' ? 'TIDAK BAGUS' : 'BAGUS';
                                 } elseif ($fName === 'status_ketersediaan' || str_contains($fName, 'ketersediaan') || str_contains($fLabel, 'ketersediaan')) {
@@ -932,10 +935,37 @@
 
                             $resolvedPhoto = null;
                             if ($subPhoto) {
-                                if (str_starts_with($subPhoto, 'http')) {
-                                    $resolvedPhoto = $subPhoto;
-                                } else {
-                                    $resolvedPhoto = asset('storage/' . ltrim($subPhoto, '/'));
+                                $cleanP = trim((string)$subPhoto);
+                                if (str_starts_with($cleanP, '[') && str_ends_with($cleanP, ']')) {
+                                    $dec = json_decode($cleanP, true);
+                                    if (is_array($dec) && !empty($dec)) {
+                                        $cleanP = trim((string)($dec[0] ?? ''));
+                                    }
+                                }
+                                if (!empty($cleanP) && !str_starts_with($cleanP, '/data/user/')) {
+                                    if (str_starts_with($cleanP, 'http://') || str_starts_with($cleanP, 'https://')) {
+                                        $resolvedPhoto = str_replace(['/storage/storage/', 'esa-solution.id'], ['/storage/', 'esa-solutions.id'], $cleanP);
+                                    } else {
+                                        if (str_starts_with($cleanP, 'storage/')) {
+                                            $cleanP = substr($cleanP, 8);
+                                        } elseif (str_starts_with($cleanP, '/storage/')) {
+                                            $cleanP = substr($cleanP, 9);
+                                        } elseif (str_starts_with($cleanP, 'public/')) {
+                                            $cleanP = substr($cleanP, 7);
+                                        }
+                                        $resolvedPhoto = asset('storage/' . ltrim($cleanP, '/'));
+                                    }
+                                }
+                            }
+                            if (!$resolvedPhoto) {
+                                $mSub = glob(storage_path("app/public/reports/*/report_{$sub->report_template_id}_{$sub->id}_*.*"));
+                                if (empty($mSub)) {
+                                    $mSub = glob(storage_path("app/public/reports/*/report_{$sub->id}_*.*"));
+                                }
+                                if (!empty($mSub)) {
+                                    $relSub = str_replace(storage_path('app/public/'), '', $mSub[0]);
+                                    $relSub = str_replace('\\', '/', $relSub);
+                                    $resolvedPhoto = asset('storage/' . ltrim($relSub, '/'));
                                 }
                             }
                         @endphp
@@ -1080,16 +1110,37 @@
             <button type="button" class="portal-tools-modal-close" onclick="closeDefectGalleryModal(null, true)">&times;</button>
         </div>
         <div id="defectGalleryBody" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; max-height: 60vh; overflow-y: auto; padding: 0.5rem;">
-            @foreach($defectGallery as $dg)
+            @php
+                $placeholderSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect fill='%23f8fafc' width='400' height='300'/><path fill='%23cbd5e1' d='M160 110a20 20 0 1 1-40 0 20 20 0 0 1 40 0zm-80 90l60-80 40 50 50-65 70 95H80z'/><text fill='%2394a3b8' font-family='sans-serif' font-size='14' font-weight='700' x='50%' y='82%' text-anchor='middle'>Foto Tidak Tersedia</text></svg>";
+            @endphp
+            @forelse($defectGallery as $dg)
+                @php
+                    $dUrl = $dg['url'] ?? '';
+                    if ($dUrl && !str_starts_with($dUrl, 'http://') && !str_starts_with($dUrl, 'https://')) {
+                        if (str_starts_with($dUrl, 'storage/')) {
+                            $dUrl = substr($dUrl, 8);
+                        } elseif (str_starts_with($dUrl, '/storage/')) {
+                            $dUrl = substr($dUrl, 9);
+                        } elseif (str_starts_with($dUrl, 'public/')) {
+                            $dUrl = substr($dUrl, 7);
+                        }
+                        $dUrl = asset('storage/' . ltrim($dUrl, '/'));
+                    }
+                @endphp
                 <div style="border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; background: #f8fafc;">
-                    <img src="{{ $dg['url'] }}" alt="{{ $dg['tool'] }}" onclick="openLightbox('{{ $dg['url'] }}', '{{ addslashes($dg['tool']) }}', '{{ addslashes($dg['store']) }}')" style="width: 100%; height: 160px; object-fit: cover; cursor: pointer;">
+                    <img src="{{ $dUrl }}" alt="{{ $dg['tool'] }}" onerror="this.onerror=null; this.src='{{ $placeholderSvg }}';" onclick="openLightbox('{{ $dUrl }}', '{{ addslashes($dg['tool']) }}', '{{ addslashes($dg['store']) }}')" style="width: 100%; height: 160px; object-fit: cover; cursor: pointer;">
                     <div style="padding: 0.75rem;">
                         <div style="font-weight: 800; color: var(--text-heading); font-size: 0.85rem;">{{ $dg['tool'] }}</div>
                         <div style="font-size: 0.75rem; color: var(--text-muted);"><i class="fa-solid fa-store"></i> {{ $dg['store'] }}</div>
                         <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">{{ $dg['mitra'] }} &bull; {{ $dg['time'] }}</div>
                     </div>
                 </div>
-            @endforeach
+            @empty
+                <div style="grid-column: 1 / -1; text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                    <i class="fa-solid fa-circle-check" style="font-size: 2rem; color: #10b981; margin-bottom: 0.5rem;"></i>
+                    <div>Tidak ada bukti kerusakan tools yang tercatat pada periode ini.</div>
+                </div>
+            @endforelse
         </div>
     </div>
 </div>
@@ -1274,6 +1325,23 @@
         chartDaily.render();
     }
 
+    var placeholderSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect fill='%23f8fafc' width='400' height='300'/><path fill='%23cbd5e1' d='M160 110a20 20 0 1 1-40 0 20 20 0 0 1 40 0zm-80 90l60-80 40 50 50-65 70 95H80z'/><text fill='%2394a3b8' font-family='sans-serif' font-size='14' font-weight='700' x='50%' y='82%' text-anchor='middle'>Foto Tidak Tersedia</text></svg>";
+
+    function resolveClientPhotoUrl(raw) {
+        if (!raw) return '';
+        var clean = String(raw).trim();
+        if (clean.startsWith('http://') || clean.startsWith('https://')) {
+            return clean.replace('/storage/storage/', '/storage/').replace('esa-solution.id', 'esa-solutions.id');
+        }
+        if (clean.startsWith('/storage/')) {
+            return clean;
+        }
+        if (clean.startsWith('storage/')) {
+            return '/' + clean;
+        }
+        return '/storage/' + clean.replace(/^\/+/, '');
+    }
+
     // Lightbox handlers
     function openLightbox(url, title, store) {
         var modal = document.getElementById('toolsLightboxModal');
@@ -1281,7 +1349,12 @@
         var tTitle = document.getElementById('lightboxToolTitle');
         var sSub = document.getElementById('lightboxStoreSubtitle');
         if (modal && img) {
-            img.src = url;
+            var safeUrl = resolveClientPhotoUrl(url);
+            img.src = safeUrl;
+            img.onerror = function() {
+                this.onerror = null;
+                this.src = placeholderSvg;
+            };
             if (tTitle) tTitle.innerText = title || 'Foto Bukti Fisik Tools';
             if (sSub) sSub.innerText = store ? ('Lokasi Toko: ' + store) : '-';
             modal.classList.add('active');
@@ -1297,6 +1370,10 @@
 
     function openDefectGalleryModal() {
         var modal = document.getElementById('defectGalleryModal');
+        var titleEl = document.getElementById('defectGalleryTitle');
+        if (titleEl) {
+            titleEl.innerText = 'Galeri Foto Bukti Kerusakan Tools (' + defectGalleryData.length + ')';
+        }
         if (modal) modal.classList.add('active');
     }
 
@@ -1309,32 +1386,42 @@
 
     // Filter defect modal per tool
     var defectGalleryData = {!! json_encode($defectGallery ?? []) !!};
-    function openToolDefectModal(toolName) {
+    function openToolDefectModal(toolName, directPhotos) {
         var modal = document.getElementById('defectGalleryModal');
         var titleEl = document.getElementById('defectGalleryTitle');
         var bodyEl = document.getElementById('defectGalleryBody');
 
         if (!modal || !bodyEl) return;
 
-        var filtered = defectGalleryData.filter(function(d) {
-            return d.tool.toLowerCase().indexOf(toolName.toLowerCase()) !== -1 || toolName.toLowerCase().indexOf(d.tool.toLowerCase()) !== -1;
-        });
+        var items = (directPhotos && Array.isArray(directPhotos) && directPhotos.length > 0)
+            ? directPhotos
+            : defectGalleryData.filter(function(d) {
+                var dTool = (d.tool || '').toLowerCase();
+                var targetTool = (toolName || '').toLowerCase();
+                return dTool.indexOf(targetTool) !== -1 || targetTool.indexOf(dTool) !== -1;
+            });
 
         if (titleEl) {
-            titleEl.innerText = 'Bukti Kerusakan: ' + toolName + ' (' + filtered.length + ')';
+            titleEl.innerText = 'Bukti Kerusakan: ' + toolName + ' (' + items.length + ')';
         }
 
-        if (filtered.length === 0) {
-            bodyEl.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-muted);">Tidak ada foto kerusakan yang tercatat untuk alat ini.</div>';
+        if (items.length === 0) {
+            bodyEl.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-muted);"><i class="fa-solid fa-circle-info" style="margin-right: 6px;"></i>Tidak ada foto kerusakan yang tercatat untuk alat ini.</div>';
         } else {
-            bodyEl.innerHTML = filtered.map(function(dg) {
+            bodyEl.innerHTML = items.map(function(dg) {
+                var safeUrl = resolveClientPhotoUrl(dg.url);
+                var safeTool = (dg.tool || toolName || 'Tools').replace(/'/g, "\\'");
+                var safeStore = (dg.store || '').replace(/'/g, "\\'");
+                var safeMitra = dg.mitra || '-';
+                var safeTime = dg.time || '-';
+
                 return `
                     <div style="border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; background: #f8fafc;">
-                        <img src="${dg.url}" alt="${dg.tool}" onclick="openLightbox('${dg.url}', '${dg.tool.replace(/'/g, "\\'")}', '${dg.store.replace(/'/g, "\\'")}')" style="width: 100%; height: 160px; object-fit: cover; cursor: pointer;">
+                        <img src="${safeUrl}" alt="${safeTool}" onerror="this.onerror=null; this.src=placeholderSvg;" onclick="openLightbox('${safeUrl}', '${safeTool}', '${safeStore}')" style="width: 100%; height: 160px; object-fit: cover; cursor: pointer;">
                         <div style="padding: 0.75rem;">
-                            <div style="font-weight: 800; color: var(--text-heading); font-size: 0.85rem;">${dg.tool}</div>
+                            <div style="font-weight: 800; color: var(--text-heading); font-size: 0.85rem;">${dg.tool || toolName}</div>
                             <div style="font-size: 0.75rem; color: var(--text-muted);"><i class="fa-solid fa-store"></i> ${dg.store}</div>
-                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">${dg.mitra} &bull; ${dg.time}</div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">${safeMitra} &bull; ${safeTime}</div>
                         </div>
                     </div>
                 `;
