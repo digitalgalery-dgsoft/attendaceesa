@@ -855,6 +855,7 @@
                         <th style="text-align: center;">Ketersediaan</th>
                         <th style="text-align: center;">Kondisi</th>
                         <th style="text-align: center;">Bukti Foto</th>
+                        <th style="text-align: center;">Status</th>
                         <th style="text-align: center;">GPS</th>
                         <th style="text-align: center; width: 70px;">Aksi</th>
                     </tr>
@@ -862,24 +863,52 @@
                 <tbody>
                     @forelse($submissions as $sIdx => $sub)
                         @php
-                            $subToolName = '-';
+                            $subToolName = null;
                             $subAvailability = 'ADA';
                             $subCondition = 'BAGUS';
                             $subPhoto = null;
 
                             foreach ($sub->values as $v) {
                                 $fName = strtolower(trim($v->field_name ?? ''));
+                                $fLabel = strtolower(trim($v->formField?->field_label ?? ($v->formField?->label ?? '')));
                                 $valTxt = trim((string)($v->value_text ?? ''));
 
-                                if ($fName === 'nama_tools' || str_contains($fName, 'tools')) {
-                                    $subToolName = $valTxt ?: $subToolName;
-                                } elseif ($fName === 'status_ketersediaan' || str_contains($fName, 'ketersediaan')) {
-                                    $subAvailability = strtoupper($valTxt) === 'TIDAK' ? 'TIDAK' : 'ADA';
-                                } elseif ($fName === 'kondisi_tools' || str_contains($fName, 'kondisi')) {
+                                if ($fName === 'foto_tools' || $v->field_type === 'camera_photo' || str_contains($fName, 'foto') || str_contains($fLabel, 'foto')) {
+                                    $subPhoto = $v->media_url ?: ($valTxt ?: $subPhoto);
+                                } elseif ($fName === 'kondisi_tools' || str_contains($fName, 'kondisi') || str_contains($fLabel, 'kondisi')) {
                                     $subCondition = strtoupper($valTxt) === 'TIDAK BAGUS' ? 'TIDAK BAGUS' : 'BAGUS';
-                                } elseif ($fName === 'foto_tools' || str_contains($fName, 'foto') || $v->field_type === 'camera_photo') {
-                                    $subPhoto = $v->media_url ?: $valTxt;
+                                } elseif ($fName === 'status_ketersediaan' || str_contains($fName, 'ketersediaan') || str_contains($fLabel, 'ketersediaan')) {
+                                    $subAvailability = strtoupper($valTxt) === 'TIDAK' ? 'TIDAK' : 'ADA';
+                                } elseif ($fName === 'nama_tools' || $fName === 'pilih_tools' || $fName === 'tools' || $fName === 'alat' || str_contains($fLabel, 'pilih tools') || str_contains($fLabel, 'properti')) {
+                                    $subToolName = $valTxt ?: $subToolName;
                                 }
+                            }
+
+                            if (!$subToolName) {
+                                foreach ($sub->values as $v) {
+                                    $valTxt = trim((string)($v->value_text ?? ''));
+                                    if ($valTxt) {
+                                        foreach ($standardTools as $st) {
+                                            if (strcasecmp($st, $valTxt) === 0 || str_contains(strtolower($valTxt), strtolower($st)) || str_contains(strtolower($st), strtolower($valTxt))) {
+                                                $subToolName = $st;
+                                                break 2;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if ($subToolName) {
+                                foreach ($standardTools as $st) {
+                                    if (strcasecmp($st, $subToolName) === 0 || str_contains(strtolower($st), strtolower($subToolName)) || str_contains(strtolower($subToolName), strtolower($st))) {
+                                        $subToolName = $st;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (!$subToolName) {
+                                $subToolName = '1 Pcs panci susu';
                             }
 
                             if ($subAvailability === 'TIDAK') {
@@ -967,6 +996,11 @@
                                 @endif
                             </td>
                             <td style="text-align: center;">
+                                <span class="portal-tools-badge bagus" style="background: #dcfce7; color: #15803d; border-color: #86efac;">
+                                    <i class="fa-solid fa-circle-check"></i> Diterima
+                                </span>
+                            </td>
+                            <td style="text-align: center;">
                                 @if($sub->is_within_radius ?? true)
                                     <span style="color: #059669; font-weight: 700; font-size: 0.75rem;">
                                         <i class="fa-solid fa-location-dot"></i> Valid
@@ -985,7 +1019,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="11" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                            <td colspan="12" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
                                 Belum ada data submission laporan tools untuk filter yang dipilih.
                             </td>
                         </tr>

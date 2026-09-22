@@ -13473,20 +13473,49 @@ class PrincipalPortalController extends Controller
 
             foreach ($sub->values as $val) {
                 $fn = strtolower(trim($val->field_name ?? ''));
+                $fl = strtolower(trim($val->formField?->field_label ?? ($val->formField?->label ?? '')));
                 $txt = trim((string)($val->value_text ?? ''));
 
-                if ($fn === 'nama_tools' || str_contains($fn, 'tools') || str_contains($fn, 'nama')) {
-                    $toolName = $txt;
-                } elseif ($fn === 'status_ketersediaan' || str_contains($fn, 'ketersediaan')) {
-                    $availability = strtoupper($txt);
-                } elseif ($fn === 'kondisi_tools' || str_contains($fn, 'kondisi')) {
-                    $condition = strtoupper($txt);
-                } elseif ($fn === 'foto_tools' || str_contains($fn, 'foto') || $val->field_type === 'camera_photo') {
-                    $photoUrl = $val->media_url ?: $txt;
+                // 1. Foto Bukti Tools (camera_photo / URL)
+                if ($fn === 'foto_tools' || $val->field_type === 'camera_photo' || str_contains($fn, 'foto') || str_contains($fl, 'foto')) {
+                    $photoUrl = $val->media_url ?: ($txt ?: $photoUrl);
+                }
+                // 2. Kondisi Tools (BAGUS / TIDAK BAGUS)
+                elseif ($fn === 'kondisi_tools' || str_contains($fn, 'kondisi') || str_contains($fl, 'kondisi')) {
+                    if (!empty($txt)) {
+                        $condition = strtoupper($txt);
+                    }
+                }
+                // 3. Status Ketersediaan (ADA / TIDAK)
+                elseif ($fn === 'status_ketersediaan' || str_contains($fn, 'ketersediaan') || str_contains($fl, 'ketersediaan')) {
+                    if (!empty($txt)) {
+                        $availability = strtoupper($txt);
+                    }
+                }
+                // 4. Nama Tools (Pilih Tools / Properti Free Taste)
+                elseif ($fn === 'nama_tools' || $fn === 'pilih_tools' || $fn === 'tools' || $fn === 'alat' || str_contains($fl, 'pilih tools') || str_contains($fl, 'properti')) {
+                    if (!empty($txt)) {
+                        $toolName = $txt;
+                    }
                 }
             }
 
-            // Normalize
+            // Fallback second pass: jika nama tools belum terdeteksi, cari dari isian teks yang cocok dengan standar tools
+            if (!$toolName) {
+                foreach ($sub->values as $val) {
+                    $txt = trim((string)($val->value_text ?? ''));
+                    if (!empty($txt)) {
+                        foreach ($standardTools as $st) {
+                            if (strcasecmp($st, $txt) === 0 || str_contains(strtolower($txt), strtolower($st)) || str_contains(strtolower($st), strtolower($txt))) {
+                                $toolName = $st;
+                                break 2;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Normalize availability & condition
             $availability = ($availability === 'ADA') ? 'ADA' : (($availability === 'TIDAK' || $availability === 'TIDAK ADA') ? 'TIDAK' : ($availability ?: 'ADA'));
             if ($availability === 'ADA') {
                 $totalAda++;
@@ -13502,52 +13531,66 @@ class PrincipalPortalController extends Controller
                 $condition = '-';
             }
 
-            if (!$toolName) {
-                $toolName = 'Alat Standar Free Taste';
-            }
-
-            // Attach to tools breakdown
+            // Match strictly to 1 of 13 standard tools
             $matchedKey = null;
-            foreach ($standardTools as $st) {
-                if (strcasecmp(trim($st), trim($toolName)) === 0 || str_contains(strtolower($st), strtolower(trim($toolName))) || str_contains(strtolower(trim($toolName)), strtolower($st))) {
-                    $matchedKey = $st;
-                    break;
+            if ($toolName) {
+                $cleanTool = strtolower(trim($toolName));
+                foreach ($standardTools as $st) {
+                    if (strtolower(trim($st)) === $cleanTool) {
+                        $matchedKey = $st;
+                        break;
+                    }
                 }
-            }
-            if (!$matchedKey) {
-                $matchedKey = $toolName;
-                if (!isset($toolsBreakdown[$matchedKey])) {
-                    $toolsBreakdown[$matchedKey] = [
-                        'name' => $matchedKey,
-                        'total_inspected' => 0,
-                        'ada' => 0,
-                        'tidak' => 0,
-                        'bagus' => 0,
-                        'tidak_bagus' => 0,
-                        'photos_defect' => [],
+                if (!$matchedKey) {
+                    $keywordMap = [
+                        '1 Pcs panci susu' => ['panci susu', 'panci'],
+                        '1 Pcs mangkuk pengaduk' => ['mangkuk pengaduk', 'mangkuk'],
+                        '1 Pcs Gunting' => ['gunting'],
+                        '2 set sendok garpu' => ['sendok garpu', 'sendok', 'garpu'],
+                        '1 pcs centong sayur' => ['centong sayur', 'centong'],
+                        '1 pcs capitan' => ['capitan'],
+                        '1 Pcs Pompa dispenser air (optional)' => ['pompa dispenser', 'pompa air', 'pompa'],
+                        '1 Pcs Galon air' => ['galon air', 'galon'],
+                        '1 Pcs Kompor portable + Gas' => ['kompor portable', 'kompor', 'gas portable', 'gas'],
+                        '1 pcs saringan / tirisan mie' => ['saringan', 'tirisan'],
+                        '1 Pcs tray' => ['tray', 'nampan'],
+                        '1 Gelas Takar' => ['gelas takar', 'takar'],
+                        'Papercup & Garpu kecil (untuk pengunjung)' => ['papercup', 'paper cup', 'garpu kecil'],
                     ];
+                    foreach ($keywordMap as $toolKey => $keywords) {
+                        foreach ($keywords as $kw) {
+                            if (str_contains($cleanTool, $kw)) {
+                                $matchedKey = $toolKey;
+                                break 2;
+                            }
+                        }
+                    }
                 }
             }
 
-            $toolsBreakdown[$matchedKey]['total_inspected']++;
-            if ($availability === 'ADA') {
-                $toolsBreakdown[$matchedKey]['ada']++;
-                if ($condition === 'TIDAK BAGUS') {
-                    $toolsBreakdown[$matchedKey]['tidak_bagus']++;
-                    if ($photoUrl) {
-                        $toolsBreakdown[$matchedKey]['photos_defect'][] = [
-                            'url' => $photoUrl,
-                            'sub_code' => $sub->submission_code,
-                            'store' => $storeName,
-                            'mitra' => $empName,
-                            'time' => $sub->submitted_at?->format('d M Y H:i') ?? '-',
-                        ];
+            // Hanya agregasi ke tabel breakdown jika merupakan 1 dari 13 alat standar (mencegah poin 14 dst liar)
+            if ($matchedKey && isset($toolsBreakdown[$matchedKey])) {
+                $toolName = $matchedKey;
+                $toolsBreakdown[$matchedKey]['total_inspected']++;
+                if ($availability === 'ADA') {
+                    $toolsBreakdown[$matchedKey]['ada']++;
+                    if ($condition === 'TIDAK BAGUS') {
+                        $toolsBreakdown[$matchedKey]['tidak_bagus']++;
+                        if ($photoUrl) {
+                            $toolsBreakdown[$matchedKey]['photos_defect'][] = [
+                                'url' => $photoUrl,
+                                'sub_code' => $sub->submission_code,
+                                'store' => $storeName,
+                                'mitra' => $empName,
+                                'time' => $sub->submitted_at?->format('d M Y H:i') ?? '-',
+                            ];
+                        }
+                    } else {
+                        $toolsBreakdown[$matchedKey]['bagus']++;
                     }
                 } else {
-                    $toolsBreakdown[$matchedKey]['bagus']++;
+                    $toolsBreakdown[$matchedKey]['tidak']++;
                 }
-            } else {
-                $toolsBreakdown[$matchedKey]['tidak']++;
             }
 
             if ($photoUrl && $condition === 'TIDAK BAGUS') {

@@ -1648,7 +1648,9 @@ class ReportingApiController extends Controller
                     'latitude' => $request->latitude,
                     'longitude' => $request->longitude,
                     'is_within_radius' => $isWithinRadius,
-                    'status' => 'submitted',
+                    'status' => 'approved',
+                    'verified_at' => now(),
+                    'verification_notes' => 'Otomatis diterima sistem (tanpa approval)',
                     'submitted_at' => now(),
                 ]);
 
@@ -1850,7 +1852,9 @@ class ReportingApiController extends Controller
                     'latitude' => $request->latitude,
                     'longitude' => $request->longitude,
                     'is_within_radius' => $isWithinRadius,
-                    'status' => 'submitted',
+                    'status' => 'approved',
+                    'verified_at' => now(),
+                    'verification_notes' => 'Otomatis diterima sistem (tanpa approval)',
                     'submitted_at' => now(),
                 ]);
 
@@ -2003,7 +2007,9 @@ class ReportingApiController extends Controller
                 'latitude' => $request->latitude,
                 'longitude' => $request->longitude,
                 'is_within_radius' => $isWithinRadius,
-                'status' => 'submitted',
+                'status' => 'approved',
+                'verified_at' => now(),
+                'verification_notes' => 'Otomatis diterima sistem (tanpa approval)',
                 'submitted_at' => now(),
             ]);
 

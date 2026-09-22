@@ -1258,10 +1258,11 @@
 
 @section('content')
     @php
-        $status = $submission->status ?? 'pending';
+        $isNoApprovalReport = ($template->code === 'RPT-WINGS-MBR-TOOLS-01' || str_contains($template->code, 'MBR-TOOLS') || str_contains($template->code, 'WINGS-TOOLS'));
+        $status = $isNoApprovalReport ? 'approved' : ($submission->status ?? 'pending');
         $statusConfig = match ($status) {
             'approved', 'verified' => [
-                'label' => 'Terverifikasi (Valid)',
+                'label' => $isNoApprovalReport ? 'Diterima' : 'Terverifikasi (Valid)',
                 'bg' => '#dcfce7',
                 'color' => '#15803d',
                 'border' => '#86efac',
@@ -2067,24 +2068,26 @@
                     <span>{{ $statusConfig['label'] }}</span>
                 </div>
 
-                {{-- ACTION: APPROVE --}}
-                @if(in_array($status, ['pending', 'submitted', 'rejected']))
-                    <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $submission->id, 'p' => $tenantPrincipal->id]) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menyetujui (verifikasi valid) laporan ini?');">
-                        @csrf
-                        <input type="hidden" name="status" value="approved">
-                        <button type="submit" class="btn-action-approve">
-                            <i class="fa-solid fa-circle-check"></i>
-                            <span>Setujui Laporan</span>
-                        </button>
-                    </form>
-                @endif
+                @if(!$isNoApprovalReport)
+                    {{-- ACTION: APPROVE --}}
+                    @if(in_array($status, ['pending', 'submitted', 'rejected']))
+                        <form action="{{ route('portal.report.submission.status', ['code' => $template->code, 'id' => $submission->id, 'p' => $tenantPrincipal->id]) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menyetujui (verifikasi valid) laporan ini?');">
+                            @csrf
+                            <input type="hidden" name="status" value="approved">
+                            <button type="submit" class="btn-action-approve">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span>Setujui Laporan</span>
+                            </button>
+                        </form>
+                    @endif
 
-                {{-- ACTION: REJECT --}}
-                @if(in_array($status, ['pending', 'submitted', 'approved', 'verified']))
-                    <button type="button" class="btn-action-reject" onclick="openRejectModal()">
-                        <i class="fa-solid fa-circle-xmark"></i>
-                        <span>Tolak Laporan</span>
-                    </button>
+                    {{-- ACTION: REJECT --}}
+                    @if(in_array($status, ['pending', 'submitted', 'approved', 'verified']))
+                        <button type="button" class="btn-action-reject" onclick="openRejectModal()">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                            <span>Tolak Laporan</span>
+                        </button>
+                    @endif
                 @endif
 
                 {{-- BACK BUTTON --}}

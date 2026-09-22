@@ -2369,4 +2369,12 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Controller: `PrincipalPortalController.php` (fungsi `calculateWingsMbrToolsDashboardData()`).
       - View Wrapper: `portal/report_detail.blade.php`.
       - View Partial: `portal/partials/wings_mbr_tools_dashboard.blade.php`.
-
+    - **Penyempurnaan Ekstraksi 13 Tools Standar & Status Langsung Diterima Tanpa Approval (22 September 2026)**:
+      - **Perbaikan Ekstraksi Nilai Form Tools**:
+        - Memperbaiki pengenalan field `nama_tools`, `kondisi_tools`, `status_ketersediaan`, dan `foto_tools` pada controller dan partial view agar nama alat tidak tertimpa oleh nilai kondisi ("BAGUS") atau URL foto webp.
+        - Membatasi rekapan tabel analitik alat secara ketat HANYA untuk ke-13 item standar (mencegah munculnya baris liar poin 14 dst).
+      - **Status Langsung Diterima (Tanpa Approval)**:
+        - Submission laporan tools (`RPT-WINGS-MBR-TOOLS-01`) dan laporan MBR lainnya langsung diberi status `'approved'` (Diterima / Terverifikasi) secara otomatis tanpa memerlukan verifikasi/approval manual.
+        - Menyembunyikan tombol "Setujui Laporan" dan "Tolak Laporan" pada halaman detail submisi.
+        - Menambahkan kolom status berlabel *Diterima* pada tabel submission dashboard.
+        - Migrasi database otomatis (`2026_09_22_130000_auto_approve_wings_tools_submissions.php`) untuk memperbarui status seluruh submisi lama menjadi `'approved'`.
