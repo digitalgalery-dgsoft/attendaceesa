@@ -2429,3 +2429,30 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Kode berhasil di-push ke branch `main` repositori GitHub.
       - Sinkronisasi deployment otomatis berhasil dieksekusi ke Server Development (`appsend.my.id`) dan seluruh kluster Production (AMK, AKP, ATK) dengan status HTTP 200 OK.
 
+54. **Penyelarasan Filter Terpadu Bagian Atas & Eliminasi Tombol Export Ganda pada Seluruh Laporan Wings MBR (22 September 2026)**:
+    - **Latar Belakang & Masukan Pengguna**:
+      - Filter periode tanggal pada dashboard laporan Wings MBR sebelumnya berada di dalam panel form filter internal masing-masing partial dan menyembunyikan filter bar portal di bagian atas.
+      - Tombol export Excel muncul ganda (di panel filter dashboard dan di header kanan atas halaman).
+      - Pengguna meminta agar seluruh laporan Wings menggunakan filter bar bagian atas dengan rentang periode awal s.d akhir, serta tombol export cukup 1 saja (tunggal).
+    - **Perbaikan & Standarisasi Antarmuka (UI/UX)**:
+      - **Filter Terpadu Menggunakan Filter Bar Bagian Atas (`report_detail.blade.php`)**:
+        - Menghapus form filter duplikat di dalam partial `wings_mbr_dashboard.blade.php`, `wings_mbr_freetaste_dashboard.blade.php`, dan `wings_mbr_tools_dashboard.blade.php`.
+        - Mengaktifkan filter bar terpadu di bagian atas halaman untuk seluruh laporan Wings MBR:
+          - **Rentang Periode Lengkap**: Dropdown *Dari: Bulan & Tahun* s/d *Sampai: Bulan & Tahun* (`start_month/year` s/d `end_month/year`).
+          - **Wilayah (Region)**: Menampilkan label 'Semua Wilayah' dan opsi wilayah Wings (`EAST`, `WEST`, dll.) secara bersih tanpa prefix 'RSM'.
+          - **Daerah (Area)**: Menampilkan label 'Semua Daerah' dengan dukungan seleksi ID maupun nama cabang mitra.
+          - **Toko / Outlet**: Menampilkan label 'Semua Toko' dengan cascading otomatis mengikuti Region dan Area yang dipilih.
+          - **Pencarian Data**: Field pencarian mitra / toko yang terhubung dengan query controller.
+          - **Tombol Terapkan Filter & Reset**: Tombol terstandarisasi untuk eksekusi filter dan reset ke bulan berjalan.
+      - **Tombol Export Excel Tunggal (Tidak Ganda)**:
+        - Menghapus tombol export di dalam form filter partial dashboard Wings.
+        - Menetapkan tombol pada header aksi kanan atas (`header-actions-group`) sebagai **satu-satunya tombol export resmi** dengan label **Export Excel (.xlsx)** berdesain hijau Excel (`#107C41`).
+        - Tombol export tunggal ini secara dinamis membaca seluruh parameter filter aktif dari bar atas (`start_month`, `start_year`, `end_month`, `end_year`, `region`, `area_id`, `location_id`, `q`) dan mengekspor workbook `.xlsx` multi-sheet resmi.
+      - **Preservasi Aksi Modal Khusus**:
+        - Tombol *Galeri Foto Sampling* pada dashboard Free Taste dan tombol *Foto Bukti Kerusakan* pada dashboard Tools dipindahkan ke baris aksi ringkas di atas kartu KPI sehingga modal foto tetap dapat diakses dengan mudah tanpa form filter yang redundan.
+    - **Verifikasi & Deployment**:
+      - `php artisan view:clear` sukses mengeksekusi pembersihan cache template Blade tanpa error.
+      - Seluruh berkas view partial dan controller terverifikasi bersih dan valid.
+      - Perubahan telah di-commit ke Git (`568cd00`), di-push ke branch `main`, dan disinkronkan ke Server Development (`appsend.my.id`) serta seluruh 3 node Production Cluster (`AMK`, `AKP`, `ATK`) dengan status aktif (HTTP 200).
+
+
