@@ -15556,7 +15556,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               'Laporan Penjualan (${_mbrSalesCart.length} produk, Total: ${_formatRupiah(totalValue)}) berhasil dikirim.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        await _clearMbrSalesDraft();
         setState(() {
           _mbrSalesCart.clear();
           _mbrSalesStep = 0;
@@ -17438,7 +17437,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               'Laporan Free Taste (${_mbrFreeTasteCart.length} varian, Dimasak: $totalDimasak Pcs, Dibagikan: $totalCup Cup) berhasil dikirim.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        await _clearMbrFreeTasteDraft();
         setState(() {
           _mbrFreeTasteCart.clear();
           _mbrFreeTasteStep = 0;
