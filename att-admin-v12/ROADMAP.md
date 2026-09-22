@@ -2313,4 +2313,17 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Menambahkan `zoom: 80%;` pada `body` di `portal/layout.blade.php`, `auth/tenant_login.blade.php`, dan `landing_tenant.blade.php`.
       - Mengoptimalkan perhitungan lebar container utama `.portal-main` dari `calc(100vw - var(--sidebar-width))` menjadi `calc(100% - var(--sidebar-width))` untuk mencegah munculnya horizontal scrollbar yang tidak diinginkan akibat perbedaan satuan viewport dengan elemen ter-zoom.
 
+50. **Filter Tanggal & Fitur Bulk Delete pada Halaman Data Laporan Masuk (22 September 2026)**:
+    - **Latar Belakang & Kebutuhan**:
+      - Memudahkan admin dalam menyortir laporan berdasarkan tanggal spesifik atau rentang tanggal, serta menghapus data laporan secara massal (*bulk delete*) sekaligus membersihkan data isian terkait.
+    - **Peningkatan Filter Tanggal (`ReportSubmissionsTable.php`)**:
+      - Menambahkan `SelectFilter::make('quick_period')` dengan opsi cepat: *Hari Ini*, *Kemarin*, *Minggu Ini*, dan *Bulan Ini*.
+      - Menambahkan `Filter::make('submitted_date')` yang fleksibel: pemilihan tanggal spesifik satu hari (`date`) maupun rentang tanggal awal dan akhir (`from` s/d `until`), lengkap dengan badge indikator tanggal aktif berbahasa Indonesia.
+      - Menata form filter menjadi 2 kolom (`filtersFormColumns(2)`) agar lebih rapi dan nyaman digunakan.
+    - **Fitur Bulk Delete & Cascading Cleanup**:
+      - Mendaftarkan `bulkActions([ BulkActionGroup::make([ DeleteBulkAction::make() ]) ])` pada `ReportSubmissionsTable.php` sehingga memunculkan kolom checkbox baris dan centang semua (*Select All*).
+      - Dilengkapi modal konfirmasi penghapusan massal dalam bahasa Indonesia.
+      - Menambahkan penanganan `booted()` deleting event pada model `ReportSubmission.php` untuk otomatis menghapus seluruh baris relasi `ReportSubmissionValue` dan berkas foto/media fisik dari storage disk publik.
+
+
 

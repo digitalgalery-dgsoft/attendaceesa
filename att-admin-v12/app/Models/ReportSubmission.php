@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class ReportSubmission extends Model
 {
@@ -20,6 +21,19 @@ class ReportSubmission extends Model
         'submitted_at' => 'datetime',
         'verified_at' => 'datetime',
     ];
+
+    protected static function booted()
+    {
+        static::deleting(function ($submission) {
+            $submission->values()->each(function ($value) {
+                if (!empty($value->media_url)) {
+                    $cleanPath = ltrim(str_replace(['/storage/', 'storage/'], '', $value->media_url), '/');
+                    Storage::disk('public')->delete($cleanPath);
+                }
+                $value->delete();
+            });
+        });
+    }
 
     public function template(): BelongsTo
     {

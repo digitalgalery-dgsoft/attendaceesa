@@ -5,9 +5,12 @@ namespace App\Filament\Resources\ReportSubmissions\Tables;
 use App\Models\Principal;
 use App\Models\ReportTemplate;
 use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
@@ -119,6 +122,57 @@ class ReportSubmissionsTable
             ])
             ->defaultSort('submitted_at', 'desc')
             ->filters([
+                SelectFilter::make('quick_period')
+                    ->label('Periode Cepat')
+                    ->options([
+                        'today' => 'Hari Ini',
+                        'yesterday' => 'Kemarin',
+                        'this_week' => 'Minggu Ini',
+                        'this_month' => 'Bulan Ini',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return match ($data['value'] ?? null) {
+                            'today' => $query->whereDate('submitted_at', today()),
+                            'yesterday' => $query->whereDate('submitted_at', today()->subDay()),
+                            'this_week' => $query->whereBetween('submitted_at', [now()->startOfWeek(), now()->endOfWeek()]),
+                            'this_month' => $query->whereMonth('submitted_at', now()->month)->whereYear('submitted_at', now()->year),
+                            default => $query,
+                        };
+                    }),
+
+                Filter::make('submitted_date')
+                    ->label('Filter Tanggal Laporan')
+                    ->form([
+                        DatePicker::make('date')
+                            ->label('Pilih Tanggal Spesifik')
+                            ->placeholder('Pilih tanggal laporan'),
+                        DatePicker::make('from')
+                            ->label('Dari Tanggal (Rentang)')
+                            ->placeholder('Mulai dari tanggal'),
+                        DatePicker::make('until')
+                            ->label('Sampai Tanggal (Rentang)')
+                            ->placeholder('Sampai tanggal'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when($data['date'] ?? null, fn ($q, $date) => $q->whereDate('submitted_at', $date))
+                            ->when($data['from'] ?? null, fn ($q, $date) => $q->whereDate('submitted_at', '>=', $date))
+                            ->when($data['until'] ?? null, fn ($q, $date) => $q->whereDate('submitted_at', '<=', $date));
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if (!empty($data['date'])) {
+                            $indicators['date'] = 'Tanggal: ' . \Carbon\Carbon::parse($data['date'])->translatedFormat('d M Y');
+                        }
+                        if (!empty($data['from'])) {
+                            $indicators['from'] = 'Dari: ' . \Carbon\Carbon::parse($data['from'])->translatedFormat('d M Y');
+                        }
+                        if (!empty($data['until'])) {
+                            $indicators['until'] = 'Sampai: ' . \Carbon\Carbon::parse($data['until'])->translatedFormat('d M Y');
+                        }
+                        return $indicators;
+                    }),
+
                 SelectFilter::make('report_template_id')
                     ->label('Filter Form Template')
                     ->options(fn () => ReportTemplate::where('is_active', true)->pluck('title', 'id'))
@@ -136,18 +190,8 @@ class ReportSubmissionsTable
                         'verified' => 'Terverifikasi',
                         'rejected' => 'Ditolak',
                     ]),
-
-                Filter::make('submitted_at')
-                    ->form([
-                        \Filament\Forms\Components\DatePicker::make('from')->label('Dari Tanggal'),
-                        \Filament\Forms\Components\DatePicker::make('until')->label('Sampai Tanggal'),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when($data['from'], fn ($q, $date) => $q->whereDate('submitted_at', '>=', $date))
-                            ->when($data['until'], fn ($q, $date) => $q->whereDate('submitted_at', '<=', $date));
-                    }),
             ])
+            ->filtersFormColumns(2)
             ->recordActions([
                 ViewAction::make()->label('Detail Isian'),
                 Action::make('verify')
@@ -193,6 +237,15 @@ class ReportSubmissionsTable
                     }),
                 EditAction::make(),
                 DeleteAction::make(),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->label('Hapus Laporan Terpilih')
+                        ->modalHeading('Hapus Data Laporan Terpilih')
+                        ->modalDescription('Apakah Anda yakin ingin menghapus seluruh data laporan masuk yang dipilih? Data rincian isian formulir dan berkas foto terkait akan dihapus secara permanen.')
+                        ->deselectRecordsAfterCompletion(),
+                ]),
             ]);
     }
 }
