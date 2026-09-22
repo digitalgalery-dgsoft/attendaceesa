@@ -917,7 +917,7 @@ class PrincipalPortalController extends Controller
             || str_contains($template->code, 'WINGS-TOOLS')
             || (str_contains(strtolower($template->title ?? ''), 'tools') && str_contains(strtolower($template->title ?? ''), 'properti')));
 
-        $isWingsMbrReport         = $isWingsMbrSalesReport;
+        $isWingsMbrReport         = ($isWingsMbrSalesReport || $isWingsMbrFreeTasteReport || $isWingsMbrToolsReport);
 
         // --- WINGS MBR SALES EXECUTIVE DASHBOARD ---
         if ($isWingsMbrSalesReport) {
@@ -1028,6 +1028,7 @@ class PrincipalPortalController extends Controller
                 'widgetResults',
                 'isYtdReport',
                 'ytdData',
+                'isWingsMbrReport',
                 'isWingsMbrFreeTasteReport',
                 'wingsMbrFreeTasteData',
                 'activeTab'
@@ -1085,6 +1086,7 @@ class PrincipalPortalController extends Controller
                 'widgetResults',
                 'isYtdReport',
                 'ytdData',
+                'isWingsMbrReport',
                 'isWingsMbrToolsReport',
                 'wingsMbrToolsData',
                 'activeTab'
