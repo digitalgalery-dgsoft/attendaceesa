@@ -1054,7 +1054,6 @@
         </div>
     </div>
 
-    @if(!isset($isWingsMbrReport) || !$isWingsMbrReport)
     <!-- Enhanced Filter Bar (Range Bulan Awal - Akhir, Region, Area, Store / Toko) -->
     <form action="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" method="GET" class="filter-bar" style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 16px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; width: 100%; max-width: 100%; min-width: 0;">
         <input type="hidden" name="p" value="{{ $tenantPrincipal->id }}">
@@ -1102,16 +1101,20 @@
                 </select>
             </div>
 
-            <!-- Filter RSM (Region) -->
+            <!-- Filter RSM / Wilayah (Region) -->
             <div style="position: relative;">
                 <select name="region" id="filter_region" class="filter-select-btn" onchange="onRegionFilterChange(this.value)" style="padding-left: 2rem;">
-                    <option value="">🗺️ Semua RSM</option>
+                    <option value="">{{ (isset($isWingsMbrReport) && $isWingsMbrReport) ? '🗺️ Semua Wilayah' : '🗺️ Semua RSM' }}</option>
                     @foreach($regions as $r)
                         @php
                             $rArr = is_array($r) ? $r : (is_object($r) ? (array)$r : []);
                             $rStr = !empty($rArr) ? ($rArr['rsm_area'] ?? $rArr['regional'] ?? $rArr['region'] ?? '') : (is_scalar($r) ? (string)$r : '');
-                            $rTrim = trim(preg_replace('/^(rsm|region)\s+/i', '', $rStr));
-                            $rDisplay = !empty($rTrim) ? 'RSM ' . $rTrim : $rStr;
+                            if (isset($isWingsMbrReport) && $isWingsMbrReport) {
+                                $rDisplay = $rStr;
+                            } else {
+                                $rTrim = trim(preg_replace('/^(rsm|region)\s+/i', '', $rStr));
+                                $rDisplay = !empty($rTrim) ? 'RSM ' . $rTrim : $rStr;
+                            }
                         @endphp
                         <option value="{{ $rStr }}" {{ $selectedRegion == $rStr ? 'selected' : '' }}>
                             {{ $rDisplay }}
@@ -1124,7 +1127,7 @@
             <!-- Filter Area / Cabang -->
             <div style="position: relative;">
                 <select name="area_id" id="filter_area" class="filter-select-btn" onchange="onAreaFilterChange(this.value)" style="padding-left: 2rem;">
-                    <option value="">📍 Semua Area / Cabang</option>
+                    <option value="">{{ (isset($isWingsMbrReport) && $isWingsMbrReport) ? '📍 Semua Daerah' : '📍 Semua Area / Cabang' }}</option>
                     @foreach($areas as $area)
                         @php
                             $aArr = is_array($area) ? $area : (is_object($area) ? (array)$area : ['id' => $area, 'name' => $area, 'region' => '']);
@@ -1132,7 +1135,7 @@
                             $aName = $aArr['name'] ?? $aId;
                             $aRegion = $aArr['region'] ?? '';
                         @endphp
-                        <option value="{{ $aId }}" data-region="{{ $aRegion }}" {{ (string)$selectedAreaId === (string)$aId ? 'selected' : '' }}>
+                        <option value="{{ $aId }}" data-region="{{ $aRegion }}" data-name="{{ strtoupper(trim($aName)) }}" {{ (string)$selectedAreaId === (string)$aId ? 'selected' : '' }}>
                             {{ $aName }}
                         </option>
                     @endforeach
@@ -1143,7 +1146,7 @@
             <!-- Filter Store / Toko -->
             <div style="position: relative;">
                 <select name="location_id" id="filter_location" class="filter-select-btn" style="padding-left: 2rem; max-width: 250px;">
-                    <option value="">🏢 Semua Store / Toko</option>
+                    <option value="">{{ (isset($isWingsMbrReport) && $isWingsMbrReport) ? '🏢 Semua Toko' : '🏢 Semua Store / Toko' }}</option>
                     @foreach($workLocations as $loc)
                         @php
                             $lArr = is_array($loc) ? $loc : (is_object($loc) ? (array)$loc : ['id' => $loc, 'name' => $loc, 'region' => '', 'area' => '']);
@@ -1258,13 +1261,17 @@
         var currentLocVal = locSelect.value;
         var locStillValid = false;
 
+        var areaSelect = document.getElementById('filter_area');
+        var selectedOpt = areaSelect ? areaSelect.options[areaSelect.selectedIndex] : null;
+        var areaName = selectedOpt ? (selectedOpt.getAttribute('data-name') || '').toUpperCase() : '';
+
         for (var j = 0; j < locSelect.options.length; j++) {
             var opt = locSelect.options[j];
             if (!opt.value) continue;
             var optReg = opt.getAttribute('data-region') || '';
             var optArea = (opt.getAttribute('data-area') || '').toUpperCase();
             var matchReg = !regVal || !optReg || optReg.toUpperCase() === regVal.toUpperCase();
-            var matchArea = !areaVal || !optArea || optArea === areaVal.toUpperCase();
+            var matchArea = !areaVal || !optArea || optArea === areaVal.toUpperCase() || (areaName && optArea === areaName);
 
             if (matchReg && matchArea) {
                 opt.hidden = false;
@@ -1292,7 +1299,6 @@
         }
     });
     </script>
-    @endif
 
     @if(isset($isYtdReport) && $isYtdReport)
         <div class="widget-content-card" style="margin-bottom: 1.5rem; border: 2px solid var(--brand-primary); padding: 0; overflow: hidden;">
@@ -1592,7 +1598,7 @@
     @endif
 
     {{-- WINGS MBR SALES EXECUTIVE DASHBOARD --}}
-    @if(isset($isWingsMbrReport) && $isWingsMbrReport && !empty($wingsMbrData))
+    @if(isset($isWingsMbrSalesReport) && $isWingsMbrSalesReport && !empty($wingsMbrData))
         @include('portal.partials.wings_mbr_dashboard', [
             'mbrData' => $wingsMbrData,
             'submissions' => $submissions ?? null,

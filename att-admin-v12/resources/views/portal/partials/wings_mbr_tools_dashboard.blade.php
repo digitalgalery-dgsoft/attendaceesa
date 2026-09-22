@@ -487,104 +487,14 @@
 
 <div class="portal-tools-wrapper">
 
-    {{-- 1. FILTER BAR --}}
-    <div class="portal-tools-filter-bar">
-        <div class="portal-tools-filter-header">
-            <div class="portal-tools-filter-title">
-                <i class="fa-solid fa-wrench"></i>
-                <span>Filter & Monitoring Laporan Tools (Properti Free Taste)</span>
-            </div>
-            @if(!empty($defectGallery))
-                <button type="button" class="portal-tools-btn-action" onclick="openDefectGalleryModal()">
-                    <i class="fa-solid fa-camera-rotate" style="color: #ea580c;"></i>
-                    <span>Foto Bukti Kerusakan ({{ count($defectGallery) }})</span>
-                </button>
-            @endif
-        </div>
-
-        <form method="GET" action="{{ route('portal.report.detail', ['code' => $template->code]) }}" class="portal-tools-filter-grid">
-            <input type="hidden" name="tab" value="{{ request('tab', 'dashboard') }}">
-
-            {{-- Periode Bulan & Tahun --}}
-            <div class="portal-tools-field-group">
-                <label class="portal-tools-field-label">Periode Laporan</label>
-                <div style="display: flex; gap: 0.4rem;">
-                    <select name="start_month" class="portal-tools-select" style="flex: 1;">
-                        @for($m = 1; $m <= 12; $m++)
-                            <option value="{{ $m }}" {{ (request('start_month', $startMonth ?? date('n')) == $m) ? 'selected' : '' }}>
-                                {{ \Carbon\Carbon::create(2000, $m, 1)->translatedFormat('M') }}
-                            </option>
-                        @endfor
-                    </select>
-                    <select name="start_year" class="portal-tools-select" style="width: 85px;">
-                        @for($y = date('Y'); $y >= date('Y') - 3; $y--)
-                            <option value="{{ $y }}" {{ (request('start_year', $startYear ?? date('Y')) == $y) ? 'selected' : '' }}>{{ $y }}</option>
-                        @endfor
-                    </select>
-                </div>
-            </div>
-
-            {{-- Filter Wilayah / Region --}}
-            <div class="portal-tools-field-group">
-                <label class="portal-tools-field-label">Wilayah (Region)</label>
-                <select name="region" class="portal-tools-select">
-                    <option value="">Semua Wilayah</option>
-                    @foreach($regions as $reg)
-                        <option value="{{ $reg }}" {{ request('region', $selectedRegion) == $reg ? 'selected' : '' }}>{{ $reg }}</option>
-                    @endforeach
-                </select>
-            </div>
-
-            {{-- Filter Daerah / Cabang --}}
-            <div class="portal-tools-field-group">
-                <label class="portal-tools-field-label">Daerah (Area)</label>
-                <select name="area_id" class="portal-tools-select">
-                    <option value="">Semua Daerah</option>
-                    @foreach($areas as $ar)
-                        <option value="{{ $ar->name ?? $ar->id }}" {{ (request('area_id', $selectedAreaId) == ($ar->name ?? $ar->id)) ? 'selected' : '' }}>
-                            {{ $ar->name }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-            {{-- Filter Toko / Outlet --}}
-            <div class="portal-tools-field-group">
-                <label class="portal-tools-field-label">Toko / Outlet</label>
-                <select name="location_id" class="portal-tools-select">
-                    <option value="">Semua Toko</option>
-                    @foreach($workLocations as $loc)
-                        <option value="{{ $loc->name ?? $loc->id }}" {{ (request('location_id', $selectedLocationId) == ($loc->name ?? $loc->id)) ? 'selected' : '' }}>
-                            {{ $loc->name }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-            {{-- Search & Action Buttons --}}
-            <div class="portal-tools-field-group">
-                <label class="portal-tools-field-label">Pencarian Petugas / Toko</label>
-                <input type="text" name="q" class="portal-tools-input" placeholder="Cari nama mitra, toko, alat..." value="{{ request('q', $search) }}">
-            </div>
-
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button type="submit" class="portal-tools-btn-submit" style="min-width: 110px;">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <span>Terapkan</span>
-                </button>
-                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'p' => $tenantPrincipal->id])) }}" 
-                   class="portal-tools-btn-export" 
-                   title="Export Laporan Excel (.xlsx) Multi-Sheet Profesional">
-                    <i class="fa-solid fa-file-excel"></i>
-                    <span>Export Excel</span>
-                </a>
-                <a href="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" class="portal-tools-btn-reset" title="Reset Filter">
-                    <i class="fa-solid fa-rotate-left"></i>
-                    <span>Reset</span>
-                </a>
-            </div>
-        </form>
+    @if(!empty($defectGallery))
+    <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 0.5rem;">
+        <button type="button" class="portal-tools-btn-action" onclick="openDefectGalleryModal()">
+            <i class="fa-solid fa-camera-rotate" style="color: #ea580c;"></i>
+            <span>Foto Bukti Kerusakan ({{ count($defectGallery) }})</span>
+        </button>
     </div>
+    @endif
 
     {{-- 2. GRID 4 KPI UTAMA (PERSENTASE KETERSEDIAAN & KONDISI) --}}
     <div class="portal-tools-kpi-grid">

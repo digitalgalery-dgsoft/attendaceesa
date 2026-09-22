@@ -554,104 +554,14 @@
 
 <div class="portal-freetaste-wrapper">
 
-    {{-- 1. FILTER BAR PORTAL IDENTITY --}}
-    <div class="portal-freetaste-filter-bar">
-        <div class="portal-freetaste-filter-header">
-            <div class="portal-freetaste-filter-title">
-                <i class="fa-solid fa-filter"></i>
-                <span>Filter Data Laporan Free Taste (Event MBR)</span>
-            </div>
-            @if(!empty($galleryPhotos))
-                <button type="button" class="portal-freetaste-btn-action" onclick="openFreetasteGalleryModal('all')">
-                    <i class="fa-solid fa-images"></i>
-                    <span>Galeri Foto Sampling ({{ count($galleryPhotos) }})</span>
-                </button>
-            @endif
-        </div>
-
-        <form method="GET" action="{{ route('portal.report.detail', ['code' => $tenantPrincipal->code ?? 'wings', 'reportId' => $template->id]) }}" class="portal-freetaste-filter-grid">
-            <input type="hidden" name="tab" value="{{ request('tab', 'dashboard') }}">
-
-            {{-- Periode Bulan & Tahun --}}
-            <div class="portal-freetaste-field-group">
-                <label class="portal-freetaste-field-label">Periode Laporan</label>
-                <div style="display: flex; gap: 0.4rem;">
-                    <select name="start_month" class="portal-freetaste-select" style="flex: 1;">
-                        @for($m = 1; $m <= 12; $m++)
-                            <option value="{{ $m }}" {{ (request('start_month', $startMonth ?? date('n')) == $m) ? 'selected' : '' }}>
-                                {{ \Carbon\Carbon::create(2000, $m, 1)->translatedFormat('M') }}
-                            </option>
-                        @endfor
-                    </select>
-                    <select name="start_year" class="portal-freetaste-select" style="width: 85px;">
-                        @for($y = date('Y'); $y >= date('Y') - 3; $y--)
-                            <option value="{{ $y }}" {{ (request('start_year', $startYear ?? date('Y')) == $y) ? 'selected' : '' }}>{{ $y }}</option>
-                        @endfor
-                    </select>
-                </div>
-            </div>
-
-            {{-- Filter Wilayah / Region --}}
-            <div class="portal-freetaste-field-group">
-                <label class="portal-freetaste-field-label">Wilayah (Region)</label>
-                <select name="region" class="portal-freetaste-select">
-                    <option value="">Semua Wilayah</option>
-                    @foreach($regions as $reg)
-                        <option value="{{ $reg }}" {{ request('region', $selectedRegion) == $reg ? 'selected' : '' }}>{{ $reg }}</option>
-                    @endforeach
-                </select>
-            </div>
-
-            {{-- Filter Daerah / Cabang --}}
-            <div class="portal-freetaste-field-group">
-                <label class="portal-freetaste-field-label">Daerah (Area)</label>
-                <select name="area_id" class="portal-freetaste-select">
-                    <option value="">Semua Daerah</option>
-                    @foreach($areas as $ar)
-                        <option value="{{ $ar->name ?? $ar->id }}" {{ (request('area_id', $selectedAreaId) == ($ar->name ?? $ar->id)) ? 'selected' : '' }}>
-                            {{ $ar->name }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-            {{-- Filter Toko / Outlet --}}
-            <div class="portal-freetaste-field-group">
-                <label class="portal-freetaste-field-label">Toko / Outlet</label>
-                <select name="work_location_id" class="portal-freetaste-select">
-                    <option value="">Semua Toko</option>
-                    @foreach($workLocations as $loc)
-                        <option value="{{ $loc->name ?? $loc->id }}" {{ (request('work_location_id', $selectedLocationId) == ($loc->name ?? $loc->id)) ? 'selected' : '' }}>
-                            {{ $loc->name }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-            {{-- Search & Action Buttons --}}
-            <div class="portal-freetaste-field-group">
-                <label class="portal-freetaste-field-label">Pencarian Petugas / Toko</label>
-                <input type="text" name="search" class="portal-freetaste-input" placeholder="Cari nama mitra / toko..." value="{{ request('search', $search) }}">
-            </div>
-
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button type="submit" class="portal-freetaste-btn-submit" style="min-width: 110px;">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <span>Terapkan</span>
-                </button>
-                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'p' => $tenantPrincipal->id])) }}" 
-                   class="portal-freetaste-btn-export" 
-                   title="Export Laporan Excel (.xlsx) Multi-Sheet Profesional">
-                    <i class="fa-solid fa-file-excel"></i>
-                    <span>Export Excel</span>
-                </a>
-                <a href="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" class="portal-freetaste-btn-reset" title="Reset Filter">
-                    <i class="fa-solid fa-rotate-left"></i>
-                    <span>Reset</span>
-                </a>
-            </div>
-        </form>
+    @if(!empty($galleryPhotos))
+    <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 0.5rem;">
+        <button type="button" class="portal-freetaste-btn-action" onclick="openFreetasteGalleryModal('all')">
+            <i class="fa-solid fa-images"></i>
+            <span>Galeri Foto Sampling ({{ count($galleryPhotos) }})</span>
+        </button>
     </div>
+    @endif
 
     {{-- 2. GRID 7 KPI UTAMA PORTAL STYLE --}}
     <div class="portal-freetaste-kpi-grid-4">
