@@ -120,6 +120,30 @@
         background: #e2e8f0;
         color: var(--text-heading);
     }
+    .portal-tools-btn-export {
+        background: #107c41;
+        color: #ffffff;
+        border: none;
+        border-radius: 10px;
+        padding: 0.6rem 1.15rem;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        box-shadow: 0 2px 8px rgba(16, 124, 65, 0.25);
+        transition: all 0.2s ease;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .portal-tools-btn-export:hover {
+        background: #0b6333;
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 124, 65, 0.35);
+    }
     .portal-tools-btn-action {
         background: #fff;
         border: 1px solid var(--border-color);
@@ -543,12 +567,18 @@
                 <input type="text" name="q" class="portal-tools-input" placeholder="Cari nama mitra, toko, alat..." value="{{ request('q', $search) }}">
             </div>
 
-            <div style="display: flex; gap: 0.5rem;">
-                <button type="submit" class="portal-tools-btn-submit">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="submit" class="portal-tools-btn-submit" style="min-width: 110px;">
                     <i class="fa-solid fa-magnifying-glass"></i>
                     <span>Terapkan</span>
                 </button>
-                <a href="{{ route('portal.report.detail', ['code' => $template->code]) }}" class="portal-tools-btn-reset">
+                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'p' => $tenantPrincipal->id])) }}" 
+                   class="portal-tools-btn-export" 
+                   title="Export Laporan Excel (.xlsx) Multi-Sheet Profesional">
+                    <i class="fa-solid fa-file-excel"></i>
+                    <span>Export Excel</span>
+                </a>
+                <a href="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" class="portal-tools-btn-reset" title="Reset Filter">
                     <i class="fa-solid fa-rotate-left"></i>
                     <span>Reset</span>
                 </a>

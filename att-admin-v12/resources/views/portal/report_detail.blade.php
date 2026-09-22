@@ -1012,6 +1012,11 @@
                     <i class="fa-solid fa-file-excel"></i>
                     Export Data Mentah (CSV)
                 </a>
+            @elseif((isset($isWingsMbrSalesReport) && $isWingsMbrSalesReport) || (isset($isWingsMbrFreeTasteReport) && $isWingsMbrFreeTasteReport) || (isset($isWingsMbrToolsReport) && $isWingsMbrToolsReport))
+                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'start_month' => $startMonth, 'start_year' => $startYear, 'end_month' => $endMonth, 'end_year' => $endYear, 'region' => $selectedRegion, 'area_id' => $selectedAreaId, 'location_id' => $selectedLocationId, 'p' => $tenantPrincipal->id])) }}" class="btn-export-excel" style="background: #107c41; color: #ffffff; border: none; box-shadow: 0 2px 8px rgba(16, 124, 65, 0.25);" title="Download File Excel (.xlsx) Multi-Sheet">
+                    <i class="fa-solid fa-file-excel"></i>
+                    Export Excel (.xlsx)
+                </a>
             @else
                 <a href="{{ route('portal.report.export', ['code' => $template->code, 'start_month' => $startMonth, 'start_year' => $startYear, 'end_month' => $endMonth, 'end_year' => $endYear, 'region' => $selectedRegion, 'area_id' => $selectedAreaId, 'location_id' => $selectedLocationId, 'p' => $tenantPrincipal->id]) }}" class="btn-export-excel">
                     <i class="fa-solid fa-file-excel"></i>

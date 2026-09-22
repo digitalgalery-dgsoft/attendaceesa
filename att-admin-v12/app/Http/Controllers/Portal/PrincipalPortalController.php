@@ -971,6 +971,7 @@ class PrincipalPortalController extends Controller
                 'isYtdReport',
                 'ytdData',
                 'isWingsMbrReport',
+                'isWingsMbrSalesReport',
                 'wingsMbrData',
                 'activeTab'
             ));
@@ -2825,6 +2826,93 @@ class PrincipalPortalController extends Controller
         $selectedRegion     = $request->query('region');
         $selectedAreaId     = $request->query('area_id') ?? $request->query('branch_id');
         $selectedLocationId = $request->query('location_id') ?? $request->query('store_id');
+        $search             = $request->query('q');
+
+        // Resolve Filter Names for Export Header Banner
+        $selectedAreaName = null;
+        if ($selectedAreaId) {
+            $selectedAreaName = is_numeric($selectedAreaId) ? \App\Models\Branch::where('id', $selectedAreaId)->value('name') : $selectedAreaId;
+        }
+        $selectedStoreName = null;
+        if ($selectedLocationId) {
+            $selectedStoreName = is_numeric($selectedLocationId) ? \App\Models\WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId;
+        }
+
+        $monthNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
+            7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $periodLabel = ($monthNames[$startMonth] ?? "Bulan {$startMonth}") . " {$startYear}";
+        if ($startMonth !== $endMonth || $startYear !== $endYear) {
+            $periodLabel .= " s/d " . ($monthNames[$endMonth] ?? "Bulan {$endMonth}") . " {$endYear}";
+        }
+
+        $exportFilters = [
+            'period_label'    => $periodLabel,
+            'region'          => $selectedRegion ?: 'Semua Region',
+            'area'            => $selectedAreaName ?: 'Semua Cabang',
+            'store'           => $selectedStoreName ?: 'Semua Outlet',
+            'filename_suffix' => "{$startYear}_{$startMonth}-{$endYear}_{$endMonth}",
+        ];
+
+        // --- WINGS MBR MULTI-SHEET PROFESSIONAL EXCEL EXPORTS ---
+        $isWingsMbrSalesReport = ($template->code === 'RPT-WINGS-MBR-SALES-01'
+            || str_contains($template->code, 'MBR-SALES')
+            || (str_contains(strtolower($template->title ?? ''), 'mbr') && str_contains(strtolower($template->title ?? ''), 'penjualan')));
+
+        $isWingsMbrFreeTasteReport = ($template->code === 'RPT-WINGS-MBR-FREETASTE-01'
+            || str_contains($template->code, 'MBR-FREETASTE')
+            || (str_contains(strtolower($template->title ?? ''), 'mbr') && (str_contains(strtolower($template->title ?? ''), 'free taste') || str_contains(strtolower($template->title ?? ''), 'sampling'))));
+
+        $isWingsMbrToolsReport = ($template->code === 'RPT-WINGS-MBR-TOOLS-01'
+            || str_contains($template->code, 'MBR-TOOLS')
+            || str_contains($template->code, 'WINGS-TOOLS')
+            || (str_contains(strtolower($template->title ?? ''), 'tools') && str_contains(strtolower($template->title ?? ''), 'properti')));
+
+        if ($isWingsMbrSalesReport) {
+            $wingsData = $this->calculateWingsMbrDashboardData(
+                $template,
+                $startDate,
+                $endDate,
+                $selectedRegion,
+                $selectedAreaId,
+                $selectedLocationId,
+                $search,
+                100000
+            );
+            $service = new \App\Services\WingsMbrExportService();
+            return $service->exportSales($template, $wingsData, $exportFilters);
+        }
+
+        if ($isWingsMbrFreeTasteReport) {
+            $wingsData = $this->calculateWingsMbrFreeTasteDashboardData(
+                $template,
+                $startDate,
+                $endDate,
+                $selectedRegion,
+                $selectedAreaId,
+                $selectedLocationId,
+                $search,
+                100000
+            );
+            $service = new \App\Services\WingsMbrExportService();
+            return $service->exportFreeTaste($template, $wingsData, $exportFilters);
+        }
+
+        if ($isWingsMbrToolsReport) {
+            $wingsData = $this->calculateWingsMbrToolsDashboardData(
+                $template,
+                $startDate,
+                $endDate,
+                $selectedRegion,
+                $selectedAreaId,
+                $selectedLocationId,
+                $search,
+                100000
+            );
+            $service = new \App\Services\WingsMbrExportService();
+            return $service->exportTools($template, $wingsData, $exportFilters);
+        }
 
         // Custom Streamed CSV Export for CBP Report (Matching Excel Raw Data format)
         if ($template->code === 'RPT-DULUX-CBP-PRICING') {

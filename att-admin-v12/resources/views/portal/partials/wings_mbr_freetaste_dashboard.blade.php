@@ -121,6 +121,30 @@
         background: #e2e8f0;
         color: var(--text-heading);
     }
+    .portal-freetaste-btn-export {
+        background: #107c41;
+        color: #ffffff;
+        border: none;
+        border-radius: 10px;
+        padding: 0.6rem 1.15rem;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        box-shadow: 0 2px 8px rgba(16, 124, 65, 0.25);
+        transition: all 0.2s ease;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .portal-freetaste-btn-export:hover {
+        background: #0b6333;
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 124, 65, 0.35);
+    }
 
     /* 2. Grid KPI Cards */
     .portal-freetaste-kpi-grid-4 {
@@ -610,12 +634,18 @@
                 <input type="text" name="search" class="portal-freetaste-input" placeholder="Cari nama mitra / toko..." value="{{ request('search', $search) }}">
             </div>
 
-            <div style="display: flex; gap: 0.5rem;">
-                <button type="submit" class="portal-freetaste-btn-submit">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="submit" class="portal-freetaste-btn-submit" style="min-width: 110px;">
                     <i class="fa-solid fa-magnifying-glass"></i>
                     <span>Terapkan</span>
                 </button>
-                <a href="{{ route('portal.report.detail', ['code' => $tenantPrincipal->code ?? 'wings', 'reportId' => $template->id]) }}" class="portal-freetaste-btn-reset">
+                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'p' => $tenantPrincipal->id])) }}" 
+                   class="portal-freetaste-btn-export" 
+                   title="Export Laporan Excel (.xlsx) Multi-Sheet Profesional">
+                    <i class="fa-solid fa-file-excel"></i>
+                    <span>Export Excel</span>
+                </a>
+                <a href="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" class="portal-freetaste-btn-reset" title="Reset Filter">
                     <i class="fa-solid fa-rotate-left"></i>
                     <span>Reset</span>
                 </a>
