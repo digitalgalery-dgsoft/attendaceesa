@@ -444,6 +444,21 @@
     $toolsBreakdown = $toolsData['tools_breakdown'] ?? [];
     $activeEmployees = $toolsData['active_employees'] ?? [];
     $defectGallery = $toolsData['defect_gallery'] ?? [];
+    $standardTools = $toolsData['standard_tools'] ?? [
+        '1 Pcs panci susu',
+        '1 Pcs mangkuk pengaduk',
+        '1 Pcs Gunting',
+        '2 set sendok garpu',
+        '1 pcs centong sayur',
+        '1 pcs capitan',
+        '1 Pcs Pompa dispenser air (optional)',
+        '1 Pcs Galon air',
+        '1 Pcs Kompor portable + Gas',
+        '1 pcs saringan / tirisan mie',
+        '1 Pcs tray',
+        '1 Gelas Takar',
+        'Papercup & Garpu kecil (untuk pengunjung)',
+    ];
 @endphp
 
 <div class="portal-tools-wrapper">

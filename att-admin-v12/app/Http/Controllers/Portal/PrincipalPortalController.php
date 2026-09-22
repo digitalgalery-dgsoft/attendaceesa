@@ -13718,6 +13718,7 @@ class PrincipalPortalController extends Controller
                 ],
             ],
             'tools_breakdown' => array_values($toolsBreakdown),
+            'standard_tools' => $standardTools,
             'active_employees' => $activeEmployees,
             'defect_gallery' => $defectGallery,
         ];
