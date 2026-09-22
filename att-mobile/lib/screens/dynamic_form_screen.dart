@@ -2835,7 +2835,29 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           description: Text(result['message'] ?? 'Seluruh laporan berhasil diselesaikan.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        _returnToReportingScreen();
+        if (widget.editSubmission != null) {
+          _returnToReportingScreen();
+        } else {
+          setState(() {
+            for (final f in widget.template.fields) {
+              final fieldKey = f.id.toString();
+              if (!['date', 'datepicker'].contains(f.fieldType)) {
+                _controllers[fieldKey]?.clear();
+                _formValues.remove(fieldKey);
+                _formValues.remove(f.fieldName);
+              }
+            }
+            _photoFiles.clear();
+            _multiPhotoFiles.clear();
+            _watermarkTexts.clear();
+            _existingPhotoUrls.clear();
+            _existingMultiPhotoUrls.clear();
+          });
+          _recalculateFormulas();
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+          }
+        }
       }
     } else if (mounted) {
       toastification.show(
@@ -14339,105 +14361,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               ),
               const SizedBox(height: 14),
 
-              // Jenis Pembayaran (Bayar di Booth vs Bayar di Kasir)
-              Text(
-                'JENIS PEMBAYARAN',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => setState(() => _mbrPaymentType = 'Bayar di Booth'),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: _mbrPaymentType == 'Bayar di Booth'
-                              ? const Color(0xFF10B981).withOpacity(0.15)
-                              : elevatedColor,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _mbrPaymentType == 'Bayar di Booth'
-                                ? const Color(0xFF10B981)
-                                : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-                            width: _mbrPaymentType == 'Bayar di Booth' ? 1.5 : 1.0,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.store_rounded,
-                              size: 16,
-                              color: _mbrPaymentType == 'Bayar di Booth'
-                                  ? const Color(0xFF10B981)
-                                  : subtitleColor,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Bayar di Booth',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: _mbrPaymentType == 'Bayar di Booth'
-                                    ? const Color(0xFF10B981)
-                                    : subtitleColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => setState(() => _mbrPaymentType = 'Bayar di Kasir'),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: _mbrPaymentType == 'Bayar di Kasir'
-                              ? const Color(0xFF0284C7).withOpacity(0.15)
-                              : elevatedColor,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _mbrPaymentType == 'Bayar di Kasir'
-                                ? const Color(0xFF0284C7)
-                                : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-                            width: _mbrPaymentType == 'Bayar di Kasir' ? 1.5 : 1.0,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.point_of_sale_rounded,
-                              size: 16,
-                              color: _mbrPaymentType == 'Bayar di Kasir'
-                                  ? const Color(0xFF0284C7)
-                                  : subtitleColor,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Bayar di Kasir',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: _mbrPaymentType == 'Bayar di Kasir'
-                                    ? const Color(0xFF0284C7)
-                                    : subtitleColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
               const SizedBox(height: 16),
 
               // Button: Tambah ke Keranjang
@@ -14753,30 +14676,13 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _buildMbrKpiCard(
-                title: 'BAYAR DI BOOTH',
-                value: _formatRupiah(totalBooth),
-                icon: Icons.store_rounded,
-                color: const Color(0xFF10B981),
-                isDarkMode: isDarkMode,
-                cardColor: cardColor,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildMbrKpiCard(
-                title: 'BAYAR DI KASIR',
-                value: _formatRupiah(totalKasir),
-                icon: Icons.point_of_sale_rounded,
-                color: const Color(0xFF6366F1),
-                isDarkMode: isDarkMode,
-                cardColor: cardColor,
-              ),
-            ),
-          ],
+        _buildMbrKpiCard(
+          title: 'TOTAL PENJUALAN (BAYAR DI BOOTH)',
+          value: _formatRupiah(totalBooth),
+          icon: Icons.store_rounded,
+          color: const Color(0xFF10B981),
+          isDarkMode: isDarkMode,
+          cardColor: cardColor,
         ),
         const SizedBox(height: 16),
 
@@ -15650,7 +15556,24 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               'Laporan Penjualan (${_mbrSalesCart.length} produk, Total: ${_formatRupiah(totalValue)}) berhasil dikirim.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        _returnToReportingScreen();
+        await _clearMbrSalesDraft();
+        setState(() {
+          _mbrSalesCart.clear();
+          _mbrSalesStep = 0;
+          _mbrStorePriceCtrl.clear();
+          _mbrQtyCtrl.clear();
+          _currentMbrSalesProduct = null;
+          _mbrPaymentType = 'Bayar di Booth';
+          _mbrCurrentStrukPhoto = null;
+          _mbrCurrentStrukWatermark = null;
+        });
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
       } else if (mounted) {
         toastification.show(
           context: context,
@@ -16363,8 +16286,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                         const SizedBox(height: 6),
                         TextField(
                           controller: _mbrCupCtrl,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          readOnly: true,
                           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
                           decoration: InputDecoration(
                             hintText: '0',
@@ -16372,9 +16294,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                             helperText: 'Otomatis 4 Cup / Bungkus',
                             helperStyle: TextStyle(fontSize: 10, color: subtitleColor),
                             filled: true,
-                            fillColor: elevatedColor,
+                            fillColor: isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFECFDF5),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: const Color(0xFF059669).withOpacity(0.3)),
+                            ),
                           ),
                         ),
                       ],
@@ -17513,7 +17438,25 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               'Laporan Free Taste (${_mbrFreeTasteCart.length} varian, Dimasak: $totalDimasak Pcs, Dibagikan: $totalCup Cup) berhasil dikirim.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        _returnToReportingScreen();
+        await _clearMbrFreeTasteDraft();
+        setState(() {
+          _mbrFreeTasteCart.clear();
+          _mbrFreeTasteStep = 0;
+          _currentMbrFreeTasteProduct = null;
+          _mbrStokAwalCtrl.clear();
+          _mbrDimasakCtrl.clear();
+          _mbrStokAkhirCtrl.clear();
+          _mbrCupCtrl.clear();
+          _mbrCurrentSamplingPhoto = null;
+          _mbrCurrentSamplingWatermark = null;
+        });
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
       } else if (mounted) {
         toastification.show(
           context: context,

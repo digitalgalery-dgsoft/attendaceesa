@@ -2325,5 +2325,25 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Dilengkapi modal konfirmasi penghapusan massal dalam bahasa Indonesia.
       - Menambahkan penanganan `booted()` deleting event pada model `ReportSubmission.php` untuk otomatis menghapus seluruh baris relasi `ReportSubmissionValue` dan berkas foto/media fisik dari storage disk publik.
 
+51. **Pembaruan Mobile App v1.0.161: Laporan Wings (Bayar di Booth Default & Readonly Sampling), Form Post-Submit Retention, Searchable Dropdown Visit & Multi-Visit Per Area (22 September 2026)**:
+    - **Laporan Penjualan Wings (Event MBR)**:
+      - Menghapus opsi pemilihan jenis pembayaran (*Bayar di Both / Bayar di Kasir*) pada UI Step 0 dan Step 1 karena seluruh transaksi operasional dilaporkan sebagai *Bayar di Booth*.
+      - Menetapkan default `_mbrPaymentType = 'Bayar di Booth'` secara permanen dan menyederhanakan kartu ringkasan penjualan menjadi *TOTAL PENJUALAN (BAYAR DI BOOTH)*.
+    - **Laporan Sampling Wings (Free Taste MBR)**:
+      - Mengunci field yang terisi otomatis (*Cup Dibagikan / Tester*) menjadi `readOnly: true` dengan penyesuaian visual background agar tidak dapat diubah secara manual oleh pengguna.
+    - **Form Post-Submit Retention (Zero Home Redirect)**:
+      - Menghilangkan navigasi lempar balik ke dashboard/reporting hub setelah pengguna mengirim laporan (*submit*).
+      - Pengguna tetap berada pada form pelaporan dengan kondisi form di-reset bersih (keranjang kosong, step kembali ke 0, scroll otomatis ke atas) dan menampilkan pesan sukses (*snackbar*) sehingga siap untuk input laporan berikutnya dengan cepat.
+    - **Form Visit (Add Itinerary Screen) Searchable Dropdown**:
+      - Mengganti seluruh dropdown standar (`DropdownButtonFormField`) pada form Visit dengan modal picker interaktif yang dapat dicari (*searchable modal bottom sheet*) untuk kelima field: *Area*, *Lokasi Kerja*, *Brand / Prinsiple*, *Type Visit*, dan *Type Meeting*.
+      - Pengguna cukup mengetik kata kunci pencarian tanpa harus menggulir (*scroll*) daftar opsi yang panjang.
+    - **Dukungan Multiple Visit 1 Area / Lokasi Kerja dalam Sehari**:
+      - Menghilangkan pembatasan lokasi yang sudah dikunjungi hari ini (`whereNotIn('id', $visitedLocationIds)`) pada endpoint `availableWorkLocations` (`ItineraryController.php`) dan `workLocations` (`AttendanceController.php`).
+      - Pengguna dapat membuat jadwal visit dan melakukan kunjungan berkali-kali ke area atau lokasi kerja yang sama pada tanggal yang sama tanpa terblokir.
+      - Menyesuaikan pelacakan status kunjungan pada itinerary list agar menghitung frekuensi visit secara berurutan (*sequential occurrence matching*).
+    - **Penaikan Versi Mobile App**:
+      - Versi aplikasi pada `att-mobile/pubspec.yaml` dinaikkan menjadi **`1.0.161+161`**.
+
+
 
 

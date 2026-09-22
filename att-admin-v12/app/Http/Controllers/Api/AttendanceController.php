@@ -594,8 +594,9 @@ class AttendanceController extends Controller
                 ]);
 
                 $log->update([
-                    'attendance_id' => $attendance->id,
-                    'metadata'      => ['visit_location_id' => $request->visit_location_id],
+                    'attendance_id'     => $attendance->id,
+                    'itinerary_item_id' => $itineraryItem?->id,
+                    'metadata'          => ['visit_location_id' => $request->visit_location_id],
                 ]);
 
                 // Link checkin_log_id jika dibuat otomatis
@@ -1200,10 +1201,11 @@ class AttendanceController extends Controller
 
         if ($itinerary && $itinerary->items->count() > 0) {
             $employee->loadMissing('position');
+            // Keep all locations from today's itinerary accessible so users can visit multiple times
             $locations = $itinerary->items
                 ->map(fn($item) => $item->workLocation)
                 ->filter()
-                ->reject(fn($loc) => in_array((int) $loc->id, $visitedLocationIds))
+                ->unique('id')
                 ->map(function ($loc) use ($employee) {
                     $arr = $loc->toArray();
                     $arr['radius_meter'] = $loc->getEffectiveRadiusForEmployee($employee);

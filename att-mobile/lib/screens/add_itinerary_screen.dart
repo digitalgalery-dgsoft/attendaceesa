@@ -9,6 +9,18 @@ import 'package:att_mobile/screens/attendance_location_screen.dart';
 import 'package:att_mobile/screens/request_location_screen.dart';
 import '../widgets/custom_loading_indicator.dart';
 
+class SearchablePickerItem<T> {
+  final String label;
+  final String? subtitle;
+  final T value;
+
+  SearchablePickerItem({
+    required this.label,
+    this.subtitle,
+    required this.value,
+  });
+}
+
 class AddItineraryScreen extends StatefulWidget {
   final DateTime initialDate;
 
@@ -29,6 +41,218 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
   String? _selectedMeetingType;
   final TextEditingController _agendaController = TextEditingController();
   bool _isSubmitting = false;
+
+  Future<void> _openSearchablePicker<T>({
+    required String title,
+    required List<SearchablePickerItem<T>> items,
+    required T? currentValue,
+    required ValueChanged<T> onSelected,
+  }) async {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : const Color(0xFF111C2D);
+    final subtitleColor = isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600;
+    final primaryColor = Provider.of<AuthProvider>(context, listen: false).appColor ?? const Color(0xFF0F52BA);
+    final searchBg = isDarkMode ? const Color(0xFF2A2A3D) : Colors.grey.shade100;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        String query = '';
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final filtered = items.where((item) {
+              if (query.isEmpty) return true;
+              final q = query.toLowerCase();
+              final matchesLabel = item.label.toLowerCase().contains(q);
+              final matchesSub = item.subtitle?.toLowerCase().contains(q) ?? false;
+              return matchesLabel || matchesSub;
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 6),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: () => Navigator.pop(context),
+                          color: subtitleColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: TextField(
+                      autofocus: true,
+                      style: TextStyle(color: textColor, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Ketik untuk mencari...',
+                        hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
+                        prefixIcon: Icon(Icons.search, color: subtitleColor, size: 20),
+                        filled: true,
+                        fillColor: searchBg,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      onChanged: (val) {
+                        setSheetState(() {
+                          query = val;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.search_off, size: 40, color: subtitleColor.withOpacity(0.5)),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Data tidak ditemukan',
+                                  style: TextStyle(color: subtitleColor, fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) => Divider(height: 1, color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                            itemBuilder: (context, idx) {
+                              final itm = filtered[idx];
+                              final isSelected = itm.value == currentValue;
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                title: Text(
+                                  itm.label,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                    color: isSelected ? primaryColor : textColor,
+                                  ),
+                                ),
+                                subtitle: itm.subtitle != null && itm.subtitle!.isNotEmpty
+                                    ? Text(
+                                        itm.subtitle!,
+                                        style: TextStyle(fontSize: 11.5, color: subtitleColor),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      )
+                                    : null,
+                                trailing: isSelected
+                                    ? Icon(Icons.check_circle, color: primaryColor, size: 20)
+                                    : null,
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  onSelected(itm.value);
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchableSelectField({
+    required String label,
+    required String? valueText,
+    required String placeholder,
+    required VoidCallback? onTap,
+    required Color subtitleColor,
+    required Color textColor,
+    required bool isDarkMode,
+    bool isEnabled = true,
+  }) {
+    return InkWell(
+      onTap: isEnabled ? onTap : null,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        decoration: BoxDecoration(
+          color: isEnabled
+              ? (isDarkMode ? const Color(0xFF2A2A3D) : Colors.grey.shade50)
+              : (isDarkMode ? Colors.grey.shade900 : Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: subtitleColor,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    valueText != null && valueText.isNotEmpty ? valueText : placeholder,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: valueText != null && valueText.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
+                      color: !isEnabled
+                          ? subtitleColor.withOpacity(0.5)
+                          : (valueText != null && valueText.isNotEmpty ? textColor : subtitleColor),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_drop_down,
+              color: isEnabled ? subtitleColor : subtitleColor.withOpacity(0.3),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -267,52 +491,75 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
                       ),
                       const SizedBox(height: 24),
                       
-                      // Area Dropdown
-                      DropdownButtonFormField<String>(
-                        dropdownColor: cardColor,
-                        style: TextStyle(color: textColor),
-                        decoration: inputDecoration.copyWith(
-                          labelText: 'Area',
-                        ),
-                        value: _selectedArea,
-                        items: areas.map((area) {
-                          return DropdownMenuItem<String>(
-                            value: area,
-                            child: Text(area),
+                      // 1. Area Selector (Searchable)
+                      _buildSearchableSelectField(
+                        label: 'Area',
+                        valueText: _selectedArea,
+                        placeholder: 'Pilih Area',
+                        subtitleColor: subtitleColor,
+                        textColor: textColor,
+                        isDarkMode: isDarkMode,
+                        onTap: () {
+                          final items = areas.map((a) => SearchablePickerItem<String>(
+                            label: a,
+                            value: a,
+                          )).toList();
+                          _openSearchablePicker<String>(
+                            title: 'Pilih Area',
+                            items: items,
+                            currentValue: _selectedArea,
+                            onSelected: (val) {
+                              setState(() {
+                                _selectedArea = val;
+                                _selectedWorkLocationId = null;
+                              });
+                            },
                           );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedArea = value;
-                            _selectedWorkLocationId = null;
-                          });
                         },
                       ),
                       
                       const SizedBox(height: 16),
 
-                      // Location Dropdown
-                      DropdownButtonFormField<int>(
-                        dropdownColor: cardColor,
-                        style: TextStyle(color: textColor),
-                        decoration: inputDecoration.copyWith(
-                          labelText: 'Lokasi Kerja',
-                        ),
-                        value: _selectedWorkLocationId,
-                        items: provider.workLocations.where((loc) {
-                          final locArea = loc['area']?.toString().trim();
-                          final normalizedArea = (locArea == null || locArea.isEmpty) ? 'Area Lainnya' : locArea;
-                          return normalizedArea == _selectedArea;
-                        }).map((loc) {
-                          return DropdownMenuItem<int>(
-                            value: loc['id'],
-                            child: Text(loc['name'] ?? ''),
+                      // 2. Lokasi Kerja Selector (Searchable)
+                      Builder(
+                        builder: (context) {
+                          final filteredLocations = provider.workLocations.where((loc) {
+                            final locArea = loc['area']?.toString().trim();
+                            final normalizedArea = (locArea == null || locArea.isEmpty) ? 'Area Lainnya' : locArea;
+                            return normalizedArea == _selectedArea;
+                          }).toList();
+
+                          final selectedLoc = provider.workLocations.firstWhere(
+                            (l) => l['id'] == _selectedWorkLocationId,
+                            orElse: () => null,
                           );
-                        }).toList(),
-                        onChanged: _selectedArea == null ? null : (value) {
-                          setState(() {
-                            _selectedWorkLocationId = value;
-                          });
+
+                          return _buildSearchableSelectField(
+                            label: 'Lokasi Kerja',
+                            valueText: selectedLoc != null ? (selectedLoc['name'] ?? '') : null,
+                            placeholder: _selectedArea == null ? 'Pilih Area terlebih dahulu' : 'Pilih Lokasi Kerja',
+                            isEnabled: _selectedArea != null,
+                            subtitleColor: subtitleColor,
+                            textColor: textColor,
+                            isDarkMode: isDarkMode,
+                            onTap: () {
+                              final items = filteredLocations.map((loc) => SearchablePickerItem<int>(
+                                label: loc['name'] ?? 'Toko',
+                                subtitle: loc['address']?.toString(),
+                                value: loc['id'] as int,
+                              )).toList();
+                              _openSearchablePicker<int>(
+                                title: 'Pilih Lokasi Kerja (${_selectedArea ?? ''})',
+                                items: items,
+                                currentValue: _selectedWorkLocationId,
+                                onSelected: (val) {
+                                  setState(() {
+                                    _selectedWorkLocationId = val;
+                                  });
+                                },
+                              );
+                            },
+                          );
                         },
                       ),
 
@@ -345,70 +592,95 @@ class _AddItineraryScreenState extends State<AddItineraryScreen> {
                       
                       const SizedBox(height: 12),
 
-                      // Brand/Prinsiple Dropdown
-                      DropdownButtonFormField<int>(
-                        dropdownColor: cardColor,
-                        style: TextStyle(color: textColor),
-                        decoration: inputDecoration.copyWith(
-                          labelText: 'Brand / Prinsiple',
-                        ),
-                        value: _selectedPrincipalId,
-                        items: provider.principals.map((prin) {
-                          return DropdownMenuItem<int>(
-                            value: prin['id'],
-                            child: Text(prin['name'] ?? ''),
+                      // 3. Brand/Prinsiple Selector (Searchable)
+                      Builder(
+                        builder: (context) {
+                          final selectedPrin = provider.principals.firstWhere(
+                            (p) => p['id'] == _selectedPrincipalId,
+                            orElse: () => null,
                           );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedPrincipalId = value;
-                          });
+
+                          return _buildSearchableSelectField(
+                            label: 'Brand / Prinsiple',
+                            valueText: selectedPrin != null ? (selectedPrin['name'] ?? '') : null,
+                            placeholder: 'Pilih Brand / Prinsiple',
+                            subtitleColor: subtitleColor,
+                            textColor: textColor,
+                            isDarkMode: isDarkMode,
+                            onTap: () {
+                              final items = provider.principals.map((prin) => SearchablePickerItem<int>(
+                                label: prin['name'] ?? 'Brand',
+                                subtitle: prin['code']?.toString(),
+                                value: prin['id'] as int,
+                              )).toList();
+                              _openSearchablePicker<int>(
+                                title: 'Pilih Brand / Prinsiple',
+                                items: items,
+                                currentValue: _selectedPrincipalId,
+                                onSelected: (val) {
+                                  setState(() {
+                                    _selectedPrincipalId = val;
+                                  });
+                                },
+                              );
+                            },
+                          );
                         },
                       ),
 
                       const SizedBox(height: 16),
 
-                      // Type Visit Dropdown
-                      DropdownButtonFormField<String>(
-                        dropdownColor: cardColor,
-                        style: TextStyle(color: textColor),
-                        decoration: inputDecoration.copyWith(
-                          labelText: 'Type Visit',
-                        ),
-                        value: _selectedVisitType,
-                        items: ['Store', 'Prinsiple', 'Lainnya'].map((type) {
-                          return DropdownMenuItem<String>(
+                      // 4. Type Visit Selector (Searchable)
+                      _buildSearchableSelectField(
+                        label: 'Type Visit',
+                        valueText: _selectedVisitType,
+                        placeholder: 'Pilih Type Visit',
+                        subtitleColor: subtitleColor,
+                        textColor: textColor,
+                        isDarkMode: isDarkMode,
+                        onTap: () {
+                          final items = ['Store', 'Prinsiple', 'Lainnya'].map((type) => SearchablePickerItem<String>(
+                            label: type,
                             value: type,
-                            child: Text(type),
+                          )).toList();
+                          _openSearchablePicker<String>(
+                            title: 'Pilih Type Visit',
+                            items: items,
+                            currentValue: _selectedVisitType,
+                            onSelected: (val) {
+                              setState(() {
+                                _selectedVisitType = val;
+                              });
+                            },
                           );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedVisitType = value;
-                          });
                         },
                       ),
 
                       const SizedBox(height: 16),
 
-                      // Type Meeting Dropdown
-                      DropdownButtonFormField<String>(
-                        dropdownColor: cardColor,
-                        style: TextStyle(color: textColor),
-                        decoration: inputDecoration.copyWith(
-                          labelText: 'Type Meeting',
-                        ),
-                        value: _selectedMeetingType,
-                        items: ['Online', 'Offline'].map((type) {
-                          return DropdownMenuItem<String>(
+                      // 5. Type Meeting Selector (Searchable)
+                      _buildSearchableSelectField(
+                        label: 'Type Meeting',
+                        valueText: _selectedMeetingType,
+                        placeholder: 'Pilih Type Meeting',
+                        subtitleColor: subtitleColor,
+                        textColor: textColor,
+                        isDarkMode: isDarkMode,
+                        onTap: () {
+                          final items = ['Online', 'Offline'].map((type) => SearchablePickerItem<String>(
+                            label: type,
                             value: type,
-                            child: Text(type),
+                          )).toList();
+                          _openSearchablePicker<String>(
+                            title: 'Pilih Type Meeting',
+                            items: items,
+                            currentValue: _selectedMeetingType,
+                            onSelected: (val) {
+                              setState(() {
+                                _selectedMeetingType = val;
+                              });
+                            },
                           );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedMeetingType = value;
-                          });
                         },
                       ),
 

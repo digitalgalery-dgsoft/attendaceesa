@@ -36,25 +36,40 @@ class ItineraryController extends Controller
             ->orderBy('date', 'asc')
             ->get();
 
-        // Get visited locations
-        $visitedLocationIds = \App\Models\AttendanceLog::where('employee_id', $employee->id)
+        // Get visited logs by date and location to support multiple visits per area / location on the same day
+        $visitedLogs = \App\Models\AttendanceLog::where('employee_id', $employee->id)
             ->where('log_type', 'visit_in')
             ->whereBetween('logged_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
-            ->get()
-            ->map(function ($log) {
-                $meta = is_array($log->metadata) ? $log->metadata : (is_string($log->metadata) ? json_decode($log->metadata, true) : []);
-                return is_array($meta) ? ($meta['visit_location_id'] ?? null) : null;
-            })
-            ->filter()
-            ->unique()
-            ->toArray();
+            ->get();
 
-        $itineraries->each(function($itinerary) use ($visitedLocationIds) {
+        $itineraries->each(function($itinerary) use ($visitedLogs) {
             $isStrict = (bool)($itinerary->is_strict_routing ?? false);
             $foundNextTarget = false;
+            $itineraryDate = Carbon::parse($itinerary->date)->toDateString();
 
-            $itinerary->items->each(function($item) use ($visitedLocationIds, $isStrict, &$foundNextTarget) {
-                $isVisited = in_array((int)$item->work_location_id, $visitedLocationIds);
+            // Count visits made on this itinerary's date per location
+            $dateLocationVisitCounts = [];
+            foreach ($visitedLogs as $log) {
+                $logDate = Carbon::parse($log->logged_at)->toDateString();
+                if ($logDate === $itineraryDate) {
+                    $meta = is_array($log->metadata) ? $log->metadata : (is_string($log->metadata) ? json_decode($log->metadata, true) : []);
+                    $locId = is_array($meta) ? ($meta['visit_location_id'] ?? null) : null;
+                    if ($locId) {
+                        $dateLocationVisitCounts[(int)$locId] = ($dateLocationVisitCounts[(int)$locId] ?? 0) + 1;
+                    }
+                }
+            }
+
+            $dateLocationUsedCounts = [];
+            $itinerary->items->sortBy('sequence')->each(function($item) use (&$dateLocationUsedCounts, $dateLocationVisitCounts, $isStrict, &$foundNextTarget) {
+                $locId = (int)$item->work_location_id;
+                $used = $dateLocationUsedCounts[$locId] ?? 0;
+                $totalVisited = $dateLocationVisitCounts[$locId] ?? 0;
+
+                $isVisited = $used < $totalVisited;
+                if ($isVisited) {
+                    $dateLocationUsedCounts[$locId] = $used + 1;
+                }
                 $item->is_visited = $isVisited;
 
                 if ($isStrict) {
@@ -91,25 +106,11 @@ class ItineraryController extends Controller
         if ($employee) {
             $employee->loadMissing('position');
         }
-        $today = Carbon::today('Asia/Jakarta')->toDateString();
 
-        // Ambil ID lokasi yang sudah di-visit hari ini
-        $visitedLocationIds = \App\Models\AttendanceLog::where('employee_id', $employee->id)
-            ->where('log_type', 'visit_in')
-            ->whereDate('logged_at', $today)
-            ->get()
-            ->map(function ($log) {
-                $meta = is_array($log->metadata) ? $log->metadata : (is_string($log->metadata) ? json_decode($log->metadata, true) : []);
-                $id = is_array($meta) ? ($meta['visit_location_id'] ?? null) : null;
-                return $id ? (int) $id : null;
-            })
-            ->filter()
-            ->unique()
-            ->toArray();
-        
+        // Return all active work locations without filtering out visited locations
+        // so employees can schedule or perform multiple visits to the same area/store in a single day
         $locations = WorkLocation::with('branch')
             ->where('is_active', true)
-            ->whereNotIn('id', $visitedLocationIds)
             ->orderBy('name')
             ->get()
             ->map(function ($loc) use ($employee) {
