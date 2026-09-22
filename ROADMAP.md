@@ -2349,7 +2349,9 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Berkas rilis telah disalin ke:
         - Root: `app-release.apk`, `app-release.aab`, `app-release-1.0.161.apk`, `app-release-1.0.161.aab`
         - Public Admin: `att-admin-v12/public/app-release.apk`, `app-release.aab`, `app-release-1.0.161.apk`, `app-release-1.0.161.aab`
-        - Direktori mobile: `att-mobile/app-release-1.0.161.apk` dan `att-mobile/app-release-1.0.161.aab`52. **Pembaruan Portal Prinsiple Wings: Dashboard Eksekutif Laporan Tools (Properti Free Taste) (22 September 2026)**:
+        - Direktori mobile: `att-mobile/app-release-1.0.161.apk` dan `att-mobile/app-release-1.0.161.aab`
+
+52. **Pembaruan Portal Prinsiple Wings: Dashboard Eksekutif Laporan Tools (Properti Free Taste) (22 September 2026)**:
     - **Latar Belakang & Kebutuhan**:
       - Memperbarui tampilan dashboard portal prinsiple Wings khusus untuk *Laporan Tools (Properti Free Taste)* (`RPT-WINGS-MBR-TOOLS-01`) agar menyajikan wawasan analitik mendalam bagi manajemen Wings.
     - **Metrik & Statistik Kunci**:
@@ -2378,3 +2380,52 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Menyembunyikan tombol "Setujui Laporan" dan "Tolak Laporan" pada halaman detail submisi.
         - Menambahkan kolom status berlabel *Diterima* pada tabel submission dashboard.
         - Migrasi database otomatis (`2026_09_22_130000_auto_approve_wings_tools_submissions.php`) untuk memperbarui status seluruh submisi lama menjadi `'approved'`.
+    - **Penyempurnaan Tampilan Bukti Foto Kerusakan Alat**:
+      - Memperbaiki binding path berkas gambar pada modal bukti foto kerusakan tools di `wings_mbr_tools_dashboard.blade.php` agar secara akurat mengarah ke berkas storage publik `/storage/...` tanpa kendala broken image atau placeholder.
+
+53. **Peningkatan Format Export Excel Multi-Sheet Berstandar Profesional untuk Seluruh Laporan Wings MBR & Koreksi Nama Prinsiple PT WINGS SURYA (22 September 2026)**:
+    - **Latar Belakang & Kebutuhan**:
+      - Format ekspor laporan Wings MBR sebelumnya masih berupa berkas CSV mentah sederhana satu tabel yang belum mencerminkan visualisasi analitik dan pembagian statistik pada dashboard portal eksekutif.
+      - Diperlukan ekspor berkas spreadsheet berformat `.xlsx` asli dengan multi-sheet terstruktur rapi, desain visual elegan khas korporat Wings, dan data yang 100% konsisten dengan angka metrik yang tampil pada layar dashboard portal.
+      - Memperbaiki penamaan resmi prinsiple pada header laporan menjadi **PT WINGS SURYA** (mengoreksi penamaan lama PT SAYAP MAS UTAMA).
+    - **Pembangunan Engine Export Dedicated (`WingsMbrExportService.php`)**:
+      - Menggunakan library `PhpOffice\PhpSpreadsheet` berkinerja tinggi dengan arsitektur streaming `StreamedResponse` langsung ke output (`php://output`) untuk meminimalkan beban memori server dan meniadakan penumpukan berkas temporer pada disk.
+      - Terintegrasi langsung dengan engine kalkulasi dashboard di `PrincipalPortalController.php` (`calculateWingsMbrDashboardData`, `calculateWingsMbrFreeTasteDashboardData`, `calculateWingsMbrToolsDashboardData`) dengan paging maksimum (`$perPage = 100000`) sehingga seluruh perhitungan metrik, total ringkasan, dan peringkat di Excel 100% identik dengan tampilan dashboard.
+    - **Struktur Multi-Sheet 3 Laporan Wings MBR**:
+      - **1. Laporan Penjualan / Sell Out MBR (`RPT-WINGS-MBR-SALES-01`) - 5 Sheet**:
+        - **Sheet 1 (`Ringkasan & KPI`)**: Menyajikan Executive Summary, Tabel 8 Metrik Kinerja Utama (Total Kuantitas Terjual Pcs, Omset Penjualan Rp, Rata-rata Nilai Basket Size Rp, Total Transaksi, Toko Terjangkau, Varian SKU Terjual, Penjualan Hari Ini, Komposisi Bayar di Booth vs Kasir), Komposisi Metode Pembayaran (Rp & %), dan Tren Realisasi Penjualan Harian.
+        - **Sheet 2 (`Top Mitra SPG`)**: Leaderboard peringkat seluruh SPG/MD berdasarkan total omset penjualan (No, NIK, Nama Mitra, Area, Toko/Event, Jumlah Transaksi, Total Item Terjual Pcs, Total Nilai Penjualan Rp).
+        - **Sheet 3 (`Penjualan per Produk`)**: Peringkat varian produk mie instan terlaris (Ranking, SKU Varian Rasa, Kuantitas Terjual Pcs, Kontribusi Omset Rp, Porsi Kontribusi %).
+        - **Sheet 4 (`Performa Area & Region`)**: Rekapitulasi pencapaian performa penjualan per wilayah/area operasional (No, Area Kerja, Toko Terjangkau, Frekuensi Transaksi, Total Volume Terjual Pcs, Total Nilai Omset Rp).
+        - **Sheet 5 (`Data Submisi Transaksi`)**: Rincian transaksi mentah lengkap (No, Kode Transaksi, Waktu Transaksi, Nama Mitra, NIK, Area, Toko, Detail SKU Varian Rasa, Kuantitas Pcs, Total Belanja Rp, Metode Bayar, Koordinat GPS, Hyperlink Foto Struk/Booth).
+      - **2. Laporan Free Taste / Sampling MBR (`RPT-WINGS-MBR-FREETASTE-01`) - 5 Sheet**:
+        - **Sheet 1 (`Ringkasan & KPI`)**: Executive Summary, Tabel Metrik Sampling (Total Bungkus Dimasak, Total Cup Tester Dibagikan, Rata-rata Sampling/Hari, Rasio Standar 4 Cup/Bungkus, Toko Aktif, Frekuensi Submisi), serta Tabel Tren Harian Sampling.
+        - **Sheet 2 (`Top Mitra Sampling`)**: Leaderboard mitra sampling teraktif (No, NIK, Nama Mitra, Area, Toko, Total Bungkus Dimasak, Total Cup Tester, Efektivitas Sampling Cup/Bungkus, Tanggal Terakhir).
+        - **Sheet 3 (`Sampling per Produk`)**: Breakdown varian mie yang disampling (Ranking, Varian Rasa, Bungkus Dimasak Pcs, Cup Tester Dibagikan, Porsi Kontribusi %).
+        - **Sheet 4 (`Performa Area & Region`)**: Performa aktivitas sampling per wilayah dan area operasional.
+        - **Sheet 5 (`Data Submisi Sampling`)**: Data submisi sampling per transaksi lengkap dengan catatan stok awal, masak, tester dibagikan, stok akhir, koordinat GPS, dan tautan foto dokumentasi sampling.
+      - **3. Laporan Tools / Properti MBR (`RPT-WINGS-MBR-TOOLS-01`) - 5 Sheet**:
+        - **Sheet 1 (`Ringkasan & KPI`)**: Executive Summary, Metrik Ketersediaan Tools (Total Inspeksi, Status ADA vs TIDAK, % Ketersediaan), Metrik Kondisi Fisik Tools (Status BAGUS vs RUSAK/TIDAK BAGUS, % Kelaikan Fisik), dan Tren Pelaporan Inspeksi Harian.
+        - **Sheet 2 (`Status 13 Tools Standar`)**: Matriks komprehensif ke-13 alat standar Wings MBR (No, Nama Item Alat, Total Inspeksi, Jumlah ADA, Jumlah TIDAK, % Ketersediaan, Kondisi BAGUS, Kondisi RUSAK, % Kelaikan, Rekomendasi/Tindak Lanjut).
+        - **Sheet 3 (`Daftar Temuan Alat Rusak`)**: Sheet audit khusus daftar alat bermasalah (No, Waktu Temuan, Nama Alat Rusak, Lokasi Toko/Event, Pelapor SPG, NIK, Catatan/Deskripsi Kerusakan, Hyperlink Foto Bukti Kerusakan Fisik).
+        - **Sheet 4 (`Aktivitas Mitra`)**: Leaderboard kepatuhan pelaporan tools per karyawan (No, NIK, Nama Mitra, Area, Toko, Total Laporan Alat, Rasio Ketersediaan %, Laporan Rusak, Tanggal Terakhir).
+        - **Sheet 5 (`Data Submisi Inspeksi`)**: Data riil seluruh entri inspeksi tools (No, Kode Laporan, Waktu Inspeksi, Karyawan, Toko, Nama Alat, Ketersediaan, Kondisi, Deskripsi, Koordinat GPS, Hyperlink Foto Bukti).
+    - **Standar Format & Tipografi Excel Profesional**:
+      - **Corporate Identity Palette**: Header utama menggunakan Navy Blue Wings (`#1E3A8A`) dengan teks putih bold, subheader menggunakan Royal Blue (`#2563EB`) dan Ice Blue Accent (`#EFF6FF`).
+      - **Row Striping**: Baris tabel bergradasi zebra striping halus (`#F8FAFC`) untuk kenyamanan membaca data volume besar.
+      - **Formating Angka Presisi**: Otomatisasi format Rupiah (`Rp #,##0`), format angka ribuan desimal (`#,##0`), dan format persentase satu desimal (`0.0%`).
+      - **Dynamic Column Width & Auto-Fit**: Kolom disesuaikan secara otomatis berdasarkan panjang teks + padding ekstra 3-5 karakter agar label angka tidak pernah terpotong atau menampilkan error `###`.
+      - **Freeze Panes & Summary Borders**: Freeze baris header pada setiap sheet saat scroll vertikal, serta garis double-bottom elegan (`BORDER_DOUBLE`) pada baris total ringkasan.
+      - **Active Cloud Hyperlinks**: Seluruh URL bukti foto struk/booth/alat rusak diformat menjadi tautan interaktif Excel yang dapat diklik langsung membuka browser.
+    - **Koreksi Resmi Nama Entitas Prinsiple**:
+      - Memperbaiki teks nama perusahaan di baris header title dari semula `PT SAYAP MAS UTAMA (WINGS SURYA)` menjadi **`PT WINGS SURYA`** di seluruh template ekspor spreadsheet.
+      - Menyelaraskan filter default principal name pada controller `PrincipalPortalController.php` dan `WingsMbrExportService.php`.
+    - **Penyediaan Tombol Export Excel di Antarmuka Web**:
+      - Menambahkan tombol hijau *"Export Excel"* (`.portal-mbr-btn-export`, `.portal-freetaste-btn-export`, `.portal-tools-btn-export`) langsung pada filter bar ketiga partial dashboard Wings MBR. Tombol secara otomatis membaca filter aktif (rentang tanggal, area, toko, dan query pencarian).
+      - Menambahkan tombol *"Export Excel (.xlsx)"* ber-styling hijau Excel (`#107C41`) pada bagian header atas halaman detail laporan (`report_detail.blade.php`).
+    - **Verifikasi & Deployment**:
+      - Seluruh berkas PHP lulus uji linting (`php -l`) dengan nol sintaks error.
+      - Pengujian CLI menghasilkan berkas `.xlsx` valid: `SALES_EXPORT_OK`, `FREETASTE_EXPORT_OK`, `TOOLS_EXPORT_OK`.
+      - Kode berhasil di-push ke branch `main` repositori GitHub.
+      - Sinkronisasi deployment otomatis berhasil dieksekusi ke Server Development (`appsend.my.id`) dan seluruh kluster Production (AMK, AKP, ATK) dengan status HTTP 200 OK.
+
