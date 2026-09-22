@@ -140,6 +140,17 @@ class AdminPanelProvider extends PanelProvider
                         })();
                     </script>
                     <style>
+                        /* GLOBAL DEFAULT ZOOM 80% FOR ADMIN DASHBOARD */
+                        body {
+                            zoom: 80%;
+                        }
+
+                        @media print {
+                            body {
+                                zoom: 100% !important;
+                            }
+                        }
+
                         /* GLOBAL OUTFIT TYPOGRAPHY & CLEAN PRINCIPAL PORTAL THEME */
                         * {
                             font-family: \'Plus Jakarta Sans\', \'Outfit\', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;

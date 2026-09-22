@@ -62,6 +62,13 @@
             min-height: 100vh;
             display: flex;
             overflow-x: hidden;
+            zoom: 80%;
+        }
+
+        @media print {
+            body {
+                zoom: 100% !important;
+            }
         }
 
         /* Sidebar */
@@ -466,15 +473,15 @@
             flex-direction: column;
             min-height: 100vh;
             min-width: 0;
-            width: calc(100vw - var(--sidebar-width));
-            max-width: calc(100vw - var(--sidebar-width));
+            width: calc(100% - var(--sidebar-width));
+            max-width: calc(100% - var(--sidebar-width));
             transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .sidebar-collapsed .portal-main {
             margin-left: var(--sidebar-collapsed-width);
-            width: calc(100vw - var(--sidebar-collapsed-width));
-            max-width: calc(100vw - var(--sidebar-collapsed-width));
+            width: calc(100% - var(--sidebar-collapsed-width));
+            max-width: calc(100% - var(--sidebar-collapsed-width));
         }
 
         /* Topbar */

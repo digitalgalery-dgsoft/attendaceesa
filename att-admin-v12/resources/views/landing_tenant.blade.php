@@ -51,11 +51,18 @@
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
+            zoom: 80%;
             background-image: 
                 radial-gradient(circle at 15% 10%, rgba(15, 23, 42, 0.03) 0%, transparent 40%),
                 radial-gradient(circle at 85% 60%, rgba(15, 23, 42, 0.02) 0%, transparent 35%),
                 radial-gradient(circle at 50% 90%, #6366f105 0%, transparent 40%);
             background-attachment: fixed;
+        }
+
+        @media print {
+            body {
+                zoom: 100% !important;
+            }
         }
 
         /* Navbar */

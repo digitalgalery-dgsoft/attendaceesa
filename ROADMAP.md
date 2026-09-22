@@ -2303,3 +2303,14 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Dukungan parameter `?mode=hourly|full` pada web cron endpoint `/cron/odoo-sync`.
       - Antarmuka Terminal Web Admin (`/admin/odoo-sync`) dilengkapi selektor mode sinkronisasi (Hourly vs Penuh/Tengah Malam).
 
+49. **Penerapan Default Browser Zoom 80% untuk Web Admin Dashboard & Portal Prinsiple (22 September 2026)**:
+    - **Latar Belakang & Kebutuhan**:
+      - Memudahkan tampilan antarmuka web saat dibuka oleh pengguna di browser komputer/laptop agar layout tabel data, visual chart analitik, matriks roster jadwal, dan form builder muat lebih luas dan rapi tanpa perlu memperkecil zoom browser secara manual (Ctrl + -).
+    - **Implementasi Admin Dashboard (Filament Panel)**:
+      - Menambahkan aturan CSS `body { zoom: 80%; }` secara global pada hook `PanelsRenderHook::HEAD_END` di `AdminPanelProvider.php`.
+      - Dilengkapi proteksi `@media print { body { zoom: 100% !important; } }` agar saat mencetak dokumen/laporan tidak terdistorsi oleh scaling zoom.
+    - **Implementasi Portal Prinsiple & Tenant Login**:
+      - Menambahkan `zoom: 80%;` pada `body` di `portal/layout.blade.php`, `auth/tenant_login.blade.php`, dan `landing_tenant.blade.php`.
+      - Mengoptimalkan perhitungan lebar container utama `.portal-main` dari `calc(100vw - var(--sidebar-width))` menjadi `calc(100% - var(--sidebar-width))` untuk mencegah munculnya horizontal scrollbar yang tidak diinginkan akibat perbedaan satuan viewport dengan elemen ter-zoom.
+
+

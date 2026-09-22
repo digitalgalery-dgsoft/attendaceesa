@@ -50,10 +50,17 @@
             align-items: center;
             justify-content: center;
             padding: 1.5rem;
+            zoom: 80%;
             background-image: 
                 radial-gradient(circle at 10% 15%, {{ $brandColor }}12 0%, transparent 45%),
                 radial-gradient(circle at 90% 85%, {{ $brandColor }}10 0%, transparent 45%);
             background-attachment: fixed;
+        }
+
+        @media print {
+            body {
+                zoom: 100% !important;
+            }
         }
 
         .login-card {
