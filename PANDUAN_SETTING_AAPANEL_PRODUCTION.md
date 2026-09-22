@@ -198,25 +198,33 @@ Buka menu **App Store** $\rightarrow$ cari **Supervisor** $\rightarrow$ klik **S
 
 Buka menu **Cron** di panel samping aaPanel $\rightarrow$ tambahkan 2 Task:
 
-### Task 1: Laravel Master Scheduler (Wajib - Setiap Menit)
+### Task 1: Laravel Master Scheduler (Wajib - Setiap 1 Menit)
 * **Type of Task:** `Shell Script`
 * **Name of Task:** `Laravel Schedule Runner`
 * **Period:** `N Minutes` $\rightarrow$ `1 Minute`
 * **Script Content:**
   ```bash
-  cd /www/wwwroot/att-admin-v12 && php artisan schedule:run >> /dev/null 2>&1
+  cd /www/wwwroot/att-admin-v12 && /www/server/php/83/bin/php artisan schedule:run >> /dev/null 2>&1
   ```
+* *Catatan: Task ini otomatis menjalankan Odoo Sync Hourly setiap jam, Odoo Sync Full/Resign tengah malam (00:00), dan Notifikasi Missed Checkin (08:30).*
 * Klik **Add task**.
 
-### Task 2: Background Odoo Employee Sync Dini Hari (Setiap Pukul 01:00 WIB)
-* **Type of Task:** `Shell Script`
-* **Name of Task:** `Odoo Sync Auto Daily`
-* **Period:** `Day` $\rightarrow$ Hour `1`, Minute `0`
-* **Script Content:**
-  ```bash
-  cd /www/wwwroot/att-admin-v12 && php artisan odoo:sync-employees >> /www/wwwroot/att-admin-v12/storage/logs/odoo_sync_cron.log 2>&1
-  ```
-* Klik **Add task**.
+### Task 2 (Opsional): Dedicated Odoo Sync Log Terpisah di aaPanel
+Jika ingin memantau log sinkronisasi secara mandiri dan terpisah dari master scheduler:
+
+* **A. Odoo Sync Hourly (Hanya Karyawan Aktif & Insert NIK Baru):**
+  * **Period:** `Hour` $\rightarrow$ Menit `0` (Tiap jam)
+  * **Script Content:**
+    ```bash
+    cd /www/wwwroot/att-admin-v12 && /www/server/php/83/bin/php artisan odoo:sync --mode=hourly --trigger=cron >> /www/wwwroot/att-admin-v12/storage/logs/odoo_sync_hourly.log 2>&1
+    ```
+
+* **B. Odoo Sync Tengah Malam (Penuh - Cek Update Data & Status Resign):**
+  * **Period:** `Day` $\rightarrow$ Jam `0`, Menit `0` (Pukul 00:00 WIB)
+  * **Script Content:**
+    ```bash
+    cd /www/wwwroot/att-admin-v12 && /www/server/php/83/bin/php artisan odoo:sync --mode=full --trigger=cron >> /www/wwwroot/att-admin-v12/storage/logs/odoo_sync_midnight.log 2>&1
+    ```
 
 ---
 

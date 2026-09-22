@@ -662,12 +662,18 @@ Route::get('/cron/odoo-sync', function () {
     @set_time_limit(0);
     @ini_set('max_execution_time', '1800');
     @ini_set('memory_limit', '1024M');
+
+    $mode = strtolower(trim((string) request('mode', 'hourly')));
+    if (!in_array($mode, ['hourly', 'full'])) {
+        $mode = 'hourly';
+    }
     
     try {
-        $results = \App\Services\OdooSyncService::syncAllConfiguredCompanies('cron');
+        $results = \App\Services\OdooSyncService::syncAllConfiguredCompanies('cron', null, null, $mode);
         return response()->json([
             'status' => 'success',
-            'message' => 'Odoo sync executed successfully',
+            'mode' => $mode,
+            'message' => "Odoo sync executed successfully [mode: {$mode}]",
             'data' => $results
         ]);
     } catch (\Exception $e) {

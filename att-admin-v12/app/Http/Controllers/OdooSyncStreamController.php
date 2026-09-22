@@ -25,8 +25,12 @@ class OdooSyncStreamController extends Controller
 
         $companyId = $request->get('company_id');
         $action = $request->get('action', 'all'); // 'test_connection', 'cleanup_duplicates', 'principals', 'employees', 'all', 'all_companies'
+        $mode = strtolower(trim((string) $request->get('mode', 'full')));
+        if (!in_array($mode, ['hourly', 'full'])) {
+            $mode = 'full';
+        }
 
-        return new StreamedResponse(function () use ($companyId, $action, $request) {
+        return new StreamedResponse(function () use ($companyId, $action, $mode, $request) {
             @ignore_user_abort(true);
             @set_time_limit(0);
             @ini_set('max_execution_time', '0');
@@ -63,7 +67,8 @@ class OdooSyncStreamController extends Controller
                 @flush();
             };
 
-            $sendEvent('info', "🚀 Engine Odoo Sync Inisialisasi...");
+            $modeLabel = $mode === 'hourly' ? 'HOURLY (Karyawan Aktif Saja & Skip NIK Eksisting)' : 'FULL (Update & Cek Resign)';
+            $sendEvent('info', "🚀 Engine Odoo Sync Inisialisasi... [Mode: {$modeLabel}]");
 
             try {
                 if ($action === 'test_connection') {
@@ -90,9 +95,9 @@ class OdooSyncStreamController extends Controller
                 }
 
                 if ($action === 'all_companies' || $companyId === 'all') {
-                    $sendEvent('info', "🏢 Memulai sinkronisasi seluruh perusahaan yang terkonfigurasi...");
+                    $sendEvent('info', "🏢 Memulai sinkronisasi seluruh perusahaan yang terkonfigurasi [Mode: {$modeLabel}]...");
                     $batchId = 'SYNC-' . date('Ymd-His') . '-' . \Illuminate\Support\Str::random(6);
-                    $results = OdooSyncService::syncAllConfiguredCompanies('manual', $batchId, $sendEvent);
+                    $results = OdooSyncService::syncAllConfiguredCompanies('manual', $batchId, $sendEvent, $mode);
                     $sendEvent('done', "🎉 Seluruh sinkronisasi perusahaan selesai!", ['status' => 'success', 'results' => $results]);
                     return;
                 }
@@ -118,14 +123,15 @@ class OdooSyncStreamController extends Controller
                 }
 
                 if ($action === 'init_employees') {
-                    $sendEvent('info', "👥 Menghubungkan ke Odoo & memeriksa total karyawan untuk {$company->name}...");
-                    $total = $service->countOdooEmployees($company->id);
+                    $sendEvent('info', "👥 Menghubungkan ke Odoo & memeriksa total karyawan untuk {$company->name} [Mode: {$modeLabel}]...");
+                    $total = $service->countOdooEmployees($company->id, null, $mode);
                     $limit = 250;
                     $totalBatches = max(1, ceil($total / $limit));
                     $sendEvent('init_done', "👥 Terdeteksi total {$total} data karyawan di Odoo. Akan diproses dalam {$totalBatches} batch.", [
                         'total' => $total,
                         'limit' => $limit,
                         'total_batches' => $totalBatches,
+                        'mode' => $mode,
                     ]);
                     return;
                 }
@@ -136,10 +142,11 @@ class OdooSyncStreamController extends Controller
                     $batch  = (int) $request->get('batch', 1);
                     $total  = (int) $request->get('total', 0);
 
-                    $batchRes = $service->syncEmployeesBatch($company->id, $offset, $limit, null, $sendEvent, $batch, $total);
+                    $batchRes = $service->syncEmployeesBatch($company->id, $offset, $limit, null, $sendEvent, $batch, $total, $mode);
                     $sendEvent('batch_done', "✅ Batch #{$batch} selesai diproses.", array_merge($batchRes, [
                         'batch'  => $batch,
                         'offset' => $offset,
+                        'mode'   => $mode,
                     ]));
                     return;
                 }
@@ -154,13 +161,16 @@ class OdooSyncStreamController extends Controller
                     OdooSyncLog::create([
                         'batch_id' => $batchId,
                         'company_id' => $company->id,
-                        'sync_type' => 'employee',
+                        'sync_type' => $mode === 'hourly' ? 'hourly' : 'employee',
                         'trigger_type' => 'manual',
                         'status' => $errorsCount === 0 ? 'success' : 'partial',
                         'new_count' => $created,
                         'update_count' => $updated,
                         'resign_count' => $resigned,
                         'total_employee_count' => $totalActive,
+                        'details' => [
+                            'mode' => $mode,
+                        ],
                     ]);
 
                     $sendEvent('done', "🎉 Seluruh proses sinkronisasi karyawan selesai! Total Baru: {$created} | Diperbarui: {$updated} | Resign: {$resigned}", [
@@ -173,22 +183,22 @@ class OdooSyncStreamController extends Controller
                 }
 
                 if ($action === 'employees') {
-                    $sendEvent('info', "👥 Memulai Sync Employees untuk: {$company->name}...");
-                    $result = $service->syncEmployees($company->id, null, $sendEvent);
+                    $sendEvent('info', "👥 Memulai Sync Employees untuk: {$company->name} [Mode: {$modeLabel}]...");
+                    $result = $service->syncEmployees($company->id, null, $sendEvent, $mode);
 
                     // Save log
                     $totalActive = Employee::where('company_id', $company->id)->where('is_active', true)->count();
                     OdooSyncLog::create([
                         'batch_id' => $batchId,
                         'company_id' => $company->id,
-                        'sync_type' => 'employee',
+                        'sync_type' => $mode === 'hourly' ? 'hourly' : 'employee',
                         'trigger_type' => 'manual',
                         'status' => empty($result['errors']) ? 'success' : 'partial',
                         'new_count' => $result['created'],
                         'update_count' => $result['updated'],
                         'resign_count' => $result['resigned'] ?? 0,
                         'total_employee_count' => $totalActive,
-                        'details' => $result,
+                        'details' => array_merge($result, ['mode' => $mode]),
                     ]);
 
                     $sendEvent('done', "✅ Sync Employees selesai. Baru: {$result['created']}, Update: {$result['updated']}, Resign: " . ($result['resigned'] ?? 0), ['status' => 'success', 'result' => $result]);
@@ -196,15 +206,19 @@ class OdooSyncStreamController extends Controller
                 }
 
                 if ($action === 'all') {
-                    $sendEvent('info', "⚡ Memulai Sync Lengkap (Principal + Employee) untuk: {$company->name}...");
+                    $sendEvent('info', "⚡ Memulai Sync Lengkap untuk: {$company->name} [Mode: {$modeLabel}]...");
                     
-                    // 1. Principal
-                    $sendEvent('info', "--- TAHAP 1: SINKRONISASI PRINCIPALS ---");
-                    $pResult = $service->syncPrincipals($company->id, null, $sendEvent);
+                    // 1. Principal (skip jika hourly)
+                    if ($mode !== 'hourly') {
+                        $sendEvent('info', "--- TAHAP 1: SINKRONISASI PRINCIPALS ---");
+                        $pResult = $service->syncPrincipals($company->id, null, $sendEvent);
+                    } else {
+                        $pResult = ['created' => 0, 'updated' => 0, 'errors' => []];
+                    }
                     
                     // 2. Employee
                     $sendEvent('info', "--- TAHAP 2: SINKRONISASI EMPLOYEES ---");
-                    $eResult = $service->syncEmployees($company->id, null, $sendEvent);
+                    $eResult = $service->syncEmployees($company->id, null, $sendEvent, $mode);
 
                     $allErrors = array_merge($pResult['errors'] ?? [], $eResult['errors'] ?? []);
                     $totalActive = Employee::where('company_id', $company->id)->where('is_active', true)->count();
@@ -212,7 +226,7 @@ class OdooSyncStreamController extends Controller
                     OdooSyncLog::create([
                         'batch_id' => $batchId,
                         'company_id' => $company->id,
-                        'sync_type' => 'all',
+                        'sync_type' => $mode === 'hourly' ? 'hourly' : 'all',
                         'trigger_type' => 'manual',
                         'status' => empty($allErrors) ? 'success' : 'partial',
                         'new_count' => $eResult['created'],
@@ -220,8 +234,12 @@ class OdooSyncStreamController extends Controller
                         'resign_count' => $eResult['resigned'] ?? 0,
                         'total_employee_count' => $totalActive,
                         'details' => [
+                            'mode' => $mode,
                             'principals' => $pResult,
-                            'employees' => $eResult,
+                            'new_employees' => $eResult['newEmployees'] ?? [],
+                            'updated_employees' => $eResult['updatedEmployees'] ?? [],
+                            'resigned_employees' => $eResult['resignedEmployees'] ?? [],
+                            'errors' => $allErrors,
                         ],
                     ]);
 

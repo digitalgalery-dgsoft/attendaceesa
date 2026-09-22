@@ -11,9 +11,15 @@ Artisan::command('inspire', function () {
 
 Schedule::command('notify:missed-checkin')->dailyAt('08:30');
 
-// Automated Odoo Synchronization (runs every 30 minutes)
-Schedule::command('odoo:sync --trigger=cron')
-    ->everyThirtyMinutes()
+// 1. Automated Hourly Odoo Synchronization: Hanya cek employee active & insert data baru jika NIK belum ada
+Schedule::command('odoo:sync --mode=hourly --trigger=cron')
+    ->hourly()
+    ->withoutOverlapping()
+    ->runInBackground();
+
+// 2. Automated Midnight Daily Odoo Synchronization: Cek update data & status resign di tengah malam (00:00 WIB)
+Schedule::command('odoo:sync --mode=full --trigger=cron')
+    ->dailyAt('00:00')
     ->withoutOverlapping()
     ->runInBackground();
 

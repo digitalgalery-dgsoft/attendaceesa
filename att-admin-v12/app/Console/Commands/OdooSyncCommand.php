@@ -17,6 +17,7 @@ class OdooSyncCommand extends Command
     protected $signature = 'odoo:sync 
                             {--company= : Sync specific Company ID} 
                             {--trigger=cron : Trigger type (cron or manual)}
+                            {--mode=hourly : Sync mode: "hourly" (active only, new NIK insert only) or "full" (all records, updates, resign check)}
                             {--chunk=250 : Batch chunk size}
                             {--silent : Run without verbose itemized output}';
 
@@ -34,11 +35,20 @@ class OdooSyncCommand extends Command
     {
         $companyId = $this->option('company');
         $trigger = $this->option('trigger') ?: 'cron';
+        $mode = strtolower(trim((string) ($this->option('mode') ?: 'hourly')));
+        if (!in_array($mode, ['hourly', 'full'])) {
+            $mode = 'hourly';
+        }
         $isSilent = (bool) $this->option('silent');
         $batchId = 'SYNC-' . date('Ymd-His') . '-' . Str::random(6);
 
+        $modeTitle = $mode === 'hourly' 
+            ? 'HOURLY (Hanya Cek Karyawan Aktif & Insert NIK Baru)' 
+            : 'FULL (Cek Update Data & Status Resign Tengah Malam)';
+
         $this->info("================================================================================");
         $this->info("🚀 MEMULAI SINKRONISASI ODOO [Batch: {$batchId}, Trigger: {$trigger}]");
+        $this->info("⚙️ Mode Eksekusi : {$modeTitle}");
         $this->info("📅 Waktu Eksekusi: " . date('Y-m-d H:i:s T') . " (Urutan: Data Terbaru / Write Date Desc)");
         $this->info("================================================================================");
 
@@ -92,9 +102,13 @@ class OdooSyncCommand extends Command
                 return self::SUCCESS;
             }
 
-            $this->info("🏢 Memproses Perusahaan Tunggal: {$company->name} (DB: {$company->odoo_db})...");
-            $pResult = $service->syncPrincipals($company->id, null, $progressCallback);
-            $eResult = $service->syncEmployees($company->id, null, $progressCallback);
+            $this->info("🏢 Memproses Perusahaan Tunggal: {$company->name} (DB: {$company->odoo_db}) [Mode: {$mode}]...");
+            if ($mode !== 'hourly') {
+                $pResult = $service->syncPrincipals($company->id, null, $progressCallback);
+            } else {
+                $pResult = ['created' => 0, 'updated' => 0, 'errors' => []];
+            }
+            $eResult = $service->syncEmployees($company->id, null, $progressCallback, $mode);
 
             $this->newLine();
             $this->table(
@@ -113,7 +127,7 @@ class OdooSyncCommand extends Command
         }
 
         // Sync all configured companies
-        $results = OdooSyncService::syncAllConfiguredCompanies($trigger, $batchId, $progressCallback);
+        $results = OdooSyncService::syncAllConfiguredCompanies($trigger, $batchId, $progressCallback, $mode);
 
         $this->newLine();
         $this->info("================================================================================");

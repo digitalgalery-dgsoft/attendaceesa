@@ -273,11 +273,14 @@ class OdooSyncService
     /**
      * Query total number of employees in Odoo.
      */
-    public function countOdooEmployees(int $companyId, ?int $odooCompanyId = null): int
+    public function countOdooEmployees(int $companyId, ?int $odooCompanyId = null, string $mode = 'full'): int
     {
         self::dropLegacyConstraints();
         $uid = $this->authenticate();
         $domain = [];
+        if ($mode === 'hourly') {
+            $domain[] = ['active', '=', true];
+        }
         if ($odooCompanyId) {
             $domain[] = ['company_id', '=', $odooCompanyId];
         }
@@ -287,7 +290,7 @@ class OdooSyncService
                 $this->db, $uid, $this->apiKey,
                 'hr.employee', 'search_count',
                 [$domain],
-                ['context' => ['active_test' => false]],
+                ['context' => ['active_test' => ($mode !== 'hourly' ? false : true)]],
             ]);
             if (is_int($countRes)) {
                 return $countRes;
@@ -302,7 +305,7 @@ class OdooSyncService
     /**
      * Process a single batch of employees from Odoo.
      */
-    public function syncEmployeesBatch(int $companyId, int $offset, int $limit = 250, ?int $odooCompanyId = null, ?callable $progressCallback = null, int $batchNum = 1, int $totalOdooEmployees = 0): array
+    public function syncEmployeesBatch(int $companyId, int $offset, int $limit = 250, ?int $odooCompanyId = null, ?callable $progressCallback = null, int $batchNum = 1, int $totalOdooEmployees = 0, string $mode = 'full'): array
     {
         $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
             if ($progressCallback && is_callable($progressCallback)) {
@@ -317,6 +320,9 @@ class OdooSyncService
 
         $uid = $this->authenticate();
         $domain = [];
+        if ($mode === 'hourly') {
+            $domain[] = ['active', '=', true];
+        }
         if ($odooCompanyId) {
             $domain[] = ['company_id', '=', $odooCompanyId];
         }
@@ -357,7 +363,7 @@ class OdooSyncService
                             'area_id', 'company_id', 'active', 'departure_date',
                             'write_date', 'create_date',
                         ],
-                        'context' => ['active_test' => false],
+                        'context' => ['active_test' => ($mode !== 'hourly' ? false : true)],
                         'order'   => 'write_date desc, id desc',
                         'limit'   => $limit,
                         'offset'  => $offset,
@@ -607,6 +613,19 @@ class OdooSyncService
                 $targetNik = $rawNik ?: ($rawRegNo ?: ('OD-' . $rec['id']));
                 $employeeNo = $targetNik;
 
+                // PROTEKSI SINKRONISASI HOURLY (SIANG / JAM OPERASIONAL):
+                // Jika NIK sudah ada di database sistem, JANGAN UPDATE data apapun!
+                // Mencegah karyawan aktif tiba-tiba terupdate menjadi resign atau datanya berubah di jam kerja.
+                if ($mode === 'hourly') {
+                    $alreadyExists = Employee::withTrashed()->where('employee_no', $targetNik)->exists();
+                    if (!$alreadyExists && !empty($rec['id'])) {
+                        $alreadyExists = Employee::withTrashed()->where('odoo_id', $rec['id'])->where('company_id', $companyId)->exists();
+                    }
+                    if ($alreadyExists) {
+                        continue;
+                    }
+                }
+
                 // Look up existing employee:
                 // Parameter Pencocokan: WAJIB Mengikat ke NIK (employee_no) dan NAMA PRINSIPLE
                 $existingEmployees = collect();
@@ -781,18 +800,21 @@ class OdooSyncService
         }
 
         return [
-            'count'    => $recCount,
-            'created'  => $created,
-            'updated'  => $updated,
-            'resigned' => $resigned,
-            'errors'   => $errors,
+            'count'             => $recCount,
+            'created'           => $created,
+            'updated'           => $updated,
+            'resigned'          => $resigned,
+            'errors'            => $errors,
+            'newEmployees'      => $newEmployees,
+            'updatedEmployees'  => $updatedEmployees,
+            'resignedEmployees' => $resignedEmployees,
         ];
     }
 
     /**
      * Full Sync Employees from Odoo hr.employee (loops through all batches).
      */
-    public function syncEmployees(int $companyId, ?int $odooCompanyId = null, ?callable $progressCallback = null): array
+    public function syncEmployees(int $companyId, ?int $odooCompanyId = null, ?callable $progressCallback = null, string $mode = 'full'): array
     {
         $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
             if ($progressCallback && is_callable($progressCallback)) {
@@ -800,7 +822,7 @@ class OdooSyncService
             }
         };
 
-        $totalOdooEmployees = $this->countOdooEmployees($companyId, $odooCompanyId);
+        $totalOdooEmployees = $this->countOdooEmployees($companyId, $odooCompanyId, $mode);
         $limit = 250;
         $offset = 0;
         $batchNum = 0;
@@ -808,19 +830,32 @@ class OdooSyncService
         $totalUpdated = 0;
         $totalResigned = 0;
         $allErrors = [];
+        $allNewEmployees = [];
+        $allUpdatedEmployees = [];
+        $allResignedEmployees = [];
 
         if ($totalOdooEmployees > 0) {
             $totalBatches = ceil($totalOdooEmployees / $limit);
-            $log('info', "👥 Terdeteksi total {$totalOdooEmployees} data karyawan di Odoo. Memproses dalam {$totalBatches} batch (Ukuran per batch: {$limit})...");
+            $modeLabel = $mode === 'hourly' ? 'Hanya Karyawan Aktif & NIK Baru (Hourly)' : 'Lengkap / Cek Resign (Midnight/Full)';
+            $log('info', "👥 Terdeteksi total {$totalOdooEmployees} data karyawan di Odoo [Mode: {$modeLabel}]. Memproses dalam {$totalBatches} batch (Ukuran per batch: {$limit})...");
         }
 
         do {
             $batchNum++;
-            $batchRes = $this->syncEmployeesBatch($companyId, $offset, $limit, $odooCompanyId, $progressCallback, $batchNum, $totalOdooEmployees);
+            $batchRes = $this->syncEmployeesBatch($companyId, $offset, $limit, $odooCompanyId, $progressCallback, $batchNum, $totalOdooEmployees, $mode);
             $totalCreated += $batchRes['created'];
             $totalUpdated += $batchRes['updated'];
             $totalResigned += $batchRes['resigned'];
             $allErrors = array_merge($allErrors, $batchRes['errors']);
+            if (!empty($batchRes['newEmployees'])) {
+                $allNewEmployees = array_merge($allNewEmployees, $batchRes['newEmployees']);
+            }
+            if (!empty($batchRes['updatedEmployees'])) {
+                $allUpdatedEmployees = array_merge($allUpdatedEmployees, $batchRes['updatedEmployees']);
+            }
+            if (!empty($batchRes['resignedEmployees'])) {
+                $allResignedEmployees = array_merge($allResignedEmployees, $batchRes['resignedEmployees']);
+            }
             $offset += $limit;
 
             $currentTotalProcessed = min($offset, $totalOdooEmployees > 0 ? $totalOdooEmployees : $offset);
@@ -844,10 +879,13 @@ class OdooSyncService
         ]);
 
         return [
-            'created'  => $totalCreated,
-            'updated'  => $totalUpdated,
-            'resigned' => $totalResigned,
-            'errors'   => $allErrors,
+            'created'           => $totalCreated,
+            'updated'           => $totalUpdated,
+            'resigned'          => $totalResigned,
+            'errors'            => $allErrors,
+            'newEmployees'      => $allNewEmployees,
+            'updatedEmployees'  => $allUpdatedEmployees,
+            'resignedEmployees' => $allResignedEmployees,
         ];
     }
 
@@ -858,7 +896,7 @@ class OdooSyncService
      * @param string|null $batchId - Batch identifier
      * @param callable|null $progressCallback - Optional callback for live progress streaming
      */
-    public static function syncAllConfiguredCompanies(string $triggerType = 'cron', ?string $batchId = null, ?callable $progressCallback = null): array
+    public static function syncAllConfiguredCompanies(string $triggerType = 'cron', ?string $batchId = null, ?callable $progressCallback = null, string $mode = 'full'): array
     {
         $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
             if ($progressCallback && is_callable($progressCallback)) {
@@ -881,10 +919,12 @@ class OdooSyncService
             ->get();
 
         $totalCompanies = $companies->count();
-        $log('info', "🏢 Ditemukan {$totalCompanies} perusahaan aktif dengan konfigurasi Odoo lengkap.");
+        $modeLabel = $mode === 'hourly' ? 'HOURLY (Hanya Cek Karyawan Aktif & Insert NIK Baru)' : 'FULL (Update Mutasi & Cek Resign)';
+        $log('info', "🏢 Ditemukan {$totalCompanies} perusahaan aktif dengan konfigurasi Odoo lengkap [Mode: {$modeLabel}].");
 
         $results = [
             'batch_id' => $batchId,
+            'mode' => $mode,
             'companies_count' => $totalCompanies,
             'companies' => [],
             'total_created' => 0,
@@ -922,13 +962,17 @@ class OdooSyncService
                     continue;
                 }
 
-                // 1. Sync Principals
-                $log('info', "--- Sync Principals [{$company->name}] ---");
-                $pResult = $service->syncPrincipals($company->id, null, $progressCallback);
+                // 1. Sync Principals (hanya dijalankan pada mode full/midnight untuk mempercepat mode hourly)
+                if ($mode !== 'hourly') {
+                    $log('info', "--- Sync Principals [{$company->name}] ---");
+                    $pResult = $service->syncPrincipals($company->id, null, $progressCallback);
+                } else {
+                    $pResult = ['created' => 0, 'updated' => 0, 'errors' => []];
+                }
 
                 // 2. Sync Employees
-                $log('info', "--- Sync Employees [{$company->name}] ---");
-                $eResult = $service->syncEmployees($company->id, null, $progressCallback);
+                $log('info', "--- Sync Employees [{$company->name}] [Mode: {$modeLabel}] ---");
+                $eResult = $service->syncEmployees($company->id, null, $progressCallback, $mode);
 
                 $companyResult['created'] = $eResult['created'] ?? 0;
                 $companyResult['updated'] = $eResult['updated'] ?? 0;
@@ -946,7 +990,7 @@ class OdooSyncService
                 \App\Models\OdooSyncLog::create([
                     'batch_id' => $batchId,
                     'company_id' => $company->id,
-                    'sync_type' => 'all',
+                    'sync_type' => $mode === 'hourly' ? 'hourly' : 'all',
                     'trigger_type' => $triggerType,
                     'status' => $companyResult['status'],
                     'new_count' => $companyResult['created'],
@@ -954,6 +998,7 @@ class OdooSyncService
                     'resign_count' => $companyResult['resigned'],
                     'total_employee_count' => $totalActive,
                     'details' => [
+                        'mode' => $mode,
                         'principals' => $pResult,
                         'new_employees' => $eResult['newEmployees'] ?? [],
                         'updated_employees' => $eResult['updatedEmployees'] ?? [],

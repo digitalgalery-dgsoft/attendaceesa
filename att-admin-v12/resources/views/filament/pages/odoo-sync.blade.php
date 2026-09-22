@@ -307,10 +307,10 @@
             </div>
         </div>
 
-        {{-- Row 2: Company Selector Card --}}
+        {{-- Row 2: Company Selector & Mode Card --}}
         <div class="odoo-card" style="padding: 18px 24px;">
-            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px;">
-                <div style="flex: 1; min-width: 280px; max-width: 550px;">
+            <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 18px;">
+                <div style="flex: 1; min-width: 250px; max-width: 400px;">
                     <label style="display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 6px;">
                         Pilih Perusahaan / Entitas Target
                     </label>
@@ -323,7 +323,26 @@
                     </x-filament::input.wrapper>
                 </div>
 
-                <div style="display: flex; align-items: center; gap: 12px; padding-top: 4px;">
+                {{-- Mode Selector --}}
+                <div style="flex: 1; min-width: 280px; max-width: 450px;">
+                    <label style="display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 6px;">
+                        Mode Sinkronisasi
+                    </label>
+                    <x-filament::input.wrapper>
+                        <select x-model="syncMode" x-bind:disabled="isRunning" style="width: 100%; border: none; background: transparent; padding: 8px 12px; font-size: 13px; font-weight: 700; border-radius: 8px; outline: none; cursor: pointer;" class="dark:text-white">
+                            <option value="hourly">⚡ Mode Hourly (Hanya Karyawan Aktif & Insert NIK Baru)</option>
+                            <option value="full">🌙 Mode Penuh / Tengah Malam (Update Mutasi & Cek Resign)</option>
+                        </select>
+                    </x-filament::input.wrapper>
+                    <div style="font-size: 10px; margin-top: 4px; color: #16a34a; font-weight: 600;" x-show="syncMode === 'hourly'">
+                        ✓ Aman di jam kerja: jika NIK sudah ada di sistem, data tidak diubah/resign.
+                    </div>
+                    <div style="font-size: 10px; margin-top: 4px; color: #d97706; font-weight: 600;" x-show="syncMode === 'full'">
+                        ⚠️ Menyesuaikan seluruh data karyawan (promosi, mutasi area) & status resign.
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 12px; padding-bottom: 2px;">
                     <button type="button" @click="startSync('all_companies')" x-bind:disabled="isRunning" class="odoo-btn odoo-btn-gradient" style="padding: 12px 24px; font-size: 13px;">
                         <x-filament::icon icon="heroicon-m-bolt" style="width: 18px; height: 18px;" />
                         <span>Sync Semua Perusahaan Sekaligus</span>
@@ -581,6 +600,7 @@
             return {
                 isRunning: false,
                 isFinished: false,
+                syncMode: 'hourly',
                 currentAction: '',
                 statusText: 'STANDBY',
                 progressPercent: 0,
@@ -672,19 +692,23 @@
                     if (action === 'employees') {
                         await this.runEmployeesChunked(companyId);
                     } else if (action === 'all') {
-                        // 1. Sync Principals first
-                        this.logMessage('info', '--- TAHAP 1: SINKRONISASI PRINCIPALS ---');
-                        const pUrl = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=principals&_t=' + Date.now();
-                        await this.streamUrl(pUrl);
+                        // 1. Sync Principals first (skip jika mode hourly)
+                        if (this.syncMode !== 'hourly') {
+                            this.logMessage('info', '--- TAHAP 1: SINKRONISASI PRINCIPALS ---');
+                            const pUrl = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=principals&mode=' + encodeURIComponent(this.syncMode) + '&_t=' + Date.now();
+                            await this.streamUrl(pUrl);
+                        } else {
+                            this.logMessage('info', '--- TAHAP 1: Sync Principals dilewati pada mode Hourly (hanya sync karyawan aktif & NIK baru) ---');
+                        }
 
                         if (!this.isRunning) return;
 
                         // 2. Sync Employees chunked
-                        this.logMessage('info', '--- TAHAP 2: SINKRONISASI EMPLOYEES ---');
+                        this.logMessage('info', '--- TAHAP 2: SINKRONISASI EMPLOYEES [Mode: ' + this.syncMode.toUpperCase() + '] ---');
                         await this.runEmployeesChunked(companyId);
                     } else {
                         // Single direct stream actions (principals, cleanup_duplicates, test_connection, all_companies)
-                        const url = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=' + encodeURIComponent(action) + '&_t=' + Date.now();
+                        const url = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=' + encodeURIComponent(action) + '&mode=' + encodeURIComponent(this.syncMode) + '&_t=' + Date.now();
                         await this.streamUrl(url);
                         this.finishSync();
                     }
@@ -692,10 +716,10 @@
 
                 async runEmployeesChunked(companyId) {
                     this.statusText = 'CHECKING ODOO...';
-                    this.logMessage('info', '▶️ Memulai proses sinkronisasi karyawan. Memeriksa total data di Odoo...');
+                    this.logMessage('info', '▶️ Memulai proses sinkronisasi karyawan [Mode: ' + this.syncMode.toUpperCase() + ']. Memeriksa total data di Odoo...');
 
                     // Step 1: Initialize & count total records in Odoo
-                    const initUrl = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=init_employees&_t=' + Date.now();
+                    const initUrl = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=init_employees&mode=' + encodeURIComponent(this.syncMode) + '&_t=' + Date.now();
                     const initRes = await this.streamUrl(initUrl);
 
                     if (!this.isRunning) return;
@@ -715,7 +739,7 @@
                         this.currentBatchText = 'Batch #' + b + '/' + totalBatches;
                         this.statusText = 'BATCH #' + b + '/' + totalBatches;
 
-                        const batchUrl = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=batch_employees&offset=' + offset + '&limit=' + limit + '&batch=' + b + '&total=' + total + '&_t=' + Date.now();
+                        const batchUrl = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=batch_employees&offset=' + offset + '&limit=' + limit + '&batch=' + b + '&total=' + total + '&mode=' + encodeURIComponent(this.syncMode) + '&_t=' + Date.now();
 
                         let batchSuccess = false;
                         let retryCount = 0;
@@ -750,7 +774,7 @@
                     // Step 3: Finalize & Save sync log
                     this.progressPercent = 100;
                     this.statusText = 'FINALIZING...';
-                    const finishUrl = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=finish_employees&created=' + this.metrics.created + '&updated=' + this.metrics.updated + '&resigned=' + this.metrics.resigned + '&errors=' + this.metrics.errors + '&_t=' + Date.now();
+                    const finishUrl = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=finish_employees&created=' + this.metrics.created + '&updated=' + this.metrics.updated + '&resigned=' + this.metrics.resigned + '&errors=' + this.metrics.errors + '&mode=' + encodeURIComponent(this.syncMode) + '&_t=' + Date.now();
                     await this.streamUrl(finishUrl);
 
                     this.finishSync();

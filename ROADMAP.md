@@ -2284,3 +2284,22 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Menyediakan tombol *"Download Template Excel"* pada header halaman Master Shift (`/admin/shifts`) yang menghasilkan berkas `Template_Import_Shift.xlsx` ber-styling rapi lengkap dengan 4 contoh data shift operasional.
       - **Hardening ShiftImporter Bawaan**:
         - Memperbaiki `ShiftImporter.php` dengan merelaksasi validasi kolom opsional, mengisi nilai *fallback* default pada `beforeSave()`, dan resolusi record cerdas pada `resolveRecord()`.
+
+48. **Pembaruan Metode Sinkronisasi Odoo: Hourly Active-Only (Skip NIK Eksisting) & Midnight Resign Check (22 September 2026)**:
+    - **Latar Belakang & Masalah**:
+      - Terjadi kendala di mana beberapa karyawan yang sebenarnya aktif tiba-tiba terupdate menjadi status *resign* di tengah jam operasional karena proses auto-sync Odoo berjalan setiap 30 menit. Hal ini mengganggu kelancaran aktivitas absensi karyawan di lapangan.
+    - **Pemisahan Metode Sinkronisasi Dua Mode (`OdooSyncService.php`)**:
+      - **Mode Hourly (`--mode=hourly`) - Berjalan Setiap Jam di Jam Kerja**:
+        - Mengambil data dari Odoo hanya untuk karyawan yang berstatus aktif (`['active', '=', true]` dan context `['active_test' => true]`).
+        - **Proteksi Skip NIK Eksisting**: Memeriksa apakah NIK (`employee_no`) sudah terdaftar di database sistem lokal. Jika NIK sudah ada, proses update data dan status resign **DILEWATI SEPENUHNYA (SKIP)** tanpa menyentuh akun yang sudah ada.
+        - Hanya memproses penambahan (*insert*) akun karyawan baru yang NIK-nya belum tercatat di sistem (dengan password default `123456`).
+        - Melewati sinkronisasi Principals mandiri untuk memangkas waktu eksekusi agar berlangsung ringan dan cepat.
+      - **Mode Midnight (`--mode=full`) - Berjalan Tengah Malam (00:00 WIB)**:
+        - Terjadwal otomatis setiap hari pukul `00:00` WIB melalui Laravel Schedule (`Schedule::command('odoo:sync --mode=full --trigger=cron')->dailyAt('00:00')`).
+        - Menjalankan sinkronisasi penuh untuk pembaruan data karyawan (promosi jabatan, mutasi area/cabang, pembaruan email/no telp) serta pengecekan status resign di luar jam operasional kerja.
+    - **Penjadwalan & Integrasi CLI**:
+      - Pembaruan `routes/console.php` membagi jadwal otomatis: `hourly()` untuk mode `hourly` dan `dailyAt('00:00')` untuk mode `full`.
+      - Penambahan opsi `{--mode=hourly}` (default aman) pada artisan command `odoo:sync`.
+      - Dukungan parameter `?mode=hourly|full` pada web cron endpoint `/cron/odoo-sync`.
+      - Antarmuka Terminal Web Admin (`/admin/odoo-sync`) dilengkapi selektor mode sinkronisasi (Hourly vs Penuh/Tengah Malam).
+
