@@ -912,6 +912,11 @@ class PrincipalPortalController extends Controller
             || str_contains($template->code, 'MBR-FREETASTE')
             || (str_contains(strtolower($template->title ?? ''), 'mbr') && (str_contains(strtolower($template->title ?? ''), 'free taste') || str_contains(strtolower($template->title ?? ''), 'sampling'))));
 
+        $isWingsMbrToolsReport = ($template->code === 'RPT-WINGS-MBR-TOOLS-01'
+            || str_contains($template->code, 'MBR-TOOLS')
+            || str_contains($template->code, 'WINGS-TOOLS')
+            || (str_contains(strtolower($template->title ?? ''), 'tools') && str_contains(strtolower($template->title ?? ''), 'properti')));
+
         $isWingsMbrReport         = $isWingsMbrSalesReport;
 
         // --- WINGS MBR SALES EXECUTIVE DASHBOARD ---
@@ -1027,6 +1032,64 @@ class PrincipalPortalController extends Controller
                 'activeTab'
             ));
         }
+
+        // --- WINGS MBR TOOLS (PROPERTI FREE TASTE) EXECUTIVE DASHBOARD ---
+        if ($isWingsMbrToolsReport) {
+            $wingsMbrToolsData = $this->calculateWingsMbrToolsDashboardData(
+                $template,
+                $startDate,
+                $endDate,
+                $selectedRegion,
+                $selectedAreaId,
+                $selectedLocationId,
+                $search
+            );
+
+            $regions = $wingsMbrToolsData['regions'] ?? [];
+            $areas = $wingsMbrToolsData['areas'] ?? collect();
+            $workLocations = $wingsMbrToolsData['work_locations'] ?? collect();
+            $submissions = $wingsMbrToolsData['submissions'];
+            $liveSubmissionsCount = $submissions->total();
+            $totalTemplateSubmissions = $wingsMbrToolsData['kpis']['total_submissions'] ?? $liveSubmissionsCount;
+            $uniqueStores = $wingsMbrToolsData['kpis']['unique_stores'] ?? 0;
+            $dashboardConfig = [];
+            $widgetResults = [];
+            $isYtdReport = false;
+            $ytdData = [];
+            $activeTab = $request->query('tab', 'dashboard');
+
+            return view('portal.report_detail', compact(
+                'tenantPrincipal',
+                'tenantPrincipalsAll',
+                'brandColor',
+                'activeTemplates',
+                'template',
+                'submissions',
+                'liveSubmissionsCount',
+                'totalTemplateSubmissions',
+                'uniqueStores',
+                'startMonth',
+                'startYear',
+                'endMonth',
+                'endYear',
+                'search',
+                'selectedRegion',
+                'selectedAreaId',
+                'selectedLocationId',
+                'regions',
+                'areas',
+                'workLocations',
+                'setting',
+                'dashboardConfig',
+                'widgetResults',
+                'isYtdReport',
+                'ytdData',
+                'isWingsMbrToolsReport',
+                'wingsMbrToolsData',
+                'activeTab'
+            ));
+        }
+
 
         // --- Stock End Custom Handling (Pivotable Store Volume, SCM / Summ & Raw Submissions from stock_YYYY.sqlite) ---
         if ($isStockReport) {
@@ -13207,6 +13270,413 @@ class PrincipalPortalController extends Controller
             'sampling_by_area' => $samplingByArea,
             'sampling_by_region' => $samplingByRegion,
             'gallery_photos' => $galleryPhotos,
+        ];
+    }
+
+    /**
+     * Calculate Executive Analytics for Wings MBR Tools (Properti Free Taste) Report
+     */
+    protected function calculateWingsMbrToolsDashboardData(
+        ReportTemplate $template,
+        Carbon $startDate,
+        Carbon $endDate,
+        ?string $selectedRegion,
+        $selectedAreaId,
+        $selectedLocationId,
+        ?string $search,
+        int $perPage = 25
+    ): array {
+        $driver = DB::connection()->getDriverName();
+        $likeOp = $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
+
+        // 1. Build Query for Tools Submissions in selected period
+        $query = ReportSubmission::where('report_template_id', $template->id)
+            ->where(function($q) use ($startDate, $endDate) {
+                $q->whereBetween('submitted_at', [$startDate, $endDate])
+                  ->orWhere(function($subQ) use ($startDate, $endDate) {
+                      $subQ->whereNull('submitted_at')
+                           ->whereBetween('created_at', [$startDate, $endDate]);
+                  });
+            })
+            ->with([
+                'employee.branch',
+                'workLocation.branch',
+                'values.formField'
+            ]);
+
+        if ($selectedRegion) {
+            $query->where(function($q) use ($selectedRegion) {
+                $q->whereHas('workLocation', fn($w) => $w->where('region', $selectedRegion))
+                  ->orWhereHas('employee.branch', fn($b) => $b->where('region', $selectedRegion));
+            });
+        }
+        if ($selectedAreaId) {
+            $query->where(function($q) use ($selectedAreaId) {
+                if (is_numeric($selectedAreaId)) {
+                    $q->whereHas('workLocation', fn($w) => $w->where('branch_id', $selectedAreaId))
+                      ->orWhereHas('employee', fn($e) => $e->where('branch_id', $selectedAreaId));
+                } else {
+                    $q->whereHas('workLocation.branch', fn($b) => $b->where('name', $selectedAreaId))
+                      ->orWhereHas('employee.branch', fn($b) => $b->where('name', $selectedAreaId));
+                }
+            });
+        }
+        if ($selectedLocationId) {
+            $query->where(function($q) use ($selectedLocationId) {
+                if (is_numeric($selectedLocationId)) {
+                    $q->where('work_location_id', $selectedLocationId);
+                } else {
+                    $q->whereHas('workLocation', fn($w) => $w->where('name', $selectedLocationId))
+                      ->orWhere('store_name', $selectedLocationId);
+                }
+            });
+        }
+        if ($search) {
+            $query->where(function ($q) use ($search, $likeOp) {
+                $q->whereHas('employee', function ($sub) use ($search, $likeOp) {
+                    $sub->where('full_name', $likeOp, "%{$search}%")
+                        ->orWhere('employee_no', $likeOp, "%{$search}%");
+                })->orWhereHas('workLocation', function ($sub) use ($search, $likeOp) {
+                    $sub->where('name', $likeOp, "%{$search}%");
+                })->orWhereHas('values', function($sub) use ($search, $likeOp) {
+                    $sub->where('value_text', $likeOp, "%{$search}%");
+                });
+            });
+        }
+
+        $allSubmissions = (clone $query)->orderBy('submitted_at', 'desc')->get();
+        $submissions = (clone $query)->orderBy('submitted_at', 'desc')->paginate($perPage);
+
+        // 2. Retrieve distinct regions, areas, and stores strictly from the actual submissions of this template
+        $allTemplateSubmissions = ReportSubmission::where('report_template_id', $template->id)
+            ->with(['workLocation.branch', 'employee.branch'])
+            ->get();
+
+        $regionsList = [];
+        $areasList = [];
+        $storesList = [];
+
+        foreach ($allTemplateSubmissions as $subItem) {
+            $wl = $subItem->workLocation;
+            $emp = $subItem->employee;
+
+            $reg = !empty($wl?->region) ? strtoupper(trim($wl->region)) : (!empty($emp?->branch?->region) ? strtoupper(trim($emp->branch->region)) : null);
+            if ($reg && !in_array($reg, $regionsList)) {
+                $regionsList[] = $reg;
+            }
+
+            $areaName = !empty($wl?->branch?->name) ? strtoupper(trim($wl->branch->name)) : (!empty($emp?->branch?->name) ? strtoupper(trim($emp->branch->name)) : null);
+            $areaId = $wl?->branch_id ?? ($emp?->branch_id ?? $areaName);
+            if ($areaName && !isset($areasList[$areaName])) {
+                $areasList[$areaName] = (object)[
+                    'id' => $areaId,
+                    'name' => $areaName,
+                    'region' => $reg ?? ''
+                ];
+            }
+
+            $storeName = !empty($wl?->name) ? trim($wl->name) : (!empty($subItem->store_name) ? trim($subItem->store_name) : null);
+            $storeId = $wl?->id ?? ($subItem->store_name ?? null);
+            if ($storeName && !isset($storesList[$storeName])) {
+                $storesList[$storeName] = (object)[
+                    'id' => $storeId,
+                    'name' => $storeName,
+                    'area' => $areaName ?? '',
+                    'region' => $reg ?? ''
+                ];
+            }
+        }
+
+        sort($regionsList);
+        ksort($areasList);
+        ksort($storesList);
+
+        $regions = $regionsList;
+        $areas = collect(array_values($areasList));
+        $workLocations = collect(array_values($storesList));
+
+        // 3. 13 Standar Tools Free Taste
+        $standardTools = [
+            '1 Pcs panci susu',
+            '1 Pcs mangkuk pengaduk',
+            '1 Pcs Gunting',
+            '2 set sendok garpu',
+            '1 pcs centong sayur',
+            '1 pcs capitan',
+            '1 Pcs Pompa dispenser air (optional)',
+            '1 Pcs Galon air',
+            '1 Pcs Kompor portable + Gas',
+            '1 pcs saringan / tirisan mie',
+            '1 Pcs tray',
+            '1 Gelas Takar',
+            'Papercup & Garpu kecil (untuk pengunjung)',
+        ];
+
+        // 4. Processing Submissions Data & Value Aggregation
+        $totalSubmissions = $allSubmissions->count();
+        $totalAda = 0;
+        $totalTidak = 0;
+        $totalBagus = 0;
+        $totalTidakBagus = 0;
+
+        $toolsBreakdown = [];
+        foreach ($standardTools as $st) {
+            $toolsBreakdown[$st] = [
+                'name' => $st,
+                'total_inspected' => 0,
+                'ada' => 0,
+                'tidak' => 0,
+                'bagus' => 0,
+                'tidak_bagus' => 0,
+                'photos_defect' => [],
+            ];
+        }
+
+        $employeeMap = [];
+        $uniqueStoresMap = [];
+        $dailyTrend = [];
+        $defectGallery = [];
+
+        // Inisialisasi rentang hari untuk tren
+        $curr = $startDate->copy();
+        while ($curr->lte($endDate)) {
+            $dKey = $curr->format('Y-m-d');
+            $dailyTrend[$dKey] = [
+                'date' => $dKey,
+                'day_label' => $curr->format('d M'),
+                'total' => 0,
+                'ada' => 0,
+                'tidak' => 0,
+                'tidak_bagus' => 0,
+            ];
+            $curr->addDay();
+        }
+
+        foreach ($allSubmissions as $sub) {
+            $emp = $sub->employee;
+            $empId = $sub->employee_id ?? ($emp?->id ?? 0);
+            $empName = $emp?->full_name ?? ($emp?->name ?? 'Petugas Lapangan');
+            $empNik = $emp?->employee_no ?? ($emp?->nik ?? '-');
+            $branchName = $emp?->branch?->name ?? ($sub->workLocation?->branch?->name ?? '-');
+            $storeName = $sub->workLocation?->name ?? ($sub->store_name ?? 'Outlet');
+            $storeId = $sub->work_location_id ?? $storeName;
+
+            if (!isset($uniqueStoresMap[$storeId])) {
+                $uniqueStoresMap[$storeId] = true;
+            }
+
+            // Extract values
+            $toolName = null;
+            $availability = null;
+            $condition = null;
+            $photoUrl = null;
+
+            foreach ($sub->values as $val) {
+                $fn = strtolower(trim($val->field_name ?? ''));
+                $txt = trim((string)($val->value_text ?? ''));
+
+                if ($fn === 'nama_tools' || str_contains($fn, 'tools') || str_contains($fn, 'nama')) {
+                    $toolName = $txt;
+                } elseif ($fn === 'status_ketersediaan' || str_contains($fn, 'ketersediaan')) {
+                    $availability = strtoupper($txt);
+                } elseif ($fn === 'kondisi_tools' || str_contains($fn, 'kondisi')) {
+                    $condition = strtoupper($txt);
+                } elseif ($fn === 'foto_tools' || str_contains($fn, 'foto') || $val->field_type === 'camera_photo') {
+                    $photoUrl = $val->media_url ?: $txt;
+                }
+            }
+
+            // Normalize
+            $availability = ($availability === 'ADA') ? 'ADA' : (($availability === 'TIDAK' || $availability === 'TIDAK ADA') ? 'TIDAK' : ($availability ?: 'ADA'));
+            if ($availability === 'ADA') {
+                $totalAda++;
+                if ($condition === 'TIDAK BAGUS' || $condition === 'RUSAK') {
+                    $condition = 'TIDAK BAGUS';
+                    $totalTidakBagus++;
+                } else {
+                    $condition = 'BAGUS';
+                    $totalBagus++;
+                }
+            } else {
+                $totalTidak++;
+                $condition = '-';
+            }
+
+            if (!$toolName) {
+                $toolName = 'Alat Standar Free Taste';
+            }
+
+            // Attach to tools breakdown
+            $matchedKey = null;
+            foreach ($standardTools as $st) {
+                if (strcasecmp(trim($st), trim($toolName)) === 0 || str_contains(strtolower($st), strtolower(trim($toolName))) || str_contains(strtolower(trim($toolName)), strtolower($st))) {
+                    $matchedKey = $st;
+                    break;
+                }
+            }
+            if (!$matchedKey) {
+                $matchedKey = $toolName;
+                if (!isset($toolsBreakdown[$matchedKey])) {
+                    $toolsBreakdown[$matchedKey] = [
+                        'name' => $matchedKey,
+                        'total_inspected' => 0,
+                        'ada' => 0,
+                        'tidak' => 0,
+                        'bagus' => 0,
+                        'tidak_bagus' => 0,
+                        'photos_defect' => [],
+                    ];
+                }
+            }
+
+            $toolsBreakdown[$matchedKey]['total_inspected']++;
+            if ($availability === 'ADA') {
+                $toolsBreakdown[$matchedKey]['ada']++;
+                if ($condition === 'TIDAK BAGUS') {
+                    $toolsBreakdown[$matchedKey]['tidak_bagus']++;
+                    if ($photoUrl) {
+                        $toolsBreakdown[$matchedKey]['photos_defect'][] = [
+                            'url' => $photoUrl,
+                            'sub_code' => $sub->submission_code,
+                            'store' => $storeName,
+                            'mitra' => $empName,
+                            'time' => $sub->submitted_at?->format('d M Y H:i') ?? '-',
+                        ];
+                    }
+                } else {
+                    $toolsBreakdown[$matchedKey]['bagus']++;
+                }
+            } else {
+                $toolsBreakdown[$matchedKey]['tidak']++;
+            }
+
+            if ($photoUrl && $condition === 'TIDAK BAGUS') {
+                $defectGallery[] = [
+                    'url' => $photoUrl,
+                    'tool' => $toolName,
+                    'store' => $storeName,
+                    'mitra' => $empName,
+                    'time' => $sub->submitted_at?->format('d M Y H:i') ?? '-',
+                ];
+            }
+
+            // Employee leaderboard
+            if ($empId) {
+                if (!isset($employeeMap[$empId])) {
+                    $employeeMap[$empId] = [
+                        'id' => $empId,
+                        'name' => $empName,
+                        'nik' => $empNik,
+                        'branch_name' => $branchName,
+                        'store_name' => $storeName,
+                        'total_reports' => 0,
+                        'count_ada' => 0,
+                        'count_tidak' => 0,
+                        'count_bagus' => 0,
+                        'count_tidak_bagus' => 0,
+                        'last_submitted_at' => $sub->submitted_at,
+                    ];
+                }
+                $employeeMap[$empId]['total_reports']++;
+                if ($availability === 'ADA') {
+                    $employeeMap[$empId]['count_ada']++;
+                    if ($condition === 'TIDAK BAGUS') {
+                        $employeeMap[$empId]['count_tidak_bagus']++;
+                    } else {
+                        $employeeMap[$empId]['count_bagus']++;
+                    }
+                } else {
+                    $employeeMap[$empId]['count_tidak']++;
+                }
+                if ($sub->submitted_at && (!$employeeMap[$empId]['last_submitted_at'] || $sub->submitted_at->gt($employeeMap[$empId]['last_submitted_at']))) {
+                    $employeeMap[$empId]['last_submitted_at'] = $sub->submitted_at;
+                }
+            }
+
+            // Daily trend
+            $subDateKey = ($sub->submitted_at ?? $sub->created_at)?->format('Y-m-d');
+            if ($subDateKey && isset($dailyTrend[$subDateKey])) {
+                $dailyTrend[$subDateKey]['total']++;
+                if ($availability === 'ADA') {
+                    $dailyTrend[$subDateKey]['ada']++;
+                } else {
+                    $dailyTrend[$subDateKey]['tidak']++;
+                }
+                if ($condition === 'TIDAK BAGUS') {
+                    $dailyTrend[$subDateKey]['tidak_bagus']++;
+                }
+            }
+        }
+
+        // Percentage calculations
+        $percentAda = $totalSubmissions > 0 ? round(($totalAda / $totalSubmissions) * 100, 1) : 0;
+        $percentTidak = $totalSubmissions > 0 ? round(($totalTidak / $totalSubmissions) * 100, 1) : 0;
+        $percentBagus = $totalAda > 0 ? round(($totalBagus / $totalAda) * 100, 1) : 0;
+        $percentTidakBagus = $totalAda > 0 ? round(($totalTidakBagus / $totalAda) * 100, 1) : 0;
+
+        // Sort employees by total_reports descending
+        usort($employeeMap, fn($a, $b) => $b['total_reports'] <=> $a['total_reports']);
+        $activeEmployees = array_slice($employeeMap, 0, 15);
+
+        // Enhance tool breakdowns with percentages
+        foreach ($toolsBreakdown as &$tb) {
+            $tTotal = $tb['total_inspected'];
+            $tAda = $tb['ada'];
+            $tb['percent_ada'] = $tTotal > 0 ? round(($tAda / $tTotal) * 100, 1) : 0;
+            $tb['percent_tidak'] = $tTotal > 0 ? round(($tb['tidak'] / $tTotal) * 100, 1) : 0;
+            $tb['percent_bagus'] = $tAda > 0 ? round(($tb['bagus'] / $tAda) * 100, 1) : 0;
+            $tb['percent_tidak_bagus'] = $tAda > 0 ? round(($tb['tidak_bagus'] / $tAda) * 100, 1) : 0;
+        }
+        unset($tb);
+
+        // Chart data
+        $chartLabels = array_column(array_values($dailyTrend), 'day_label');
+        $chartTotal = array_column(array_values($dailyTrend), 'total');
+        $chartAda = array_column(array_values($dailyTrend), 'ada');
+        $chartTidak = array_column(array_values($dailyTrend), 'tidak');
+        $chartTidakBagus = array_column(array_values($dailyTrend), 'tidak_bagus');
+
+        return [
+            'submissions' => $submissions,
+            'regions' => $regions,
+            'areas' => $areas,
+            'work_locations' => $workLocations,
+            'kpis' => [
+                'total_submissions' => $totalSubmissions,
+                'total_ada' => $totalAda,
+                'percent_ada' => $percentAda,
+                'total_tidak' => $totalTidak,
+                'percent_tidak' => $percentTidak,
+                'total_bagus' => $totalBagus,
+                'percent_bagus' => $percentBagus,
+                'total_tidak_bagus' => $totalTidakBagus,
+                'percent_tidak_bagus' => $percentTidakBagus,
+                'unique_stores' => count($uniqueStoresMap),
+                'unique_mitras' => count($employeeMap),
+                'total_defect_photos' => count($defectGallery),
+            ],
+            'chart' => [
+                'daily' => [
+                    'labels' => $chartLabels,
+                    'totals' => $chartTotal,
+                    'adas' => $chartAda,
+                    'tidaks' => $chartTidak,
+                    'tidak_bagus' => $chartTidakBagus,
+                ],
+                'donut_ketersediaan' => [
+                    'series' => [$totalAda, $totalTidak],
+                    'labels' => ['Tools Tersedia (ADA)', 'Tidak Ada (TIDAK)'],
+                    'percentages' => [$percentAda, $percentTidak],
+                ],
+                'donut_kondisi' => [
+                    'series' => [$totalBagus, $totalTidakBagus],
+                    'labels' => ['Kondisi BAGUS', 'TIDAK BAGUS / Rusak'],
+                    'percentages' => [$percentBagus, $percentTidakBagus],
+                ],
+            ],
+            'tools_breakdown' => array_values($toolsBreakdown),
+            'active_employees' => $activeEmployees,
+            'defect_gallery' => $defectGallery,
         ];
     }
 

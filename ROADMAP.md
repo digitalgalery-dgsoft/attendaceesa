@@ -2349,8 +2349,24 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Berkas rilis telah disalin ke:
         - Root: `app-release.apk`, `app-release.aab`, `app-release-1.0.161.apk`, `app-release-1.0.161.aab`
         - Public Admin: `att-admin-v12/public/app-release.apk`, `app-release.aab`, `app-release-1.0.161.apk`, `app-release-1.0.161.aab`
-        - Direktori mobile: `att-mobile/app-release-1.0.161.apk` dan `att-mobile/app-release-1.0.161.aab`
-
-
-
+        - Direktori mobile: `att-mobile/app-release-1.0.161.apk` dan `att-mobile/app-release-1.0.161.aab`52. **Pembaruan Portal Prinsiple Wings: Dashboard Eksekutif Laporan Tools (Properti Free Taste) (22 September 2026)**:
+    - **Latar Belakang & Kebutuhan**:
+      - Memperbarui tampilan dashboard portal prinsiple Wings khusus untuk *Laporan Tools (Properti Free Taste)* (`RPT-WINGS-MBR-TOOLS-01`) agar menyajikan wawasan analitik mendalam bagi manajemen Wings.
+    - **Metrik & Statistik Kunci**:
+      - **Statistik Persentase Ketersediaan Tools**: Menghitung total inspeksi, jumlah & rasio persentase status *ADA* vs *TIDAK*.
+      - **Statistik Persentase Kondisi Tools**: Menghitung rasio persentase kondisi alat *BAGUS* vs *TIDAK BAGUS*.
+      - **Visualisasi Grafik (ApexCharts)**:
+        - Donut Chart Status Ketersediaan Tools (Emerald & Rose).
+        - Donut Chart Kondisi Tools (Indigo & Amber).
+        - Area Line Chart Tren Pelaporan Harian.
+      - **Tabel Analisis Breakdown per Alat (13 Tools Standar)**:
+        - Menyajikan status ketersediaan, kondisi fisik, dan galeri foto kondisi rusak untuk setiap item (Baju Koki, Celemek, Topi Koki, Sarung Tangan, Meja Booth, Kompor Portable, Gas Portable, Panci/Wajan, Spatula/Capitan, Cup/Gelas Tester, Tusuk Gigi/Sendok, Tissue/Lap, Tempat Sampah).
+    - **Peringkat Karyawan Teraktif (Leaderboard)**:
+      - Menampilkan peringkat SPG / MD teraktif dalam mengirimkan laporan tools beserta NIK, Area, Toko/Event, Total Laporan, Rasio Alat Ada, Laporan Kerusakan, dan Aktivitas Terakhir.
+    - **Tabel Rincian Data Submission Lengkap**:
+      - Daftar seluruh submission dengan No, Kode Laporan, Waktu, Karyawan, Toko, Nama Alat, Badge Ketersediaan, Badge Kondisi, Tombol Bukti Foto (Lightroom Zoom), Status GPS, dan Tombol Modal Detail.
+    - **Implementasi File**:
+      - Controller: `PrincipalPortalController.php` (fungsi `calculateWingsMbrToolsDashboardData()`).
+      - View Wrapper: `portal/report_detail.blade.php`.
+      - View Partial: `portal/partials/wings_mbr_tools_dashboard.blade.php`.
 
