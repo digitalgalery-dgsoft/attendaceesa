@@ -1,0 +1,25 @@
+# Subsystem: dashboards-ecommerce.blad
+
+> 1 nodes
+
+## Key Concepts
+
+- **dashboards-ecommerce.blade.php** (0 connections) — `att-admindashboard/resources/views/content/dashboard/dashboards-ecommerce.blade.php`
+
+## Relationships
+
+- No strong cross-community connections detected
+
+## Source Files
+
+- `att-admindashboard/resources/views/content/dashboard/dashboards-ecommerce.blade.php`
+
+## Audit Trail
+
+- EXTRACTED: 0 (0%)
+- INFERRED: 0 (0%)
+- AMBIGUOUS: 0 (0%)
+
+---
+
+*Part of the graphify knowledge wiki. See [index](index.md) to navigate.*

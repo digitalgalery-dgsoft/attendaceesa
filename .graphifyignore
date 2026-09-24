@@ -1,0 +1,50 @@
+# Ignore dependencies and third-party code
+**/vendor/**
+vendor/**
+**/node_modules/**
+node_modules/**
+
+# Ignore mobile build artifacts and platform wrappers
+att-mobile/build/**
+att-mobile/android/**
+att-mobile/ios/**
+att-mobile/windows/**
+att-mobile/linux/**
+att-mobile/macos/**
+att-mobile/web/**
+att-mobile/.dart_tool/**
+att-mobile-backup/**
+
+# Ignore admin build artifacts and storage
+att-admin-v12/vendor/**
+att-admin-v12/node_modules/**
+att-admin-v12/storage/**
+att-admin-v12/public/build/**
+att-admin-v12/public/storage/**
+
+# Ignore large archives, media, and presentations
+*.apk
+*.aab
+*.zip
+*.pptx
+*.xlsx
+*.xls
+*.pdf
+*.mp4
+*.png
+*.jpeg
+*.jpg
+*.csv
+odoocustoms/**
+odoocustoms.zip
+vuexy-laravel-full-version.zip
+live_tracking-starting.zip
+keystore_backup/**
+load_testing/**
+releases/**
+APK/**
+SS/**
+scratch/**
+
+# Ignore graphify outputs
+graphify-out/**

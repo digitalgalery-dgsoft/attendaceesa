@@ -1,0 +1,25 @@
+# Subsystem: extended-ui-media-player.
+
+> 1 nodes
+
+## Key Concepts
+
+- **extended-ui-media-player.js** (0 connections) — `att-admindashboard/resources/assets/js/extended-ui-media-player.js`
+
+## Relationships
+
+- No strong cross-community connections detected
+
+## Source Files
+
+- `att-admindashboard/resources/assets/js/extended-ui-media-player.js`
+
+## Audit Trail
+
+- EXTRACTED: 0 (0%)
+- INFERRED: 0 (0%)
+- AMBIGUOUS: 0 (0%)
+
+---
+
+*Part of the graphify knowledge wiki. See [index](index.md) to navigate.*
