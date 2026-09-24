@@ -4624,12 +4624,29 @@ class PrincipalPortalController extends Controller
         $query = Product::whereIn('principal_id', $scopedPrincipalIds)->where('is_active', true);
 
         if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('sku_code', 'LIKE', "%{$search}%")
-                  ->orWhere('barcode', 'LIKE', "%{$search}%")
-                  ->orWhere('brand', 'LIKE', "%{$search}%")
-                  ->orWhere('category', 'LIKE', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $keywords = array_filter(explode(' ', trim($search)));
+            $query->where(function ($q) use ($search, $keywords, $likeOp) {
+                $q->where(function ($sub) use ($search, $likeOp) {
+                    $sub->where('name', $likeOp, "%{$search}%")
+                        ->orWhere('sku_code', $likeOp, "%{$search}%")
+                        ->orWhere('barcode', $likeOp, "%{$search}%")
+                        ->orWhere('brand', $likeOp, "%{$search}%")
+                        ->orWhere('category', $likeOp, "%{$search}%");
+                });
+
+                if (count($keywords) > 1) {
+                    $q->orWhere(function ($sub) use ($keywords, $likeOp) {
+                        foreach ($keywords as $word) {
+                            $sub->where(function ($inner) use ($word, $likeOp) {
+                                $inner->where('name', $likeOp, "%{$word}%")
+                                      ->orWhere('sku_code', $likeOp, "%{$word}%")
+                                      ->orWhere('brand', $likeOp, "%{$word}%")
+                                      ->orWhere('category', $likeOp, "%{$word}%");
+                            });
+                        }
+                    });
+                }
             });
         }
 
@@ -4808,10 +4825,11 @@ class PrincipalPortalController extends Controller
             ->whereIn('principal_id', $scopedPrincipalIds);
 
         if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('brand', 'LIKE', "%{$search}%")
-                  ->orWhere('subbrand', 'LIKE', "%{$search}%")
-                  ->orWhere('category', 'LIKE', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $query->where(function ($q) use ($search, $likeOp) {
+                $q->where('brand', $likeOp, "%{$search}%")
+                  ->orWhere('subbrand', $likeOp, "%{$search}%")
+                  ->orWhere('category', $likeOp, "%{$search}%");
             });
         }
 
@@ -5126,9 +5144,10 @@ class PrincipalPortalController extends Controller
         })->whereBetween('attendance_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]);
 
         if ($search) {
-            $query->whereHas('employee', function ($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")
-                  ->orWhere('employee_no', 'like', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $query->whereHas('employee', function ($q) use ($search, $likeOp) {
+                $q->where('full_name', $likeOp, "%{$search}%")
+                  ->orWhere('employee_no', $likeOp, "%{$search}%");
             });
         }
         if ($employeeId) {
@@ -5233,10 +5252,11 @@ class PrincipalPortalController extends Controller
         $query = Employee::whereIn('employees.principal_id', $scopedPrincipalIds);
 
         if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")
-                  ->orWhere('employee_no', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $query->where(function ($q) use ($search, $likeOp) {
+                $q->where('full_name', $likeOp, "%{$search}%")
+                  ->orWhere('employee_no', $likeOp, "%{$search}%")
+                  ->orWhere('phone', $likeOp, "%{$search}%");
             });
         }
         if ($branchId) {
@@ -5307,11 +5327,12 @@ class PrincipalPortalController extends Controller
         });
 
         if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('code', 'like', "%{$search}%")
-                  ->orWhere('address', 'like', "%{$search}%")
-                  ->orWhere('city', 'like', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $query->where(function ($q) use ($search, $likeOp) {
+                $q->where('name', $likeOp, "%{$search}%")
+                  ->orWhere('code', $likeOp, "%{$search}%")
+                  ->orWhere('address', $likeOp, "%{$search}%")
+                  ->orWhere('city', $likeOp, "%{$search}%");
             });
         }
         if ($branchId) {
@@ -5387,8 +5408,9 @@ class PrincipalPortalController extends Controller
         });
 
         if ($search) {
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")->orWhere('address', 'like', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $query->where(function($q) use ($search, $likeOp) {
+                $q->where('name', $likeOp, "%{$search}%")->orWhere('address', $likeOp, "%{$search}%");
             });
         }
 
@@ -5433,8 +5455,9 @@ class PrincipalPortalController extends Controller
         })->whereBetween('schedule_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]);
 
         if ($search) {
-            $query->whereHas('employee', function($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $query->whereHas('employee', function($q) use ($search, $likeOp) {
+                $q->where('full_name', $likeOp, "%{$search}%")->orWhere('employee_no', $likeOp, "%{$search}%");
             });
         }
 
@@ -5773,8 +5796,9 @@ class PrincipalPortalController extends Controller
         });
 
         if ($search) {
-            $query->whereHas('employee', function($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $query->whereHas('employee', function($q) use ($search, $likeOp) {
+                $q->where('full_name', $likeOp, "%{$search}%")->orWhere('employee_no', $likeOp, "%{$search}%");
             });
         }
         if ($status) {
@@ -5812,8 +5836,9 @@ class PrincipalPortalController extends Controller
         });
 
         if ($search) {
-            $query->whereHas('employee', function($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $query->whereHas('employee', function($q) use ($search, $likeOp) {
+                $q->where('full_name', $likeOp, "%{$search}%")->orWhere('employee_no', $likeOp, "%{$search}%");
             });
         }
         if ($status) {
@@ -5859,8 +5884,9 @@ class PrincipalPortalController extends Controller
         }
 
         if ($search) {
-            $query->whereHas('employee', function($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $query->whereHas('employee', function($q) use ($search, $likeOp) {
+                $q->where('full_name', $likeOp, "%{$search}%")->orWhere('employee_no', $likeOp, "%{$search}%");
             });
         }
 
@@ -5948,8 +5974,9 @@ class PrincipalPortalController extends Controller
         }
 
         if ($search) {
-            $query->whereHas('employee', function($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $query->whereHas('employee', function($q) use ($search, $likeOp) {
+                $q->where('full_name', $likeOp, "%{$search}%")->orWhere('employee_no', $likeOp, "%{$search}%");
             });
         }
 
@@ -6298,8 +6325,9 @@ class PrincipalPortalController extends Controller
             $query->where('branch_id', $branchId);
         }
         if ($search) {
-            $query->where(function($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $query->where(function($q) use ($search, $likeOp) {
+                $q->where('full_name', $likeOp, "%{$search}%")->orWhere('employee_no', $likeOp, "%{$search}%");
             });
         }
 
@@ -11655,10 +11683,11 @@ class PrincipalPortalController extends Controller
             ->withCount('submissions');
 
         if (!empty($search)) {
-            $query->where(function ($q) use ($search) {
-                $q->where('report_templates.title', 'LIKE', "%{$search}%")
-                  ->orWhere('report_templates.code', 'LIKE', "%{$search}%")
-                  ->orWhere('report_templates.description', 'LIKE', "%{$search}%");
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $query->where(function ($q) use ($search, $likeOp) {
+                $q->where('report_templates.title', $likeOp, "%{$search}%")
+                  ->orWhere('report_templates.code', $likeOp, "%{$search}%")
+                  ->orWhere('report_templates.description', $likeOp, "%{$search}%");
             });
         }
 
