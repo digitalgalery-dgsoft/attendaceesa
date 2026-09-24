@@ -92,7 +92,7 @@ try {
 # STEP 4: DEPLOY TO 3 PRODUCTION CLUSTERS
 # -----------------------------------------------------------------------------
 Write-Host "`n>> [Step 4/4] Mengirim Perubahan ke 3 Server Production (AMK, AKP, ATK)..." -ForegroundColor Blue
-$deployProdUrl = "$STAGING_URL/deploy-production.php?token=$TOKEN"
+$deployProdUrl = "$STAGING_URL/deploy-production.php?token=$TOKEN&migrate=1"
 
 try {
     $prodResponse = Invoke-WebRequest -Uri $deployProdUrl -Method Post -TimeoutSec 240 -UseBasicParsing
