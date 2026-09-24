@@ -22,13 +22,16 @@ return new class extends Migration
         $companyPrincipalMap = [];
         $allCompanies = Company::all();
         foreach ($allCompanies as $comp) {
+            $prinData = [
+                'code' => 'PRIN-' . ($comp->code ?: $comp->id),
+                'company_id' => $comp->id,
+            ];
+            if (\Illuminate\Support\Facades\Schema::hasColumn('principals', 'is_active')) {
+                $prinData['is_active'] = true;
+            }
             $prin = Principal::firstOrCreate(
                 ['name' => $comp->name],
-                [
-                    'code' => 'PRIN-' . ($comp->code ?: $comp->id),
-                    'company_id' => $comp->id,
-                    'is_active' => true,
-                ]
+                $prinData
             );
             $companyPrincipalMap[$comp->id] = $prin->id;
         }
