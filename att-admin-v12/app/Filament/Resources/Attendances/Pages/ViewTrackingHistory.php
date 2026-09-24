@@ -36,7 +36,10 @@ class ViewTrackingHistory extends Page
                 ->action(function () {
                     $date = \Carbon\Carbon::parse($this->record->attendance_date)->format('Y-m-d');
                     \App\Models\TrackingHistory::where('employee_id', $this->record->employee_id)
-                        ->whereDate('created_at', $date)
+                        ->where(function($q) use ($date) {
+                            $q->where('attendance_id', $this->record->id)
+                              ->orWhereDate('created_at', $date);
+                        })
                         ->delete();
                     
                     \Filament\Notifications\Notification::make()
@@ -92,7 +95,10 @@ class ViewTrackingHistory extends Page
         }
 
         $points = \App\Models\TrackingHistory::where('employee_id', $this->record->employee_id)
-            ->whereDate('created_at', $date)
+            ->where(function($q) use ($date) {
+                $q->where('attendance_id', $this->record->id)
+                  ->orWhereDate('created_at', $date);
+            })
             ->orderBy('created_at', 'asc')
             ->get(['latitude', 'longitude', 'created_at']);
 

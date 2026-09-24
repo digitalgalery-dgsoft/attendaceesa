@@ -774,7 +774,12 @@ class AttendanceRoster extends Page implements HasForms
                 }
 
                 $trackingCount = TrackingHistory::where('employee_id', $arguments['employee_id'])
-                    ->whereDate('created_at', $arguments['date'])
+                    ->where(function($q) use ($arguments, $attendance) {
+                        if ($attendance) {
+                            $q->where('attendance_id', $attendance->id);
+                        }
+                        $q->orWhereDate('created_at', $arguments['date']);
+                    })
                     ->count();
 
                 return View::make('filament.components.attendance-details-modal', [

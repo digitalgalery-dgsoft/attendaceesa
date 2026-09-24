@@ -155,7 +155,10 @@ class AttendancesTable
                             ->first();
 
                         $trackingCount = \App\Models\TrackingHistory::where('employee_id', $record->employee_id)
-                            ->whereDate('created_at', $record->attendance_date)
+                            ->where(function($q) use ($record) {
+                                $q->where('attendance_id', $record->id)
+                                  ->orWhereDate('created_at', $record->attendance_date);
+                            })
                             ->count();
 
                         return \Illuminate\Support\Facades\View::make('filament.components.attendance-details-modal', [

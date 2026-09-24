@@ -49,4 +49,8 @@ class Attendance extends Model
     public function logs() {
         return $this->hasMany(AttendanceLog::class, 'attendance_id');
     }
+
+    public function trackingHistories() {
+        return $this->hasMany(TrackingHistory::class, 'attendance_id');
+    }
 }

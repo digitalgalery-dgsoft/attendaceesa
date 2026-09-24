@@ -1,202 +1,203 @@
 # Graph Report - New  (2026-09-24)
 
 ## Corpus Check
-- Large corpus: 1433 files · ~4,641,984 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
+- Large corpus: 1434 files · ~4,642,557 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
 
 ## Summary
-- 13909 nodes · 33373 edges · 768 communities (279 shown, 489 thin omitted)
+- 13923 nodes · 33386 edges · 740 communities (284 shown, 456 thin omitted)
 - Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 1989 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
 - Employee & Identity Management
 - Employee & Identity Management
-- Subsystem: components/chart.js
 - Subsystem: rich-editor.js
+- Employee & Identity Management
 - Odoo ERP & Principal Integration
-- Reporting & Form Engine
-- Employee & Identity Management
-- Admin Panel Filament Resources
-- Attendance & Schedule Subsystem
-- Reporting & Form Engine
+- Odoo ERP & Principal Integration
 - API & Mobile State Providers
+- Reporting & Form Engine
+- Subsystem: ReportTemplate
 - Attendance & Schedule Subsystem
-- Attendance & Schedule Subsystem
-- Attendance & Schedule Subsystem
-- Admin Panel Filament Resources
 - Employee & Identity Management
 - Attendance & Schedule Subsystem
-- API & Mobile State Providers
+- Attendance & Schedule Subsystem
+- Attendance & Schedule Subsystem
 - Admin Panel Filament Resources
+- Admin Panel Filament Resources
+- API & Mobile State Providers
 - Subsystem: constructor()
 - Employee & Identity Management
-- Subsystem: resolve()
+- Flutter Mobile UI Components
+- Attendance & Schedule Subsystem
+- Subsystem: draw()
 - Subsystem: markdown-editor.js
 - Attendance & Schedule Subsystem
+- Attendance & Schedule Subsystem
+- Subsystem: .forEach()
+- Attendance & Schedule Subsystem
+- Subsystem: W()
+- Subsystem: resolve()
+- Subsystem: _update()
 - Flutter Mobile UI Components
-- Attendance & Schedule Subsystem
-- Subsystem: draw()
-- Reporting & Form Engine
-- Subsystem: facet()
-- Attendance & Schedule Subsystem
-- Attendance & Schedule Subsystem
-- Attendance & Schedule Subsystem
 - Admin Panel Filament Resources
-- API & Mobile State Providers
-- Flutter Mobile UI Components
 - Attendance & Schedule Subsystem
-- Admin Panel Filament Resources
+- Attendance & Schedule Subsystem
+- Attendance & Schedule Subsystem
 - Subsystem: e()
-- Subsystem: n()
-- Attendance & Schedule Subsystem
-- Subsystem: t()
-- Subsystem: t()
 - Admin Panel Filament Resources
+- Employee & Identity Management
 - Attendance & Schedule Subsystem
-- Subsystem: s()
+- Employee & Identity Management
+- Subsystem: t()
 - Reporting & Form Engine
-- Subsystem: r()
-- Flutter Mobile UI Components
 - Attendance & Schedule Subsystem
-- Subsystem: step()
+- API & Mobile State Providers
+- Reporting & Form Engine
+- Subsystem: i()
 - Admin Panel Filament Resources
+- Flutter Mobile UI Components
+- Subsystem: addProseMirrorPlugins()
 - Subsystem: dependencies
 - Subsystem: __fire()
-- Attendance & Schedule Subsystem
-- Subsystem: flush()
-- Subsystem: _update()
-- Visit & Itinerary Management
+- Subsystem: n()
 - Subsystem: file-upload.js
 - Subsystem: support.js
-- Subsystem: y()
-- Subsystem: e()
-- Flutter Mobile UI Components
+- Subsystem: .append()
+- Subsystem: _update()
+- Employee & Identity Management
 - Subsystem: push()
+- Subsystem: facet()
 - Employee & Identity Management
+- Subsystem: y()
+- Admin Panel Filament Resources
 - Subsystem: constructor()
-- Attendance & Schedule Subsystem
 - Odoo ERP & Principal Integration
 - Employee & Identity Management
-- Reporting & Form Engine
-- Reporting & Form Engine
-- Subsystem: updateElements()
+- Attendance & Schedule Subsystem
+- Admin Panel Filament Resources
+- Admin Panel Filament Resources
 - Flutter Mobile UI Components
-- Odoo ERP & Principal Integration
-- Subsystem: finish()
-- Subsystem: getContext()
+- Flutter Mobile UI Components
+- Subsystem: s()
 - Attendance & Schedule Subsystem
-- Reporting & Form Engine
-- Subsystem: O()
-- API & Mobile State Providers
-- Employee & Identity Management
 - Subsystem: enable()
-- Subsystem: ar()
-- Attendance & Schedule Subsystem
+- Subsystem: te()
+- Subsystem: O()
 - Flutter Mobile UI Components
 - Subsystem: columns/select.js
-- Subsystem: draw()
-- Flutter Mobile UI Components
-- Employee & Identity Management
 - Odoo ERP & Principal Integration
+- Flutter Mobile UI Components
+- Subsystem: ar()
+- Employee & Identity Management
+- Attendance & Schedule Subsystem
+- Reporting & Form Engine
+- Reporting & Form Engine
 - Subsystem: slice()
-- Flutter Mobile UI Components
-- Employee & Identity Management
-- Odoo ERP & Principal Integration
-- Attendance & Schedule Subsystem
-- Subsystem: te()
 - Admin Panel Filament Resources
-- API & Mobile State Providers
-- Subsystem: eq()
+- Subsystem: getContext()
+- Employee & Identity Management
+- Attendance & Schedule Subsystem
+- Employee & Identity Management
 - Subsystem: ir()
-- Subsystem: constructor()
-- Subsystem: T()
+- Admin Panel Filament Resources
+- Flutter Mobile UI Components
+- Attendance & Schedule Subsystem
+- Subsystem: lineAt()
+- API & Mobile State Providers
+- Attendance & Schedule Subsystem
+- Subsystem: reduce()
+- Subsystem: of()
+- Subsystem: qt()
+- Odoo ERP & Principal Integration
+- Employee & Identity Management
+- Subsystem: lP()
+- Attendance & Schedule Subsystem
+- Subsystem: att-admindashboard/compos
+- Attendance & Schedule Subsystem
+- Subsystem: Xt()
 - Attendance & Schedule Subsystem
 - Odoo ERP & Principal Integration
 - Flutter Mobile UI Components
-- Subsystem: qt()
-- Subsystem: get()
-- Visit & Itinerary Management
-- Subsystem: sliceDoc()
+- Subsystem: ne()
 - Subsystem: slider.js
 - Admin Panel Filament Resources
-- Admin Panel Filament Resources
-- Subsystem: att-admindashboard/compos
-- Subsystem: Xt()
+- Subsystem: components/select.js
 - Flutter Mobile UI Components
-- Attendance & Schedule Subsystem
+- Subsystem: add()
 - Subsystem: on()
+- Subsystem: addElementByRule()
 - Subsystem: d()
 - Subsystem: Cn()
-- Attendance & Schedule Subsystem
-- Subsystem: TeamUncheckedMonitoring
-- Subsystem: components/select.js
-- Subsystem: Si()
-- Visit & Itinerary Management
 - Admin Panel Filament Resources
-- Subsystem: lineAt()
-- Subsystem: getDatasetMeta()
+- Subsystem: fn()
+- Subsystem: Si()
+- Admin Panel Filament Resources
 - Flutter Mobile UI Components
-- Attendance & Schedule Subsystem
-- Attendance & Schedule Subsystem
 - API & Mobile State Providers
+- Attendance & Schedule Subsystem
+- Subsystem: getDatasetMeta()
 - Reporting & Form Engine
-- Visit & Itinerary Management
+- Flutter Mobile UI Components
 - Subsystem: echo.js
-- Subsystem: add()
+- Attendance & Schedule Subsystem
+- Subsystem: find()
 - Subsystem: _updateHiddenPolyCircle()
 - Subsystem: Ue()
-- Subsystem: updateElements()
-- Employee & Identity Management
-- Flutter Mobile UI Components
-- Odoo ERP & Principal Integration
-- Subsystem: find()
+- Reporting & Form Engine
+- Visit & Itinerary Management
 - Subsystem: fn()
+- Employee & Identity Management
 - Reporting & Form Engine
 - Subsystem: _a()
-- Reporting & Form Engine
-- API & Mobile State Providers
 - Flutter Mobile UI Components
 - API & Mobile State Providers
 - Admin Panel Filament Resources
+- Attendance & Schedule Subsystem
+- Attendance & Schedule Subsystem
 - Employee & Identity Management
 - Admin Panel Filament Resources
-- Employee & Identity Management
-- Admin Panel Filament Resources
-- Reporting & Form Engine
+- Subsystem: Ew()
+- Subsystem: T()
+- Subsystem: get()
 - Flutter Mobile UI Components
-- Subsystem: i()
-- Subsystem: fn()
+- Subsystem: match()
 - Employee & Identity Management
-- Odoo ERP & Principal Integration
 - Subsystem: octane.php
-- Subsystem: apply()
-- Subsystem: r()
+- Attendance & Schedule Subsystem
+- Odoo ERP & Principal Integration
 - Reporting & Form Engine
-- Subsystem: ye()
+- Subsystem: ResetPasswordMail
+- Flutter Mobile UI Components
+- Odoo ERP & Principal Integration
 - Subsystem: att-admin-v12/package.jso
 - Subsystem: oo()
 - Admin Panel Filament Resources
-- Employee & Identity Management
-- Subsystem: toString()
+- API & Mobile State Providers
+- API & Mobile State Providers
 - Odoo ERP & Principal Integration
-- Subsystem: destroy()
+- Visit & Itinerary Management
+- Subsystem: fn()
 - Flutter Mobile UI Components
 - Flutter Mobile UI Components
+- Subsystem: _notify()
 - Reporting & Form Engine
 - API & Mobile State Providers
+- Reporting & Form Engine
+- Attendance & Schedule Subsystem
+- Employee & Identity Management
 - Subsystem: t()
 - Subsystem: color-picker.js
-- Subsystem: fn()
-- Admin Panel Filament Resources
 - Subsystem: TestCase
 - Admin Panel Filament Resources
-- Flutter Mobile UI Components
+- Attendance & Schedule Subsystem
 - API & Mobile State Providers
 - Admin Panel Filament Resources
 - Subsystem: .prettierrc.json
-- Flutter Mobile UI Components
+- Employee & Identity Management
 - Attendance & Schedule Subsystem
 - Attendance & Schedule Subsystem
+- Reporting & Form Engine
 - Flutter Mobile UI Components
 - Subsystem: renderOptions()
 - Subsystem: e()
@@ -209,7 +210,7 @@
 - Subsystem: Doc: SKILL.md
 - Attendance & Schedule Subsystem
 - Reporting & Form Engine
-- Reporting & Form Engine
+- Attendance & Schedule Subsystem
 - Subsystem: _calcLatLngDistances()
 - Subsystem: webpack.mix.js
 - Employee & Identity Management
@@ -226,23 +227,27 @@
 - Subsystem: Doc: SKILL.md
 - Subsystem: Doc: PANDUAN_MIGRASI_SWIT
 - Reporting & Form Engine
+- Flutter Mobile UI Components
+- Flutter Mobile UI Components
+- Visit & Itinerary Management
+- Flutter Mobile UI Components
+- Flutter Mobile UI Components
 - Subsystem: att-admin-v12/bootstrap/a
 - Subsystem: scripts
 - Admin Panel Filament Resources
-- API & Mobile State Providers
 - Employee & Identity Management
 - Admin Panel Filament Resources
 - Admin Panel Filament Resources
 - Subsystem: require-dev
 - Subsystem: jt()
-- Subsystem: domAtPos()
+- Admin Panel Filament Resources
 - Attendance & Schedule Subsystem
 - Employee & Identity Management
 - Subsystem: scripts
 - Reporting & Form Engine
 - Subsystem: Doc: README.md
 - Subsystem: Doc: README.md
-- Employee & Identity Management
+- Flutter Mobile UI Components
 - Subsystem: os
 - API & Mobile State Providers
 - Odoo ERP & Principal Integration
@@ -256,11 +261,11 @@
 - Subsystem: Doc: SKILL.md
 - Attendance & Schedule Subsystem
 - Odoo ERP & Principal Integration
+- Flutter Mobile UI Components
 - Employee & Identity Management
 - Subsystem: att-admin-v12/config/logg
 - Subsystem: components/actions.js
 - Attendance & Schedule Subsystem
-- Subsystem: Handler.php
 - Employee & Identity Management
 - Employee & Identity Management
 - Subsystem: extract_pptx.py
@@ -268,39 +273,14 @@
 - API & Mobile State Providers
 - Employee & Identity Management
 - Admin Panel Filament Resources
-- Subsystem: psr-4
-- Subsystem: 2026_07_03_000009_add_con
-- Admin Panel Filament Resources
-- Admin Panel Filament Resources
-- Subsystem: 2026_07_23_093229_modify_
-- Admin Panel Filament Resources
-- Admin Panel Filament Resources
-- Admin Panel Filament Resources
-- Admin Panel Filament Resources
-- Admin Panel Filament Resources
-- Visit & Itinerary Management
-- Odoo ERP & Principal Integration
-- Odoo ERP & Principal Integration
-- Odoo ERP & Principal Integration
-- Odoo ERP & Principal Integration
-- Odoo ERP & Principal Integration
 - Attendance & Schedule Subsystem
-- Odoo ERP & Principal Integration
+- Subsystem: psr-4
 - Odoo ERP & Principal Integration
 - Reporting & Form Engine
-- Odoo ERP & Principal Integration
-- Admin Panel Filament Resources
-- Reporting & Form Engine
-- Odoo ERP & Principal Integration
-- Admin Panel Filament Resources
-- Admin Panel Filament Resources
-- Reporting & Form Engine
-- Admin Panel Filament Resources
 - Subsystem: att-admin-v12/deploy.sh
-- Subsystem: ru()
+- Subsystem: main.js
 - Employee & Identity Management
 - Reporting & Form Engine
-- Flutter Mobile UI Components
 - Employee & Identity Management
 - Subsystem: overrides
 - Subsystem: resolutions
@@ -308,20 +288,12 @@
 - Subsystem: horizontalLayout.blade.ph
 - Subsystem: deploy.sh
 - Attendance & Schedule Subsystem
-- Subsystem: FixEmptyLocationCodesComm
-- Attendance & Schedule Subsystem
-- Visit & Itinerary Management
-- Admin Panel Filament Resources
-- Admin Panel Filament Resources
-- Reporting & Form Engine
-- Reporting & Form Engine
-- Admin Panel Filament Resources
+- Flutter Mobile UI Components
+- API & Mobile State Providers
 - Admin Panel Filament Resources
 - Attendance & Schedule Subsystem
 - Employee & Identity Management
 - API & Mobile State Providers
-- Admin Panel Filament Resources
-- Admin Panel Filament Resources
 - Subsystem: app-calendar-events.js
 - Reporting & Form Engine
 - Subsystem: maps-leaflet.js
@@ -454,719 +426,715 @@
 ## Import Cycles
 - None detected.
 
-## Communities (768 total, 489 thin omitted)
+## Communities (740 total, 456 thin omitted)
 
 ### Community 0 - "Employee & Identity Management"
 Cohesion: 0.01
-Nodes (128): Controller, AccessPermission, AccessRoles, Calendar, Chat, Email, InvoiceAdd, InvoiceEdit (+120 more)
+Nodes (211): {closure#1}(), {closure#2}(), {closure#3}(), {closure#1}(), {closure#2}(), {closure#1}(), {closure#2}(), {closure#3}() (+203 more)
 
 ### Community 1 - "Employee & Identity Management"
 Cohesion: 0.01
-Nodes (119): Ac(), addCompletion(), addCompletions(), addNamespace(), addNamespaceObject(), Ag(), b0(), blank() (+111 more)
+Nodes (127): Controller, AccessPermission, AccessRoles, Calendar, Chat, Email, InvoiceAdd, InvoiceEdit (+119 more)
 
-### Community 2 - "Subsystem: components/chart.js"
+### Community 2 - "Subsystem: rich-editor.js"
 Cohesion: 0.01
-Nodes (121): abutsStart(), afterDraw(), bd(), Be(), bm(), Bt(), $c(), Cm() (+113 more)
+Nodes (214): $0(), Ab(), ac(), addAttributes(), addExtensions(), addHackNode(), addNodeMark(), addOptions() (+206 more)
 
-### Community 3 - "Subsystem: rich-editor.js"
+### Community 3 - "Employee & Identity Management"
 Cohesion: 0.01
-Nodes (146): $0(), Ab(), ac(), addAll(), addAttributes(), addDOM(), addElement(), addElementByRule() (+138 more)
+Nodes (99): Ac(), addActive(), addCompletion(), addCompletions(), addNamespace(), addNamespaceObject(), Ag(), Ar() (+91 more)
 
-### Community 5 - "Reporting & Form Engine"
+### Community 4 - "Odoo ERP & Principal Integration"
 Cohesion: 0.01
-Nodes (237): _activeDiscountType, _addCurrentOosToCart, _addPreviousOosToCart, _address, _allowedRadiusMeter, _autoFillMachineSerial, _autoSelectNextUnsubmittedMachine, _autoSelectNextUnsubmittedProduct (+229 more)
+Nodes (71): CheckDuluxProductsCommand, CheckPrincipalsCommand, CleanDuluxWorkLocationsCommand, CreateDuluxDummyEmployeesCommand, DbLocksCommand, FixEmptyLocationCodesCommand, FixOrphanedEmployeeDataCommand, ImportAreasCommand (+63 more)
 
-### Community 6 - "Employee & Identity Management"
+### Community 6 - "API & Mobile State Providers"
 Cohesion: 0.01
-Nodes (109): {closure#1}(), {closure#2}(), {closure#3}(), {closure#1}(), {closure#2}(), {closure#1}(), {closure#2}(), {closure#3}() (+101 more)
+Nodes (99): aa(), abutsStart(), addControllers(), addPlugins(), addScales(), afterDraw(), bm(), Bt() (+91 more)
 
-### Community 7 - "Admin Panel Filament Resources"
+### Community 7 - "Reporting & Form Engine"
 Cohesion: 0.01
-Nodes (52): {closure#1}(), {closure#1}(), {closure#1}(), {closure#1}(), {closure#1}(), {closure#1}(), {closure#1}(), {closure#1}() (+44 more)
+Nodes (218): _activeDiscountType, _addCurrentOosToCart, _addPreviousOosToCart, _address, _allowedRadiusMeter, _autoFillMachineSerial, _autoSelectNextUnsubmittedMachine, _autoSelectNextUnsubmittedProduct (+210 more)
 
-### Community 8 - "Attendance & Schedule Subsystem"
-Cohesion: 0.01
-Nodes (193): _activeMeeting, _activePermit, _canCheckin, _canVisit, checkAttendanceStatus, _checkinBlockMessage, _error, fetchHistory (+185 more)
-
-### Community 9 - "Reporting & Form Engine"
+### Community 8 - "Subsystem: ReportTemplate"
 Cohesion: 0.02
-Nodes (68): ImportDuluxDailyMaintenanceCommand, ImportDuluxOosCommand, Principal, ReportFormField, Carbon, ReportTemplate, {closure#1}(), {closure#2}() (+60 more)
+Nodes (71): ImportDuluxDailyMaintenanceCommand, ImportDuluxOfftakeCommand, ImportDuluxStockCommand, LinkPrincipalsCommand, Principal, ReportFormField, Carbon, ReportTemplate (+63 more)
 
-### Community 10 - "API & Mobile State Providers"
+### Community 9 - "Attendance & Schedule Subsystem"
+Cohesion: 0.02
+Nodes (75): AreaResource, AreaForm, AreasTable, AttendanceBapResource, UnitEnum, AttendanceBapForm, AttendanceBapsTable, AttendanceResource (+67 more)
+
+### Community 10 - "Employee & Identity Management"
 Cohesion: 0.01
-Nodes (173): build, createState, didChangeAppLifecycleState, dispose, _hasSeenOnboarding, _initFuture, _initialize, initializeService (+165 more)
+Nodes (187): _appColor, _appName, _employeeData, fetchSettings, _getDeviceInfo, isAuthenticated, _isLoading, login (+179 more)
 
 ### Community 11 - "Attendance & Schedule Subsystem"
 Cohesion: 0.02
-Nodes (59): AreaForm, AreasTable, AttendanceBapsTable, AttendanceResource, Builder, UnitEnum, AttendanceForm, AttendancesTable (+51 more)
+Nodes (185): AttendanceProvider, AuthProvider, DynamicReportingProvider, ItineraryProvider, LocaleProvider, NotificationProvider, PayslipProvider, ThemeProvider (+177 more)
 
 ### Community 12 - "Attendance & Schedule Subsystem"
 Cohesion: 0.02
 Nodes (64): App\Filament\Resources\WorkingGroupResource\Pages, {closure#1}(), {closure#2}(), {closure#2}(), {closure#3}(), {closure#1}(), {closure#10}(), {closure#9}() (+56 more)
 
 ### Community 13 - "Attendance & Schedule Subsystem"
-Cohesion: 0.02
-Nodes (35): CreateItinerary, {closure#6}(), {closure#9}(), PayslipApiController, SalesPipelineController, SalesReportController, Area, BlastInfo (+27 more)
+Cohesion: 0.03
+Nodes (33): {closure#6}(), {closure#9}(), PayslipApiController, Area, BlastInfo, CompetitorProduct, Holiday, {closure#1}() (+25 more)
 
 ### Community 14 - "Admin Panel Filament Resources"
 Cohesion: 0.02
 Nodes (93): addAndReturn(), addNewRoot(), ae(), applyLimitFilters(), _applyStyleClasses(), bbox(), Br(), Bt() (+85 more)
 
-### Community 15 - "Employee & Identity Management"
-Cohesion: 0.03
-Nodes (51): CreateDuluxDummyEmployeesCommand, ImportDuluxAmkStoresCommand, ImportInhouseStoresCommand, VerifyWorkLocationsCommand, {closure#1}(), {closure#2}(), {closure#3}(), {closure#4}() (+43 more)
-
-### Community 16 - "Attendance & Schedule Subsystem"
+### Community 15 - "Admin Panel Filament Resources"
 Cohesion: 0.02
-Nodes (53): EmployeeScheduleTemplateExport, {closure#1}(), {closure#2}(), {closure#3}(), {closure#5}(), {closure#7}(), {closure#10}(), {closure#11}() (+45 more)
+Nodes (52): AiSettings, BackedEnum, UnitEnum, {closure#1}(), {closure#2}(), ManageSettings, BackedEnum, UnitEnum (+44 more)
 
-### Community 17 - "API & Mobile State Providers"
+### Community 16 - "API & Mobile State Providers"
 Cohesion: 0.02
-Nodes (99): acquireContext(), addControllers(), addPlugins(), addScales(), as(), bl(), bo(), br() (+91 more)
+Nodes (102): _a(), acquireContext(), addControllers(), addPlugins(), addScales(), alpha(), as(), bl() (+94 more)
 
-### Community 18 - "Admin Panel Filament Resources"
-Cohesion: 0.02
-Nodes (46): AiSettings, BackedEnum, UnitEnum, {closure#1}(), {closure#2}(), ManageSettings, BackedEnum, UnitEnum (+38 more)
-
-### Community 19 - "Subsystem: constructor()"
+### Community 17 - "Subsystem: constructor()"
 Cohesion: 0.03
 Nodes (133): add(), addChunk(), addEventListener(), addInfoPane(), addInner(), addWindowListeners(), adjust(), annotation() (+125 more)
 
-### Community 20 - "Employee & Identity Management"
-Cohesion: 0.04
-Nodes (24): AuthController, ServerGatewayController, TenantAuthController, Carbon, PrincipalPortalController, CheckIfInstalled, CheckInstalled, IdentifyTenantSubdomain (+16 more)
+### Community 18 - "Employee & Identity Management"
+Cohesion: 0.03
+Nodes (33): ServerMonitoringController, AuthController, BapApiController, LocationRequestApiController, ReportingApiController, SalesPipelineController, ServerGatewayController, TemplateSyncController (+25 more)
 
-### Community 21 - "Subsystem: resolve()"
-Cohesion: 0.05
-Nodes (129): ad(), addKeyboardShortcuts(), after(), am(), as(), Ay(), bc(), before() (+121 more)
+### Community 19 - "Flutter Mobile UI Components"
+Cohesion: 0.03
+Nodes (114): addBlockWidget(), addBreak(), addComposition(), addDelimiter(), addInlineWidget(), addLine(), addLineStart(), addLineStartIfNotCovered() (+106 more)
+
+### Community 20 - "Attendance & Schedule Subsystem"
+Cohesion: 0.03
+Nodes (24): {closure#1}(), {closure#2}(), {closure#20}(), {closure#3}(), {closure#5}(), {closure#7}(), {closure#8}(), {closure#11}() (+16 more)
+
+### Community 21 - "Subsystem: draw()"
+Cohesion: 0.04
+Nodes (110): acquireContext(), adjustHitBoxes(), Ao(), aspectRatio(), B(), bh(), calculateLabelRotation(), _calculatePadding() (+102 more)
 
 ### Community 22 - "Subsystem: markdown-editor.js"
-Cohesion: 0.04
-Nodes (112): Ac(), ad(), af(), ai(), An(), ao(), Ba(), bl() (+104 more)
+Cohesion: 0.05
+Nodes (103): Aa(), Ac(), ad(), Ae(), af(), ai(), An(), ao() (+95 more)
 
 ### Community 23 - "Attendance & Schedule Subsystem"
 Cohesion: 0.03
-Nodes (29): App\Filament\Resources\PayslipResource\Pages, App\Filament\Resources\VisitReportResource\Pages, App\Filament\Resources\WorkTargetResource\Pages, {closure#15}(), {closure#16}(), {closure#1}(), {closure#12}(), {closure#14}() (+21 more)
+Nodes (26): App\Filament\Resources\ExtraHourResource\Pages, App\Filament\Resources\PayslipResource\Pages, App\Filament\Resources\VisitReportResource\Pages, App\Filament\Resources\WorkTargetResource\Pages, {closure#1}(), {closure#12}(), {closure#14}(), {closure#15}() (+18 more)
 
-### Community 24 - "Flutter Mobile UI Components"
-Cohesion: 0.04
-Nodes (111): _a(), addGlobalAttributes(), addNodeView(), c(), d(), atEnd(), b0(), chain() (+103 more)
-
-### Community 25 - "Attendance & Schedule Subsystem"
-Cohesion: 0.04
-Nodes (111): AuthWrapper, _AuthWrapperState, AttendanceProvider, AuthProvider, DynamicReportingProvider, ItineraryProvider, LocaleProvider, NotificationProvider (+103 more)
-
-### Community 26 - "Subsystem: draw()"
-Cohesion: 0.04
-Nodes (107): acquireContext(), adjustHitBoxes(), Ao(), aspectRatio(), B(), bh(), calculateLabelRotation(), _calculatePadding() (+99 more)
-
-### Community 27 - "Reporting & Form Engine"
+### Community 24 - "Attendance & Schedule Subsystem"
 Cohesion: 0.03
-Nodes (14): BapApiController, LocationRequestApiController, {closure#11}(), {closure#26}(), {closure#34}(), ReportingApiController, SettingSyncController, TemplateSyncController (+6 more)
+Nodes (34): EditArea, EditAttendanceBap, EditAttendance, EditBlastInfo, EditBranch, CompanyResource, UnitEnum, CreateCompany (+26 more)
 
-### Community 28 - "Subsystem: facet()"
+### Community 25 - "Subsystem: .forEach()"
+Cohesion: 0.04
+Nodes (103): c(), d(), atEnd(), b0(), Bn(), buildProps(), can(), cg() (+95 more)
+
+### Community 26 - "Attendance & Schedule Subsystem"
 Cohesion: 0.03
-Nodes (104): accept(), activateHover(), active(), addElement(), Ah(), applyTransaction(), asSingle(), baseTheme() (+96 more)
+Nodes (40): ListAreas, ListAttendanceBaps, ListAttendances, ListBlastInfos, ListBranches, ListCompanies, ListCompetitorProducts, ListDepartments (+32 more)
 
-### Community 29 - "Attendance & Schedule Subsystem"
+### Community 27 - "Subsystem: W()"
+Cohesion: 0.04
+Nodes (104): aa(), aO(), atLastNode(), au(), b1(), Bg(), ch(), charCategorizer() (+96 more)
+
+### Community 28 - "Subsystem: resolve()"
+Cohesion: 0.07
+Nodes (104): ad(), addKeyboardShortcuts(), after(), An(), Ay(), bc(), before(), between() (+96 more)
+
+### Community 29 - "Subsystem: _update()"
+Cohesion: 0.04
+Nodes (103): addBox(), addElements(), afterBuildTicks(), afterCalculateLabelRotation(), afterDataLimits(), afterDatasetsUpdate(), afterFit(), afterSetDimensions() (+95 more)
+
+### Community 30 - "Flutter Mobile UI Components"
+Cohesion: 0.05
+Nodes (100): add(), addCommands(), addNodeView(), ak(), allowsMarks(), Ap(), apply(), applyInner() (+92 more)
+
+### Community 31 - "Admin Panel Filament Resources"
+Cohesion: 0.04
+Nodes (99): ac(), ae(), after(), ag(), Al(), Am(), before(), bl() (+91 more)
+
+### Community 32 - "Attendance & Schedule Subsystem"
+Cohesion: 0.03
+Nodes (44): {closure#10}(), {closure#2}(), {closure#3}(), {closure#4}(), {closure#5}(), {closure#6}(), {closure#7}(), BranchResource (+36 more)
+
+### Community 33 - "Attendance & Schedule Subsystem"
 Cohesion: 0.02
-Nodes (24): up(), up(), {closure#1}(), {closure#3}(), {closure#1}(), {closure#2}(), {closure#1}(), {closure#2}() (+16 more)
+Nodes (91): Animation, AnimationController, AttendanceApp, build, ComingSoonScreen, title, build, LeaveScreen (+83 more)
 
-### Community 30 - "Attendance & Schedule Subsystem"
-Cohesion: 0.03
-Nodes (90): AttendanceApp, DashboardProvider, PayslipProvider, _loadTheme, _themeMode, toggleTheme, build, ComingSoonScreen (+82 more)
+### Community 34 - "Attendance & Schedule Subsystem"
+Cohesion: 0.02
+Nodes (26): {closure#1}(), {closure#3}(), {closure#1}(), {closure#2}(), {closure#1}(), {closure#2}(), {closure#1}(), {closure#3}() (+18 more)
 
-### Community 31 - "Attendance & Schedule Subsystem"
-Cohesion: 0.03
-Nodes (19): {closure#20}(), {closure#8}(), DashboardHeaderWidget, DashboardStatsWidget, AttendanceController, MeetingController, TrackingController, Attendance (+11 more)
-
-### Community 32 - "Admin Panel Filament Resources"
+### Community 35 - "Subsystem: e()"
 Cohesion: 0.04
-Nodes (98): Fe(), ac(), ae(), after(), ag(), Al(), Am(), before() (+90 more)
-
-### Community 33 - "API & Mobile State Providers"
-Cohesion: 0.04
-Nodes (94): addControllers(), addElements(), addEventListener(), addPlugins(), addScales(), afterBuildTicks(), afterCalculateLabelRotation(), afterDataLimits() (+86 more)
-
-### Community 34 - "Flutter Mobile UI Components"
-Cohesion: 0.04
-Nodes (92): addBlockWidget(), addBreak(), addComposition(), addDelimiter(), addInlineWidget(), addLine(), addLineStart(), addLineStartIfNotCovered() (+84 more)
-
-### Community 35 - "Attendance & Schedule Subsystem"
-Cohesion: 0.03
-Nodes (32): EditArea, EditAttendanceBap, EditAttendance, EditBlastInfo, EditBranch, CompanyResource, UnitEnum, CreateCompany (+24 more)
+Nodes (94): $a(), ad(), apply(), applyStack(), average(), bd(), ca(), Ci() (+86 more)
 
 ### Community 36 - "Admin Panel Filament Resources"
 Cohesion: 0.02
 Nodes (91): browserslist, name, private, version, animate.css, aos, apexcharts-clevision, autosize (+83 more)
 
-### Community 37 - "Subsystem: e()"
-Cohesion: 0.06
-Nodes (86): add(), addCommands(), addProseMirrorPlugins(), ak(), Ap(), atStart(), bk(), bp() (+78 more)
+### Community 37 - "Employee & Identity Management"
+Cohesion: 0.04
+Nodes (87): acceptToken(), addChild(), addGaps(), addLeafElement(), addNode(), advance(), allows(), ATXHeading() (+79 more)
 
-### Community 38 - "Subsystem: n()"
-Cohesion: 0.08
-Nodes (84): Ae(), ar(), as(), at(), bf(), u(), ci(), cl() (+76 more)
-
-### Community 39 - "Attendance & Schedule Subsystem"
+### Community 38 - "Attendance & Schedule Subsystem"
 Cohesion: 0.03
-Nodes (81): address, createState, _currentPosition, dispose, _getCurrentLocation, _getScheduledLocations, id, initialWorkLocationId (+73 more)
+Nodes (20): AttendanceRoster, Width, ViewTrackingHistory, ItineraryResource, Builder, UnitEnum, CreateItinerary, {closure#10}() (+12 more)
+
+### Community 39 - "Employee & Identity Management"
+Cohesion: 0.03
+Nodes (84): AuthWrapper, _AuthWrapperState, build, createState, didChangeAppLifecycleState, dispose, _hasSeenOnboarding, _initFuture (+76 more)
 
 ### Community 40 - "Subsystem: t()"
 Cohesion: 0.04
-Nodes (85): aa(), attrs(), AX(), b1(), Bg(), bi(), cc(), ch() (+77 more)
-
-### Community 41 - "Subsystem: t()"
-Cohesion: 0.04
 Nodes (84): Ai(), ao(), Ar(), as(), Ba(), bi(), bn(), ci() (+76 more)
 
-### Community 42 - "Admin Panel Filament Resources"
-Cohesion: 0.04
-Nodes (81): accepts(), addInner(), addMaps(), addStep(), addTransform(), allowsMarks(), append(), appendMap() (+73 more)
+### Community 41 - "Reporting & Form Engine"
+Cohesion: 0.02
+Nodes (80): BlastInfo, content, departmentId, endDate, fromJson, id, startDate, targetType (+72 more)
 
-### Community 43 - "Attendance & Schedule Subsystem"
+### Community 42 - "Attendance & Schedule Subsystem"
+Cohesion: 0.07
+Nodes (6): Carbon, PrincipalPortalController, {closure#1}(), ReportSubmission, Setting, SortDirection
+
+### Community 43 - "API & Mobile State Providers"
 Cohesion: 0.03
-Nodes (42): {closure#2}(), {closure#3}(), {closure#4}(), {closure#5}(), {closure#6}(), {closure#7}(), {closure#9}(), BranchResource (+34 more)
+Nodes (76): BlastInfoProvider, ChatProvider, formatCurrentTime, formatDateTime, isEnglish, isIndonesian, _keyLanguage, _keyTimezone (+68 more)
 
-### Community 44 - "Subsystem: s()"
-Cohesion: 0.04
-Nodes (79): Eo(), ac(), addEventListener(), al(), average(), bindResponsiveEvents(), bs(), cc() (+71 more)
-
-### Community 45 - "Reporting & Form Engine"
+### Community 44 - "Reporting & Form Engine"
 Cohesion: 0.03
 Nodes (77): applyDuluxSequence, assignedEmployees, assignedPositions, barcode, brand, _calcIsWithinMonthlyRange, category, code (+69 more)
 
-### Community 46 - "Subsystem: r()"
-Cohesion: 0.06
-Nodes (75): AQ(), au(), be(), a(), child(), childAfter(), childBefore(), compose() (+67 more)
+### Community 45 - "Subsystem: i()"
+Cohesion: 0.04
+Nodes (73): al(), AQ(), AX(), be(), between(), a(), blockTiles(), combine() (+65 more)
+
+### Community 46 - "Admin Panel Filament Resources"
+Cohesion: 0.04
+Nodes (75): afterAutoSkip(), br(), buildLookupTable(), _calculateBarIndexPixels(), _calculateBarValuePixels(), calculateCircumference(), _circumference(), _computeAngle() (+67 more)
 
 ### Community 47 - "Flutter Mobile UI Components"
-Cohesion: 0.03
-Nodes (23): App\Filament\Resources\BlastInfoResource\Pages, App\Filament\Resources\LeaveRequestResource\Pages, BlastInfoResource, {closure#3}(), {closure#4}(), Schema, UnitEnum, {closure#1}() (+15 more)
-
-### Community 48 - "Attendance & Schedule Subsystem"
 Cohesion: 0.04
-Nodes (26): ListAreas, ListAttendanceBaps, ListAttendances, ListBlastInfos, ListBranches, ListCompanies, ListCompetitorProducts, ListDepartments (+18 more)
+Nodes (68): DashboardProvider, build, _buildContactCard, _buildFaqCard, createState, _fetchSettings, _helpEmail, _helpHours (+60 more)
 
-### Community 49 - "Subsystem: step()"
+### Community 48 - "Subsystem: addProseMirrorPlugins()"
 Cohesion: 0.05
-Nodes (75): addNodeMark(), addStoredMark(), addToSet(), allowedMarks(), allowsMarkType(), au(), c0(), clearIncompatible() (+67 more)
+Nodes (72): _a(), addProseMirrorPlugins(), addStoredMark(), atStart(), br(), c0(), cy(), deleteNode() (+64 more)
 
-### Community 50 - "Admin Panel Filament Resources"
-Cohesion: 0.04
-Nodes (73): Cl(), clone(), create(), Ct(), Dl(), dtFormatter(), Ea(), Ec() (+65 more)
-
-### Community 51 - "Subsystem: dependencies"
+### Community 49 - "Subsystem: dependencies"
 Cohesion: 0.03
 Nodes (72): dependencies, animate.css, aos, apexcharts-clevision, autosize, block-ui, bloodhound-js, bootstrap (+64 more)
 
-### Community 52 - "Subsystem: __fire()"
+### Community 50 - "Subsystem: __fire()"
 Cohesion: 0.05
 Nodes (71): _addMarker(), calcMiddleLatLng(), _change(), _checkMarkerAllowedToDrag(), _createCenterMarker(), _createMiddleMarker(), _createOuterMarker(), _createVertex() (+63 more)
 
-### Community 53 - "Attendance & Schedule Subsystem"
-Cohesion: 0.04
-Nodes (28): AreaResource, CreateArea, CreateAttendance, CreateBlastInfo, CreateBranch, CreateCompetitorProduct, DepartmentResource, UnitEnum (+20 more)
+### Community 51 - "Subsystem: n()"
+Cohesion: 0.08
+Nodes (69): _a(), ar(), as(), bc(), ue(), u(), ci(), r() (+61 more)
 
-### Community 54 - "Subsystem: flush()"
+### Community 52 - "Subsystem: file-upload.js"
 Cohesion: 0.05
-Nodes (70): ag(), Ar(), br(), cg(), $d(), deleteSelection(), dg(), dl() (+62 more)
+Nodes (51): am(), Ap(), be(), bi(), Bp(), c(), clickPercent(), cm() (+43 more)
 
-### Community 55 - "Subsystem: _update()"
-Cohesion: 0.05
-Nodes (70): afterBuildTicks(), afterCalculateLabelRotation(), afterDataLimits(), afterDraw(), afterFit(), afterSetDimensions(), afterTickToLabelConversion(), afterUpdate() (+62 more)
-
-### Community 56 - "Visit & Itinerary Management"
-Cohesion: 0.03
-Nodes (64): Animation, AnimationController, _buildCutoffSummaryCard, _buildMetricTile, _buildTemplatesList, createState, dispose, _getIconData (+56 more)
-
-### Community 57 - "Subsystem: file-upload.js"
-Cohesion: 0.05
-Nodes (50): am(), Ap(), be(), bi(), Bp(), c(), clickPercent(), cm() (+42 more)
-
-### Community 58 - "Subsystem: support.js"
+### Community 53 - "Subsystem: support.js"
 Cohesion: 0.05
 Nodes (51): apply(), as(), At(), bo(), bs(), close(), closeQuietly(), co() (+43 more)
 
-### Community 59 - "Subsystem: y()"
-Cohesion: 0.12
-Nodes (67): Dg(), Ig(), Se(), al(), Be(), ca(), Cr(), Ct() (+59 more)
+### Community 54 - "Subsystem: .append()"
+Cohesion: 0.07
+Nodes (65): allowedMarks(), am(), append(), as(), au(), clearIncompatible(), close(), closeFrontierNode() (+57 more)
 
-### Community 60 - "Subsystem: e()"
+### Community 55 - "Subsystem: _update()"
 Cohesion: 0.05
-Nodes (66): $a(), aa(), apply(), at(), Ba(), cd(), data(), dc() (+58 more)
+Nodes (67): afterBuildTicks(), afterCalculateLabelRotation(), afterDataLimits(), afterFit(), afterSetDimensions(), afterTickToLabelConversion(), afterUpdate(), apply() (+59 more)
 
-### Community 61 - "Flutter Mobile UI Components"
-Cohesion: 0.03
-Nodes (62): _addressController, build, _buildFormView, _buildHistoryView, createState, _currentTab, dispose, _extractCoordinates (+54 more)
+### Community 56 - "Employee & Identity Management"
+Cohesion: 0.04
+Nodes (12): App\Http\Controllers\Api\EmployeeController, {closure#11}(), {closure#12}(), {closure#5}(), {closure#7}(), BlastInfoController, DashboardApiController, NotificationController (+4 more)
 
-### Community 62 - "Subsystem: push()"
+### Community 57 - "Subsystem: push()"
 Cohesion: 0.08
 Nodes (63): _a(), addInitHooks(), a(), c(), h(), o(), p(), r() (+55 more)
 
-### Community 63 - "Employee & Identity Management"
+### Community 58 - "Subsystem: facet()"
 Cohesion: 0.05
-Nodes (65): acceptToken(), addActions(), advance(), advanceFully(), advanceStack(), allActions(), allows(), break() (+57 more)
+Nodes (64): accept(), activateHover(), Ah(), applyTransaction(), asSingle(), baseDirAt(), bidiIn(), bidiSpansAt() (+56 more)
 
-### Community 64 - "Subsystem: constructor()"
+### Community 59 - "Employee & Identity Management"
+Cohesion: 0.06
+Nodes (64): adjustHitBoxes(), afterDraw(), At(), beforeDatasetDraw(), beforeDatasetsDraw(), beforeDraw(), bi(), bindUserEvents() (+56 more)
+
+### Community 60 - "Subsystem: y()"
+Cohesion: 0.12
+Nodes (63): Dg(), Ig(), Se(), al(), at(), Be(), ca(), Cr() (+55 more)
+
+### Community 61 - "Admin Panel Filament Resources"
 Cohesion: 0.05
-Nodes (62): addExtensions(), addNode(), applyInitialSize(), Bn(), Cc(), configure(), constructor(), createCommandManager() (+54 more)
+Nodes (62): Cl(), clone(), create(), Ct(), dtFormatter(), Ec(), eras(), expandFormat() (+54 more)
 
-### Community 65 - "Attendance & Schedule Subsystem"
+### Community 62 - "Subsystem: constructor()"
 Cohesion: 0.04
-Nodes (23): AttendanceBapResource, UnitEnum, CreateAttendanceBap, ViewAttendanceBap, AttendanceBapForm, LocationRequestResource, Builder, UnitEnum (+15 more)
+Nodes (60): af(), alpha(), Bc(), Be(), bg(), $c(), chartOptionScopes(), color() (+52 more)
 
-### Community 66 - "Odoo ERP & Principal Integration"
+### Community 63 - "Odoo ERP & Principal Integration"
 Cohesion: 0.04
 Nodes (58): AndroidFlutterLocalNotificationsPlugin, AndroidInitializationSettings, AndroidNotificationChannel, @pragma, cronInterval, cronTimer, distanceMeters, _getCurrentPosition (+50 more)
 
-### Community 67 - "Employee & Identity Management"
+### Community 64 - "Employee & Identity Management"
 Cohesion: 0.06
-Nodes (16): MessageSent, {closure#1}(), LiveChat, BackedEnum, UnitEnum, Width, ChatController, HelpdeskApiController (+8 more)
+Nodes (15): MessageSent, {closure#1}(), LiveChat, BackedEnum, UnitEnum, Width, ChatController, HelpdeskApiController (+7 more)
 
-### Community 68 - "Reporting & Form Engine"
-Cohesion: 0.04
-Nodes (15): {closure#1}(), BelongsToMany, Product, ReportSubmissionValue, up(), {closure#2}(), up(), up() (+7 more)
-
-### Community 69 - "Reporting & Form Engine"
-Cohesion: 0.03
-Nodes (58): _allCompetitorProducts, _applyCompetitorData, _applyDefaultCompetitorMatrix, checkCompliance, _competitorBrands, _competitorSubbrandsByBrand, _cutoffInfo, _defaultArea (+50 more)
-
-### Community 70 - "Subsystem: updateElements()"
+### Community 65 - "Attendance & Schedule Subsystem"
 Cohesion: 0.05
-Nodes (58): addBox(), af(), au(), _calculateBarIndexPixels(), _calculateBarValuePixels(), calculateCircumference(), _circumference(), _computeAngle() (+50 more)
+Nodes (26): CreateArea, CreateAttendanceBap, CreateAttendance, CreateBlastInfo, CreateBranch, CreateCompetitorProduct, CreateDepartment, CreateEmployeeSchedule (+18 more)
 
-### Community 71 - "Flutter Mobile UI Components"
+### Community 66 - "Admin Panel Filament Resources"
+Cohesion: 0.06
+Nodes (57): accepts(), addInner(), addMaps(), addStep(), addTransform(), appendMap(), appendMapping(), appendMappingInverted() (+49 more)
+
+### Community 67 - "Admin Panel Filament Resources"
+Cohesion: 0.05
+Nodes (58): ah(), at(), Ba(), Bf(), buildTicks(), contains(), determineDataLimits(), eg() (+50 more)
+
+### Community 68 - "Flutter Mobile UI Components"
 Cohesion: 0.04
 Nodes (56): build, _cameraController, _cameraIndex, _cameras, _canProcess, _captureAndReturn, _concatenatePlanes, createState (+48 more)
 
-### Community 72 - "Odoo ERP & Principal Integration"
-Cohesion: 0.05
-Nodes (11): ActiveEmployeesHourlyChartWidget, AttendanceChartWidget, MandaysChartWidget, ManPowerChartWidget, TurnOverChartWidget, Filament\Actions\Concerns\InteractsWithActions, Filament\Actions\Contracts\HasActions, Filament\Schemas\Concerns\InteractsWithSchemas (+3 more)
-
-### Community 73 - "Subsystem: finish()"
-Cohesion: 0.05
-Nodes (56): addChild(), addGaps(), addLeafElement(), addNode(), ATXHeading(), balance(), _c(), char() (+48 more)
-
-### Community 74 - "Subsystem: getContext()"
-Cohesion: 0.06
-Nodes (57): bh(), buildTicks(), calculateLabelRotation(), _calculatePadding(), cn(), _computeAngle(), _computeGridLineItems(), _computeLabelItems() (+49 more)
-
-### Community 75 - "Attendance & Schedule Subsystem"
+### Community 69 - "Flutter Mobile UI Components"
 Cohesion: 0.04
-Nodes (4): EmployeeScheduleRoster, CreateWorkingGroup, {closure#1}(), EditWorkingGroup
+Nodes (21): App\Filament\Resources\BlastInfoResource\Pages, App\Filament\Resources\LeaveRequestResource\Pages, BlastInfoResource, {closure#3}(), {closure#4}(), Schema, UnitEnum, {closure#1}() (+13 more)
 
-### Community 76 - "Reporting & Form Engine"
-Cohesion: 0.04
-Nodes (54): address, canEdit, fieldLabel, fieldName, fieldType, fromJson, id, isWithinRadius (+46 more)
-
-### Community 77 - "Subsystem: O()"
-Cohesion: 0.15
-Nodes (46): Aa(), b(), $c(), X(), me(), D(), _e(), se() (+38 more)
-
-### Community 78 - "API & Mobile State Providers"
-Cohesion: 0.05
-Nodes (11): {closure#11}(), {closure#12}(), {closure#5}(), {closure#7}(), DashboardApiController, PermitController, EmployeeLeaveQuota, LeaveRequest (+3 more)
-
-### Community 79 - "Employee & Identity Management"
+### Community 70 - "Subsystem: s()"
 Cohesion: 0.06
-Nodes (16): InstallController, {closure#3}(), User, PermissionsSeeder, UserManagement, User, Filament\Models\Contracts\FilamentUser, Illuminate\Contracts\Auth\MustVerifyEmail (+8 more)
+Nodes (55): Eo(), aa(), ac(), addEventListener(), al(), ba(), bindResponsiveEvents(), bs() (+47 more)
 
-### Community 80 - "Subsystem: enable()"
+### Community 71 - "Attendance & Schedule Subsystem"
+Cohesion: 0.04
+Nodes (53): address, AttendanceLocationScreen, _AttendanceLocationScreenState, createState, _currentPosition, dispose, _getCurrentLocation, _getScheduledLocations (+45 more)
+
+### Community 72 - "Subsystem: enable()"
 Cohesion: 0.07
 Nodes (54): add(), _addDrawnLayerProp(), i(), _applyFocus(), _autoResize(), _cleanupSnapping(), _createHintLine(), _createMarker() (+46 more)
 
-### Community 81 - "Subsystem: ar()"
-Cohesion: 0.05
-Nodes (54): ar(), average(), beforeDatasetDraw(), beforeDatasetsDraw(), beforeDraw(), beforeLayout(), bi(), bu() (+46 more)
-
-### Community 82 - "Attendance & Schedule Subsystem"
+### Community 73 - "Subsystem: te()"
 Cohesion: 0.04
-Nodes (20): ListEmployeeSchedules, LocationRequestForm, PayslipResource, Builder, UnitEnum, CreatePrincipal, Builder, UnitEnum (+12 more)
+Nodes (8): Ud(), Bi(), Bn(), ji(), qd(), te(), Vi(), Xc()
 
-### Community 83 - "Flutter Mobile UI Components"
+### Community 74 - "Subsystem: O()"
+Cohesion: 0.16
+Nodes (49): b(), $c(), X(), D(), _e(), Ea(), f(), se() (+41 more)
+
+### Community 75 - "Flutter Mobile UI Components"
 Cohesion: 0.06
 Nodes (31): actions(), button(), c(), close(), configureAnimations(), configureTransitions(), constructor(), danger() (+23 more)
 
-### Community 84 - "Subsystem: columns/select.js"
+### Community 76 - "Subsystem: columns/select.js"
 Cohesion: 0.08
 Nodes (43): Ae(), Ai(), An(), applyDisabledState(), be(), Bt(), De(), disable() (+35 more)
 
-### Community 85 - "Subsystem: draw()"
-Cohesion: 0.07
-Nodes (53): We(), adjustHitBoxes(), At(), beforeDatasetDraw(), beforeDatasetsDraw(), beforeDraw(), bi(), clear() (+45 more)
+### Community 77 - "Odoo ERP & Principal Integration"
+Cohesion: 0.06
+Nodes (12): Login, {closure#3}(), {closure#4}(), {closure#5}(), OdooSync, BackedEnum, UnitEnum, OdooSyncService (+4 more)
 
-### Community 86 - "Flutter Mobile UI Components"
+### Community 78 - "Flutter Mobile UI Components"
 Cohesion: 0.07
 Nodes (52): applyGlobalOptions(), blur(), _defineButtons(), disableDraw(), disableGlobalCutMode(), disableGlobalDragMode(), disableGlobalEditMode(), disableGlobalRemovalMode() (+44 more)
 
-### Community 87 - "Employee & Identity Management"
-Cohesion: 0.04
-Nodes (48): _auth, authenticate, BiometricService, clearCredentials, getAvailableBiometrics, getSavedCredentials, getSavedEmail, getSavedToken (+40 more)
+### Community 79 - "Subsystem: ar()"
+Cohesion: 0.05
+Nodes (52): addEventListener(), ar(), au(), beforeDatasetDraw(), beforeDatasetsDraw(), beforeDraw(), beforeLayout(), bi() (+44 more)
 
-### Community 88 - "Odoo ERP & Principal Integration"
+### Community 80 - "Employee & Identity Management"
+Cohesion: 0.04
+Nodes (13): {closure#4}(), GET /(), GET /admin/impersonate-start/{user}(), GET /admin/impersonate/{user}(), Request, User, UserManagement, {closure#2}() (+5 more)
+
+### Community 81 - "Attendance & Schedule Subsystem"
+Cohesion: 0.05
+Nodes (15): ShiftImporter, {closure#11}(), {closure#12}(), {closure#23}(), {closure#30}(), {closure#9}(), {closure#7}(), EmployeeScheduleImport (+7 more)
+
+### Community 82 - "Reporting & Form Engine"
+Cohesion: 0.04
+Nodes (3): {closure#11}(), {closure#26}(), {closure#34}()
+
+### Community 83 - "Reporting & Form Engine"
+Cohesion: 0.05
+Nodes (13): {closure#1}(), BelongsToMany, Product, ReportSubmissionValue, up(), {closure#2}(), up(), up() (+5 more)
+
+### Community 84 - "Subsystem: slice()"
+Cohesion: 0.05
+Nodes (51): a$(), addChanges(), addSelection(), composeDesc(), decompose(), decomposeLeft(), decomposeRight(), defineModifier() (+43 more)
+
+### Community 85 - "Admin Panel Filament Resources"
 Cohesion: 0.07
-Nodes (13): BranchImporter, CompanyImporter, DepartmentImporter, EmployeeImporter, EmployeeScheduleImporter, PositionImporter, PrincipalImporter, ShiftImporter (+5 more)
+Nodes (51): Ar(), average(), buildOrUpdateScales(), D(), dc(), determineDataLimits(), dh(), diff() (+43 more)
 
-### Community 89 - "Subsystem: slice()"
-Cohesion: 0.06
-Nodes (50): addChanges(), addSelection(), blockTiles(), composeDesc(), covers(), decompose(), decomposeLeft(), decomposeRight() (+42 more)
+### Community 86 - "Subsystem: getContext()"
+Cohesion: 0.07
+Nodes (51): bh(), buildTicks(), calculateLabelRotation(), _calculatePadding(), _computeGridLineItems(), _computeLabelItems(), _computeLabelSizes(), computeTickLimit() (+43 more)
 
-### Community 90 - "Flutter Mobile UI Components"
-Cohesion: 0.04
-Nodes (48): BlastInfo, content, departmentId, endDate, fromJson, id, startDate, targetType (+40 more)
-
-### Community 91 - "Employee & Identity Management"
+### Community 87 - "Employee & Identity Management"
 Cohesion: 0.04
 Nodes (49): avatar, completedCount, department, durationSeconds, employeeId, employeeNo, endTime, formattedDuration (+41 more)
 
-### Community 92 - "Odoo ERP & Principal Integration"
-Cohesion: 0.07
-Nodes (10): OdooSyncCommand, {closure#3}(), {closure#4}(), {closure#5}(), OdooSync, BackedEnum, UnitEnum, OdooSyncService (+2 more)
-
-### Community 93 - "Attendance & Schedule Subsystem"
-Cohesion: 0.08
-Nodes (19): EmployeeScheduleMatrixTemplateExport, EmployeeScheduleRangeTemplateExport, ShiftTemplateExport, VisitScheduleTemplateExport, {closure#13}(), {closure#8}(), Maatwebsite\Excel\Concerns\WithColumnFormatting, Maatwebsite\Excel\Concerns\WithCustomValueBinder (+11 more)
-
-### Community 94 - "Subsystem: te()"
+### Community 88 - "Attendance & Schedule Subsystem"
 Cohesion: 0.05
-Nodes (8): Ud(), Bi(), Bn(), br(), ji(), qd(), te(), Xc()
+Nodes (48): OvertimeProvider, BapScreen, _BapScreenState, build, _buildFormTab, _buildHistoryTab, _buildSectionHeader, _buildTabButton (+40 more)
 
-### Community 95 - "Admin Panel Filament Resources"
+### Community 89 - "Employee & Identity Management"
+Cohesion: 0.04
+Nodes (47): _auth, authenticate, BiometricService, clearCredentials, getAvailableBiometrics, getSavedCredentials, getSavedEmail, getSavedToken (+39 more)
+
+### Community 90 - "Subsystem: ir()"
+Cohesion: 0.10
+Nodes (47): Ft(), ir(), at(), be(), ce(), Ct(), de(), Dt() (+39 more)
+
+### Community 91 - "Admin Panel Filament Resources"
 Cohesion: 0.13
 Nodes (46): A(), ae(), B(), be(), C(), ce(), E(), ee() (+38 more)
 
-### Community 96 - "API & Mobile State Providers"
-Cohesion: 0.06
-Nodes (49): active(), afterDatasetsUpdate(), An(), _animateOptions(), buildOrUpdateControllers(), cancel(), _createAnimations(), _createDescriptors() (+41 more)
-
-### Community 97 - "Subsystem: eq()"
-Cohesion: 0.06
-Nodes (48): activeForPoint(), addActive(), Ar(), as(), boundChange(), chunkEnd(), commit(), compare() (+40 more)
-
-### Community 98 - "Subsystem: ir()"
-Cohesion: 0.11
-Nodes (46): Ft(), ir(), at(), be(), ce(), Ct(), de(), Dt() (+38 more)
-
-### Community 99 - "Subsystem: constructor()"
-Cohesion: 0.05
-Nodes (47): alpha(), Bc(), bg(), chartOptionScopes(), co(), constructor(), Cs(), dg() (+39 more)
-
-### Community 100 - "Subsystem: T()"
-Cohesion: 0.06
-Nodes (48): _a(), aa(), ae(), alpha(), ba(), Bt(), ca(), createResolver() (+40 more)
-
-### Community 101 - "Attendance & Schedule Subsystem"
+### Community 92 - "Flutter Mobile UI Components"
 Cohesion: 0.04
-Nodes (46): build, _buildFormTab, _buildHistoryTab, _buildSectionHeader, _buildTabButton, _categories, _checkinTime, _checkoutTime (+38 more)
+Nodes (47): build, ChatScreen, _ChatScreenState, createState, _messageController, _scrollController, _scrollToBottom, _sendMessage (+39 more)
 
-### Community 102 - "Odoo ERP & Principal Integration"
+### Community 93 - "Attendance & Schedule Subsystem"
+Cohesion: 0.09
+Nodes (18): AttendanceRosterMatrixExport, ShiftTemplateExport, VisitScheduleTemplateExport, Carbon\Carbon, Maatwebsite\Excel\Concerns\FromArray, Maatwebsite\Excel\Concerns\WithColumnFormatting, Maatwebsite\Excel\Concerns\WithCustomValueBinder, PhpOffice\PhpSpreadsheet\Cell\Cell (+10 more)
+
+### Community 94 - "Subsystem: lineAt()"
 Cohesion: 0.06
-Nodes (11): CheckDuluxProductsCommand, CheckPrincipalsCommand, CleanDuluxWorkLocationsCommand, DbLocksCommand, FixOrphanedEmployeeDataCommand, ImportAreasCommand, ImportDuluxCbpCommand, ImportDuluxOfftakeCommand (+3 more)
+Nodes (45): addBlock(), addLineDeco(), applyChanges(), balanced(), baseIndent(), baseIndentFor(), bidiSpans(), blankContent() (+37 more)
 
-### Community 103 - "Flutter Mobile UI Components"
-Cohesion: 0.07
-Nodes (46): baseDirAt(), bidiIn(), bidiSpans(), bidiSpansAt(), bP(), checkHover(), computeBlockGapDeco(), coordsAt() (+38 more)
+### Community 95 - "API & Mobile State Providers"
+Cohesion: 0.05
+Nodes (43): _loadTheme, _themeMode, toggleTheme, _burnWatermark, captureWithWatermark, file, latitude, longitude (+35 more)
 
-### Community 104 - "Subsystem: qt()"
+### Community 96 - "Attendance & Schedule Subsystem"
+Cohesion: 0.05
+Nodes (13): ViewAttendanceBap, ViewLeaveRequest, ViewLocationRequest, ListReportSubmissions, {closure#1}(), {closure#3}(), ViewReportSubmission, Builder (+5 more)
+
+### Community 97 - "Subsystem: reduce()"
+Cohesion: 0.08
+Nodes (46): addActions(), advanceFully(), advanceStack(), allActions(), c0(), canShift(), close(), deadEnd() (+38 more)
+
+### Community 98 - "Subsystem: of()"
+Cohesion: 0.05
+Nodes (45): attrs(), baseTheme(), bi(), bu(), cc(), cO(), define(), domEventHandlers() (+37 more)
+
+### Community 99 - "Subsystem: qt()"
 Cohesion: 0.10
 Nodes (46): ae(), q(), B(), Be(), Ft(), He(), Jt(), Me() (+38 more)
 
-### Community 105 - "Subsystem: get()"
-Cohesion: 0.06
-Nodes (45): add(), bo(), bs(), ca(), _cachedScopes(), Ch(), Ci(), createResolver() (+37 more)
-
-### Community 106 - "Visit & Itinerary Management"
-Cohesion: 0.05
-Nodes (42): _checkBiometricLogin, createState, _emailController, _formKey, _hasBiometricSaved, initState, LoginScreen, _passwordController (+34 more)
-
-### Community 107 - "Subsystem: sliceDoc()"
-Cohesion: 0.07
-Nodes (43): a$(), aO(), between(), charCategorizer(), d0(), De(), E$(), f0() (+35 more)
-
-### Community 108 - "Subsystem: slider.js"
-Cohesion: 0.09
-Nodes (40): tn(), We(), Ae(), ar(), Be(), Bt(), Ce(), De() (+32 more)
-
-### Community 109 - "Admin Panel Filament Resources"
-Cohesion: 0.06
-Nodes (43): ad(), afterAutoSkip(), applyStack(), Bf(), br(), buildLookupTable(), buildTicks(), Di() (+35 more)
-
-### Community 110 - "Admin Panel Filament Resources"
+### Community 100 - "Odoo ERP & Principal Integration"
 Cohesion: 0.08
-Nodes (43): buildOrUpdateScales(), D(), dc(), determineDataLimits(), dh(), diff(), En(), endOf() (+35 more)
+Nodes (12): BranchImporter, CompanyImporter, DepartmentImporter, EmployeeImporter, EmployeeScheduleImporter, PositionImporter, PrincipalImporter, WorkLocationImporter (+4 more)
 
-### Community 111 - "Subsystem: att-admindashboard/compos"
+### Community 101 - "Employee & Identity Management"
+Cohesion: 0.07
+Nodes (15): {closure#3}(), User, up(), PermissionsSeeder, User, Filament\Models\Contracts\FilamentUser, Illuminate\Contracts\Auth\MustVerifyEmail, Illuminate\Database\Console\Seeds\WithoutModelEvents (+7 more)
+
+### Community 102 - "Subsystem: lP()"
+Cohesion: 0.07
+Nodes (45): addElement(), addToSet(), changeByRange(), changes(), childString(), dd(), fd(), ff() (+37 more)
+
+### Community 103 - "Attendance & Schedule Subsystem"
+Cohesion: 0.05
+Nodes (43): _activeMeeting, _activePermit, _canCheckin, _canVisit, checkAttendanceStatus, _checkinBlockMessage, _error, fetchHistory (+35 more)
+
+### Community 104 - "Subsystem: att-admindashboard/compos"
 Cohesion: 0.05
 Nodes (42): autoload, autoload-dev, psr-4, files, psr-4, config, optimize-autoloader, preferred-install (+34 more)
 
-### Community 112 - "Subsystem: Xt()"
+### Community 105 - "Attendance & Schedule Subsystem"
+Cohesion: 0.07
+Nodes (16): {closure#10}(), {closure#11}(), {closure#12}(), {closure#13}(), {closure#14}(), {closure#15}(), {closure#16}(), {closure#17}() (+8 more)
+
+### Community 106 - "Subsystem: Xt()"
 Cohesion: 0.13
 Nodes (42): At(), b(), bi(), bn(), Ce(), ci(), cn(), ct() (+34 more)
 
-### Community 113 - "Flutter Mobile UI Components"
+### Community 107 - "Attendance & Schedule Subsystem"
+Cohesion: 0.05
+Nodes (40): MeetingDetailModel, MeetingModel, build, _buildAttendanceStats, _buildMeetingHeaderCard, _buildParticipantCard, _buildStatBadge, createState (+32 more)
+
+### Community 108 - "Odoo ERP & Principal Integration"
+Cohesion: 0.08
+Nodes (9): ActiveEmployeesHourlyChartWidget, AttendanceChartWidget, TurnOverChartWidget, Filament\Actions\Concerns\InteractsWithActions, Filament\Actions\Contracts\HasActions, Filament\Schemas\Concerns\InteractsWithSchemas, Filament\Schemas\Contracts\HasSchemas, Filament\Widgets\ChartWidget (+1 more)
+
+### Community 109 - "Flutter Mobile UI Components"
+Cohesion: 0.07
+Nodes (41): activeForPoint(), as(), boundChange(), commit(), compare(), comparePoint(), compareRange(), createSet() (+33 more)
+
+### Community 110 - "Subsystem: ne()"
+Cohesion: 0.09
+Nodes (40): cd(), ee(), me(), cl(), dd(), Do(), Et(), Fc() (+32 more)
+
+### Community 111 - "Subsystem: slider.js"
+Cohesion: 0.10
+Nodes (38): We(), Ae(), ar(), Be(), Bt(), Ce(), De(), _e() (+30 more)
+
+### Community 112 - "Admin Panel Filament Resources"
+Cohesion: 0.08
+Nodes (41): cn(), cs(), dataset(), l(), Es(), Ge(), getBasePosition(), getCenterPoint() (+33 more)
+
+### Community 113 - "Subsystem: components/select.js"
+Cohesion: 0.08
+Nodes (30): A(), An(), b(), be(), bn(), Bt(), e(), ei() (+22 more)
+
+### Community 114 - "Flutter Mobile UI Components"
 Cohesion: 0.12
 Nodes (40): addBadgesForSelectedOptions(), addSingleBadge(), addSingleSelectionDisplay(), closeDropdown(), constructor(), createBadgeElement(), createOptionElement(), createRemoveButton() (+32 more)
 
-### Community 114 - "Attendance & Schedule Subsystem"
-Cohesion: 0.05
-Nodes (38): MeetingDetailModel, MeetingModel, build, _buildAttendanceStats, _buildMeetingHeaderCard, _buildParticipantCard, _buildStatBadge, createState (+30 more)
+### Community 115 - "Subsystem: add()"
+Cohesion: 0.07
+Nodes (40): active(), add(), _animateOptions(), _cachedScopes(), cancel(), ci(), _createAnimations(), _createDescriptors() (+32 more)
 
-### Community 115 - "Subsystem: on()"
+### Community 116 - "Subsystem: on()"
 Cohesion: 0.08
 Nodes (39): addDraggingClass(), _addMarkerEvents(), _addTouchEvents(), applyOptions(), _assignEvents(), _createSnapList(), disableLayerDrag(), _disableSnapping() (+31 more)
 
-### Community 116 - "Subsystem: d()"
+### Community 117 - "Subsystem: addElementByRule()"
+Cohesion: 0.08
+Nodes (39): addAll(), addDOM(), addElement(), addElementByRule(), addGlobalAttributes(), addTextNode(), addToSet(), allowsMarkType() (+31 more)
+
+### Community 118 - "Subsystem: d()"
 Cohesion: 0.14
 Nodes (36): Ai(), ar(), c(), d(), destroy(), Do(), f(), Fa() (+28 more)
 
-### Community 117 - "Subsystem: Cn()"
+### Community 119 - "Subsystem: Cn()"
 Cohesion: 0.16
 Nodes (36): Cn(), b(), Ce(), De(), dn(), _e(), F(), Fe() (+28 more)
 
-### Community 118 - "Attendance & Schedule Subsystem"
-Cohesion: 0.07
-Nodes (14): SendMissedCheckinNotification, {closure#10}(), {closure#11}(), {closure#12}(), {closure#13}(), {closure#14}(), {closure#15}(), {closure#16}() (+6 more)
-
-### Community 119 - "Subsystem: TeamUncheckedMonitoring"
-Cohesion: 0.06
-Nodes (5): TeamUncheckedExport, {closure#1}(), BackedEnum, UnitEnum, TeamUncheckedMonitoring
-
-### Community 120 - "Subsystem: components/select.js"
+### Community 120 - "Admin Panel Filament Resources"
 Cohesion: 0.09
-Nodes (28): A(), An(), be(), bn(), Bt(), e(), ei(), en() (+20 more)
+Nodes (39): afterAutoSkip(), Ao(), applyStack(), buildLookupTable(), _calculateBarIndexPixels(), _calculateBarValuePixels(), _computeAngle(), countVisibleElements() (+31 more)
 
-### Community 121 - "Subsystem: Si()"
+### Community 121 - "Subsystem: fn()"
+Cohesion: 0.08
+Nodes (36): Ah(), at(), Ba(), Ch(), cx(), Eh(), Fi(), fn() (+28 more)
+
+### Community 122 - "Subsystem: Si()"
 Cohesion: 0.15
-Nodes (38): At(), b(), bi(), ci(), cn(), ct(), di(), dn() (+30 more)
-
-### Community 122 - "Visit & Itinerary Management"
-Cohesion: 0.06
-Nodes (6): App\Http\Controllers\Api\EmployeeController, BlastInfoController, ItineraryController, NotificationController, ItineraryItem, GET /user()
+Nodes (38): At(), bi(), Ce(), ci(), cn(), ct(), di(), dn() (+30 more)
 
 ### Community 123 - "Admin Panel Filament Resources"
 Cohesion: 0.08
 Nodes (37): addAll(), _adjustAllMarkers(), _adjustRectangleForMarkerMove(), an(), clone(), enableRotate(), _findCorners(), _fireRotation() (+29 more)
 
-### Community 124 - "Subsystem: lineAt()"
-Cohesion: 0.08
-Nodes (37): addBlock(), addLineDeco(), applyChanges(), balanced(), baseIndent(), baseIndentFor(), blankContent(), blockAt() (+29 more)
-
-### Community 125 - "Subsystem: getDatasetMeta()"
-Cohesion: 0.08
-Nodes (37): themeClasses(), afterDatasetsUpdate(), bc(), beforeLayout(), fc(), gc(), generateLabels(), getDatasetMeta() (+29 more)
-
-### Community 126 - "Flutter Mobile UI Components"
+### Community 124 - "Flutter Mobile UI Components"
 Cohesion: 0.06
 Nodes (35): PermitProvider, build, createState, _cutiTypes, _endDate, _formKey, _imageFile, initState (+27 more)
 
-### Community 127 - "Attendance & Schedule Subsystem"
-Cohesion: 0.10
-Nodes (11): AttendanceImportTemplateExport, AttendanceRosterMatrixExport, MandaysExport, ManPowerExport, TurnOverExport, {closure#6}(), {closure#11}(), Maatwebsite\Excel\Concerns\FromArray (+3 more)
-
-### Community 128 - "Attendance & Schedule Subsystem"
-Cohesion: 0.08
-Nodes (17): AttendanceExporter, ItineraryExporter, VisitReportExporter, {closure#19}(), ResetPasswordMail, PermitStatusUpdated, Filament\Actions\Exports\ExportColumn, Filament\Actions\Exports\Exporter (+9 more)
-
-### Community 129 - "API & Mobile State Providers"
+### Community 125 - "API & Mobile State Providers"
 Cohesion: 0.06
 Nodes (22): Dashboard, AdminPanelProvider, EncryptCookies, Filament\Http\Middleware\Authenticate, Filament\Http\Middleware\AuthenticateSession, Filament\Http\Middleware\DisableBladeIconComponents, Filament\Http\Middleware\DispatchServingFilamentEvent, Filament\Pages\Dashboard (+14 more)
 
-### Community 130 - "Reporting & Form Engine"
+### Community 126 - "Attendance & Schedule Subsystem"
+Cohesion: 0.07
+Nodes (36): active(), apply(), b0(), bd(), Bh(), checkAsyncSchedule(), clearDelayedAndroidKey(), delayAndroidKey() (+28 more)
+
+### Community 127 - "Subsystem: getDatasetMeta()"
+Cohesion: 0.08
+Nodes (36): themeClasses(), afterDatasetsUpdate(), bc(), beforeLayout(), fc(), gc(), generateLabels(), getDatasetMeta() (+28 more)
+
+### Community 128 - "Reporting & Form Engine"
 Cohesion: 0.09
 Nodes (34): create_user(), delete_user(), ErrorDetail, ErrorResponse, get_user(), http_exception_handler(), list_users(), PaginatedResponse (+26 more)
 
-### Community 131 - "Visit & Itinerary Management"
+### Community 129 - "Flutter Mobile UI Components"
 Cohesion: 0.07
-Nodes (9): Login, ItineraryResource, Builder, UnitEnum, EditItinerary, ListItineraries, {closure#9}(), Filament\Auth\Pages\Login (+1 more)
+Nodes (14): LocationRequestResource, Builder, UnitEnum, {closure#10}(), {closure#11}(), {closure#12}(), {closure#13}(), {closure#14}() (+6 more)
 
-### Community 132 - "Subsystem: echo.js"
+### Community 130 - "Subsystem: echo.js"
 Cohesion: 0.08
 Nodes (19): ar(), Be(), cr(), d(), ei(), f(), ii(), le() (+11 more)
 
-### Community 133 - "Subsystem: add()"
-Cohesion: 0.08
-Nodes (35): active(), add(), _animateOptions(), beforeUpdate(), _cachedScopes(), cancel(), ci(), _createAnimations() (+27 more)
+### Community 131 - "Attendance & Schedule Subsystem"
+Cohesion: 0.09
+Nodes (10): AttendanceImportTemplateExport, MandaysExport, ManPowerExport, TeamUncheckedExport, TurnOverExport, {closure#6}(), {closure#12}(), Maatwebsite\Excel\Concerns\ShouldAutoSize (+2 more)
 
-### Community 134 - "Subsystem: _updateHiddenPolyCircle()"
+### Community 132 - "Subsystem: find()"
+Cohesion: 0.08
+Nodes (34): addInputRules(), addMark(), addPasteRules(), check(), checkAttrs(), De(), endIndex(), find() (+26 more)
+
+### Community 133 - "Subsystem: _updateHiddenPolyCircle()"
 Cohesion: 0.09
 Nodes (33): e(), circleToPolygon(), di(), _distanceCalculation(), fe(), _fireCenterPlaced(), Fr(), _getLatLngOnCircle() (+25 more)
 
-### Community 135 - "Subsystem: Ue()"
+### Community 134 - "Subsystem: Ue()"
 Cohesion: 0.11
 Nodes (33): Ax(), bx(), c(), ct(), dx(), ex(), Fh(), Gh() (+25 more)
 
-### Community 136 - "Subsystem: updateElements()"
-Cohesion: 0.10
-Nodes (33): Ao(), applyStack(), _calculateBarIndexPixels(), _calculateBarValuePixels(), calculateCircumference(), _circumference(), countVisibleElements(), _getAxis() (+25 more)
-
-### Community 137 - "Employee & Identity Management"
+### Community 135 - "Reporting & Form Engine"
 Cohesion: 0.06
-Nodes (6): {closure#4}(), GET /(), GET /admin/impersonate-start/{user}(), GET /admin/impersonate/{user}(), Request, User
+Nodes (32): build, _buildCompetitorListCard, _buildCustomerDbDetailCard, _buildCustomerDbSummaryGrid, _buildDailyMaintenanceDetailCard, _buildDailyMaintenanceSummaryGrid, _buildMaintenanceItemCard, _buildMbrFreeTasteProductCard (+24 more)
 
-### Community 138 - "Flutter Mobile UI Components"
+### Community 136 - "Visit & Itinerary Management"
 Cohesion: 0.06
-Nodes (30): build, message, onRetry, SecurityWarningScreen, title, _animController, BarcodeScannerDialog, _BarcodeScannerDialogState (+22 more)
+Nodes (29): cancelItineraryItem, createItinerary, _dio, _error, fetchItineraries, fetchPrincipals, fetchWorkLocations, _isLoading (+21 more)
 
-### Community 139 - "Odoo ERP & Principal Integration"
-Cohesion: 0.08
-Nodes (5): App\Models\Permit, Google\Client, Illuminate\Support\Facades\Cache, Illuminate\Support\Facades\Http, Illuminate\Support\Facades\Log
-
-### Community 140 - "Subsystem: find()"
-Cohesion: 0.09
-Nodes (31): addInputRules(), addMark(), addPasteRules(), check(), checkAttrs(), De(), endIndex(), find() (+23 more)
-
-### Community 141 - "Subsystem: fn()"
+### Community 137 - "Subsystem: fn()"
 Cohesion: 0.14
 Nodes (31): ca(), Cr(), Dn(), e(), fn(), x(), Gi(), ia() (+23 more)
 
-### Community 142 - "Reporting & Form Engine"
+### Community 139 - "Reporting & Form Engine"
 Cohesion: 0.35
 Nodes (3): WingsMbrExportService, PhpOffice\PhpSpreadsheet\Worksheet\Worksheet, Symfony\Component\HttpFoundation\StreamedResponse
 
-### Community 143 - "Subsystem: _a()"
+### Community 140 - "Subsystem: _a()"
 Cohesion: 0.18
 Nodes (30): _a(), aa(), ba(), br(), Bt(), ct(), Da(), ei() (+22 more)
 
-### Community 144 - "Reporting & Form Engine"
-Cohesion: 0.08
-Nodes (29): SalesProvider, build, _buildPhotoPicker, _changeMonth, createState, dispose, _formKey, _handleAnalyze (+21 more)
+### Community 141 - "Flutter Mobile UI Components"
+Cohesion: 0.07
+Nodes (28): _addressController, build, _buildFormView, _buildHistoryView, createState, _currentTab, dispose, _extractCoordinates (+20 more)
 
-### Community 145 - "API & Mobile State Providers"
-Cohesion: 0.09
-Nodes (29): addElements(), buildOrUpdateControllers(), buildOrUpdateElements(), Ce(), _createItems(), _dataCheck(), datasetElementScopeKeys(), _destroy() (+21 more)
-
-### Community 146 - "Flutter Mobile UI Components"
-Cohesion: 0.10
-Nodes (11): App\Filament\Resources\ExtraHourResource\Pages, {closure#10}(), {closure#11}(), {closure#13}(), {closure#14}(), {closure#16}(), {closure#5}(), {closure#7}() (+3 more)
-
-### Community 147 - "API & Mobile State Providers"
+### Community 142 - "API & Mobile State Providers"
 Cohesion: 0.09
 Nodes (13): AppServiceProvider, {closure#1}(), {closure#2}(), {closure#3}(), {closure#4}(), {closure#5}(), Blueprint, Request (+5 more)
 
-### Community 148 - "Admin Panel Filament Resources"
+### Community 143 - "Admin Panel Filament Resources"
 Cohesion: 0.07
 Nodes (28): Doc: implementation-playbook.md, Bash - safer, Bash Defensive Patterns Implementation Playbook, Core Defensive Principles, Correct - safe, Correctly determine script directory, Create temporary directory, Create temporary files in directory (+20 more)
 
-### Community 149 - "Employee & Identity Management"
-Cohesion: 0.09
-Nodes (5): ServerMonitoringController, ServerTelemetryService, Illuminate\Foundation\Inspiring, Illuminate\Support\Facades\Artisan, Illuminate\Support\Facades\Schedule
+### Community 144 - "Attendance & Schedule Subsystem"
+Cohesion: 0.11
+Nodes (9): App\Models\Permit, {closure#5}(), SalesReportController, SalesReport, AIService, Google\Client, Illuminate\Support\Facades\Cache, Illuminate\Support\Facades\Http (+1 more)
 
-### Community 150 - "Admin Panel Filament Resources"
-Cohesion: 0.10
-Nodes (11): {closure#10}(), {closure#11}(), {closure#12}(), {closure#13}(), {closure#14}(), {closure#15}(), {closure#3}(), {closure#5}() (+3 more)
+### Community 145 - "Attendance & Schedule Subsystem"
+Cohesion: 0.08
+Nodes (3): EmployeeScheduleRoster, Width, {closure#1}()
 
-### Community 151 - "Employee & Identity Management"
+### Community 146 - "Employee & Identity Management"
 Cohesion: 0.10
 Nodes (27): _addButton(), addControls(), applyIconStyle(), _btnNameMapping(), changeActionsOfControl(), changeControlOrder(), controlExists(), copyDrawControl() (+19 more)
 
-### Community 152 - "Admin Panel Filament Resources"
+### Community 147 - "Admin Panel Filament Resources"
 Cohesion: 0.12
 Nodes (22): B(), close(), E(), F(), G(), I(), L(), N() (+14 more)
 
-### Community 153 - "Reporting & Form Engine"
-Cohesion: 0.10
-Nodes (7): OdooSyncReport, BackedEnum, UnitEnum, {closure#1}(), OdooSyncStreamController, OdooSyncLog, Illuminate\Support\Carbon
-
-### Community 154 - "Flutter Mobile UI Components"
-Cohesion: 0.10
-Nodes (8): ViewTrackingHistory, MeetingResource, UnitEnum, CreateMeeting, ListMeetings, ViewMeeting, Filament\Resources\Pages\Concerns\InteractsWithRecord, Filament\Resources\Pages\Page
-
-### Community 155 - "Subsystem: i()"
-Cohesion: 0.12
-Nodes (23): al(), compute(), i(), createParse(), cX(), f(), h(), m() (+15 more)
-
-### Community 156 - "Subsystem: fn()"
+### Community 148 - "Subsystem: Ew()"
 Cohesion: 0.13
-Nodes (22): Ah(), at(), Ba(), Ch(), cx(), Eh(), Fi(), fn() (+14 more)
+Nodes (26): da(), fa(), Fr(), ga(), Gr(), Kc(), Kr(), Ln() (+18 more)
 
-### Community 157 - "Employee & Identity Management"
+### Community 149 - "Subsystem: T()"
+Cohesion: 0.11
+Nodes (27): ae(), cc(), El(), first(), Fo(), ga(), gh(), Ho() (+19 more)
+
+### Community 150 - "Subsystem: get()"
+Cohesion: 0.11
+Nodes (26): add(), bo(), bs(), _cachedScopes(), Ch(), describe(), dh(), Ds() (+18 more)
+
+### Community 151 - "Flutter Mobile UI Components"
+Cohesion: 0.10
+Nodes (4): {closure#1}(), BackedEnum, UnitEnum, TeamUncheckedMonitoring
+
+### Community 152 - "Subsystem: match()"
+Cohesion: 0.12
+Nodes (25): d0(), De(), E$(), f0(), getCursor(), gT(), h0(), highlight() (+17 more)
+
+### Community 153 - "Employee & Identity Management"
 Cohesion: 0.08
 Nodes (24): Doc: rest-best-practices.md, Authentication and Authorization, Bad - Verbs or mixed conventions, Better:, Caching, Client caching, Conditional requests, Deep nesting (avoid) (+16 more)
 
-### Community 158 - "Odoo ERP & Principal Integration"
-Cohesion: 0.10
-Nodes (8): CreateWorkLocation, EditWorkLocation, WorkLocationForm, WorkLocationsTable, Builder, UnitEnum, WorkLocationResource, Livewire\Attributes\On
-
-### Community 159 - "Subsystem: octane.php"
+### Community 154 - "Subsystem: octane.php"
 Cohesion: 0.09
 Nodes (22): Laravel\Octane\Contracts\OperationTerminated, Laravel\Octane\Events\RequestHandled, Laravel\Octane\Events\RequestReceived, Laravel\Octane\Events\RequestTerminated, Laravel\Octane\Events\TaskReceived, Laravel\Octane\Events\TaskTerminated, Laravel\Octane\Events\TickReceived, Laravel\Octane\Events\TickTerminated (+14 more)
 
-### Community 160 - "Subsystem: apply()"
-Cohesion: 0.12
-Nodes (23): apply(), applyInner(), applyTransaction(), buildProps(), can(), commands(), createCan(), createChain() (+15 more)
-
-### Community 161 - "Subsystem: r()"
+### Community 155 - "Attendance & Schedule Subsystem"
 Cohesion: 0.13
-Nodes (22): _a(), bc(), r(), dd(), df(), ed(), a(), gl() (+14 more)
+Nodes (3): MeetingController, Meeting, MeetingAttendance
 
-### Community 162 - "Reporting & Form Engine"
+### Community 156 - "Odoo ERP & Principal Integration"
+Cohesion: 0.13
+Nodes (22): addNode(), destroyBetween(), destroyRest(), eu(), findIndexWithChild(), findNodeMatch(), isLocked(), localCompositionInfo() (+14 more)
+
+### Community 157 - "Reporting & Form Engine"
 Cohesion: 0.15
 Nodes (6): create_presentation(), pptx, pptx_dml_color, pptx_enum_shapes, pptx_enum_text, pptx_util
 
-### Community 163 - "Subsystem: ye()"
-Cohesion: 0.18
-Nodes (21): cd(), ee(), ue(), Et(), fd(), _i(), lr(), od() (+13 more)
+### Community 158 - "Subsystem: ResetPasswordMail"
+Cohesion: 0.14
+Nodes (11): ResetPasswordMail, PermitStatusUpdated, Illuminate\Bus\Queueable, Illuminate\Contracts\Queue\ShouldQueue, Illuminate\Mail\Mailable, Illuminate\Mail\Mailables\Attachment, Illuminate\Mail\Mailables\Content, Illuminate\Mail\Mailables\Envelope (+3 more)
 
-### Community 164 - "Subsystem: att-admin-v12/package.jso"
+### Community 159 - "Flutter Mobile UI Components"
+Cohesion: 0.11
+Nodes (19): build, _buildDetailCard, _buildLogItem, _buildMonthStats, _buildStatItem, _changeMonth, createState, _currentMonth (+11 more)
+
+### Community 160 - "Odoo ERP & Principal Integration"
+Cohesion: 0.11
+Nodes (7): CreateWorkLocation, WorkLocationForm, WorkLocationsTable, Builder, UnitEnum, WorkLocationResource, Livewire\Attributes\On
+
+### Community 161 - "Subsystem: att-admin-v12/package.jso"
 Cohesion: 0.12
 Nodes (17): devDependencies, concurrently, laravel-vite-plugin, tailwindcss, @tailwindcss/vite, vite, private, $schema (+9 more)
 
-### Community 165 - "Subsystem: oo()"
+### Community 162 - "Subsystem: oo()"
 Cohesion: 0.15
 Nodes (19): co(), _cutLayer(), ds(), fo(), go(), ho(), Ks(), lo() (+11 more)
 
-### Community 166 - "Admin Panel Filament Resources"
+### Community 163 - "Admin Panel Filament Resources"
 Cohesion: 0.11
 Nodes (19): Doc: SKILL.md, Constraints, Core Rules, Data Types, Do not use this skill when, Examples, Extensions, Generated Columns (+11 more)
 
-### Community 167 - "Employee & Identity Management"
-Cohesion: 0.14
-Nodes (7): {closure#1}(), PermissionMatrix, CreateRole, UnitEnum, RoleResource, RoleForm, Filament\Forms\Components\Field
+### Community 164 - "API & Mobile State Providers"
+Cohesion: 0.13
+Nodes (10): {closure#10}(), {closure#11}(), {closure#13}(), {closure#14}(), {closure#16}(), {closure#5}(), {closure#7}(), {closure#8}() (+2 more)
 
-### Community 168 - "Subsystem: toString()"
-Cohesion: 0.15
-Nodes (18): addToSet(), bd(), Bh(), childString(), clearDelayedAndroidKey(), delayAndroidKey(), flushIOSKey(), forceFlush() (+10 more)
+### Community 165 - "API & Mobile State Providers"
+Cohesion: 0.16
+Nodes (18): addElements(), buildOrUpdateControllers(), buildOrUpdateElements(), Ce(), _dataCheck(), _destroy(), _destroyDatasetMeta(), ds() (+10 more)
 
-### Community 169 - "Odoo ERP & Principal Integration"
+### Community 166 - "Odoo ERP & Principal Integration"
 Cohesion: 0.11
 Nodes (18): devDependencies, axios, @babel/core, babel-loader, @babel/plugin-proposal-object-rest-spread, @babel/plugin-syntax-dynamic-import, @babel/plugin-transform-runtime, @babel/preset-env (+10 more)
 
-### Community 170 - "Subsystem: destroy()"
-Cohesion: 0.15
-Nodes (17): atLastNode(), destroy(), getDOMAfter(), ignore(), move(), NP(), prev(), scroll() (+9 more)
+### Community 167 - "Visit & Itinerary Management"
+Cohesion: 0.13
+Nodes (3): {closure#1}(), ItineraryController, ItineraryItem
 
-### Community 171 - "Flutter Mobile UI Components"
+### Community 168 - "Subsystem: fn()"
+Cohesion: 0.23
+Nodes (17): Ae(), Ai(), De(), fn(), Ft(), ht(), ii(), Le() (+9 more)
+
+### Community 169 - "Flutter Mobile UI Components"
 Cohesion: 0.23
 Nodes (17): applyDisabledState(), closeDropdown(), constructor(), destroy(), disable(), enable(), focusNextOption(), focusPreviousOption() (+9 more)
 
-### Community 172 - "Flutter Mobile UI Components"
+### Community 170 - "Flutter Mobile UI Components"
 Cohesion: 0.21
 Nodes (17): areRecordsSelected(), areRecordsToggleable(), canSelectAllRecords(), deselectAllRecords(), deselectRecords(), getRecordsOnPage(), getSelectedRecordsCount(), handleCheckboxClick() (+9 more)
 
-### Community 173 - "Reporting & Form Engine"
+### Community 171 - "Subsystem: _notify()"
+Cohesion: 0.15
+Nodes (17): active(), _animateOptions(), cancel(), _createAnimations(), _createDescriptors(), _d(), _descriptors(), _notify() (+9 more)
+
+### Community 172 - "Reporting & Form Engine"
 Cohesion: 0.14
 Nodes (4): gzip, openpyxl, shutil, sqlite3
 
-### Community 174 - "API & Mobile State Providers"
+### Community 173 - "API & Mobile State Providers"
 Cohesion: 0.12
 Nodes (17): Doc: implementation-playbook.md, API Design Principles Implementation Playbook, Bad: Action-oriented endpoints (avoid), Clear type definitions, Consistent error responses, Core Concepts, Custom scalars, Enums for type safety (+9 more)
 
-### Community 175 - "Subsystem: t()"
+### Community 174 - "Reporting & Form Engine"
+Cohesion: 0.15
+Nodes (4): OdooSyncReport, BackedEnum, UnitEnum, OdooSyncLog
+
+### Community 175 - "Attendance & Schedule Subsystem"
+Cohesion: 0.15
+Nodes (7): {closure#1}(), Handler, Illuminate\Foundation\Exceptions\Handler, Illuminate\Foundation\Inspiring, Illuminate\Support\Facades\Artisan, Illuminate\Support\Facades\Schedule, Throwable
+
+### Community 176 - "Employee & Identity Management"
+Cohesion: 0.10
+Nodes (4): {closure#1}(), {closure#1}(), {closure#1}(), {closure#1}()
+
+### Community 177 - "Subsystem: t()"
 Cohesion: 0.14
 Nodes (15): b(), di(), e(), g(), Ht(), i(), Ie(), Me() (+7 more)
 
-### Community 176 - "Subsystem: color-picker.js"
+### Community 178 - "Subsystem: color-picker.js"
 Cohesion: 0.13
 Nodes (4): [g](), style(), update(), [x]()
-
-### Community 177 - "Subsystem: fn()"
-Cohesion: 0.26
-Nodes (16): Ae(), Ce(), De(), fn(), Ft(), ht(), ii(), Le() (+8 more)
-
-### Community 178 - "Admin Panel Filament Resources"
-Cohesion: 0.17
-Nodes (16): afterAutoSkip(), Ar(), buildLookupTable(), getAllParsedValues(), getDataTimestamps(), getDecimalForValue(), _getLabelBounds(), getLabelTimestamps() (+8 more)
 
 ### Community 179 - "Subsystem: TestCase"
 Cohesion: 0.16
@@ -1176,9 +1144,9 @@ Nodes (8): ExampleTest, TestCase, CreatesApplication, ExampleTest, TestCase, Ill
 Cohesion: 0.12
 Nodes (16): Doc: implementation-playbook.md, - Hook NtQueryInformationProcess, - Patch PEB.BeingDebugged to 0, - Set IsDebuggerPresent return to 0, Anti-Debugging Techniques, Anti-Reversing Techniques, Anti-Reversing Techniques Implementation Playbook, Anti-VM Detection (+8 more)
 
-### Community 181 - "Flutter Mobile UI Components"
-Cohesion: 0.16
-Nodes (5): CreatePosition, EditPosition, ListPositions, UnitEnum, PositionResource
+### Community 181 - "Attendance & Schedule Subsystem"
+Cohesion: 0.23
+Nodes (6): AttendanceExporter, ItineraryExporter, VisitReportExporter, Filament\Actions\Exports\ExportColumn, Filament\Actions\Exports\Exporter, Filament\Actions\Exports\Models\Export
 
 ### Community 182 - "API & Mobile State Providers"
 Cohesion: 0.13
@@ -1192,9 +1160,9 @@ Nodes (6): html_parser, HTMLParser, SimpleParser, json, urllib_parse, urllib_req
 Cohesion: 0.13
 Nodes (14): arrowParens, bracketSpacing, htmlWhitespaceSensitivity, insertPragma, jsxSingleQuote, printWidth, proseWrap, quoteProps (+6 more)
 
-### Community 185 - "Flutter Mobile UI Components"
-Cohesion: 0.19
-Nodes (14): OvertimeProvider, build, createState, dispose, initState, _notesController, OvertimeScreen, _OvertimeScreenState (+6 more)
+### Community 185 - "Employee & Identity Management"
+Cohesion: 0.18
+Nodes (6): {closure#1}(), PermissionMatrix, UnitEnum, RoleResource, RoleForm, Filament\Forms\Components\Field
 
 ### Community 186 - "Attendance & Schedule Subsystem"
 Cohesion: 0.14
@@ -1204,393 +1172,417 @@ Nodes (14): Doc: ROADMAP.md, Master Implementation Plan (Roadmap Lanjutan), ✅ 
 Cohesion: 0.14
 Nodes (14): Doc: ROADMAP.md, Master Implementation Plan (Roadmap Lanjutan), ✅ Tahap 10: Penguncian Parameter Odoo Sync (NIK + , ✅ Tahap 11: Pengikatan Department ke Prinsiple & A, ✅ Tahap 1: Penyelarasan Antarmuka (UI Overhaul) & , ✅ Tahap 2: Manajemen Target HK & Payslip (SELESAI), ✅ Tahap 3: Laporan Sales (OOS, Plano, Promo) & Pem, ✅ Tahap 4: Laporan Tren Analitik (Web Admin) (SELE (+6 more)
 
-### Community 188 - "Flutter Mobile UI Components"
+### Community 188 - "Reporting & Form Engine"
+Cohesion: 0.35
+Nodes (8): {closure#150}(), {closure#151}(), {closure#153}(), {closure#156}(), {closure#161}(), {closure#165}(), {closure#169}(), {closure#91}()
+
+### Community 189 - "Flutter Mobile UI Components"
 Cohesion: 0.28
 Nodes (13): addBadgesForSelectedOptions(), addSingleBadge(), addSingleSelectionDisplay(), createBadgeElement(), createRemoveButton(), getLabelForSingleSelection(), getLabelsForMultipleSelection(), getSelectedOptionLabel() (+5 more)
 
-### Community 189 - "Subsystem: renderOptions()"
+### Community 190 - "Subsystem: renderOptions()"
 Cohesion: 0.37
 Nodes (13): createOptionElement(), deferPositionDropdown(), filterOptions(), handleSearch(), hideLoadingState(), openDropdown(), populateLabelRepositoryFromOptions(), positionDropdown() (+5 more)
 
-### Community 190 - "Subsystem: e()"
+### Community 191 - "Subsystem: e()"
 Cohesion: 0.21
 Nodes (13): A(), e(), ue(), vi(), c(), X(), a(), toggleFiltersDropdown() (+5 more)
 
-### Community 191 - "Employee & Identity Management"
+### Community 192 - "Employee & Identity Management"
 Cohesion: 0.15
 Nodes (13): Doc: implementation-playbook.md, Bad: Executes N+1 queries, Core Concepts, Do not use this skill when, Good: Single query with JOIN or batch load, Group orders by user_id, Instructions, Optimization Patterns (+5 more)
 
-### Community 192 - "Attendance & Schedule Subsystem"
+### Community 193 - "Attendance & Schedule Subsystem"
 Cohesion: 0.17
 Nodes (11): addAllEmployeesFromArea, goToStep1, goToStep2, nextTablePage({{ $pagination[, previousTablePage, removeAllEmployees, removeEmployee({{ $emp->id }}), saveAndGenerateSchedule (+3 more)
 
-### Community 193 - "Admin Panel Filament Resources"
+### Community 194 - "Admin Panel Filament Resources"
 Cohesion: 0.17
 Nodes (11): autoload-dev, psr-4, description, keywords, license, minimum-stability, name, prefer-stable (+3 more)
 
-### Community 194 - "Subsystem: date-time-picker.js"
+### Community 195 - "Subsystem: date-time-picker.js"
 Cohesion: 0.29
 Nodes (7): d(), e(), i(), m(), r(), s(), t()
 
-### Community 197 - "Admin Panel Filament Resources"
+### Community 198 - "Admin Panel Filament Resources"
 Cohesion: 0.17
 Nodes (12): Doc: SKILL.md, Configuration Options, Do not use this skill when, Instructions, Phase 1: Performance Profiling & Baseline, Phase 2: Database & Backend Optimization, Phase 3: Frontend & CDN Optimization, Phase 4: Load Testing & Validation (+4 more)
 
-### Community 198 - "Subsystem: Doc: SKILL.md"
+### Community 199 - "Subsystem: Doc: SKILL.md"
 Cohesion: 0.17
 Nodes (12): Doc: SKILL.md, Configuration Options, Coordination Notes, Do not use this skill when, Instructions, Phase 1: Comprehensive Security Assessment, Phase 2: Vulnerability Remediation, Phase 3: Security Controls Implementation (+4 more)
 
-### Community 199 - "Attendance & Schedule Subsystem"
+### Community 200 - "Attendance & Schedule Subsystem"
 Cohesion: 0.17
 Nodes (12): Doc: PANDUAN_SETTING_AAPANEL_PRODUCTION.md, Langkah 1: Instalasi aaPanel pada VPS Ubuntu 22.04, Langkah 2: Instalasi Komponen Environment (App Sto, Langkah 3: Konfigurasi & Ekstensi PHP 8.2, Langkah 4: Setup Website & Domain di aaPanel, Langkah 5: Clone Project & Konfigurasi Environment, Langkah 6: Setting Supervisor (Antrean Job Queue) , Langkah 7: Setting Cron Job Otomatis (Odoo Sync &  (+4 more)
 
-### Community 200 - "Reporting & Form Engine"
+### Community 201 - "Reporting & Form Engine"
 Cohesion: 0.17
 Nodes (12): Doc: pubspec.yaml, Dependencies specify other packages that your pack, For information on the generic Dart part of this f, The following line prevents the package from being, The following section is specific to Flutter packa, To automatically upgrade your package dependencies, consider running `flutter pub upgrade --major-vers, dependencies can be manually updated by changing t (+4 more)
 
-### Community 202 - "Subsystem: _calcLatLngDistances()"
+### Community 202 - "Attendance & Schedule Subsystem"
+Cohesion: 0.22
+Nodes (5): EmployeeScheduleMatrixTemplateExport, EmployeeScheduleRangeTemplateExport, EmployeeScheduleTemplateExport, {closure#13}(), {closure#8}()
+
+### Community 203 - "Subsystem: _calcLatLngDistances()"
 Cohesion: 0.20
 Nodes (10): _calcClosestLayer(), _calcClosestLayers(), _calcLatLngDistances(), _calcLayerDistances(), _checkPrioritiySnapping(), _getClosestLayerByPriority(), _getClosestPointOnSegment(), _getDistance() (+2 more)
 
-### Community 203 - "Subsystem: webpack.mix.js"
+### Community 204 - "Subsystem: webpack.mix.js"
 Cohesion: 0.18
 Nodes (9): { EnvironmentPlugin }, glob, mix, path, sassOptions, ref_glob, laravel-mix, ref_path (+1 more)
 
-### Community 204 - "Employee & Identity Management"
+### Community 205 - "Employee & Identity Management"
 Cohesion: 0.18
 Nodes (11): Doc: graphql-schema-design.md, Field Design, GraphQL Schema Design Patterns, Mutation Design Patterns, Pagination Patterns, Query example, Schema Organization, Type Design Patterns (+3 more)
-
-### Community 205 - "Subsystem: Doc: SKILL.md"
-Cohesion: 0.18
-Nodes (11): Doc: SKILL.md, Behavioral Traits, Capabilities, Do not use this skill when, Example Interactions, Instructions, Knowledge Base, Purpose (+3 more)
 
 ### Community 206 - "Subsystem: Doc: SKILL.md"
 Cohesion: 0.18
 Nodes (11): Doc: SKILL.md, Behavioral Traits, Capabilities, Do not use this skill when, Example Interactions, Instructions, Knowledge Base, Purpose (+3 more)
 
-### Community 207 - "Attendance & Schedule Subsystem"
+### Community 207 - "Subsystem: Doc: SKILL.md"
+Cohesion: 0.18
+Nodes (11): Doc: SKILL.md, Behavioral Traits, Capabilities, Do not use this skill when, Example Interactions, Instructions, Knowledge Base, Purpose (+3 more)
+
+### Community 208 - "Attendance & Schedule Subsystem"
 Cohesion: 0.18
 Nodes (11): Doc: PANDUAN_SETUP_3_SERVER_PRODUCTION_ESA.md, PANDUAN LENGKAP SETTING & DEPLOYMENT 3 SERVER PROD, Sistem Presensi Mobile & Pelaporan Lapangan ESA Gr, ⏰ LANGKAH 7: SETTING CRON JOB OTOMATIS, ⚙️ LANGKAH 2: INSTALASI AAPANEL PADA 3 SERVER, ⚡ LANGKAH 6: SETTING SUPERVISOR (QUEUE WORKER REDI, 🌐 LANGKAH 1: KONFIGURASI DNS (HANYA DI 1 DASHBOARD, 🌐 LANGKAH 4: PEMBUATAN WEBSITE & SSL DI MASING-MAS (+3 more)
 
-### Community 208 - "Employee & Identity Management"
+### Community 209 - "Employee & Identity Management"
 Cohesion: 0.24
 Nodes (4): UserFactory, UserFactory, Illuminate\Database\Eloquent\Factories\Factory, static
 
-### Community 209 - "Subsystem: Fe()"
+### Community 210 - "Subsystem: Fe()"
 Cohesion: 0.20
 Nodes (10): Ce(), De(), Dt(), Fe(), He(), ir(), Mt(), nr() (+2 more)
 
-### Community 210 - "Attendance & Schedule Subsystem"
+### Community 211 - "Attendance & Schedule Subsystem"
 Cohesion: 0.20
 Nodes (9): mountAction(, nextPage({{ $pagination[, previousPage, closeWorkingGroupModal, deleteWorkingGroup({{ $wg->id }}), regenerateWorkingGroup({{ $this->viewingWorkingGroup->id }}), regenerateWorkingGroup({{ $wg->id }}), setActiveTab( (+1 more)
 
-### Community 211 - "Reporting & Form Engine"
+### Community 212 - "Reporting & Form Engine"
 Cohesion: 0.20
 Nodes (9): portal.partials.cbp_dashboard, portal.partials.customer_database_dashboard, portal.partials.daily_maintenance_dashboard, portal.partials.offtake_dashboard, portal.partials.oos_dashboard, portal.partials.stock_dashboard, portal.partials.wings_mbr_dashboard, portal.partials.wings_mbr_freetaste_dashboard (+1 more)
 
-### Community 212 - "Admin Panel Filament Resources"
+### Community 213 - "Admin Panel Filament Resources"
 Cohesion: 0.20
 Nodes (10): Doc: SKILL.md, Context, Do not use this skill when, Instructions, Output Format, Refactor and Clean Code, Requirements, Resources (+2 more)
 
-### Community 213 - "Subsystem: Doc: implementation-playb"
+### Community 214 - "Subsystem: Doc: implementation-playb"
 Cohesion: 0.20
 Nodes (10): Doc: implementation-playbook.md, AFTER: Each class has one responsibility, AFTER: Open for extension, closed for modification, After, BEFORE: 500-line monolithic file, BEFORE: Modification required for new discount typ, BEFORE: Multiple responsibilities in one class, Before (+2 more)
-
-### Community 214 - "Subsystem: Doc: SKILL.md"
-Cohesion: 0.20
-Nodes (10): Doc: SKILL.md, Behavioral Traits, Capabilities, Do not use this skill when, Example Interactions, Instructions, Knowledge Base, Purpose (+2 more)
 
 ### Community 215 - "Subsystem: Doc: SKILL.md"
 Cohesion: 0.20
 Nodes (10): Doc: SKILL.md, Behavioral Traits, Capabilities, Do not use this skill when, Example Interactions, Instructions, Knowledge Base, Purpose (+2 more)
 
-### Community 216 - "Subsystem: Doc: PANDUAN_MIGRASI_SWIT"
+### Community 216 - "Subsystem: Doc: SKILL.md"
+Cohesion: 0.20
+Nodes (10): Doc: SKILL.md, Behavioral Traits, Capabilities, Do not use this skill when, Example Interactions, Instructions, Knowledge Base, Purpose (+2 more)
+
+### Community 217 - "Subsystem: Doc: PANDUAN_MIGRASI_SWIT"
 Cohesion: 0.20
 Nodes (10): Doc: PANDUAN_MIGRASI_SWITCH_DOMAIN_UTAMA_ESA.md, Zero-Downtime Transition Guide untuk 3 Server Prod, ⚙️ 3. LANGKAH 2: TAMBAHKAN DOMAIN DI AAPANEL MASIN, ✅ 6. LANGKAH 5: PENGUJIAN & VERIFIKASI AKHIR, 🌐 2. LANGKAH 1: SETTING DNS RECORD DI DASHBOARD `e, 🌐 PANDUAN SWITCH / MIGRASI KE DOMAIN UTAMA (esa-so, 📋 1. RINGKASAN PEMETAAN IP SERVER PRODUCTION, 📝 5. LANGKAH 4: UPDATE `APP_URL` DI FILE `.ENV` &  (+2 more)
 
-### Community 217 - "Reporting & Form Engine"
+### Community 218 - "Reporting & Form Engine"
 Cohesion: 0.20
 Nodes (10): Doc: analysis_options.yaml, Additional information about this file can be foun, IDEs (https://dart.dev/tools#ides-and-editors). Th, The following line activates a set of recommended , The issues identified by the analyzer are surfaced, This file configures the analyzer, which staticall, check for errors, warnings, and lints., https://dart.dev/guides/language/analysis-options (+2 more)
 
-### Community 218 - "Subsystem: att-admin-v12/bootstrap/a"
+### Community 219 - "Flutter Mobile UI Components"
+Cohesion: 0.22
+Nodes (3): ExtraHourResource, Builder, UnitEnum
+
+### Community 220 - "Flutter Mobile UI Components"
+Cohesion: 0.22
+Nodes (3): PayslipResource, Builder, UnitEnum
+
+### Community 221 - "Visit & Itinerary Management"
+Cohesion: 0.22
+Nodes (3): Builder, UnitEnum, VisitReportResource
+
+### Community 222 - "Flutter Mobile UI Components"
+Cohesion: 0.22
+Nodes (3): Builder, UnitEnum, WorkTargetResource
+
+### Community 224 - "Subsystem: att-admin-v12/bootstrap/a"
 Cohesion: 0.28
 Nodes (7): {closure#1}(), {closure#2}(), {closure#3}(), SortDirection, Illuminate\Foundation\Application, Illuminate\Foundation\Configuration\Exceptions, Illuminate\Foundation\Configuration\Middleware
 
-### Community 219 - "Subsystem: scripts"
+### Community 225 - "Subsystem: scripts"
 Cohesion: 0.22
 Nodes (9): scripts, dev, post-autoload-dump, post-create-project-cmd, post-root-package-install, post-update-cmd, pre-package-uninstall, setup (+1 more)
 
-### Community 221 - "API & Mobile State Providers"
-Cohesion: 0.28
-Nodes (5): {closure#2}(), RouteServiceProvider, Illuminate\Cache\RateLimiting\Limit, Illuminate\Foundation\Support\Providers\RouteServiceProvider, Illuminate\Support\Facades\RateLimiter
-
-### Community 222 - "Employee & Identity Management"
+### Community 227 - "Employee & Identity Management"
 Cohesion: 0.22
 Nodes (8): _partials/_modals/modal-add-new-address, _partials/_modals/modal-add-new-cc, _partials/_modals/modal-edit-user, _partials/_modals/modal-enable-otp, _partials/_modals/modal-create-app, _partials/_modals/modal-refer-earn, _partials/_modals/modal-share-project, _partials/_modals/modal-two-factor-auth
 
-### Community 223 - "Admin Panel Filament Resources"
+### Community 228 - "Admin Panel Filament Resources"
 Cohesion: 0.22
 Nodes (9): Doc: SKILL.md, Context, Do not use this skill when, Instructions, Output Format, Requirements, Resources, SQL Database Migration Strategy and Implementation (+1 more)
 
-### Community 224 - "Admin Panel Filament Resources"
+### Community 229 - "Admin Panel Filament Resources"
 Cohesion: 0.22
 Nodes (9): Doc: SKILL.md, Context, Dependency Audit and Security Analysis, Do not use this skill when, Instructions, Requirements, Resources, Safety (+1 more)
 
-### Community 225 - "Subsystem: require-dev"
+### Community 230 - "Subsystem: require-dev"
 Cohesion: 0.25
 Nodes (8): require-dev, fakerphp/faker, laravel/pail, laravel/pao, laravel/pint, mockery/mockery, nunomaduro/collision, phpunit/phpunit
 
-### Community 226 - "Subsystem: jt()"
+### Community 231 - "Subsystem: jt()"
 Cohesion: 0.29
 Nodes (8): constructor(), define(), getExtension(), _getTestState(), getType(), registerListeners(), jt(), St()
 
-### Community 227 - "Subsystem: domAtPos()"
-Cohesion: 0.25
-Nodes (6): Bd(), domAtPos(), element(), my(), isDarkStyle, isRtl
+### Community 232 - "Admin Panel Filament Resources"
+Cohesion: 0.32
+Nodes (8): _createItems(), Ea(), format(), getLabelAndValue(), getLabelForValue(), ne(), numeric(), Qc()
 
-### Community 228 - "Attendance & Schedule Subsystem"
+### Community 233 - "Attendance & Schedule Subsystem"
 Cohesion: 0.25
 Nodes (7): closeDetailModal, deleteItinerary({{ $selectedItinerary[, nextMonth, openAddModal(, openDetailModal({{ $sch[, prevMonth, today
 
-### Community 229 - "Employee & Identity Management"
+### Community 234 - "Employee & Identity Management"
 Cohesion: 0.29
 Nodes (5): EventServiceProvider, Illuminate\Auth\Events\Registered, Illuminate\Auth\Listeners\SendEmailVerificationNotification, Illuminate\Foundation\Support\Providers\EventServiceProvider, Illuminate\Support\Facades\Event
 
-### Community 230 - "Subsystem: scripts"
+### Community 235 - "Subsystem: scripts"
 Cohesion: 0.25
 Nodes (8): scripts, dev, development, hot, prod, production, watch, watch-poll
 
-### Community 232 - "Subsystem: Doc: README.md"
+### Community 237 - "Subsystem: Doc: README.md"
 Cohesion: 0.25
 Nodes (8): Doc: README.md, About Laravel, Agentic Development, Code of Conduct, Contributing, Learning Laravel, License, Security Vulnerabilities
 
-### Community 233 - "Subsystem: Doc: README.md"
+### Community 238 - "Subsystem: Doc: README.md"
 Cohesion: 0.25
 Nodes (8): Doc: README.md, About Laravel, Code of Conduct, Contributing, Laravel Sponsors, Learning Laravel, License, Security Vulnerabilities
 
-### Community 236 - "API & Mobile State Providers"
+### Community 239 - "Flutter Mobile UI Components"
+Cohesion: 0.33
+Nodes (3): DashboardStatsWidget, Filament\Widgets\StatsOverviewWidget, Filament\Widgets\StatsOverviewWidget\Stat
+
+### Community 241 - "API & Mobile State Providers"
 Cohesion: 0.29
 Nodes (7): pestphp/pest-plugin, php-http/discovery, config, allow-plugins, optimize-autoloader, preferred-install, sort-packages
 
-### Community 237 - "Odoo ERP & Principal Integration"
+### Community 242 - "Odoo ERP & Principal Integration"
 Cohesion: 0.62
 Nodes (6): closeModal(), generateModalId(), getActionNestingIndexFromModalId(), init(), openModal(), syncActionModals()
 
-### Community 238 - "Subsystem: PHPUnit\Framework\TestCas"
+### Community 243 - "Subsystem: PHPUnit\Framework\TestCas"
 Cohesion: 0.38
 Nodes (3): ExampleTest, ExampleTest, PHPUnit\Framework\TestCase
 
-### Community 239 - "Subsystem: app-kanban.js"
+### Community 244 - "Subsystem: app-kanban.js"
 Cohesion: 0.38
 Nodes (4): renderAvatar(), renderDropdown(), renderFooter(), renderHeader()
 
-### Community 240 - "Subsystem: payslip.dart"
+### Community 245 - "Subsystem: payslip.dart"
 Cohesion: 0.29
 Nodes (6): createdAt, fileUrl, fromJson, id, monthYear, Payslip
 
-### Community 241 - "Employee & Identity Management"
+### Community 246 - "Employee & Identity Management"
 Cohesion: 0.29
 Nodes (7): Doc: SKILL.md, Authentication & Authorization Implementation Patt, Do not use this skill when, Instructions, Resources, Safety, Use this skill when
 
-### Community 242 - "Admin Panel Filament Resources"
+### Community 247 - "Admin Panel Filament Resources"
 Cohesion: 0.29
 Nodes (7): Doc: SKILL.md, Bash Defensive Patterns, Do not use this skill when, Instructions, Resources, Safety, Use this skill when
 
-### Community 243 - "Subsystem: Doc: implementation-playb"
+### Community 248 - "Subsystem: Doc: implementation-playb"
 Cohesion: 0.29
 Nodes (7): Doc: implementation-playbook.md, Context, Do not use this skill when, Instructions, Requirements, SQL Database Migration Strategy and Implementation, Use this skill when
 
-### Community 244 - "Subsystem: Doc: SKILL.md"
+### Community 249 - "Subsystem: Doc: SKILL.md"
 Cohesion: 0.29
 Nodes (7): Doc: SKILL.md, Approach, Do not use this skill when, Focus Areas, Instructions, Output, Use this skill when
 
-### Community 245 - "Subsystem: Doc: SKILL.md"
+### Community 250 - "Subsystem: Doc: SKILL.md"
 Cohesion: 0.29
 Nodes (7): Doc: SKILL.md, Automated Unit Test Generation, Context, Do not use this skill when, Instructions, Requirements, Use this skill when
 
-### Community 246 - "Attendance & Schedule Subsystem"
+### Community 251 - "Attendance & Schedule Subsystem"
 Cohesion: 0.29
 Nodes (7): Doc: ARSITEKTUR_SINKRONISASI_CROSS_ENTITY_ESA.md, 1. Latar Belakang & Tantangan Hierarki Lintas Enti, 2. Komparasi 3 Opsi Arsitektur Server & Sinkronisa, 3. Strategi Sinkronisasi Master Data dari Odoo, 4. Rekomendasi Implementasi Bertahap (Roadmap), ARSITEKTUR INFRASTRUKTUR & STRATEGI SINKRONISASI C, Sistem Presensi & Pelaporan Lapangan ESA Groups (2
 
-### Community 247 - "Odoo ERP & Principal Integration"
+### Community 252 - "Odoo ERP & Principal Integration"
 Cohesion: 0.29
 Nodes (7): Doc: PANDUAN_AUTO_DEPLOY_3_SERVER.md, Server Development: `appsend.my.id` $\rightarrow$ , 📋 1. Alur & Konfigurasi Server, 🔑 2. LANGKAH PERSIAPAN (HANYA DILAKUKAN 1 KALI SAJ, 🚀 3. CARA DEPLOY KE SELURUH SERVER (SETIAP KALI SE, 🚀 PANDUAN OTOMATISASI DEPLOYMENT 3 SERVER PRODUCTI, 🛠️ 4. PENYESUAIAN KOLOM PRINSIPLE KLIEN (UPDATE TE
 
-### Community 248 - "Employee & Identity Management"
+### Community 254 - "Employee & Identity Management"
 Cohesion: 0.53
 Nodes (4): LoginResponse, Filament\Auth\Http\Responses\Contracts\LoginResponse, Illuminate\Http\RedirectResponse, Livewire\Features\SupportRedirects\Redirector
 
-### Community 249 - "Subsystem: att-admin-v12/config/logg"
+### Community 255 - "Subsystem: att-admin-v12/config/logg"
 Cohesion: 0.47
 Nodes (4): Monolog\Handler\NullHandler, Monolog\Handler\StreamHandler, Monolog\Handler\SyslogUdpHandler, Monolog\Processor\PsrLogMessageProcessor
 
-### Community 251 - "Attendance & Schedule Subsystem"
+### Community 257 - "Attendance & Schedule Subsystem"
 Cohesion: 0.47
 Nodes (3): Kernel, Illuminate\Console\Scheduling\Schedule, Illuminate\Foundation\Console\Kernel
 
-### Community 252 - "Subsystem: Handler.php"
-Cohesion: 0.47
-Nodes (4): {closure#1}(), Handler, Illuminate\Foundation\Exceptions\Handler, Throwable
-
-### Community 253 - "Employee & Identity Management"
+### Community 258 - "Employee & Identity Management"
 Cohesion: 0.60
 Nodes (5): Controller, Illuminate\Foundation\Auth\Access\AuthorizesRequests, Illuminate\Foundation\Bus\DispatchesJobs, Illuminate\Foundation\Validation\ValidatesRequests, Illuminate\Routing\Controller
 
-### Community 254 - "Employee & Identity Management"
+### Community 259 - "Employee & Identity Management"
 Cohesion: 0.33
 Nodes (5): _partials/_modals/modal-add-new-address, _partials/_modals/modal-add-new-cc, _partials/_modals/modal-edit-cc, _partials/_modals/modal-edit-user, _partials/_modals/modal-upgrade-plan
 
-### Community 255 - "Subsystem: extract_pptx.py"
+### Community 260 - "Subsystem: extract_pptx.py"
 Cohesion: 0.33
 Nodes (3): sys, xml_etree_elementtree, zipfile
 
-### Community 256 - "Admin Panel Filament Resources"
+### Community 261 - "Admin Panel Filament Resources"
 Cohesion: 0.33
 Nodes (6): Doc: SKILL.md, Do not use this skill when, Instructions, Resources, Safety, Use this skill when
 
-### Community 257 - "API & Mobile State Providers"
+### Community 262 - "API & Mobile State Providers"
 Cohesion: 0.33
 Nodes (6): Doc: SKILL.md, API Design Principles, Do not use this skill when, Instructions, Resources, Use this skill when
 
-### Community 258 - "Employee & Identity Management"
+### Community 263 - "Employee & Identity Management"
 Cohesion: 0.33
 Nodes (6): Doc: implementation-playbook.md, Authentication and Authorization Implementation Pa, Core Concepts, JWT Authentication, OAuth2 / Social Login, Session-Based Authentication
 
-### Community 259 - "Admin Panel Filament Resources"
+### Community 264 - "Admin Panel Filament Resources"
 Cohesion: 0.33
 Nodes (6): Doc: SKILL.md, Do not use this skill when, Instructions, Resources, SQL Optimization Patterns, Use this skill when
 
-### Community 260 - "Subsystem: psr-4"
+### Community 265 - "Attendance & Schedule Subsystem"
+Cohesion: 0.33
+Nodes (6): Doc: TODO_LIVE_TRACKING_IMPROVEMENT.md, Rencana Perbaikan Live Tracking Mobile (Flutter) -, 📌 1. Pemicu Tracking pada Presensi Kunjungan (*Vis, 📌 2. Memastikan Status Foreground Service Terkunci, 📌 3. Optimalisasi Pengambilan GPS Saat Layar HP Te, 📌 4. Edukasi Izin Notifikasi & Optimasi Baterai Ve
+
+### Community 266 - "Subsystem: psr-4"
 Cohesion: 0.40
 Nodes (5): autoload, psr-4, App\\, Database\\Factories\\, Database\\Seeders\\
 
-### Community 286 - "Reporting & Form Engine"
+### Community 268 - "Reporting & Form Engine"
 Cohesion: 0.40
 Nodes (3): {closure#1}(), {closure#2}(), up()
 
-### Community 288 - "Subsystem: att-admin-v12/deploy.sh"
+### Community 269 - "Subsystem: att-admin-v12/deploy.sh"
 Cohesion: 0.70
 Nodes (4): deploy_local_dev(), deploy_three_prod_servers(), setup_ssh_pairing(), deploy.sh script
 
-### Community 289 - "Subsystem: ru()"
+### Community 270 - "Subsystem: main.js"
 Cohesion: 0.40
-Nodes (5): descAt(), deselectNode(), ru(), selectNode(), vd()
+Nodes (3): element(), isDarkStyle, isRtl
 
-### Community 290 - "Employee & Identity Management"
+### Community 271 - "Employee & Identity Management"
 Cohesion: 0.40
 Nodes (4): closeNewChatModal, openNewChatModal, selectConversation({{ $conv->id }}), startConversationWithEmployee({{ $emp->id }})
 
-### Community 291 - "Reporting & Form Engine"
+### Community 272 - "Reporting & Form Engine"
 Cohesion: 0.40
 Nodes (4): closeLogDetail, $refresh, setToday, showLogDetail({{ $log->id }})
 
-### Community 293 - "Employee & Identity Management"
+### Community 273 - "Employee & Identity Management"
 Cohesion: 0.50
 Nodes (3): AuthServiceProvider, Illuminate\Foundation\Support\Providers\AuthServiceProvider, Illuminate\Support\Facades\Gate
 
-### Community 294 - "Subsystem: overrides"
+### Community 274 - "Subsystem: overrides"
 Cohesion: 0.40
 Nodes (5): overrides, autoprefixer, prop-types, webpack, webpack-cli
 
-### Community 295 - "Subsystem: resolutions"
+### Community 275 - "Subsystem: resolutions"
 Cohesion: 0.40
 Nodes (5): resolutions, autoprefixer, prop-types, webpack, webpack-cli
 
-### Community 296 - "Subsystem: contentNavbarLayout.blade"
+### Community 276 - "Subsystem: contentNavbarLayout.blade"
 Cohesion: 0.40
 Nodes (4): layouts/sections/footer/footer, layouts/sections/navbar/navbar, _partials/_modals/modal-pricing, layouts/sections/menu/verticalMenu
 
-### Community 297 - "Subsystem: horizontalLayout.blade.ph"
+### Community 277 - "Subsystem: horizontalLayout.blade.ph"
 Cohesion: 0.40
 Nodes (4): layouts/sections/footer/footer, layouts/sections/navbar/navbar, _partials/_modals/modal-pricing, layouts/sections/menu/horizontalMenu
 
-### Community 299 - "Subsystem: deploy.sh"
+### Community 279 - "Subsystem: deploy.sh"
 Cohesion: 0.70
 Nodes (4): deploy_local_dev(), deploy_three_prod_servers(), setup_ssh_pairing(), deploy.sh script
 
-### Community 300 - "Attendance & Schedule Subsystem"
+### Community 280 - "Attendance & Schedule Subsystem"
 Cohesion: 0.40
 Nodes (5): Doc: rancangan_sistem_attendance_laravel_mysql_android.md, 1. Tujuan Sistem, 2. Aktor / Role Pengguna, 3. Modul Sistem, Rancangan Sistem Aplikasi Attendance
 
-### Community 310 - "Attendance & Schedule Subsystem"
+### Community 284 - "Attendance & Schedule Subsystem"
 Cohesion: 0.50
 Nodes (3): mountAction(, nextPage({{ $pagination[, previousPage
 
-### Community 315 - "Subsystem: app-calendar-events.js"
+### Community 287 - "Subsystem: app-calendar-events.js"
 Cohesion: 0.50
 Nodes (3): date, events, nextDay
 
-### Community 316 - "Reporting & Form Engine"
+### Community 288 - "Reporting & Form Engine"
 Cohesion: 0.50
 Nodes (3): assetsPath, config, templateName
 
-### Community 318 - "Subsystem: app-invoice-edit.blade.ph"
+### Community 290 - "Subsystem: app-invoice-edit.blade.ph"
 Cohesion: 0.50
 Nodes (3): _partials.macros, _partials/_offcanvas/offcanvas-add-payment, _partials/_offcanvas/offcanvas-send-invoice
 
-### Community 319 - "Flutter Mobile UI Components"
+### Community 291 - "Flutter Mobile UI Components"
 Cohesion: 0.50
 Nodes (3): _partials.macros, _partials/_offcanvas/offcanvas-add-payment, _partials/_offcanvas/offcanvas-send-invoice
 
-### Community 320 - "Employee & Identity Management"
+### Community 292 - "Employee & Identity Management"
 Cohesion: 0.50
 Nodes (3): _partials/_modals/modal-edit-user, _partials/_modals/modal-enable-otp, _partials/_modals/modal-upgrade-plan
 
-### Community 321 - "Subsystem: commonMaster.blade.php"
+### Community 293 - "Subsystem: commonMaster.blade.php"
 Cohesion: 0.50
 Nodes (3): layouts/sections/scripts, layouts/sections/scriptsIncludes, layouts/sections/styles
 
-### Community 322 - "Flutter Mobile UI Components"
+### Community 294 - "Flutter Mobile UI Components"
 Cohesion: 0.50
 Nodes (4): Doc: api-design-checklist.md, API Design Checklist, GraphQL-Specific Checks, Pre-Implementation Review
 
-### Community 323 - "Attendance & Schedule Subsystem"
+### Community 295 - "Attendance & Schedule Subsystem"
 Cohesion: 0.50
 Nodes (4): Doc: README.md, Catatan Penting Pengembangan (Update Terakhir: 4 A, Proyek Aplikasi Absensi (att-mobile & att-admin), Riwayat Update (Changelog)
 
-### Community 324 - "Reporting & Form Engine"
+### Community 296 - "Reporting & Form Engine"
 Cohesion: 0.50
 Nodes (4): Doc: Spesifikasi_Fitur_Sales_Reporting-v2.md, Daftar Fitur Utama, Latar Belakang, Spesifikasi Fitur: Modul Sales Reporting (Dengan I
 
-### Community 326 - "Subsystem: extra"
+### Community 298 - "Subsystem: extra"
 Cohesion: 0.67
 Nodes (3): extra, laravel, dont-discover
 
-### Community 327 - "Subsystem: pt()"
+### Community 299 - "Subsystem: pt()"
 Cohesion: 0.67
 Nodes (3): H(), ji(), pt()
 
-### Community 344 - "Subsystem: Doc: implementation-playb"
+### Community 316 - "Subsystem: Doc: implementation-playb"
 Cohesion: 0.67
 Nodes (3): Doc: implementation-playbook.md, Dependency Audit and Security Analysis Implementat, Instructions
 
-### Community 345 - "Subsystem: Doc: README.md"
+### Community 317 - "Subsystem: Doc: README.md"
 Cohesion: 0.67
 Nodes (3): Doc: README.md, Getting Started, att_mobile
 
-### Community 346 - "Attendance & Schedule Subsystem"
+### Community 318 - "Attendance & Schedule Subsystem"
 Cohesion: 0.67
 Nodes (3): Doc: README_MOBILE_INTEGRATION.md, PANDUAN INTEGRASI MOBILE CLIENT (MULTI-SERVER ROUT, Project Aplikasi Presensi & Pelaporan ESA Groups (
 
 ## Knowledge Gaps
-- **2127 isolated node(s):** `SortDirection`, `$schema`, `name`, `type`, `description` (+2122 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 5385 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **489 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **2132 isolated node(s):** `SortDirection`, `$schema`, `name`, `type`, `description` (+2127 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 5398 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **456 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `BlastInfo` connect `Attendance & Schedule Subsystem` to `Attendance & Schedule Subsystem`, `Visit & Itinerary Management`, `Flutter Mobile UI Components`?**
-  _High betweenness centrality (0.033) - this node is a cross-community bridge._
-- **Why does `Controller` connect `Employee & Identity Management` to `Employee & Identity Management`, `Odoo ERP & Principal Integration`, `Odoo ERP & Principal Integration`, `Attendance & Schedule Subsystem`, `API & Mobile State Providers`, `Employee & Identity Management`, `Attendance & Schedule Subsystem`, `Employee & Identity Management`, `Flutter Mobile UI Components`, `Attendance & Schedule Subsystem`, `Employee & Identity Management`, `Employee & Identity Management`, `Reporting & Form Engine`, `Visit & Itinerary Management`, `Reporting & Form Engine`, `Attendance & Schedule Subsystem`?**
-  _High betweenness centrality (0.027) - this node is a cross-community bridge._
-- **Why does `Principal` connect `Reporting & Form Engine` to `Visit & Itinerary Management`, `Odoo ERP & Principal Integration`, `Employee & Identity Management`, `Attendance & Schedule Subsystem`, `Attendance & Schedule Subsystem`, `Attendance & Schedule Subsystem`, `Odoo ERP & Principal Integration`, `Employee & Identity Management`, `Attendance & Schedule Subsystem`, `Admin Panel Filament Resources`, `Employee & Identity Management`, `Attendance & Schedule Subsystem`, `Reporting & Form Engine`, `Attendance & Schedule Subsystem`, `Reporting & Form Engine`, `Odoo ERP & Principal Integration`, `Reporting & Form Engine`, `Attendance & Schedule Subsystem`, `API & Mobile State Providers`, `Employee & Identity Management`, `Odoo ERP & Principal Integration`, `Odoo ERP & Principal Integration`, `Attendance & Schedule Subsystem`, `Odoo ERP & Principal Integration`?**
-  _High betweenness centrality (0.018) - this node is a cross-community bridge._
+- **Why does `BlastInfo` connect `Attendance & Schedule Subsystem` to `Employee & Identity Management`, `Employee & Identity Management`, `Flutter Mobile UI Components`?**
+  _High betweenness centrality (0.030) - this node is a cross-community bridge._
+- **Why does `Controller` connect `Employee & Identity Management` to `Employee & Identity Management`, `API & Mobile State Providers`, `Odoo ERP & Principal Integration`, `Odoo ERP & Principal Integration`, `Visit & Itinerary Management`, `Attendance & Schedule Subsystem`, `Attendance & Schedule Subsystem`, `Attendance & Schedule Subsystem`, `Attendance & Schedule Subsystem`, `Attendance & Schedule Subsystem`, `Attendance & Schedule Subsystem`, `Employee & Identity Management`, `Reporting & Form Engine`, `Attendance & Schedule Subsystem`, `Employee & Identity Management`, `Employee & Identity Management`, `API & Mobile State Providers`, `Attendance & Schedule Subsystem`?**
+  _High betweenness centrality (0.026) - this node is a cross-community bridge._
+- **Why does `ReportTemplate` connect `Subsystem: ReportTemplate` to `Attendance & Schedule Subsystem`, `Attendance & Schedule Subsystem`, `Odoo ERP & Principal Integration`, `Odoo ERP & Principal Integration`, `Employee & Identity Management`, `Attendance & Schedule Subsystem`, `Attendance & Schedule Subsystem`, `Reporting & Form Engine`, `Reporting & Form Engine`, `Attendance & Schedule Subsystem`, `Reporting & Form Engine`, `Employee & Identity Management`, `Reporting & Form Engine`, `Attendance & Schedule Subsystem`, `Employee & Identity Management`, `Attendance & Schedule Subsystem`, `Attendance & Schedule Subsystem`?**
+  _High betweenness centrality (0.021) - this node is a cross-community bridge._
 - **What connects `SortDirection`, `$schema`, `name` to the rest of the system?**
-  _2127 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _2132 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Employee & Identity Management` be split into smaller, more focused modules?**
-  _Cohesion score 0.006935378590078329 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.006156123627960717 - nodes in this community are weakly interconnected._
 - **Should `Employee & Identity Management` be split into smaller, more focused modules?**
-  _Cohesion score 0.009163588760577867 - nodes in this community are weakly interconnected._
-- **Should `Subsystem: components/chart.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.011724316621324006 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.006989915734217434 - nodes in this community are weakly interconnected._
+- **Should `Subsystem: rich-editor.js` be split into smaller, more focused modules?**
+  _Cohesion score 0.01147183902084846 - nodes in this community are weakly interconnected._
