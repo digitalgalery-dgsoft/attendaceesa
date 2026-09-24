@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\Principal;
+use App\Services\OdooSyncService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\ImportAction;
@@ -15,6 +16,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\HtmlString;
@@ -34,6 +36,81 @@ class ListEmployees extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('sync_by_nik')
+                ->label('Tarik / Update by NIK')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->modalHeading('Tarik & Update Data Karyawan / Kandidat dari Odoo')
+                ->modalDescription('Masukkan NIK (Nomor KTP, NIK Perusahaan, atau ID Odoo) untuk menarik atau memperbarui data kandidat/karyawan tertentu secara instan langsung dari server Odoo tanpa perlu sync semua data.')
+                ->modalSubmitActionLabel('Tarik & Update Data')
+                ->form([
+                    TextInput::make('nik')
+                        ->label('NIK / No. KTP / ID Odoo')
+                        ->placeholder('Contoh: 320101... atau 2024001')
+                        ->required()
+                        ->autofocus()
+                        ->helperText('Bisa berupa NIK KTP (16 digit), NIK karyawan Odoo, atau ID Odoo.'),
+                    Select::make('company_id')
+                        ->label('Perusahaan (Odoo Target)')
+                        ->placeholder('-- Otomatis (Cari di Seluruh Perusahaan Terhubung) --')
+                        ->searchable()
+                        ->preload()
+                        ->options(function () {
+                            return Company::where('is_active', true)
+                                ->whereNotNull('odoo_url')
+                                ->where('odoo_url', '!=', '')
+                                ->orderBy('name')
+                                ->pluck('name', 'id')
+                                ->toArray();
+                        })
+                        ->helperText('Pilih entitas target jika sudah diketahui, atau biarkan kosong untuk mencari otomatis di semua entitas.'),
+                ])
+                ->action(function (array $data) {
+                    $nik = trim($data['nik'] ?? '');
+                    $companyId = !empty($data['company_id']) ? (int) $data['company_id'] : null;
+
+                    try {
+                        $result = OdooSyncService::syncByNik($nik, $companyId);
+                        if (!empty($result['success'])) {
+                            $status = $result['status'] ?? '';
+                            $name = $result['employee']?->full_name ?? ($result['details']['name'] ?? 'Karyawan');
+                            $targetNik = $result['employee']?->employee_no ?? $nik;
+                            $pos = $result['details']['position'] ?? '-';
+                            $princ = $result['details']['principal'] ?? '-';
+                            $company = $result['company_name'] ?? '-';
+
+                            $title = match ($status) {
+                                'created'  => '➕ Kandidat Baru Berhasil Ditarik!',
+                                'updated'  => '🔄 Data Karyawan Berhasil Diperbarui!',
+                                'resigned' => '🚪 Status Karyawan Diperbarui (Resign)',
+                                default    => '✅ Sinkronisasi NIK Berhasil',
+                            };
+
+                            $changesList = !empty($result['details']['changes']) ? implode(', ', $result['details']['changes']) : 'Data sudah mutakhir / tidak ada perubahan';
+
+                            Notification::make()
+                                ->title($title)
+                                ->body("👤 **[{$targetNik}] {$name}**\n🏢 Perusahaan: {$company}\n📌 Posisi: {$pos} | Prinsiple: {$princ}\n📊 Status: {$status}\n📝 Keterangan: {$changesList}")
+                                ->success()
+                                ->persistent()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('Data Tidak Ditemukan / Gagal')
+                                ->body($result['message'] ?? "Data dengan NIK '{$nik}' tidak ditemukan di Odoo.")
+                                ->warning()
+                                ->persistent()
+                                ->send();
+                        }
+                    } catch (\Throwable $e) {
+                        Notification::make()
+                            ->title('Gagal Melakukan Sync by NIK')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                }),
+
             Action::make('deduplicate_niks')
                 ->label('Bersihkan Duplikat NIK')
                 ->icon('heroicon-o-sparkles')

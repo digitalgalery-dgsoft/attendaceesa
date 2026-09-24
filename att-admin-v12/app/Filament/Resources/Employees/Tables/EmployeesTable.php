@@ -192,6 +192,50 @@ class EmployeesTable
                 DeleteAction::make(),
                 ForceDeleteAction::make(),
                 RestoreAction::make(),
+                \Filament\Actions\Action::make('sync_odoo')
+                    ->label('Sync Odoo')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (\App\Models\Employee $record) => "Tarik & Update Data [{$record->full_name}] dari Odoo")
+                    ->modalDescription(fn (\App\Models\Employee $record) => "Sistem akan mencari data terbaru untuk NIK {$record->employee_no} di server Odoo dan memperbarui jabatan, cabang, departemen, serta status terbarunya.")
+                    ->modalSubmitActionLabel('Tarik & Update Sekarang')
+                    ->action(function (\App\Models\Employee $record) {
+                        $nik = $record->employee_no ?: $record->nik;
+                        if (empty($nik)) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('NIK Kosong')
+                                ->body('Karyawan ini tidak memiliki nomor NIK yang valid untuk dicari di Odoo.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        try {
+                            $result = \App\Services\OdooSyncService::syncByNik($nik, $record->company_id);
+                            if (!empty($result['success'])) {
+                                $status = $result['status'] ?? '';
+                                $changes = !empty($result['details']['changes']) ? implode(', ', $result['details']['changes']) : 'Data sudah mutakhir';
+                                \Filament\Notifications\Notification::make()
+                                    ->title("Data [{$record->full_name}] Berhasil Disinkronkan")
+                                    ->body("Status: {$status}\nPerubahan: {$changes}")
+                                    ->success()
+                                    ->send();
+                            } else {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Data Tidak Ditemukan di Odoo')
+                                    ->body($result['message'] ?? "Data dengan NIK '{$nik}' tidak ditemukan di Odoo.")
+                                    ->warning()
+                                    ->send();
+                            }
+                        } catch (\Throwable $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Gagal Sinkronisasi Odoo')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
                 \Filament\Actions\Action::make('reset_device')
                     ->label('Reset Device')
                     ->icon('heroicon-o-device-phone-mobile')

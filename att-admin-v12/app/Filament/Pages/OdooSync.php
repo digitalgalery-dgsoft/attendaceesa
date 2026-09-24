@@ -7,6 +7,7 @@ use App\Models\Setting;
 use App\Services\OdooSyncService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -47,6 +48,56 @@ class OdooSync extends Page
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('sync_by_nik')
+                ->label('Tarik by NIK')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->modalHeading('Tarik & Update Data by NIK dari Odoo')
+                ->modalDescription('Masukkan NIK (Nomor KTP, NIK Perusahaan, atau ID Odoo) untuk menarik kandidat baru atau memperbarui data karyawan secara instan tanpa perlu sinkronisasi seluruh entitas.')
+                ->modalSubmitActionLabel('Tarik Data Sekarang')
+                ->form([
+                    TextInput::make('nik')
+                        ->label('NIK / No. KTP / ID Odoo')
+                        ->placeholder('Contoh: 320101... atau 2024001')
+                        ->required()
+                        ->autofocus()
+                        ->helperText('Bisa berupa NIK KTP, NIK karyawan Odoo, atau ID Odoo.'),
+                    Select::make('company_id')
+                        ->label('Perusahaan Target')
+                        ->placeholder('-- Otomatis (Cari di Semua Entitas Terhubung) --')
+                        ->options(fn () => Company::where('is_active', true)->whereNotNull('odoo_url')->where('odoo_url', '!=', '')->pluck('name', 'id')->toArray())
+                        ->default(fn () => $this->selectedCompanyId)
+                        ->searchable(),
+                ])
+                ->action(function (array $data) {
+                    $nik = trim($data['nik'] ?? '');
+                    $companyId = !empty($data['company_id']) ? (int) $data['company_id'] : $this->selectedCompanyId;
+
+                    try {
+                        $result = OdooSyncService::syncByNik($nik, $companyId);
+                        if (!empty($result['success'])) {
+                            Notification::make()
+                                ->title('Sync by NIK Berhasil')
+                                ->body($result['message'])
+                                ->success()
+                                ->persistent()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('Data Tidak Ditemukan')
+                                ->body($result['message'])
+                                ->warning()
+                                ->persistent()
+                                ->send();
+                        }
+                    } catch (\Throwable $e) {
+                        Notification::make()
+                            ->title('Gagal Sync by NIK')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                }),
             Action::make('test_connection')
                 ->label('Test Connection')
                 ->icon('heroicon-o-signal')

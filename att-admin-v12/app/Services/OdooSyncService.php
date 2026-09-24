@@ -387,414 +387,27 @@ class OdooSyncService
 
         foreach ($records as $rec) {
             try {
-                // List of all internal company names
-                $allInternalCompanyNames = [
-                    'pt arina multi karya',
-                    'pt alva karya perkasa',
-                    'pt anugrah talenta berkarya',
-                    'pt anugrah terpercaya kerja',
-                    'pt abadi berkat odelia',
-                    'arina multi karya',
-                    'alva karya perkasa',
-                    'anugrah talenta berkarya',
-                    'anugrah terpercaya kerja',
-                    'abadi berkat odelia',
-                ];
-
-                // Resolve Principal — ikat ke NAMA Prinsiple dan odoo_id
-                $principalId = null;
-                $principalName = '';
-                if (!empty($rec['principle_id']) && is_array($rec['principle_id'])) {
-                    $odooPrincipalId = (int) $rec['principle_id'][0];
-                    $principalName = trim((string) $rec['principle_id'][1]);
-
-                    // 1. Cari berdasarkan odoo_id DALAM COMPANY YANG SAMA terlebih dahulu
-                    $principal = Principal::where('company_id', $companyId)->where('odoo_id', $odooPrincipalId)->first();
-
-                    // 2. Jika tidak ditemukan, cari berdasarkan NAMA dalam company yang sama
-                    if (!$principal && !empty($principalName)) {
-                        $principal = Principal::where('company_id', $companyId)->whereRaw('LOWER(TRIM(name)) = ?', [strtolower($principalName)])->first();
-                    }
-
-                    // 3. Fallback tanpa batasan company
-                    if (!$principal) {
-                        $principal = Principal::where('odoo_id', $odooPrincipalId)->first();
-                    }
-                    if (!$principal && !empty($principalName)) {
-                        $principal = Principal::whereRaw('LOWER(TRIM(name)) = ?', [strtolower($principalName)])->first();
-                    }
-
-                    if ($principal) {
-                        $principalId = $principal->id;
-                        $principalName = $principal->name;
-                        // Tautkan odoo_id jika belum terisi atau berubah
-                        if (empty($principal->odoo_id) || $principal->odoo_id != $odooPrincipalId) {
-                            $principal->update(['odoo_id' => $odooPrincipalId]);
-                        }
-                    } else {
-                        // Cek konflik kode sebelum create
-                        $pCode = 'OD-' . $odooPrincipalId;
-                        if (Principal::where('code', $pCode)->exists()) {
-                            $pCode = 'OD-' . $odooPrincipalId . '-' . \Illuminate\Support\Str::random(3);
-                        }
-
-                        $principal = Principal::create([
-                            'odoo_id'    => $odooPrincipalId,
-                            'name'       => $principalName,
-                            'code'       => $pCode,
-                            'company_id' => $companyId,
-                            'is_active'  => true,
-                        ]);
-                        $principalId = $principal->id;
-                    }
-                }
-
-                // Resolve Department & Inhouse status — jika prinsiple kosong atau sama dengan company -> Inhouse, else -> Ratecard
-                $companyNameLower = strtolower(trim($localCompany->name ?? ''));
-                $odooCompanyNameLower = !empty($rec['company_id']) && is_array($rec['company_id']) ? strtolower(trim($rec['company_id'][1])) : '';
-                $pNameLower = strtolower(trim($principalName));
-
-                $isInhouse = false;
-                if (empty($principalName) || $pNameLower === $companyNameLower || $pNameLower === $odooCompanyNameLower || in_array($pNameLower, $allInternalCompanyNames)) {
-                    $isInhouse = true;
-                }
-
-                // If inhouse: company and principal MUST BE IDENTICAL (Principal = Company's own principal)
-                if ($isInhouse) {
-                    $companyPrincipal = Principal::where('company_id', $companyId)
-                        ->whereRaw('LOWER(TRIM(name)) = ?', [strtolower(trim($localCompany->name))])
-                        ->first();
-                    if (!$companyPrincipal) {
-                        $companyPrincipal = Principal::whereRaw('LOWER(TRIM(name)) = ?', [strtolower(trim($localCompany->name))])->first();
-                    }
-                    if (!$companyPrincipal) {
-                        $code = '300';
-                        if (stripos($localCompany->name, 'TERPERCAYA') !== false) {
-                            $code = '300';
-                        } elseif (stripos($localCompany->name, 'TALENTA') !== false) {
-                            $code = '500';
-                        } elseif (stripos($localCompany->name, 'ODELIA') !== false) {
-                            $code = '400';
-                        } else {
-                            $code = 'PRIN-' . ($localCompany->code ?: $companyId);
-                        }
-                        if (Principal::where('code', $code)->exists()) {
-                            $code = 'PRIN-' . ($localCompany->code ?: $companyId);
-                        }
-                        $companyPrincipal = Principal::create([
-                            'name'       => $localCompany->name,
-                            'code'       => $code,
-                            'company_id' => $companyId,
-                            'is_active'  => true,
-                        ]);
-                    }
-                    $principalId = $companyPrincipal->id;
-                    $principalName = $companyPrincipal->name;
-                }
-
-                $deptName = $isInhouse ? 'Inhouse' : 'Ratecard';
-                if (!empty($rec['department_id']) && is_array($rec['department_id'])) {
-                    $rawDeptName = trim((string) $rec['department_id'][1]);
-                    if (!empty($rawDeptName)) {
-                        $deptName = $rawDeptName;
-                    }
-                }
-
-                $department = Department::firstOrCreate(
-                    [
-                        'name'         => $deptName,
-                        'principal_id' => $principalId,
-                    ],
-                    [
-                        'company_id'          => $companyId,
-                        'code'                => 'DEP-' . strtoupper(\Illuminate\Support\Str::random(5)),
-                        'is_active'           => true,
-                        'has_sales_reporting' => (strtoupper($deptName) === 'SALES'),
-                        'cutoff_start_date'   => 26,
-                        'working_days'        => ['1', '2', '3', '4', '5'],
-                    ]
-                );
-
-                if ((!$department->principal_id && $principalId) || (!$department->company_id && $companyId) || empty($department->code)) {
-                    $department->update([
-                        'principal_id' => $department->principal_id ?: $principalId,
-                        'company_id'   => $department->company_id ?: $companyId,
-                        'code'         => $department->code ?: ('DEP-' . strtoupper(\Illuminate\Support\Str::random(5))),
-                    ]);
-                }
-
-                $departmentId = $department->id;
-
-                // Resolve Area (Branch in local db) — auto-create if not found
-                $localBranchId = null;
-                $areaName = 'Pusat';
-                if (!empty($rec['area_id']) && is_array($rec['area_id'])) {
-                    $areaName = $rec['area_id'][1];
-                    $branch = \App\Models\Branch::firstOrCreate(
-                        ['name' => $areaName],
-                        ['code' => 'OD-AREA-' . $rec['area_id'][0], 'is_active' => true]
-                    );
-                    if (empty($branch->code)) {
-                        $branch->update(['code' => 'OD-AREA-' . $rec['area_id'][0]]);
-                    }
-                    $localBranchId = $branch->id;
-                }
-
-                // Resolve Position — auto-create if not found, assign principal_id & code
-                $positionId = null;
-                $posName = 'Staff';
-                if (!empty($rec['job_id']) && is_array($rec['job_id'])) {
-                    $posName    = $rec['job_id'][1];
-                    $position   = Position::firstOrCreate(
-                        ['name' => $posName, 'principal_id' => $principalId],
-                        [
-                            'company_id' => $companyId,
-                            'code'       => 'POS-' . strtoupper(\Illuminate\Support\Str::random(5)),
-                            'is_active'  => true,
-                        ]
-                    );
-                    
-                    // Update principal_id, company_id or code if empty
-                    if (!$position->principal_id || !$position->company_id || empty($position->code)) {
-                        $position->update([
-                            'principal_id' => $position->principal_id ?: $principalId,
-                            'company_id'   => $position->company_id ?: $companyId,
-                            'code'         => $position->code ?: ('POS-' . strtoupper(\Illuminate\Support\Str::random(5))),
-                        ]);
-                    }
-                    
-                    $positionId = $position->id;
-                }
-
-                // Helper to clean Odoo XML-RPC values
-                $cleanStr = function ($val) {
-                    if ($val === null || $val === false || $val === 'false' || $val === 'null') {
-                        return null;
-                    }
-                    $str = trim((string) $val);
-                    return $str !== '' ? $str : null;
-                };
-
-                $cleanDate = function ($dateVal) use ($cleanStr) {
-                    $str = $cleanStr($dateVal);
-                    if (!$str || $str === '0000-00-00') {
-                        return null;
-                    }
-                    return preg_match('/^\d{4}-\d{2}-\d{2}/', $str) ? substr($str, 0, 10) : null;
-                };
-
-                // Map employment status & active status
-                $isActiveInOdoo = true;
-                if (isset($rec['active'])) {
-                    $parsedActive = filter_var($rec['active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-                    if ($parsedActive !== null) {
-                        $isActiveInOdoo = $parsedActive;
-                    }
-                }
-
-                $departureDate = $cleanDate($rec['departure_date'] ?? null);
-                if ($departureDate && strtotime($departureDate) && strtotime($departureDate) <= time()) {
-                    $isActiveInOdoo = false;
-                }
-
-                $employmentStatus = $isActiveInOdoo ? 'contract' : 'resigned';
-                $birthDate = $cleanDate($rec['birthday'] ?? null);
-                $joinDate = $cleanDate($rec['first_contract_date'] ?? null);
-                $phone = $cleanStr($rec['mobile_phone'] ?? null);
-                $email = $cleanStr($rec['private_email'] ?? null) ?: $cleanStr($rec['work_email'] ?? null);
-
-                // Map gender
-                $rawGender = strtolower(trim((string)($rec['gender'] ?? '')));
-                $gender = ($rawGender === 'male' || $rawGender === 'female') ? $rawGender : null;
-
-                // Employee no — prefer identification_id (NIK / No. KTP)
-                $rawNik = $cleanStr($rec['identification_id'] ?? null);
-                $rawRegNo = $cleanStr($rec['registration_number'] ?? null);
-                $targetNik = $rawNik ?: ($rawRegNo ?: ('OD-' . $rec['id']));
-                $employeeNo = $targetNik;
-
-                // PROTEKSI SINKRONISASI HOURLY (SIANG / JAM OPERASIONAL):
-                // Jika NIK sudah ada di database sistem, JANGAN UPDATE data apapun!
-                // Mencegah karyawan aktif tiba-tiba terupdate menjadi resign atau datanya berubah di jam kerja.
-                if ($mode === 'hourly') {
-                    $alreadyExists = Employee::withTrashed()->where('employee_no', $targetNik)->exists();
-                    if (!$alreadyExists && !empty($rec['id'])) {
-                        $alreadyExists = Employee::withTrashed()->where('odoo_id', $rec['id'])->where('company_id', $companyId)->exists();
-                    }
-                    if ($alreadyExists) {
-                        continue;
-                    }
-                }
-
-                // Look up existing employee:
-                // Parameter Pencocokan: WAJIB Mengikat ke NIK (employee_no) dan NAMA PRINSIPLE
-                $existingEmployees = collect();
-
-                // Ambil semua kandidat employee berdasarkan NIK (termasuk trashed)
-                $nikCandidates = Employee::withTrashed()->where('employee_no', $targetNik)->get();
-
-                if ($nikCandidates->isNotEmpty()) {
-                    // 1. Prioritas Utama: Cari yang memiliki NIK sama dan NAMA PRINSIPLE yang sama (atau principal_id sama)
-                    $matchedByPrincipal = $nikCandidates->filter(function ($emp) use ($principalId, $principalName) {
-                        if ($principalId && $emp->principal_id == $principalId) {
-                            return true;
-                        }
-                        if (!empty($principalName) && $emp->principal) {
-                            return strtolower(trim((string)$emp->principal->name)) === strtolower(trim((string)$principalName));
-                        }
-                        return false;
-                    });
-
-                    if ($matchedByPrincipal->isNotEmpty()) {
-                        $existingEmployees = $matchedByPrincipal;
-                    } else {
-                        // 2. Prioritas Kedua: Cari yang memiliki NIK sama dan odoo_id sama persis (kasus update nama prinsiple di Odoo)
-                        $matchedByOdooId = $nikCandidates->where('odoo_id', $rec['id']);
-                        if ($matchedByOdooId->isNotEmpty()) {
-                            $existingEmployees = $matchedByOdooId;
-                        } else {
-                            // 3. Prioritas Ketiga: Cari akun aktif yang ada untuk NIK ini (supaya roster & checkin tidak terpisah)
-                            $activeCandidates = $nikCandidates->where('is_active', true);
-                            if ($activeCandidates->isNotEmpty()) {
-                                $existingEmployees = $activeCandidates;
-                            } else {
-                                $existingEmployees = $nikCandidates;
-                            }
-                        }
-                    }
-                } else {
-                    // Fallback jika tidak ditemukan berdasarkan NIK: coba cari berdasarkan odoo_id + company_id
-                    $existingEmployees = Employee::withTrashed()
-                        ->where('odoo_id', $rec['id'])
-                        ->where('company_id', $companyId)
-                        ->get();
-                }
-
-                if ($existingEmployees->isNotEmpty()) {
-                    // Pick the best primary record to keep & update (prioritaskan yang memiliki foto/device/password)
-                    $primary = $existingEmployees->first(fn ($e) => !empty($e->photo) || !empty($e->device_id) || !empty($e->password))
-                        ?: ($existingEmployees->firstWhere('odoo_id', $rec['id'])
-                        ?: $existingEmployees->first());
-
-                    // PROTEKSI AKUN AKTIF LINTAS ENTITAS:
-                    if (!$isActiveInOdoo && $primary->is_active && ($primary->principal_id != $principalId || $primary->company_id != $companyId)) {
-                        continue;
-                    }
-
-                    // If trashed, restore it so it becomes visible in all normal queries
-                    if ($primary->trashed()) {
-                        $primary->restore();
-                    }
-
-                    // If there are duplicate records with this same NIK, merge and consolidate them to primary
-                    $duplicateIds = $nikCandidates->where('id', '!=', $primary->id)->pluck('id')->toArray();
-                    if (!empty($duplicateIds)) {
-                        $this->mergeDuplicates($primary, $duplicateIds);
-                    }
-
-                    $wasActive = $primary->is_active;
-
-                    // PROTEKSI PRESENSI HARI INI:
-                    // Jika karyawan sudah melakukan check-in hari ini, JANGAN PERNAH dinonaktifkan / di-resign-kan hari ini!
-                    $todayDateStr = now()->toDateString();
-                    $hasCheckedInToday = \Illuminate\Support\Facades\DB::table('attendances')
-                        ->where('employee_id', $primary->id)
-                        ->where('attendance_date', $todayDateStr)
-                        ->whereNotNull('checkin_at')
-                        ->exists();
-
-                    if ($hasCheckedInToday && !$isActiveInOdoo) {
-                        $isActiveInOdoo = true;
-                        $employmentStatus = 'contract';
-                    }
-
-                    $updatePayload = [
-                        'odoo_id'           => $rec['id'],
-                        'company_id'        => $companyId,
-                        'principal_id'      => $principalId,
-                        'department_id'     => $departmentId,
-                        'position_id'       => $positionId,
-                        'branch_id'         => $localBranchId,
-                        'employee_no'       => $employeeNo,
-                        'full_name'         => $rec['name'],
-                        'gender'            => $gender,
-                        'birth_date'        => $birthDate ?: $primary->birth_date,
-                        'join_date'         => $joinDate ?: $primary->join_date,
-                        'phone'             => $phone ?: $primary->phone,
-                        'email'             => $email ?: $primary->email,
-                        'employment_status' => $employmentStatus,
-                        'is_active'         => $isActiveInOdoo,
-                        'resign_date'       => !$isActiveInOdoo ? ($departureDate ?: ($primary->resign_date ?: now()->toDateString())) : null,
+                $itemRes = $this->processSingleEmployeeRecord($rec, $companyId, $localCompany, $progressCallback, $mode);
+                if ($itemRes['status'] === 'skipped') {
+                    continue;
+                } elseif ($itemRes['status'] === 'resigned') {
+                    $resigned++;
+                    $resignedEmployees[] = ['name' => $itemRes['name'], 'nik' => $itemRes['nik']];
+                } elseif ($itemRes['status'] === 'created') {
+                    $created++;
+                    $newEmployees[] = ['name' => $itemRes['name'], 'nik' => $itemRes['nik'], 'position' => $itemRes['position']];
+                } elseif ($itemRes['status'] === 'updated') {
+                    $updated++;
+                    $updatedEmployees[] = [
+                        'name' => $itemRes['name'],
+                        'nik' => $itemRes['nik'],
+                        'position' => $itemRes['position'],
+                        'changes' => $itemRes['changes'],
                     ];
-
-                    // Pastikan kolom principal_id pada attendances ikut selaras
-                    if ($principalId && \Illuminate\Support\Facades\Schema::hasColumn('attendances', 'principal_id')) {
-                        \Illuminate\Support\Facades\DB::table('attendances')
-                            ->where('employee_id', $primary->id)
-                            ->where('attendance_date', $todayDateStr)
-                            ->whereNull('principal_id')
-                            ->update(['principal_id' => $principalId]);
-                    }
-
-                    // Set default password '123456' if employee currently has no password
-                    if (empty($primary->password)) {
-                        $updatePayload['password'] = \Illuminate\Support\Facades\Hash::make('123456');
-                    }
-
-                    $primary->fill($updatePayload);
-                    $dirtyAttributes = $primary->getDirty();
-                    $isDirty = count($dirtyAttributes) > 0;
-                    $primary->save();
-
-                    if (!$isActiveInOdoo && $wasActive) {
-                        $resigned++;
-                        $resignedEmployees[] = ['name' => $rec['name'], 'nik' => $employeeNo];
-                        $log('resigned', "🚪 [RESIGN] [{$employeeNo}] {$rec['name']} — {$posName} ({$areaName})", ['nik' => $employeeNo, 'name' => $rec['name']]);
-                    } elseif ($isDirty) {
-                        $updated++;
-                        $updatedEmployees[] = [
-                            'name' => $rec['name'],
-                            'nik' => $employeeNo,
-                            'position' => $posName,
-                            'changes' => array_keys($dirtyAttributes)
-                        ];
-                        $log('updated', "🔄 [UPDATE] [{$employeeNo}] {$rec['name']} — " . implode(', ', array_keys($dirtyAttributes)), ['nik' => $employeeNo, 'name' => $rec['name']]);
-                    }
-                } else {
-                    Employee::create([
-                        'odoo_id'           => $rec['id'],
-                        'company_id'        => $companyId,
-                        'principal_id'      => $principalId,
-                        'department_id'     => $departmentId,
-                        'position_id'       => $positionId,
-                        'branch_id'         => $localBranchId,
-                        'employee_no'       => $employeeNo,
-                        'full_name'         => $rec['name'],
-                        'password'          => \Illuminate\Support\Facades\Hash::make('123456'),
-                        'gender'            => $gender,
-                        'birth_date'        => $birthDate,
-                        'join_date'         => $joinDate,
-                        'phone'             => $phone,
-                        'email'             => $email,
-                        'employment_status' => $employmentStatus,
-                        'is_active'         => $isActiveInOdoo,
-                        'resign_date'       => !$isActiveInOdoo ? ($departureDate ?: now()->toDateString()) : null,
-                    ]);
-
-                    if ($isActiveInOdoo) {
-                        $created++;
-                        $newEmployees[] = ['name' => $rec['name'], 'nik' => $employeeNo, 'position' => $posName];
-                        $log('created', "➕ [BARU] [{$employeeNo}] {$rec['name']} — {$posName} ({$areaName})", ['nik' => $employeeNo, 'name' => $rec['name']]);
-                    } else {
-                        $resigned++;
-                        $resignedEmployees[] = ['name' => $rec['name'], 'nik' => $employeeNo];
-                        $log('resigned', "🚪 [RESIGN BARU] [{$employeeNo}] {$rec['name']} — {$posName} ({$areaName})", ['nik' => $employeeNo, 'name' => $rec['name']]);
-                    }
                 }
-
             } catch (\Exception $e) {
-                $errors[] = "Employee [{$rec['name']}]: " . $e->getMessage();
-                $log('error', "⚠️ Error Employee [{$rec['name']}]: " . $e->getMessage());
+                $errors[] = "Employee [" . ($rec['name'] ?? 'Unknown') . "]: " . $e->getMessage();
+                $log('error', "⚠️ Error Employee [" . ($rec['name'] ?? 'Unknown') . "]: " . $e->getMessage());
                 Log::error('Odoo Sync Employee Error', ['record' => $rec, 'error' => $e->getMessage()]);
             }
         }
@@ -886,6 +499,689 @@ class OdooSyncService
             'newEmployees'      => $allNewEmployees,
             'updatedEmployees'  => $allUpdatedEmployees,
             'resignedEmployees' => $allResignedEmployees,
+        ];
+    }
+
+    /**
+     * Process a single employee record from Odoo into local database.
+     * Returns structured result array with status ('created', 'updated', 'resigned', 'unchanged', 'skipped'), changes, and details.
+     */
+    public function processSingleEmployeeRecord(
+        array $rec,
+        int $companyId,
+        ?Company $localCompany = null,
+        ?callable $progressCallback = null,
+        string $mode = 'full'
+    ): array {
+        $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
+            if ($progressCallback && is_callable($progressCallback)) {
+                call_user_func($progressCallback, $type, $message, $meta);
+            }
+        };
+
+        if (!$localCompany) {
+            $localCompany = Company::find($companyId);
+        }
+
+        self::dropLegacyConstraints();
+
+        // List of all internal company names
+        $allInternalCompanyNames = [
+            'pt arina multi karya',
+            'pt alva karya perkasa',
+            'pt anugrah talenta berkarya',
+            'pt anugrah terpercaya kerja',
+            'pt abadi berkat odelia',
+            'arina multi karya',
+            'alva karya perkasa',
+            'anugrah talenta berkarya',
+            'anugrah terpercaya kerja',
+            'abadi berkat odelia',
+        ];
+
+        // Resolve Principal — ikat ke NAMA Prinsiple dan odoo_id
+        $principalId = null;
+        $principalName = '';
+        if (!empty($rec['principle_id']) && is_array($rec['principle_id'])) {
+            $odooPrincipalId = (int) $rec['principle_id'][0];
+            $principalName = trim((string) $rec['principle_id'][1]);
+
+            // 1. Cari berdasarkan odoo_id DALAM COMPANY YANG SAMA terlebih dahulu
+            $principal = Principal::where('company_id', $companyId)->where('odoo_id', $odooPrincipalId)->first();
+
+            // 2. Jika tidak ditemukan, cari berdasarkan NAMA dalam company yang sama
+            if (!$principal && !empty($principalName)) {
+                $principal = Principal::where('company_id', $companyId)->whereRaw('LOWER(TRIM(name)) = ?', [strtolower($principalName)])->first();
+            }
+
+            // 3. Fallback tanpa batasan company
+            if (!$principal) {
+                $principal = Principal::where('odoo_id', $odooPrincipalId)->first();
+            }
+            if (!$principal && !empty($principalName)) {
+                $principal = Principal::whereRaw('LOWER(TRIM(name)) = ?', [strtolower($principalName)])->first();
+            }
+
+            if ($principal) {
+                $principalId = $principal->id;
+                $principalName = $principal->name;
+                if (empty($principal->odoo_id) || $principal->odoo_id != $odooPrincipalId) {
+                    $principal->update(['odoo_id' => $odooPrincipalId]);
+                }
+            } else {
+                $pCode = 'OD-' . $odooPrincipalId;
+                if (Principal::where('code', $pCode)->exists()) {
+                    $pCode = 'OD-' . $odooPrincipalId . '-' . \Illuminate\Support\Str::random(3);
+                }
+
+                $principal = Principal::create([
+                    'odoo_id'    => $odooPrincipalId,
+                    'name'       => $principalName,
+                    'code'       => $pCode,
+                    'company_id' => $companyId,
+                    'is_active'  => true,
+                ]);
+                $principalId = $principal->id;
+            }
+        }
+
+        // Resolve Department & Inhouse status — jika prinsiple kosong atau sama dengan company -> Inhouse, else -> Ratecard
+        $companyNameLower = strtolower(trim($localCompany->name ?? ''));
+        $odooCompanyNameLower = !empty($rec['company_id']) && is_array($rec['company_id']) ? strtolower(trim($rec['company_id'][1])) : '';
+        $pNameLower = strtolower(trim($principalName));
+
+        $isInhouse = false;
+        if (empty($principalName) || $pNameLower === $companyNameLower || $pNameLower === $odooCompanyNameLower || in_array($pNameLower, $allInternalCompanyNames)) {
+            $isInhouse = true;
+        }
+
+        // If inhouse: company and principal MUST BE IDENTICAL (Principal = Company's own principal)
+        if ($isInhouse) {
+            $companyPrincipal = Principal::where('company_id', $companyId)
+                ->whereRaw('LOWER(TRIM(name)) = ?', [strtolower(trim($localCompany->name ?? ''))])
+                ->first();
+            if (!$companyPrincipal && !empty($localCompany->name)) {
+                $companyPrincipal = Principal::whereRaw('LOWER(TRIM(name)) = ?', [strtolower(trim($localCompany->name))])->first();
+            }
+            if (!$companyPrincipal && $localCompany) {
+                $code = '300';
+                if (stripos($localCompany->name, 'TERPERCAYA') !== false) {
+                    $code = '300';
+                } elseif (stripos($localCompany->name, 'TALENTA') !== false) {
+                    $code = '500';
+                } elseif (stripos($localCompany->name, 'ODELIA') !== false) {
+                    $code = '400';
+                } else {
+                    $code = 'PRIN-' . ($localCompany->code ?: $companyId);
+                }
+                if (Principal::where('code', $code)->exists()) {
+                    $code = 'PRIN-' . ($localCompany->code ?: $companyId);
+                }
+                $companyPrincipal = Principal::create([
+                    'name'       => $localCompany->name,
+                    'code'       => $code,
+                    'company_id' => $companyId,
+                    'is_active'  => true,
+                ]);
+            }
+            if ($companyPrincipal) {
+                $principalId = $companyPrincipal->id;
+                $principalName = $companyPrincipal->name;
+            }
+        }
+
+        $deptName = $isInhouse ? 'Inhouse' : 'Ratecard';
+        if (!empty($rec['department_id']) && is_array($rec['department_id'])) {
+            $rawDeptName = trim((string) $rec['department_id'][1]);
+            if (!empty($rawDeptName)) {
+                $deptName = $rawDeptName;
+            }
+        }
+
+        $department = Department::firstOrCreate(
+            [
+                'name'         => $deptName,
+                'principal_id' => $principalId,
+            ],
+            [
+                'company_id'          => $companyId,
+                'code'                => 'DEP-' . strtoupper(\Illuminate\Support\Str::random(5)),
+                'is_active'           => true,
+                'has_sales_reporting' => (strtoupper($deptName) === 'SALES'),
+                'cutoff_start_date'   => 26,
+                'working_days'        => ['1', '2', '3', '4', '5'],
+            ]
+        );
+
+        if ((!$department->principal_id && $principalId) || (!$department->company_id && $companyId) || empty($department->code)) {
+            $department->update([
+                'principal_id' => $department->principal_id ?: $principalId,
+                'company_id'   => $department->company_id ?: $companyId,
+                'code'         => $department->code ?: ('DEP-' . strtoupper(\Illuminate\Support\Str::random(5))),
+            ]);
+        }
+
+        $departmentId = $department->id;
+
+        // Resolve Area (Branch in local db) — auto-create if not found
+        $localBranchId = null;
+        $areaName = 'Pusat';
+        if (!empty($rec['area_id']) && is_array($rec['area_id'])) {
+            $areaName = $rec['area_id'][1];
+            $branch = \App\Models\Branch::firstOrCreate(
+                ['name' => $areaName],
+                ['code' => 'OD-AREA-' . $rec['area_id'][0], 'is_active' => true]
+            );
+            if (empty($branch->code)) {
+                $branch->update(['code' => 'OD-AREA-' . $rec['area_id'][0]]);
+            }
+            $localBranchId = $branch->id;
+        }
+
+        // Resolve Position — auto-create if not found, assign principal_id & code
+        $positionId = null;
+        $posName = 'Staff';
+        if (!empty($rec['job_id']) && is_array($rec['job_id'])) {
+            $posName    = $rec['job_id'][1];
+            $position   = Position::firstOrCreate(
+                ['name' => $posName, 'principal_id' => $principalId],
+                [
+                    'company_id' => $companyId,
+                    'code'       => 'POS-' . strtoupper(\Illuminate\Support\Str::random(5)),
+                    'is_active'  => true,
+                ]
+            );
+            
+            if (!$position->principal_id || !$position->company_id || empty($position->code)) {
+                $position->update([
+                    'principal_id' => $position->principal_id ?: $principalId,
+                    'company_id'   => $position->company_id ?: $companyId,
+                    'code'         => $position->code ?: ('POS-' . strtoupper(\Illuminate\Support\Str::random(5))),
+                ]);
+            }
+            
+            $positionId = $position->id;
+        }
+
+        // Helper to clean Odoo XML-RPC values
+        $cleanStr = function ($val) {
+            if ($val === null || $val === false || $val === 'false' || $val === 'null') {
+                return null;
+            }
+            $str = trim((string) $val);
+            return $str !== '' ? $str : null;
+        };
+
+        $cleanDate = function ($dateVal) use ($cleanStr) {
+            $str = $cleanStr($dateVal);
+            if (!$str || $str === '0000-00-00') {
+                return null;
+            }
+            return preg_match('/^\d{4}-\d{2}-\d{2}/', $str) ? substr($str, 0, 10) : null;
+        };
+
+        // Map employment status & active status
+        $isActiveInOdoo = true;
+        if (isset($rec['active'])) {
+            $parsedActive = filter_var($rec['active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($parsedActive !== null) {
+                $isActiveInOdoo = $parsedActive;
+            }
+        }
+
+        $departureDate = $cleanDate($rec['departure_date'] ?? null);
+        if ($departureDate && strtotime($departureDate) && strtotime($departureDate) <= time()) {
+            $isActiveInOdoo = false;
+        }
+
+        $employmentStatus = $isActiveInOdoo ? 'contract' : 'resigned';
+        $birthDate = $cleanDate($rec['birthday'] ?? null);
+        $joinDate = $cleanDate($rec['first_contract_date'] ?? null);
+        $phone = $cleanStr($rec['mobile_phone'] ?? null);
+        $email = $cleanStr($rec['private_email'] ?? null) ?: $cleanStr($rec['work_email'] ?? null);
+
+        // Map gender
+        $rawGender = strtolower(trim((string)($rec['gender'] ?? '')));
+        $gender = ($rawGender === 'male' || $rawGender === 'female') ? $rawGender : null;
+
+        // Employee no — prefer identification_id (NIK / No. KTP)
+        $rawNik = $cleanStr($rec['identification_id'] ?? null);
+        $rawRegNo = $cleanStr($rec['registration_number'] ?? null);
+        $targetNik = $rawNik ?: ($rawRegNo ?: ('OD-' . $rec['id']));
+        $employeeNo = $targetNik;
+
+        // PROTEKSI SINKRONISASI HOURLY (SIANG / JAM OPERASIONAL):
+        if ($mode === 'hourly') {
+            $alreadyExists = Employee::withTrashed()->where('employee_no', $targetNik)->exists();
+            if (!$alreadyExists && !empty($rec['id'])) {
+                $alreadyExists = Employee::withTrashed()->where('odoo_id', $rec['id'])->where('company_id', $companyId)->exists();
+            }
+            if ($alreadyExists) {
+                return [
+                    'status'    => 'skipped',
+                    'name'      => $rec['name'],
+                    'nik'       => $employeeNo,
+                    'position'  => $posName,
+                    'changes'   => [],
+                ];
+            }
+        }
+
+        // Look up existing employee:
+        $existingEmployees = collect();
+        $nikCandidates = Employee::withTrashed()->where('employee_no', $targetNik)->get();
+
+        if ($nikCandidates->isNotEmpty()) {
+            $matchedByPrincipal = $nikCandidates->filter(function ($emp) use ($principalId, $principalName) {
+                if ($principalId && $emp->principal_id == $principalId) {
+                    return true;
+                }
+                if (!empty($principalName) && $emp->principal) {
+                    return strtolower(trim((string)$emp->principal->name)) === strtolower(trim((string)$principalName));
+                }
+                return false;
+            });
+
+            if ($matchedByPrincipal->isNotEmpty()) {
+                $existingEmployees = $matchedByPrincipal;
+            } else {
+                $matchedByOdooId = $nikCandidates->where('odoo_id', $rec['id']);
+                if ($matchedByOdooId->isNotEmpty()) {
+                    $existingEmployees = $matchedByOdooId;
+                } else {
+                    $activeCandidates = $nikCandidates->where('is_active', true);
+                    if ($activeCandidates->isNotEmpty()) {
+                        $existingEmployees = $activeCandidates;
+                    } else {
+                        $existingEmployees = $nikCandidates;
+                    }
+                }
+            }
+        } else {
+            $existingEmployees = Employee::withTrashed()
+                ->where('odoo_id', $rec['id'])
+                ->where('company_id', $companyId)
+                ->get();
+        }
+
+        $dirtyAttributes = [];
+
+        if ($existingEmployees->isNotEmpty()) {
+            $primary = $existingEmployees->first(fn ($e) => !empty($e->photo) || !empty($e->device_id) || !empty($e->password))
+                ?: ($existingEmployees->firstWhere('odoo_id', $rec['id'])
+                ?: $existingEmployees->first());
+
+            // PROTEKSI AKUN AKTIF LINTAS ENTITAS: (hanya jika mode !== 'single')
+            if ($mode !== 'single' && !$isActiveInOdoo && $primary->is_active && ($primary->principal_id != $principalId || $primary->company_id != $companyId)) {
+                return [
+                    'status'    => 'skipped',
+                    'name'      => $rec['name'],
+                    'nik'       => $employeeNo,
+                    'position'  => $posName,
+                    'changes'   => [],
+                ];
+            }
+
+            if ($primary->trashed()) {
+                $primary->restore();
+            }
+
+            $duplicateIds = $nikCandidates->where('id', '!=', $primary->id)->pluck('id')->toArray();
+            if (!empty($duplicateIds)) {
+                $this->mergeDuplicates($primary, $duplicateIds);
+            }
+
+            $wasActive = $primary->is_active;
+
+            $todayDateStr = now()->toDateString();
+            $hasCheckedInToday = \Illuminate\Support\Facades\DB::table('attendances')
+                ->where('employee_id', $primary->id)
+                ->where('attendance_date', $todayDateStr)
+                ->whereNotNull('checkin_at')
+                ->exists();
+
+            if ($hasCheckedInToday && !$isActiveInOdoo) {
+                $isActiveInOdoo = true;
+                $employmentStatus = 'contract';
+            }
+
+            $updatePayload = [
+                'odoo_id'           => $rec['id'],
+                'company_id'        => $companyId,
+                'principal_id'      => $principalId,
+                'department_id'     => $departmentId,
+                'position_id'       => $positionId,
+                'branch_id'         => $localBranchId,
+                'employee_no'       => $employeeNo,
+                'full_name'         => $rec['name'],
+                'gender'            => $gender,
+                'birth_date'        => $birthDate ?: $primary->birth_date,
+                'join_date'         => $joinDate ?: $primary->join_date,
+                'phone'             => $phone ?: $primary->phone,
+                'email'             => $email ?: $primary->email,
+                'employment_status' => $employmentStatus,
+                'is_active'         => $isActiveInOdoo,
+                'resign_date'       => !$isActiveInOdoo ? ($departureDate ?: ($primary->resign_date ?: now()->toDateString())) : null,
+            ];
+
+            if ($principalId && \Illuminate\Support\Facades\Schema::hasColumn('attendances', 'principal_id')) {
+                \Illuminate\Support\Facades\DB::table('attendances')
+                    ->where('employee_id', $primary->id)
+                    ->where('attendance_date', $todayDateStr)
+                    ->whereNull('principal_id')
+                    ->update(['principal_id' => $principalId]);
+            }
+
+            if (empty($primary->password)) {
+                $updatePayload['password'] = \Illuminate\Support\Facades\Hash::make('123456');
+            }
+
+            $primary->fill($updatePayload);
+            $dirtyAttributes = $primary->getDirty();
+            $isDirty = count($dirtyAttributes) > 0;
+            $primary->save();
+
+            if (!$isActiveInOdoo && $wasActive) {
+                $log('resigned', "🚪 [RESIGN] [{$employeeNo}] {$rec['name']} — {$posName} ({$areaName})", ['nik' => $employeeNo, 'name' => $rec['name']]);
+                return [
+                    'status'    => 'resigned',
+                    'employee'  => $primary,
+                    'name'      => $rec['name'],
+                    'nik'       => $employeeNo,
+                    'position'  => $posName,
+                    'area'      => $areaName,
+                    'principal' => $principalName,
+                    'department'=> $deptName,
+                    'company'   => $localCompany?->name,
+                    'changes'   => array_keys($dirtyAttributes),
+                ];
+            } elseif ($isDirty) {
+                $log('updated', "🔄 [UPDATE] [{$employeeNo}] {$rec['name']} — " . implode(', ', array_keys($dirtyAttributes)), ['nik' => $employeeNo, 'name' => $rec['name']]);
+                return [
+                    'status'    => 'updated',
+                    'employee'  => $primary,
+                    'name'      => $rec['name'],
+                    'nik'       => $employeeNo,
+                    'position'  => $posName,
+                    'area'      => $areaName,
+                    'principal' => $principalName,
+                    'department'=> $deptName,
+                    'company'   => $localCompany?->name,
+                    'changes'   => array_keys($dirtyAttributes),
+                ];
+            } else {
+                $log('info', "ℹ️ [UNCHANGED] [{$employeeNo}] {$rec['name']} — data sudah selaras dengan Odoo.", ['nik' => $employeeNo, 'name' => $rec['name']]);
+                return [
+                    'status'    => 'unchanged',
+                    'employee'  => $primary,
+                    'name'      => $rec['name'],
+                    'nik'       => $employeeNo,
+                    'position'  => $posName,
+                    'area'      => $areaName,
+                    'principal' => $principalName,
+                    'department'=> $deptName,
+                    'company'   => $localCompany?->name,
+                    'changes'   => [],
+                ];
+            }
+        } else {
+            $createdEmployee = Employee::create([
+                'odoo_id'           => $rec['id'],
+                'company_id'        => $companyId,
+                'principal_id'      => $principalId,
+                'department_id'     => $departmentId,
+                'position_id'       => $positionId,
+                'branch_id'         => $localBranchId,
+                'employee_no'       => $employeeNo,
+                'full_name'         => $rec['name'],
+                'password'          => \Illuminate\Support\Facades\Hash::make('123456'),
+                'gender'            => $gender,
+                'birth_date'        => $birthDate,
+                'join_date'         => $joinDate,
+                'phone'             => $phone,
+                'email'             => $email,
+                'employment_status' => $employmentStatus,
+                'is_active'         => $isActiveInOdoo,
+                'resign_date'       => !$isActiveInOdoo ? ($departureDate ?: now()->toDateString()) : null,
+            ]);
+
+            if ($isActiveInOdoo) {
+                $log('created', "➕ [BARU] [{$employeeNo}] {$rec['name']} — {$posName} ({$areaName})", ['nik' => $employeeNo, 'name' => $rec['name']]);
+                return [
+                    'status'    => 'created',
+                    'employee'  => $createdEmployee,
+                    'name'      => $rec['name'],
+                    'nik'       => $employeeNo,
+                    'position'  => $posName,
+                    'area'      => $areaName,
+                    'principal' => $principalName,
+                    'department'=> $deptName,
+                    'company'   => $localCompany?->name,
+                    'changes'   => ['all_fields_created'],
+                ];
+            } else {
+                $log('resigned', "🚪 [RESIGN BARU] [{$employeeNo}] {$rec['name']} — {$posName} ({$areaName})", ['nik' => $employeeNo, 'name' => $rec['name']]);
+                return [
+                    'status'    => 'resigned',
+                    'employee'  => $createdEmployee,
+                    'name'      => $rec['name'],
+                    'nik'       => $employeeNo,
+                    'position'  => $posName,
+                    'area'      => $areaName,
+                    'principal' => $principalName,
+                    'department'=> $deptName,
+                    'company'   => $localCompany?->name,
+                    'changes'   => ['all_fields_created_resigned'],
+                ];
+            }
+        }
+    }
+
+    /**
+     * Search and sync an employee or candidate from Odoo by NIK (or KTP / Registration Number / Odoo ID).
+     * @param string $nik - NIK, KTP, or Odoo ID
+     * @param int $companyId - Target local company ID
+     * @param callable|null $progressCallback
+     * @return array
+     */
+    public function syncEmployeeByNik(string $nik, int $companyId, ?callable $progressCallback = null): array
+    {
+        $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
+            if ($progressCallback && is_callable($progressCallback)) {
+                call_user_func($progressCallback, $type, $message, $meta);
+            }
+        };
+
+        $cleanNik = trim($nik);
+        if (empty($cleanNik)) {
+            return [
+                'success' => false,
+                'message' => 'NIK tidak boleh kosong.',
+            ];
+        }
+
+        $localCompany = Company::find($companyId);
+        $companyName = $localCompany?->name ?? "Company #{$companyId}";
+
+        $log('info', "🔍 Menghubungkan ke Odoo untuk mencari data NIK '{$cleanNik}' di [{$companyName}]...");
+        $uid = $this->authenticate();
+
+        $domain = [
+            '|',
+            ['registration_number', '=', $cleanNik],
+            ['identification_id', '=', $cleanNik],
+        ];
+
+        if (is_numeric($cleanNik)) {
+            $domain = [
+                '|', '|',
+                ['registration_number', '=', $cleanNik],
+                ['identification_id', '=', $cleanNik],
+                ['id', '=', (int)$cleanNik],
+            ];
+        } elseif (preg_match('/^OD-(\d+)$/i', $cleanNik, $m)) {
+            $domain = [
+                '|', '|',
+                ['registration_number', '=', $cleanNik],
+                ['identification_id', '=', $cleanNik],
+                ['id', '=', (int)$m[1]],
+            ];
+        }
+
+        $log('info', "📡 Menjalankan query pencarian Odoo hr.employee...");
+
+        $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
+            $this->db, $uid, $this->apiKey,
+            'hr.employee', 'search_read',
+            [$domain],
+            [
+                'fields' => [
+                    'id', 'name', 'registration_number', 'identification_id',
+                    'mobile_phone', 'work_email', 'private_email', 'gender', 'birthday',
+                    'department_id', 'job_id', 'principle_id', 'first_contract_date',
+                    'area_id', 'company_id', 'active', 'departure_date',
+                    'write_date', 'create_date',
+                ],
+                'context' => ['active_test' => false],
+                'order'   => 'write_date desc, id desc',
+                'limit'   => 5,
+            ],
+        ]);
+
+        if (empty($records)) {
+            $log('warning', "⚠️ Data karyawan/kandidat dengan NIK '{$cleanNik}' tidak ditemukan di Odoo (DB: {$this->db}).");
+            return [
+                'success'   => false,
+                'not_found' => true,
+                'message'   => "Data karyawan/kandidat dengan NIK '{$cleanNik}' tidak ditemukan di Odoo [{$companyName}].",
+            ];
+        }
+
+        $log('info', "📥 Ditemukan " . count($records) . " data kandidat/karyawan di Odoo. Memproses sinkronisasi...");
+
+        $synced = [];
+        foreach ($records as $rec) {
+            $res = $this->processSingleEmployeeRecord($rec, $companyId, $localCompany, $progressCallback, 'single');
+            $synced[] = $res;
+        }
+
+        $primaryResult = $synced[0];
+        $empName = $primaryResult['name'] ?? 'Karyawan';
+        $status = $primaryResult['status'] ?? 'processed';
+        $changes = $primaryResult['changes'] ?? [];
+
+        $statusText = match ($status) {
+            'created'  => 'Kandidat baru berhasil ditarik dan didaftarkan ke sistem',
+            'updated'  => 'Data karyawan berhasil disinkronkan dan diperbarui dari Odoo' . (!empty($changes) ? ' (Perubahan: ' . implode(', ', $changes) . ')' : ' (Data sudah mutakhir)'),
+            'resigned' => 'Status karyawan diperbarui menjadi Resign / Non-Aktif',
+            default    => 'Data karyawan berhasil diselaraskan',
+        };
+
+        $log('success', "🎉 Selesai! [{$cleanNik}] {$empName}: {$statusText}");
+
+        return [
+            'success'       => true,
+            'status'        => $status,
+            'message'       => "[{$cleanNik}] {$empName}: {$statusText}",
+            'employee'      => $primaryResult['employee'] ?? null,
+            'details'       => $primaryResult,
+            'company_name'  => $companyName,
+        ];
+    }
+
+    /**
+     * Static helper to sync an employee by NIK.
+     * If $companyId is not specified, searches across all configured companies.
+     *
+     * @param string $nik
+     * @param int|null $companyId
+     * @param callable|null $progressCallback
+     * @return array
+     */
+    public static function syncByNik(string $nik, ?int $companyId = null, ?callable $progressCallback = null): array
+    {
+        $log = function(string $type, string $message, ?array $meta = null) use ($progressCallback) {
+            if ($progressCallback && is_callable($progressCallback)) {
+                call_user_func($progressCallback, $type, $message, $meta);
+            }
+        };
+
+        $cleanNik = trim($nik);
+        if (empty($cleanNik)) {
+            return [
+                'success' => false,
+                'message' => 'NIK tidak boleh kosong.',
+            ];
+        }
+
+        // 1. If companyId is specified, sync directly to that company
+        if ($companyId) {
+            $company = Company::find($companyId);
+            if (!$company) {
+                return [
+                    'success' => false,
+                    'message' => "Perusahaan dengan ID {$companyId} tidak ditemukan.",
+                ];
+            }
+            $service = self::fromCompany($company);
+            if (!$service) {
+                return [
+                    'success' => false,
+                    'message' => "Konfigurasi Odoo untuk perusahaan [{$company->name}] belum lengkap.",
+                ];
+            }
+            return $service->syncEmployeeByNik($cleanNik, $company->id, $progressCallback);
+        }
+
+        // 2. If companyId is NOT specified:
+        // Check if employee already exists locally to prefer their current company
+        $existingEmp = Employee::withTrashed()
+            ->where('employee_no', $cleanNik)
+            ->first();
+
+        $companies = Company::where('is_active', true)
+            ->whereNotNull('odoo_url')
+            ->whereNotNull('odoo_db')
+            ->whereNotNull('odoo_username')
+            ->whereNotNull('odoo_api_key')
+            ->where('odoo_url', '!=', '')
+            ->where('odoo_db', '!=', '')
+            ->where('odoo_username', '!=', '')
+            ->where('odoo_api_key', '!=', '')
+            ->get();
+
+        if ($companies->isEmpty()) {
+            return [
+                'success' => false,
+                'message' => 'Belum ada perusahaan dengan konfigurasi Odoo aktif di sistem.',
+            ];
+        }
+
+        // If existing employee has a company, put that company first in line
+        if ($existingEmp && $existingEmp->company_id) {
+            $companies = $companies->sortByDesc(fn ($c) => $c->id === $existingEmp->company_id);
+        }
+
+        $searchedCompanies = [];
+        foreach ($companies as $comp) {
+            $searchedCompanies[] = $comp->name;
+            $service = self::fromCompany($comp);
+            if (!$service) continue;
+
+            try {
+                $res = $service->syncEmployeeByNik($cleanNik, $comp->id, $progressCallback);
+                if (!empty($res['success'])) {
+                    return $res;
+                }
+            } catch (\Throwable $e) {
+                $log('warning', "⚠️ Gagal memeriksa di {$comp->name}: " . $e->getMessage());
+            }
+        }
+
+        return [
+            'success'   => false,
+            'not_found' => true,
+            'message'   => "Data karyawan/kandidat dengan NIK '{$cleanNik}' tidak ditemukan di Odoo pada entitas yang terhubung (" . implode(', ', $searchedCompanies) . ").",
         ];
     }
 

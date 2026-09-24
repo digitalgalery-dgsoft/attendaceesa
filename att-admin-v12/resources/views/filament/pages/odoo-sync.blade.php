@@ -12,10 +12,15 @@
         }
         .odoo-actions-grid {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
         }
-        @media (max-width: 1024px) {
+        @media (max-width: 1200px) {
+            .odoo-actions-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        @media (max-width: 640px) {
             .odoo-top-grid {
                 grid-template-columns: 1fr;
             }
@@ -402,7 +407,40 @@
                 </button>
             </div>
 
-            {{-- Card 3: Sync All --}}
+            {{-- Card 3: Sync by NIK --}}
+            <div class="odoo-card" style="border-top: 4px solid #8b5cf6;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <div style="padding: 6px; background: rgba(139, 92, 246, 0.12); border-radius: 8px; color: #7c3aed;">
+                            <x-filament::icon icon="heroicon-m-identification" style="width: 20px; height: 20px;" />
+                        </div>
+                        <div>
+                            <div style="font-size: 15px; font-weight: 800; color: #0f172a;" class="dark:!text-white">Sync by NIK</div>
+                            <div style="font-size: 11px; color: #64748b;">Tarik / Update Per NIK</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 12px; color: #64748b; margin: 8px 0 10px 0; line-height: 1.5;">
+                        Tarik kandidat baru atau perbarui karyawan tertentu secara instan tanpa sync seluruh entitas.
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <input type="text"
+                               x-model="targetNik"
+                               @keydown.enter.prevent="startSync('sync_nik')"
+                               placeholder="Ketik NIK / No. KTP..."
+                               style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 10px; font-size: 12px; outline: none;"
+                               class="dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+                               x-bind:disabled="isRunning" />
+                    </div>
+                </div>
+
+                <button type="button" @click="startSync('sync_nik')" x-bind:disabled="isRunning" class="odoo-btn odoo-btn-outline-violet" style="width: 100%; justify-content: center; font-weight: 700;">
+                    <span x-show="isRunning && currentAction === 'sync_nik'" class="odoo-spinner"></span>
+                    <span x-show="!isRunning || currentAction !== 'sync_nik'"><x-filament::icon icon="heroicon-m-arrow-down-tray" style="width: 15px; height: 15px;" /></span>
+                    <span>Tarik Data by NIK</span>
+                </button>
+            </div>
+
+            {{-- Card 4: Sync All --}}
             <div class="odoo-card" style="border-top: 4px solid #f59e0b;">
                 <div>
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
@@ -602,6 +640,7 @@
                 isFinished: false,
                 syncMode: 'hourly',
                 currentAction: '',
+                targetNik: '',
                 statusText: 'STANDBY',
                 progressPercent: 0,
                 totalEmployees: 0,
@@ -669,10 +708,17 @@
                 async startSync(action) {
                     if (this.isRunning) return;
 
+                    if (action === 'sync_nik') {
+                        if (!this.targetNik || !this.targetNik.trim()) {
+                            alert('Silakan masukkan nomor NIK atau No. KTP terlebih dahulu.');
+                            return;
+                        }
+                    }
+
                     const companySelect = this.$refs.companySelect;
                     const companyId = action === 'all_companies' ? 'all' : (companySelect ? companySelect.value : @js($this->selectedCompanyId));
 
-                    if (action !== 'all_companies' && action !== 'cleanup_duplicates' && !companyId) {
+                    if (action !== 'all_companies' && action !== 'cleanup_duplicates' && action !== 'sync_nik' && !companyId) {
                         alert('Silakan pilih Company terlebih dahulu.');
                         return;
                     }
@@ -707,8 +753,11 @@
                         this.logMessage('info', '--- TAHAP 2: SINKRONISASI EMPLOYEES [Mode: ' + this.syncMode.toUpperCase() + '] ---');
                         await this.runEmployeesChunked(companyId);
                     } else {
-                        // Single direct stream actions (principals, cleanup_duplicates, test_connection, all_companies)
-                        const url = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=' + encodeURIComponent(action) + '&mode=' + encodeURIComponent(this.syncMode) + '&_t=' + Date.now();
+                        // Single direct stream actions (principals, cleanup_duplicates, test_connection, all_companies, sync_nik)
+                        let url = '{{ route('admin.odoo-sync.stream') }}?company_id=' + encodeURIComponent(companyId) + '&action=' + encodeURIComponent(action) + '&mode=' + encodeURIComponent(this.syncMode) + '&_t=' + Date.now();
+                        if (action === 'sync_nik') {
+                            url += '&nik=' + encodeURIComponent(this.targetNik.trim());
+                        }
                         await this.streamUrl(url);
                         this.finishSync();
                     }

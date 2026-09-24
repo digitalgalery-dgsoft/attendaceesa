@@ -102,6 +102,23 @@ class OdooSyncStreamController extends Controller
                     return;
                 }
 
+                if ($action === 'sync_nik') {
+                    $nik = trim((string) $request->get('nik', ''));
+                    if (empty($nik)) {
+                        throw new \Exception("NIK / No. KTP tidak boleh kosong.");
+                    }
+                    $targetCompId = ($companyId === 'all' || empty($companyId)) ? null : (int) $companyId;
+                    $sendEvent('info', "🔍 Memulai proses Tarik & Sinkronisasi Data untuk NIK: '{$nik}'...");
+                    $res = OdooSyncService::syncByNik($nik, $targetCompId, $sendEvent);
+                    if (!empty($res['success'])) {
+                        $sendEvent('done', "✅ " . ($res['message'] ?? 'Berhasil disinkronkan'), ['status' => 'success', 'data' => $res]);
+                    } else {
+                        $sendEvent('error', "❌ " . ($res['message'] ?? 'Data tidak ditemukan'), ['status' => 'failed', 'data' => $res]);
+                        $sendEvent('done', "⚠️ Proses selesai dengan catatan.", ['status' => 'warning', 'data' => $res]);
+                    }
+                    return;
+                }
+
                 // Specific Company Operations
                 $company = Company::find($companyId);
                 if (!$company) {
