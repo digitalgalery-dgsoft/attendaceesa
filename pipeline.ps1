@@ -2,12 +2,12 @@
 .SYNOPSIS
     Automated CI/CD & Knowledge Graph Pipeline for ESA Groups Attendance & Reporting System
     Workflow:
-      1. Git Commit & Push to GitHub main
-      2. Deploy to Staging (appsend.my.id)
-      3. Test & Health Check Staging
-      4. Deploy to Production Cluster (Server 1 AMK, Server 2 AKP, Server 3 ATK)
-      5. Health Check All 3 Production Nodes
-      6. Update Graphify Knowledge Graph Memory
+      1. Update Graphify Knowledge Graph Memory (graph.json, wiki, report)
+      2. Git Commit & Push to GitHub main (includes code + fresh memory + skills)
+      3. Deploy to Staging (appsend.my.id)
+      4. Test & Health Check Staging
+      5. Deploy to Production Cluster (Server 1 AMK, Server 2 AKP, Server 3 ATK)
+      6. Health Check All 3 Production Nodes
 #>
 
 param(
@@ -32,9 +32,20 @@ $PROD_SERVERS = @(
 )
 
 # -----------------------------------------------------------------------------
-# STEP 1: GIT COMMIT & PUSH TO GITHUB
+# STEP 1: RUN GRAPHIFY UPDATE MEMORY (Ensure Graph Memory is Fresh Before Git)
 # -----------------------------------------------------------------------------
-Write-Host ">> [Step 1/5] Memeriksa & Mengirim Perubahan ke GitHub..." -ForegroundColor Blue
+Write-Host ">> [Step 1/4] Memperbarui Memory Knowledge Graph dengan Graphify..." -ForegroundColor Blue
+try {
+    python scratch/build_knowledge_graph.py
+    Write-Host "[OK] Memory Codebase (graphify-out/graph.json) berhasil disinkronkan!" -ForegroundColor Green
+} catch {
+    Write-Host "[WARN] Catatan pembaruan graphify memory: $_" -ForegroundColor Yellow
+}
+
+# -----------------------------------------------------------------------------
+# STEP 2: GIT COMMIT & PUSH TO GITHUB (Code + Graph Memory + Skills)
+# -----------------------------------------------------------------------------
+Write-Host "`n>> [Step 2/4] Memeriksa & Mengirim Perubahan ke GitHub (Code + Memory)..." -ForegroundColor Blue
 git add -A
 $gitStatus = git status --porcelain
 if ($gitStatus) {
@@ -44,13 +55,13 @@ if ($gitStatus) {
     git push origin main
     Write-Host "[OK] Berhasil di-push ke GitHub." -ForegroundColor Green
 } else {
-    Write-Host "[INFO] Tidak ada perubahan berkas lokal baru. Melanjutkan pipeline..." -ForegroundColor DarkYellow
+    Write-Host "[INFO] Tidak ada perubahan berkas baru. Melanjutkan pipeline..." -ForegroundColor DarkYellow
 }
 
 # -----------------------------------------------------------------------------
-# STEP 2 & 3: DEPLOY & TEST STAGING SERVER (appsend.my.id)
+# STEP 3: DEPLOY & TEST STAGING SERVER (appsend.my.id)
 # -----------------------------------------------------------------------------
-Write-Host "`n>> [Step 2/5] Memicu Deploy ke Server Staging (appsend.my.id)..." -ForegroundColor Blue
+Write-Host "`n>> [Step 3/4] Memicu Deploy ke Server Staging (appsend.my.id)..." -ForegroundColor Blue
 $deployDevUrl = "$STAGING_URL/deploy.php?token=$TOKEN"
 
 try {
@@ -60,7 +71,7 @@ try {
     Write-Host "[WARN] Catatan pada trigger deploy staging: $_" -ForegroundColor Yellow
 }
 
-Write-Host "`n>> [Step 3/5] Pengujian Health Check Server Staging..." -ForegroundColor Blue
+Write-Host "-> Pengujian Health Check Server Staging..." -ForegroundColor Blue
 Start-Sleep -Seconds 3
 $devPingUrl = "$STAGING_URL/api/v1/sync/ping"
 try {
@@ -80,7 +91,7 @@ try {
 # -----------------------------------------------------------------------------
 # STEP 4: DEPLOY TO 3 PRODUCTION CLUSTERS
 # -----------------------------------------------------------------------------
-Write-Host "`n>> [Step 4/5] Mengirim Perubahan ke 3 Server Production (AMK, AKP, ATK)..." -ForegroundColor Blue
+Write-Host "`n>> [Step 4/4] Mengirim Perubahan ke 3 Server Production (AMK, AKP, ATK)..." -ForegroundColor Blue
 $deployProdUrl = "$STAGING_URL/deploy-production.php?token=$TOKEN"
 
 try {
@@ -115,17 +126,6 @@ if (-not $allProdHealthy) {
     Write-Host "[SUCCESS] Seluruh Cluster Server Production (3/3) beroperasi 100% Normal!" -ForegroundColor Green
 }
 
-# -----------------------------------------------------------------------------
-# STEP 5: RUN GRAPHIFY UPDATE MEMORY
-# -----------------------------------------------------------------------------
-Write-Host "`n>> [Step 5/5] Memperbarui Memory Knowledge Graph dengan Graphify..." -ForegroundColor Blue
-try {
-    python scratch/build_knowledge_graph.py
-    Write-Host "[OK] Memory Codebase (graphify-out/graph.json) berhasil disinkronkan!" -ForegroundColor Green
-} catch {
-    Write-Host "[WARN] Gagal memperbarui graphify memory: $_" -ForegroundColor Yellow
-}
-
 Write-Host "`n================================================================" -ForegroundColor Cyan
-Write-Host "  PIPELINE SELESAI: GITHUB -> STAGING -> PRODUCTION -> MEMORY   " -ForegroundColor Cyan
+Write-Host "  PIPELINE SELESAI: MEMORY -> GITHUB -> STAGING -> PRODUCTION   " -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan
