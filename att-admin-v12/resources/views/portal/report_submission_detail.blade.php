@@ -1902,7 +1902,7 @@
         ];
 
         // Separate text inputs and photo/media attachments to prevent tall empty grid cards
-        $textValues = $submission->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields, $hasDynamicOfftakeItems, $suppressOfftakeFields, $hasDynamicOosItems, $suppressOosFields, $hasDynamicStockItems, $suppressStockFields, $isCustomerDbReport, $suppressCustomerFields, $isDailyMaintenanceReport, $suppressDailyMaintenanceFields, $hasDynamicMbrSalesItems) {
+        $textValues = $submission->values->filter(function($val) use ($hasDynamicCompetitors, $suppressCompetitorFields, $hasDynamicOfftakeItems, $suppressOfftakeFields, $hasDynamicOosItems, $suppressOosFields, $hasDynamicStockItems, $suppressStockFields, $isCustomerDbReport, $suppressCustomerFields, $isDailyMaintenanceReport, $suppressDailyMaintenanceFields, $hasDynamicMbrSalesItems, $isMbrNoSellOut) {
             $isMedia = in_array($val->field_type, ['photo', 'camera_photo', 'multi_photo', 'signature'])
                 || !empty($val->media_url)
                 || !empty($val->file_path);
@@ -1940,7 +1940,7 @@
                 }
             }
 
-            if ($hasDynamicMbrSalesItems || $isMbrNoSellOut) {
+            if ($hasDynamicMbrSalesItems || !empty($isMbrNoSellOut)) {
                 $suppressMbrFields = [
                     'mbr_sales_items_json',
                     'total_qty_penjualan',
