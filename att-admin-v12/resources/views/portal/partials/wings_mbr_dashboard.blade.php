@@ -969,6 +969,9 @@
                             $subKasir = 0;
                             $sellOutPhoto = null;
                             $subPhotos = [];
+                            $statusPenjualan = null;
+                            $alasanNoSellOut = null;
+                            $keteranganNoSellOut = null;
 
                             foreach($sub->values as $v) {
                                 $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
@@ -985,6 +988,15 @@
                                     $subBooth = (float)($v->value_number ?? 0);
                                 } elseif ($fn === 'total_bayar_di_kasir_rp') {
                                     $subKasir = (float)($v->value_number ?? 0);
+                                } elseif ($fn === 'status_penjualan') {
+                                    $statusPenjualan = trim((string)($v->value_text ?: (is_array($v->value_json) ? ($v->value_json[0] ?? '') : '')));
+                                } elseif ($fn === 'alasan_no_sell_out') {
+                                    $alasanNoSellOut = trim((string)($v->value_text ?: (is_array($v->value_json) ? ($v->value_json[0] ?? '') : '')));
+                                } elseif (in_array($fn, ['keterangan_no_sell_out', 'catatan', 'catatan_penjualan', 'keterangan'])) {
+                                    $candKeterangan = trim((string)($v->value_text ?: ''));
+                                    if (!empty($candKeterangan)) {
+                                        $keteranganNoSellOut = $candKeterangan;
+                                    }
                                 }
 
                                 $isMedia = in_array($ft, ['photo', 'camera_photo', 'multi_photo', 'image']) 
@@ -1014,6 +1026,27 @@
                                 }
                             }
 
+                            // Deteksi No Sell Out dan fallback alasan jika belum terisi
+                            $isNoSellOut = (strcasecmp($statusPenjualan ?? '', 'No Sell Out') === 0) 
+                                || !empty($alasanNoSellOut) 
+                                || ($subQty == 0 && $subVal == 0 && empty($cart));
+
+                            if ($isNoSellOut && empty($alasanNoSellOut)) {
+                                foreach($sub->values as $v) {
+                                    $vText = (string)($v->value_text ?? '');
+                                    if (stripos($vText, 'Toko Tidak Mengijinkan') !== false) {
+                                        $alasanNoSellOut = 'Toko Tidak Mengijinkan';
+                                        break;
+                                    } elseif (stripos($vText, 'Barang OOS') !== false || stripos($vText, 'OOS') !== false) {
+                                        $alasanNoSellOut = 'Barang OOS';
+                                        break;
+                                    }
+                                }
+                                if (empty($alasanNoSellOut)) {
+                                    $alasanNoSellOut = 'Toko Tidak Mengijinkan';
+                                }
+                            }
+
                             // Fallback jika foto tidak tercatat di submission values tapi tersimpan di disk
                             if (empty($subPhotos)) {
                                 $matches = glob(storage_path("app/public/reports/*/report_{$sub->id}_*.jpg"));
@@ -1035,10 +1068,11 @@
                                 $sellOutPhoto = $subPhotos[0]['url'];
                             }
 
-                            // Normalisasi foto struk dalam item cart
+                            // Normalisasi foto struk & nama produk dalam item cart
                             if (!empty($cart)) {
                                 $calcQ = 0; $calcV = 0;
                                 foreach($cart as &$item) {
+                                    $item['product_name'] = !empty($item['product_name']) ? $item['product_name'] : (!empty($item['name']) ? $item['name'] : (!empty($item['nama_produk']) ? $item['nama_produk'] : 'Produk Wings'));
                                     $q = (int)($item['qty'] ?? 1);
                                     $pr = (float)($item['store_price'] ?? ($item['price'] ?? 0));
                                     $v = (float)($item['value_rp'] ?? ($q * $pr));
@@ -1062,6 +1096,12 @@
                                 if ($subQty <= 0) $subQty = $calcQ;
                                 if ($subVal <= 0) $subVal = $calcV;
                             }
+
+                            $noSellOutMeta = [
+                                'is_no_sell_out' => $isNoSellOut,
+                                'alasan' => $alasanNoSellOut ?: ($isNoSellOut ? 'Toko Tidak Mengijinkan' : ''),
+                                'keterangan' => $keteranganNoSellOut ?: '',
+                            ];
                         @endphp
                         <tr>
                             <td style="text-align: center; color: var(--text-muted); font-weight: 700;">
@@ -1081,10 +1121,14 @@
                             </td>
                             <td>
                                 @if(!empty($cart))
-                                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                                    <div style="display: flex; flex-direction: column; gap: 3px;">
                                         @foreach(array_slice($cart, 0, 2) as $cItem)
-                                            <span style="font-size: 0.74rem; color: var(--text-body);">
-                                                &bull; {{ $cItem['name'] ?? 'Produk' }} (<strong>{{ $cItem['qty'] ?? 1 }}</strong>)
+                                            @php
+                                                $itemName = $cItem['product_name'] ?? ($cItem['name'] ?? ($cItem['nama_produk'] ?? 'Produk'));
+                                                $itemQty = $cItem['qty'] ?? 1;
+                                            @endphp
+                                            <span style="font-size: 0.74rem; color: var(--text-body); line-height: 1.35;">
+                                                &bull; <strong>{{ $itemName }}</strong> ({{ $itemQty }} pcs)
                                             </span>
                                         @endforeach
                                         @if(count($cart) > 2)
@@ -1093,19 +1137,40 @@
                                             </span>
                                         @endif
                                     </div>
+                                @elseif($isNoSellOut)
+                                    <div style="display: flex; flex-direction: column; gap: 3px;">
+                                        <span class="portal-mbr-pill" style="background: #fee2e2; color: #dc2626; border-color: #fca5a5; font-weight: 800; font-size: 0.70rem; width: fit-content; padding: 2px 7px; display: inline-flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid fa-ban"></i> No Sell Out
+                                        </span>
+                                        <div style="font-size: 0.76rem; font-weight: 700; color: #991b1b; display: flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid {{ stripos($alasanNoSellOut, 'OOS') !== false ? 'fa-box-open' : 'fa-store-slash' }}"></i>
+                                            <span>{{ $alasanNoSellOut }}</span>
+                                        </div>
+                                        @if(!empty($keteranganNoSellOut))
+                                            <div style="font-size: 0.70rem; color: var(--text-muted); font-style: italic; line-height: 1.25;" title="{{ $keteranganNoSellOut }}">
+                                                "{{ Str::limit($keteranganNoSellOut, 35) }}"
+                                            </div>
+                                        @endif
+                                    </div>
                                 @else
                                     <span style="font-size: 0.75rem; color: var(--text-muted);">-</span>
                                 @endif
                             </td>
-                            <td class="num" style="color: #2563eb;">{{ number_format($subQty) }} Pcs</td>
-                            <td class="num" style="color: #059669;">Rp {{ number_format($subVal, 0, ',', '.') }}</td>
+                            <td class="num" style="color: #2563eb; font-weight: 700;">{{ number_format($subQty) }} Pcs</td>
+                            <td class="num" style="color: #059669; font-weight: 700;">Rp {{ number_format($subVal, 0, ',', '.') }}</td>
                             <td style="text-align: center;">
-                                @if($subKasir > 0 && $subBooth <= 0)
+                                @if($isNoSellOut)
+                                    <span class="portal-mbr-pill" style="background: #f1f5f9; color: #64748b; border-color: #cbd5e1; font-size: 0.72rem; font-weight: 700;">
+                                        <i class="fa-solid fa-ban"></i> No Sell Out
+                                    </span>
+                                @elseif($subKasir > 0 && $subBooth <= 0)
                                     <span class="portal-mbr-pill kasir"><i class="fa-solid fa-cash-register"></i> Kasir</span>
                                 @elseif($subBooth > 0 && $subKasir <= 0)
                                     <span class="portal-mbr-pill booth"><i class="fa-solid fa-store"></i> Booth</span>
-                                @else
+                                @elseif($subKasir > 0 && $subBooth > 0)
                                     <span class="portal-mbr-pill booth"><i class="fa-solid fa-coins"></i> Campuran</span>
+                                @else
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">-</span>
                                 @endif
                             </td>
                             <td style="text-align: center; white-space: nowrap;">
@@ -1114,7 +1179,7 @@
                                         <i class="fa-solid fa-camera"></i> Foto
                                     </button>
                                 @endif
-                                <button type="button" onclick='openSubmissionDetailModal(@json($sub), @json($cart), @json($subPhotos), "{{ $sellOutPhoto }}", "{{ $subDateDisplay }}")' class="portal-mbr-btn-action">
+                                <button type="button" onclick='openSubmissionDetailModal(@json($sub), @json($cart), @json($subPhotos), "{{ $sellOutPhoto }}", "{{ $subDateDisplay }}", @json($noSellOutMeta))' class="portal-mbr-btn-action">
                                     <i class="fa-solid fa-eye"></i> Detail
                                 </button>
                             </td>
@@ -1371,12 +1436,13 @@
     }
 
     // Modal Rincian Cart Submission
-    function openSubmissionDetailModal(sub, cart, photos, sellOutPhoto, formattedTime) {
+    function openSubmissionDetailModal(sub, cart, photos, sellOutPhoto, formattedTime, noSellOutMeta) {
         const modal = document.getElementById('submissionDetailModal');
         const body = document.getElementById('subModalBody');
         if (!modal || !body) return;
 
         photos = photos || [];
+        cart = cart || [];
         if (!sellOutPhoto && photos.length > 0) {
             sellOutPhoto = photos[0].url;
         }
@@ -1392,6 +1458,74 @@
             if (s.startsWith('storage/')) return '/' + s;
             return '/storage/' + s.replace(/^\/+/, '');
         };
+
+        // Deteksi status No Sell Out & alasan
+        let isNoSellOut = Boolean(noSellOutMeta?.is_no_sell_out);
+        let alasanNoSellOut = noSellOutMeta?.alasan || '';
+        let keteranganNoSellOut = noSellOutMeta?.keterangan || '';
+
+        if (!isNoSellOut && sub?.values && Array.isArray(sub.values)) {
+            sub.values.forEach(v => {
+                const fn = (v.field_name || (v.form_field ? v.form_field.field_name : '') || '').toLowerCase();
+                const vt = String(v.value_text || '');
+                if (fn === 'status_penjualan' && vt.toLowerCase().includes('no sell out')) {
+                    isNoSellOut = true;
+                }
+                if (fn === 'alasan_no_sell_out' && vt) {
+                    alasanNoSellOut = vt;
+                    isNoSellOut = true;
+                }
+                if (['keterangan_no_sell_out', 'catatan', 'catatan_penjualan', 'keterangan'].includes(fn) && vt && !keteranganNoSellOut) {
+                    keteranganNoSellOut = vt;
+                }
+            });
+        }
+
+        if (!isNoSellOut && cart.length === 0 && Number(sub?.total_qty_penjualan || 0) === 0) {
+            isNoSellOut = true;
+            if (!alasanNoSellOut) alasanNoSellOut = 'Toko Tidak Mengijinkan';
+        }
+
+        let noSellOutSectionHtml = '';
+        if (isNoSellOut) {
+            const isOos = (alasanNoSellOut || '').toLowerCase().includes('oos');
+            noSellOutSectionHtml = `
+                <div style="margin-top: 1.25rem; background: #fff5f5; border: 2px solid #fecaca; border-radius: 12px; padding: 1.15rem 1.25rem; box-shadow: 0 2px 6px rgba(220,38,38,0.06);">
+                    <div style="display: flex; align-items: flex-start; gap: 12px;">
+                        <div style="width: 44px; height: 44px; border-radius: 10px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.35rem; flex-shrink: 0; border: 1px solid #fca5a5;">
+                            <i class="fa-solid fa-ban"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+                                <span class="portal-mbr-pill" style="background: #dc2626; color: #ffffff; border-color: #b91c1c; font-weight: 800; font-size: 0.72rem; padding: 2px 8px;">
+                                    <i class="fa-solid fa-ban"></i> STATUS: NO SELL OUT
+                                </span>
+                                <span style="font-size: 0.85rem; font-weight: 800; color: #991b1b;">
+                                    (Tidak Ada Transaksi Penjualan)
+                                </span>
+                            </div>
+                            <div style="font-size: 0.95rem; font-weight: 800; color: #1e293b; margin-top: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <span style="color: #64748b; font-weight: 600; font-size: 0.82rem;">Alasan Kendala di Lapangan:</span>
+                                <span style="background: #fee2e2; color: #991b1b; padding: 3px 10px; border-radius: 6px; border: 1px solid #fca5a5; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid ${isOos ? 'fa-box-open' : 'fa-store-slash'}"></i>
+                                    ${alasanNoSellOut || 'Toko Tidak Mengijinkan'}
+                                </span>
+                            </div>
+                            ${keteranganNoSellOut ? `
+                                <div style="margin-top: 8px; font-size: 0.82rem; color: #334155; background: #ffffff; padding: 8px 12px; border-radius: 8px; border: 1px dashed #fca5a5; line-height: 1.4;">
+                                    <strong style="color: #64748b; display: block; font-size: 0.72rem; text-transform: uppercase;">Keterangan / Catatan Petugas:</strong>
+                                    "${keteranganNoSellOut}"
+                                </div>
+                            ` : ''}
+                            <div style="font-size: 0.76rem; color: #64748b; margin-top: 8px; line-height: 1.35;">
+                                <i class="fa-solid fa-circle-info me-1" style="color: #0284c7;"></i>
+                                Petugas SPG/MD melaporkan tidak ada transaksi penjualan fisik pada kunjungan toko ini dikarenakan kendala izin outlet atau ketiadaan stok barang (OOS).
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
         let cartHtml = '';
         if (cart && cart.length > 0) {
@@ -1413,7 +1547,7 @@
                             ${cart.map((item, i) => {
                                 const rawPhoto = item.struk_photo_url || item.foto_struk || item.struk_photo_path || item.photo_struk_url || null;
                                 const strukUrl = rawPhoto ? resolveUrl(rawPhoto) : null;
-                                const pName = item.name || item.product_name || 'Produk';
+                                const pName = item.product_name || item.name || item.nama_produk || 'Produk Wings';
                                 const pSku = item.sku_code || item.sku || '-';
                                 return `
                                     <tr>
@@ -1443,6 +1577,17 @@
                             }).join('')}
                         </tbody>
                     </table>
+                </div>
+            `;
+        } else if (isNoSellOut) {
+            cartHtml = `
+                <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 1.25rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 0.75rem;">
+                    <i class="fa-solid fa-box-open" style="font-size: 1.75rem; color: #94a3b8; display: block; margin-bottom: 0.5rem;"></i>
+                    <div style="font-weight: 800; color: var(--text-heading); font-size: 0.95rem;">Tidak Ada Item Keranjang Belanja</div>
+                    <div style="font-size: 0.82rem; margin-top: 4px; color: #64748b;">
+                        Laporan ini disubmit sebagai <strong>No Sell Out</strong> dengan kendala: 
+                        <span style="color: #991b1b; font-weight: 700;">${alasanNoSellOut || 'Toko Tidak Mengijinkan'}</span>
+                    </div>
                 </div>
             `;
         } else {
@@ -1523,6 +1668,8 @@
                 </div>
             </div>
 
+            ${noSellOutSectionHtml}
+
             ${photoSectionHtml}
 
             <div style="margin-top: 1.25rem;">
@@ -1531,7 +1678,9 @@
                         <i class="fa-solid fa-basket-shopping" style="color: var(--brand-primary);"></i>
                         Rincian Item Keranjang Belanja
                     </h4>
-                    <span style="font-size: 0.78rem; font-weight: 700; color: #2563eb;">${cart.length} Varian Produk</span>
+                    <span style="font-size: 0.78rem; font-weight: 700; color: ${isNoSellOut ? '#dc2626' : '#2563eb'};">
+                        ${cart.length} Varian Produk ${isNoSellOut ? '(No Sell Out)' : ''}
+                    </span>
                 </div>
                 ${cartHtml}
             </div>

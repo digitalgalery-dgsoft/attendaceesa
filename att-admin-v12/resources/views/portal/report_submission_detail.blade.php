@@ -1351,6 +1351,10 @@
             'total_bayar_di_kasir_rp' => 0,
         ];
 
+        $mbrStatusPenjualan = null;
+        $mbrAlasanNoSellOut = null;
+        $mbrKeteranganNoSellOut = null;
+
         foreach ($submission->values as $v) {
             $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
             if ($fn === 'offtake_items_json') {
@@ -1373,6 +1377,15 @@
                 $mbrGlobalData['total_bayar_di_booth_rp'] = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
             } elseif ($fn === 'total_bayar_di_kasir_rp') {
                 $mbrGlobalData['total_bayar_di_kasir_rp'] = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
+            } elseif ($fn === 'status_penjualan') {
+                $mbrStatusPenjualan = trim((string)($v->value_text ?: (is_array($v->value_json) ? ($v->value_json[0] ?? '') : '')));
+            } elseif ($fn === 'alasan_no_sell_out') {
+                $mbrAlasanNoSellOut = trim((string)($v->value_text ?: (is_array($v->value_json) ? ($v->value_json[0] ?? '') : '')));
+            } elseif (in_array($fn, ['keterangan_no_sell_out', 'catatan_penjualan', 'catatan_no_sell_out', 'catatan', 'keterangan'])) {
+                $candK = trim((string)($v->value_text ?: ''));
+                if (!empty($candK) && empty($mbrKeteranganNoSellOut)) {
+                    $mbrKeteranganNoSellOut = $candK;
+                }
             } elseif ($fn === 'oos_items_json') {
                 $rawOos = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
                 if (is_array($rawOos) && !empty($rawOos)) {
@@ -1413,6 +1426,27 @@
                 $offtakeGlobalData['estimasi_market_share_persen'] = $v->value_text;
             } elseif ($fn === 'tipe_laporan_offtake') {
                 $offtakeGlobalData['tipe_laporan_offtake'] = $v->value_text ?: 'Sale';
+            }
+        }
+
+        $isWingsMbrSales = str_contains($template->code, 'WINGS-MBR-SALES') || str_contains($template->code, 'MBR-SALES');
+        $isMbrNoSellOut = (strcasecmp($mbrStatusPenjualan ?? '', 'No Sell Out') === 0) 
+            || !empty($mbrAlasanNoSellOut) 
+            || ($isWingsMbrSales && !$hasDynamicMbrSalesItems && $mbrGlobalData['total_qty_penjualan'] == 0);
+
+        if ($isMbrNoSellOut && empty($mbrAlasanNoSellOut)) {
+            foreach ($submission->values as $v) {
+                $vText = (string)($v->value_text ?? '');
+                if (stripos($vText, 'Toko Tidak Mengijinkan') !== false) {
+                    $mbrAlasanNoSellOut = 'Toko Tidak Mengijinkan';
+                    break;
+                } elseif (stripos($vText, 'Barang OOS') !== false || stripos($vText, 'OOS') !== false) {
+                    $mbrAlasanNoSellOut = 'Barang OOS';
+                    break;
+                }
+            }
+            if (empty($mbrAlasanNoSellOut)) {
+                $mbrAlasanNoSellOut = 'Toko Tidak Mengijinkan';
             }
         }
 
@@ -1906,13 +1940,18 @@
                 }
             }
 
-            if ($hasDynamicMbrSalesItems) {
+            if ($hasDynamicMbrSalesItems || $isMbrNoSellOut) {
                 $suppressMbrFields = [
                     'mbr_sales_items_json',
                     'total_qty_penjualan',
                     'total_value_penjualan_rp',
                     'total_bayar_di_booth_rp',
                     'total_bayar_di_kasir_rp',
+                    'status_penjualan',
+                    'alasan_no_sell_out',
+                    'keterangan_no_sell_out',
+                    'catatan_penjualan',
+                    'catatan_no_sell_out',
                 ];
                 if (in_array($fn, $suppressMbrFields) || in_array($flClean, $suppressMbrFields)) {
                     return false;
@@ -2355,6 +2394,43 @@
                 </div>
             </div>
         @endif
+
+        {{-- BANNER KHUSUS LAPORAN NO SELL OUT WINGS MBR --}}
+        @if($isMbrNoSellOut)
+            <div style="background: #fff5f5; border: 2px solid #fecaca; border-radius: 16px; padding: 1.5rem; display: flex; align-items: flex-start; gap: 1.25rem; box-shadow: 0 2px 8px rgba(220,38,38,0.06); margin-bottom: 1.5rem;">
+                <div style="width: 56px; height: 56px; border-radius: 14px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.85rem; flex-shrink: 0; border: 1px solid #fca5a5;">
+                    <i class="fa-solid fa-ban"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <span style="background: #dc2626; color: #ffffff; font-weight: 800; font-size: 0.8rem; padding: 3px 10px; border-radius: 6px; letter-spacing: 0.5px;">
+                            LAPORAN NO SELL OUT
+                        </span>
+                        <span style="font-size: 1.05rem; font-weight: 800; color: #991b1b;">
+                            Tidak Ada Transaksi Penjualan Produk
+                        </span>
+                    </div>
+                    <div style="margin-top: 0.75rem; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; font-weight: 700; color: #1e293b; flex-wrap: wrap;">
+                        <span style="color: #64748b; font-weight: 600; font-size: 0.85rem;">Alasan Kendala di Lapangan:</span>
+                        <span style="background: #fee2e2; color: #991b1b; padding: 3px 12px; border-radius: 6px; border: 1px solid #fca5a5; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid {{ stripos($mbrAlasanNoSellOut, 'OOS') !== false ? 'fa-box-open' : 'fa-store-slash' }}"></i>
+                            {{ $mbrAlasanNoSellOut ?: 'Toko Tidak Mengijinkan' }}
+                        </span>
+                    </div>
+                    @if(!empty($mbrKeteranganNoSellOut))
+                        <div style="margin-top: 0.75rem; background: #ffffff; padding: 0.75rem 1rem; border-radius: 8px; border: 1px dashed #fca5a5; font-size: 0.88rem; color: #334155;">
+                            <strong style="display: block; font-size: 0.74rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Catatan / Keterangan Petugas:</strong>
+                            "{{ $mbrKeteranganNoSellOut }}"
+                        </div>
+                    @endif
+                    <p style="margin: 0.75rem 0 0 0; font-size: 0.85rem; color: #64748b; line-height: 1.45;">
+                        <i class="fa-solid fa-circle-info me-1" style="color: #0284c7;"></i>
+                        Petugas SPG/MD melaporkan tidak ada transaksi penjualan produk Wings Surya pada kunjungan toko ini dikarenakan kendala izin outlet atau ketiadaan stok barang (OOS).
+                    </p>
+                </div>
+            </div>
+        @endif
+
         {{-- BANNER KHUSUS JIKA TOKO BEBAS OOS (STOK LENGKAP) --}}
         @if(strtolower($oosGlobalData['tipe_laporan_oos'] ?? '') === 'no_oos')
             <div style="background: #f0fdf4; border: 2px solid #86efac; border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
@@ -2748,7 +2824,7 @@
                     <div style="padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.85rem;">
                         @foreach($mbrSalesItemsList as $pIdx => $pItem)
                             @php
-                                $pName = $pItem['name'] ?? ($pItem['product_name'] ?? ($pItem['deskripsi'] ?? 'Produk Wings'));
+                                $pName = $pItem['product_name'] ?? ($pItem['name'] ?? ($pItem['nama_produk'] ?? ($pItem['deskripsi'] ?? 'Produk Wings')));
                                 $pSku = $pItem['sku_code'] ?? ($pItem['sku'] ?? '-');
                                 $pDist = (float)($pItem['distributor_price'] ?? ($pItem['harga_distributor'] ?? ($pItem['harga_jual_distributor'] ?? 0)));
                                 $pStore = (float)($pItem['store_price'] ?? ($pItem['harga_toko'] ?? 0));

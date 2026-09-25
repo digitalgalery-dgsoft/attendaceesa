@@ -12513,7 +12513,7 @@ class PrincipalPortalController extends Controller
                     $calcV += $v;
                     if (str_contains($pt, 'kasir')) $calcK += $v; else $calcB += $v;
 
-                    $pName = strtoupper(trim($cIt['name'] ?? ($cIt['product_name'] ?? 'PRODUK')));
+                    $pName = strtoupper(trim((string)(!empty($cIt['product_name']) ? $cIt['product_name'] : (!empty($cIt['name']) ? $cIt['name'] : (!empty($cIt['nama_produk']) ? $cIt['nama_produk'] : 'PRODUK')))));
                     $pSku = $cIt['sku_code'] ?? ($cIt['sku'] ?? '-');
                     $uniqueProductsMap[$pName] = true;
 

@@ -725,6 +725,9 @@ class WingsMbrExportService
             $subKasir = 0;
             $cartDetails = [];
             $photoUrl = null;
+            $statusPenjualan = null;
+            $alasanNoSellOut = null;
+            $keteranganNoSellOut = null;
 
             foreach ($sub->values as $v) {
                 $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
@@ -732,7 +735,7 @@ class WingsMbrExportService
                     $raw = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
                     if (is_array($raw)) {
                         foreach ($raw as $item) {
-                            $pName = $item['name'] ?? ($item['product_name'] ?? 'Produk');
+                            $pName = $item['product_name'] ?? ($item['name'] ?? ($item['nama_produk'] ?? 'Produk Wings'));
                             $pQty = $item['qty'] ?? 1;
                             $cartDetails[] = "{$pName} ({$pQty} pcs)";
                         }
@@ -745,11 +748,41 @@ class WingsMbrExportService
                     $subBooth = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
                 } elseif ($fn === 'total_bayar_di_kasir_rp') {
                     $subKasir = (float)($v->value_number ?? preg_replace('/[^0-9]/', '', (string)$v->value_text) ?? 0);
+                } elseif ($fn === 'status_penjualan') {
+                    $statusPenjualan = trim((string)$v->value_text);
+                } elseif ($fn === 'alasan_no_sell_out') {
+                    $alasanNoSellOut = trim((string)$v->value_text);
+                } elseif (in_array($fn, ['keterangan_no_sell_out', 'catatan', 'catatan_penjualan', 'keterangan'])) {
+                    $candK = trim((string)$v->value_text);
+                    if (!empty($candK)) {
+                        $keteranganNoSellOut = $candK;
+                    }
                 } elseif (str_contains($fn, 'foto') || str_contains($fn, 'struk') || str_contains($fn, 'display')) {
                     $cand = $v->media_url ?: ($v->value_text ?: (is_array($v->value_json) ? ($v->value_json[0] ?? null) : null));
                     if ($cand && is_string($cand) && !str_starts_with($cand, '/data/user/')) {
                         $photoUrl = $this->resolvePublicMediaUrl($cand);
                     }
+                }
+            }
+
+            // Deteksi No Sell Out
+            $isNoSellOut = (strcasecmp($statusPenjualan ?? '', 'No Sell Out') === 0) 
+                || !empty($alasanNoSellOut) 
+                || ($subQty == 0 && $subVal == 0 && empty($cartDetails));
+
+            if ($isNoSellOut && empty($alasanNoSellOut)) {
+                foreach ($sub->values as $v) {
+                    $vText = (string)($v->value_text ?? '');
+                    if (stripos($vText, 'Toko Tidak Mengijinkan') !== false) {
+                        $alasanNoSellOut = 'Toko Tidak Mengijinkan';
+                        break;
+                    } elseif (stripos($vText, 'Barang OOS') !== false || stripos($vText, 'OOS') !== false) {
+                        $alasanNoSellOut = 'Barang OOS';
+                        break;
+                    }
+                }
+                if (empty($alasanNoSellOut)) {
+                    $alasanNoSellOut = 'Toko Tidak Mengijinkan';
                 }
             }
 
@@ -779,7 +812,18 @@ class WingsMbrExportService
             $sheet->setCellValue("J{$currRow}", $subVal);
             $sheet->setCellValue("K{$currRow}", $subBooth);
             $sheet->setCellValue("L{$currRow}", $subKasir);
-            $sheet->setCellValueExplicit("M{$currRow}", !empty($cartDetails) ? implode(', ', $cartDetails) : '-', DataType::TYPE_STRING);
+
+            if (!empty($cartDetails)) {
+                $cartStr = implode(', ', $cartDetails);
+            } elseif ($isNoSellOut) {
+                $cartStr = "No Sell Out: " . ($alasanNoSellOut ?: 'Toko Tidak Mengijinkan');
+                if (!empty($keteranganNoSellOut)) {
+                    $cartStr .= " ({$keteranganNoSellOut})";
+                }
+            } else {
+                $cartStr = '-';
+            }
+            $sheet->setCellValueExplicit("M{$currRow}", $cartStr, DataType::TYPE_STRING);
 
             if ($photoUrl) {
                 $sheet->setCellValue("N{$currRow}", 'Buka Foto');
