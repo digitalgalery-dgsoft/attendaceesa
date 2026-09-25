@@ -519,7 +519,7 @@
             </div>
 
             <!-- Location Dropdown -->
-            <select name="location_id" class="filter-select-btn" onchange="this.form.submit()">
+            <select name="location_id" class="filter-select-btn searchable-filter-select" onchange="this.form.submit()">
                 <option value="">🏢 Semua Toko / Outlet</option>
                 @foreach($workLocations as $loc)
                     <option value="{{ $loc->id }}" {{ $locationId == $loc->id ? 'selected' : '' }}>

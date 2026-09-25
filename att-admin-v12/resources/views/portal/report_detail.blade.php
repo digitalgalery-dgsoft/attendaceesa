@@ -1118,7 +1118,7 @@
 
             <!-- Filter RSM / Wilayah (Region) -->
             <div style="position: relative;">
-                <select name="region" id="filter_region" class="filter-select-btn" onchange="onRegionFilterChange(this.value)" style="padding-left: 2rem;">
+                <select name="region" id="filter_region" class="filter-select-btn searchable-filter-select" onchange="onRegionFilterChange(this.value)" style="padding-left: 2rem;">
                     <option value="">{{ (isset($isWingsMbrReport) && $isWingsMbrReport) ? '🗺️ Semua Wilayah' : '🗺️ Semua RSM' }}</option>
                     @foreach($regions as $r)
                         @php
@@ -1141,7 +1141,7 @@
 
             <!-- Filter Area / Cabang -->
             <div style="position: relative;">
-                <select name="area_id" id="filter_area" class="filter-select-btn" onchange="onAreaFilterChange(this.value)" style="padding-left: 2rem;">
+                <select name="area_id" id="filter_area" class="filter-select-btn searchable-filter-select" onchange="onAreaFilterChange(this.value)" style="padding-left: 2rem;">
                     <option value="">{{ (isset($isWingsMbrReport) && $isWingsMbrReport) ? '📍 Semua Daerah' : '📍 Semua Area / Cabang' }}</option>
                     @foreach($areas as $area)
                         @php
@@ -1160,7 +1160,7 @@
 
             <!-- Filter Store / Toko -->
             <div style="position: relative;">
-                <select name="location_id" id="filter_location" class="filter-select-btn" style="padding-left: 2rem; max-width: 250px;">
+                <select name="location_id" id="filter_location" class="filter-select-btn searchable-filter-select" style="padding-left: 2rem; max-width: 250px;">
                     <option value="">{{ (isset($isWingsMbrReport) && $isWingsMbrReport) ? '🏢 Semua Toko' : '🏢 Semua Store / Toko' }}</option>
                     @foreach($workLocations as $loc)
                         @php
@@ -1181,7 +1181,7 @@
             @if(isset($isWingsMbrReport) && $isWingsMbrReport && isset($employees))
                 <!-- Filter Mitra / Karyawan (Wings MBR) -->
                 <div style="position: relative;">
-                    <select name="employee_id" id="filter_employee" class="filter-select-btn" style="padding-left: 2rem; max-width: 250px;">
+                    <select name="employee_id" id="filter_employee" class="filter-select-btn searchable-filter-select" style="padding-left: 2rem; max-width: 250px;">
                         <option value="">👤 Semua Mitra / Karyawan</option>
                         @foreach($employees as $emp)
                             @php
@@ -1205,7 +1205,7 @@
                 @if(!empty($machineTypes))
                 <!-- Filter Tipe Mesin POST -->
                 <div style="position: relative;">
-                    <select name="machine_type" id="filter_machine_type" class="filter-select-btn" style="padding-left: 2rem;">
+                    <select name="machine_type" id="filter_machine_type" class="filter-select-btn searchable-filter-select" style="padding-left: 2rem;">
                         <option value="">⚙️ Semua Mesin</option>
                         @foreach($machineTypes as $mt)
                             <option value="{{ $mt }}" {{ ($selectedMachineType ?? '') === $mt ? 'selected' : '' }}>{{ $mt }}</option>
@@ -1218,7 +1218,7 @@
                 @if(!empty($categories))
                 <!-- Filter Kategori Toko -->
                 <div style="position: relative;">
-                    <select name="category" id="filter_category" class="filter-select-btn" style="padding-left: 2rem;">
+                    <select name="category" id="filter_category" class="filter-select-btn searchable-filter-select" style="padding-left: 2rem;">
                         <option value="">🏷️ Semua Kategori</option>
                         @foreach($categories as $cat)
                             <option value="{{ $cat }}" {{ ($selectedCategory ?? '') === $cat ? 'selected' : '' }}>{{ $cat }}</option>
@@ -1232,7 +1232,7 @@
             @if(isset($isStockReport) && $isStockReport)
                 <!-- Filter Brand (Dulux & Catylac) -->
                 <div style="position: relative;">
-                    <select name="brand" id="filter_brand" class="filter-select-btn" style="padding-left: 2rem;">
+                    <select name="brand" id="filter_brand" class="filter-select-btn searchable-filter-select" style="padding-left: 2rem;">
                         <option value="ALL" {{ ($selectedBrand ?? 'ALL') === 'ALL' ? 'selected' : '' }}>🎨 Semua Brand (Dulux & Catylac)</option>
                         <option value="DULUX" {{ ($selectedBrand ?? '') === 'DULUX' ? 'selected' : '' }}>🔵 Dulux</option>
                         <option value="CATYLAC" {{ ($selectedBrand ?? '') === 'CATYLAC' ? 'selected' : '' }}>🟢 Catylac</option>
@@ -1292,6 +1292,10 @@
         }
         if (currentAreaVal && !areaStillValid) {
             areaSelect.value = '';
+        }
+
+        if (window.refreshSearchableSelect) {
+            window.refreshSearchableSelect('filter_area');
         }
 
         onAreaFilterChange(areaSelect.value);
@@ -1359,9 +1363,18 @@
                 empSelect.value = '';
             }
         }
+
+        if (window.refreshSearchableSelect) {
+            window.refreshSearchableSelect('filter_location');
+            if (empSelect) window.refreshSearchableSelect('filter_employee');
+        }
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+        if (window.initAllSearchableSelects) {
+            window.initAllSearchableSelects('.searchable-filter-select');
+        }
+
         var regSelect = document.getElementById('filter_region');
         if (regSelect && regSelect.value) {
             onRegionFilterChange(regSelect.value);

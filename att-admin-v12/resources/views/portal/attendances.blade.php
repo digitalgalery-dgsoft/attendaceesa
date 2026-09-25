@@ -316,7 +316,7 @@
 
         <div>
             <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 2px;">Toko / Outlet</label>
-            <select name="location_id" class="filter-input" style="min-width: 180px;">
+            <select name="location_id" class="filter-input searchable-filter-select" style="min-width: 180px;">
                 <option value="">🏢 Semua Toko</option>
                 @foreach($workLocations as $loc)
                     <option value="{{ $loc->id }}" {{ $locationId == $loc->id ? 'selected' : '' }}>{{ $loc->name }}</option>

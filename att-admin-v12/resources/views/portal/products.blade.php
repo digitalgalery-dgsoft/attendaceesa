@@ -619,7 +619,7 @@
 
         <div class="filter-group-left">
             @if(!empty($categories))
-                <select name="category" class="filter-select-btn" onchange="this.form.submit()">
+                <select name="category" class="filter-select-btn searchable-filter-select" onchange="this.form.submit()">
                     <option value="">🏷️ Semua Kategori</option>
                     @foreach($categories as $cat)
                         <option value="{{ $cat }}" {{ $category == $cat ? 'selected' : '' }}>
@@ -630,7 +630,7 @@
             @endif
 
             @if(!empty($brands))
-                <select name="brand" class="filter-select-btn" onchange="this.form.submit()">
+                <select name="brand" class="filter-select-btn searchable-filter-select" onchange="this.form.submit()">
                     <option value="">🏢 Semua Brand</option>
                     @foreach($brands as $b)
                         <option value="{{ $b }}" {{ $brand == $b ? 'selected' : '' }}>
