@@ -1224,6 +1224,11 @@
     </form>
 
     <script>
+    function normalizeRegionJs(str) {
+        if (!str) return '';
+        return String(str).replace(/([a-zA-Z]+)[\s\-_]+([0-9]+)/g, '$1 $2').replace(/\s+/g, ' ').toUpperCase().trim();
+    }
+
     function onRegionFilterChange(regVal) {
         var areaSelect = document.getElementById('filter_area');
         var locSelect = document.getElementById('filter_location');
@@ -1231,12 +1236,14 @@
 
         var currentAreaVal = areaSelect.value;
         var areaStillValid = false;
+        var normRegVal = normalizeRegionJs(regVal);
 
         for (var i = 0; i < areaSelect.options.length; i++) {
             var opt = areaSelect.options[i];
             if (!opt.value) continue;
             var optReg = opt.getAttribute('data-region') || '';
-            if (!regVal || !optReg || optReg.toUpperCase() === regVal.toUpperCase()) {
+            var normOptReg = normalizeRegionJs(optReg);
+            if (!normRegVal || !normOptReg || normOptReg === normRegVal) {
                 opt.hidden = false;
                 opt.disabled = false;
                 if (opt.value === currentAreaVal) areaStillValid = true;
@@ -1258,6 +1265,7 @@
         if (!locSelect) return;
 
         var regVal = regSelect ? regSelect.value : '';
+        var normRegVal = normalizeRegionJs(regVal);
         var currentLocVal = locSelect.value;
         var locStillValid = false;
 
@@ -1269,8 +1277,9 @@
             var opt = locSelect.options[j];
             if (!opt.value) continue;
             var optReg = opt.getAttribute('data-region') || '';
+            var normOptReg = normalizeRegionJs(optReg);
             var optArea = (opt.getAttribute('data-area') || '').toUpperCase();
-            var matchReg = !regVal || !optReg || optReg.toUpperCase() === regVal.toUpperCase();
+            var matchReg = !normRegVal || !normOptReg || normOptReg === normRegVal;
             var matchArea = !areaVal || !optArea || optArea === areaVal.toUpperCase() || (areaName && optArea === areaName);
 
             if (matchReg && matchArea) {

@@ -1121,19 +1121,27 @@
                             </td>
                             <td>
                                 @if(!empty($cart))
-                                    <div style="display: flex; flex-direction: column; gap: 3px;">
+                                    <div style="display: flex; flex-direction: column; gap: 4px;">
                                         @foreach(array_slice($cart, 0, 2) as $cItem)
                                             @php
                                                 $itemName = $cItem['product_name'] ?? ($cItem['name'] ?? ($cItem['nama_produk'] ?? 'Produk'));
-                                                $itemQty = $cItem['qty'] ?? 1;
+                                                $itemQty = (int)($cItem['qty'] ?? 1);
+                                                $itemPrice = (float)($cItem['store_price'] ?? ($cItem['price'] ?? 0));
                                             @endphp
-                                            <span style="font-size: 0.74rem; color: var(--text-body); line-height: 1.35;">
-                                                &bull; <strong>{{ $itemName }}</strong> ({{ $itemQty }} pcs)
-                                            </span>
+                                            <div style="font-size: 0.74rem; color: var(--text-body); line-height: 1.35;">
+                                                <div style="font-weight: 700; color: var(--text-heading);">&bull; {{ $itemName }}</div>
+                                                <div style="display: flex; align-items: center; gap: 6px; padding-left: 8px; font-size: 0.72rem; margin-top: 1px;">
+                                                    <span style="color: #2563eb; font-weight: 600;">{{ $itemQty }} pcs</span>
+                                                    <span style="color: var(--text-muted);">&bull;</span>
+                                                    <span style="color: #059669; font-weight: 700; background: #ecfdf5; padding: 1px 6px; border-radius: 4px; border: 1px solid #a7f3d0;" title="Harga Toko per pcs">
+                                                        Rp {{ number_format($itemPrice, 0, ',', '.') }}/pcs
+                                                    </span>
+                                                </div>
+                                            </div>
                                         @endforeach
                                         @if(count($cart) > 2)
-                                            <span style="font-size: 0.72rem; color: var(--brand-primary); font-weight: 700;">
-                                                +{{ count($cart) - 2 }} produk lainnya
+                                            <span style="font-size: 0.72rem; color: var(--brand-primary); font-weight: 700; padding-left: 8px; cursor: pointer; text-decoration: underline;" onclick='openSubmissionDetailModal(@json($sub), @json($cart), @json($subPhotos), "{{ $sellOutPhoto }}", "{{ $subDateDisplay }}", @json($noSellOutMeta))'>
+                                                +{{ count($cart) - 2 }} produk lainnya (Lihat Detail)
                                             </span>
                                         @endif
                                     </div>
@@ -1536,7 +1544,7 @@
                             <tr>
                                 <th style="width: 40px; text-align: center;">#</th>
                                 <th>Nama Produk</th>
-                                <th class="num">Harga (Rp)</th>
+                                <th class="num">Harga Toko / Pcs (Rp)</th>
                                 <th class="num">Qty</th>
                                 <th class="num">Subtotal (Rp)</th>
                                 <th style="text-align: center;">Metode Bayar</th>
@@ -1556,7 +1564,7 @@
                                             <div style="font-weight: 800; color: var(--text-heading);">${pName}</div>
                                             <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">${pSku}</div>
                                         </td>
-                                        <td class="num">Rp ${Number(item.store_price || item.price || 0).toLocaleString('id-ID')}</td>
+                                        <td class="num" style="font-weight: 700; color: #0f172a;">Rp ${Number(item.store_price || item.price || 0).toLocaleString('id-ID')}</td>
                                         <td class="num" style="color: #2563eb; font-weight: 800;">${Number(item.qty || 1).toLocaleString('id-ID')} Pcs</td>
                                         <td class="num" style="color: #059669; font-weight: 800;">Rp ${Number(item.value_rp || (item.qty * (item.store_price || item.price || 0)) || 0).toLocaleString('id-ID')}</td>
                                         <td style="text-align: center;">

@@ -2857,7 +2857,7 @@
                                         <strong style="color: #0284c7;">{{ $pDist > 0 ? 'Rp ' . number_format($pDist, 0, ',', '.') : '-' }}</strong>
                                     </div>
                                     <div>
-                                        <span style="color: #64748b; font-size: 0.75rem; display: block;">Harga Toko</span>
+                                        <span style="color: #64748b; font-size: 0.75rem; display: block;">Harga Toko / Pcs</span>
                                         <strong style="color: #1e293b;">Rp {{ number_format($pStore, 0, ',', '.') }}</strong>
                                     </div>
                                     <div>

@@ -385,7 +385,7 @@ class WingsMbrExportService
             $nik = $m['nik'] ?? '-';
             $store = $m['store_name'] ?? '-';
             $area = $m['area'] ?? ($m['branch'] ?? '-');
-            $region = $m['region'] ?? '-';
+            $region = $this->normalizeRegionName($m['region'] ?? '-');
             $qty = (float)($m['qty'] ?? 0);
             $val = (float)($m['value_rp'] ?? ($m['value'] ?? 0));
             $pct = $totalVal > 0 ? ($val / $totalVal) : 0;
@@ -564,7 +564,7 @@ class WingsMbrExportService
         foreach ($salesByArea as $idx => $a) {
             $num = $idx + 1;
             $area = $a['area'] ?? '-';
-            $region = $a['region'] ?? '-';
+            $region = $this->normalizeRegionName($a['region'] ?? '-');
             $qty = (float)($a['qty'] ?? 0);
             $val = (float)($a['value_rp'] ?? ($a['value'] ?? 0));
             $pct = $totalVal > 0 ? ($val / $totalVal) : 0;
@@ -621,7 +621,7 @@ class WingsMbrExportService
         $sumRegVal = 0;
         foreach ($salesByRegion as $idx => $r) {
             $num = $idx + 1;
-            $region = $r['region'] ?? '-';
+            $region = $this->normalizeRegionName($r['region'] ?? '-');
             $qty = (float)($r['qty'] ?? 0);
             $val = (float)($r['value_rp'] ?? ($r['value'] ?? 0));
             $pct = $totalVal > 0 ? ($val / $totalVal) : 0;
@@ -717,7 +717,8 @@ class WingsMbrExportService
             $wl = $sub->workLocation;
             $storeName = $wl ? $wl->name : ($sub->store_name ?: 'Toko / Outlet');
             $branchName = $wl && $wl->branch ? $wl->branch->name : ($emp && $emp->branch ? $emp->branch->name : '-');
-            $regionName = $wl && !empty($wl->region) ? $wl->region : ($emp && $emp->branch && !empty($emp->branch->region) ? $emp->branch->region : '-');
+            $rawReg = $wl && !empty($wl->region) ? $wl->region : ($emp && $emp->branch && !empty($emp->branch->region) ? $emp->branch->region : null);
+            $regionName = $this->normalizeRegionName($rawReg);
 
             $subQty = 0;
             $subVal = 0;
@@ -736,8 +737,10 @@ class WingsMbrExportService
                     if (is_array($raw)) {
                         foreach ($raw as $item) {
                             $pName = $item['product_name'] ?? ($item['name'] ?? ($item['nama_produk'] ?? 'Produk Wings'));
-                            $pQty = $item['qty'] ?? 1;
-                            $cartDetails[] = "{$pName} ({$pQty} pcs)";
+                            $pQty = (int)($item['qty'] ?? 1);
+                            $pPrice = (float)($item['store_price'] ?? ($item['price'] ?? 0));
+                            $formattedPrice = number_format($pPrice, 0, ',', '.');
+                            $cartDetails[] = "{$pName} ({$pQty} pcs @ Rp {$formattedPrice})";
                         }
                     }
                 } elseif ($fn === 'total_qty_penjualan') {
@@ -1046,7 +1049,7 @@ class WingsMbrExportService
             $nik = $m['nik'] ?? '-';
             $store = $m['store_name'] ?? ($m['store'] ?? '-');
             $area = $m['area'] ?? ($m['branch'] ?? '-');
-            $region = $m['region'] ?? '-';
+            $region = $this->normalizeRegionName($m['region'] ?? '-');
             $dimasak = (float)($m['dimasak'] ?? 0);
             $cup = (float)($m['cup'] ?? 0);
             $ratio = $dimasak > 0 ? round($cup / $dimasak, 1) : 0;
@@ -1224,7 +1227,7 @@ class WingsMbrExportService
         foreach ($samplingByArea as $idx => $a) {
             $num = $idx + 1;
             $area = $a['area'] ?? '-';
-            $region = $a['region'] ?? '-';
+            $region = $this->normalizeRegionName($a['region'] ?? '-');
             $dimasak = (float)($a['dimasak'] ?? 0);
             $cup = (float)($a['cup'] ?? 0);
             $ratio = $dimasak > 0 ? round($cup / $dimasak, 1) : 0;
@@ -1282,7 +1285,7 @@ class WingsMbrExportService
 
         foreach ($samplingByRegion as $idx => $r) {
             $num = $idx + 1;
-            $region = $r['region'] ?? '-';
+            $region = $this->normalizeRegionName($r['region'] ?? '-');
             $dimasak = (float)($r['dimasak'] ?? 0);
             $cup = (float)($r['cup'] ?? 0);
             $ratio = $dimasak > 0 ? round($cup / $dimasak, 1) : 0;
@@ -1379,7 +1382,8 @@ class WingsMbrExportService
             $wl = $sub->workLocation;
             $storeName = $wl ? $wl->name : ($sub->store_name ?: 'Toko / Outlet');
             $branchName = $wl && $wl->branch ? $wl->branch->name : ($emp && $emp->branch ? $emp->branch->name : '-');
-            $regionName = $wl && !empty($wl->region) ? $wl->region : ($emp && $emp->branch && !empty($emp->branch->region) ? $emp->branch->region : '-');
+            $rawReg = $wl && !empty($wl->region) ? $wl->region : ($emp && $emp->branch && !empty($emp->branch->region) ? $emp->branch->region : null);
+            $regionName = $this->normalizeRegionName($rawReg);
 
             $subDimasak = 0;
             $subCup = 0;
@@ -1776,7 +1780,7 @@ class WingsMbrExportService
             $time = $item['time'] ?? '-';
             $store = $item['store'] ?? ($item['store_name'] ?? '-');
             $area = $item['area'] ?? '-';
-            $region = $item['region'] ?? '-';
+            $region = $this->normalizeRegionName($item['region'] ?? '-');
             $mitra = $item['mitra'] ?? ($item['employee_name'] ?? '-');
             $tool = $item['tool'] ?? ($item['tool_name'] ?? 'Peralatan');
             $notes = $item['notes'] ?? 'Kondisi fisik rusak / tidak layak pakai';
@@ -1963,7 +1967,8 @@ class WingsMbrExportService
             $wl = $sub->workLocation;
             $storeName = $wl ? $wl->name : ($sub->store_name ?: 'Outlet');
             $branchName = $wl && $wl->branch ? $wl->branch->name : ($emp && $emp->branch ? $emp->branch->name : '-');
-            $regionName = $wl && !empty($wl->region) ? $wl->region : ($emp && $emp->branch && !empty($emp->branch->region) ? $emp->branch->region : '-');
+            $rawReg = $wl && !empty($wl->region) ? $wl->region : ($emp && $emp->branch && !empty($emp->branch->region) ? $emp->branch->region : null);
+            $regionName = $this->normalizeRegionName($rawReg);
 
             $toolName = null;
             $availability = 'ADA';
@@ -2276,5 +2281,20 @@ class WingsMbrExportService
         }
 
         return asset('storage/' . ltrim($clean, '/'));
+    }
+
+    /**
+     * Normalizes region names to standard format: "REGION {N}" or clean uppercase string.
+     */
+    protected function normalizeRegionName(?string $raw): string
+    {
+        if (empty($raw)) return '-';
+        $clean = trim((string)$raw);
+        if ($clean === '' || $clean === '-' || strtolower($clean) === 'null') return '-';
+
+        $clean = preg_replace('/([A-Za-z]+)[\s\-_]+([0-9]+)/i', '$1 $2', $clean);
+        $clean = preg_replace('/\s+/', ' ', $clean);
+
+        return strtoupper(trim($clean));
     }
 }

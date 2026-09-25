@@ -12281,6 +12281,60 @@ class PrincipalPortalController extends Controller
     }
 
     /**
+     * Normalizes region names to standard format: "REGION {N}" or clean uppercase string.
+     * Prevents splits such as "REGION-4" vs "Region 4".
+     */
+    protected function normalizeWingsRegionName(?string $raw): string
+    {
+        if (empty($raw)) return '-';
+        $clean = trim((string)$raw);
+        if ($clean === '' || $clean === '-' || strtolower($clean) === 'null') return '-';
+
+        // Replace hyphens, underscores, or extra spaces between word and number (e.g. REGION-4 -> REGION 4)
+        $clean = preg_replace('/([A-Za-z]+)[\s\-_]+([0-9]+)/i', '$1 $2', $clean);
+        $clean = preg_replace('/\s+/', ' ', $clean);
+
+        return strtoupper(trim($clean));
+    }
+
+    /**
+     * Generates all case and formatting variants of a region name for SQL matching.
+     */
+    protected function getWingsRegionQueryVariants(?string $region): array
+    {
+        if (empty($region)) return [];
+        $raw = trim((string)$region);
+        $normalized = $this->normalizeWingsRegionName($raw);
+
+        $variants = [
+            $raw,
+            $normalized,
+            strtolower($normalized),
+            ucwords(strtolower($normalized)),
+        ];
+
+        if (preg_match('/^([A-Za-z]+)\s+([0-9]+)$/i', $normalized, $matches)) {
+            $prefixUpper = strtoupper($matches[1]);
+            $prefixTitle = ucfirst(strtolower($matches[1]));
+            $prefixLower = strtolower($matches[1]);
+            $num = $matches[2];
+
+            $variants[] = "{$prefixUpper}-{$num}";      // REGION-4
+            $variants[] = "{$prefixTitle}-{$num}";      // Region-4
+            $variants[] = "{$prefixLower}-{$num}";      // region-4
+            $variants[] = "{$prefixUpper} - {$num}";    // REGION - 4
+            $variants[] = "{$prefixTitle} - {$num}";    // Region - 4
+            $variants[] = "{$prefixUpper}_{$num}";      // REGION_4
+            $variants[] = "{$prefixTitle}_{$num}";      // Region_4
+            $variants[] = "{$prefixUpper} {$num}";      // REGION 4
+            $variants[] = "{$prefixTitle} {$num}";      // Region 4
+            $variants[] = "{$prefixLower} {$num}";      // region 4
+        }
+
+        return array_values(array_unique(array_filter($variants)));
+    }
+
+    /**
      * Calculate Executive Sales Dashboard Data for Wings Event MBR (RPT-WINGS-MBR-SALES-01)
      * Purely data-driven from actual ReportSubmission records (No Dummy Data)
      */
@@ -12313,9 +12367,10 @@ class PrincipalPortalController extends Controller
             ]);
 
         if ($selectedRegion) {
-            $query->where(function($q) use ($selectedRegion) {
-                $q->whereHas('workLocation', fn($w) => $w->where('region', $selectedRegion))
-                  ->orWhereHas('employee.branch', fn($b) => $b->where('region', $selectedRegion));
+            $regionVariants = $this->getWingsRegionQueryVariants($selectedRegion);
+            $query->where(function($q) use ($regionVariants) {
+                $q->whereHas('workLocation', fn($w) => $w->whereIn('region', $regionVariants))
+                  ->orWhereHas('employee.branch', fn($b) => $b->whereIn('region', $regionVariants));
             });
         }
         if ($selectedAreaId) {
@@ -12366,9 +12421,10 @@ class PrincipalPortalController extends Controller
             $wl = $subItem->workLocation;
             $emp = $subItem->employee;
 
-            // Region / Wilayah (dari workLocation atau employee branch)
-            $reg = !empty($wl?->region) ? strtoupper(trim($wl->region)) : (!empty($emp?->branch?->region) ? strtoupper(trim($emp->branch->region)) : null);
-            if ($reg && !in_array($reg, $regionsList)) {
+            // Region / Wilayah (dari workLocation atau employee branch) dengan normalisasi format
+            $rawReg = !empty($wl?->region) ? $wl->region : (!empty($emp?->branch?->region) ? $emp->branch->region : null);
+            $reg = $rawReg ? $this->normalizeWingsRegionName($rawReg) : null;
+            if ($reg && $reg !== '-' && !in_array($reg, $regionsList)) {
                 $regionsList[] = $reg;
             }
 
@@ -12445,8 +12501,10 @@ class PrincipalPortalController extends Controller
             $subDate = $sub->submitted_at ? $sub->submitted_at->format('Y-m-d') : ($sub->created_at ? $sub->created_at->format('Y-m-d') : Carbon::now()->format('Y-m-d'));
             $subDateDisplay = $sub->submitted_at ? $sub->submitted_at->translatedFormat('d F Y') : ($sub->created_at ? $sub->created_at->translatedFormat('d F Y') : Carbon::now()->translatedFormat('d F Y'));
             $empName = $sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'Petugas / Mitra';
+            $empNik = $sub->employee ? ($sub->employee->employee_no ?: ($sub->employee->nik ?: '-')) : '-';
             $branchName = $sub->workLocation && $sub->workLocation->branch ? $sub->workLocation->branch->name : ($sub->employee && $sub->employee->branch ? $sub->employee->branch->name : '-');
-            $regionName = $sub->workLocation && !empty($sub->workLocation->region) ? $sub->workLocation->region : ($sub->employee && $sub->employee->branch && !empty($sub->employee->branch->region) ? $sub->employee->branch->region : '-');
+            $rawRegion = $sub->workLocation && !empty($sub->workLocation->region) ? $sub->workLocation->region : ($sub->employee && $sub->employee->branch && !empty($sub->employee->branch->region) ? $sub->employee->branch->region : null);
+            $regionName = $this->normalizeWingsRegionName($rawRegion);
             $storeName = $sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: 'Toko / Outlet');
 
             $uniqueStoresMap[$storeName] = true;
@@ -12493,10 +12551,10 @@ class PrincipalPortalController extends Controller
             }
 
             if (!isset($mitraAgg[$empName])) {
-                $mitraAgg[$empName] = ['name' => $empName, 'area' => $branchName, 'qty' => 0, 'value' => 0, 'stores' => [], 'products' => []];
+                $mitraAgg[$empName] = ['name' => $empName, 'nik' => $empNik, 'area' => $branchName, 'region' => $regionName, 'qty' => 0, 'value' => 0, 'stores' => [], 'products' => []];
             }
             if ($branchName !== '-' && !isset($areaAgg[$branchName])) {
-                $areaAgg[$branchName] = ['area' => $branchName, 'stores' => [], 'qty' => 0, 'value' => 0, 'breakdown' => []];
+                $areaAgg[$branchName] = ['area' => $branchName, 'region' => $regionName, 'stores' => [], 'qty' => 0, 'value' => 0, 'breakdown' => []];
             }
             if ($regionName !== '-' && !isset($regionAgg[$regionName])) {
                 $regionAgg[$regionName] = ['region' => $regionName, 'areas' => [], 'qty' => 0, 'value' => 0, 'breakdown' => []];
@@ -12710,6 +12768,7 @@ class PrincipalPortalController extends Controller
             uasort($bd, fn($a, $b) => $b['qty'] <=> $a['qty']);
             return [
                 'area' => $item['area'],
+                'region' => $item['region'] ?? '-',
                 'store_count' => count($item['stores']),
                 'qty' => $item['qty'],
                 'value' => $item['value'],
@@ -12831,9 +12890,10 @@ class PrincipalPortalController extends Controller
             ]);
 
         if ($selectedRegion) {
-            $query->where(function($q) use ($selectedRegion) {
-                $q->whereHas('workLocation', fn($w) => $w->where('region', $selectedRegion))
-                  ->orWhereHas('employee.branch', fn($b) => $b->where('region', $selectedRegion));
+            $regionVariants = $this->getWingsRegionQueryVariants($selectedRegion);
+            $query->where(function($q) use ($regionVariants) {
+                $q->whereHas('workLocation', fn($w) => $w->whereIn('region', $regionVariants))
+                  ->orWhereHas('employee.branch', fn($b) => $b->whereIn('region', $regionVariants));
             });
         }
         if ($selectedAreaId) {
@@ -12884,8 +12944,9 @@ class PrincipalPortalController extends Controller
             $wl = $subItem->workLocation;
             $emp = $subItem->employee;
 
-            $reg = !empty($wl?->region) ? strtoupper(trim($wl->region)) : (!empty($emp?->branch?->region) ? strtoupper(trim($emp->branch->region)) : null);
-            if ($reg && !in_array($reg, $regionsList)) {
+            $rawReg = !empty($wl?->region) ? $wl->region : (!empty($emp?->branch?->region) ? $emp->branch->region : null);
+            $reg = $rawReg ? $this->normalizeWingsRegionName($rawReg) : null;
+            if ($reg && $reg !== '-' && !in_array($reg, $regionsList)) {
                 $regionsList[] = $reg;
             }
 
@@ -12994,8 +13055,10 @@ class PrincipalPortalController extends Controller
             $subDate = $sub->submitted_at ? $sub->submitted_at->format('Y-m-d') : ($sub->created_at ? $sub->created_at->format('Y-m-d') : Carbon::now()->format('Y-m-d'));
             $subDateDisplay = $sub->submitted_at ? $sub->submitted_at->translatedFormat('d F Y') : ($sub->created_at ? $sub->created_at->translatedFormat('d F Y') : Carbon::now()->translatedFormat('d F Y'));
             $empName = $sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'Petugas / Mitra';
+            $empNik = $sub->employee ? ($sub->employee->employee_no ?: ($sub->employee->nik ?: '-')) : '-';
             $branchName = $sub->workLocation && $sub->workLocation->branch ? $sub->workLocation->branch->name : ($sub->employee && $sub->employee->branch ? $sub->employee->branch->name : '-');
-            $regionName = $sub->workLocation && !empty($sub->workLocation->region) ? $sub->workLocation->region : ($sub->employee && $sub->employee->branch && !empty($sub->employee->branch->region) ? $sub->employee->branch->region : '-');
+            $rawRegion = $sub->workLocation && !empty($sub->workLocation->region) ? $sub->workLocation->region : ($sub->employee && $sub->employee->branch && !empty($sub->employee->branch->region) ? $sub->employee->branch->region : null);
+            $regionName = $this->normalizeWingsRegionName($rawRegion);
             $storeName = $sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: 'Toko / Outlet');
 
             $uniqueStoresMap[$storeName] = true;
@@ -13076,10 +13139,10 @@ class PrincipalPortalController extends Controller
             }
 
             if (!isset($mitraAgg[$empName])) {
-                $mitraAgg[$empName] = ['name' => $empName, 'area' => $branchName, 'dimasak' => 0, 'cup' => 0, 'stores' => [], 'breakdown' => []];
+                $mitraAgg[$empName] = ['name' => $empName, 'nik' => $empNik, 'area' => $branchName, 'region' => $regionName, 'dimasak' => 0, 'cup' => 0, 'stores' => [], 'breakdown' => []];
             }
             if ($branchName !== '-' && !isset($areaAgg[$branchName])) {
-                $areaAgg[$branchName] = ['area' => $branchName, 'stores' => [], 'dimasak' => 0, 'cup' => 0, 'breakdown' => []];
+                $areaAgg[$branchName] = ['area' => $branchName, 'region' => $regionName, 'stores' => [], 'dimasak' => 0, 'cup' => 0, 'breakdown' => []];
             }
             if ($regionName !== '-' && !isset($regionAgg[$regionName])) {
                 $regionAgg[$regionName] = ['region' => $regionName, 'dimasak' => 0, 'cup' => 0, 'breakdown' => []];
@@ -13322,6 +13385,7 @@ class PrincipalPortalController extends Controller
             uasort($bd, fn($a, $b) => $b['dimasak'] <=> $a['dimasak']);
             return [
                 'area' => $item['area'],
+                'region' => $item['region'] ?? '-',
                 'stores' => $item['stores'] ?? [],
                 'dimasak' => $item['dimasak'],
                 'cup' => $item['cup'],
@@ -13463,9 +13527,10 @@ class PrincipalPortalController extends Controller
             ]);
 
         if ($selectedRegion) {
-            $query->where(function($q) use ($selectedRegion) {
-                $q->whereHas('workLocation', fn($w) => $w->where('region', $selectedRegion))
-                  ->orWhereHas('employee.branch', fn($b) => $b->where('region', $selectedRegion));
+            $regionVariants = $this->getWingsRegionQueryVariants($selectedRegion);
+            $query->where(function($q) use ($regionVariants) {
+                $q->whereHas('workLocation', fn($w) => $w->whereIn('region', $regionVariants))
+                  ->orWhereHas('employee.branch', fn($b) => $b->whereIn('region', $regionVariants));
             });
         }
         if ($selectedAreaId) {
@@ -13518,8 +13583,9 @@ class PrincipalPortalController extends Controller
             $wl = $subItem->workLocation;
             $emp = $subItem->employee;
 
-            $reg = !empty($wl?->region) ? strtoupper(trim($wl->region)) : (!empty($emp?->branch?->region) ? strtoupper(trim($emp->branch->region)) : null);
-            if ($reg && !in_array($reg, $regionsList)) {
+            $rawReg = !empty($wl?->region) ? $wl->region : (!empty($emp?->branch?->region) ? $emp->branch->region : null);
+            $reg = $rawReg ? $this->normalizeWingsRegionName($rawReg) : null;
+            if ($reg && $reg !== '-' && !in_array($reg, $regionsList)) {
                 $regionsList[] = $reg;
             }
 
