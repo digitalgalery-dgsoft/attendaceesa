@@ -583,14 +583,15 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   final TextEditingController _mbrCupCtrl = TextEditingController();
   final TextEditingController _mbrCatatanSamplingCtrl = TextEditingController();
 
-  File? _mbrCurrentSamplingPhoto;
-  String? _mbrCurrentSamplingWatermark;
 
   File? _mbrBoothSamplingPhoto;
   String? _mbrBoothSamplingWatermark;
 
   File? _mbrKegiatanSamplingPhoto;
   String? _mbrKegiatanSamplingWatermark;
+
+  File? _mbrStockAkhirSamplingPhoto;
+  String? _mbrStockAkhirSamplingWatermark;
 
   // GPS & Status
   double? _latitude;
@@ -1745,12 +1746,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       _mbrStokAkhirCtrl.clear();
       _mbrCupCtrl.clear();
       _mbrCatatanSamplingCtrl.clear();
-      _mbrCurrentSamplingPhoto = null;
-      _mbrCurrentSamplingWatermark = null;
       _mbrBoothSamplingPhoto = null;
       _mbrBoothSamplingWatermark = null;
       _mbrKegiatanSamplingPhoto = null;
       _mbrKegiatanSamplingWatermark = null;
+      _mbrStockAkhirSamplingPhoto = null;
+      _mbrStockAkhirSamplingWatermark = null;
 
       if (widget.editSubmission != null) {
         for (final val in widget.editSubmission!.values) {
@@ -15868,6 +15869,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         'catatan_sampling': _mbrCatatanSamplingCtrl.text,
         'booth_photo_path': _mbrBoothSamplingPhoto?.path,
         'booth_photo_watermark': _mbrBoothSamplingWatermark,
+        'kegiatan_photo_path': _mbrKegiatanSamplingPhoto?.path,
+        'kegiatan_photo_watermark': _mbrKegiatanSamplingWatermark,
+        'stock_akhir_photo_path': _mbrStockAkhirSamplingPhoto?.path,
+        'stock_akhir_photo_watermark': _mbrStockAkhirSamplingWatermark,
       };
       await prefs.setString(key, jsonEncode(data));
     } catch (e) {
@@ -15917,6 +15922,20 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               if (bp.existsSync()) {
                 _mbrBoothSamplingPhoto = bp;
                 _mbrBoothSamplingWatermark = decoded['booth_photo_watermark']?.toString();
+              }
+            }
+            if (_mbrKegiatanSamplingPhoto == null && decoded['kegiatan_photo_path'] != null) {
+              final kp = File(decoded['kegiatan_photo_path'].toString());
+              if (kp.existsSync()) {
+                _mbrKegiatanSamplingPhoto = kp;
+                _mbrKegiatanSamplingWatermark = decoded['kegiatan_photo_watermark']?.toString();
+              }
+            }
+            if (_mbrStockAkhirSamplingPhoto == null && decoded['stock_akhir_photo_path'] != null) {
+              final sp = File(decoded['stock_akhir_photo_path'].toString());
+              if (sp.existsSync()) {
+                _mbrStockAkhirSamplingPhoto = sp;
+                _mbrStockAkhirSamplingWatermark = decoded['stock_akhir_photo_watermark']?.toString();
               }
             }
             if (mounted) {
@@ -16306,84 +16325,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
-
-              // ── Foto Dokumentasi Sampling Per Produk ──
-              Text(
-                'FOTO DOKUMENTASI SAMPLING PRODUK (OPSIONAL)',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
-              ),
-              const SizedBox(height: 6),
-
-              if (_mbrCurrentSamplingPhoto != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: elevatedColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
-                  ),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(_mbrCurrentSamplingPhoto!, width: 60, height: 60, fit: BoxFit.cover),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: const [
-                                Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF10B981)),
-                                SizedBox(width: 4),
-                                Text('Foto Sampling Siap', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
-                              ],
-                            ),
-                            Text('Watermark Geotag aktif', style: TextStyle(fontSize: 11, color: subtitleColor)),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => setState(() {
-                          _mbrCurrentSamplingPhoto = null;
-                          _mbrCurrentSamplingWatermark = null;
-                        }),
-                        icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                        color: Colors.red.shade400,
-                      ),
-                    ],
-                  ),
-                ),
-              ] else ...[
-                InkWell(
-                  onTap: () async {
-                    final src = await _showPhotoSourceDialog(title: 'Ambil Foto Sampling');
-                    if (src != null) _pickMbrSamplingPhoto(src);
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: elevatedColor,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade400),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.camera_alt_rounded, size: 18, color: themeColor),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Ambil Foto Kegiatan Sampling Ini',
-                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: themeColor),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
               const SizedBox(height: 16),
 
               // Button: Tambah ke Daftar Sampling
@@ -16454,8 +16395,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       'jumlah_dimasak': dimasak,
                       'stok_akhir': stokAkhir,
                       'jumlah_cup': cup,
-                      'sampling_photo_file': _mbrCurrentSamplingPhoto,
-                      'sampling_photo_watermark': _mbrCurrentSamplingWatermark,
                     });
 
                     // Reset form input item
@@ -16464,8 +16403,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     _mbrDimasakCtrl.clear();
                     _mbrStokAkhirCtrl.clear();
                     _mbrCupCtrl.clear();
-                    _mbrCurrentSamplingPhoto = null;
-                    _mbrCurrentSamplingWatermark = null;
                   });
 
                   _saveMbrFreeTasteDraft();
@@ -16811,13 +16748,27 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                         Text('Foto Booth Berhasil Diambil', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
                       ],
                     ),
-                    TextButton.icon(
-                      onPressed: () async {
-                        final src = await _showPhotoSourceDialog(title: 'Ganti Foto Booth');
-                        if (src != null) _pickMbrBoothSamplingPhoto(src);
-                      },
-                      icon: const Icon(Icons.sync_rounded, size: 16),
-                      label: const Text('Ganti', style: TextStyle(fontSize: 12)),
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => setState(() {
+                            _mbrBoothSamplingPhoto = null;
+                            _mbrBoothSamplingWatermark = null;
+                            _saveMbrFreeTasteDraft();
+                          }),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                          color: Colors.red.shade400,
+                          tooltip: 'Hapus Foto',
+                        ),
+                        TextButton.icon(
+                          onPressed: () async {
+                            final src = await _showPhotoSourceDialog(title: 'Ganti Foto Booth');
+                            if (src != null) _pickMbrBoothSamplingPhoto(src);
+                          },
+                          icon: const Icon(Icons.sync_rounded, size: 16),
+                          label: const Text('Ganti', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -16842,6 +16793,232 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                           Icon(Icons.add_a_photo_rounded, size: 30, color: themeColor),
                           const SizedBox(height: 6),
                           Text('Ambil Foto Stand / Booth Sampling', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: themeColor)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // ── Card: Foto Kegiatan Sampling (Pindah ke Akhir / Review) ──
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFD97706).withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD97706).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.ramen_dining_rounded, size: 16, color: Color(0xFFD97706)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'FOTO KEGIATAN SAMPLING',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text('Opsional', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: subtitleColor)),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              if (_mbrKegiatanSamplingPhoto != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(_mbrKegiatanSamplingPhoto!, height: 180, width: double.infinity, fit: BoxFit.cover),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF10B981)),
+                        SizedBox(width: 4),
+                        Text('Foto Kegiatan Berhasil Diambil', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => setState(() {
+                            _mbrKegiatanSamplingPhoto = null;
+                            _mbrKegiatanSamplingWatermark = null;
+                            _saveMbrFreeTasteDraft();
+                          }),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                          color: Colors.red.shade400,
+                          tooltip: 'Hapus Foto',
+                        ),
+                        TextButton.icon(
+                          onPressed: () async {
+                            final src = await _showPhotoSourceDialog(title: 'Ganti Foto Kegiatan');
+                            if (src != null) _pickMbrKegiatanSamplingPhoto(src);
+                          },
+                          icon: const Icon(Icons.sync_rounded, size: 16),
+                          label: const Text('Ganti', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ] else ...[
+                InkWell(
+                  onTap: () async {
+                    final src = await _showPhotoSourceDialog(title: 'Ambil Foto Kegiatan Sampling');
+                    if (src != null) _pickMbrKegiatanSamplingPhoto(src);
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: elevatedColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_a_photo_rounded, size: 30, color: const Color(0xFFD97706)),
+                          const SizedBox(height: 6),
+                          Text('Ambil Foto Kegiatan Sampling', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: themeColor)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // ── Card: Foto Stock Akhir (Baru) ──
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF059669).withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF059669).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.inventory_2_rounded, size: 16, color: Color(0xFF059669)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'FOTO STOCK AKHIR',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? const Color(0xFF34D399) : const Color(0xFF059669),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text('Opsional', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: subtitleColor)),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              if (_mbrStockAkhirSamplingPhoto != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(_mbrStockAkhirSamplingPhoto!, height: 180, width: double.infinity, fit: BoxFit.cover),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF10B981)),
+                        SizedBox(width: 4),
+                        Text('Foto Stock Akhir Berhasil Diambil', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => setState(() {
+                            _mbrStockAkhirSamplingPhoto = null;
+                            _mbrStockAkhirSamplingWatermark = null;
+                            _saveMbrFreeTasteDraft();
+                          }),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                          color: Colors.red.shade400,
+                          tooltip: 'Hapus Foto',
+                        ),
+                        TextButton.icon(
+                          onPressed: () async {
+                            final src = await _showPhotoSourceDialog(title: 'Ganti Foto Stock Akhir');
+                            if (src != null) _pickMbrStockAkhirSamplingPhoto(src);
+                          },
+                          icon: const Icon(Icons.sync_rounded, size: 16),
+                          label: const Text('Ganti', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ] else ...[
+                InkWell(
+                  onTap: () async {
+                    final src = await _showPhotoSourceDialog(title: 'Ambil Foto Stock Akhir');
+                    if (src != null) _pickMbrStockAkhirSamplingPhoto(src);
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: elevatedColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_a_photo_rounded, size: 30, color: const Color(0xFF059669)),
+                          const SizedBox(height: 6),
+                          Text('Ambil Foto Stock Akhir', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: themeColor)),
                         ],
                       ),
                     ),
@@ -17146,44 +17323,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     );
   }
 
-  Future<void> _pickMbrSamplingPhoto(ImageSource source) async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final employeeName = auth.employeeData?['full_name'] ?? 'Promoter MBR';
-    final employeeNik = auth.employeeData?['nik'] ?? '';
-    final currentStore = _selectedStoreName.isNotEmpty ? _selectedStoreName : 'Kunjungan Toko';
-
-    WatermarkCaptureResult? res;
-    if (source == ImageSource.camera) {
-      res = await WatermarkCameraService.captureWithWatermark(
-        employeeName: employeeName,
-        employeeNik: employeeNik,
-        storeName: currentStore,
-        latitude: _latitude,
-        longitude: _longitude,
-      );
-    } else {
-      res = await WatermarkCameraService.pickFromGallery(
-        employeeName: employeeName,
-        employeeNik: employeeNik,
-        storeName: currentStore,
-      );
-    }
-
-    if (res != null && mounted) {
-      setState(() {
-        _mbrCurrentSamplingPhoto = res!.file;
-        _mbrCurrentSamplingWatermark = res.watermarkText;
-      });
-
-      toastification.show(
-        context: context,
-        type: ToastificationType.success,
-        title: const Text('Foto Sampling Berhasil Diambil'),
-        autoCloseDuration: const Duration(seconds: 2),
-      );
-    }
-  }
-
   Future<void> _pickMbrKegiatanSamplingPhoto(ImageSource source) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final employeeName = auth.employeeData?['full_name'] ?? 'Promoter MBR';
@@ -17257,6 +17396,46 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         context: context,
         type: ToastificationType.success,
         title: const Text('Foto Stand / Booth Berhasil Diambil'),
+        autoCloseDuration: const Duration(seconds: 2),
+      );
+    }
+  }
+
+  Future<void> _pickMbrStockAkhirSamplingPhoto(ImageSource source) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final employeeName = auth.employeeData?['full_name'] ?? 'Promoter MBR';
+    final employeeNik = auth.employeeData?['nik'] ?? '';
+    final currentStore = _selectedStoreName.isNotEmpty ? _selectedStoreName : 'Kunjungan Toko';
+
+    WatermarkCaptureResult? res;
+    if (source == ImageSource.camera) {
+      res = await WatermarkCameraService.captureWithWatermark(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+        latitude: _latitude,
+        longitude: _longitude,
+      );
+    } else {
+      res = await WatermarkCameraService.pickFromGallery(
+        employeeName: employeeName,
+        employeeNik: employeeNik,
+        storeName: currentStore,
+      );
+    }
+
+    if (res != null && mounted) {
+      setState(() {
+        _mbrStockAkhirSamplingPhoto = res!.file;
+        _mbrStockAkhirSamplingWatermark = res.watermarkText;
+      });
+
+      _saveMbrFreeTasteDraft();
+
+      toastification.show(
+        context: context,
+        type: ToastificationType.success,
+        title: const Text('Foto Stock Akhir Berhasil Diambil'),
         autoCloseDuration: const Duration(seconds: 2),
       );
     }
@@ -17336,16 +17515,22 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       final Map<String, File> photoFiles = {};
       final Map<String, String> watermarkTexts = {};
 
-      // 1. Per-item Sampling Photos
-      for (int i = 0; i < _mbrFreeTasteCart.length; i++) {
-        final itm = _mbrFreeTasteCart[i];
-        if (itm['sampling_photo_file'] is File) {
-          final file = itm['sampling_photo_file'] as File;
-          photoFiles['sampling_photo_$i'] = file;
-          photoFiles['photo_sampling_$i'] = file;
-          if (itm['sampling_photo_watermark'] != null) {
-            watermarkTexts['sampling_photo_$i'] = itm['sampling_photo_watermark'].toString();
-            watermarkTexts['photo_sampling_$i'] = itm['sampling_photo_watermark'].toString();
+      // 1. Foto Stand / Booth Sampling
+      if (_mbrBoothSamplingPhoto != null) {
+        photoFiles['foto_booth_sampling'] = _mbrBoothSamplingPhoto!;
+        if (_mbrBoothSamplingWatermark != null) {
+          watermarkTexts['foto_booth_sampling'] = _mbrBoothSamplingWatermark!;
+        }
+        for (final f in widget.template.fields) {
+          final fn = f.fieldName.toLowerCase();
+          if (fn == 'foto_booth_sampling' || fn.contains('booth') || fn.contains('stand') ||
+              ['image', 'photo', 'camera_photo', 'multi_photo'].contains(f.fieldType)) {
+            photoFiles[f.id.toString()] = _mbrBoothSamplingPhoto!;
+            photoFiles[f.fieldName] = _mbrBoothSamplingPhoto!;
+            if (_mbrBoothSamplingWatermark != null) {
+              watermarkTexts[f.id.toString()] = _mbrBoothSamplingWatermark!;
+              watermarkTexts[f.fieldName] = _mbrBoothSamplingWatermark!;
+            }
           }
         }
       }
@@ -17369,21 +17554,24 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         }
       }
 
-      // 3. Foto Booth Sampling
-      if (_mbrBoothSamplingPhoto != null) {
-        photoFiles['foto_booth_sampling'] = _mbrBoothSamplingPhoto!;
-        if (_mbrBoothSamplingWatermark != null) {
-          watermarkTexts['foto_booth_sampling'] = _mbrBoothSamplingWatermark!;
+      // 3. Foto Stock Akhir
+      if (_mbrStockAkhirSamplingPhoto != null) {
+        photoFiles['foto_stock_akhir'] = _mbrStockAkhirSamplingPhoto!;
+        photoFiles['foto_stok_akhir'] = _mbrStockAkhirSamplingPhoto!;
+        if (_mbrStockAkhirSamplingWatermark != null) {
+          watermarkTexts['foto_stock_akhir'] = _mbrStockAkhirSamplingWatermark!;
+          watermarkTexts['foto_stok_akhir'] = _mbrStockAkhirSamplingWatermark!;
         }
         for (final f in widget.template.fields) {
           final fn = f.fieldName.toLowerCase();
-          if (fn == 'foto_booth_sampling' || fn.contains('booth') || fn.contains('stand') ||
-              ['image', 'photo', 'camera_photo', 'multi_photo'].contains(f.fieldType)) {
-            photoFiles[f.id.toString()] = _mbrBoothSamplingPhoto!;
-            photoFiles[f.fieldName] = _mbrBoothSamplingPhoto!;
-            if (_mbrBoothSamplingWatermark != null) {
-              watermarkTexts[f.id.toString()] = _mbrBoothSamplingWatermark!;
-              watermarkTexts[f.fieldName] = _mbrBoothSamplingWatermark!;
+          if (fn == 'foto_stock_akhir' || fn == 'foto_stok_akhir' ||
+              (fn.contains('stock') && fn.contains('akhir')) ||
+              (fn.contains('stok') && fn.contains('akhir'))) {
+            photoFiles[f.id.toString()] = _mbrStockAkhirSamplingPhoto!;
+            photoFiles[f.fieldName] = _mbrStockAkhirSamplingPhoto!;
+            if (_mbrStockAkhirSamplingWatermark != null) {
+              watermarkTexts[f.id.toString()] = _mbrStockAkhirSamplingWatermark!;
+              watermarkTexts[f.fieldName] = _mbrStockAkhirSamplingWatermark!;
             }
           }
         }

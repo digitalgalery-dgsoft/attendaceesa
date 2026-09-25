@@ -1771,8 +1771,8 @@ class ReportingApiController extends Controller
                     }
                 }
 
-                // Fallback pencarian file langsung jika foto_kegiatan_sampling / foto_booth_sampling dikirim via multipart
-                $directPhotoKeys = ['foto_kegiatan_sampling', 'foto_booth_sampling'];
+                // Fallback pencarian file langsung jika foto_kegiatan_sampling / foto_booth_sampling / foto_stock_akhir dikirim via multipart
+                $directPhotoKeys = ['foto_kegiatan_sampling', 'foto_booth_sampling', 'foto_stock_akhir', 'foto_stok_akhir'];
                 foreach ($directPhotoKeys as $dpKey) {
                     if (!isset($allSavedMedia[$dpKey])) {
                         $uploadedDirect = null;

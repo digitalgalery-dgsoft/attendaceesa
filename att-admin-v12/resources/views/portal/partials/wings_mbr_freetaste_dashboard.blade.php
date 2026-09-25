@@ -960,6 +960,7 @@
                             $subAkhir = 0;
                             $subBoothPhoto = null;
                             $subKegiatanPhoto = null;
+                            $subStockAkhirPhoto = null;
                             $subPhotos = [];
 
                             foreach ($sub->values as $v) {
@@ -1000,6 +1001,8 @@
                                                 $subKegiatanPhoto = $pUrl;
                                             } elseif (str_contains($fn, 'booth') || str_contains($fn, 'stand')) {
                                                 $subBoothPhoto = $pUrl;
+                                            } elseif (str_contains($fn, 'stock') || str_contains($fn, 'stok')) {
+                                                $subStockAkhirPhoto = $pUrl;
                                             }
                                         }
                                     }
@@ -1012,9 +1015,33 @@
                             }
                             if (!$subKegiatanPhoto && count($subPhotos) > 1) {
                                 foreach ($subPhotos as $sp) {
-                                    if ($sp['url'] !== $subBoothPhoto) {
+                                    if ($sp['url'] !== $subBoothPhoto && $sp['url'] !== $subStockAkhirPhoto) {
                                         $subKegiatanPhoto = $sp['url'];
                                         break;
+                                    }
+                                }
+                            }
+                            if (!$subStockAkhirPhoto && count($subPhotos) > 2) {
+                                foreach ($subPhotos as $sp) {
+                                    if ($sp['url'] !== $subBoothPhoto && $sp['url'] !== $subKegiatanPhoto) {
+                                        $subStockAkhirPhoto = $sp['url'];
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // Fallback foto kegiatan dari cart item (jika data lama menyimpan foto di item)
+                            if (!$subKegiatanPhoto && !empty($subCart)) {
+                                foreach ($subCart as $cItm) {
+                                    $rawSam = $cItm['photo_sampling_url'] ?? ($cItm['foto_sampling'] ?? ($cItm['sampling_photo_url'] ?? null));
+                                    if ($rawSam && is_string($rawSam)) {
+                                        $cleanS = trim($rawSam);
+                                        if (!str_starts_with($cleanS, '/data/user/') && !str_starts_with($cleanS, 'data/user/')) {
+                                            $subKegiatanPhoto = (str_starts_with($cleanS, 'http://') || str_starts_with($cleanS, 'https://'))
+                                                ? str_replace(['/storage/storage/', 'esa-solution.id'], ['/storage/', 'esa-solutions.id'], $cleanS)
+                                                : asset('storage/' . ltrim(str_replace(['/storage/', 'storage/'], '', $cleanS), '/'));
+                                            break;
+                                        }
                                     }
                                 }
                             }
@@ -1124,7 +1151,7 @@
                                 @endif
                             </td>
                             <td style="text-align: center; white-space: nowrap;">
-                                <button type="button" class="portal-freetaste-btn-action" onclick='openFreetasteSubmissionDetailModal(@json($sub), @json($subCart), @json($subPhotos), "{{ $subBoothPhoto }}", "{{ $subKegiatanPhoto }}", "{{ $freetasteTimeFormatted }}")'>
+                                <button type="button" class="portal-freetaste-btn-action" onclick='openFreetasteSubmissionDetailModal(@json($sub), @json($subCart), @json($subPhotos), "{{ $subBoothPhoto }}", "{{ $subKegiatanPhoto }}", "{{ $subStockAkhirPhoto }}", "{{ $freetasteTimeFormatted }}")'>
                                     <i class="fa-solid fa-eye"></i>
                                     <span>Detail</span>
                                 </button>
@@ -1391,16 +1418,22 @@
     }
 
     // Modal Rincian Submissions
-    function openFreetasteSubmissionDetailModal(sub, cart, photos, boothPhoto, kegiatanPhoto, formattedTime) {
+    function openFreetasteSubmissionDetailModal(sub, cart, photos, boothPhoto, kegiatanPhoto, stockAkhirPhoto, formattedTime) {
         const modal = document.getElementById('freetasteSubDetailModal');
         const body = document.getElementById('freetasteSubModalBody');
         if (!modal || !body) return;
 
-        // Backward compatibility jika formattedTime dikirim di argumen ke-5
+        // Backward compatibility jika formattedTime dikirim di argumen ke-5 atau ke-6
         if (typeof kegiatanPhoto === 'string' && (kegiatanPhoto.includes('WIB') || kegiatanPhoto.includes(':') || !formattedTime)) {
-            if (!formattedTime) {
+            if (!stockAkhirPhoto && !formattedTime) {
                 formattedTime = kegiatanPhoto;
                 kegiatanPhoto = null;
+            }
+        }
+        if (typeof stockAkhirPhoto === 'string' && (stockAkhirPhoto.includes('WIB') || stockAkhirPhoto.includes(':'))) {
+            if (!formattedTime) {
+                formattedTime = stockAkhirPhoto;
+                stockAkhirPhoto = null;
             }
         }
 
@@ -1418,7 +1451,7 @@
             return '/storage/' + s.replace(/^\/+/, '');
         };
 
-        // Identifikasi foto kegiatan & foto booth dari photos array jika belum spesifik
+        // Identifikasi foto kegiatan & foto booth & foto stock akhir dari photos array jika belum spesifik
         if (!kegiatanPhoto && photos.length > 0) {
             const kegObj = photos.find(p => p.field_name && (p.field_name.includes('kegiatan') || p.field_name.includes('sampling_kegiatan')));
             if (kegObj) kegiatanPhoto = kegObj.url;
@@ -1427,13 +1460,38 @@
             const boothObj = photos.find(p => p.field_name && (p.field_name.includes('booth') || p.field_name.includes('stand')));
             if (boothObj) boothPhoto = boothObj.url;
         }
-        if (!kegiatanPhoto && photos.length > 1) {
-            const other = photos.find(p => resolveUrl(p.url) !== resolveUrl(boothPhoto));
-            if (other) kegiatanPhoto = other.url;
+        if (!stockAkhirPhoto && photos.length > 0) {
+            const stockObj = photos.find(p => p.field_name && (p.field_name.includes('stock_akhir') || p.field_name.includes('stok_akhir') || (p.field_name.includes('stock') && !p.field_name.includes('awal')) || (p.field_name.includes('stok') && !p.field_name.includes('awal'))));
+            if (stockObj) stockAkhirPhoto = stockObj.url;
         }
+
+        // Fallback kegiatanPhoto dari cart items jika submisi lama menyimpan foto di item produk
+        if (!kegiatanPhoto && cart && cart.length > 0) {
+            for (const it of cart) {
+                const rawPhoto = it.photo_sampling_url || it.foto_sampling || it.sampling_photo_url || null;
+                if (rawPhoto) {
+                    kegiatanPhoto = rawPhoto;
+                    break;
+                }
+            }
+        }
+
+        // Fallback foto yang belum terpetakan
         if (!boothPhoto && photos.length > 0) {
             boothPhoto = photos[0].url;
         }
+        if (!kegiatanPhoto && photos.length > 1) {
+            const other = photos.find(p => resolveUrl(p.url) !== resolveUrl(boothPhoto) && resolveUrl(p.url) !== resolveUrl(stockAkhirPhoto));
+            if (other) kegiatanPhoto = other.url;
+        }
+        if (!stockAkhirPhoto && photos.length > 2) {
+            const third = photos.find(p => resolveUrl(p.url) !== resolveUrl(boothPhoto) && resolveUrl(p.url) !== resolveUrl(kegiatanPhoto));
+            if (third) stockAkhirPhoto = third.url;
+        }
+
+        const resolvedBooth = boothPhoto ? resolveUrl(boothPhoto) : null;
+        const resolvedKegiatan = kegiatanPhoto ? resolveUrl(kegiatanPhoto) : null;
+        const resolvedStockAkhir = stockAkhirPhoto ? resolveUrl(stockAkhirPhoto) : null;
 
         let cartHtml = '';
         if (cart && cart.length > 0) {
@@ -1448,34 +1506,22 @@
                                 <th class="num">Dimasak</th>
                                 <th class="num">Stok Akhir</th>
                                 <th class="num">Cup Tester</th>
-                                <th style="text-align: center; width: 80px;">Foto</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${cart.map((item, i) => {
-                                const rawPhoto = item.photo_sampling_url || item.foto_sampling || item.sampling_photo_url || null;
-                                const pPhoto = rawPhoto ? resolveUrl(rawPhoto) : null;
-                                return `
-                                    <tr>
-                                        <td style="color: var(--text-muted); font-weight: 700; text-align: center;">${i + 1}</td>
-                                        <td>
-                                            <div style="font-weight: 800; color: var(--text-heading);">${item.name || item.product_name || 'Produk Mie Sedaap'}</div>
-                                            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">${item.sku_code || item.sku || '-'}</div>
-                                        </td>
-                                        <td class="num">${Number(item.stok_awal || 0).toLocaleString('id-ID')} Pcs</td>
-                                        <td class="num" style="color: var(--brand-primary); font-weight: 800;">${Number(item.jumlah_dimasak || item.dimasak || 0).toLocaleString('id-ID')} Pcs</td>
-                                        <td class="num" style="color: #ea580c; font-weight: 800;">${Number(item.stok_akhir || 0).toLocaleString('id-ID')} Pcs</td>
-                                        <td class="num" style="color: #059669; font-weight: 800;">${Number(item.jumlah_cup || item.cup || 0).toLocaleString('id-ID')} Cup</td>
-                                        <td style="text-align: center;">
-                                            ${pPhoto ? `
-                                                <button type="button" class="portal-freetaste-btn-action" onclick="openLightbox('${pPhoto}')" title="Lihat Foto Sampling" style="padding: 4px 8px; font-size: 0.72rem; background: #f59e0b; color: #fff;">
-                                                    <i class="fa-solid fa-camera"></i> Foto
-                                                </button>
-                                            ` : '<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>'}
-                                        </td>
-                                    </tr>
-                                `;
-                            }).join('')}
+                            ${cart.map((item, i) => `
+                                <tr>
+                                    <td style="color: var(--text-muted); font-weight: 700; text-align: center;">${i + 1}</td>
+                                    <td>
+                                        <div style="font-weight: 800; color: var(--text-heading);">${item.name || item.product_name || 'Produk Mie Sedaap'}</div>
+                                        <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">${item.sku_code || item.sku || '-'}</div>
+                                    </td>
+                                    <td class="num">${Number(item.stok_awal || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: var(--brand-primary); font-weight: 800;">${Number(item.jumlah_dimasak || item.dimasak || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #ea580c; font-weight: 800;">${Number(item.stok_akhir || 0).toLocaleString('id-ID')} Pcs</td>
+                                    <td class="num" style="color: #059669; font-weight: 800;">${Number(item.jumlah_cup || item.cup || 0).toLocaleString('id-ID')} Cup</td>
+                                </tr>
+                            `).join('')}
                         </tbody>
                     </table>
                 </div>
@@ -1484,47 +1530,76 @@
             cartHtml = '<p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.75rem;">Tidak ada item keranjang sampling terperinci.</p>';
         }
 
-        // Section Dokumentasi Foto Stand / Booth Sampling (Foto Kegiatan Sampling sudah ada di tabel rincian varian)
-        let photoSectionHtml = '';
-        const resolvedBooth = boothPhoto ? resolveUrl(boothPhoto) : null;
+        // Section Dokumentasi Foto Sampling Sejajar (Stand / Booth, Kegiatan Sampling, Foto Stock Akhir)
+        const photoCards = [
+            {
+                title: 'Foto Stand / Booth Sampling',
+                badge: 'Setup Stand / Booth',
+                icon: 'fa-store',
+                color: 'var(--brand-primary)',
+                url: resolvedBooth,
+                emptyText: 'Foto stand / booth belum diunggah.'
+            },
+            {
+                title: 'Foto Kegiatan Sampling',
+                badge: 'Kegiatan Sampling',
+                icon: 'fa-fire-burner',
+                color: '#d97706',
+                url: resolvedKegiatan,
+                emptyText: 'Foto kegiatan sampling belum diunggah.'
+            },
+            {
+                title: 'Foto Stock Akhir',
+                badge: 'Foto Stock Akhir',
+                icon: 'fa-boxes-stacked',
+                color: '#059669',
+                url: resolvedStockAkhir,
+                emptyText: 'Foto stock akhir belum diunggah.'
+            }
+        ];
 
-        if (resolvedBooth || photos.length > 0) {
-            photoSectionHtml = `
-                <div style="margin-top: 1.25rem;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.65rem;">
-                        <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-heading); margin: 0; display: flex; align-items: center; gap: 6px;">
-                            <i class="fa-solid fa-store" style="color: var(--brand-primary);"></i>
-                            Foto Dokumentasi Stand / Booth Sampling
-                        </h4>
-                        ${resolvedBooth ? '<span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;"><i class="fa-solid fa-magnifying-glass-plus"></i> Klik foto untuk memperbesar</span>' : ''}
-                    </div>
+        const hasAnyPhoto = photoCards.some(c => c.url !== null);
 
-                    ${resolvedBooth ? `
-                        <div style="position: relative; border-radius: 14px; overflow: hidden; border: 1.5px solid var(--brand-primary); max-width: 380px; background: #0f172a; box-shadow: 0 4px 14px rgba(0,0,0,0.08);">
-                            <img src="${resolvedBooth}" alt="Foto Stand / Booth Sampling" onclick="openLightbox('${resolvedBooth}')" style="width: 100%; height: 210px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s ease;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                            <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); padding: 0.6rem 0.85rem; display: flex; align-items: center; justify-content: space-between;">
-                                <span style="color: #fff; font-size: 0.75rem; font-weight: 700;"><i class="fa-solid fa-store"></i> Setup Booth Sampling Toko</span>
-                                <button type="button" onclick="openLightbox('${resolvedBooth}')" style="background: rgba(255,255,255,0.25); color: #fff; border: none; border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
-                                    <i class="fa-solid fa-expand"></i> Zoom
-                                </button>
+        let photoSectionHtml = `
+            <div style="margin-top: 1.25rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                    <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-heading); margin: 0; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-camera" style="color: var(--brand-primary);"></i>
+                        Foto Dokumentasi Sampling
+                    </h4>
+                    ${hasAnyPhoto ? '<span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;"><i class="fa-solid fa-magnifying-glass-plus"></i> Klik foto untuk memperbesar</span>' : ''}
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.9rem;">
+                    ${photoCards.map(c => `
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <div style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid ${c.icon}" style="color: ${c.color};"></i>
+                                <span>${c.title}</span>
                             </div>
+                            ${c.url ? `
+                                <div style="position: relative; border-radius: 14px; overflow: hidden; border: 1.5px solid ${c.color}; background: #0f172a; box-shadow: 0 4px 14px rgba(0,0,0,0.08);">
+                                    <img src="${c.url}" alt="${c.title}" onclick="openLightbox('${c.url}')" style="width: 100%; height: 185px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.25s ease;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                                    <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(to top, rgba(0,0,0,0.88), transparent); padding: 0.5rem 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                                        <span style="color: #fff; font-size: 0.72rem; font-weight: 700; display: flex; align-items: center; gap: 5px;">
+                                            <i class="fa-solid ${c.icon}"></i> ${c.badge}
+                                        </span>
+                                        <button type="button" onclick="openLightbox('${c.url}')" style="background: rgba(255,255,255,0.25); color: #fff; border: none; border-radius: 6px; padding: 2px 7px; font-size: 0.68rem; font-weight: 700; cursor: pointer;">
+                                            <i class="fa-solid fa-expand"></i> Zoom
+                                        </button>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 14px; height: 185px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">
+                                    <i class="fa-solid ${c.icon}" style="font-size: 1.6rem; color: #cbd5e1;"></i>
+                                    <span>${c.emptyText}</span>
+                                </div>
+                            `}
                         </div>
-                    ` : `
-                        <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 0.85rem 1rem; display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 0.82rem;">
-                            <i class="fa-solid fa-store" style="font-size: 1.4rem; color: #94a3b8;"></i>
-                            <span>Foto stand / booth sampling belum diunggah.</span>
-                        </div>
-                    `}
+                    `).join('')}
                 </div>
-            `;
-        } else {
-            photoSectionHtml = `
-                <div style="margin-top: 1.25rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 0.85rem 1rem; display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.82rem;">
-                    <i class="fa-solid fa-image" style="font-size: 1.2rem; color: #94a3b8;"></i>
-                    <span>Tidak ada lampiran foto dokumentasi pada submisi laporan ini.</span>
-                </div>
-            `;
-        }
+            </div>
+        `;
 
         const waktuLaporStr = formatWaktuLapor(sub.submitted_at || sub.created_at, formattedTime);
 
