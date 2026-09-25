@@ -2118,11 +2118,17 @@ class WingsMbrExportService
 
         // Row 3: Metadata Filters Info
         $sheet->mergeCells("A3:{$lastCol}3");
-        $metaText = 'Periode: ' . ($filters['period_label'] ?? '-') . 
-                    ' | Wilayah: ' . ($filters['region'] ?? 'Semua Region') . 
-                    ' | Cabang: ' . ($filters['area'] ?? 'Semua Cabang') . 
-                    ' | Outlet: ' . ($filters['store'] ?? 'Semua Outlet') . 
-                    ' | Diunduh: ' . Carbon::now()->translatedFormat('d F Y, H:i:s') . ' WIB';
+        $metaParts = [
+            'Periode: ' . ($filters['period_label'] ?? '-'),
+            'Wilayah: ' . ($filters['region'] ?? 'Semua Region'),
+            'Cabang: ' . ($filters['area'] ?? 'Semua Cabang'),
+            'Outlet: ' . ($filters['store'] ?? 'Semua Outlet'),
+        ];
+        if (!empty($filters['employee']) && $filters['employee'] !== 'Semua Mitra') {
+            $metaParts[] = 'Mitra: ' . $filters['employee'];
+        }
+        $metaParts[] = 'Diunduh: ' . Carbon::now()->translatedFormat('d F Y, H:i:s') . ' WIB';
+        $metaText = implode(' | ', $metaParts);
         $sheet->setCellValue('A3', $metaText);
         $sheet->getStyle('A3')->getFont()->setSize(9)->setItalic(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('334155'));
         $sheet->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);

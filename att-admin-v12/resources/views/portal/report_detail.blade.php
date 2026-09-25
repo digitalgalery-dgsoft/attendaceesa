@@ -1013,7 +1013,7 @@
                     Export Data Mentah (CSV)
                 </a>
             @elseif(isset($isWingsMbrReport) && $isWingsMbrReport)
-                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'start_month' => $startMonth, 'start_year' => $startYear, 'end_month' => $endMonth, 'end_year' => $endYear, 'region' => $selectedRegion, 'area_id' => $selectedAreaId, 'location_id' => $selectedLocationId, 'p' => $tenantPrincipal->id])) }}" class="btn-export-excel" style="background: #107c41; color: #ffffff; border: none; box-shadow: 0 2px 8px rgba(16, 124, 65, 0.25);" title="Download File Excel (.xlsx) Multi-Sheet">
+                <a href="{{ route('portal.report.export', array_merge(request()->query(), ['code' => $template->code, 'start_date' => $startDateStr ?? $startDate->format('Y-m-d'), 'end_date' => $endDateStr ?? $endDate->format('Y-m-d'), 'employee_id' => $selectedEmployeeId ?? null, 'region' => $selectedRegion, 'area_id' => $selectedAreaId, 'location_id' => $selectedLocationId, 'p' => $tenantPrincipal->id])) }}" class="btn-export-excel" style="background: #107c41; color: #ffffff; border: none; box-shadow: 0 2px 8px rgba(16, 124, 65, 0.25);" title="Download File Excel (.xlsx) Multi-Sheet">
                     <i class="fa-solid fa-file-excel"></i>
                     Export Excel (.xlsx)
                 </a>
@@ -1054,52 +1054,67 @@
         </div>
     </div>
 
-    <!-- Enhanced Filter Bar (Range Bulan Awal - Akhir, Region, Area, Store / Toko) -->
+    <!-- Enhanced Filter Bar (Range Tanggal / Bulan, Region, Area, Store / Toko, Mitra) -->
     <form action="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" method="GET" class="filter-bar" style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 16px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; width: 100%; max-width: 100%; min-width: 0;">
         <input type="hidden" name="p" value="{{ $tenantPrincipal->id }}">
-        @if(isset($isDailyMaintenanceReport) && $isDailyMaintenanceReport)
-            <input type="hidden" name="tab" value="{{ $activeTab ?? 'summary' }}">
+        @if(isset($activeTab))
+            <input type="hidden" name="tab" value="{{ $activeTab }}">
         @endif
         
         <!-- Filter Fields Container (Aligned firmly to the Left) -->
         <div class="filter-group-left" style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; flex: 1; min-width: 0; justify-content: flex-start;">
             
-            <!-- Rentang Bulan Awal s/d Bulan Akhir -->
-            <div style="display: inline-flex; align-items: center; gap: 0.35rem; background: #f8fafc; padding: 0.35rem 0.65rem; border: 1px solid var(--border-color); border-radius: 10px; flex-wrap: wrap;">
-                <i class="fa-regular fa-calendar-days" style="color: var(--brand-primary); font-size: 0.88rem;"></i>
-                <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Dari:</span>
-                <select name="start_month" class="filter-select-btn" style="padding: 0.25rem 0.45rem; border: none; background: transparent; font-weight: 700; font-size: 0.82rem;">
-                    @for ($m = 1; $m <= 12; $m++)
-                        @php $dateObj = Carbon\Carbon::create(null, $m, 1); @endphp
-                        <option value="{{ $m }}" {{ $startMonth == $m ? 'selected' : '' }}>
-                            {{ $dateObj->translatedFormat('F') }}
-                        </option>
-                    @endfor
-                </select>
-                <select name="start_year" class="filter-select-btn" style="padding: 0.25rem 0.45rem; border: none; background: transparent; font-weight: 700; font-size: 0.82rem;">
-                    @for ($y = Carbon\Carbon::now()->year + 1; $y >= 2023; $y--)
-                        <option value="{{ $y }}" {{ $startYear == $y ? 'selected' : '' }}>{{ $y }}</option>
-                    @endfor
-                </select>
+            @if(isset($isWingsMbrReport) && $isWingsMbrReport)
+                <!-- Rentang Tanggal Lengkap (Wings MBR) -->
+                <div style="display: inline-flex; align-items: center; gap: 0.35rem; background: #f8fafc; padding: 0.35rem 0.65rem; border: 1px solid var(--border-color); border-radius: 10px; flex-wrap: wrap;">
+                    <i class="fa-regular fa-calendar-days" style="color: var(--brand-primary); font-size: 0.88rem;"></i>
+                    <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Dari:</span>
+                    <input type="date" name="start_date" id="filter_start_date" value="{{ $startDateStr ?? $startDate->format('Y-m-d') }}" class="filter-select-btn" style="padding: 0.25rem 0.5rem; border: 1px solid var(--border-color); background: #ffffff; font-weight: 700; font-size: 0.82rem; border-radius: 6px; cursor: pointer;">
 
-                <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin: 0 0.25rem;">s/d</span>
+                    <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin: 0 0.25rem;">s/d</span>
 
-                <i class="fa-regular fa-calendar-check" style="color: #10b981; font-size: 0.88rem;"></i>
-                <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Sampai:</span>
-                <select name="end_month" class="filter-select-btn" style="padding: 0.25rem 0.45rem; border: none; background: transparent; font-weight: 700; font-size: 0.82rem;">
-                    @for ($m = 1; $m <= 12; $m++)
-                        @php $dateObj = Carbon\Carbon::create(null, $m, 1); @endphp
-                        <option value="{{ $m }}" {{ $endMonth == $m ? 'selected' : '' }}>
-                            {{ $dateObj->translatedFormat('F') }}
-                        </option>
-                    @endfor
-                </select>
-                <select name="end_year" class="filter-select-btn" style="padding: 0.25rem 0.45rem; border: none; background: transparent; font-weight: 700; font-size: 0.82rem;">
-                    @for ($y = Carbon\Carbon::now()->year + 1; $y >= 2023; $y--)
-                        <option value="{{ $y }}" {{ $endYear == $y ? 'selected' : '' }}>{{ $y }}</option>
-                    @endfor
-                </select>
-            </div>
+                    <i class="fa-regular fa-calendar-check" style="color: #10b981; font-size: 0.88rem;"></i>
+                    <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Sampai:</span>
+                    <input type="date" name="end_date" id="filter_end_date" value="{{ $endDateStr ?? $endDate->format('Y-m-d') }}" class="filter-select-btn" style="padding: 0.25rem 0.5rem; border: 1px solid var(--border-color); background: #ffffff; font-weight: 700; font-size: 0.82rem; border-radius: 6px; cursor: pointer;">
+                </div>
+            @else
+                <!-- Rentang Bulan Awal s/d Bulan Akhir (Default non-Wings) -->
+                <div style="display: inline-flex; align-items: center; gap: 0.35rem; background: #f8fafc; padding: 0.35rem 0.65rem; border: 1px solid var(--border-color); border-radius: 10px; flex-wrap: wrap;">
+                    <i class="fa-regular fa-calendar-days" style="color: var(--brand-primary); font-size: 0.88rem;"></i>
+                    <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Dari:</span>
+                    <select name="start_month" class="filter-select-btn" style="padding: 0.25rem 0.45rem; border: none; background: transparent; font-weight: 700; font-size: 0.82rem;">
+                        @for ($m = 1; $m <= 12; $m++)
+                            @php $dateObj = Carbon\Carbon::create(null, $m, 1); @endphp
+                            <option value="{{ $m }}" {{ $startMonth == $m ? 'selected' : '' }}>
+                                {{ $dateObj->translatedFormat('F') }}
+                            </option>
+                        @endfor
+                    </select>
+                    <select name="start_year" class="filter-select-btn" style="padding: 0.25rem 0.45rem; border: none; background: transparent; font-weight: 700; font-size: 0.82rem;">
+                        @for ($y = Carbon\Carbon::now()->year + 1; $y >= 2023; $y--)
+                            <option value="{{ $y }}" {{ $startYear == $y ? 'selected' : '' }}>{{ $y }}</option>
+                        @endfor
+                    </select>
+
+                    <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin: 0 0.25rem;">s/d</span>
+
+                    <i class="fa-regular fa-calendar-check" style="color: #10b981; font-size: 0.88rem;"></i>
+                    <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Sampai:</span>
+                    <select name="end_month" class="filter-select-btn" style="padding: 0.25rem 0.45rem; border: none; background: transparent; font-weight: 700; font-size: 0.82rem;">
+                        @for ($m = 1; $m <= 12; $m++)
+                            @php $dateObj = Carbon\Carbon::create(null, $m, 1); @endphp
+                            <option value="{{ $m }}" {{ $endMonth == $m ? 'selected' : '' }}>
+                                {{ $dateObj->translatedFormat('F') }}
+                            </option>
+                        @endfor
+                    </select>
+                    <select name="end_year" class="filter-select-btn" style="padding: 0.25rem 0.45rem; border: none; background: transparent; font-weight: 700; font-size: 0.82rem;">
+                        @for ($y = Carbon\Carbon::now()->year + 1; $y >= 2023; $y--)
+                            <option value="{{ $y }}" {{ $endYear == $y ? 'selected' : '' }}>{{ $y }}</option>
+                        @endfor
+                    </select>
+                </div>
+            @endif
 
             <!-- Filter RSM / Wilayah (Region) -->
             <div style="position: relative;">
@@ -1163,6 +1178,29 @@
                 <i class="fa-solid fa-store" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 0.85rem;"></i>
             </div>
 
+            @if(isset($isWingsMbrReport) && $isWingsMbrReport && isset($employees))
+                <!-- Filter Mitra / Karyawan (Wings MBR) -->
+                <div style="position: relative;">
+                    <select name="employee_id" id="filter_employee" class="filter-select-btn" style="padding-left: 2rem; max-width: 250px;">
+                        <option value="">👤 Semua Mitra / Karyawan</option>
+                        @foreach($employees as $emp)
+                            @php
+                                $eArr = is_array($emp) ? $emp : (is_object($emp) ? (array)$emp : ['id' => $emp, 'name' => $emp, 'nik' => '', 'region' => '', 'area' => '']);
+                                $eId = $eArr['id'] ?? (is_scalar($emp) ? (string)$emp : '');
+                                $eName = $eArr['name'] ?? $eId;
+                                $eNik = !empty($eArr['nik']) && $eArr['nik'] !== '-' ? ' (' . $eArr['nik'] . ')' : '';
+                                $eRegion = $eArr['region'] ?? '';
+                                $eArea = $eArr['area'] ?? '';
+                            @endphp
+                            <option value="{{ $eId }}" data-region="{{ $eRegion }}" data-area="{{ strtoupper(trim($eArea)) }}" {{ (string)($selectedEmployeeId ?? '') === (string)$eId ? 'selected' : '' }}>
+                                {{ $eName }}{{ $eNik }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <i class="fa-solid fa-user-tie" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 0.85rem;"></i>
+                </div>
+            @endif
+
             @if(isset($isDailyMaintenanceReport) && $isDailyMaintenanceReport)
                 @if(!empty($machineTypes))
                 <!-- Filter Tipe Mesin POST -->
@@ -1215,7 +1253,7 @@
             <button type="submit" class="filter-select-btn" style="background: var(--brand-gradient); color: #fff; font-weight: 700; border: none; box-shadow: 0 2px 8px var(--brand-glow); padding: 0.55rem 1.15rem; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;">
                 <i class="fa-solid fa-filter"></i> Filter
             </button>
-            @if($selectedRegion || $selectedAreaId || $selectedLocationId || (!empty($selectedBrand) && $selectedBrand !== 'ALL') || !empty($selectedMachineType) || !empty($selectedCategory) || $search || $startMonth != Carbon\Carbon::now()->month || $endMonth != Carbon\Carbon::now()->month)
+            @if($selectedRegion || $selectedAreaId || $selectedLocationId || !empty($selectedEmployeeId) || (!empty($selectedBrand) && $selectedBrand !== 'ALL') || !empty($selectedMachineType) || !empty($selectedCategory) || $search || (isset($isWingsMbrReport) && $isWingsMbrReport && (request()->filled('start_date') || request()->filled('end_date'))) || (!isset($isWingsMbrReport) && ($startMonth != Carbon\Carbon::now()->month || $endMonth != Carbon\Carbon::now()->month)))
                 <a href="{{ route('portal.report.detail', ['code' => $template->code, 'p' => $tenantPrincipal->id]) }}" class="filter-select-btn" style="background: #f1f5f9; color: #64748b; text-decoration: none; display: inline-flex; align-items: center; gap: 0.35rem;" title="Reset Filter">
                     <i class="fa-solid fa-rotate-left"></i> Reset
                 </a>
@@ -1262,6 +1300,7 @@
     function onAreaFilterChange(areaVal) {
         var regSelect = document.getElementById('filter_region');
         var locSelect = document.getElementById('filter_location');
+        var empSelect = document.getElementById('filter_employee');
         if (!locSelect) return;
 
         var regVal = regSelect ? regSelect.value : '';
@@ -1293,6 +1332,32 @@
         }
         if (currentLocVal && !locStillValid) {
             locSelect.value = '';
+        }
+
+        if (empSelect) {
+            var currentEmpVal = empSelect.value;
+            var empStillValid = false;
+            for (var k = 0; k < empSelect.options.length; k++) {
+                var eOpt = empSelect.options[k];
+                if (!eOpt.value) continue;
+                var eOptReg = eOpt.getAttribute('data-region') || '';
+                var normEOptReg = normalizeRegionJs(eOptReg);
+                var eOptArea = (eOpt.getAttribute('data-area') || '').toUpperCase();
+                var eMatchReg = !normRegVal || !normEOptReg || normEOptReg === normRegVal;
+                var eMatchArea = !areaVal || !eOptArea || eOptArea === areaVal.toUpperCase() || (areaName && eOptArea === areaName);
+
+                if (eMatchReg && eMatchArea) {
+                    eOpt.hidden = false;
+                    eOpt.disabled = false;
+                    if (eOpt.value === currentEmpVal) empStillValid = true;
+                } else {
+                    eOpt.hidden = true;
+                    eOpt.disabled = true;
+                }
+            }
+            if (currentEmpVal && !empStillValid) {
+                empSelect.value = '';
+            }
         }
     }
 

@@ -541,7 +541,7 @@
                 </div>
                 <div class="portal-mbr-kpi-sub">
                     <i class="fa-regular fa-calendar" style="color: var(--brand-primary);"></i>
-                    <span>{{ Carbon\Carbon::create($startYear, $startMonth, 1)->translatedFormat('M Y') }} - {{ Carbon\Carbon::create($endYear, $endMonth, 1)->translatedFormat('M Y') }}</span>
+                    <span>{{ !empty($startDateStr) && !empty($endDateStr) ? Carbon\Carbon::parse($startDateStr)->translatedFormat('d M Y') . ' - ' . Carbon\Carbon::parse($endDateStr)->translatedFormat('d M Y') : Carbon\Carbon::create($startYear, $startMonth, 1)->translatedFormat('M Y') . ' - ' . Carbon\Carbon::create($endYear, $endMonth, 1)->translatedFormat('M Y') }}</span>
                 </div>
             </div>
             <div class="portal-mbr-icon-badge emerald">

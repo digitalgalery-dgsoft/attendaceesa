@@ -728,31 +728,60 @@ class PrincipalPortalController extends Controller
             }])
             ->firstOrFail();
 
-        // Filters: Rentang Bulan Awal s/d Bulan Akhir
-        $hasExplicitDate = $request->has('start_month') || $request->has('month');
-        $startMonth = (int) ($request->query('start_month') ?? $request->query('month') ?? 0);
-        $startYear  = (int) ($request->query('start_year') ?? $request->query('year') ?? 0);
-
-        // Jika tidak ditentukan di request, defaultkan ke bulan & tahun berjalan
-        if (!$hasExplicitDate || $startMonth <= 0 || $startYear <= 0) {
-            $startMonth = (int) Carbon::now()->month;
-            $startYear  = (int) Carbon::now()->year;
-            $endMonth   = (int) ($request->query('end_month') ?? Carbon::now()->month);
-            $endYear    = (int) ($request->query('end_year') ?? Carbon::now()->year);
+        // Filters: Rentang Tanggal (start_date & end_date) atau Rentang Bulan (start_month & end_month)
+        $hasDateRange = $request->filled('start_date') || $request->filled('end_date');
+        if ($hasDateRange) {
+            $sDateInput = $request->filled('start_date') ? $request->query('start_date') : ($request->query('end_date') ?: Carbon::now()->startOfMonth()->format('Y-m-d'));
+            $eDateInput = $request->filled('end_date') ? $request->query('end_date') : ($request->query('start_date') ?: Carbon::now()->endOfMonth()->format('Y-m-d'));
+            try {
+                $startDate = Carbon::parse($sDateInput)->startOfDay();
+            } catch (\Throwable $e) {
+                $startDate = Carbon::now()->startOfMonth();
+            }
+            try {
+                $endDate = Carbon::parse($eDateInput)->endOfDay();
+            } catch (\Throwable $e) {
+                $endDate = Carbon::now()->endOfMonth();
+            }
+            if ($startDate->gt($endDate)) {
+                $temp = $startDate;
+                $startDate = $endDate->copy()->startOfDay();
+                $endDate = $temp->copy()->endOfDay();
+            }
+            $startMonth = (int) $startDate->month;
+            $startYear  = (int) $startDate->year;
+            $endMonth   = (int) $endDate->month;
+            $endYear    = (int) $endDate->year;
         } else {
-            $endMonth   = (int) ($request->query('end_month') ?? $startMonth);
-            $endYear    = (int) ($request->query('end_year') ?? $startYear);
+            $hasExplicitDate = $request->has('start_month') || $request->has('month');
+            $startMonth = (int) ($request->query('start_month') ?? $request->query('month') ?? 0);
+            $startYear  = (int) ($request->query('start_year') ?? $request->query('year') ?? 0);
+
+            // Jika tidak ditentukan di request, defaultkan ke bulan & tahun berjalan
+            if (!$hasExplicitDate || $startMonth <= 0 || $startYear <= 0) {
+                $startMonth = (int) Carbon::now()->month;
+                $startYear  = (int) Carbon::now()->year;
+                $endMonth   = (int) ($request->query('end_month') ?? Carbon::now()->month);
+                $endYear    = (int) ($request->query('end_year') ?? Carbon::now()->year);
+            } else {
+                $endMonth   = (int) ($request->query('end_month') ?? $startMonth);
+                $endYear    = (int) ($request->query('end_year') ?? $startYear);
+            }
+
+            $endMonth   = (int) ($request->query('end_month') ?? ($endMonth ?: $startMonth));
+            $endYear    = (int) ($request->query('end_year') ?? ($endYear ?: $startYear));
+
+            $startDate  = Carbon::createFromDate($startYear, $startMonth, 1)->startOfMonth();
+            $endDate    = Carbon::createFromDate($endYear, $endMonth, 1)->endOfMonth();
         }
 
-        $endMonth   = (int) ($request->query('end_month') ?? ($endMonth ?: $startMonth));
-        $endYear    = (int) ($request->query('end_year') ?? ($endYear ?: $startYear));
-
-        $startDate  = Carbon::createFromDate($startYear, $startMonth, 1)->startOfMonth();
-        $endDate    = Carbon::createFromDate($endYear, $endMonth, 1)->endOfMonth();
+        $startDateStr = $startDate->format('Y-m-d');
+        $endDateStr   = $endDate->format('Y-m-d');
 
         $selectedRegion     = $request->query('region');
         $selectedAreaId     = $request->query('area_id') ?? $request->query('branch_id');
         $selectedLocationId = $request->query('location_id') ?? $request->query('store_id');
+        $selectedEmployeeId = $request->query('employee_id');
         $search             = $request->query('q');
 
         $isCbpReport = ($template->code === 'RPT-DULUX-CBP-PRICING');
@@ -928,12 +957,14 @@ class PrincipalPortalController extends Controller
                 $selectedRegion,
                 $selectedAreaId,
                 $selectedLocationId,
-                $search
+                $search,
+                $selectedEmployeeId
             );
 
             $regions = $wingsMbrData['regions'] ?? [];
             $areas = $wingsMbrData['areas'] ?? collect();
             $workLocations = $wingsMbrData['work_locations'] ?? collect();
+            $employees = $wingsMbrData['employees'] ?? collect();
             $submissions = $wingsMbrData['submissions'];
             $liveSubmissionsCount = $submissions->total();
             $totalTemplateSubmissions = $wingsMbrData['kpis']['total_submissions'] ?? $liveSubmissionsCount;
@@ -958,13 +989,17 @@ class PrincipalPortalController extends Controller
                 'startYear',
                 'endMonth',
                 'endYear',
+                'startDateStr',
+                'endDateStr',
                 'search',
                 'selectedRegion',
                 'selectedAreaId',
                 'selectedLocationId',
+                'selectedEmployeeId',
                 'regions',
                 'areas',
                 'workLocations',
+                'employees',
                 'setting',
                 'dashboardConfig',
                 'widgetResults',
@@ -986,12 +1021,14 @@ class PrincipalPortalController extends Controller
                 $selectedRegion,
                 $selectedAreaId,
                 $selectedLocationId,
-                $search
+                $search,
+                $selectedEmployeeId
             );
 
             $regions = $wingsMbrFreeTasteData['regions'] ?? [];
             $areas = $wingsMbrFreeTasteData['areas'] ?? collect();
             $workLocations = $wingsMbrFreeTasteData['work_locations'] ?? collect();
+            $employees = $wingsMbrFreeTasteData['employees'] ?? collect();
             $submissions = $wingsMbrFreeTasteData['submissions'];
             $liveSubmissionsCount = $submissions->total();
             $totalTemplateSubmissions = $wingsMbrFreeTasteData['kpis']['total_submissions'] ?? $liveSubmissionsCount;
@@ -1016,13 +1053,17 @@ class PrincipalPortalController extends Controller
                 'startYear',
                 'endMonth',
                 'endYear',
+                'startDateStr',
+                'endDateStr',
                 'search',
                 'selectedRegion',
                 'selectedAreaId',
                 'selectedLocationId',
+                'selectedEmployeeId',
                 'regions',
                 'areas',
                 'workLocations',
+                'employees',
                 'setting',
                 'dashboardConfig',
                 'widgetResults',
@@ -1044,12 +1085,14 @@ class PrincipalPortalController extends Controller
                 $selectedRegion,
                 $selectedAreaId,
                 $selectedLocationId,
-                $search
+                $search,
+                $selectedEmployeeId
             );
 
             $regions = $wingsMbrToolsData['regions'] ?? [];
             $areas = $wingsMbrToolsData['areas'] ?? collect();
             $workLocations = $wingsMbrToolsData['work_locations'] ?? collect();
+            $employees = $wingsMbrToolsData['employees'] ?? collect();
             $submissions = $wingsMbrToolsData['submissions'];
             $liveSubmissionsCount = $submissions->total();
             $totalTemplateSubmissions = $wingsMbrToolsData['kpis']['total_submissions'] ?? $liveSubmissionsCount;
@@ -1074,13 +1117,17 @@ class PrincipalPortalController extends Controller
                 'startYear',
                 'endMonth',
                 'endYear',
+                'startDateStr',
+                'endDateStr',
                 'search',
                 'selectedRegion',
                 'selectedAreaId',
                 'selectedLocationId',
+                'selectedEmployeeId',
                 'regions',
                 'areas',
                 'workLocations',
+                'employees',
                 'setting',
                 'dashboardConfig',
                 'widgetResults',
@@ -2817,17 +2864,56 @@ class PrincipalPortalController extends Controller
             ->with('fields')
             ->firstOrFail();
 
-        $startMonth = (int) ($request->query('start_month') ?? $request->query('month') ?? Carbon::now()->month);
-        $startYear  = (int) ($request->query('start_year') ?? $request->query('year') ?? Carbon::now()->year);
-        $endMonth   = (int) ($request->query('end_month') ?? $startMonth);
-        $endYear    = (int) ($request->query('end_year') ?? $startYear);
+        // Filters: Rentang Tanggal (start_date & end_date) atau Rentang Bulan (start_month & end_month)
+        $hasDateRange = $request->filled('start_date') || $request->filled('end_date');
+        if ($hasDateRange) {
+            $sDateInput = $request->filled('start_date') ? $request->query('start_date') : ($request->query('end_date') ?: Carbon::now()->startOfMonth()->format('Y-m-d'));
+            $eDateInput = $request->filled('end_date') ? $request->query('end_date') : ($request->query('start_date') ?: Carbon::now()->endOfMonth()->format('Y-m-d'));
+            try {
+                $startDate = Carbon::parse($sDateInput)->startOfDay();
+            } catch (\Throwable $e) {
+                $startDate = Carbon::now()->startOfMonth();
+            }
+            try {
+                $endDate = Carbon::parse($eDateInput)->endOfDay();
+            } catch (\Throwable $e) {
+                $endDate = Carbon::now()->endOfMonth();
+            }
+            if ($startDate->gt($endDate)) {
+                $temp = $startDate;
+                $startDate = $endDate->copy()->startOfDay();
+                $endDate = $temp->copy()->endOfDay();
+            }
+            $startMonth = (int) $startDate->month;
+            $startYear  = (int) $startDate->year;
+            $endMonth   = (int) $endDate->month;
+            $endYear    = (int) $endDate->year;
+            $periodLabel = $startDate->translatedFormat('d F Y') . ' s/d ' . $endDate->translatedFormat('d F Y');
+            $filenameSuffix = $startDate->format('Ymd') . '-' . $endDate->format('Ymd');
+        } else {
+            $startMonth = (int) ($request->query('start_month') ?? $request->query('month') ?? Carbon::now()->month);
+            $startYear  = (int) ($request->query('start_year') ?? $request->query('year') ?? Carbon::now()->year);
+            $endMonth   = (int) ($request->query('end_month') ?? $startMonth);
+            $endYear    = (int) ($request->query('end_year') ?? $startYear);
 
-        $startDate  = Carbon::createFromDate($startYear, $startMonth, 1)->startOfMonth();
-        $endDate    = Carbon::createFromDate($endYear, $endMonth, 1)->endOfMonth();
+            $startDate  = Carbon::createFromDate($startYear, $startMonth, 1)->startOfMonth();
+            $endDate    = Carbon::createFromDate($endYear, $endMonth, 1)->endOfMonth();
+
+            $monthNames = [
+                1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
+                7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+            ];
+            $periodLabel = ($monthNames[$startMonth] ?? "Bulan {$startMonth}") . " {$startYear}";
+            if ($startMonth !== $endMonth || $startYear !== $endYear) {
+                $periodLabel .= " s/d " . ($monthNames[$endMonth] ?? "Bulan {$endMonth}") . " {$endYear}";
+            }
+            $filenameSuffix = "{$startYear}_{$startMonth}-{$endYear}_{$endMonth}";
+        }
 
         $selectedRegion     = $request->query('region');
         $selectedAreaId     = $request->query('area_id') ?? $request->query('branch_id');
         $selectedLocationId = $request->query('location_id') ?? $request->query('store_id');
+        $selectedEmployeeId = $request->query('employee_id');
         $search             = $request->query('q');
 
         // Resolve Filter Names for Export Header Banner
@@ -2839,14 +2925,12 @@ class PrincipalPortalController extends Controller
         if ($selectedLocationId) {
             $selectedStoreName = is_numeric($selectedLocationId) ? \App\Models\WorkLocation::where('id', $selectedLocationId)->value('name') : $selectedLocationId;
         }
-
-        $monthNames = [
-            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
-            7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
-        ];
-        $periodLabel = ($monthNames[$startMonth] ?? "Bulan {$startMonth}") . " {$startYear}";
-        if ($startMonth !== $endMonth || $startYear !== $endYear) {
-            $periodLabel .= " s/d " . ($monthNames[$endMonth] ?? "Bulan {$endMonth}") . " {$endYear}";
+        $selectedEmployeeName = null;
+        if ($selectedEmployeeId) {
+            $empRecord = \App\Models\Employee::find($selectedEmployeeId);
+            if ($empRecord) {
+                $selectedEmployeeName = $empRecord->full_name ?: $empRecord->name;
+            }
         }
 
         $exportFilters = [
@@ -2855,7 +2939,8 @@ class PrincipalPortalController extends Controller
             'region'          => $selectedRegion ?: 'Semua Region',
             'area'            => $selectedAreaName ?: 'Semua Cabang',
             'store'           => $selectedStoreName ?: 'Semua Outlet',
-            'filename_suffix' => "{$startYear}_{$startMonth}-{$endYear}_{$endMonth}",
+            'employee'        => $selectedEmployeeName ?: 'Semua Mitra',
+            'filename_suffix' => $filenameSuffix,
         ];
 
         // --- WINGS MBR MULTI-SHEET PROFESSIONAL EXCEL EXPORTS ---
@@ -2881,6 +2966,7 @@ class PrincipalPortalController extends Controller
                 $selectedAreaId,
                 $selectedLocationId,
                 $search,
+                $selectedEmployeeId,
                 100000
             );
             $service = new \App\Services\WingsMbrExportService();
@@ -2896,6 +2982,7 @@ class PrincipalPortalController extends Controller
                 $selectedAreaId,
                 $selectedLocationId,
                 $search,
+                $selectedEmployeeId,
                 100000
             );
             $service = new \App\Services\WingsMbrExportService();
@@ -2911,6 +2998,7 @@ class PrincipalPortalController extends Controller
                 $selectedAreaId,
                 $selectedLocationId,
                 $search,
+                $selectedEmployeeId,
                 100000
             );
             $service = new \App\Services\WingsMbrExportService();
@@ -12346,6 +12434,7 @@ class PrincipalPortalController extends Controller
         $selectedAreaId,
         $selectedLocationId,
         ?string $search,
+        ?string $selectedEmployeeId = null,
         int $perPage = 20
     ): array {
         $driver = DB::connection()->getDriverName();
@@ -12394,6 +12483,9 @@ class PrincipalPortalController extends Controller
                 }
             });
         }
+        if ($selectedEmployeeId) {
+            $query->where('employee_id', $selectedEmployeeId);
+        }
         if ($search) {
             $query->where(function ($q) use ($search, $likeOp) {
                 $q->whereHas('employee', function ($sub) use ($search, $likeOp) {
@@ -12408,7 +12500,7 @@ class PrincipalPortalController extends Controller
         $allSubmissions = (clone $query)->orderBy('submitted_at', 'desc')->get();
         $submissions = (clone $query)->orderBy('submitted_at', 'desc')->paginate($perPage);
 
-        // 2. Retrieve distinct regions, areas, and stores strictly from the actual submissions of this template
+        // 2. Retrieve distinct regions, areas, stores, and employees strictly from the actual submissions of this template
         $allTemplateSubmissions = ReportSubmission::where('report_template_id', $template->id)
             ->with(['workLocation.branch', 'employee.branch'])
             ->get();
@@ -12416,6 +12508,7 @@ class PrincipalPortalController extends Controller
         $regionsList = [];
         $areasList = [];
         $storesList = [];
+        $employeesList = [];
 
         foreach ($allTemplateSubmissions as $subItem) {
             $wl = $subItem->workLocation;
@@ -12450,6 +12543,22 @@ class PrincipalPortalController extends Controller
                     'area' => $areaName ?? ''
                 ];
             }
+
+            // Karyawan / Mitra (dari actual submissions)
+            if ($emp) {
+                $empId = $emp->id;
+                $empName = trim($emp->full_name ?: ($emp->name ?: ''));
+                $empNik = $emp->employee_no ?: ($emp->nik ?: '-');
+                if ($empName && !isset($employeesList[$empId])) {
+                    $employeesList[$empId] = (object)[
+                        'id' => $empId,
+                        'name' => $empName,
+                        'nik' => $empNik,
+                        'region' => $reg ?? '',
+                        'area' => $areaName ?? ''
+                    ];
+                }
+            }
         }
 
         sort($regionsList);
@@ -12460,6 +12569,9 @@ class PrincipalPortalController extends Controller
 
         uasort($storesList, fn($a, $b) => strcmp($a->name, $b->name));
         $workLocations = collect(array_values($storesList));
+
+        uasort($employeesList, fn($a, $b) => strcmp($a->name, $b->name));
+        $employees = collect(array_values($employeesList));
 
         // 3. Process submissions (Purely data-driven calculations)
         $totalQty = 0;
@@ -12825,6 +12937,7 @@ class PrincipalPortalController extends Controller
             'regions' => $regions,
             'areas' => $areas,
             'work_locations' => $workLocations,
+            'employees' => $employees,
             'kpis' => [
                 'total_qty_penjualan' => $totalQty,
                 'total_value_penjualan_rp' => $totalValue,
@@ -12869,6 +12982,7 @@ class PrincipalPortalController extends Controller
         $selectedAreaId,
         $selectedLocationId,
         ?string $search,
+        ?string $selectedEmployeeId = null,
         int $perPage = 20
     ): array {
         $driver = DB::connection()->getDriverName();
@@ -12917,6 +13031,9 @@ class PrincipalPortalController extends Controller
                 }
             });
         }
+        if ($selectedEmployeeId) {
+            $query->where('employee_id', $selectedEmployeeId);
+        }
         if ($search) {
             $query->where(function ($q) use ($search, $likeOp) {
                 $q->whereHas('employee', function ($sub) use ($search, $likeOp) {
@@ -12931,7 +13048,7 @@ class PrincipalPortalController extends Controller
         $allSubmissions = (clone $query)->orderBy('submitted_at', 'desc')->get();
         $submissions = (clone $query)->orderBy('submitted_at', 'desc')->paginate($perPage);
 
-        // 2. Retrieve distinct regions, areas, and stores strictly from the actual submissions of this template
+        // 2. Retrieve distinct regions, areas, stores, and employees strictly from the actual submissions of this template
         $allTemplateSubmissions = ReportSubmission::where('report_template_id', $template->id)
             ->with(['workLocation.branch', 'employee.branch'])
             ->get();
@@ -12939,6 +13056,7 @@ class PrincipalPortalController extends Controller
         $regionsList = [];
         $areasList = [];
         $storesList = [];
+        $employeesList = [];
 
         foreach ($allTemplateSubmissions as $subItem) {
             $wl = $subItem->workLocation;
@@ -12970,6 +13088,22 @@ class PrincipalPortalController extends Controller
                     'area' => $areaName ?? ''
                 ];
             }
+
+            // Karyawan / Mitra (dari actual submissions)
+            if ($emp) {
+                $empId = $emp->id;
+                $empName = trim($emp->full_name ?: ($emp->name ?: ''));
+                $empNik = $emp->employee_no ?: ($emp->nik ?: '-');
+                if ($empName && !isset($employeesList[$empId])) {
+                    $employeesList[$empId] = (object)[
+                        'id' => $empId,
+                        'name' => $empName,
+                        'nik' => $empNik,
+                        'region' => $reg ?? '',
+                        'area' => $areaName ?? ''
+                    ];
+                }
+            }
         }
 
         sort($regionsList);
@@ -12980,6 +13114,9 @@ class PrincipalPortalController extends Controller
 
         uasort($storesList, fn($a, $b) => strcmp($a->name, $b->name));
         $workLocations = collect(array_values($storesList));
+
+        uasort($employeesList, fn($a, $b) => strcmp($a->name, $b->name));
+        $employees = collect(array_values($employeesList));
 
         // 3. Process submissions (Purely data-driven calculations)
         $totalStokAwal = 0;
@@ -13457,6 +13594,7 @@ class PrincipalPortalController extends Controller
             'regions' => $regions,
             'areas' => $areas,
             'work_locations' => $workLocations,
+            'employees' => $employees,
             'kpis' => [
                 'total_dimasak' => $totalDimasak,
                 'total_cup' => $totalCup,
@@ -13506,6 +13644,7 @@ class PrincipalPortalController extends Controller
         $selectedAreaId,
         $selectedLocationId,
         ?string $search,
+        ?string $selectedEmployeeId = null,
         int $perPage = 25
     ): array {
         $driver = DB::connection()->getDriverName();
@@ -13554,6 +13693,9 @@ class PrincipalPortalController extends Controller
                 }
             });
         }
+        if ($selectedEmployeeId) {
+            $query->where('employee_id', $selectedEmployeeId);
+        }
         if ($search) {
             $query->where(function ($q) use ($search, $likeOp) {
                 $q->whereHas('employee', function ($sub) use ($search, $likeOp) {
@@ -13570,7 +13712,7 @@ class PrincipalPortalController extends Controller
         $allSubmissions = (clone $query)->orderBy('submitted_at', 'desc')->get();
         $submissions = (clone $query)->orderBy('submitted_at', 'desc')->paginate($perPage);
 
-        // 2. Retrieve distinct regions, areas, and stores strictly from the actual submissions of this template
+        // 2. Retrieve distinct regions, areas, stores, and employees strictly from the actual submissions of this template
         $allTemplateSubmissions = ReportSubmission::where('report_template_id', $template->id)
             ->with(['workLocation.branch', 'employee.branch'])
             ->get();
@@ -13578,6 +13720,7 @@ class PrincipalPortalController extends Controller
         $regionsList = [];
         $areasList = [];
         $storesList = [];
+        $employeesList = [];
 
         foreach ($allTemplateSubmissions as $subItem) {
             $wl = $subItem->workLocation;
@@ -13609,15 +13752,33 @@ class PrincipalPortalController extends Controller
                     'region' => $reg ?? ''
                 ];
             }
+
+            // Karyawan / Mitra (dari actual submissions)
+            if ($emp) {
+                $empId = $emp->id;
+                $empName = trim($emp->full_name ?: ($emp->name ?: ''));
+                $empNik = $emp->employee_no ?: ($emp->nik ?: '-');
+                if ($empName && !isset($employeesList[$empId])) {
+                    $employeesList[$empId] = (object)[
+                        'id' => $empId,
+                        'name' => $empName,
+                        'nik' => $empNik,
+                        'region' => $reg ?? '',
+                        'area' => $areaName ?? ''
+                    ];
+                }
+            }
         }
 
         sort($regionsList);
-        ksort($areasList);
-        ksort($storesList);
+        uasort($areasList, fn($a, $b) => strcmp($a->name, $b->name));
+        uasort($storesList, fn($a, $b) => strcmp($a->name, $b->name));
+        uasort($employeesList, fn($a, $b) => strcmp($a->name, $b->name));
 
         $regions = $regionsList;
         $areas = collect(array_values($areasList));
         $workLocations = collect(array_values($storesList));
+        $employees = collect(array_values($employeesList));
 
         // 3. 13 Standar Tools Free Taste
         $standardTools = [
@@ -14012,6 +14173,7 @@ class PrincipalPortalController extends Controller
             'regions' => $regions,
             'areas' => $areas,
             'work_locations' => $workLocations,
+            'employees' => $employees,
             'kpis' => [
                 'total_submissions' => $totalSubmissions,
                 'total_ada' => $totalAda,
