@@ -13587,6 +13587,7 @@ class PrincipalPortalController extends Controller
                 'bagus' => 0,
                 'tidak_bagus' => 0,
                 'photos_defect' => [],
+                'inspections' => [],
             ];
         }
 
@@ -13696,6 +13697,7 @@ class PrincipalPortalController extends Controller
             $availability = null;
             $condition = null;
             $photoUrl = null;
+            $notes = null;
 
             foreach ($sub->values as $val) {
                 $fn = strtolower(trim($val->field_name ?? ''));
@@ -13726,6 +13728,12 @@ class PrincipalPortalController extends Controller
                 elseif ($fn === 'nama_tools' || $fn === 'pilih_tools' || $fn === 'tools' || $fn === 'alat' || str_contains($fl, 'pilih tools') || str_contains($fl, 'properti')) {
                     if (!empty($txt)) {
                         $toolName = $txt;
+                    }
+                }
+                // 5. Catatan / Keterangan
+                elseif ($fn === 'catatan' || $fn === 'keterangan' || str_contains($fn, 'catatan') || str_contains($fn, 'keterangan') || str_contains($fl, 'catatan') || str_contains($fl, 'keterangan')) {
+                    if (!empty($txt)) {
+                        $notes = $txt;
                     }
                 }
             }
@@ -13827,6 +13835,24 @@ class PrincipalPortalController extends Controller
                 } else {
                     $toolsBreakdown[$matchedKey]['tidak']++;
                 }
+
+                $subTime = $sub->submitted_at ?? $sub->created_at;
+                $formattedTime = $subTime ? $subTime->timezone('Asia/Jakarta')->translatedFormat('d M Y, H:i') . ' WIB' : '-';
+
+                $toolsBreakdown[$matchedKey]['inspections'][] = [
+                    'id' => $sub->id,
+                    'code' => $sub->submission_code ?: ($sub->code ?: '#' . $sub->id),
+                    'store_name' => $storeName,
+                    'branch_name' => $branchName,
+                    'employee_name' => $empName,
+                    'employee_nik' => $empNik,
+                    'availability' => $availability,
+                    'condition' => $condition,
+                    'photo_url' => $photoUrl,
+                    'notes' => $notes ?: ($sub->notes ?? '-'),
+                    'time' => $formattedTime,
+                    'detail_url' => route('portal.report.submission', ['code' => $template->code, 'id' => $sub->id]),
+                ];
             }
 
             if ($photoUrl && $condition === 'TIDAK BAGUS') {

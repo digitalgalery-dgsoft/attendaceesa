@@ -422,6 +422,32 @@
         flex-direction: column;
         gap: 1rem;
     }
+    .portal-tools-modal-content.portal-tools-modal-lg {
+        max-width: 1050px;
+        width: 95%;
+    }
+    .portal-tools-pill {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--text-heading);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    .portal-tools-pill:hover {
+        background: #f1f5f9;
+    }
+    .portal-tools-pill.active {
+        background: #0f172a !important;
+        color: #ffffff !important;
+        border-color: #0f172a !important;
+    }
     .portal-tools-modal-header {
         display: flex;
         align-items: center;
@@ -680,6 +706,7 @@
                             <th class="num" style="color: #dc2626;">TIDAK (%)</th>
                             <th class="num" style="color: #4f46e5;">BAGUS</th>
                             <th class="num" style="color: #d97706;">RUSAK</th>
+                            <th style="width: 75px; text-align: center;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -709,10 +736,15 @@
                                 <td class="num" style="font-weight: 800; color: {{ $tItem['tidak_bagus'] > 0 ? '#d97706' : 'var(--text-muted)' }};">
                                     {{ $tItem['tidak_bagus'] }}
                                 </td>
+                                <td style="text-align: center;">
+                                    <button type="button" class="portal-tools-btn-action" style="padding: 4px 8px; font-size: 0.72rem;" onclick="openToolItemDetailModal({{ $idx }})" title="Lihat Rincian Laporan Masuk">
+                                        <i class="fa-solid fa-list-check"></i> Detail
+                                    </button>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
                                     Belum ada data rekapan tools pada periode ini.
                                 </td>
                             </tr>
@@ -1024,7 +1056,7 @@
 </div>
 
 {{-- 6. MODAL LIGHTBOX FOTO WATERMARK --}}
-<div id="toolsLightboxModal" class="portal-tools-modal" onclick="closeLightbox(event)">
+<div id="toolsLightboxModal" class="portal-tools-modal" style="z-index: 10001;" onclick="closeLightbox(event)">
     <div class="portal-tools-modal-content" style="max-width: 550px; background: #0f172a; color: #fff; padding: 1.25rem;">
         <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; padding-bottom: 0.75rem;">
             <div>
@@ -1081,6 +1113,72 @@
                     <div>Tidak ada bukti kerusakan tools yang tercatat pada periode ini.</div>
                 </div>
             @endforelse
+        </div>
+    </div>
+</div>
+
+{{-- 8. MODAL RINCIAN LAPORAN PER ITEM TOOLS --}}
+<div id="toolItemDetailModal" class="portal-tools-modal" onclick="closeToolItemDetailModal(event)">
+    <div class="portal-tools-modal-content portal-tools-modal-lg">
+        <div class="portal-tools-modal-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 0.85rem; display: flex; align-items: flex-start; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 40px; height: 40px; border-radius: 12px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;">
+                    <i class="fa-solid fa-screwdriver-wrench"></i>
+                </div>
+                <div>
+                    <div id="toolDetailModalTitle" style="font-weight: 800; font-size: 1.05rem; color: var(--text-heading);">Rincian Laporan Tools</div>
+                    <div id="toolDetailModalSubtitle" style="font-size: 0.76rem; color: var(--text-muted); margin-top: 2px;">Daftar pemeriksaan masuk dari toko dan petugas</div>
+                </div>
+            </div>
+            <button type="button" class="portal-tools-modal-close" onclick="closeToolItemDetailModal(null, true)">&times;</button>
+        </div>
+
+        {{-- Mini KPI Bar --}}
+        <div id="toolDetailKpiBar" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem;"></div>
+
+        {{-- Search & Filter Toolbar --}}
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: -0.25rem;">
+            <div style="position: relative; flex: 1; min-width: 240px; max-width: 360px;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.8rem;"></i>
+                <input type="text" id="toolDetailSearchInput" placeholder="Cari nama toko, petugas, NIK, cabang..." oninput="filterToolDetailInspections()" style="width: 100%; padding: 0.5rem 0.85rem 0.5rem 2.2rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.8rem; background: #f8fafc; color: var(--text-heading); outline: none;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;" id="toolDetailFilterPills">
+                <button type="button" class="portal-tools-pill active" data-filter="ALL" onclick="setToolDetailFilter('ALL', this)">Semua (<span id="countPillAll">0</span>)</button>
+                <button type="button" class="portal-tools-pill" data-filter="ADA" onclick="setToolDetailFilter('ADA', this)" style="border-color: #86efac; color: #166534;">ADA (<span id="countPillAda">0</span>)</button>
+                <button type="button" class="portal-tools-pill" data-filter="TIDAK" onclick="setToolDetailFilter('TIDAK', this)" style="border-color: #fca5a5; color: #991b1b;">TIDAK (<span id="countPillTidak">0</span>)</button>
+                <button type="button" class="portal-tools-pill" data-filter="BAGUS" onclick="setToolDetailFilter('BAGUS', this)" style="border-color: #c7d2fe; color: #3730a3;">BAGUS (<span id="countPillBagus">0</span>)</button>
+                <button type="button" class="portal-tools-pill" data-filter="RUSAK" onclick="setToolDetailFilter('RUSAK', this)" style="border-color: #fde68a; color: #92400e;">RUSAK (<span id="countPillRusak">0</span>)</button>
+            </div>
+        </div>
+
+        {{-- Table Container --}}
+        <div style="overflow-x: auto; max-height: 48vh; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 12px; background: #ffffff;">
+            <table class="portal-tools-table" style="width: 100%; margin: 0;">
+                <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 2;">
+                    <tr>
+                        <th style="width: 35px; text-align: center;">#</th>
+                        <th>Nama Toko / Lokasi</th>
+                        <th>Petugas Lapangan</th>
+                        <th style="white-space: nowrap;">Waktu Lapor</th>
+                        <th style="text-align: center;">Ketersediaan</th>
+                        <th style="text-align: center;">Kondisi</th>
+                        <th>Catatan</th>
+                        <th style="text-align: center; width: 75px;">Bukti Foto</th>
+                        <th style="text-align: center; width: 75px;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="toolDetailTableBody">
+                    {{-- Dynamically generated --}}
+                </tbody>
+            </table>
+        </div>
+
+        {{-- Footer --}}
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+            <div id="toolDetailRowCount">Menampilkan 0 laporan</div>
+            <button type="button" class="portal-tools-btn-action" onclick="closeToolItemDetailModal(null, true)">
+                <i class="fa-solid fa-xmark"></i> Tutup
+            </button>
         </div>
     </div>
 </div>
@@ -1369,6 +1467,214 @@
         }
 
         modal.classList.add('active');
+    }
+
+    // ==========================================
+    // DETAIL MODAL PER ITEM TOOLS (13 STANDAR)
+    // ==========================================
+    var toolsBreakdownData = {!! json_encode($toolsBreakdown ?? []) !!};
+    var activeToolData = null;
+    var activeToolFilter = 'ALL';
+
+    function openToolItemDetailModal(index) {
+        if (!toolsBreakdownData || !toolsBreakdownData[index]) return;
+        activeToolData = toolsBreakdownData[index];
+        activeToolFilter = 'ALL';
+
+        var modal = document.getElementById('toolItemDetailModal');
+        var titleEl = document.getElementById('toolDetailModalTitle');
+        var subEl = document.getElementById('toolDetailModalSubtitle');
+        var searchInput = document.getElementById('toolDetailSearchInput');
+
+        if (titleEl) titleEl.innerText = 'Rincian Laporan: ' + (activeToolData.name || 'Tools');
+        if (subEl) subEl.innerText = 'Menampilkan riwayat inspeksi masuk untuk item "' + (activeToolData.name || '') + '"';
+        if (searchInput) searchInput.value = '';
+
+        // Reset filter pills
+        var pills = document.querySelectorAll('#toolDetailFilterPills .portal-tools-pill');
+        pills.forEach(function(p) { p.classList.remove('active'); });
+        var allPill = document.querySelector('#toolDetailFilterPills .portal-tools-pill[data-filter="ALL"]');
+        if (allPill) allPill.classList.add('active');
+
+        // Render KPI Mini Bar
+        renderToolDetailKpiBar(activeToolData);
+
+        // Render Rows
+        renderToolDetailRows();
+
+        if (modal) modal.classList.add('active');
+    }
+
+    function closeToolItemDetailModal(event, force) {
+        if (force || (event && event.target && event.target.id === 'toolItemDetailModal')) {
+            var modal = document.getElementById('toolItemDetailModal');
+            if (modal) modal.classList.remove('active');
+        }
+    }
+
+    function renderToolDetailKpiBar(data) {
+        var kpiBar = document.getElementById('toolDetailKpiBar');
+        if (!kpiBar) return;
+
+        var total = data.total_inspected || 0;
+        var ada = data.ada || 0;
+        var tidak = data.tidak || 0;
+        var bagus = data.bagus || 0;
+        var tidakBagus = data.tidak_bagus || 0;
+
+        // Update counts on filter pills
+        var elAll = document.getElementById('countPillAll');
+        var elAda = document.getElementById('countPillAda');
+        var elTidak = document.getElementById('countPillTidak');
+        var elBagus = document.getElementById('countPillBagus');
+        var elRusak = document.getElementById('countPillRusak');
+        if (elAll) elAll.innerText = total;
+        if (elAda) elAda.innerText = ada;
+        if (elTidak) elTidak.innerText = tidak;
+        if (elBagus) elBagus.innerText = bagus;
+        if (elRusak) elRusak.innerText = tidakBagus;
+
+        kpiBar.innerHTML = `
+            <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 10px; padding: 0.6rem 0.8rem; text-align: center;">
+                <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Total Cek</div>
+                <div style="font-size: 1.15rem; font-weight: 900; color: var(--text-heading);">${total}</div>
+            </div>
+            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 0.6rem 0.8rem; text-align: center;">
+                <div style="font-size: 0.68rem; color: #047857; font-weight: 700; text-transform: uppercase;">Fisik ADA</div>
+                <div style="font-size: 1.15rem; font-weight: 900; color: #059669;">${ada} <span style="font-size: 0.72rem; font-weight: 600;">(${data.percent_ada || 0}%)</span></div>
+            </div>
+            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 0.6rem 0.8rem; text-align: center;">
+                <div style="font-size: 0.68rem; color: #b91c1c; font-weight: 700; text-transform: uppercase;">TIDAK ADA</div>
+                <div style="font-size: 1.15rem; font-weight: 900; color: #dc2626;">${tidak} <span style="font-size: 0.72rem; font-weight: 600;">(${data.percent_tidak || 0}%)</span></div>
+            </div>
+            <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 0.6rem 0.8rem; text-align: center;">
+                <div style="font-size: 0.68rem; color: #4338ca; font-weight: 700; text-transform: uppercase;">Kondisi BAGUS</div>
+                <div style="font-size: 1.15rem; font-weight: 900; color: #4f46e5;">${bagus}</div>
+            </div>
+            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 0.6rem 0.8rem; text-align: center;">
+                <div style="font-size: 0.68rem; color: #b45309; font-weight: 700; text-transform: uppercase;">RUSAK / CACAT</div>
+                <div style="font-size: 1.15rem; font-weight: 900; color: #d97706;">${tidakBagus}</div>
+            </div>
+        `;
+    }
+
+    function setToolDetailFilter(filter, btn) {
+        activeToolFilter = filter;
+        var pills = document.querySelectorAll('#toolDetailFilterPills .portal-tools-pill');
+        pills.forEach(function(p) { p.classList.remove('active'); });
+        if (btn) btn.classList.add('active');
+        renderToolDetailRows();
+    }
+
+    function filterToolDetailInspections() {
+        renderToolDetailRows();
+    }
+
+    function renderToolDetailRows() {
+        var tbody = document.getElementById('toolDetailTableBody');
+        var countEl = document.getElementById('toolDetailRowCount');
+        if (!tbody || !activeToolData) return;
+
+        var inspections = activeToolData.inspections || [];
+        var searchVal = (document.getElementById('toolDetailSearchInput')?.value || '').toLowerCase().trim();
+
+        var filtered = inspections.filter(function(item) {
+            // Filter pill
+            if (activeToolFilter === 'ADA' && item.availability !== 'ADA') return false;
+            if (activeToolFilter === 'TIDAK' && item.availability !== 'TIDAK') return false;
+            if (activeToolFilter === 'BAGUS' && item.condition !== 'BAGUS') return false;
+            if (activeToolFilter === 'RUSAK' && item.condition !== 'TIDAK BAGUS' && item.condition !== 'RUSAK') return false;
+
+            // Filter search input
+            if (searchVal) {
+                var matchStore = (item.store_name || '').toLowerCase().indexOf(searchVal) !== -1;
+                var matchBranch = (item.branch_name || '').toLowerCase().indexOf(searchVal) !== -1;
+                var matchEmp = (item.employee_name || '').toLowerCase().indexOf(searchVal) !== -1;
+                var matchNik = (item.employee_nik || '').toLowerCase().indexOf(searchVal) !== -1;
+                var matchNotes = (item.notes || '').toLowerCase().indexOf(searchVal) !== -1;
+                var matchCode = (item.code || '').toLowerCase().indexOf(searchVal) !== -1;
+                if (!matchStore && !matchBranch && !matchEmp && !matchNik && !matchNotes && !matchCode) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        if (countEl) {
+            countEl.innerText = 'Menampilkan ' + filtered.length + ' dari ' + inspections.length + ' laporan';
+        }
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                        <i class="fa-solid fa-folder-open" style="font-size: 1.75rem; margin-bottom: 0.5rem; display: block; color: #94a3b8;"></i>
+                        Tidak ada laporan yang cocok dengan kriteria filter / pencarian.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(function(item, idx) {
+            var availBadge = item.availability === 'ADA'
+                ? '<span class="portal-tools-badge ada"><i class="fa-solid fa-check"></i> ADA</span>'
+                : '<span class="portal-tools-badge tidak"><i class="fa-solid fa-xmark"></i> TIDAK</span>';
+
+            var condBadge = '-';
+            if (item.condition === 'BAGUS') {
+                condBadge = '<span class="portal-tools-badge bagus"><i class="fa-solid fa-thumbs-up"></i> BAGUS</span>';
+            } else if (item.condition === 'TIDAK BAGUS' || item.condition === 'RUSAK') {
+                condBadge = '<span class="portal-tools-badge tidak-bagus"><i class="fa-solid fa-triangle-exclamation"></i> RUSAK</span>';
+            } else {
+                condBadge = '<span class="portal-tools-badge neutral">-</span>';
+            }
+
+            var photoHtml = '<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>';
+            if (item.photo_url) {
+                var safeUrl = resolveClientPhotoUrl(item.photo_url);
+                var safeTool = (activeToolData.name || 'Tools').replace(/'/g, "\\'");
+                var safeStore = (item.store_name || '').replace(/'/g, "\\'");
+                photoHtml = `
+                    <button type="button" class="portal-tools-btn-action" style="padding: 2px 6px; font-size: 0.68rem; background: #fff7ed; color: #c2410c; border-color: #ffedd5;" onclick="openLightbox('${safeUrl}', '${safeTool}', '${safeStore}')">
+                        <i class="fa-solid fa-camera"></i> Foto
+                    </button>
+                `;
+            }
+
+            var notesHtml = (item.notes && item.notes !== '-')
+                ? `<div style="font-size: 0.75rem; color: var(--text-body); max-width: 180px; word-break: break-word;">${item.notes}</div>`
+                : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
+
+            var actionHtml = item.detail_url
+                ? `<a href="${item.detail_url}" target="_blank" class="portal-tools-btn-action" style="padding: 3px 7px; font-size: 0.7rem;" title="Buka Detail Submisi">
+                       <i class="fa-solid fa-arrow-up-right-from-square"></i> Detail
+                   </a>`
+                : '-';
+
+            return `
+                <tr>
+                    <td style="text-align: center; color: var(--text-muted); font-weight: 700; font-size: 0.75rem;">${idx + 1}</td>
+                    <td>
+                        <div style="font-weight: 800; color: var(--text-heading); font-size: 0.85rem;">${item.store_name || '-'}</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted);">${item.branch_name || '-'}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight: 800; color: var(--text-heading); font-size: 0.85rem;">${item.employee_name || 'Petugas'}</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">NIK: ${item.employee_nik || '-'}</div>
+                    </td>
+                    <td style="white-space: nowrap; font-size: 0.78rem;">
+                        <div style="font-weight: 700; color: var(--text-heading);">${item.time}</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace;">${item.code}</div>
+                    </td>
+                    <td style="text-align: center;">${availBadge}</td>
+                    <td style="text-align: center;">${condBadge}</td>
+                    <td>${notesHtml}</td>
+                    <td style="text-align: center;">${photoHtml}</td>
+                    <td style="text-align: center;">${actionHtml}</td>
+                </tr>
+            `;
+        }).join('');
     }
 </script>
 @endpush
