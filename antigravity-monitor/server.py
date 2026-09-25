@@ -398,6 +398,7 @@ def get_session_stats():
             "recent_sessions": recent_sessions_summary
         },
         "accounts_history": cfg.get("accounts_history", []),
+        "saved_accounts": cfg.get("saved_accounts", []),
         "network": {
             "local_ip": get_local_ip(),
             "port": PORT,
@@ -497,6 +498,22 @@ class MonitorHandler(BaseHTTPRequestHandler):
                 "switched_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 "tokens_consumed": current_total - cfg.get("baseline_tokens", 0)
             })
+
+            # Persist to saved_accounts list
+            if 'saved_accounts' not in cfg:
+                cfg['saved_accounts'] = []
+            
+            found = False
+            for sa in cfg['saved_accounts']:
+                if sa.get('name') == new_account:
+                    sa['tier'] = new_tier
+                    found = True
+                    break
+            if not found:
+                cfg['saved_accounts'].append({
+                    "name": new_account,
+                    "tier": new_tier
+                })
 
             # Update new active account & baseline
             cfg['active_account_name'] = new_account

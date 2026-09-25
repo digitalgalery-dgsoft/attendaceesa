@@ -835,12 +835,13 @@
                     </select>
                 </div>
 
-                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                <div style="font-size: 0.74rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.4rem;">PILIHAN CEPAT AKUN TERSIMPAN:</div>
+                <div id="quickAccountsList" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
                     <button type="button" class="btn-header" style="font-size: 0.74rem; padding: 4px 8px; border-color: #818cf8; color: #a5b4fc;" onclick="quickFillAccount('Jei Design (abdjamil.mail@gmail.com)', 'PRO')">
-                        <i class="fa-solid fa-gem"></i> Pilih: Jei Design (Gemini Pro)
+                        <i class="fa-solid fa-gem"></i> Jei Design (Gemini Pro)
                     </button>
                     <button type="button" class="btn-header" style="font-size: 0.74rem; padding: 4px 8px; border-color: #818cf8; color: #a5b4fc;" onclick="quickFillAccount('rayzen bang (rayzenbang@gmail.com)', 'PRO')">
-                        <i class="fa-solid fa-gem"></i> Pilih: rayzen bang (Gemini Pro)
+                        <i class="fa-solid fa-gem"></i> rayzen bang (Gemini Pro)
                     </button>
                 </div>
 
@@ -1256,6 +1257,21 @@
                         </div>
                     `).join('');
                 }
+            }
+
+            // Update Saved Accounts Quick Pick
+            const quickBox = document.getElementById('quickAccountsList');
+            if (quickBox && data.saved_accounts && data.saved_accounts.length > 0) {
+                quickBox.innerHTML = data.saved_accounts.map(acc => {
+                    const isPro = (acc.tier || 'PRO') === 'PRO';
+                    const icon = isPro ? 'fa-gem' : 'fa-user';
+                    const color = isPro ? '#818cf8' : '#cbd5e1';
+                    return `
+                        <button type="button" class="btn-header" style="font-size: 0.74rem; padding: 4px 8px; border-color: ${color}; color: ${color};" onclick="quickFillAccount('${escapeHtml(acc.name)}', '${acc.tier || 'PRO'}')">
+                            <i class="fa-solid ${icon}"></i> ${escapeHtml(acc.name)} (${acc.tier || 'PRO'})
+                        </button>
+                    `;
+                }).join('');
             }
         }
 
