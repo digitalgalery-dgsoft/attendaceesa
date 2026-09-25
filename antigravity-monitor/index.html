@@ -639,14 +639,20 @@
             <div>
                 <div class="kpi-card-header">
                     <span class="kpi-label">TOTAL JATAH TOKEN</span>
-                    <div class="kpi-icon-mini" style="background: rgba(99, 102, 241, 0.15); color: #818cf8;">
-                        <i class="fa-solid fa-database"></i>
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <span id="tierBadgePill" style="font-size: 0.68rem; padding: 2px 8px; border-radius: 9999px; background: rgba(99,102,241,0.2); color: #a5b4fc; font-weight: 800; border: 1px solid rgba(99,102,241,0.4);">PRO TIER</span>
+                        <div class="kpi-icon-mini" style="background: rgba(99, 102, 241, 0.15); color: #818cf8;">
+                            <i class="fa-solid fa-database"></i>
+                        </div>
                     </div>
                 </div>
-                <div class="kpi-val" id="valQuotaLimit">1.000.000</div>
-                <div class="kpi-sub">
-                    <i class="fa-solid fa-user-circle"></i>
-                    <span id="labelAccountName">Akun Utama</span>
+                <div class="kpi-val" id="valQuotaLimit">10.000.000</div>
+                <div class="kpi-sub" style="flex-direction: column; align-items: flex-start; gap: 2px;">
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <span id="userAvatarContainer"><i class="fa-solid fa-user-circle"></i></span>
+                        <span id="labelAccountName">Akun Gemini Pro</span>
+                    </div>
+                    <div id="tierDescText" style="font-size: 0.72rem; color: #64748b;">Deteksi: Google One AI / Gemini Pro</div>
                 </div>
             </div>
             <div class="preset-badge-group">
@@ -700,16 +706,17 @@
         <div class="kpi-card">
             <div>
                 <div class="kpi-card-header">
-                    <span class="kpi-label">STATUS SESI AKTIF</span>
-                    <div class="kpi-icon-mini" style="background: rgba(14, 165, 233, 0.15); color: #38bdf8;">
-                        <i class="fa-solid fa-microchip"></i>
+                    <span class="kpi-label">MODEL AKTIF (SINKRON IDE)</span>
+                    <div class="kpi-icon-mini" id="modelIconMiniBox" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">
+                        <i class="fa-solid fa-bolt-lightning" id="modelIconEl"></i>
                     </div>
                 </div>
-                <div class="kpi-val" style="font-size: 1.45rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="valModelName">
-                    Gemini 3.8 Flash
+                <div class="kpi-val" style="font-size: 1.35rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 0.5rem;">
+                    <span id="valModelName">Gemini 3.8 Flash</span>
                 </div>
-                <div class="kpi-sub">
-                    <span id="valTotalSteps">0</span> langkah &bull; <span id="valUserPrompts">0</span> prompt
+                <div class="kpi-sub" style="flex-direction: column; align-items: flex-start; gap: 2px;">
+                    <div><span id="valTotalSteps">0</span> langkah &bull; <span id="valUserPrompts">0</span> prompt</div>
+                    <div id="modelAutoBadge" style="font-size: 0.72rem; color: #10b981; font-weight: 600;"><i class="fa-solid fa-arrows-rotate"></i> Otomatis Deteksi Pilihan IDE</div>
                 </div>
             </div>
             <div style="font-size: 0.72rem; color: #64748b; margin-top: 0.5rem; word-break: break-all;">
@@ -848,9 +855,27 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">Batas Target Kuota Token (Per Akun / Periode)</label>
+                    <label class="form-label">Tipe Akun (Free / Pro)</label>
+                    <select id="cfgAccountTierSelect" class="form-input">
+                        <option value="AUTO">✨ Deteksi Otomatis (Berdasarkan Model & Token)</option>
+                        <option value="PRO">🌟 Akun Gemini Pro / Google One AI Premium</option>
+                        <option value="FREE">Standard / Akun Free</option>
+                    </select>
+                    <div style="font-size: 0.74rem; color: #64748b; margin-top: 4px;">Mode otomatis mendeteksi model Claude / Gemini Pro yang aktif di IDE.</div>
+                </div>
+
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.84rem; color: var(--text-heading);">
+                        <input type="checkbox" id="cfgAutoModelQuotaCheck" checked style="width: 16px; height: 16px; accent-color: var(--primary);">
+                        <span><strong>Adaptasi Kuota Otomatis Berdasarkan Model</strong></span>
+                    </label>
+                    <div style="font-size: 0.74rem; color: #64748b; margin-top: 4px; margin-left: 24px;">Saat Anda ganti model di IDE, jatah kuota otomatis menyesuaikan: Flash = 10 Juta, Pro = 3 Juta, Claude = 1.5 Juta.</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Batas Target Kuota Token Manual</label>
                     <input type="number" id="cfgQuotaLimitInput" class="form-input" step="50000" min="50000">
-                    <div style="font-size: 0.74rem; color: #64748b; margin-top: 4px;">Contoh: 1.000.000 token untuk batas sesi 5 jam Gemini Flash, atau 2.000.000 untuk Pro.</div>
+                    <div style="font-size: 0.74rem; color: #64748b; margin-top: 4px;">Nilai ini digunakan jika Adaptasi Otomatis dimatikan.</div>
                 </div>
 
                 <div class="form-group">
@@ -1064,7 +1089,57 @@
             document.getElementById('valTokensRemaining').innerText = formatNumber(q.remaining_tokens);
             document.getElementById('valRemainingPercentText').innerText = q.remaining_percent + '%';
 
-            document.getElementById('valModelName').innerText = a.model_name || 'Gemini 3.8 Flash';
+            // Tier Badge & Description
+            if (data.tier_info) {
+                const tb = document.getElementById('tierBadgePill');
+                const td = document.getElementById('tierDescText');
+                if (tb) {
+                    if (data.tier_info.is_pro) {
+                        tb.innerText = 'PRO TIER';
+                        tb.style.background = 'rgba(99, 102, 241, 0.2)';
+                        tb.style.color = '#a5b4fc';
+                        tb.style.borderColor = 'rgba(99, 102, 241, 0.4)';
+                    } else {
+                        tb.innerText = 'FREE TIER';
+                        tb.style.background = 'rgba(100, 116, 139, 0.2)';
+                        tb.style.color = '#cbd5e1';
+                        tb.style.borderColor = 'rgba(100, 116, 139, 0.4)';
+                    }
+                }
+                if (td) {
+                    td.innerText = data.tier_info.detection_reason || 'Deteksi Akun Otomatis';
+                }
+                const avBox = document.getElementById('userAvatarContainer');
+                if (avBox) {
+                    if (data.tier_info.avatar_url) {
+                        avBox.innerHTML = `<img src="${data.tier_info.avatar_url}" style="width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #818cf8; vertical-align: middle;" referrerpolicy="no-referrer">`;
+                    } else {
+                        avBox.innerHTML = `<i class="fa-solid fa-user-circle"></i>`;
+                    }
+                }
+            }
+
+            // Model Information (Card 4)
+            if (data.model_info) {
+                const m = data.model_info;
+                const modelNameEl = document.getElementById('valModelName');
+                const modelIconEl = document.getElementById('modelIconEl');
+                const modelIconBox = document.getElementById('modelIconMiniBox');
+                const modelAutoBadge = document.getElementById('modelAutoBadge');
+
+                if (modelNameEl) modelNameEl.innerText = m.clean_name || a.model_name || 'Gemini 3.8 Flash';
+                if (modelIconEl) modelIconEl.className = 'fa-solid ' + (m.icon || 'fa-bolt-lightning');
+                if (modelIconBox) {
+                    modelIconBox.style.color = m.color || '#34d399';
+                    modelIconBox.style.background = (m.color || '#34d399') + '22';
+                }
+                if (modelAutoBadge) {
+                    modelAutoBadge.innerHTML = `<i class="fa-solid fa-arrows-rotate"></i> Otomatis IDE &bull; <strong style="color: ${m.color || '#34d399'};">${m.badge || ''}</strong>`;
+                }
+            } else {
+                document.getElementById('valModelName').innerText = a.model_name || 'Gemini 3.8 Flash';
+            }
+
             document.getElementById('valTotalSteps').innerText = formatNumber(a.total_steps);
             document.getElementById('valUserPrompts').innerText = formatNumber(a.user_prompts);
             document.getElementById('valConvId').innerText = a.conversation_id ? (a.conversation_id.substring(0, 18) + '...') : '-';
@@ -1195,9 +1270,15 @@
 
         function openConfigModal() {
             fetch('/api/config').then(r => r.json()).then(cfg => {
-                document.getElementById('cfgQuotaLimitInput').value = cfg.quota_limit || 1000000;
+                document.getElementById('cfgQuotaLimitInput').value = cfg.quota_limit || 10000000;
                 document.getElementById('cfgWarningPercentInput').value = cfg.warning_percent || 20;
                 document.getElementById('cfgDangerPercentInput').value = cfg.danger_percent || 10;
+                if (document.getElementById('cfgAccountTierSelect')) {
+                    document.getElementById('cfgAccountTierSelect').value = cfg.account_tier || 'AUTO';
+                }
+                if (document.getElementById('cfgAutoModelQuotaCheck')) {
+                    document.getElementById('cfgAutoModelQuotaCheck').checked = cfg.auto_model_quota !== false;
+                }
                 document.getElementById('configModal').classList.add('show');
             });
         }
@@ -1244,6 +1325,8 @@
             const limit = parseInt(document.getElementById('cfgQuotaLimitInput').value, 10);
             const warn = parseInt(document.getElementById('cfgWarningPercentInput').value, 10);
             const dang = parseInt(document.getElementById('cfgDangerPercentInput').value, 10);
+            const tier = document.getElementById('cfgAccountTierSelect') ? document.getElementById('cfgAccountTierSelect').value : 'AUTO';
+            const autoQuota = document.getElementById('cfgAutoModelQuotaCheck') ? document.getElementById('cfgAutoModelQuotaCheck').checked : true;
 
             try {
                 await fetch('/api/config', {
@@ -1252,7 +1335,9 @@
                     body: JSON.stringify({
                         quota_limit: limit,
                         warning_percent: warn,
-                        danger_percent: dang
+                        danger_percent: dang,
+                        account_tier: tier,
+                        auto_model_quota: autoQuota
                     })
                 });
                 closeModal('configModal');

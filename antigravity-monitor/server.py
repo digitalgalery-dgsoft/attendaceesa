@@ -2,7 +2,10 @@ import os
 import sys
 import json
 import glob
+import re
 import time
+import sqlite3
+import base64
 from datetime import datetime, date
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -12,6 +15,102 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, 'config.json')
 # Dynamic brain directory based on current logged in OS user
 BRAIN_DIR = os.environ.get('ANTIGRAVITY_BRAIN_DIR') or os.path.expanduser(os.path.join('~', '.gemini', 'antigravity-ide', 'brain'))
+
+def get_ide_account_profile():
+    roaming = os.environ.get('APPDATA', '')
+    candidates = [
+        os.path.join(roaming, 'Antigravity IDE', 'User', 'globalStorage', 'state.vscdb'),
+        os.path.join(roaming, 'Antigravity', 'User', 'globalStorage', 'state.vscdb')
+    ]
+    db_file = None
+    for c in candidates:
+        if os.path.exists(c):
+            db_file = c
+            break
+
+    if not db_file:
+        return None
+
+    try:
+        conn = sqlite3.connect(f'file:{db_file}?mode=ro', uri=True)
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM ItemTable WHERE key=?", ("antigravityUnifiedStateSync.userStatus",))
+        row = cur.fetchone()
+        conn.close()
+
+        if not row or not row[0]:
+            return None
+
+        # Level 1: Outer base64 decode
+        outer_bytes = base64.b64decode(row[0])
+
+        extracted = {
+            "email": None,
+            "name": None,
+            "plan_name": "Google AI Free (Standard)",
+            "tier_id": "FREE",
+            "is_pro": False,
+            "avatar_url": None,
+            "detection_source": "IDE Account State (state.vscdb)"
+        }
+
+        # Level 2: Search for inner base64 chunks
+        b64_pattern = re.compile(rb'[A-Za-z0-9+/=]{16,}')
+        chunks = b64_pattern.findall(outer_bytes)
+
+        all_decoded_chunks = []
+        for ch in chunks:
+            pad = len(ch) % 4
+            ch_padded = ch + (b'=' * (4 - pad) if pad != 0 else b'')
+            try:
+                dec = base64.b64decode(ch_padded)
+                all_decoded_chunks.append(dec)
+            except Exception:
+                pass
+
+        combined_search = b' '.join([outer_bytes] + all_decoded_chunks)
+
+        # 1. Tier & Plan Detection
+        if b'g1-pro-tier' in combined_search or b'Google AI Pro' in combined_search:
+            extracted["is_pro"] = True
+            extracted["tier_id"] = "PRO"
+            extracted["plan_name"] = "Google AI Pro (Gemini Pro / Google One AI Premium)"
+        elif b'Google AI Ultra' in combined_search:
+            extracted["is_pro"] = True
+            extracted["tier_id"] = "PRO"
+            extracted["plan_name"] = "Google AI Ultra (Enterprise / Premium)"
+        elif b'free' in combined_search.lower():
+            extracted["is_pro"] = False
+            extracted["tier_id"] = "FREE"
+            extracted["plan_name"] = "Google AI Free (Standard)"
+
+        # 2. Email Detection
+        email_match = re.search(rb'[\w\.-]+@[\w\.-]+\.\w+', combined_search)
+        if email_match:
+            extracted["email"] = email_match.group(0).decode('utf-8', errors='ignore')
+
+        # 3. Avatar URL
+        avatar_match = re.search(rb'https://lh3\.googleusercontent\.com/[^\s\x00-\x1f\x7f-\xff"\']+', combined_search)
+        if avatar_match:
+            extracted["avatar_url"] = avatar_match.group(0).decode('utf-8', errors='ignore')
+
+        # 4. Display Name
+        for dec in all_decoded_chunks:
+            if extracted["email"] and extracted["email"].encode() in dec:
+                match = re.search(rb'([A-Za-z0-9\s]{2,30}):[\x00-\x20]*' + re.escape(extracted["email"].encode()), dec)
+                if match:
+                    extracted["name"] = match.group(1).decode('utf-8', errors='ignore').strip()
+            if not extracted["name"]:
+                m = re.search(rb'\x01Gg([A-Za-z0-9\s]{2,30})', dec)
+                if m:
+                    extracted["name"] = m.group(1).decode('utf-8', errors='ignore').strip()
+
+        if not extracted["name"] and extracted["email"]:
+            extracted["name"] = extracted["email"].split('@')[0]
+
+        return extracted
+    except Exception as e:
+        return {"error": str(e)}
 
 def get_local_ip():
     try:
@@ -28,9 +127,39 @@ def get_local_ip():
         except Exception:
             return '127.0.0.1'
 
+MODEL_PROFILES = {
+    "gemini 3.8 flash": {"name": "Gemini 3.8 Flash (High)", "family": "gemini", "tier": "PRO/FREE", "pro_quota": 10000000, "free_quota": 1000000, "weight": 1.0, "icon": "fa-bolt-lightning", "color": "#10b981", "badge": "Flash High Speed"},
+    "gemini 3.7 flash": {"name": "Gemini 3.7 Flash Medium", "family": "gemini", "tier": "PRO/FREE", "pro_quota": 10000000, "free_quota": 1000000, "weight": 1.0, "icon": "fa-bolt-lightning", "color": "#10b981", "badge": "Flash Medium"},
+    "gemini 3.6 flash": {"name": "Gemini 3.6 Flash Medium", "family": "gemini", "tier": "PRO/FREE", "pro_quota": 8000000, "free_quota": 1000000, "weight": 1.0, "icon": "fa-bolt-lightning", "color": "#10b981", "badge": "Flash Standard"},
+    "gemini 3.1 pro":   {"name": "Gemini 3.1 Pro Low", "family": "gemini", "tier": "PRO", "pro_quota": 3000000, "free_quota": 500000, "weight": 1.5, "icon": "fa-brain", "color": "#818cf8", "badge": "Deep Reasoning (Pro)"},
+    "claude sonnet":    {"name": "Claude Sonnet 4.6 (Thinking)", "family": "claude", "tier": "PRO", "pro_quota": 1500000, "free_quota": 0, "weight": 2.0, "icon": "fa-wand-magic-sparkles", "color": "#f59e0b", "badge": "Anthropic Thinking (Pro Only)"},
+    "claude opus":      {"name": "Claude Opus 4.6 (Thinking)", "family": "claude", "tier": "PRO", "pro_quota": 1000000, "free_quota": 0, "weight": 3.0, "icon": "fa-gem", "color": "#ec4899", "badge": "Anthropic Flagship (Pro Only)"}
+}
+
+def resolve_model_profile(m_name):
+    low = (m_name or '').lower()
+    for key, prof in MODEL_PROFILES.items():
+        if key in low:
+            return prof
+    if 'opus' in low:
+        return MODEL_PROFILES["claude opus"]
+    if 'sonnet' in low or 'claude' in low:
+        return MODEL_PROFILES["claude sonnet"]
+    if 'pro' in low:
+        return MODEL_PROFILES["gemini 3.1 pro"]
+    if 'flash' in low:
+        return MODEL_PROFILES["gemini 3.8 flash"]
+    return {
+        "name": m_name or "Gemini Model", "family": "gemini", "tier": "FREE",
+        "pro_quota": 5000000, "free_quota": 1000000, "weight": 1.0,
+        "icon": "fa-microchip", "color": "#94a3b8", "badge": "Standard AI"
+    }
+
 def load_config():
     default_config = {
         "quota_limit": 10000000,
+        "auto_model_quota": True,
+        "account_tier": "AUTO",
         "warning_percent": 20,
         "danger_percent": 10,
         "active_account_name": "Akun Gemini Pro",
@@ -74,7 +203,8 @@ def get_session_stats():
     model_responses = 0
     tool_counts = {}
     recent_actions = []
-    model_name = "Gemini 3.8 Flash (High)"
+    current_model = "Gemini 3.8 Flash (High)"
+    model_tokens = {}
     total_chars = 0
     last_prompt = ""
 
@@ -83,6 +213,7 @@ def get_session_stats():
             for line in f:
                 step_count += 1
                 total_chars += len(line)
+                char_tokens = len(line) // 4
                 try:
                     d = json.loads(line)
                     stype = d.get('type', '')
@@ -94,12 +225,9 @@ def get_session_stats():
                             if req_part:
                                 last_prompt = req_part[:120] + ('...' if len(req_part) > 120 else '')
                         if 'Model Selection' in content:
-                            for part in content.split('\n'):
-                                if 'Model Selection' in part:
-                                    clean_m = part.replace('The user changed setting `Model Selection` from None to ', '')
-                                    clean_m = clean_m.replace('. No need to comment on this change if the user doesn\'t ask about it. If reporting what model you are, please use a human readable name instead of the exact string.', '').strip()
-                                    if clean_m:
-                                        model_name = clean_m
+                            m_match = re.search(r"The user changed setting `Model Selection` from .*? to (.*?)(?:\.\s*No need to comment|\n|</USER_SETTINGS_CHANGE>|\.$)", content)
+                            if m_match:
+                                current_model = m_match.group(1).strip()
 
                     elif stype == 'PLANNER_RESPONSE':
                         model_responses += 1
@@ -119,14 +247,49 @@ def get_session_stats():
                             })
                 except Exception:
                     pass
+
+                model_tokens[current_model] = model_tokens.get(current_model, 0) + char_tokens
     except Exception as e:
         print(f"Error reading transcript: {e}")
 
+    model_name = current_model
+    profile = resolve_model_profile(model_name)
     total_est_tokens = total_chars // 4
     baseline = cfg.get("baseline_tokens", 0)
     account_used_tokens = max(0, total_est_tokens - baseline)
 
-    quota_limit = max(1000, cfg.get("quota_limit", 1000000))
+    # 1. Tier & Account Detection:
+    ide_profile = get_ide_account_profile()
+    is_pro_features_used = ('claude' in model_name.lower()) or ('pro' in model_name.lower()) or (total_est_tokens > 1200000)
+    
+    if ide_profile and "is_pro" in ide_profile:
+        detected_tier = ide_profile["tier_id"]
+        is_pro_detected = ide_profile["is_pro"]
+        tier_reason = ide_profile.get("plan_name", "Google AI Pro")
+    else:
+        detected_tier = "PRO" if is_pro_features_used else "FREE"
+        is_pro_detected = (detected_tier == "PRO")
+        tier_reason = "Model Pro/Claude aktif" if is_pro_detected else "Akun Standar Free"
+
+    configured_tier = cfg.get("account_tier", "AUTO")
+    if configured_tier != "AUTO":
+        active_tier = configured_tier
+        is_pro = (active_tier == "PRO")
+        tier_reason = f"Dikonfigurasi Manual: {active_tier}"
+    else:
+        active_tier = detected_tier
+        is_pro = is_pro_detected
+
+    # 2. Dynamic Quota based on Model and Tier:
+    auto_model_quota = cfg.get("auto_model_quota", True)
+    if auto_model_quota:
+        if is_pro:
+            quota_limit = profile["pro_quota"]
+        else:
+            quota_limit = profile.get("free_quota", 1000000)
+    else:
+        quota_limit = max(1000, cfg.get("quota_limit", 10000000))
+
     remaining_tokens = max(0, quota_limit - account_used_tokens)
     used_percent = min(100.0, round((account_used_tokens / quota_limit) * 100, 1))
     remaining_percent = max(0.0, round(100.0 - used_percent, 1))
@@ -140,6 +303,14 @@ def get_session_stats():
         status = "WARNING"
     else:
         status = "HEALTHY"
+
+    # Dynamic Account Label
+    active_account_label = cfg.get("active_account_name", "")
+    if (not active_account_label or active_account_label in ["Akun Gemini Pro", "Akun Utama", "Akun"]):
+        if ide_profile and ide_profile.get("email"):
+            active_account_label = f"{ide_profile.get('name', 'User')} ({ide_profile.get('email')})"
+        else:
+            active_account_label = "Akun Gemini Pro"
 
     # Today stats
     today_str = date.today().strftime('%Y-%m-%d')
@@ -173,6 +344,31 @@ def get_session_stats():
             "recent_actions": list(reversed(recent_actions[-15:])),
             "tool_counts": tool_counts
         },
+        "model_info": {
+            "name": model_name,
+            "clean_name": profile["name"],
+            "family": profile["family"],
+            "icon": profile["icon"],
+            "color": profile["color"],
+            "badge": profile["badge"],
+            "weight": profile["weight"],
+            "pro_quota": profile["pro_quota"],
+            "free_quota": profile["free_quota"],
+            "model_tokens": model_tokens
+        },
+        "account_profile": ide_profile,
+        "tier_info": {
+            "detected_tier": detected_tier,
+            "active_tier": active_tier,
+            "is_pro": is_pro,
+            "tier_badge": "PRO PLAN (Gemini Pro / Google One AI)" if is_pro else "FREE PLAN (Standard Google Account)",
+            "detection_reason": tier_reason,
+            "auto_model_quota": auto_model_quota,
+            "user_email": ide_profile.get("email") if ide_profile else None,
+            "user_name": ide_profile.get("name") if ide_profile else None,
+            "avatar_url": ide_profile.get("avatar_url") if ide_profile else None,
+            "detection_source": ide_profile.get("detection_source") if ide_profile else "Heuristik Model"
+        },
         "quota": {
             "quota_limit": quota_limit,
             "account_used_tokens": account_used_tokens,
@@ -182,8 +378,9 @@ def get_session_stats():
             "status": status,
             "warning_percent": warning_thresh,
             "danger_percent": danger_thresh,
-            "active_account_name": cfg.get("active_account_name", "Akun Utama"),
-            "baseline_tokens": baseline
+            "active_account_name": active_account_label,
+            "baseline_tokens": baseline,
+            "auto_model_quota": auto_model_quota
         },
         "overview": {
             "today_tokens": today_tokens,
@@ -263,6 +460,10 @@ class MonitorHandler(BaseHTTPRequestHandler):
                 cfg['quota_limit'] = int(payload['quota_limit'])
             if 'active_account_name' in payload:
                 cfg['active_account_name'] = str(payload['active_account_name']).strip()
+            if 'auto_model_quota' in payload:
+                cfg['auto_model_quota'] = bool(payload['auto_model_quota'])
+            if 'account_tier' in payload:
+                cfg['account_tier'] = str(payload['account_tier']).strip()
             if 'warning_percent' in payload:
                 cfg['warning_percent'] = int(payload['warning_percent'])
             if 'danger_percent' in payload:
