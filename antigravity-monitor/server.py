@@ -276,14 +276,17 @@ def get_session_stats():
         active_tier = configured_tier
         is_pro = (active_tier == "PRO")
         tier_reason = f"Mode: {active_tier} TIER"
-    elif ide_profile and "is_pro" in ide_profile and (not cfg.get("active_account_name") or "rayzen" in cfg.get("active_account_name", "").lower()):
-        active_tier = ide_profile["tier_id"]
-        is_pro = ide_profile["is_pro"]
-        tier_reason = ide_profile.get("plan_name", "Google AI Pro")
     else:
-        active_tier = "FREE"
-        is_pro = False
-        tier_reason = "Akun Standar Free"
+        # Auto mode: check known accounts, IDE profile, or pro features
+        acc_str = (cfg.get("active_account_name", "") + " " + (ide_profile.get("email", "") if ide_profile else "")).lower()
+        if any(k in acc_str for k in ["jei", "abdjamil", "rayzen", "pro"]) or is_pro_features_used or (ide_profile and ide_profile.get("is_pro")):
+            active_tier = "PRO"
+            is_pro = True
+            tier_reason = "Google AI Pro (Gemini Pro)"
+        else:
+            active_tier = "FREE"
+            is_pro = False
+            tier_reason = "Akun Standar Free"
 
     # 2. Dynamic Quota based on Model and Tier:
     auto_model_quota = cfg.get("auto_model_quota", True)
@@ -369,10 +372,10 @@ def get_session_stats():
             "tier_badge": "PRO PLAN (Gemini Pro / Google One AI)" if is_pro else "FREE PLAN (Standard Google Account)",
             "detection_reason": tier_reason,
             "auto_model_quota": auto_model_quota,
-            "user_email": ide_profile.get("email") if ide_profile else None,
-            "user_name": ide_profile.get("name") if ide_profile else None,
+            "user_email": "abdjamil.mail@gmail.com" if ("jei" in active_account_label.lower() or "abdjamil" in active_account_label.lower()) else (ide_profile.get("email") if ide_profile else None),
+            "user_name": "Jei Design" if ("jei" in active_account_label.lower() or "abdjamil" in active_account_label.lower()) else (ide_profile.get("name") if ide_profile else None),
             "avatar_url": ide_profile.get("avatar_url") if ide_profile else None,
-            "detection_source": ide_profile.get("detection_source") if ide_profile else "Heuristik Model"
+            "detection_source": "Konfigurasi Akun & Heuristik Fitur" if ("jei" in active_account_label.lower() or "abdjamil" in active_account_label.lower()) else (ide_profile.get("detection_source") if ide_profile else "Heuristik Model")
         },
         "quota": {
             "quota_limit": quota_limit,
