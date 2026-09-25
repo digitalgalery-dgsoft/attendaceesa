@@ -952,6 +952,40 @@
                     </tr>
                 </thead>
                 <tbody>
+                    @php
+                        $toLocalDiskPath = function($u) {
+                            if (!$u || !is_string($u)) return null;
+                            $path = parse_url($u, PHP_URL_PATH) ?: $u;
+                            $rel = ltrim(str_replace(['/storage/storage/', '/storage/', 'storage/'], '', $path), '/');
+                            $full = storage_path('app/public/' . $rel);
+                            if (file_exists($full)) return $full;
+                            $pub = public_path('storage/' . $rel);
+                            if (file_exists($pub)) return $pub;
+                            $base = basename($rel);
+                            $found = glob(storage_path("app/public/reports/*/{$base}"));
+                            if (!empty($found)) return $found[0];
+                            return null;
+                        };
+
+                        $isDuplicateImage = function($url1, $url2) use ($toLocalDiskPath) {
+                            if (!$url1 || !$url2) return false;
+                            if ($url1 === $url2) return true;
+                            $c1 = preg_replace('/\?.*$/', '', $url1);
+                            $c2 = preg_replace('/\?.*$/', '', $url2);
+                            if ($c1 === $c2) return true;
+                            $f1 = $toLocalDiskPath($url1);
+                            $f2 = $toLocalDiskPath($url2);
+                            if ($f1 && $f2) {
+                                if ($f1 === $f2) return true;
+                                $sz1 = @filesize($f1);
+                                $sz2 = @filesize($f2);
+                                if ($sz1 > 0 && $sz1 === $sz2) {
+                                    return md5_file($f1) === md5_file($f2);
+                                }
+                            }
+                            return false;
+                        };
+                    @endphp
                     @forelse($submissions as $sub)
                         @php
                             $subCart = [];
@@ -1031,33 +1065,6 @@
                                 }
                             }
 
-                            // Jika $subKegiatanPhoto kosong ATAU sama persis dengan $subBoothPhoto, utamakan foto dari cart item
-                            if ($cartSamplingPhoto && (!$subKegiatanPhoto || $subKegiatanPhoto === $subBoothPhoto)) {
-                                $subKegiatanPhoto = $cartSamplingPhoto;
-                            }
-
-                            if ((!$subKegiatanPhoto || $subKegiatanPhoto === $subBoothPhoto) && count($subPhotos) > 1) {
-                                foreach ($subPhotos as $sp) {
-                                    if ($sp['url'] !== $subBoothPhoto && $sp['url'] !== $subStockAkhirPhoto) {
-                                        $subKegiatanPhoto = $sp['url'];
-                                        break;
-                                    }
-                                }
-                            }
-                            if (!$subStockAkhirPhoto && count($subPhotos) > 2) {
-                                foreach ($subPhotos as $sp) {
-                                    if ($sp['url'] !== $subBoothPhoto && $sp['url'] !== $subKegiatanPhoto) {
-                                        $subStockAkhirPhoto = $sp['url'];
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // Hindari duplikasi jika foto kegiatan tetap identik dengan booth
-                            if ($subKegiatanPhoto === $subBoothPhoto && !$cartSamplingPhoto) {
-                                $subKegiatanPhoto = null;
-                            }
-
                             // Fallback jika foto tersimpan di disk
                             if (empty($subPhotos)) {
                                 $matches = glob(storage_path("app/public/reports/*/report_{$sub->id}_*.jpg"));
@@ -1076,7 +1083,7 @@
                                         ];
                                         if (!$subBoothPhoto) {
                                             $subBoothPhoto = $pUrl;
-                                        } elseif (!$subKegiatanPhoto && $pUrl !== $subBoothPhoto) {
+                                        } elseif (!$subKegiatanPhoto && !$isDuplicateImage($pUrl, $subBoothPhoto)) {
                                             $subKegiatanPhoto = $pUrl;
                                         }
                                     }
@@ -1085,6 +1092,56 @@
                             if (!$subBoothPhoto && !empty($subPhotos)) {
                                 $subBoothPhoto = $subPhotos[0]['url'];
                             }
+
+                            // Jika $subKegiatanPhoto kosong ATAU sama persis dengan $subBoothPhoto, utamakan foto dari cart item jika bukan duplikat
+                            if ($cartSamplingPhoto && (!$subKegiatanPhoto || $isDuplicateImage($subKegiatanPhoto, $subBoothPhoto))) {
+                                if (!$isDuplicateImage($cartSamplingPhoto, $subBoothPhoto)) {
+                                    $subKegiatanPhoto = $cartSamplingPhoto;
+                                }
+                            }
+
+                            if ((!$subKegiatanPhoto || $isDuplicateImage($subKegiatanPhoto, $subBoothPhoto)) && count($subPhotos) > 1) {
+                                foreach ($subPhotos as $sp) {
+                                    if (!$isDuplicateImage($sp['url'], $subBoothPhoto) && !$isDuplicateImage($sp['url'], $subStockAkhirPhoto)) {
+                                        $subKegiatanPhoto = $sp['url'];
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!$subStockAkhirPhoto && count($subPhotos) > 2) {
+                                foreach ($subPhotos as $sp) {
+                                    if (!$isDuplicateImage($sp['url'], $subBoothPhoto) && !$isDuplicateImage($sp['url'], $subKegiatanPhoto)) {
+                                        $subStockAkhirPhoto = $sp['url'];
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // Hindari duplikasi jika foto kegiatan identik/duplikat dengan booth
+                            if ($subKegiatanPhoto && $isDuplicateImage($subKegiatanPhoto, $subBoothPhoto)) {
+                                $subKegiatanPhoto = null;
+                            }
+
+                            // Hindari duplikasi jika foto stock akhir identik dengan booth/kegiatan
+                            if ($subStockAkhirPhoto && ($isDuplicateImage($subStockAkhirPhoto, $subBoothPhoto) || $isDuplicateImage($subStockAkhirPhoto, $subKegiatanPhoto))) {
+                                $subStockAkhirPhoto = null;
+                            }
+
+                            // Filter duplikasi pada $subPhotos
+                            $uniqueSubPhotos = [];
+                            foreach ($subPhotos as $sp) {
+                                $isDup = false;
+                                foreach ($uniqueSubPhotos as $usp) {
+                                    if ($isDuplicateImage($sp['url'], $usp['url'])) {
+                                        $isDup = true;
+                                        break;
+                                    }
+                                }
+                                if (!$isDup) {
+                                    $uniqueSubPhotos[] = $sp;
+                                }
+                            }
+                            $subPhotos = $uniqueSubPhotos;
 
                             // Normalisasi foto produk sampling
                             if (!empty($subCart)) {
@@ -1561,6 +1618,7 @@
         // Section Dokumentasi Foto Sampling Sejajar (Stand / Booth, Kegiatan Sampling, Foto Stock Akhir)
         const photoCards = [
             {
+                id: 'modalCardBooth',
                 title: 'Foto Stand / Booth Sampling',
                 badge: 'Setup Stand / Booth',
                 icon: 'fa-store',
@@ -1569,6 +1627,7 @@
                 emptyText: 'Foto stand / booth belum diunggah.'
             },
             {
+                id: 'modalCardKegiatan',
                 title: 'Foto Kegiatan Sampling',
                 badge: 'Kegiatan Sampling',
                 icon: 'fa-fire-burner',
@@ -1577,6 +1636,7 @@
                 emptyText: 'Foto kegiatan sampling belum diunggah.'
             },
             {
+                id: 'modalCardStockAkhir',
                 title: 'Foto Stock Akhir',
                 badge: 'Foto Stock Akhir',
                 icon: 'fa-boxes-stacked',
@@ -1600,7 +1660,7 @@
 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.9rem;">
                     ${photoCards.map(c => `
-                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <div id="${c.id}" style="display: flex; flex-direction: column; gap: 6px;">
                             <div style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; display: flex; align-items: center; gap: 6px;">
                                 <i class="fa-solid ${c.icon}" style="color: ${c.color};"></i>
                                 <span>${c.title}</span>
@@ -1664,6 +1724,72 @@
                 ${cartHtml}
             </div>
         `;
+
+        // Client-side verification: deteksi jika foto kegiatan identik secara visual / data dengan foto booth
+        if (resolvedBooth && resolvedKegiatan && resolvedBooth !== resolvedKegiatan) {
+            const imgA = new Image();
+            const imgB = new Image();
+            imgA.crossOrigin = 'anonymous';
+            imgB.crossOrigin = 'anonymous';
+            let loaded = 0;
+            const checkDuplicate = () => {
+                loaded++;
+                if (loaded === 2) {
+                    if (imgA.naturalWidth > 0 && imgA.naturalWidth === imgB.naturalWidth && imgA.naturalHeight === imgB.naturalHeight) {
+                        let isIdentical = false;
+                        try {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = 16;
+                            canvas.height = 16;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(imgA, 0, 0, 16, 16);
+                            const pA = ctx.getImageData(0, 0, 16, 16).data;
+                            ctx.clearRect(0, 0, 16, 16);
+                            ctx.drawImage(imgB, 0, 0, 16, 16);
+                            const pB = ctx.getImageData(0, 0, 16, 16).data;
+                            let diff = 0;
+                            for (let i = 0; i < pA.length; i += 4) {
+                                diff += Math.abs(pA[i] - pB[i]) + Math.abs(pA[i+1] - pB[i+1]) + Math.abs(pA[i+2] - pB[i+2]);
+                            }
+                            if (diff < 150) isIdentical = true;
+                        } catch (e) {
+                            try {
+                                Promise.all([
+                                    fetch(resolvedBooth, { method: 'HEAD' }).then(r => r.headers.get('content-length')),
+                                    fetch(resolvedKegiatan, { method: 'HEAD' }).then(r => r.headers.get('content-length'))
+                                ]).then(([lenA, lenB]) => {
+                                    if (lenA && lenB && lenA === lenB && lenA !== '0') {
+                                        setKegiatanEmpty();
+                                    }
+                                }).catch(() => {});
+                            } catch(err) {}
+                        }
+                        if (isIdentical) {
+                            setKegiatanEmpty();
+                        }
+                    }
+                }
+            };
+            const setKegiatanEmpty = () => {
+                const cardEl = document.getElementById('modalCardKegiatan');
+                if (cardEl) {
+                    cardEl.innerHTML = `
+                        <div style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-fire-burner" style="color: #d97706;"></i>
+                            <span>Foto Kegiatan Sampling</span>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 14px; height: 185px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">
+                            <i class="fa-solid fa-fire-burner" style="font-size: 1.6rem; color: #cbd5e1;"></i>
+                            <span>Foto kegiatan sampling belum diunggah.</span>
+                        </div>
+                    `;
+                }
+            };
+            imgA.onload = checkDuplicate;
+            imgB.onload = checkDuplicate;
+            imgA.src = resolvedBooth;
+            imgB.src = resolvedKegiatan;
+        }
 
         modal.classList.add('active');
     }

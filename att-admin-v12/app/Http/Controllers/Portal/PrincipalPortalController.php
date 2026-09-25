@@ -12955,6 +12955,39 @@ class PrincipalPortalController extends Controller
             return asset('storage/' . ltrim($clean, '/'));
         };
 
+        $toLocalDiskPath = function($u) {
+            if (!$u || !is_string($u)) return null;
+            $path = parse_url($u, PHP_URL_PATH) ?: $u;
+            $rel = ltrim(str_replace(['/storage/storage/', '/storage/', 'storage/'], '', $path), '/');
+            $full = storage_path('app/public/' . $rel);
+            if (file_exists($full)) return $full;
+            $pub = public_path('storage/' . $rel);
+            if (file_exists($pub)) return $pub;
+            $base = basename($rel);
+            $found = glob(storage_path("app/public/reports/*/{$base}"));
+            if (!empty($found)) return $found[0];
+            return null;
+        };
+
+        $isDuplicateImage = function($url1, $url2) use ($toLocalDiskPath) {
+            if (!$url1 || !$url2) return false;
+            if ($url1 === $url2) return true;
+            $c1 = preg_replace('/\?.*$/', '', $url1);
+            $c2 = preg_replace('/\?.*$/', '', $url2);
+            if ($c1 === $c2) return true;
+            $f1 = $toLocalDiskPath($url1);
+            $f2 = $toLocalDiskPath($url2);
+            if ($f1 && $f2) {
+                if ($f1 === $f2) return true;
+                $sz1 = @filesize($f1);
+                $sz2 = @filesize($f2);
+                if ($sz1 > 0 && $sz1 === $sz2) {
+                    return md5_file($f1) === md5_file($f2);
+                }
+            }
+            return false;
+        };
+
         $todayStr = Carbon::now()->format('Y-m-d');
 
         foreach ($allSubmissions as $sub) {
@@ -13030,11 +13063,16 @@ class PrincipalPortalController extends Controller
                         $candDisk = asset('storage/' . ltrim($rel, '/'));
                         if (!$subBoothPhoto) {
                             $subBoothPhoto = $candDisk;
-                        } elseif (!$subKegiatanPhoto && $candDisk !== $subBoothPhoto) {
+                        } elseif (!$subKegiatanPhoto && !$isDuplicateImage($candDisk, $subBoothPhoto)) {
                             $subKegiatanPhoto = $candDisk;
                         }
                     }
                 }
+            }
+
+            // Hindari duplikasi jika foto kegiatan sama persis dengan foto booth
+            if ($subBoothPhoto && $subKegiatanPhoto && $isDuplicateImage($subKegiatanPhoto, $subBoothPhoto)) {
+                $subKegiatanPhoto = null;
             }
 
             if (!isset($mitraAgg[$empName])) {
