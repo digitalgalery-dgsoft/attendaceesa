@@ -105,7 +105,7 @@ class ListEmployees extends ListRecords
                     } catch (\Throwable $e) {
                         Notification::make()
                             ->title('Gagal Melakukan Sync by NIK')
-                            ->body($e->getMessage())
+                            ->body(\App\Services\OdooSyncService::formatOdooError($e))
                             ->danger()
                             ->send();
                     }

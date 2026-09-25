@@ -231,7 +231,7 @@ class EmployeesTable
                         } catch (\Throwable $e) {
                             \Filament\Notifications\Notification::make()
                                 ->title('Gagal Sinkronisasi Odoo')
-                                ->body($e->getMessage())
+                                ->body(\App\Services\OdooSyncService::formatOdooError($e))
                                 ->danger()
                                 ->send();
                         }

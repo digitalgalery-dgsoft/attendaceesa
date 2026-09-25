@@ -93,7 +93,7 @@ class OdooSync extends Page
                     } catch (\Throwable $e) {
                         Notification::make()
                             ->title('Gagal Sync by NIK')
-                            ->body($e->getMessage())
+                            ->body(\App\Services\OdooSyncService::formatOdooError($e))
                             ->danger()
                             ->send();
                     }

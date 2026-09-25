@@ -1006,47 +1006,60 @@ class OdooSyncService
         $log('info', "🔍 Menghubungkan ke Odoo untuk mencari data NIK '{$cleanNik}' di [{$companyName}]...");
         $uid = $this->authenticate();
 
-        $domain = [
-            '|',
-            ['registration_number', '=', $cleanNik],
-            ['identification_id', '=', $cleanNik],
+        $targetFields = [
+            'id', 'name', 'registration_number', 'identification_id',
+            'mobile_phone', 'work_email', 'private_email', 'gender', 'birthday',
+            'department_id', 'job_id', 'principle_id', 'first_contract_date',
+            'area_id', 'company_id', 'active', 'departure_date',
+            'write_date', 'create_date',
         ];
 
-        if (is_numeric($cleanNik)) {
-            $domain = [
-                '|', '|',
-                ['registration_number', '=', $cleanNik],
-                ['identification_id', '=', $cleanNik],
-                ['id', '=', (int)$cleanNik],
-            ];
-        } elseif (preg_match('/^OD-(\d+)$/i', $cleanNik, $m)) {
-            $domain = [
-                '|', '|',
-                ['registration_number', '=', $cleanNik],
-                ['identification_id', '=', $cleanNik],
-                ['id', '=', (int)$m[1]],
-            ];
-        }
+        $records = [];
+
+        // Deteksi format ID Odoo eksplisit (contoh: OD-123)
+        $isExplicitOdooId = (bool) preg_match('/^OD-(\d+)$/i', $cleanNik, $m);
+        $explicitId = $isExplicitOdooId ? (int)$m[1] : null;
+
+        // Kolom id pada PostgreSQL hr_employee bertipe 32-bit signed integer (maksimal 2.147.483.647).
+        // NIK KTP Indonesia (16 digit) atau NIK panjang (>9 digit) BUKAN id internal Odoo dan
+        // TIDAK BOLEH dikueri dengan ['id', '=', ...] karena akan memicu PostgreSQL "integer out of range".
+        $isCandidateOdooId = is_numeric($cleanNik) 
+            && strlen($cleanNik) <= 9 
+            && (float)$cleanNik > 0 
+            && (float)$cleanNik <= 2147483647;
 
         $log('info', "📡 Menjalankan query pencarian Odoo hr.employee...");
 
-        $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
-            $this->db, $uid, $this->apiKey,
-            'hr.employee', 'search_read',
-            [$domain],
-            [
-                'fields' => [
-                    'id', 'name', 'registration_number', 'identification_id',
-                    'mobile_phone', 'work_email', 'private_email', 'gender', 'birthday',
-                    'department_id', 'job_id', 'principle_id', 'first_contract_date',
-                    'area_id', 'company_id', 'active', 'departure_date',
-                    'write_date', 'create_date',
-                ],
-                'context' => ['active_test' => false],
-                'order'   => 'write_date desc, id desc',
-                'limit'   => 5,
-            ],
-        ]);
+        // 1. Prioritas 1: Jika format eksplisit OD-xxx, cari langsung berdasarkan ID Odoo
+        if ($isExplicitOdooId && $explicitId && $explicitId <= 2147483647) {
+            $records = $this->queryOdooEmployeeSafe($uid, [['id', '=', $explicitId]], $targetFields);
+        }
+
+        // 2. Prioritas 2: Cari berdasarkan field string NIK (registration_number atau identification_id)
+        if (empty($records)) {
+            $stringDomain = [
+                '|',
+                ['registration_number', '=', $cleanNik],
+                ['identification_id', '=', $cleanNik],
+            ];
+            $records = $this->queryOdooEmployeeSafe($uid, $stringDomain, $targetFields);
+        }
+
+        // 2b. Jika belum ditemukan dan input mengandung tanda baca/spasi (contoh: 3515-0821-0398-0003), cari dengan versi angka saja
+        $digitsOnly = preg_replace('/\D/', '', $cleanNik);
+        if (empty($records) && $digitsOnly !== $cleanNik && strlen($digitsOnly) >= 10) {
+            $digitsDomain = [
+                '|',
+                ['registration_number', '=', $digitsOnly],
+                ['identification_id', '=', $digitsOnly],
+            ];
+            $records = $this->queryOdooEmployeeSafe($uid, $digitsDomain, $targetFields);
+        }
+
+        // 3. Prioritas 3 (Fallback): Jika tidak ditemukan sebagai NIK dan input adalah bilangan bulat 32-bit, cari sebagai Odoo ID
+        if (empty($records) && $isCandidateOdooId) {
+            $records = $this->queryOdooEmployeeSafe($uid, [['id', '=', (int)$cleanNik]], $targetFields);
+        }
 
         if (empty($records)) {
             $log('warning', "⚠️ Data karyawan/kandidat dengan NIK '{$cleanNik}' tidak ditemukan di Odoo (DB: {$this->db}).");
@@ -1090,6 +1103,73 @@ class OdooSyncService
     }
 
     /**
+     * Helper to safely query Odoo hr.employee with automatic fallback if optional fields are missing.
+     */
+    private function queryOdooEmployeeSafe(int $uid, array $domain, array $fields, int $limit = 5): array
+    {
+        try {
+            $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
+                $this->db, $uid, $this->apiKey,
+                'hr.employee', 'search_read',
+                [$domain],
+                [
+                    'fields'  => $fields,
+                    'context' => ['active_test' => false],
+                    'order'   => 'write_date desc, id desc',
+                    'limit'   => $limit,
+                ],
+            ]);
+            return is_array($records) ? $records : [];
+        } catch (\Throwable $e) {
+            $msg = $e->getMessage();
+            // Jika field registration_number tidak ada di instance Odoo tertentu, fallback ke identification_id saja
+            if (str_contains(strtolower($msg), 'registration_number')) {
+                $filteredFields = array_values(array_filter($fields, fn($f) => $f !== 'registration_number'));
+                $fallbackDomain = [];
+                foreach ($domain as $term) {
+                    if (is_array($term) && ($term[0] ?? '') !== 'registration_number') {
+                        $fallbackDomain[] = $term;
+                    }
+                }
+                if (!empty($fallbackDomain)) {
+                    $records = $this->xmlRpcCall('/xmlrpc/2/object', 'execute_kw', [
+                        $this->db, $uid, $this->apiKey,
+                        'hr.employee', 'search_read',
+                        [$fallbackDomain],
+                        [
+                            'fields'  => $filteredFields,
+                            'context' => ['active_test' => false],
+                            'order'   => 'write_date desc, id desc',
+                            'limit'   => $limit,
+                        ],
+                    ]);
+                    return is_array($records) ? $records : [];
+                }
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Format Odoo or XML-RPC exception into a human-readable message without raw Python stack trace.
+     */
+    public static function formatOdooError(\Throwable $e): string
+    {
+        $msg = $e->getMessage();
+        if (str_contains($msg, 'Traceback (most recent call last):')) {
+            $lines = array_filter(array_map('trim', explode("\n", $msg)));
+            $lastLine = end($lines);
+            if ($lastLine) {
+                if (str_contains($lastLine, 'integer out of range')) {
+                    return 'Nilai ID/NIK melebihi batas integer PostgreSQL Odoo.';
+                }
+                return "Odoo Fault: {$lastLine}";
+            }
+        }
+        return $msg;
+    }
+
+    /**
      * Static helper to sync an employee by NIK.
      * If $companyId is not specified, searches across all configured companies.
      *
@@ -1130,7 +1210,15 @@ class OdooSyncService
                     'message' => "Konfigurasi Odoo untuk perusahaan [{$company->name}] belum lengkap.",
                 ];
             }
-            return $service->syncEmployeeByNik($cleanNik, $company->id, $progressCallback);
+            try {
+                return $service->syncEmployeeByNik($cleanNik, $company->id, $progressCallback);
+            } catch (\Throwable $e) {
+                $friendly = self::formatOdooError($e);
+                return [
+                    'success' => false,
+                    'message' => "Gagal mencari NIK '{$cleanNik}' di [{$company->name}]: {$friendly}",
+                ];
+            }
         }
 
         // 2. If companyId is NOT specified:
@@ -1163,6 +1251,7 @@ class OdooSyncService
         }
 
         $searchedCompanies = [];
+        $companyErrors = [];
         foreach ($companies as $comp) {
             $searchedCompanies[] = $comp->name;
             $service = self::fromCompany($comp);
@@ -1174,14 +1263,21 @@ class OdooSyncService
                     return $res;
                 }
             } catch (\Throwable $e) {
-                $log('warning', "⚠️ Gagal memeriksa di {$comp->name}: " . $e->getMessage());
+                $friendly = self::formatOdooError($e);
+                $companyErrors[] = "{$comp->name}: {$friendly}";
+                $log('warning', "⚠️ Gagal memeriksa di {$comp->name}: {$friendly}");
             }
+        }
+
+        $errMsg = "Data karyawan/kandidat dengan NIK '{$cleanNik}' tidak ditemukan di Odoo pada entitas yang terhubung (" . implode(', ', $searchedCompanies) . ").";
+        if (!empty($companyErrors) && count($companyErrors) === count($searchedCompanies)) {
+            $errMsg .= " (Catatan error server: " . implode('; ', $companyErrors) . ")";
         }
 
         return [
             'success'   => false,
             'not_found' => true,
-            'message'   => "Data karyawan/kandidat dengan NIK '{$cleanNik}' tidak ditemukan di Odoo pada entitas yang terhubung (" . implode(', ', $searchedCompanies) . ").",
+            'message'   => $errMsg,
         ];
     }
 
