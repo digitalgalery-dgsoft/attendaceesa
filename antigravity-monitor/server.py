@@ -317,8 +317,35 @@ def get_session_stats():
     if not active_account_label:
         if ide_profile and ide_profile.get("email"):
             active_account_label = f"{ide_profile.get('name', 'User')} ({ide_profile.get('email')})"
-        else:
-            active_account_label = "Jei Design (Google Auth)"
+    # Dynamic user name and email extraction for any added or saved account
+    matched_saved = None
+    for sa in cfg.get("saved_accounts", []):
+        if sa.get("name") == active_account_label:
+            matched_saved = sa
+            break
+
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', active_account_label)
+    if matched_saved and matched_saved.get("email"):
+        dyn_email = matched_saved["email"]
+    elif email_match:
+        dyn_email = email_match.group(0)
+    elif "jei" in active_account_label.lower() or "abdjamil" in active_account_label.lower():
+        dyn_email = "abdjamil.mail@gmail.com"
+    elif ide_profile and ide_profile.get("email"):
+        dyn_email = ide_profile["email"]
+    else:
+        dyn_email = "user@google.com"
+
+    if matched_saved and matched_saved.get("name"):
+        dyn_name = matched_saved["name"].split('(')[0].strip()
+    elif '(' in active_account_label:
+        dyn_name = active_account_label.split('(')[0].strip()
+    elif "jei" in active_account_label.lower():
+        dyn_name = "Jei Design"
+    elif ide_profile and ide_profile.get("name"):
+        dyn_name = ide_profile["name"]
+    else:
+        dyn_name = active_account_label or "Google AI User"
 
     # Today stats
     today_str = date.today().strftime('%Y-%m-%d')
@@ -372,10 +399,10 @@ def get_session_stats():
             "tier_badge": "PRO PLAN (Gemini Pro / Google One AI)" if is_pro else "FREE PLAN (Standard Google Account)",
             "detection_reason": tier_reason,
             "auto_model_quota": auto_model_quota,
-            "user_email": "abdjamil.mail@gmail.com" if ("jei" in active_account_label.lower() or "abdjamil" in active_account_label.lower()) else (ide_profile.get("email") if ide_profile else None),
-            "user_name": "Jei Design" if ("jei" in active_account_label.lower() or "abdjamil" in active_account_label.lower()) else (ide_profile.get("name") if ide_profile else None),
-            "avatar_url": ide_profile.get("avatar_url") if ide_profile else None,
-            "detection_source": "Konfigurasi Akun & Heuristik Fitur" if ("jei" in active_account_label.lower() or "abdjamil" in active_account_label.lower()) else (ide_profile.get("detection_source") if ide_profile else "Heuristik Model")
+            "user_email": dyn_email,
+            "user_name": dyn_name,
+            "avatar_url": ide_profile.get("avatar_url") if (ide_profile and "rayzen" in active_account_label.lower()) else None,
+            "detection_source": "Konfigurasi Akun & Heuristik Fitur" if matched_saved else (ide_profile.get("detection_source") if ide_profile else "Heuristik Model")
         },
         "quota": {
             "quota_limit": quota_limit,
@@ -503,17 +530,23 @@ class MonitorHandler(BaseHTTPRequestHandler):
             if 'saved_accounts' not in cfg:
                 cfg['saved_accounts'] = []
             
+            email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', new_account)
             found = False
             for sa in cfg['saved_accounts']:
                 if sa.get('name') == new_account:
                     sa['tier'] = new_tier
+                    if email_match:
+                        sa['email'] = email_match.group(0)
                     found = True
                     break
             if not found:
-                cfg['saved_accounts'].append({
+                item = {
                     "name": new_account,
                     "tier": new_tier
-                })
+                }
+                if email_match:
+                    item['email'] = email_match.group(0)
+                cfg['saved_accounts'].append(item)
 
             # Update new active account & baseline
             cfg['active_account_name'] = new_account

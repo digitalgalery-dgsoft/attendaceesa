@@ -830,8 +830,9 @@
                 <div class="form-group">
                     <label class="form-label">Status Akun (Tier)</label>
                     <select id="newAccountTierSelect" class="form-input">
+                        <option value="PRO" selected>🌟 Gemini Pro / Google One AI Premium (Kuota 10 Juta - Disarankan)</option>
                         <option value="FREE">Standard / Akun Free (Kuota 1 Juta)</option>
-                        <option value="PRO">🌟 Gemini Pro / Google One AI Premium (Kuota 10 Juta)</option>
+                        <option value="AUTO">✨ Auto (Deteksi Berdasarkan Model & Token)</option>
                     </select>
                 </div>
 
@@ -1131,10 +1132,20 @@
                 if (avBox) {
                     if (data.tier_info.avatar_url && (q.active_account_name || '').toLowerCase().includes('rayzen')) {
                         avBox.innerHTML = `<img src="${data.tier_info.avatar_url}" style="width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #818cf8; vertical-align: middle;" referrerpolicy="no-referrer">`;
-                    } else if ((q.active_account_name || '').toLowerCase().includes('jei') || (q.active_account_name || '').toLowerCase().includes('abdjamil')) {
-                        avBox.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; width: 18px; height: 18px; border-radius: 50%; background: #f59e0b; color: #1e293b; font-weight: 900; font-size: 9px; vertical-align: middle;">JD</span>`;
                     } else {
-                        avBox.innerHTML = `<i class="fa-solid fa-user-circle" style="color: #94a3b8;"></i>`;
+                        // Generate dynamic initials for any active account
+                        const accName = (data.tier_info.user_name || q.active_account_name || 'User').replace(/\(.*?\)/g, '').trim();
+                        const parts = accName.split(/\s+/).filter(p => p.length > 0);
+                        let initials = 'U';
+                        if (parts.length >= 2) {
+                            initials = (parts[0][0] + parts[1][0]).toUpperCase();
+                        } else if (parts.length === 1 && parts[0].length > 0) {
+                            initials = parts[0].substring(0, 2).toUpperCase();
+                        }
+                        const isPro = data.tier_info.is_pro;
+                        const bgCol = isPro ? '#f59e0b' : '#64748b';
+                        const textCol = isPro ? '#1e293b' : '#ffffff';
+                        avBox.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; width: 18px; height: 18px; border-radius: 50%; background: ${bgCol}; color: ${textCol}; font-weight: 900; font-size: 9px; vertical-align: middle;">${initials}</span>`;
                     }
                 }
             }
