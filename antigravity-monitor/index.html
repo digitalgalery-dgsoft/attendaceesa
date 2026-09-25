@@ -600,6 +600,11 @@
                 <span id="refreshTimer">Auto 3s</span>
             </button>
 
+            <button type="button" class="btn-header" onclick="openNetworkModal()" title="Akses dari HP / Tablet / Device Lain">
+                <i class="fa-solid fa-mobile-screen-button"></i>
+                <span id="remoteAccessBtnLabel">Akses di HP / Device Lain</span>
+            </button>
+
             <button type="button" class="btn-header btn-primary-action" onclick="openSwitchModal()">
                 <i class="fa-solid fa-users-gear"></i>
                 <span id="activeAccountBtnLabel">Switch Akun</span>
@@ -875,6 +880,50 @@
         </div>
     </div>
 
+    <!-- Modal 3: Akses dari Device Lain (HP / Laptop Lain) -->
+    <div class="modal-overlay" id="networkModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i class="fa-solid fa-network-wired" style="color: #38bdf8;"></i>
+                    Akses Monitor di HP & Device Lain
+                </div>
+                <button type="button" style="background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;" onclick="closeModal('networkModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="guide-box">
+                    <div style="font-weight: 800; color: #ffffff; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
+                        <i class="fa-solid fa-wifi" style="color: #38bdf8;"></i> Skenario 1: Buka dari HP / Tablet (Satu WiFi)
+                    </div>
+                    <div style="color: #94a3b8; font-size: 0.83rem; margin-bottom: 0.75rem;">
+                        Pastikan HP / Tablet Anda terhubung ke <strong>jaringan WiFi yang sama</strong> dengan komputer ini. Lalu buka alamat berikut di browser Chrome/Safari HP Anda:
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; background: #0b0f17; padding: 0.6rem 0.8rem; border-radius: 8px; border: 1px solid #334155;">
+                        <input type="text" id="netLanUrlInput" readonly class="form-input" style="padding: 0.4rem; font-family: 'JetBrains Mono'; font-size: 0.95rem; color: #38bdf8; background: transparent; border: none;" value="http://192.168.2.188:8765">
+                        <button type="button" class="btn-header" onclick="copyLanUrl()"><i class="fa-solid fa-copy"></i> Salin</button>
+                    </div>
+                </div>
+
+                <div class="guide-box" style="margin-bottom: 0;">
+                    <div style="font-weight: 800; color: #ffffff; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;">
+                        <i class="fa-solid fa-laptop-code" style="color: #10b981;"></i> Skenario 2: Dijalankan di Laptop / Komputer Lain
+                    </div>
+                    <div style="color: #94a3b8; font-size: 0.83rem; line-height: 1.6;">
+                        Jika Anda ingin menjalankan tool ini di PC/Laptop kerja yang berbeda:
+                        <ol style="margin-left: 1.2rem; margin-top: 0.4rem;">
+                            <li>Salin folder <code>antigravity-monitor</code> ke PC/Laptop baru.</li>
+                            <li>Pastikan Antigravity IDE sudah pernah dibuka minimal sekali di PC tersebut (agar folder profil <code>.gemini/antigravity-ide/brain</code> otomatis terbentuk).</li>
+                            <li>Klik ganda <strong>run_monitor.bat</strong> di PC tersebut. Skrip otomatis mendeteksi profil pengguna Windows secara mandiri.</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-header" onclick="closeModal('networkModal')">Tutup</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script>
         let doughnutChart = null;
@@ -1011,6 +1060,11 @@
             document.getElementById('valConvId').innerText = a.conversation_id ? (a.conversation_id.substring(0, 18) + '...') : '-';
             document.getElementById('valLastUpdatedTime').innerText = 'Update: ' + data.timestamp;
 
+            if (data.network && data.network.access_url) {
+                const lanInput = document.getElementById('netLanUrlInput');
+                if (lanInput) lanInput.value = data.network.access_url;
+            }
+
             // Progress bar & colors
             const pBar = document.getElementById('quotaProgressBar');
             pBar.style.width = Math.max(2, q.remaining_percent) + '%';
@@ -1136,6 +1190,17 @@
                 document.getElementById('cfgDangerPercentInput').value = cfg.danger_percent || 10;
                 document.getElementById('configModal').classList.add('show');
             });
+        }
+
+        function openNetworkModal() {
+            document.getElementById('networkModal').classList.add('show');
+        }
+
+        function copyLanUrl() {
+            const input = document.getElementById('netLanUrlInput');
+            input.select();
+            navigator.clipboard.writeText(input.value);
+            alert("URL berhasil disalin: " + input.value);
         }
 
         function closeModal(id) {

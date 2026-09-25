@@ -10,7 +10,23 @@ from urllib.parse import urlparse, parse_qs
 PORT = 8765
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, 'config.json')
-BRAIN_DIR = r'C:\Users\jamil\.gemini\antigravity-ide\brain'
+# Dynamic brain directory based on current logged in OS user
+BRAIN_DIR = os.environ.get('ANTIGRAVITY_BRAIN_DIR') or os.path.expanduser(os.path.join('~', '.gemini', 'antigravity-ide', 'brain'))
+
+def get_local_ip():
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        try:
+            import socket
+            return socket.gethostbyname(socket.gethostname())
+        except Exception:
+            return '127.0.0.1'
 
 def load_config():
     default_config = {
@@ -176,7 +192,12 @@ def get_session_stats():
             "total_sessions_count": len(sorted_transcripts),
             "recent_sessions": recent_sessions_summary
         },
-        "accounts_history": cfg.get("accounts_history", [])
+        "accounts_history": cfg.get("accounts_history", []),
+        "network": {
+            "local_ip": get_local_ip(),
+            "port": PORT,
+            "access_url": f"http://{get_local_ip()}:{PORT}"
+        }
     }
 
 class MonitorHandler(BaseHTTPRequestHandler):
@@ -296,12 +317,16 @@ class MonitorHandler(BaseHTTPRequestHandler):
         return
 
 def run():
-    server_address = ('127.0.0.1', PORT)
+    server_address = ('0.0.0.0', PORT)
     httpd = ThreadingHTTPServer(server_address, MonitorHandler)
+    local_ip = get_local_ip()
     print(f"============================================================")
     print(f"  ANTIGRAVITY AI TOKEN & QUOTA MONITOR (REALTIME)           ")
     print(f"============================================================")
-    print(f"Server berjalan di: http://127.0.0.1:{PORT}")
+    print(f"Server Lokal       : http://localhost:{PORT} atau http://127.0.0.1:{PORT}")
+    print(f"Akses Device Lain  : http://{local_ip}:{PORT} (HP/Tablet/Laptop satu WiFi)")
+    print(f"Brain Directory    : {BRAIN_DIR}")
+    print(f"============================================================")
     print(f"Dashboard siap dibuka di browser...")
     print(f"Tekan Ctrl+C untuk menghentikan server.")
     try:
