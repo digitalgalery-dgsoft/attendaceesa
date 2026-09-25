@@ -652,8 +652,9 @@
             <div class="preset-badge-group">
                 <span class="preset-badge active" onclick="setPresetQuota(1000000, this)">1 Juta</span>
                 <span class="preset-badge" onclick="setPresetQuota(2000000, this)">2 Juta</span>
-                <span class="preset-badge" onclick="setPresetQuota(4000000, this)">4 Juta</span>
                 <span class="preset-badge" onclick="setPresetQuota(5000000, this)">5 Juta</span>
+                <span class="preset-badge" onclick="setPresetQuota(10000000, this)" style="border-color: #818cf8; color: #a5b4fc;">10 Juta (Pro)</span>
+                <span class="preset-badge" onclick="setPresetQuota(20000000, this)" style="border-color: #818cf8; color: #a5b4fc;">20 Juta (Pro)</span>
             </div>
         </div>
 
@@ -1045,6 +1046,15 @@
             document.getElementById('valQuotaLimit').innerText = formatNumber(q.quota_limit);
             document.getElementById('labelAccountName').innerText = q.active_account_name || 'Akun Utama';
             document.getElementById('activeAccountBtnLabel').innerText = (q.active_account_name || 'Akun Utama') + ' (Ganti)';
+
+            // Sync preset badges active state
+            document.querySelectorAll('.preset-badge').forEach(b => {
+                b.classList.remove('active');
+                const onclickStr = b.getAttribute('onclick') || '';
+                if (onclickStr.includes(String(q.quota_limit))) {
+                    b.classList.add('active');
+                }
+            });
 
             document.getElementById('valTokensUsed').innerText = formatNumber(q.account_used_tokens);
             document.getElementById('valUsedPercentText').innerText = q.used_percent + '% terpakai';

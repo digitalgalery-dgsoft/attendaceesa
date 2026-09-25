@@ -30,10 +30,10 @@ def get_local_ip():
 
 def load_config():
     default_config = {
-        "quota_limit": 1000000,
+        "quota_limit": 10000000,
         "warning_percent": 20,
         "danger_percent": 10,
-        "active_account_name": "Akun Utama",
+        "active_account_name": "Akun Gemini Pro",
         "baseline_tokens": 0,
         "accounts_history": []
     }
