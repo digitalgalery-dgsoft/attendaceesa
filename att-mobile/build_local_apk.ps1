@@ -53,8 +53,32 @@ if (Test-Path $sourceApk) {
     Write-Host "APK created successfully:"
     Write-Host "1) $PWD\$destApk"
     Write-Host "2) $PWD\app-release.apk"
-    Write-Host "Note: File is kept locally and NOT uploaded to server as requested."
 } else {
     Write-Host "Failed to find built APK at $sourceApk"
     exit 1
+}
+
+# --- BUILD AAB (Android App Bundle) ---
+$sourceAab = "build\app\outputs\bundle\release\app-release.aab"
+if (Test-Path $sourceAab) {
+    Remove-Item -Path $sourceAab -Force
+}
+
+Write-Host "=== BUILDING AAB (APP BUNDLE LOCAL ONLY) ==="
+flutter build appbundle --release
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Flutter build AAB failed with exit code $LASTEXITCODE"
+    exit $LASTEXITCODE
+}
+
+$destAab = "app-release-$version.aab"
+if (Test-Path $sourceAab) {
+    Copy-Item -Path $sourceAab -Destination $destAab -Force
+    Copy-Item -Path $sourceAab -Destination "app-release.aab" -Force
+    Write-Host "AAB created successfully:"
+    Write-Host "1) $PWD\$destAab"
+    Write-Host "2) $PWD\app-release.aab"
+    Write-Host "Note: Files are kept locally and NOT uploaded to server as requested."
+} else {
+    Write-Host "Warning: AAB build output not found."
 }

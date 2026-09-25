@@ -1013,7 +1013,30 @@
                             if (!$subBoothPhoto && !empty($subPhotos)) {
                                 $subBoothPhoto = $subPhotos[0]['url'];
                             }
-                            if (!$subKegiatanPhoto && count($subPhotos) > 1) {
+
+                            // Ekstrak foto sampling varian dari subCart jika ada
+                            $cartSamplingPhoto = null;
+                            if (!empty($subCart)) {
+                                foreach ($subCart as $cItm) {
+                                    $rawSam = $cItm['photo_sampling_url'] ?? ($cItm['foto_sampling'] ?? ($cItm['sampling_photo_url'] ?? null));
+                                    if ($rawSam && is_string($rawSam)) {
+                                        $cleanS = trim($rawSam);
+                                        if (!str_starts_with($cleanS, '/data/user/') && !str_starts_with($cleanS, 'data/user/')) {
+                                            $cartSamplingPhoto = (str_starts_with($cleanS, 'http://') || str_starts_with($cleanS, 'https://'))
+                                                ? str_replace(['/storage/storage/', 'esa-solution.id'], ['/storage/', 'esa-solutions.id'], $cleanS)
+                                                : asset('storage/' . ltrim(str_replace(['/storage/', 'storage/'], '', $cleanS), '/'));
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Jika $subKegiatanPhoto kosong ATAU sama persis dengan $subBoothPhoto, utamakan foto dari cart item
+                            if ($cartSamplingPhoto && (!$subKegiatanPhoto || $subKegiatanPhoto === $subBoothPhoto)) {
+                                $subKegiatanPhoto = $cartSamplingPhoto;
+                            }
+
+                            if ((!$subKegiatanPhoto || $subKegiatanPhoto === $subBoothPhoto) && count($subPhotos) > 1) {
                                 foreach ($subPhotos as $sp) {
                                     if ($sp['url'] !== $subBoothPhoto && $sp['url'] !== $subStockAkhirPhoto) {
                                         $subKegiatanPhoto = $sp['url'];
@@ -1030,20 +1053,9 @@
                                 }
                             }
 
-                            // Fallback foto kegiatan dari cart item (jika data lama menyimpan foto di item)
-                            if (!$subKegiatanPhoto && !empty($subCart)) {
-                                foreach ($subCart as $cItm) {
-                                    $rawSam = $cItm['photo_sampling_url'] ?? ($cItm['foto_sampling'] ?? ($cItm['sampling_photo_url'] ?? null));
-                                    if ($rawSam && is_string($rawSam)) {
-                                        $cleanS = trim($rawSam);
-                                        if (!str_starts_with($cleanS, '/data/user/') && !str_starts_with($cleanS, 'data/user/')) {
-                                            $subKegiatanPhoto = (str_starts_with($cleanS, 'http://') || str_starts_with($cleanS, 'https://'))
-                                                ? str_replace(['/storage/storage/', 'esa-solution.id'], ['/storage/', 'esa-solutions.id'], $cleanS)
-                                                : asset('storage/' . ltrim(str_replace(['/storage/', 'storage/'], '', $cleanS), '/'));
-                                            break;
-                                        }
-                                    }
-                                }
+                            // Hindari duplikasi jika foto kegiatan tetap identik dengan booth
+                            if ($subKegiatanPhoto === $subBoothPhoto && !$cartSamplingPhoto) {
+                                $subKegiatanPhoto = null;
                             }
 
                             // Fallback jika foto tersimpan di disk
@@ -1465,28 +1477,44 @@
             if (stockObj) stockAkhirPhoto = stockObj.url;
         }
 
-        // Fallback kegiatanPhoto dari cart items jika submisi lama menyimpan foto di item produk
-        if (!kegiatanPhoto && cart && cart.length > 0) {
+        // Ekstrak foto kegiatan sampling dari cart items jika submisi lama menyimpan foto di item produk
+        let cartSamplingPhoto = null;
+        if (cart && cart.length > 0) {
             for (const it of cart) {
                 const rawPhoto = it.photo_sampling_url || it.foto_sampling || it.sampling_photo_url || null;
-                if (rawPhoto) {
-                    kegiatanPhoto = rawPhoto;
-                    break;
+                if (rawPhoto && typeof rawPhoto === 'string') {
+                    const resolved = resolveUrl(rawPhoto);
+                    if (resolved && resolved !== resolveUrl(boothPhoto)) {
+                        cartSamplingPhoto = rawPhoto;
+                        break;
+                    } else if (resolved && !cartSamplingPhoto) {
+                        cartSamplingPhoto = rawPhoto;
+                    }
                 }
             }
+        }
+
+        // Jika foto kegiatan kosong ATAU sama persis dengan foto booth, utamakan foto dari cart item
+        if (cartSamplingPhoto && (!kegiatanPhoto || resolveUrl(kegiatanPhoto) === resolveUrl(boothPhoto))) {
+            kegiatanPhoto = cartSamplingPhoto;
         }
 
         // Fallback foto yang belum terpetakan
         if (!boothPhoto && photos.length > 0) {
             boothPhoto = photos[0].url;
         }
-        if (!kegiatanPhoto && photos.length > 1) {
+        if ((!kegiatanPhoto || resolveUrl(kegiatanPhoto) === resolveUrl(boothPhoto)) && photos.length > 1) {
             const other = photos.find(p => resolveUrl(p.url) !== resolveUrl(boothPhoto) && resolveUrl(p.url) !== resolveUrl(stockAkhirPhoto));
             if (other) kegiatanPhoto = other.url;
         }
-        if (!stockAkhirPhoto && photos.length > 2) {
+        if ((!stockAkhirPhoto || resolveUrl(stockAkhirPhoto) === resolveUrl(boothPhoto) || resolveUrl(stockAkhirPhoto) === resolveUrl(kegiatanPhoto)) && photos.length > 2) {
             const third = photos.find(p => resolveUrl(p.url) !== resolveUrl(boothPhoto) && resolveUrl(p.url) !== resolveUrl(kegiatanPhoto));
             if (third) stockAkhirPhoto = third.url;
+        }
+
+        // Jika foto kegiatan tetap sama persis dengan foto booth, jangan duplikasi foto
+        if (kegiatanPhoto && resolveUrl(kegiatanPhoto) === resolveUrl(boothPhoto)) {
+            kegiatanPhoto = null;
         }
 
         const resolvedBooth = boothPhoto ? resolveUrl(boothPhoto) : null;

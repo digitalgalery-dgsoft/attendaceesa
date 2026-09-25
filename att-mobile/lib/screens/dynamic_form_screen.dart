@@ -17523,8 +17523,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         }
         for (final f in widget.template.fields) {
           final fn = f.fieldName.toLowerCase();
-          if (fn == 'foto_booth_sampling' || fn.contains('booth') || fn.contains('stand') ||
-              ['image', 'photo', 'camera_photo', 'multi_photo'].contains(f.fieldType)) {
+          if (fn == 'foto_booth_sampling' || fn.contains('booth') || fn.contains('stand')) {
             photoFiles[f.id.toString()] = _mbrBoothSamplingPhoto!;
             photoFiles[f.fieldName] = _mbrBoothSamplingPhoto!;
             if (_mbrBoothSamplingWatermark != null) {
