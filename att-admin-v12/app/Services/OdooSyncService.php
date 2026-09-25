@@ -811,6 +811,20 @@ class OdooSyncService
                 ?: ($existingEmployees->firstWhere('odoo_id', $rec['id'])
                 ?: $existingEmployees->first());
 
+            // PROTEKSI RECORD HISTORIS / ARSIP LAMA ODOO:
+            // Jika akun lokal sudah berstatus aktif, jangan pernah izinkan record Odoo yang non-aktif/arsip lama
+            // (dengan Odoo ID berbeda) menonaktifkan atau menimpa jabatan akun yang aktif.
+            if ($primary->is_active && !$isActiveInOdoo && !empty($primary->odoo_id) && $primary->odoo_id != $rec['id']) {
+                $log('warning', "⚠️ Melewati record arsip/non-aktif lama (Odoo ID #{$rec['id']}) karena karyawan [{$employeeNo}] {$primary->full_name} sudah aktif dengan Odoo ID #{$primary->odoo_id}.");
+                return [
+                    'status'    => 'skipped',
+                    'name'      => $rec['name'],
+                    'nik'       => $employeeNo,
+                    'position'  => $posName,
+                    'changes'   => [],
+                ];
+            }
+
             // PROTEKSI AKUN AKTIF LINTAS ENTITAS: (hanya jika mode !== 'single')
             if ($mode !== 'single' && !$isActiveInOdoo && $primary->is_active && ($primary->principal_id != $principalId || $primary->company_id != $companyId)) {
                 return [
@@ -1070,15 +1084,52 @@ class OdooSyncService
             ];
         }
 
-        $log('info', "📥 Ditemukan " . count($records) . " data kandidat/karyawan di Odoo. Memproses sinkronisasi...");
+        $log('info', "📥 Ditemukan " . count($records) . " data kandidat/karyawan di Odoo. Memilih data paling mutakhir & aktif...");
 
-        $synced = [];
-        foreach ($records as $rec) {
-            $res = $this->processSingleEmployeeRecord($rec, $companyId, $localCompany, $progressCallback, 'single');
-            $synced[] = $res;
-        }
+        // Helper untuk mendeteksi apakah record Odoo berstatus aktif
+        $isRecordActive = function ($r) {
+            $isActive = !empty($r['active']);
+            if (isset($r['active'])) {
+                $parsed = filter_var($r['active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                if ($parsed !== null) {
+                    $isActive = $parsed;
+                }
+            }
+            if (!empty($r['departure_date'])) {
+                $depStr = substr(trim((string)$r['departure_date']), 0, 10);
+                if ($depStr && strtotime($depStr) && strtotime($depStr) <= time()) {
+                    $isActive = false;
+                }
+            }
+            return $isActive;
+        };
 
-        $primaryResult = $synced[0];
+        // Urutkan record:
+        // 1. Record yang AKTIF di Odoo berada di paling atas.
+        // 2. Jika sama status aktifnya, urutkan berdasarkan write_date terbaru.
+        // 3. Fallback: ID Odoo terbesar.
+        usort($records, function ($a, $b) use ($isRecordActive) {
+            $activeA = $isRecordActive($a);
+            $activeB = $isRecordActive($b);
+
+            if ($activeA !== $activeB) {
+                return $activeA ? -1 : 1;
+            }
+
+            $wA = $a['write_date'] ?? '';
+            $wB = $b['write_date'] ?? '';
+            if ($wA !== $wB) {
+                return strcmp($wB, $wA);
+            }
+
+            return ($b['id'] ?? 0) <=> ($a['id'] ?? 0);
+        });
+
+        // Ambil HANYA record terbaik (paling mutakhir dan aktif).
+        // Jangan lakukan loop yang menimpa record aktif dengan record arsip/resign lama untuk NIK yang sama!
+        $bestRecord = $records[0];
+        $primaryResult = $this->processSingleEmployeeRecord($bestRecord, $companyId, $localCompany, $progressCallback, 'single');
+
         $empName = $primaryResult['name'] ?? 'Karyawan';
         $status = $primaryResult['status'] ?? 'processed';
         $changes = $primaryResult['changes'] ?? [];
@@ -1252,6 +1303,8 @@ class OdooSyncService
 
         $searchedCompanies = [];
         $companyErrors = [];
+        $resignedFallback = null;
+
         foreach ($companies as $comp) {
             $searchedCompanies[] = $comp->name;
             $service = self::fromCompany($comp);
@@ -1260,13 +1313,24 @@ class OdooSyncService
             try {
                 $res = $service->syncEmployeeByNik($cleanNik, $comp->id, $progressCallback);
                 if (!empty($res['success'])) {
-                    return $res;
+                    // Jika karyawan berstatus aktif di perusahaan ini, langsung kembalikan hasil ini
+                    if (($res['status'] ?? '') !== 'resigned') {
+                        return $res;
+                    }
+                    // Jika berstatus resigned, simpan sebagai fallback jika di perusahaan lain tidak ditemukan yang aktif
+                    if (!$resignedFallback) {
+                        $resignedFallback = $res;
+                    }
                 }
             } catch (\Throwable $e) {
                 $friendly = self::formatOdooError($e);
                 $companyErrors[] = "{$comp->name}: {$friendly}";
                 $log('warning', "⚠️ Gagal memeriksa di {$comp->name}: {$friendly}");
             }
+        }
+
+        if ($resignedFallback) {
+            return $resignedFallback;
         }
 
         $errMsg = "Data karyawan/kandidat dengan NIK '{$cleanNik}' tidak ditemukan di Odoo pada entitas yang terhubung (" . implode(', ', $searchedCompanies) . ").";
