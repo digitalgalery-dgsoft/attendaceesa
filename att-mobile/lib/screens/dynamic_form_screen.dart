@@ -17633,8 +17633,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           _mbrDimasakCtrl.clear();
           _mbrStokAkhirCtrl.clear();
           _mbrCupCtrl.clear();
-          _mbrCurrentSamplingPhoto = null;
-          _mbrCurrentSamplingWatermark = null;
+          _mbrBoothSamplingPhoto = null;
+          _mbrBoothSamplingWatermark = null;
+          _mbrKegiatanSamplingPhoto = null;
+          _mbrKegiatanSamplingWatermark = null;
+          _mbrStockAkhirSamplingPhoto = null;
+          _mbrStockAkhirSamplingWatermark = null;
         });
         if (_scrollController.hasClients) {
           _scrollController.animateTo(

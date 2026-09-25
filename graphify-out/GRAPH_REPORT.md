@@ -1,10 +1,10 @@
 # Graph Report - New  (2026-09-25)
 
 ## Corpus Check
-- Large corpus: 1436 files · ~4,644,436 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
+- Large corpus: 1437 files · ~4,644,663 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
 
 ## Summary
-- 13936 nodes · 33404 edges · 797 communities (283 shown, 514 thin omitted)
+- 13937 nodes · 33404 edges · 798 communities (283 shown, 515 thin omitted)
 - Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 1989 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
@@ -483,7 +483,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (797 total, 514 thin omitted)
+## Communities (798 total, 515 thin omitted)
 
 ### Community 0 - "Employee & Identity Management"
 Cohesion: 0.01
@@ -1619,14 +1619,14 @@ Nodes (3): Doc: README_MOBILE_INTEGRATION.md, PANDUAN INTEGRASI MOBILE CLIENT (M
 
 ## Knowledge Gaps
 - **2141 isolated node(s):** `SortDirection`, `$schema`, `name`, `type`, `description` (+2136 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 5407 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **514 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 5408 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **515 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `BlastInfo` connect `Attendance & Schedule Subsystem` to `Attendance & Schedule Subsystem`, `Flutter Mobile UI Components`, `Employee & Identity Management`?**
-  _High betweenness centrality (0.029) - this node is a cross-community bridge._
+  _High betweenness centrality (0.027) - this node is a cross-community bridge._
 - **Why does `Controller` connect `Employee & Identity Management` to `Odoo ERP & Principal Integration`, `Odoo ERP & Principal Integration`, `Attendance & Schedule Subsystem`, `Attendance & Schedule Subsystem`, `Attendance & Schedule Subsystem`, `API & Mobile State Providers`, `API & Mobile State Providers`, `Employee & Identity Management`, `Employee & Identity Management`, `Attendance & Schedule Subsystem`, `Employee & Identity Management`, `Subsystem: Email.php`, `Subsystem: Kanban.php`, `Employee & Identity Management`, `Employee & Identity Management`, `Employee & Identity Management`, `Subsystem: ForgotPasswordCover.php`, `Employee & Identity Management`, `Employee & Identity Management`, `Subsystem: RegisterBasic.php`, `Flutter Mobile UI Components`, `Flutter Mobile UI Components`, `Employee & Identity Management`, `Subsystem: ChartJs.php`, `Subsystem: Analytics.php`, `Subsystem: Crm.php`, `Subsystem: Avatar.php`, `Subsystem: BlockUI.php`, `Subsystem: DragAndDrop.php`, `Subsystem: Misc.php`, `Subsystem: SweetAlert.php`, `Subsystem: CustomOptions.php`, `Subsystem: InputGroups.php`, `Subsystem: Selects.php`, `Subsystem: Sliders.php`, `Subsystem: Switches.php`, `Subsystem: Validation.php`, `Subsystem: Numbered.php`, `Subsystem: FontAwesome.php`, `Admin Panel Filament Resources`, `Subsystem: Container.php`, `Subsystem: ContentNavbar.php`, `Subsystem: ContentNavSidebar.php`, `Subsystem: Fluid.php`, `Reporting & Form Engine`, `Subsystem: WithoutMenu.php`, `Subsystem: AccountSettingsAccount.ph`, `Subsystem: AccountSettingsBilling.ph`, `Subsystem: AccountSettingsNotificati`, `Subsystem: AccountSettingsSecurity.p`, `Employee & Identity Management`, `Subsystem: MiscUnderMaintenance.php`, `Subsystem: Pricing.php`, `Employee & Identity Management`, `Employee & Identity Management`, `Subsystem: Basic.php`, `Admin Panel Filament Resources`, `Admin Panel Filament Resources`, `Employee & Identity Management`, `Subsystem: Badges.php`, `Subsystem: Footer.php`, `Subsystem: Modals.php`, `Reporting & Form Engine`, `Subsystem: Navbar.php`, `Subsystem: Spinners.php`, `Subsystem: Toasts.php`, `Attendance & Schedule Subsystem`, `Subsystem: CreateDeal.php`, `Attendance & Schedule Subsystem`, `Flutter Mobile UI Components`, `Odoo ERP & Principal Integration`, `Employee & Identity Management`?**
   _High betweenness centrality (0.026) - this node is a cross-community bridge._
 - **Why does `ReportTemplate` connect `Odoo ERP & Principal Integration` to `Employee & Identity Management`, `Reporting & Form Engine`, `Odoo ERP & Principal Integration`, `Attendance & Schedule Subsystem`, `Odoo ERP & Principal Integration`, `Reporting & Form Engine`, `Attendance & Schedule Subsystem`, `Employee & Identity Management`, `Attendance & Schedule Subsystem`, `Reporting & Form Engine`, `Attendance & Schedule Subsystem`, `Reporting & Form Engine`, `Attendance & Schedule Subsystem`, `Attendance & Schedule Subsystem`, `Employee & Identity Management`?**
