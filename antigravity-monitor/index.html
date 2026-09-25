@@ -823,8 +823,25 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Nama Akun / Profil Baru</label>
-                    <input type="text" id="newAccountNameInput" class="form-input" placeholder="Misal: Akun Cadangan 2 (jamil.work@gmail.com)">
+                    <label class="form-label">Nama Akun / Profil</label>
+                    <input type="text" id="newAccountNameInput" class="form-input" placeholder="Misal: Jei Design (Google Auth)">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Status Akun (Tier)</label>
+                    <select id="newAccountTierSelect" class="form-input">
+                        <option value="FREE">Standard / Akun Free (Kuota 1 Juta)</option>
+                        <option value="PRO">🌟 Gemini Pro / Google One AI Premium (Kuota 10 Juta)</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                    <button type="button" class="btn-header" style="font-size: 0.74rem; padding: 4px 8px;" onclick="quickFillAccount('Jei Design (Google Auth)', 'FREE')">
+                        <i class="fa-solid fa-user"></i> Pilih: Jei Design (Free)
+                    </button>
+                    <button type="button" class="btn-header" style="font-size: 0.74rem; padding: 4px 8px; border-color: #818cf8; color: #a5b4fc;" onclick="quickFillAccount('rayzen bang (rayzenbang@gmail.com)', 'PRO')">
+                        <i class="fa-solid fa-gem"></i> Pilih: rayzen bang (Pro)
+                    </button>
                 </div>
 
                 <div style="margin-top: 1rem;">
@@ -1111,10 +1128,10 @@
                 }
                 const avBox = document.getElementById('userAvatarContainer');
                 if (avBox) {
-                    if (data.tier_info.avatar_url) {
+                    if (data.tier_info.avatar_url && (q.active_account_name || '').toLowerCase().includes('rayzen')) {
                         avBox.innerHTML = `<img src="${data.tier_info.avatar_url}" style="width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #818cf8; vertical-align: middle;" referrerpolicy="no-referrer">`;
                     } else {
-                        avBox.innerHTML = `<i class="fa-solid fa-user-circle"></i>`;
+                        avBox.innerHTML = `<i class="fa-solid fa-user-circle" style="color: #94a3b8;"></i>`;
                     }
                 }
             }
@@ -1298,8 +1315,15 @@
             document.getElementById(id).classList.remove('show');
         }
 
+        function quickFillAccount(name, tier) {
+            document.getElementById('newAccountNameInput').value = name;
+            const sel = document.getElementById('newAccountTierSelect');
+            if (sel) sel.value = tier;
+        }
+
         async function submitSwitchAccount() {
             const name = document.getElementById('newAccountNameInput').value.trim();
+            const tier = document.getElementById('newAccountTierSelect') ? document.getElementById('newAccountTierSelect').value : 'FREE';
             if (!name) {
                 alert("Silakan masukkan nama akun baru.");
                 return;
@@ -1309,7 +1333,10 @@
                 const res = await fetch('/api/switch-account', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ new_account_name: name })
+                    body: JSON.stringify({ 
+                        new_account_name: name,
+                        account_tier: tier
+                    })
                 });
                 const d = await res.json();
                 closeModal('switchModal');

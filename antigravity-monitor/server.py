@@ -275,10 +275,15 @@ def get_session_stats():
     if configured_tier != "AUTO":
         active_tier = configured_tier
         is_pro = (active_tier == "PRO")
-        tier_reason = f"Dikonfigurasi Manual: {active_tier}"
+        tier_reason = f"Mode: {active_tier} TIER"
+    elif ide_profile and "is_pro" in ide_profile and (not cfg.get("active_account_name") or "rayzen" in cfg.get("active_account_name", "").lower()):
+        active_tier = ide_profile["tier_id"]
+        is_pro = ide_profile["is_pro"]
+        tier_reason = ide_profile.get("plan_name", "Google AI Pro")
     else:
-        active_tier = detected_tier
-        is_pro = is_pro_detected
+        active_tier = "FREE"
+        is_pro = False
+        tier_reason = "Akun Standar Free"
 
     # 2. Dynamic Quota based on Model and Tier:
     auto_model_quota = cfg.get("auto_model_quota", True)
@@ -288,7 +293,7 @@ def get_session_stats():
         else:
             quota_limit = profile.get("free_quota", 1000000)
     else:
-        quota_limit = max(1000, cfg.get("quota_limit", 10000000))
+        quota_limit = max(1000, cfg.get("quota_limit", 1000000))
 
     remaining_tokens = max(0, quota_limit - account_used_tokens)
     used_percent = min(100.0, round((account_used_tokens / quota_limit) * 100, 1))
@@ -304,13 +309,13 @@ def get_session_stats():
     else:
         status = "HEALTHY"
 
-    # Dynamic Account Label
+    # Dynamic Account Label (Strictly honor user config)
     active_account_label = cfg.get("active_account_name", "")
-    if (not active_account_label or active_account_label in ["Akun Gemini Pro", "Akun Utama", "Akun"]):
+    if not active_account_label:
         if ide_profile and ide_profile.get("email"):
             active_account_label = f"{ide_profile.get('name', 'User')} ({ide_profile.get('email')})"
         else:
-            active_account_label = "Akun Gemini Pro"
+            active_account_label = "Jei Design (Google Auth)"
 
     # Today stats
     today_str = date.today().strftime('%Y-%m-%d')
@@ -478,6 +483,7 @@ class MonitorHandler(BaseHTTPRequestHandler):
             
             old_account = cfg.get("active_account_name", "Akun Sebelumnya")
             new_account = payload.get("new_account_name", f"Akun Baru ({datetime.now().strftime('%H:%M')})")
+            new_tier = payload.get("account_tier", "FREE")
             
             # Log history
             if 'accounts_history' not in cfg:
@@ -491,12 +497,13 @@ class MonitorHandler(BaseHTTPRequestHandler):
 
             # Update new active account & baseline
             cfg['active_account_name'] = new_account
+            cfg['account_tier'] = new_tier
             cfg['baseline_tokens'] = current_total
             save_config(cfg)
 
             self._send_json({
                 "success": True, 
-                "message": f"Berhasil switch ke {new_account}. Counter kuota di-reset untuk akun baru.",
+                "message": f"Berhasil switch ke {new_account} ({new_tier} Tier). Counter kuota di-reset untuk akun baru.",
                 "config": cfg
             })
 
