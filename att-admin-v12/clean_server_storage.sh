@@ -1,27 +1,71 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # 🧹 ESA GROUPS - PRODUCTION STORAGE CLEANER & SAFE LOG ROTATOR
-# Sistem: Rocky Linux 8 / CentOS / AlmaLinux + aaPanel + Laravel + PostgreSQL
-# Fungsi: Membersihkan log, cache, dan file sampah tanpa mengganggu jalannya sistem
+# Sistem: Rocky Linux 8 / CentOS / AlmaLinux + aaPanel + PostgreSQL + Laravel
+# Fitur: Membersihkan Log PostgreSQL, Log Nginx, Log Laravel, Cache, dan Recycle Bin
 # ==============================================================================
 
 set -u
 
 echo "================================================================="
-echo "   ESA PRODUCTION STORAGE CLEANUP & LOG ROTATION UTILITY         "
+echo "   ESA PRODUCTION STORAGE CLEANUP & POSTGRESQL LOG ROTATOR       "
 echo "================================================================="
 echo "Waktu Mulai: $(date '+%Y-%m-%d %H:%M:%S')"
 echo ""
 
 # 1. Tampilkan Penggunaan Disk SEBELUM Pembersihan
-echo ">> [1/8] Status Disk SEBELUM Pembersihan:"
+echo ">> [1/9] Status Disk SEBELUM Pembersihan:"
 df -h /
 echo ""
 
 SPACE_BEFORE=$(df -m / | awk 'NR==2 {print $3}')
 
-# 2. Bersihkan aaPanel Recycle Bin (Tempat sampah file/backup aaPanel)
-echo ">> [2/8] Mengosongkan aaPanel Recycle Bin (/www/Recycle_bin/)..."
+# 2. BERSIHKAN LOG DATABASE POSTGRESQL (Paling sering memakan puluhan GB!)
+echo ">> [2/9] Memeriksa & Membersihkan Log Database PostgreSQL..."
+PG_LOG_DIRS=(
+    "/www/server/pgsql/logs"
+    "/www/server/pgsql/data/log"
+    "/www/server/pgsql/data/pg_log"
+    "/var/lib/pgsql/data/log"
+    "/var/lib/pgsql/data/pg_log"
+    "/var/lib/pgsql/15/data/log"
+    "/var/lib/pgsql/16/data/log"
+    "/var/lib/pgsql/14/data/log"
+    "/var/log/postgresql"
+)
+
+FOUND_PG_LOGS=0
+for pdir in "${PG_LOG_DIRS[@]}"; do
+    if [ -d "$pdir" ]; then
+        FOUND_PG_LOGS=1
+        PDIR_SZ=$(du -sh "$pdir" 2>/dev/null | awk '{print $1}')
+        echo "   -> Ditemukan folder log PostgreSQL: $pdir (Ukuran: $PDIR_SZ)"
+        
+        # Hapus file log/csv/gz lama yang lebih tua dari 1 hari
+        find "$pdir" -type f \( -name "*.log" -o -name "*.csv" -o -name "*.gz" \) -mtime +1 -exec rm -f {} + 2>/dev/null || true
+        
+        # Truncate log aktif hari ini jika ukurannya > 30MB
+        find "$pdir" -type f \( -name "*.log" -o -name "*.csv" \) -size +30M | while read -r act_log; do
+            echo "      Memangkas log aktif: $act_log"
+            truncate -s 0 "$act_log" 2>/dev/null || true
+        done
+        
+        PDIR_AFTER=$(du -sh "$pdir" 2>/dev/null | awk '{print $1}')
+        echo "      Ukuran setelah dibersihkan: $PDIR_AFTER"
+    fi
+done
+
+if [ "$FOUND_PG_LOGS" -eq 0 ]; then
+    echo "   [INFO] Folder standar PostgreSQL log tidak ditemukan di path biasa."
+    find /www/server/pgsql/ /var/lib/pgsql/ -type f -name "*.log" -size +50M 2>/dev/null | while read -r custom_pg_log; do
+        echo "   -> Memangkas custom PostgreSQL log: $custom_pg_log"
+        truncate -s 0 "$custom_pg_log" 2>/dev/null || true
+    done
+fi
+echo "   [OK] Log PostgreSQL selesai diproses."
+
+# 3. Bersihkan aaPanel Recycle Bin (Tempat sampah file/backup aaPanel)
+echo ">> [3/9] Mengosongkan aaPanel Recycle Bin (/www/Recycle_bin/)..."
 if [ -d "/www/Recycle_bin" ]; then
     TRASH_SIZE=$(du -sh /www/Recycle_bin 2>/dev/null | awk '{print $1}')
     echo "   Ukuran sampah aaPanel: $TRASH_SIZE"
@@ -31,12 +75,12 @@ else
     echo "   [SKIP] Folder /www/Recycle_bin tidak ditemukan."
 fi
 
-# 3. Truncate & Bersihkan Nginx Web Access & Error Logs (/www/wwwlogs/)
-# CATATAN TEKNIS: Log yang aktif tidak boleh di-rm karena Nginx masih memegang
-# file descriptor-nya (disk space tidak berkurang jika di-rm).
-# Gunakan 'truncate -s 0' atau pangkas file > 100MB menjadi 5MB terakhir!
-echo ">> [3/8] Mengoptimalkan Nginx Web Logs (/www/wwwlogs/)..."
+# 4. Truncate & Bersihkan Nginx Web Access & Error Logs (/www/wwwlogs/)
+echo ">> [4/9] Mengoptimalkan Nginx Web Logs (/www/wwwlogs/)..."
 if [ -d "/www/wwwlogs" ]; then
+    WWWLOGS_SZ=$(du -sh /www/wwwlogs 2>/dev/null | awk '{print $1}')
+    echo "   Ukuran /www/wwwlogs: $WWWLOGS_SZ"
+    
     # Hapus arsip log lama (*.gz, *.tar.gz, *.1, *.2) yang lebih tua dari 3 hari
     find /www/wwwlogs/ -type f \( -name "*.gz" -o -name "*.tar.gz" -o -name "*.[0-9]" -o -name "*.[0-9][0-9]" \) -mtime +3 -exec rm -f {} + 2>/dev/null || true
     
@@ -54,16 +98,16 @@ if [ -d "/www/wwwlogs" ]; then
     echo "   [OK] Nginx Web Logs berhasil dipangkas."
 fi
 
-# 4. Bersihkan Systemd Journal Logs (Log OS Rocky Linux 8)
-echo ">> [4/8] Merapikan Systemd Journal Logs (Batas 100MB / 3 hari)..."
+# 5. Bersihkan Systemd Journal Logs (Log OS Rocky Linux 8)
+echo ">> [5/9] Merapikan Systemd Journal Logs (Batas 100MB / 3 hari)..."
 if command -v journalctl &>/dev/null; then
     journalctl --vacuum-time=3d 2>/dev/null || true
     journalctl --vacuum-size=100M 2>/dev/null || true
     echo "   [OK] Systemd Journal berhasil dirapikan."
 fi
 
-# 5. Bersihkan Log Aplikasi Laravel (/www/wwwroot/*/storage/logs/)
-echo ">> [5/8] Memeriksa & Membersihkan Laravel Application Logs..."
+# 6. Bersihkan Log Aplikasi Laravel (/www/wwwroot/*/storage/logs/)
+echo ">> [6/9] Memeriksa & Membersihkan Laravel Application Logs..."
 find /www/wwwroot/ -maxdepth 4 -type d -name "logs" | grep "storage/logs" | while read -r laravel_log_dir; do
     echo "   -> Memeriksa direktori: $laravel_log_dir"
     
@@ -76,7 +120,6 @@ find /www/wwwroot/ -maxdepth 4 -type d -name "logs" | grep "storage/logs" | whil
         FILE_BYTES=$(stat -c%s "$laravel_log_dir/laravel.log" 2>/dev/null || stat -f%z "$laravel_log_dir/laravel.log" 2>/dev/null || echo 0)
         if [ "$FILE_BYTES" -gt 31457280 ]; then
             echo "      Memangkas laravel.log ($LARAVEL_SZ)..."
-            # Sisakan 20.000 baris terakhir untuk kebutuhan debugging terkini
             tail -n 20000 "$laravel_log_dir/laravel.log" > "$laravel_log_dir/laravel.log.tmp"
             mv "$laravel_log_dir/laravel.log.tmp" "$laravel_log_dir/laravel.log"
             chmod 664 "$laravel_log_dir/laravel.log" 2>/dev/null || true
@@ -86,16 +129,17 @@ find /www/wwwroot/ -maxdepth 4 -type d -name "logs" | grep "storage/logs" | whil
 done
 echo "   [OK] Laravel Logs aman dan optimal."
 
-# 6. Bersihkan Cache Blade & Cache Framework Laravel yang Sudah Kedaluwarsa
-echo ">> [6/8] Membersihkan Cache Blade View yang Kedaluwarsa..."
-find /www/wwwroot/ -maxdepth 4 -type d -path "*/storage/framework/views" | while read -r view_dir; do
-    # Hapus view compiled yang tidak diakses lebih dari 5 hari (Laravel akan generate otomatis saat dibuka)
-    find "$view_dir" -type f -name "*.php" -atime +5 -exec rm -f {} + 2>/dev/null || true
-done
-echo "   [OK] Cache View usang dibersihkan."
+# 7. Bersihkan Backup Otomatis Lama aaPanel di /www/backup/
+echo ">> [7/9] Memeriksa Backup Otomatis aaPanel yang Lebih Tua dari 7 Hari..."
+if [ -d "/www/backup" ]; then
+    BACKUP_SZ=$(du -sh /www/backup 2>/dev/null | awk '{print $1}')
+    echo "   Ukuran folder backup: $BACKUP_SZ"
+    find /www/backup/database/ /www/backup/site/ -type f \( -name "*.sql" -o -name "*.sql.gz" -o -name "*.zip" -o -name "*.tar.gz" \) -mtime +7 -exec rm -f {} + 2>/dev/null || true
+    echo "   [OK] Backup kadaluwarsa (> 7 hari) dirapikan."
+fi
 
-# 7. Bersihkan Cache Paket DNF / YUM Package Manager
-echo ">> [7/8] Membersihkan Cache RPM Package Manager (DNF/YUM)..."
+# 8. Bersihkan Cache Paket DNF / YUM Package Manager
+echo ">> [8/9] Membersihkan Cache RPM Package Manager (DNF/YUM)..."
 if command -v dnf &>/dev/null; then
     dnf clean all -q -y 2>/dev/null || true
 elif command -v yum &>/dev/null; then
@@ -103,13 +147,13 @@ elif command -v yum &>/dev/null; then
 fi
 echo "   [OK] Cache DNF/YUM dibersihkan."
 
-# 8. Bersihkan File Temporary Sistem (/tmp dan /var/tmp)
-echo ">> [8/8] Membersihkan File Temporary Sistem yang Lebih Tua dari 3 Hari..."
-find /tmp /var/tmp -maxdepth 2 -type f -atime +3 -not -name ".*" -exec rm -f {} + 2>/dev/null || true
-echo "   [OK] Direktori temporary bersih."
+# 9. Analisis Top 10 Direktori / File Terbesar (Diagnostik Transparan)
+echo ""
+echo ">> [9/9] Analisis 10 Direktori Terbesar di /www/ (Sumber Penggunaan Disk):"
+du -h --max-depth=2 /www 2>/dev/null | sort -rh | head -n 11
+echo ""
 
 # Tampilkan Penggunaan Disk SESUDAH Pembersihan
-echo ""
 echo "================================================================="
 echo ">> Ringkasan Hasil Pembersihan:"
 echo "================================================================="
@@ -122,7 +166,7 @@ SAVED_MB=$((SPACE_BEFORE - SPACE_AFTER))
 if [ "$SAVED_MB" -gt 0 ]; then
     echo "🎉 BERHASIL! Ruang storage yang berhasil dilegakan: ${SAVED_MB} MB (~$((SAVED_MB / 1024)) GB)"
 else
-    echo "ℹ️  Pembersihan selesai. Storage sistem dalam kondisi optimal."
+    echo "ℹ️  Pembersihan selesai."
 fi
 
 echo "Waktu Selesai: $(date '+%Y-%m-%d %H:%M:%S')"
